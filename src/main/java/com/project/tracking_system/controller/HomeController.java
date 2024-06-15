@@ -3,11 +3,9 @@ package com.project.tracking_system.controller;
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.exception.UsernameAlreadyExistsException;
-import com.project.tracking_system.service.UserDetailsServiceImpl;
 import jakarta.validation.Valid;
 import com.project.tracking_system.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -54,7 +52,6 @@ public class HomeController {
             Optional<User> newUser = userService.add(userDTO);
             String username = newUser.get().getUsername();
             userService.autoLogin(username);
-
             model.addAttribute("successMessage", "Регистрация успешна. Пожалуйста, войдите в систему.");
             return "redirect:/";
         }
