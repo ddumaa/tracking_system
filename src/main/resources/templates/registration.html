@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Registration</title>
+</head>
+<body>
+<h2>Регистрация</h2>
+<form th:action="@{/registration}" th:object="${userDTO}" method="post">
+    <div>
+        <label for="username">Имя пользователя: </label>
+        <input type="text" id="username" th:field="*{username}" />
+        <div th:if="${#fields.hasErrors('username')}" th:errors="*{username}" style="color: red;"></div>
+    </div>
+    <div>
+        <label for="password">Пароль: </label>
+        <input type="password" id="password" th:field="*{password}" />
+        <div th:if="${#fields.hasErrors('password')}" th:errors="*{password}" style="color: red;"></div>
+    </div>
+    <div>
+        <label for="confirmPassword">Повторите пароль: </label>
+        <input type="password" id="confirmPassword" th:field="*{confirmPassword}" />
+        <div th:if="${#fields.hasErrors('confirmPassword')}" th:errors="*{confirmPassword}" style="color: red;"></div>
+        <div th:if="${password!= confirmPassword}" style="color: red;">Пароли не совпадают</div>
+    </div>
+    <div th:if="${successMessage!= null}">
+        <p th:text="${successMessage}" style="color: green;"></p>
+    </div>
+
+    <div th:if="${errorMessage!= null}">
+        <p th:text="${errorMessage}" style="color: red;"></p>
+    </div>
+    <div>
+        <button type="submit">Зарегистрироваться</button>
+    </div>
+</form>
+<div>
+    <a th:text="'Есть аккаунт?'"></a>
+    <a href="/login">Войти</a>
+</div>
+</body>
+</html>
