@@ -21,7 +21,7 @@ public class UserRegistrationDTO {
     @Size(min = 6, max = 15, message = "Пароль должен быть не менее 6 символов и не более 15")
     private String password;
 
-    @NotEmpty(message = "Введите пароль ещё раз")
+    @NotEmpty(message = "Заполните поле - 'повторите пароль' ")
     private String confirmPassword;
 
 }

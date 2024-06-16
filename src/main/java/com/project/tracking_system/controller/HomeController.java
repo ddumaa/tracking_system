@@ -1,7 +1,6 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.UserRegistrationDTO;
-import com.project.tracking_system.entity.User;
 import com.project.tracking_system.exception.UsernameAlreadyExistsException;
 import jakarta.validation.Valid;
 import com.project.tracking_system.service.UserService;
@@ -13,8 +12,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-
-import java.util.Optional;
 
 
 @Controller
@@ -33,6 +30,13 @@ public class HomeController {
         return "home";
     }
 
+    @PostMapping
+    public String home(Model model) {
+
+        return "home";
+    }
+
+
     @GetMapping("/registration")
     public String registration(Model model) {
         model.addAttribute("userDTO", new UserRegistrationDTO());
@@ -49,9 +53,8 @@ public class HomeController {
             return "registration";
         }
         try {
-            Optional<User> newUser = userService.add(userDTO);
-            String username = newUser.get().getUsername();
-            userService.autoLogin(username);
+            userService.add(userDTO);
+            userService.autoLogin(userDTO.getUsername());
             model.addAttribute("successMessage", "Регистрация успешна. Пожалуйста, войдите в систему.");
             return "redirect:/";
         }
@@ -69,5 +72,8 @@ public class HomeController {
     public String login(){
         return "login";
     }
+
+
+
 
 }

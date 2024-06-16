@@ -31,7 +31,7 @@ public class ProfileController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = authentication.getName();
         Optional<User> user = userService.findByUsername(username);
-        user.ifPresent(user1 -> model.addAttribute("user", user1));
+        user.ifPresent(user1 -> model.addAttribute("username", user1.getUsername()));
         return "profile";
     }
 }

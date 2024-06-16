@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Home</title>
+</head>
+<body>
+<a href="/registration">Регистрация</a>
+<a href="/login">Логин</a>
+<a href="/profile">Профиль</a>
+<div th:if="${session!=null}">
+    <form th:action="@{/logout}">
+        <button>Выход</button>
+    </form>
+</div>
+</body>
+</html>
