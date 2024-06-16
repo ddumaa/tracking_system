@@ -1,5 +1,6 @@
 package com.project.tracking_system.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.Cipher;
@@ -11,15 +12,18 @@ import java.util.Base64;
 @Service
 public class DecoderService {
 
-    public String decode(String encryptedText, String password) {
+    //@Value("${secret.Password}")
+    private String SecretPassword;
+
+    public String decode(String encryptedText) {
         try {
             // Декодируем Base64 данные
             byte[] encryptedBytes = Base64.getDecoder().decode(encryptedText);
 
             // Инициализируем шифратор с использованием зашифрованного итерационного ключа
             Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-            SecretKeySpec secretKeySpec = new SecretKeySpec(password.getBytes(StandardCharsets.UTF_8), "AES");
-            IvParameterSpec ivParameterSpec = new IvParameterSpec(password.getBytes(StandardCharsets.UTF_8));
+            SecretKeySpec secretKeySpec = new SecretKeySpec(SecretPassword.getBytes(StandardCharsets.UTF_8), "AES");
+            IvParameterSpec ivParameterSpec = new IvParameterSpec(SecretPassword.getBytes(StandardCharsets.UTF_8));
             cipher.init(Cipher.DECRYPT_MODE, secretKeySpec, ivParameterSpec);
 
             // Дешифруем данные

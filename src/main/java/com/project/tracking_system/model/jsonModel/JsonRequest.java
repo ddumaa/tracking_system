@@ -1,4 +1,4 @@
-package com.project.tracking_system.model.jwtModel;
+package com.project.tracking_system.model.jsonModel;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
@@ -10,10 +10,10 @@ import org.springframework.stereotype.Component;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class JwtRequest {
+public class JsonRequest {
 
     @JsonProperty("CRC")
-    private String CRC;
+    private String CRC = "";
     @JsonProperty("Packet")
     private Packet Packet;
 
