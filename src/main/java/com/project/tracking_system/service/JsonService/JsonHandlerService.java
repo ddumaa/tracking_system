@@ -3,7 +3,7 @@ package com.project.tracking_system.service.JsonService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.project.tracking_system.model.jsonModel.JsonRequest;
+import com.project.tracking_system.model.jsonRequestModel.JsonRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;

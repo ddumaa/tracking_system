@@ -1,4 +1,4 @@
-package com.project.tracking_system.model.jsonModel;
+package com.project.tracking_system.model.jsonRequestModel;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class Packet {
+public class JsonPacket {
 
     @JsonProperty("JWT")
     private String JWT = "null";

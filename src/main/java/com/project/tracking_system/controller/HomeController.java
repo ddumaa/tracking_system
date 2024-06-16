@@ -2,6 +2,8 @@ package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.exception.UsernameAlreadyExistsException;
+import com.project.tracking_system.model.jsonResponseModel.JsonEvroTrackingResponse;
+import com.project.tracking_system.service.JsonService.JsonEvroTrackingService;
 import jakarta.validation.Valid;
 import com.project.tracking_system.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,10 +21,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 public class HomeController {
 
     private final UserService userService;
+    private final JsonEvroTrackingService jsonEvroTrackingService;
 
     @Autowired
-    public HomeController(UserService userService) {
+    public HomeController(UserService userService, JsonEvroTrackingService jsonEvroTrackingService) {
         this.userService = userService;
+        this.jsonEvroTrackingService = jsonEvroTrackingService;
     }
 
     @GetMapping
@@ -30,9 +34,10 @@ public class HomeController {
         return "home";
     }
 
+    //TODO доработать дальше
     @PostMapping
     public String home(Model model) {
-
+        JsonEvroTrackingResponse jsonResponse = jsonEvroTrackingService.getJson();
         return "home";
     }
 

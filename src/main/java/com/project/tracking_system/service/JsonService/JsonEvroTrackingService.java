@@ -5,29 +5,30 @@ import com.project.tracking_system.model.jsonRequestModel.JsonData;
 import com.project.tracking_system.model.jsonRequestModel.JsonRequest;
 import com.project.tracking_system.model.jsonRequestModel.JsonMethodName;
 import com.project.tracking_system.model.jsonRequestModel.JsonPacket;
+import com.project.tracking_system.model.jsonResponseModel.JsonEvroTrackingResponse;
+import jakarta.json.bind.Jsonb;
+import jakarta.json.bind.JsonbException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 
 @Service
-public class GetJwtTokenService {
+public class JsonEvroTrackingService {
 
     private final JsonPacket packet;
-    private final JsonData jsonData;
     private final JsonHandlerService jsonHandlerService;
-    private final JsonPacket jsonPacket;
+    private final Jsonb jsonb;
 
     @Autowired
-    public GetJwtTokenService(JsonPacket packet, JsonData jsonData, JsonHandlerService jsonHandlerService, JsonPacket jsonPacket) {
+    public JsonEvroTrackingService(JsonPacket packet, JsonHandlerService jsonHandlerService, Jsonb jsonb) {
         this.packet = packet;
-        this.jsonData = jsonData;
         this.jsonHandlerService = jsonHandlerService;
-        this.jsonPacket = jsonPacket;
+        this.jsonb = jsonb;
     }
 
-    public String getJwtToken() {
+    public JsonEvroTrackingResponse getJson(String number) {
 
-        String methodeName = JsonMethodName.GET_JWT.toString();
+        String methodeName = JsonMethodName.POSTAL_TRACKING.toString();
 
         JsonRequest jsonRequest = new JsonRequest(
                 "",
@@ -36,21 +37,19 @@ public class GetJwtTokenService {
                         methodeName,
                         packet.getServiceNumber(),
                         new JsonData(
-                                jsonData.getLoginName(),
-                                jsonData.getPassword(),
-                                jsonData.getLoginNameTypeId()
+                                number
                         )
                 )
         );
 
         JsonNode jsonNode = jsonHandlerService.jsonRequest(jsonRequest);
-
-        JsonNode jwtNode = jsonNode.path("Table").path(0).path("JWT");
-        if (jwtNode.isMissingNode()) {
-            throw new RuntimeException("Токен JWT не найден в ответе");
+        JsonNode tableNode = jsonNode.path("Table");
+        try {
+            JsonEvroTrackingResponse response = jsonb.fromJson(tableNode.toString(), JsonEvroTrackingResponse.class);
+            return response;
+        } catch (JsonbException e) {
+            throw new RuntimeException("Ошибка десериализации ответа JSON.", e);
         }
-
-        jsonPacket.setJWT(jwtNode.asText());
-        return jsonPacket.getJWT();
     }
 }
+

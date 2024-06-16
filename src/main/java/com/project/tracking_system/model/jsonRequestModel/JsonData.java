@@ -1,4 +1,4 @@
-package com.project.tracking_system.model.jsonModel;
+package com.project.tracking_system.model.jsonRequestModel;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
@@ -34,6 +34,10 @@ public class JsonData {
     public JsonData(String Number, String PostalItemExternalId) {
         this.Number = Number;
         this.PostalItemExternalId = PostalItemExternalId;
+    }
+
+    public JsonData(String Number) {
+        this.Number = Number;
     }
 
     public JsonData(String LoginName, String Password, String LoginNameTypeId) {

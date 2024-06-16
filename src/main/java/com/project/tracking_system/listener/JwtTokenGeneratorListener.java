@@ -1,6 +1,6 @@
 package com.project.tracking_system.listener;
 
-import com.project.tracking_system.model.JwtToken;
+import com.project.tracking_system.model.jsonRequestModel.JsonPacket;
 import com.project.tracking_system.service.JsonService.GetJwtTokenService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEvent;
@@ -11,18 +11,17 @@ import org.springframework.stereotype.Component;
 public class JwtTokenGeneratorListener implements ApplicationListener<ApplicationEvent> {
 
     private final GetJwtTokenService jwtTokenService;
-    private final JwtToken jwtToken;
+    private final JsonPacket jsonPacket;
 
     @Autowired
-    public JwtTokenGeneratorListener(GetJwtTokenService jwtTokenService, JwtToken jwtToken) {
+    public JwtTokenGeneratorListener(GetJwtTokenService jwtTokenService, JsonPacket jsonPacket) {
         this.jwtTokenService = jwtTokenService;
-
-        this.jwtToken = jwtToken;
+        this.jsonPacket = jsonPacket;
 
     }
 
     @Override
     public void onApplicationEvent(ApplicationEvent event) {
-        if(jwtToken == null) jwtToken.setToken(jwtTokenService.getJwtToken());
+        if(jsonPacket.getJWT().equals("null")) jsonPacket.setJWT(jwtTokenService.getJwtToken());
     }
 }

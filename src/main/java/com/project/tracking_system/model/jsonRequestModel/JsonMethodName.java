@@ -1,13 +1,13 @@
-package com.project.tracking_system.model.jsonModel;
+package com.project.tracking_system.model.jsonRequestModel;
 
 
-public enum MethodName {
+public enum JsonMethodName {
     POSTAL_TRACKING("Postal.Tracking"),
     GET_JWT("GetJWT");
 
     private final String methodName;
 
-    MethodName(String methodName) {
+    JsonMethodName(String methodName) {
         this.methodName = methodName;
     }
 
