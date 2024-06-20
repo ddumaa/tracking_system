@@ -1,10 +1,13 @@
 package com.project.tracking_system.controller;
 
+import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.model.jsonResponseModel.JsonEvroTrackingResponse;
 import com.project.tracking_system.service.JsonService.JsonEvroTrackingService;
 
+
+import com.project.tracking_system.service.TrackParcelService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
@@ -18,6 +21,8 @@ import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 
 @Controller
 @RequestMapping("/")
@@ -25,11 +30,13 @@ public class HomeController {
 
     private final UserService userService;
     private final JsonEvroTrackingService jsonEvroTrackingService;
+    private final TrackParcelService trackParcelService;
 
     @Autowired
-    public HomeController(UserService userService, JsonEvroTrackingService jsonEvroTrackingService) {
+    public HomeController(UserService userService, JsonEvroTrackingService jsonEvroTrackingService, TrackParcelService trackParcelService) {
         this.userService = userService;
         this.jsonEvroTrackingService = jsonEvroTrackingService;
+        this.trackParcelService = trackParcelService;
     }
 
     @GetMapping
@@ -38,17 +45,17 @@ public class HomeController {
     }
 
     @PostMapping
-    public String home(@RequestParam("number") String number, Model model, HttpServletRequest request) {
+    public String home(@ModelAttribute("number") String number, Model model, HttpServletRequest request) {
 
         HttpSession session = request.getSession();
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
         model.addAttribute("number", number);
-        System.out.println(number);
-
         if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
             model.addAttribute("authenticatedUser", auth.getName());
             session.setAttribute("userSession", auth.getName());
+           // trackParcelService.save(number, auth.getName());
+
         } else {
             session.removeAttribute("userSession");
             model.addAttribute("authenticatedUser", null);
@@ -63,6 +70,24 @@ public class HomeController {
         }
     }
 
+    @GetMapping("/history")
+    public String history(@ModelAttribute("trackParcelDTO") TrackParcelDTO trackParcelDTO, Model model) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        List<TrackParcelDTO> byUserTrack = trackParcelService.findByUserTrack(auth.getName());
+        if (byUserTrack.isEmpty()) {
+            model.addAttribute("trackParcelNotification", "Отслеживаемых посылок нет");
+        } else {
+            model.addAttribute("trackParcelDTO", byUserTrack);
+        }
+
+        return "history";
+    }
+
+    @PostMapping("/history")
+    public String history(){
+
+        return "history";
+    }
 
     @GetMapping("/registration")
     public String registration(@ModelAttribute("userDTO") UserRegistrationDTO userRegistrationDTO, Model model) {
@@ -80,7 +105,7 @@ public class HomeController {
             return "registration";
         }
         try {
-            userService.add(userDTO);
+            userService.save(userDTO);
             //userService.autoLogin(userDTO.getUsername());
             model.addAttribute("successMessage", "Регистрация успешна. Пожалуйста, войдите в систему.");
             return "redirect:/";

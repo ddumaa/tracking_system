@@ -31,7 +31,7 @@ public class UserService {
         this.userDetailsService = userDetailsService;
     }
 
-    public Optional<User> add(UserRegistrationDTO userDTO) {
+    public void save(UserRegistrationDTO userDTO) {
         if (userDTO.getUsername() == null || userDTO.getUsername().isEmpty()) {
             throw new IllegalArgumentException("Введите электронную почту");
         }
@@ -49,9 +49,9 @@ public class UserService {
         user.setUsername(userDTO.getUsername());
         user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
         try {
-            return Optional.of(userRepository.save(user));
+            userRepository.save(user);
         } catch (Exception e) {
-            return Optional.empty();
+            throw new RuntimeException(e);
         }
     }
 
