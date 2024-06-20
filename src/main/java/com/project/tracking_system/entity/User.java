@@ -18,7 +18,7 @@ public class User {
     private Long id;
 
     @Column(unique = true)
-    @NotBlank(message = "Введите имя пользователя")
+    @NotBlank(message = "введите адрес электронной почты")
     private String username;
 
     @NotBlank(message = "Введите пароль")

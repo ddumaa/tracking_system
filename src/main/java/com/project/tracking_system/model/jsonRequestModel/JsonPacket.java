@@ -14,17 +14,17 @@ import org.springframework.stereotype.Component;
 public class JsonPacket {
 
     @JsonProperty("JWT")
-    private String JWT = "null";
+    private String jwt;
 
     @JsonProperty("MethodName")
-    private String MethodName;
+    private String methodName;
 
     @Value("${evro.jwt.ServiceNumber}")
     @JsonProperty("ServiceNumber")
-    private String ServiceNumber;
+    private String serviceNumber;
 
     @JsonProperty("Data")
-    private JsonData Data;
+    private JsonDataAbstract data;
 
 }
 

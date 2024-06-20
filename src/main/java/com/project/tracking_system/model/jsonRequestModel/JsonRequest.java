@@ -13,13 +13,8 @@ import org.springframework.stereotype.Component;
 public class JsonRequest {
 
     @JsonProperty("CRC")
-    private String CRC = "";
+    private String crc = "";
     @JsonProperty("Packet")
-    private JsonPacket Packet;
-
-    public JsonRequest(String CRC, JsonPacket packet) {
-        this.CRC = CRC;
-        this.Packet = packet;
-    }
+    private JsonPacket packet;
 
 }

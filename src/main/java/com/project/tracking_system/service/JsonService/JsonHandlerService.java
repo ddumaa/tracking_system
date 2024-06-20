@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.tracking_system.model.jsonRequestModel.JsonRequest;
+import com.project.tracking_system.service.DecoderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -15,27 +16,28 @@ public class JsonHandlerService {
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
-
-    @Value("${evro.jwt.ApiUrl}")
-    private String url;
+    private final DecoderService decoderService;
 
     @Autowired
-    public JsonHandlerService(RestTemplate restTemplate, ObjectMapper objectMapper) {
+    public JsonHandlerService(RestTemplate restTemplate, ObjectMapper objectMapper, DecoderService decoderService) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
+        this.decoderService = decoderService;
     }
+
+    @Value("${evro.jwt.ApiUrl}")
+    private String URL;
 
     public JsonNode jsonRequest(JsonRequest jsonRequest) {
 
-        // Отправка запроса и получиние ответа.
+        //String url = decoderService.decode(encryptedURL);
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<JsonRequest> entity = new HttpEntity<>(jsonRequest, headers);
+        ResponseEntity<String> response = restTemplate.postForEntity(URL, entity, String.class);
 
-        ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
-
-        // Извлечение токена JWT из ответа
         JsonNode jsonNode;
         try {
             if (response.getStatusCode() != HttpStatus.OK) {

@@ -1,6 +1,5 @@
 package com.project.tracking_system.model.jsonRequestModel;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -14,36 +13,16 @@ import org.springframework.stereotype.Component;
 public class JsonData {
 
     @Value("${evro.jwt.LoginName}")
-    @JsonProperty("LoginName")
-    private String LoginName;
+    private String loginName;
 
     @Value("${evro.jwt.Password}")
-    @JsonProperty("Password")
-    private String Password;
+    private String password;
 
     @Value("${evro.jwt.LoginNameTypeId}")
-    @JsonProperty("LoginNameTypeId")
-    private String LoginNameTypeId;
+    private String loginNameTypeId;
 
-    @JsonProperty("Number")
-    private String Number;
+    private String number;
 
-    @JsonProperty("PostalItemExternalId")
-    private String PostalItemExternalId;
-
-    public JsonData(String Number, String PostalItemExternalId) {
-        this.Number = Number;
-        this.PostalItemExternalId = PostalItemExternalId;
-    }
-
-    public JsonData(String Number) {
-        this.Number = Number;
-    }
-
-    public JsonData(String LoginName, String Password, String LoginNameTypeId) {
-        this.LoginName = LoginName;
-        this.Password = Password;
-        this.LoginNameTypeId = LoginNameTypeId;
-    }
+    private String postalItemExternalId;
 
 }

@@ -1,19 +1,22 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.UserRegistrationDTO;
-import com.project.tracking_system.exception.UsernameAlreadyExistsException;
+import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.model.jsonResponseModel.JsonEvroTrackingResponse;
 import com.project.tracking_system.service.JsonService.JsonEvroTrackingService;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import com.project.tracking_system.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
 
 
 @Controller
@@ -34,16 +37,35 @@ public class HomeController {
         return "home";
     }
 
-    //TODO доработать дальше
     @PostMapping
-    public String home(Model model) {
-        JsonEvroTrackingResponse jsonResponse = jsonEvroTrackingService.getJson();
-        return "home";
+    public String home(@RequestParam("number") String number, Model model, HttpServletRequest request) {
+
+        HttpSession session = request.getSession();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        model.addAttribute("number", number);
+        System.out.println(number);
+
+        if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
+            model.addAttribute("authenticatedUser", auth.getName());
+            session.setAttribute("userSession", auth.getName());
+        } else {
+            session.removeAttribute("userSession");
+            model.addAttribute("authenticatedUser", null);
+        }
+        try {
+            JsonEvroTrackingResponse jsonEvroTrackingResponse = jsonEvroTrackingService.getJson(number);
+            model.addAttribute("jsonEvroTrackingResponse", jsonEvroTrackingResponse);
+            return "home";
+        } catch (Exception e) {
+            model.addAttribute("error", e.getMessage());
+            return "home";
+        }
     }
 
 
     @GetMapping("/registration")
-    public String registration(Model model) {
+    public String registration(@ModelAttribute("userDTO") UserRegistrationDTO userRegistrationDTO, Model model) {
         model.addAttribute("userDTO", new UserRegistrationDTO());
         return "registration";
     }
@@ -59,12 +81,12 @@ public class HomeController {
         }
         try {
             userService.add(userDTO);
-            userService.autoLogin(userDTO.getUsername());
+            //userService.autoLogin(userDTO.getUsername());
             model.addAttribute("successMessage", "Регистрация успешна. Пожалуйста, войдите в систему.");
             return "redirect:/";
         }
-        catch (UsernameAlreadyExistsException e) {
-            model.addAttribute("errorMessage", "Имя пользователя уже существует, пожалуйста, выберите другое");
+        catch (UserAlreadyExistsException e) {
+            model.addAttribute("errorMessage", "Данная почта уже используется, авторизуйтесь или используйте другую почту");
             return "registration";
         }
         catch (Exception e) {
@@ -77,8 +99,5 @@ public class HomeController {
     public String login(){
         return "login";
     }
-
-
-
 
 }

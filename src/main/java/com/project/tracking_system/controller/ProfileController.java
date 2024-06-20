@@ -30,7 +30,7 @@ public class ProfileController {
     public String profile(Model model) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = authentication.getName();
-        Optional<User> user = userService.findByUsername(username);
+        Optional<User> user = userService.findByUser(username);
         user.ifPresent(user1 -> model.addAttribute("username", user1.getUsername()));
         return "profile";
     }

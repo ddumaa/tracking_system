@@ -34,8 +34,7 @@ public class SecurityConfiguration {
         http
                 .headers(h -> h.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests
-                        .requestMatchers("/", "/login", "/logout", "/registration", "/css/**", "/js/**").permitAll()
-                        .requestMatchers("/profile/**").hasAuthority("USER")
+                        .requestMatchers("/", "/login", "/logout", "/registration", "/templates/css/**", "/js/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .formLogin(formLogin -> formLogin
@@ -46,6 +45,8 @@ public class SecurityConfiguration {
                 .logout(logout -> logout
                         .logoutUrl("/logout")
                         .logoutSuccessUrl("/")
+                        .invalidateHttpSession(true)
+                        .deleteCookies("JSESSIONID")
                 )
                 .sessionManagement(sessionManagement -> sessionManagement
                         .sessionCreationPolicy(SessionCreationPolicy.ALWAYS)
@@ -53,7 +54,7 @@ public class SecurityConfiguration {
                 )
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .ignoringRequestMatchers("/registration")
+                        .ignoringRequestMatchers("/registration", "/login", "/logout")
                 )
                 .userDetailsService(userDetailsService);
 

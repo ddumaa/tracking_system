@@ -1,51 +1,44 @@
 package com.project.tracking_system.service.JsonService;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.project.tracking_system.model.jsonRequestModel.JsonData;
-import com.project.tracking_system.model.jsonRequestModel.JsonRequest;
-import com.project.tracking_system.model.jsonRequestModel.JsonMethodName;
-import com.project.tracking_system.model.jsonRequestModel.JsonPacket;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.project.tracking_system.model.jsonRequestModel.*;
+import com.project.tracking_system.model.jsonResponseModel.JsonEvroTracking;
 import com.project.tracking_system.model.jsonResponseModel.JsonEvroTrackingResponse;
 import jakarta.json.bind.Jsonb;
 import jakarta.json.bind.JsonbException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 
 @Service
 public class JsonEvroTrackingService {
 
-    private final JsonPacket packet;
     private final JsonHandlerService jsonHandlerService;
     private final Jsonb jsonb;
+    private final RequestFactory requestFactory;
 
     @Autowired
-    public JsonEvroTrackingService(JsonPacket packet, JsonHandlerService jsonHandlerService, Jsonb jsonb) {
-        this.packet = packet;
+    public JsonEvroTrackingService(JsonHandlerService jsonHandlerService, Jsonb jsonb, RequestFactory requestFactory) {
         this.jsonHandlerService = jsonHandlerService;
         this.jsonb = jsonb;
+        this.requestFactory = requestFactory;
     }
 
     public JsonEvroTrackingResponse getJson(String number) {
 
-        String methodeName = JsonMethodName.POSTAL_TRACKING.toString();
-
-        JsonRequest jsonRequest = new JsonRequest(
-                "",
-                new JsonPacket(
-                        packet.getJWT(),
-                        methodeName,
-                        packet.getServiceNumber(),
-                        new JsonData(
-                                number
-                        )
-                )
-        );
-
+        JsonRequest jsonRequest = requestFactory.createTrackingRequest(number);
         JsonNode jsonNode = jsonHandlerService.jsonRequest(jsonRequest);
+
+        JsonEvroTrackingResponse response = new JsonEvroTrackingResponse();
         JsonNode tableNode = jsonNode.path("Table");
         try {
-            JsonEvroTrackingResponse response = jsonb.fromJson(tableNode.toString(), JsonEvroTrackingResponse.class);
+            ObjectMapper mapper = new ObjectMapper();
+            List<JsonEvroTracking> table = mapper.convertValue(tableNode, new TypeReference<List<JsonEvroTracking>>() {});
+            response.setTable(table);
             return response;
         } catch (JsonbException e) {
             throw new RuntimeException("Ошибка десериализации ответа JSON.", e);

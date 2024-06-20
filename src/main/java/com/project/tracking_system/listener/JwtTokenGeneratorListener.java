@@ -1,27 +1,27 @@
 package com.project.tracking_system.listener;
 
-import com.project.tracking_system.model.jsonRequestModel.JsonPacket;
 import com.project.tracking_system.service.JsonService.GetJwtTokenService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationListener;
+import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.stereotype.Component;
 
 @Component
-public class JwtTokenGeneratorListener implements ApplicationListener<ApplicationEvent> {
+public class JwtTokenGeneratorListener implements ApplicationListener<ContextRefreshedEvent> {
 
     private final GetJwtTokenService jwtTokenService;
-    private final JsonPacket jsonPacket;
+    private boolean isExecuted = false;
 
     @Autowired
-    public JwtTokenGeneratorListener(GetJwtTokenService jwtTokenService, JsonPacket jsonPacket) {
+    public JwtTokenGeneratorListener(GetJwtTokenService jwtTokenService) {
         this.jwtTokenService = jwtTokenService;
-        this.jsonPacket = jsonPacket;
-
     }
 
     @Override
-    public void onApplicationEvent(ApplicationEvent event) {
-        if(jsonPacket.getJWT().equals("null")) jsonPacket.setJWT(jwtTokenService.getJwtToken());
+    public void onApplicationEvent(ContextRefreshedEvent event) {
+        if (!isExecuted) {
+            jwtTokenService.getJwtToken();
+            isExecuted = true;
+        }
     }
 }
