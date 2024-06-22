@@ -12,12 +12,13 @@ import org.springframework.stereotype.Component;
 @Data
 public class TrackParcelDTO {
 
-
     private String number;
     private String status;
+    private String data;
 
     public TrackParcelDTO(TrackParcel trackParcel) {
         this.number = trackParcel.getNumber();
         this.status = trackParcel.getStatus();
+        this.data = trackParcel.getData();
     }
 }

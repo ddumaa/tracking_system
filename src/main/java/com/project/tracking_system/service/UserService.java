@@ -55,18 +55,6 @@ public class UserService {
         }
     }
 
-    public Optional<User> findByUsernameAndPassword(UserRegistrationDTO userDTO) {
-
-        Optional<User> byUsername = userRepository.findByUsername(userDTO.getUsername());
-        if (byUsername.isPresent()) {
-            User user = byUsername.get();
-            if (passwordEncoder.matches(userDTO.getPassword(), user.getPassword())) {
-                return Optional.of(user);
-            }
-        }
-        return Optional.empty();
-    }
-
     public Optional<User> findByUser(String username) {
         return userRepository.findByUsername(username);
     }

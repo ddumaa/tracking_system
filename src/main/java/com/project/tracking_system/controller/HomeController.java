@@ -51,18 +51,18 @@ public class HomeController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
         model.addAttribute("number", number);
-        if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
-            model.addAttribute("authenticatedUser", auth.getName());
-            session.setAttribute("userSession", auth.getName());
-           // trackParcelService.save(number, auth.getName());
-
-        } else {
-            session.removeAttribute("userSession");
-            model.addAttribute("authenticatedUser", null);
-        }
         try {
             JsonEvroTrackingResponse jsonEvroTrackingResponse = jsonEvroTrackingService.getJson(number);
             model.addAttribute("jsonEvroTrackingResponse", jsonEvroTrackingResponse);
+            if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
+                model.addAttribute("authenticatedUser", auth.getName());
+                session.setAttribute("userSession", auth.getName());
+                trackParcelService.save(number, jsonEvroTrackingResponse, auth.getName());
+            } else {
+                session.removeAttribute("userSession");
+                model.addAttribute("authenticatedUser", null);
+            }
+
             return "home";
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
@@ -73,7 +73,7 @@ public class HomeController {
     @GetMapping("/history")
     public String history(@ModelAttribute("trackParcelDTO") TrackParcelDTO trackParcelDTO, Model model) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        List<TrackParcelDTO> byUserTrack = trackParcelService.findByUserTrack(auth.getName());
+        List<TrackParcelDTO> byUserTrack = trackParcelService.findByUserTracks(auth.getName());
         if (byUserTrack.isEmpty()) {
             model.addAttribute("trackParcelNotification", "Отслеживаемых посылок нет");
         } else {
@@ -83,10 +83,11 @@ public class HomeController {
         return "history";
     }
 
-    @PostMapping("/history")
+    @PostMapping("/history-update")
     public String history(){
-
-        return "history";
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        trackParcelService.updateHistory(auth.getName());
+        return "redirect:/history";
     }
 
     @GetMapping("/registration")

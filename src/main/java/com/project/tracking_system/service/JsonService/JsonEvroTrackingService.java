@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.tracking_system.model.jsonRequestModel.*;
 import com.project.tracking_system.model.jsonResponseModel.JsonEvroTracking;
 import com.project.tracking_system.model.jsonResponseModel.JsonEvroTrackingResponse;
-import jakarta.json.bind.Jsonb;
 import jakarta.json.bind.JsonbException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -18,13 +17,11 @@ import java.util.List;
 public class JsonEvroTrackingService {
 
     private final JsonHandlerService jsonHandlerService;
-    private final Jsonb jsonb;
     private final RequestFactory requestFactory;
 
     @Autowired
-    public JsonEvroTrackingService(JsonHandlerService jsonHandlerService, Jsonb jsonb, RequestFactory requestFactory) {
+    public JsonEvroTrackingService(JsonHandlerService jsonHandlerService, RequestFactory requestFactory) {
         this.jsonHandlerService = jsonHandlerService;
-        this.jsonb = jsonb;
         this.requestFactory = requestFactory;
     }
 
