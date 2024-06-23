@@ -1,6 +1,7 @@
 package com.project.tracking_system.configuration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.modelmapper.ModelMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -20,4 +21,8 @@ public class AppConfiguration {
         return new ObjectMapper();
     }
 
+    @Bean
+    public ModelMapper getMapper() {
+        return new ModelMapper();
+    }
 }

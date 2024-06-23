@@ -1,17 +1,19 @@
 package com.project.tracking_system.controller;
 
+import com.project.tracking_system.dto.EvroTrackInfoListDTO;
 import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
+import com.project.tracking_system.maper.JsonEvroTrackingResponseMapper;
 import com.project.tracking_system.model.jsonResponseModel.JsonEvroTrackingResponse;
 import com.project.tracking_system.service.JsonService.JsonEvroTrackingService;
-
-
+import com.project.tracking_system.service.StatusIconService;
 import com.project.tracking_system.service.TrackParcelService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import com.project.tracking_system.service.UserService;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -31,12 +33,19 @@ public class HomeController {
     private final UserService userService;
     private final JsonEvroTrackingService jsonEvroTrackingService;
     private final TrackParcelService trackParcelService;
+    private final StatusIconService statusIconService;
+    private final JsonEvroTrackingResponseMapper jsonEvroTrackingResponseMapper;
 
     @Autowired
-    public HomeController(UserService userService, JsonEvroTrackingService jsonEvroTrackingService, TrackParcelService trackParcelService) {
+    public HomeController(UserService userService, JsonEvroTrackingService jsonEvroTrackingService,
+                          TrackParcelService trackParcelService, StatusIconService statusIconService,
+                          JsonEvroTrackingResponseMapper jsonEvroTrackingResponseMapper) {
         this.userService = userService;
         this.jsonEvroTrackingService = jsonEvroTrackingService;
         this.trackParcelService = trackParcelService;
+        this.statusIconService = statusIconService;
+        this.jsonEvroTrackingResponseMapper = jsonEvroTrackingResponseMapper;
+
     }
 
     @GetMapping
@@ -52,17 +61,16 @@ public class HomeController {
 
         model.addAttribute("number", number);
         try {
-            JsonEvroTrackingResponse jsonEvroTrackingResponse = jsonEvroTrackingService.getJson(number);
-            model.addAttribute("jsonEvroTrackingResponse", jsonEvroTrackingResponse);
+            EvroTrackInfoListDTO evroTrackInfoListDTO = jsonEvroTrackingResponseMapper.mapJsonEvroTrackingResponseToDTO(jsonEvroTrackingService.getJson(number));
+            model.addAttribute("jsonEvroTrackingResponse", evroTrackInfoListDTO);
             if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
                 model.addAttribute("authenticatedUser", auth.getName());
                 session.setAttribute("userSession", auth.getName());
-                trackParcelService.save(number, jsonEvroTrackingResponse, auth.getName());
+                trackParcelService.save(number, evroTrackInfoListDTO, auth.getName());
             } else {
                 session.removeAttribute("userSession");
                 model.addAttribute("authenticatedUser", null);
             }
-
             return "home";
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
@@ -71,16 +79,25 @@ public class HomeController {
     }
 
     @GetMapping("/history")
-    public String history(@ModelAttribute("trackParcelDTO") TrackParcelDTO trackParcelDTO, Model model) {
+    public String history(Model model) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        trackParcelService.updateHistory(auth.getName());
         List<TrackParcelDTO> byUserTrack = trackParcelService.findByUserTracks(auth.getName());
         if (byUserTrack.isEmpty()) {
             model.addAttribute("trackParcelNotification", "Отслеживаемых посылок нет");
         } else {
             model.addAttribute("trackParcelDTO", byUserTrack);
+            model.addAttribute("statusIconService", statusIconService);
         }
-
         return "history";
+    }
+
+    @GetMapping("/history/{itemNumber}")
+    public String history(Model model, @PathVariable("itemNumber") String itemNumber) {
+        EvroTrackInfoListDTO evroTrackInfoListDTO = jsonEvroTrackingResponseMapper.mapJsonEvroTrackingResponseToDTO(jsonEvroTrackingService.getJson(itemNumber));
+        model.addAttribute("jsonEvroTracking", evroTrackInfoListDTO);
+        model.addAttribute("itemNumber", itemNumber);
+        return "partials/history-info";
     }
 
     @PostMapping("/history-update")

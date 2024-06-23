@@ -1,9 +1,11 @@
 package com.project.tracking_system.service;
 
+import com.project.tracking_system.dto.EvroTrackInfoDTO;
+import com.project.tracking_system.dto.EvroTrackInfoListDTO;
 import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
-import com.project.tracking_system.model.jsonResponseModel.JsonEvroTracking;
+import com.project.tracking_system.maper.JsonEvroTrackingResponseMapper;
 import com.project.tracking_system.model.jsonResponseModel.JsonEvroTrackingResponse;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.JsonService.JsonEvroTrackingService;
@@ -20,34 +22,38 @@ public class TrackParcelService {
     private final TrackParcelRepository trackParcelRepository;
     private final UserService userService;
     private final JsonEvroTrackingService jsonEvroTrackingService;
+    private final JsonEvroTrackingResponseMapper jsonEvroTrackingResponseMapper;
 
     @Autowired
-    public TrackParcelService(TrackParcelRepository trackParcelRepository, UserService userService, JsonEvroTrackingService jsonEvroTrackingService) {
+    public TrackParcelService(TrackParcelRepository trackParcelRepository, UserService userService,
+                              JsonEvroTrackingService jsonEvroTrackingService, JsonEvroTrackingResponseMapper jsonEvroTrackingResponseMapper) {
         this.trackParcelRepository = trackParcelRepository;
         this.userService = userService;
         this.jsonEvroTrackingService = jsonEvroTrackingService;
+        this.jsonEvroTrackingResponseMapper = jsonEvroTrackingResponseMapper;
 
     }
 
-    public void save(String number, JsonEvroTrackingResponse jsonEvroTrackingResponse, String username) {
-        if (number == null || jsonEvroTrackingResponse == null) {
+    public void save(String number, EvroTrackInfoListDTO evroTrackInfoListDTO, String username) {
+        if (number == null || evroTrackInfoListDTO == null) {
             throw new IllegalArgumentException("Отсутствует посылка");
         }
-        List<JsonEvroTracking> table = jsonEvroTrackingResponse.getTable();
+        List<EvroTrackInfoDTO> evroTrackInfoDTOList = evroTrackInfoListDTO.getEvroTrackInfoDTOList();
         Optional<User> user = userService.findByUser(username);
+
         if (user.isPresent()) {
             Long userId = user.get().getId();
             TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(number, userId);
             if (trackParcel != null) {
-                trackParcel.setStatus(table.get(0).getInfoTrack());
-                trackParcel.setData(table.get(0).getTimex());
+                trackParcel.setStatus(evroTrackInfoDTOList.get(0).getInfoTrack());
+                trackParcel.setData(evroTrackInfoDTOList.get(0).getTimex());
                 trackParcelRepository.save(trackParcel);
             } else {
                 trackParcel = new TrackParcel();
                 trackParcel.setNumber(number);
                 trackParcel.setUser(user.get());
-                trackParcel.setStatus(table.get(0).getInfoTrack());
-                trackParcel.setData(table.get(0).getTimex());
+                trackParcel.setStatus(evroTrackInfoDTOList.get(0).getInfoTrack());
+                trackParcel.setData(evroTrackInfoDTOList.get(0).getTimex());
                 trackParcelRepository.save(trackParcel);
             }
         }
@@ -70,8 +76,13 @@ public class TrackParcelService {
     public void updateHistory (String name){
         List<TrackParcelDTO> byUserTrack = findByUserTracks(name);
         for (TrackParcelDTO trackParcelDTO : byUserTrack) {
-            JsonEvroTrackingResponse json = jsonEvroTrackingService.getJson(trackParcelDTO.getNumber());
-            save(trackParcelDTO.getNumber(), json, name);
+            EvroTrackInfoListDTO evroTrackInfoListDTO = jsonEvroTrackingResponseMapper.mapJsonEvroTrackingResponseToDTO(jsonEvroTrackingService.getJson(trackParcelDTO.getNumber()));
+            if(evroTrackInfoListDTO.getEvroTrackInfoDTOList().get(0).getInfoTrack().equals("Почтовое отправление выдано. Наложенный платеж оплачен") ||
+                    evroTrackInfoListDTO.getEvroTrackInfoDTOList().get(0).getInfoTrack().equals("Почтовое отправление возвращено отправителю")){
+                continue;
+            }else {
+                save(trackParcelDTO.getNumber(), evroTrackInfoListDTO, name);
+            }
         }
     }
 }
