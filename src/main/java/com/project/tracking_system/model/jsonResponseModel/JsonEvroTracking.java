@@ -14,22 +14,22 @@ import org.springframework.stereotype.Component;
 public class JsonEvroTracking {
 
     @JsonProperty("Timex")
-    private String Timex;
+    private String timex;
 
     @JsonProperty("InfoTrack")
-    private String InfoTrack;
+    private String infoTrack;
 
     @JsonProperty("IsChooseDeliveryTime")
-    private String IsChooseDeliveryTime;
+    private String isChooseDeliveryTime;
 
     @JsonProperty("CheckxFrom")
-    private String CheckxFrom;
+    private String checkxFrom;
 
     @JsonProperty("CheckxTo")
-    private String CheckxTo;
+    private String checkxTo;
 
     @JsonProperty("Info")
-    private String Info;
+    private String info;
 
     @JsonCreator
     public JsonEvroTracking(@JsonProperty("Timex") String timex,
@@ -38,12 +38,12 @@ public class JsonEvroTracking {
                             @JsonProperty("CheckxFrom") String checkxFrom,
                             @JsonProperty("CheckxTo") String checkxTo,
                             @JsonProperty("Info") String info) {
-        this.Timex = timex;
-        this.InfoTrack = infoTrack;
-        this.IsChooseDeliveryTime = isChooseDeliveryTime;
-        this.CheckxFrom = checkxFrom;
-        this.CheckxTo = checkxTo;
-        this.Info = info;
+        this.timex = timex;
+        this.infoTrack = infoTrack;
+        this.isChooseDeliveryTime = isChooseDeliveryTime;
+        this.checkxFrom = checkxFrom;
+        this.checkxTo = checkxTo;
+        this.info = info;
     }
 
 }

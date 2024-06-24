@@ -6,7 +6,6 @@ import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.maper.JsonEvroTrackingResponseMapper;
-import com.project.tracking_system.model.jsonResponseModel.JsonEvroTrackingResponse;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.JsonService.JsonEvroTrackingService;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -1,19 +1,15 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.EvroTrackInfoListDTO;
-import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.maper.JsonEvroTrackingResponseMapper;
-import com.project.tracking_system.model.jsonResponseModel.JsonEvroTrackingResponse;
 import com.project.tracking_system.service.JsonService.JsonEvroTrackingService;
-import com.project.tracking_system.service.StatusIconService;
 import com.project.tracking_system.service.TrackParcelService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import com.project.tracking_system.service.UserService;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -23,8 +19,6 @@ import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 
 @Controller
 @RequestMapping("/")
@@ -33,17 +27,14 @@ public class HomeController {
     private final UserService userService;
     private final JsonEvroTrackingService jsonEvroTrackingService;
     private final TrackParcelService trackParcelService;
-    private final StatusIconService statusIconService;
     private final JsonEvroTrackingResponseMapper jsonEvroTrackingResponseMapper;
 
     @Autowired
     public HomeController(UserService userService, JsonEvroTrackingService jsonEvroTrackingService,
-                          TrackParcelService trackParcelService, StatusIconService statusIconService,
-                          JsonEvroTrackingResponseMapper jsonEvroTrackingResponseMapper) {
+                          TrackParcelService trackParcelService, JsonEvroTrackingResponseMapper jsonEvroTrackingResponseMapper) {
         this.userService = userService;
         this.jsonEvroTrackingService = jsonEvroTrackingService;
         this.trackParcelService = trackParcelService;
-        this.statusIconService = statusIconService;
         this.jsonEvroTrackingResponseMapper = jsonEvroTrackingResponseMapper;
 
     }
@@ -78,34 +69,7 @@ public class HomeController {
         }
     }
 
-    @GetMapping("/history")
-    public String history(Model model) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        trackParcelService.updateHistory(auth.getName());
-        List<TrackParcelDTO> byUserTrack = trackParcelService.findByUserTracks(auth.getName());
-        if (byUserTrack.isEmpty()) {
-            model.addAttribute("trackParcelNotification", "Отслеживаемых посылок нет");
-        } else {
-            model.addAttribute("trackParcelDTO", byUserTrack);
-            model.addAttribute("statusIconService", statusIconService);
-        }
-        return "history";
-    }
 
-    @GetMapping("/history/{itemNumber}")
-    public String history(Model model, @PathVariable("itemNumber") String itemNumber) {
-        EvroTrackInfoListDTO evroTrackInfoListDTO = jsonEvroTrackingResponseMapper.mapJsonEvroTrackingResponseToDTO(jsonEvroTrackingService.getJson(itemNumber));
-        model.addAttribute("jsonEvroTracking", evroTrackInfoListDTO);
-        model.addAttribute("itemNumber", itemNumber);
-        return "partials/history-info";
-    }
-
-    @PostMapping("/history-update")
-    public String history(){
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        trackParcelService.updateHistory(auth.getName());
-        return "redirect:/history";
-    }
 
     @GetMapping("/registration")
     public String registration(@ModelAttribute("userDTO") UserRegistrationDTO userRegistrationDTO, Model model) {
@@ -124,9 +88,8 @@ public class HomeController {
         }
         try {
             userService.save(userDTO);
-            //userService.autoLogin(userDTO.getUsername());
             model.addAttribute("successMessage", "Регистрация успешна. Пожалуйста, войдите в систему.");
-            return "redirect:/";
+            return "redirect:/login";
         }
         catch (UserAlreadyExistsException e) {
             model.addAttribute("errorMessage", "Данная почта уже используется, авторизуйтесь или используйте другую почту");

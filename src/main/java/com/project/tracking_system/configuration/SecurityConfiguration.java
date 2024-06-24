@@ -41,7 +41,9 @@ public class SecurityConfiguration {
                         .loginPage("/login")
                         .defaultSuccessUrl("/")
                         .failureUrl("/login?error=true")
+
                 )
+                .rememberMe(rememberMe -> rememberMe.key("remember-me"))
                 .logout(logout -> logout
                         .logoutUrl("/logout")
                         .logoutSuccessUrl("/")
@@ -56,6 +58,7 @@ public class SecurityConfiguration {
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .ignoringRequestMatchers("/registration", "/login", "/logout")
                 )
+
                 .userDetailsService(userDetailsService);
 
         return http.build();

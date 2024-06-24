@@ -52,7 +52,7 @@
             <div th:if="${trackParcelDTO != null}" class="mt-5 w-100">
                 <h2 class="text-center">Информация о посылках
                     <div class="btn-group" style="display: inline-block;">
-                        <form th:action="@{/history-update}" method="post">
+                        <form th:action="@{/history/history-update}" method="post">
                             <button type="submit" class="btn btn-default">
                                 <i class="bi bi-arrow-repeat" style="font-size: 2rem"></i>
                             </button>
@@ -72,7 +72,7 @@
                         <td>
                             <span th:utext="${statusIconService.getIcon(item.status)}"></span>
                             <form th:action="@{/history/{itemNumber}(itemNumber=${item.number})}" method="get">
-                                <button type="button" class="btn btn-link" onclick=loadModal("itemNumber") th:text="${item.number}"></button>
+                                <button type="button" class="btn btn-link" onclick="loadModal(this.getAttribute('data-itemnumber'))" th:text="${item.number}" th:data-itemnumber="${item.number}"></button>
                             </form>
                         </td>
                         <td th:text="${item.status}"></td>
@@ -81,7 +81,7 @@
                     </tbody>
                 </table>
                 <div class="modal fade" id="infoModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
-                    <div class="modal-dialog">
+                    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
                         <div class="modal-content">
                             <div class="modal-header">
                                 <h5 class="modal-title">Информация о посылке</h5>
@@ -102,15 +102,6 @@
     </div>
 </div>
 <script>
-    // $(document).ready(function() {
-    //     // Attach event listener to the button
-    //     $('button.btn-link').on('click', function(event) {
-    //         event.preventDefault();
-    //         var itemNumber = $(this).text().trim(); // Получаем номер элемента из текста кнопки
-    //         loadModal(itemNumber); // Pass the item number to the loadModal function
-    //     });
-    // });
-
     function loadModal(itemNumber) {
         $.ajax({
             type: 'GET',

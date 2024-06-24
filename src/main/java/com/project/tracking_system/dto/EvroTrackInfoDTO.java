@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 @Data
 public class EvroTrackInfoDTO {
 
-    private String Timex;
-    private String InfoTrack;
+    private String timex;
+    private String infoTrack;
 
 }

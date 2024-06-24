@@ -26,7 +26,6 @@ public class ProfileController {
     }
 
     @GetMapping
-    @Secured("USER")
     public String profile(Model model) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = authentication.getName();

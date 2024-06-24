@@ -13,5 +13,5 @@ import java.util.List;
 public class JsonEvroTrackingResponse {
 
     @JsonProperty("Table")
-    private List<JsonEvroTracking> Table;
+    private List<JsonEvroTracking> table;
 }
