@@ -85,7 +85,6 @@ public class HomeController {
         }
         try {
             userService.save(userDTO);
-            model.addAttribute("successMessage", "Регистрация успешна. Пожалуйста, войдите в систему.");
             return "redirect:/login";
         }
         catch (UserAlreadyExistsException e) {

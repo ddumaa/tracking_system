@@ -39,9 +39,9 @@
     <form th:action="@{/registration}" th:object="${userDTO}" method="post">
         <h1 class="h3 mb-3 fw-normal text-center">Регистрация</h1>
         <div class="form-floating mb-3">
-            <input type="text" class="form-control" id="username" name="username" th:field="*{username}" placeholder="логин">
-            <label for="username">Логин</label>
-            <div th:if="${#fields.hasErrors('username')}" th:errors="*{username}" class="text-danger"></div>
+            <input type="email" class="form-control" id="email" name="email" th:field="*{email}" placeholder="Email">
+            <label for="email">Email</label>
+            <div th:if="${#fields.hasErrors('email')}" th:errors="*{email}" class="text-danger"></div>
         </div>
         <div class="form-floating mb-3">
             <label for="password"></label>

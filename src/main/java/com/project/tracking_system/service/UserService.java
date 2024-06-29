@@ -5,38 +5,31 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
-
 @Service
 public class UserService {
 
-    private final UserDetailsServiceImpl userDetailsService;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Autowired
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, UserDetailsServiceImpl userDetailsService) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.userDetailsService = userDetailsService;
     }
 
     public void save(UserRegistrationDTO userDTO) {
-        if (userDTO.getUsername() == null || userDTO.getUsername().isEmpty()) {
+        if (userDTO.getEmail() == null || userDTO.getEmail().isEmpty()) {
             throw new IllegalArgumentException("Введите электронную почту");
         }
         if (userDTO.getPassword() == null || userDTO.getPassword().isEmpty()) {
             throw new IllegalArgumentException("Пароль не может быть пустым");
         }
-        if (userRepository.findByUsername(userDTO.getUsername()).isPresent()) {
+        if (userRepository.findByEmail(userDTO.getEmail()).isPresent()) {
             throw new UserAlreadyExistsException("Данная почта уже используется," +
                     " войдите в свой аккаунт или используйте другую электронную почту");
         }
@@ -44,7 +37,7 @@ public class UserService {
             throw new IllegalArgumentException("Введенные пароли не совпадают");
         }
         User user = new User();
-        user.setUsername(userDTO.getUsername());
+        user.setEmail(userDTO.getEmail());
         user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
         try {
             userRepository.save(user);
@@ -53,14 +46,8 @@ public class UserService {
         }
     }
 
-    public Optional<User> findByUser(String username) {
-        return userRepository.findByUsername(username);
-    }
-
-    public void autoLogin(String username) {
-        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-        Authentication auth = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-        SecurityContextHolder.getContext().setAuthentication(auth);
+    public Optional<User> findByUser(String email) {
+        return userRepository.findByEmail(email);
     }
 
 }

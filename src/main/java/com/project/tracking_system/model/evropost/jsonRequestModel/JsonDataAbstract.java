@@ -1,6 +1,5 @@
 package com.project.tracking_system.model.evropost.jsonRequestModel;
 
-
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import lombok.Data;

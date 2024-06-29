@@ -1,6 +1,7 @@
 package com.project.tracking_system.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -20,9 +21,10 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "username", nullable = false, unique = true)
-    @NotBlank(message = "введите адрес электронной почты")
-    private String username;
+    @Column(name = "email", nullable = false, unique = true)
+    @NotBlank(message = "Введите адрес электронной почты")
+    @Email(message = "Email должен быть корректным")
+    private String email;
 
     @NotBlank(message = "Введите пароль")
     private String password;

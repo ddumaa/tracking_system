@@ -38,8 +38,8 @@
     <form th:action="@{/login}" method="post">
         <h1 class="h3 mb-3 fw-normal text-center">Пожалуйста, войдите</h1>
         <div class="form-floating mb-3">
-            <input type="text" class="form-control" id="floatingInput" name="username" placeholder="avocado">
-            <label for="floatingInput">Логин</label>
+            <input type="email" class="form-control" id="floatingInput" name="email" placeholder="Email">
+            <label for="floatingInput">Email</label>
         </div>
         <div class="form-floating mb-3">
             <input type="password" class="form-control" id="floatingPassword" name="password" placeholder="Пароль">
@@ -52,7 +52,7 @@
             </label>
         </div>
         <div th:if="${param.error}">
-            <p th:text="${'Логин или пароль неверный'}" style="color: red;"></p>
+            <p th:text="${'Email или пароль неверный'}" style="color: red;"></p>
         </div>
         <button class="btn btn-primary w-100 py-2" type="submit">Войти</button>
         <div class="text-center mt-3">

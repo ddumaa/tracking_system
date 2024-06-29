@@ -17,7 +17,7 @@ public class UserRegistrationDTO {
 
     @Column(unique = true)
     @NotBlank(message = "Введите адрес электронной почты")
-    private String username;
+    private String email;
 
     @NotEmpty(message = "Пароль не может быть пустым")
     @Size(min = 6, max = 15, message = "Пароль должен быть не менее 6 символов и не более 15")

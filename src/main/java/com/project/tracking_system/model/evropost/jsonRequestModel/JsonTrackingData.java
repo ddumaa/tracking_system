@@ -8,19 +8,10 @@ import lombok.Setter;
 @Setter
 public class JsonTrackingData extends JsonDataAbstract{
 
-//    @JsonProperty("PostalItemExternalId")
-//    private String postalItemExternalId;
-
     @JsonProperty("Number")
     private String number;
-
     public JsonTrackingData(String number) {
         this.number = number;
     }
-
-//    public JsonTrackingData(String number, String postalItemExternalId) {
-//        this.number = number;
-//        this.postalItemExternalId = postalItemExternalId;
-//    }
 
 }

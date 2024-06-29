@@ -34,11 +34,13 @@ public class SecurityConfiguration {
         http
                 .headers(h -> h.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests
-                        .requestMatchers("/", "/login", "/logout", "/registration", "/templates/css/**", "/js/**").permitAll()
+                        .requestMatchers("/", "/login", "/logout", "/registration", "/templates/css/**", "/templates/js/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .formLogin(formLogin -> formLogin
                         .loginPage("/login")
+                        .usernameParameter("email")
+                        .passwordParameter("password")
                         .defaultSuccessUrl("/")
                         .failureUrl("/login?error=true")
 

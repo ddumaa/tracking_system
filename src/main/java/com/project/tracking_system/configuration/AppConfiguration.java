@@ -2,9 +2,6 @@ package com.project.tracking_system.configuration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.modelmapper.ModelMapper;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -28,11 +25,5 @@ public class AppConfiguration {
     public ModelMapper getMapper() {
         return new ModelMapper();
     }
-
-//    @Bean
-//    public WebDriver webDriver(@Value("${webdriver.chrome.driver}") String chromeDriverPath) {
-//        System.setProperty("webdriver.chrome.driver", chromeDriverPath);
-//        return new ChromeDriver();
-//    }
 
 }
