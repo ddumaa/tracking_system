@@ -1,7 +1,8 @@
-package com.project.tracking_system.service.JsonService;
+package com.project.tracking_system.service.jsonEvropostService;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.project.tracking_system.model.jsonRequestModel.*;
+import com.project.tracking_system.model.evropost.jsonRequestModel.JsonPacket;
+import com.project.tracking_system.model.evropost.jsonRequestModel.JsonRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

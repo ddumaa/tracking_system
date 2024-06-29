@@ -1,4 +1,4 @@
-package com.project.tracking_system.model.jsonResponseModel;
+package com.project.tracking_system.model.evropost.jsonResponseModel;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;

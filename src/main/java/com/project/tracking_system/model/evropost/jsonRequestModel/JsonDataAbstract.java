@@ -1,4 +1,4 @@
-package com.project.tracking_system.model.jsonRequestModel;
+package com.project.tracking_system.model.evropost.jsonRequestModel;
 
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;

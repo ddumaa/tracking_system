@@ -1,8 +1,8 @@
 package com.project.tracking_system.maper;
 
-import com.project.tracking_system.dto.EvroTrackInfoDTO;
-import com.project.tracking_system.dto.EvroTrackInfoListDTO;
-import com.project.tracking_system.model.jsonResponseModel.JsonEvroTrackingResponse;
+import com.project.tracking_system.dto.TrackInfoDTO;
+import com.project.tracking_system.dto.TrackInfoListDTO;
+import com.project.tracking_system.model.evropost.jsonResponseModel.JsonEvroTrackingResponse;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -19,10 +19,10 @@ public class JsonEvroTrackingResponseMapper {
         this.modelMapper = modelMapper;
     }
 
-    public EvroTrackInfoListDTO mapJsonEvroTrackingResponseToDTO(JsonEvroTrackingResponse response) {
-        EvroTrackInfoListDTO dto = new EvroTrackInfoListDTO();
-        dto.setEvroTrackInfoDTOList(response.getTable().stream()
-                .map(jsonEvroTracking -> modelMapper.map(jsonEvroTracking, EvroTrackInfoDTO.class))
+    public TrackInfoListDTO mapJsonEvroTrackingResponseToDTO(JsonEvroTrackingResponse response) {
+        TrackInfoListDTO dto = new TrackInfoListDTO();
+        dto.setList(response.getTable().stream()
+                .map(jsonEvroTracking -> modelMapper.map(jsonEvroTracking, TrackInfoDTO.class))
                 .collect(Collectors.toList()));
         return dto;
     }

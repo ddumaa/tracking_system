@@ -1,10 +1,9 @@
 package com.project.tracking_system.controller;
 
-import com.project.tracking_system.dto.EvroTrackInfoListDTO;
 import com.project.tracking_system.dto.UserRegistrationDTO;
+import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
-import com.project.tracking_system.maper.JsonEvroTrackingResponseMapper;
-import com.project.tracking_system.service.JsonService.JsonEvroTrackingService;
+import com.project.tracking_system.service.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.TrackParcelService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -25,17 +24,15 @@ import org.springframework.web.bind.annotation.*;
 public class HomeController {
 
     private final UserService userService;
-    private final JsonEvroTrackingService jsonEvroTrackingService;
     private final TrackParcelService trackParcelService;
-    private final JsonEvroTrackingResponseMapper jsonEvroTrackingResponseMapper;
+    private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
 
     @Autowired
-    public HomeController(UserService userService, JsonEvroTrackingService jsonEvroTrackingService,
-                          TrackParcelService trackParcelService, JsonEvroTrackingResponseMapper jsonEvroTrackingResponseMapper) {
+    public HomeController(UserService userService, TrackParcelService trackParcelService,
+                          TypeDefinitionTrackPostService typeDefinitionTrackPostService) {
         this.userService = userService;
-        this.jsonEvroTrackingService = jsonEvroTrackingService;
         this.trackParcelService = trackParcelService;
-        this.jsonEvroTrackingResponseMapper = jsonEvroTrackingResponseMapper;
+        this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
 
     }
 
@@ -51,13 +48,14 @@ public class HomeController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
         model.addAttribute("number", number);
+        TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(number);
+
         try {
-            EvroTrackInfoListDTO evroTrackInfoListDTO = jsonEvroTrackingResponseMapper.mapJsonEvroTrackingResponseToDTO(jsonEvroTrackingService.getJson(number));
-            model.addAttribute("jsonEvroTrackingResponse", evroTrackInfoListDTO);
+            model.addAttribute("trackInfo", trackInfo);
             if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
                 model.addAttribute("authenticatedUser", auth.getName());
                 session.setAttribute("userSession", auth.getName());
-                trackParcelService.save(number, evroTrackInfoListDTO, auth.getName());
+                trackParcelService.save(number, trackInfo, auth.getName());
             } else {
                 session.removeAttribute("userSession");
                 model.addAttribute("authenticatedUser", null);
@@ -67,9 +65,8 @@ public class HomeController {
             model.addAttribute("error", e.getMessage());
             return "home";
         }
+
     }
-
-
 
     @GetMapping("/registration")
     public String registration(@ModelAttribute("userDTO") UserRegistrationDTO userRegistrationDTO, Model model) {

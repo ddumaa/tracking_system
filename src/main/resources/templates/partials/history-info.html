@@ -21,7 +21,7 @@
         </tr>
         </thead>
         <tbody>
-        <tr th:each="item : ${jsonEvroTracking.getEvroTrackInfoDTOList()}">
+        <tr th:each="item : ${jsonTracking.getList()}">
             <td th:text="${item.timex}"></td>
             <td th:text="${item.infoTrack}"></td>
         </tr>

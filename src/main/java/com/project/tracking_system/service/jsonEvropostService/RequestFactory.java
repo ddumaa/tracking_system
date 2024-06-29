@@ -1,6 +1,6 @@
-package com.project.tracking_system.service.JsonService;
+package com.project.tracking_system.service.jsonEvropostService;
 
-import com.project.tracking_system.model.jsonRequestModel.*;
+import com.project.tracking_system.model.evropost.jsonRequestModel.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

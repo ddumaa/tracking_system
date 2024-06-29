@@ -1,10 +1,9 @@
 package com.project.tracking_system.controller;
 
-import com.project.tracking_system.dto.EvroTrackInfoListDTO;
+import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackParcelDTO;
-import com.project.tracking_system.maper.JsonEvroTrackingResponseMapper;
-import com.project.tracking_system.service.JsonService.JsonEvroTrackingService;
 import com.project.tracking_system.service.StatusIconService;
+import com.project.tracking_system.service.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.TrackParcelService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
@@ -22,20 +21,16 @@ import java.util.List;
 @RequestMapping("/history")
 public class HistoryController {
 
-    private final JsonEvroTrackingService jsonEvroTrackingService;
     private final TrackParcelService trackParcelService;
     private final StatusIconService statusIconService;
-    private final JsonEvroTrackingResponseMapper jsonEvroTrackingResponseMapper;
+    private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
 
     @Autowired
-    public HistoryController(JsonEvroTrackingService jsonEvroTrackingService, TrackParcelService trackParcelService,
-                             StatusIconService statusIconService,
-                             JsonEvroTrackingResponseMapper jsonEvroTrackingResponseMapper) {
-        this.jsonEvroTrackingService = jsonEvroTrackingService;
+    public HistoryController(TrackParcelService trackParcelService, StatusIconService statusIconService,
+                             TypeDefinitionTrackPostService typeDefinitionTrackPostService) {
         this.trackParcelService = trackParcelService;
         this.statusIconService = statusIconService;
-        this.jsonEvroTrackingResponseMapper = jsonEvroTrackingResponseMapper;
-
+        this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
     }
 
     @GetMapping()
@@ -54,9 +49,8 @@ public class HistoryController {
 
     @GetMapping("/{itemNumber}")
     public String history(Model model, @PathVariable("itemNumber") String itemNumber) {
-        EvroTrackInfoListDTO evroTrackInfoListDTO = jsonEvroTrackingResponseMapper.
-                mapJsonEvroTrackingResponseToDTO(jsonEvroTrackingService.getJson(itemNumber));
-        model.addAttribute("jsonEvroTracking", evroTrackInfoListDTO);
+        TrackInfoListDTO trackInfoListDTO = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(itemNumber);
+        model.addAttribute("jsonTracking", trackInfoListDTO);
         model.addAttribute("itemNumber", itemNumber);
         return "partials/history-info";
     }

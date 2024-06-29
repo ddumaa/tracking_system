@@ -1,11 +1,11 @@
-package com.project.tracking_system.service.JsonService;
+package com.project.tracking_system.service.jsonEvropostService;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.project.tracking_system.model.jsonRequestModel.*;
-import com.project.tracking_system.model.jsonResponseModel.JsonEvroTracking;
-import com.project.tracking_system.model.jsonResponseModel.JsonEvroTrackingResponse;
+import com.project.tracking_system.model.evropost.jsonRequestModel.JsonRequest;
+import com.project.tracking_system.model.evropost.jsonResponseModel.JsonEvroTracking;
+import com.project.tracking_system.model.evropost.jsonResponseModel.JsonEvroTrackingResponse;
 import jakarta.json.bind.JsonbException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

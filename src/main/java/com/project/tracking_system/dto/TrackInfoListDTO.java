@@ -5,13 +5,19 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Component
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
-public class EvroTrackInfoDTO {
+public class TrackInfoListDTO {
 
-    private String timex;
-    private String infoTrack;
+    private List<TrackInfoDTO> list = new ArrayList<>();
+
+    public void addTrackInfo(TrackInfoDTO trackInfoDTO) {
+        list.add(trackInfoDTO);
+    }
 
 }

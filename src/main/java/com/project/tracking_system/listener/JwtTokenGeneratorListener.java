@@ -1,6 +1,6 @@
 package com.project.tracking_system.listener;
 
-import com.project.tracking_system.service.JsonService.GetJwtTokenService;
+import com.project.tracking_system.service.jsonEvropostService.GetJwtTokenService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;

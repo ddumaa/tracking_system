@@ -6,16 +6,21 @@ import org.springframework.stereotype.Service;
 public class StatusIconService {
 
     public String getIcon(String status) {
-        if (status.startsWith("Почтовое отправление выдано.")) {
+        if (status.startsWith("Почтовое отправление выдано.") ||
+                status.startsWith("Вручено")) {
             return "<i class=\"bi bi-check2-circle\"  style=\"font-size: 2rem; color: #008000\"></i>";
-        } else if (status.startsWith("Почтовое отправление прибыло для выдачи в Отделение") ||
-                status.startsWith("Добрый день. Срок бесплатного хранения почтового отправления ")) {
+        } else if (status.startsWith("Почтовое отправление прибыло на ОПС выдачи") ||
+                status.startsWith("Добрый день. Срок бесплатного хранения почтового отправления ") ||
+                status.startsWith("Поступило в учреждение доставки")) {
             return "<i class=\"bi bi-clock-history\"  style=\"font-size: 2rem; color: #fff200\"></i>";
         } else if (status.equals("Почтовое отправление принято на ОПС") ||
                 status.equals("Оплачено на ОПС") ||
                 status.equals("Почтовое отправление подготовлено в ОПС к доставке") ||
                 status.equals("Почтовое отправление прибыло на сортировочный пункт") ||
-                status.equals("Почтовое отправление подготовлено в сортировочном пункте к доставке на ОПС назначения")) {
+                status.equals("Почтовое отправление подготовлено в сортировочном пункте к доставке на ОПС назначения") ||
+                status.startsWith("Отправлено") ||
+                status.startsWith("Принято от отправителя") ||
+                status.startsWith("Поступило в обработку")) {
             return "<i class=\"bi bi-truck\"  style=\"font-size: 2rem; color: #0000FF\"></i>";
         } else if (status.equals("Заявка на почтовое отправление зарегистрирована")) {
             return "<i class=\"bi bi-pass\"  style=\"font-size: 2rem; color: #000080\"></i>";

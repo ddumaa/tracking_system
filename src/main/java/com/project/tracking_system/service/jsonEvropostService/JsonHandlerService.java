@@ -1,10 +1,9 @@
-package com.project.tracking_system.service.JsonService;
+package com.project.tracking_system.service.jsonEvropostService;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.project.tracking_system.model.jsonRequestModel.JsonRequest;
-import com.project.tracking_system.service.DecoderService;
+import com.project.tracking_system.model.evropost.jsonRequestModel.JsonRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -16,21 +15,17 @@ public class JsonHandlerService {
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
-    private final DecoderService decoderService;
 
     @Autowired
-    public JsonHandlerService(RestTemplate restTemplate, ObjectMapper objectMapper, DecoderService decoderService) {
+    public JsonHandlerService(RestTemplate restTemplate, ObjectMapper objectMapper) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
-        this.decoderService = decoderService;
     }
 
     @Value("${evro.jwt.ApiUrl}")
     private String URL;
 
     public JsonNode jsonRequest(JsonRequest jsonRequest) {
-
-        //String url = decoderService.decode(encryptedURL);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
