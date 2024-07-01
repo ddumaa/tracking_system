@@ -52,9 +52,8 @@
         <div class="form-floating mb-3">
             <label for="confirmPassword"></label>
             <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" th:field="*{confirmPassword}" placeholder="повторите пароль">
-            <label for="password">Повторите пароль</label>
+            <label for="confirmPassword">Повторите пароль</label>
             <div th:if="${#fields.hasErrors('confirmPassword')}" th:errors="*{confirmPassword}" class="text-danger"></div>
-            <div th:if="${password != confirmPassword}" class="text-danger">Пароли не совпадают</div>
         </div>
         <div th:if="${errorMessage != null}" class="mb-3">
             <p th:text="${errorMessage}" class="text-danger"></p>

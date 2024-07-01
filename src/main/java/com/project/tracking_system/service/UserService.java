@@ -1,6 +1,7 @@
 package com.project.tracking_system.service;
 
 import com.project.tracking_system.dto.UserRegistrationDTO;
+import com.project.tracking_system.dto.UserSettingsDTO;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.repository.UserRepository;
@@ -48,6 +49,21 @@ public class UserService {
 
     public Optional<User> findByUser(String email) {
         return userRepository.findByEmail(email);
+    }
+
+    public void changePassword(String email, UserSettingsDTO userSettingsDTO) {
+        Optional<User> userOptional = userRepository.findByEmail(email);
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            if (passwordEncoder.matches(userSettingsDTO.getCurrentPassword(), user.getPassword())) {
+                user.setPassword(passwordEncoder.encode(userSettingsDTO.getNewPassword()));
+                userRepository.save(user);
+            } else {
+                throw new IllegalArgumentException("Текущий пароль введён неверно");
+            }
+        } else {
+            throw new IllegalArgumentException("Пользователь не найден");
+        }
     }
 
 }
