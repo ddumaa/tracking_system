@@ -7,6 +7,32 @@
           rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
           crossorigin="anonymous">
     <title>Title</title>
+        <style>
+            html, body {
+                height: 100%;
+            }
+
+            .form-signin {
+                max-width: 330px;
+                padding: 1rem;
+            }
+
+            .form-signin .form-floating:focus-within {
+                z-index: 2;
+            }
+
+            .form-signin input[type="text"] {
+                margin-bottom: -1px;
+                border-bottom-right-radius: 0;
+                border-bottom-left-radius: 0;
+            }
+
+            .form-signin input[type="password"] {
+                margin-bottom: 10px;
+                border-top-left-radius: 0;
+                border-top-right-radius: 0;
+            }
+        </style>
 </head>
 <body>
 <div class="container">
@@ -40,14 +66,38 @@
         </div>
     </header>
 </div>
-<div>
-    <ul>
-        <li><a th:href="@{/profile/settings}">Настройки</a></li>
-    </ul>
+<div class="container">
+<div class="row justify-content-md-center">
+    <div class="col-3 d-flex flex-column align-items-center">
+        <button id="settings-link">Настройки</button>
+    </div>
+    <div class="col-3 d-flex flex-column align-items-center" id="dynamic-content">
+        <!-- Контент будет вставлен сюда -->
+    </div>
 </div>
+</div>
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
+<script>
+    $(document).ready(function(){
+        $("#settings-link").click(function(event){
+            event.preventDefault(); // Предотвращаем стандартное поведение ссылки
+
+            $.ajax({
+                url: '/profile/settings', // Используем URL /profile/settings
+                method: 'GET',
+                success: function(response) {
+                    $("#dynamic-content").html(response); // Вставить ответ в контейнер
+                },
+                error: function() {
+                    alert('Ошибка загрузки формы. Пожалуйста, попробуйте позже.');
+                }
+            });
+        });
+    });
+</script>
 </body>
 </html>

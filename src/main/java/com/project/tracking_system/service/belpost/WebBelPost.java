@@ -7,6 +7,7 @@ import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.stereotype.Service;
@@ -21,7 +22,13 @@ public class WebBelPost {
         WebDriver driver = null;
         TrackInfoListDTO trackInfoListDTO = new TrackInfoListDTO();
         try {
-            driver = new ChromeDriver();
+            ChromeOptions options = new ChromeOptions();
+            options.addArguments("--headless"); // Включаем headless режим
+            options.addArguments("--disable-gpu"); // Отключаем использование GPU
+            options.addArguments("--window-size=1920,1080"); // Настраиваем размер окна (опционально)
+            options.addArguments("--ignore-certificate-errors"); // Игнорируем ошибки сертификата (опционально)
+
+            driver = new ChromeDriver(options);
             driver.get("https://belpost.by/Otsleditotpravleniye");
 
 
@@ -29,35 +36,36 @@ public class WebBelPost {
             WebElement inputField = wait.until(ExpectedConditions.visibilityOfElementLocated(By.name("number")));
             inputField.sendKeys(number);
 
-            // Find the button
+            // Находим кнопку
             WebElement button = driver.findElement(By.xpath("//button[@type='submit']"));
             button.click();
 
-            // Wait for the response
+            // Ждем ответа
             WebDriverWait wait2 = new WebDriverWait(driver, Duration.ofSeconds(10));
             wait2.until(ExpectedConditions.titleContains("Отследить отправление"));
 
-            // Find the track item element
+            // Находим элемент трека
             WebElement trackItem = wait2.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("article.track-item")));
 
-            // Click the chevron-down icon to expand the track item
+            // Щелкните значок шеврона вниз, чтобы развернуть элемент отслеживания
             WebElement trackItemHeader = driver.findElement(By.cssSelector("app-track-item header"));
 
-            // Check if the element is not expanded
+            // Проверяем, не расширен ли элемент
             if (!trackItemHeader.getAttribute("aria-expanded").equals("true")) {
-
                 JavascriptExecutor js = (JavascriptExecutor) driver;
-                js.executeScript("arguments[0].scrollIntoView(true);", trackItemHeader);
+                js.executeScript("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", trackItemHeader);
 
-                // Click the element to expand it
-                trackItemHeader.click();
+                // Явное ожидание видимости и кликабельности элемента.
+                wait2.until(ExpectedConditions.elementToBeClickable(trackItemHeader));
 
-                // Wait for the element to be expanded
+                // Клик через JavaScript.
+                js.executeScript("arguments[0].click();", trackItemHeader);
+
                 WebDriverWait wait3 = new WebDriverWait(driver, Duration.ofSeconds(10));
                 wait3.until(ExpectedConditions.attributeToBe(trackItemHeader, "aria-expanded", "true"));
             }
 
-            // Extract the track details
+            // Извлекаем детали трека
             WebElement trackDetails = trackItem.findElement(By.cssSelector("dl.track-item__details"));
             List<WebElement> trackItems = trackDetails.findElements(By.cssSelector("div.track-details__item"));
 
@@ -65,7 +73,7 @@ public class WebBelPost {
                 String title = trackItemElement.findElement(By.cssSelector("dt")).getText();
                 WebElement contentElement = trackItemElement.findElement(By.cssSelector("dd"));
 
-                // Looking for the <li> element with class "text-secondary"
+                // Ищем элемент <li> с классом "text-secondary"
                 WebElement dateElement = contentElement.findElement(By.cssSelector("li.text-secondary"));
                 String dateContent = dateElement.getText();
                 TrackInfoDTO trackInfoDTO = new TrackInfoDTO(dateContent, title);
