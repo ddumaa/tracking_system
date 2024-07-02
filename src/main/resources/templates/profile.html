@@ -7,32 +7,33 @@
           rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
           crossorigin="anonymous">
     <title>Title</title>
-        <style>
-            html, body {
-                height: 100%;
-            }
+<!--        <style>-->
+<!--            html, body {-->
+<!--                height: 100%;-->
+<!--            }-->
 
-            .form-signin {
-                max-width: 330px;
-                padding: 1rem;
-            }
+<!--            .form-signin {-->
+<!--                max-width: 600px;-->
+<!--                width: 100%;-->
+<!--                padding: 1rem;-->
+<!--            }-->
 
-            .form-signin .form-floating:focus-within {
-                z-index: 2;
-            }
+<!--            .form-signin .form-floating:focus-within {-->
+<!--                z-index: 2;-->
+<!--            }-->
 
-            .form-signin input[type="text"] {
-                margin-bottom: -1px;
-                border-bottom-right-radius: 0;
-                border-bottom-left-radius: 0;
-            }
+<!--            .form-signin input[type="text"] {-->
+<!--                margin-bottom: -1px;-->
+<!--                border-bottom-right-radius: 0;-->
+<!--                border-bottom-left-radius: 0;-->
+<!--            }-->
 
-            .form-signin input[type="password"] {
-                margin-bottom: 10px;
-                border-top-left-radius: 0;
-                border-top-right-radius: 0;
-            }
-        </style>
+<!--            .form-signin input[type="password"] {-->
+<!--                margin-bottom: 10px;-->
+<!--                border-top-left-radius: 0;-->
+<!--                border-top-right-radius: 0;-->
+<!--            }-->
+<!--        </style>-->
 </head>
 <body>
 <div class="container">
@@ -69,9 +70,13 @@
 <div class="container">
 <div class="row justify-content-md-center">
     <div class="col-3 d-flex flex-column align-items-center">
-        <button id="settings-link">Настройки</button>
+        <div class="list-group list-group-flush">
+            <button type="button" class="list-group-item list-group-item-action h4">Об аккаунте</button>
+            <button id="settings-link" type="button" class="list-group-item list-group-item-action h4">Изменить пароль</button>
+            <button type="button" class="list-group-item list-group-item-action h4">Удалить аккаунт</button>
+        </div>
     </div>
-    <div class="col-3 d-flex flex-column align-items-center" id="dynamic-content">
+    <div class="col-6 d-flex flex-column align-items-center" id="dynamic-content">
         <!-- Контент будет вставлен сюда -->
     </div>
 </div>
@@ -91,12 +96,32 @@
                 method: 'GET',
                 success: function(response) {
                     $("#dynamic-content").html(response); // Вставить ответ в контейнер
+                    attachFormSubmitHandler(); // Привязываем обработчик отправки формы
                 },
                 error: function() {
                     alert('Ошибка загрузки формы. Пожалуйста, попробуйте позже.');
                 }
             });
         });
+
+        function attachFormSubmitHandler() {
+            $("#settings-form").on("submit", function(event) {
+                event.preventDefault(); // Предотвращаем стандартное поведение формы
+
+                $.ajax({
+                    url: $(this).attr("action"),
+                    method: $(this).attr("method"),
+                    data: $(this).serialize(),
+                    success: function(response) {
+                        $("#dynamic-content").html(response); // Обновить содержимое контейнера
+                        attachFormSubmitHandler(); // Привязываем обработчик снова, так как содержимое заменено
+                    },
+                    error: function() {
+                        alert('Ошибка при изменении пароля. Пожалуйста, попробуйте позже.');
+                    }
+                });
+            });
+        }
     });
 </script>
 </body>

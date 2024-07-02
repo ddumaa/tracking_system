@@ -34,35 +34,35 @@ public class ProfileController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = authentication.getName();
         Optional<User> user = userService.findByUser(username);
-        user.ifPresent(user1 -> model.addAttribute("username", user1.getEmail()));
+        user.ifPresent(u -> model.addAttribute("username", u.getEmail()));
         return "profile";
     }
 
     @GetMapping("/settings")
     public String settings(Model model) {
         model.addAttribute("userSettingsDTO", new UserSettingsDTO());
-        return "settings";
+        return "settings :: form";
     }
 
     @PostMapping("/settings")
     public String settings(Model model, @Valid @ModelAttribute("userSettingsDTO") UserSettingsDTO userSettingsDTO, BindingResult result) {
         if (result.hasErrors()) {
-            return "settings";
+            return "settings :: form";
         }
         if (!userSettingsDTO.getNewPassword().equals(userSettingsDTO.getConfirmPassword())) {
             result.rejectValue("confirmPassword", "password.mismatch", "Пароли не совпадают");
-            return "settings";
+            return "settings :: form";
         }
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
         try {
             userService.changePassword(email, userSettingsDTO);
             model.addAttribute("notification", "Пароль успешно изменен");
-            return "settings";
+            return "settings :: form";
         } catch (IllegalArgumentException e) {
             result.rejectValue("currentPassword", "password.incorrect", e.getMessage());
         }
-        return "settings";
+        return "settings :: form";
     }
 
 }

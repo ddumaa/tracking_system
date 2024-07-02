@@ -8,37 +8,38 @@
           rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
           crossorigin="anonymous">
     <title>Settings</title>
-    <style>
-        html, body {
-            height: 100%;
-        }
+<!--    <style>-->
+<!--        html, body {-->
+<!--            height: 100%;-->
+<!--        }-->
 
-        .form-signin {
-            max-width: 330px;
-            padding: 1rem;
-        }
+<!--        .form-signin {-->
+<!--            max-width: 600px;-->
+<!--            width: 100%;-->
+<!--            padding: 1rem;-->
+<!--        }-->
 
-        .form-signin .form-floating:focus-within {
-            z-index: 2;
-        }
+<!--        .form-signin .form-floating:focus-within {-->
+<!--            z-index: 2;-->
+<!--        }-->
 
-        .form-signin input[type="text"] {
-            margin-bottom: -1px;
-            border-bottom-right-radius: 0;
-            border-bottom-left-radius: 0;
-        }
+<!--        .form-signin input[type="text"] {-->
+<!--            margin-bottom: -1px;-->
+<!--            border-bottom-right-radius: 0;-->
+<!--            border-bottom-left-radius: 0;-->
+<!--        }-->
 
-        .form-signin input[type="password"] {
-            margin-bottom: 10px;
-            border-top-left-radius: 0;
-            border-top-right-radius: 0;
-        }
-    </style>
+<!--        .form-signin input[type="password"] {-->
+<!--            margin-bottom: 10px;-->
+<!--            border-top-left-radius: 0;-->
+<!--            border-top-right-radius: 0;-->
+<!--        }-->
+<!--    </style>-->
 </head>
 <body>
 <div th:fragment="form">
     <main class="form-signin w-100 m-auto">
-        <form th:action="@{/profile/settings}" th:object="${userSettingsDTO}" method="post">
+        <form id="settings-form" th:action="@{/profile/settings}" th:object="${userSettingsDTO}" method="post">
             <h1 class="h3 mb-3 fw-normal text-center">Смена пароля</h1>
             <div class="form-floating mb-3">
                 <input type="password" class="form-control" id="currentPassword" name="currentPassword" th:field="*{currentPassword}" placeholder="Текущий пароль">
@@ -63,7 +64,7 @@
             <div th:if="${notification != null}" class="mb-3">
                 <p th:text="${notification}" class="text-success"></p>
             </div>
-            <button class="btn btn-primary w-100 py-2" type="submit">Сменить пароль</button>
+            <button class="btn btn-primary w-100 py-2" type="submit">Изменить пароль</button>
         </form>
     </main>
 </div>
