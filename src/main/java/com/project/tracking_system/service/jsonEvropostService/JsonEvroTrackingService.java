@@ -34,7 +34,8 @@ public class JsonEvroTrackingService {
         JsonNode tableNode = jsonNode.path("Table");
         try {
             ObjectMapper mapper = new ObjectMapper();
-            List<JsonEvroTracking> table = mapper.convertValue(tableNode, new TypeReference<List<JsonEvroTracking>>() {});
+            List<JsonEvroTracking> table = mapper.convertValue(tableNode,
+                    new TypeReference<List<JsonEvroTracking>>() {});
             response.setTable(table);
             return response;
         } catch (JsonbException e) {

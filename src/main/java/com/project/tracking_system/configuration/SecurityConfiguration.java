@@ -43,7 +43,6 @@ public class SecurityConfiguration {
                         .passwordParameter("password")
                         .defaultSuccessUrl("/")
                         .failureUrl("/login?error=true")
-
                 )
                 .rememberMe(rememberMe -> rememberMe.key("remember-me"))
                 .logout(logout -> logout
@@ -60,7 +59,6 @@ public class SecurityConfiguration {
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .ignoringRequestMatchers("/registration", "/login", "/logout")
                 )
-
                 .userDetailsService(userDetailsService);
 
         return http.build();
