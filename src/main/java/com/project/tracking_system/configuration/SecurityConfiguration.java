@@ -1,5 +1,6 @@
 package com.project.tracking_system.configuration;
 
+import com.project.tracking_system.service.LoginAttemptService;
 import com.project.tracking_system.service.UserDetailsServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -18,10 +19,12 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 public class SecurityConfiguration {
 
     private final UserDetailsServiceImpl userDetailsService;
+    private final LoginAttemptService loginAttemptService;
 
     @Autowired
-    public SecurityConfiguration(UserDetailsServiceImpl userDetailsService) {
+    public SecurityConfiguration(UserDetailsServiceImpl userDetailsService, LoginAttemptService loginAttemptService) {
         this.userDetailsService = userDetailsService;
+        this.loginAttemptService = loginAttemptService;
     }
 
     @Bean
@@ -41,8 +44,21 @@ public class SecurityConfiguration {
                         .loginPage("/login")
                         .usernameParameter("email")
                         .passwordParameter("password")
-                        .defaultSuccessUrl("/")
-                        .failureUrl("/login?error=true")
+                        .successHandler((request, response, authentication) -> {
+                            String email = request.getParameter("email");
+                            loginAttemptService.loginSucceeded(email);
+                            response.sendRedirect("/");
+                        })
+                        .failureHandler((request, response, exception) -> {
+                            String email = request.getParameter("email");
+                            request.getSession().setAttribute("email", email); // Store email in session
+                            if (loginAttemptService.isBlocked(email)) {
+                                response.sendRedirect("/login?blocked=true");
+                            } else {
+                                loginAttemptService.loginFailed(email);
+                                response.sendRedirect("/login?error=true");
+                            }
+                        })
                 )
                 .rememberMe(rememberMe -> rememberMe.key("remember-me"))
                 .logout(logout -> logout
@@ -58,10 +74,8 @@ public class SecurityConfiguration {
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .ignoringRequestMatchers("/registration", "/login", "/logout")
-                )
-                .userDetailsService(userDetailsService);
+                );
 
         return http.build();
     }
-
 }

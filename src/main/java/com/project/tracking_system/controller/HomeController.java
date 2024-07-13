@@ -3,6 +3,7 @@ package com.project.tracking_system.controller;
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
+import com.project.tracking_system.service.LoginAttemptService;
 import com.project.tracking_system.service.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.TrackParcelService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,7 +18,12 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.security.Principal;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 @Controller
 @RequestMapping("/")
@@ -26,14 +32,15 @@ public class HomeController {
     private final UserService userService;
     private final TrackParcelService trackParcelService;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
+    private final LoginAttemptService loginAttemptService;
 
     @Autowired
     public HomeController(UserService userService, TrackParcelService trackParcelService,
-                          TypeDefinitionTrackPostService typeDefinitionTrackPostService) {
+                          TypeDefinitionTrackPostService typeDefinitionTrackPostService, LoginAttemptService loginAttemptService) {
         this.userService = userService;
         this.trackParcelService = trackParcelService;
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
-
+        this.loginAttemptService = loginAttemptService;
     }
 
     @GetMapping
@@ -98,7 +105,21 @@ public class HomeController {
     }
 
     @GetMapping("/login")
-    public String login(){
+    public String loginPage(@RequestParam(value = "error", required = false) String error,
+                            @RequestParam(value = "blocked", required = false) String blocked,
+                            HttpSession session, Model model, Principal principal) {
+        if (principal != null) {
+            return "redirect:/";
+        }
+        String email = (String) session.getAttribute("email");
+        if (blocked != null && email != null) {
+            LocalDateTime unlockTime = loginAttemptService.getUnlockTime(email);
+            model.addAttribute("blockedMessage", "Ваш аккаунт заблокирован из-за превышения количества попыток входа. Попробуйте снова после: " + unlockTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        }
+        if (error != null && email != null) {
+            int remainingAttempts = loginAttemptService.getRemainingAttempts(email);
+            model.addAttribute("remainingAttempts", remainingAttempts);
+        }
         return "login";
     }
 
