@@ -12,7 +12,7 @@ import java.util.Optional;
 
 @Service
 public class LoginAttemptService {
-    private static final int MAX_ATTEMPTS = 3;
+    private static final int MAX_ATTEMPTS = 4;
     private static final long LOCK_TIME_DURATION = 1;
 
     private final UserRepository userRepository;

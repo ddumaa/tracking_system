@@ -83,24 +83,54 @@ public class HomeController {
 
     @PostMapping("/registration")
     public String registration(@Valid @ModelAttribute("userDTO") UserRegistrationDTO userDTO, BindingResult result, Model model) {
-        if (result.hasErrors()) {
-            return "registration";
-        }
-        if (!userDTO.getPassword().equals(userDTO.getConfirmPassword())) {
-            result.rejectValue("confirmPassword", "password.mismatch", "Пароли не совпадают");
-            return "registration";
-        }
-        try {
-            userService.save(userDTO);
-            return "redirect:/login";
-        }
-        catch (UserAlreadyExistsException e) {
-            model.addAttribute("errorMessage", "Данная почта уже используется, авторизуйтесь или используйте другую почту");
-            return "registration";
-        }
-        catch (Exception e) {
-            model.addAttribute("errorMessage", "Ошибка регистрации пользователя: " + e.getMessage());
-            return "registration";
+        // Проверка, на каком этапе находится процесс регистрации
+        boolean isInitialRegistration = userDTO.getConfirmCodRegistration() == null || userDTO.getConfirmCodRegistration().isEmpty();
+
+        // Первый этап регистрации: проверка email и паролей
+        if (isInitialRegistration) {
+            if (result.hasFieldErrors("email") || result.hasFieldErrors("password") || result.hasFieldErrors("confirmPassword")) {
+                return "registration";
+            }
+
+            if (!userDTO.getPassword().equals(userDTO.getConfirmPassword())) {
+                result.rejectValue("confirmPassword", "password.mismatch", "Пароли не совпадают");
+                return "registration";
+            }
+
+            try {
+                // Отправка кода подтверждения и отображение поля для его ввода
+                userService.sendConfirmationCode(userDTO);
+                model.addAttribute("confirmCodRegistration", true);
+                model.addAttribute("message", "Код подтверждения отправлен на вашу почту.");
+                return "registration";
+            } catch (UserAlreadyExistsException e) {
+                model.addAttribute("errorMessage", "Данная почта уже используется, авторизуйтесь или используйте другую почту");
+                return "registration";
+            } catch (Exception e) {
+                model.addAttribute("errorMessage", "Ошибка регистрации пользователя: " + e.getMessage());
+                return "registration";
+            }
+        } else {
+            // Проверка кода подтверждения
+            if (result.hasFieldErrors("confirmCodRegistration")) {
+                model.addAttribute("confirmCodRegistration", true);
+                return "registration";
+            }
+
+            try {
+                userService.confirmRegistration(userDTO);
+                return "redirect:/login";
+            } catch (IllegalArgumentException e) {
+                model.addAttribute("confirmCodRegistration", true);
+                model.addAttribute("errorMessage", e.getMessage());
+                return "registration";
+            } catch (UserAlreadyExistsException e) {
+                model.addAttribute("errorMessage", "Данная почта уже используется, авторизуйтесь или используйте другую почту");
+                return "registration";
+            } catch (Exception e) {
+                model.addAttribute("errorMessage", "Ошибка регистрации пользователя: " + e.getMessage());
+                return "registration";
+            }
         }
     }
 

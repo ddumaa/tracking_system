@@ -26,4 +26,6 @@ public class UserRegistrationDTO {
     @NotEmpty(message = "Заполните поле - 'Подтверждение пароля' ")
     private String confirmPassword;
 
+    private String confirmCodRegistration;
+
 }

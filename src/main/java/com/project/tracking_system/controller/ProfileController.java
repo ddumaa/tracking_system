@@ -3,10 +3,13 @@ package com.project.tracking_system.controller;
 import com.project.tracking_system.dto.UserSettingsDTO;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -63,6 +66,16 @@ public class ProfileController {
             result.rejectValue("currentPassword", "password.incorrect", e.getMessage());
         }
         return "settings :: form";
+    }
+
+    @PostMapping("/settings/delete")
+    public String delete(HttpServletRequest request, HttpServletResponse response) {
+        userService.deleteUser();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null) {
+            new SecurityContextLogoutHandler().logout(request, response, authentication);
+        }
+        return "redirect:/";
     }
 
 }

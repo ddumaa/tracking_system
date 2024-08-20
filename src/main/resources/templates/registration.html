@@ -37,31 +37,51 @@
 <body class="d-flex align-items-center py-4 bg-body-tertiary">
 <main class="form-signin w-100 m-auto">
     <form th:action="@{/registration}" th:object="${userDTO}" method="post">
+
         <h1 class="h3 mb-3 fw-normal text-center">Регистрация</h1>
+
+        <div th:unless="${confirmCodRegistration}">
         <div class="form-floating mb-3">
-            <input type="email" class="form-control" id="email" name="email" th:field="*{email}" placeholder="Email">
-            <label for="email">Email</label>
+            <input type="email" class="form-control" id="email" th:field="*{email}" placeholder="Адрес электронной почты">
+            <label for="email">Электронная почта</label>
             <div th:if="${#fields.hasErrors('email')}" th:errors="*{email}" class="text-danger"></div>
         </div>
+
         <div class="form-floating mb-3">
-            <label for="password"></label>
-            <input type="password" class="form-control" id="password" name="password" th:field="*{password}" placeholder="пароль">
+            <input type="password" class="form-control" id="password" th:field="*{password}" placeholder="Пароль" >
             <label for="password">Пароль</label>
             <div th:if="${#fields.hasErrors('password')}" th:errors="*{password}" class="text-danger"></div>
         </div>
+
         <div class="form-floating mb-3">
-            <label for="confirmPassword"></label>
-            <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" th:field="*{confirmPassword}" placeholder="повторите пароль">
-            <label for="confirmPassword">Повторите пароль</label>
+            <input type="password" class="form-control" id="confirmPassword" th:field="*{confirmPassword}" placeholder="Подтверждение пароля" >
+            <label for="confirmPassword">Подтверждение пароля</label>
             <div th:if="${#fields.hasErrors('confirmPassword')}" th:errors="*{confirmPassword}" class="text-danger"></div>
         </div>
+        </div>
+
+        <div th:if="${confirmCodRegistration}" class="form-floating mb-3">
+            <input type="hidden" th:field="*{email}">
+            <input type="hidden" th:field="*{password}">
+            <input type="hidden" th:field="*{confirmPassword}">
+            <input type="text" class="form-control" id="confirmCod" th:field="*{confirmCodRegistration}" placeholder="Код подтверждения">
+            <label for="confirmCod">Код подтверждения</label>
+            <div th:if="${#fields.hasErrors('confirmCodRegistration')}" th:errors="*{confirmCodRegistration}" class="text-danger"></div>
+        </div>
+
+        <div th:if="${message != null}" class="mb-3">
+            <p th:text="${message}" class="text-success"></p>
+        </div>
+
         <div th:if="${errorMessage != null}" class="mb-3">
             <p th:text="${errorMessage}" class="text-danger"></p>
         </div>
-        <button class="btn btn-primary w-100 py-2" type="submit">Зарегистрироваться</button>
+
+        <button class="btn btn-primary w-100 py-2" th:if="${confirmCodRegistration}" th:text="'Подтвердить'" type="submit"></button>
+        <button class="btn btn-primary w-100 py-2" th:unless="${confirmCodRegistration}" th:text="'Зарегистрироваться'" type="submit"></button>
+
         <div class="text-center mt-3">
-            <a th:text="'Уже зарегистрированы?'" ></a>
-            <a href="/login">Войти</a>
+            <a href="/login">Уже зарегистрированы? Войти</a>
         </div>
     </form>
 </main>

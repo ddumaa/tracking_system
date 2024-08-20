@@ -1,7 +1,6 @@
 package com.project.tracking_system.configuration;
 
 import com.project.tracking_system.service.LoginAttemptService;
-import com.project.tracking_system.service.UserDetailsServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,12 +17,10 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 @EnableWebSecurity
 public class SecurityConfiguration {
 
-    private final UserDetailsServiceImpl userDetailsService;
     private final LoginAttemptService loginAttemptService;
 
     @Autowired
-    public SecurityConfiguration(UserDetailsServiceImpl userDetailsService, LoginAttemptService loginAttemptService) {
-        this.userDetailsService = userDetailsService;
+    public SecurityConfiguration(LoginAttemptService loginAttemptService) {
         this.loginAttemptService = loginAttemptService;
     }
 
@@ -73,7 +70,7 @@ public class SecurityConfiguration {
                 )
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .ignoringRequestMatchers("/registration", "/login", "/logout")
+                        .ignoringRequestMatchers("/login", "/logout")
                 );
 
         return http.build();
