@@ -1,4 +1,4 @@
-package com.project.tracking_system.service;
+package com.project.tracking_system.service.user;
 
 import org.springframework.stereotype.Service;
 

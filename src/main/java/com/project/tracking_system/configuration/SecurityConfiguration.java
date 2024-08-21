@@ -1,6 +1,6 @@
 package com.project.tracking_system.configuration;
 
-import com.project.tracking_system.service.LoginAttemptService;
+import com.project.tracking_system.service.user.LoginAttemptService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,7 +34,7 @@ public class SecurityConfiguration {
         http
                 .headers(h -> h.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests
-                        .requestMatchers("/", "/login", "/logout", "/registration", "/templates/css/**", "/templates/js/**").permitAll()
+                        .requestMatchers("/", "/login", "/logout", "/registration", "/forgot-password", "/reset-password", "/templates/css/**", "/templates/js/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .formLogin(formLogin -> formLogin

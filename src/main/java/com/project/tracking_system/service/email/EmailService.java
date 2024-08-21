@@ -17,7 +17,7 @@ public class EmailService {
         this.emailSender = emailSender;
     }
 
-    public void sendHtmlEmailConfirmEmail(String to, String subject, String content) throws MessagingException {
+    public void sendHtmlEmail(String to, String subject, String content) throws MessagingException {
         MimeMessage message = emailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 

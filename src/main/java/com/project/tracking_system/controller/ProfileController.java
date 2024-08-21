@@ -2,7 +2,7 @@ package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.UserSettingsDTO;
 import com.project.tracking_system.entity.User;
-import com.project.tracking_system.service.UserService;
+import com.project.tracking_system.service.user.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
