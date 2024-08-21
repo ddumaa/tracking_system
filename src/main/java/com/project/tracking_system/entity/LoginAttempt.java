@@ -19,6 +19,7 @@ public class LoginAttempt {
 
     private int attempts;
 
+    @Column(nullable = false)
     private LocalDateTime lastModified;
 
     @OneToOne

@@ -8,11 +8,11 @@ import lombok.NoArgsConstructor;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 
-@Data
 @Entity
+@Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class ConfirmationToken {
+public class PasswordResetToken {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -21,15 +21,17 @@ public class ConfirmationToken {
     @Column(nullable = false, unique = true)
     private String email;
 
-    private String confirmationCode;
+    @Column(nullable = false, unique = true)
+    private String token;
 
     @Column(nullable = false)
-    private ZonedDateTime createdAt;
+    private ZonedDateTime expirationDate;
 
-    public ConfirmationToken(String email, String confirmationCode) {
+
+    public PasswordResetToken(String email, String token) {
         this.email = email;
-        this.confirmationCode = confirmationCode;
-        this.createdAt = ZonedDateTime.now(ZoneOffset.UTC);
+        this.token = token;
+        this.expirationDate = ZonedDateTime.now(ZoneOffset.UTC).plusHours(1);
     }
 
 }
