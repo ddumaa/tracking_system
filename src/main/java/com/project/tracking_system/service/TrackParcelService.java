@@ -20,13 +20,16 @@ public class TrackParcelService {
     private final TrackParcelRepository trackParcelRepository;
     private final UserService userService;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
+    private final StatusTrackService statusTrackService;
 
     @Autowired
     public TrackParcelService(TrackParcelRepository trackParcelRepository, UserService userService,
-                              TypeDefinitionTrackPostService typeDefinitionTrackPostService) {
+                              TypeDefinitionTrackPostService typeDefinitionTrackPostService,
+                              StatusTrackService statusTrackService) {
         this.trackParcelRepository = trackParcelRepository;
         this.userService = userService;
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
+        this.statusTrackService = statusTrackService;
     }
 
     public void save(String number, TrackInfoListDTO trackInfoListDTO, String username) {
@@ -40,7 +43,7 @@ public class TrackParcelService {
             TrackParcel trackParcel = new TrackParcel();
             trackParcel.setNumber(number);
             trackParcel.setUser(user.get());
-            trackParcel.setStatus(trackInfoDTOList.get(0).getInfoTrack());
+            trackParcel.setStatus(statusTrackService.setStatus(trackInfoDTOList.get(0).getInfoTrack()));
             trackParcel.setData(trackInfoDTOList.get(0).getTimex());
             trackParcelRepository.save(trackParcel);
         }
@@ -64,9 +67,8 @@ public class TrackParcelService {
         List<TrackParcelDTO> byUserTrack = findByUserTracks(name);
         TrackInfoListDTO trackInfoListDTO;
         for (TrackParcelDTO trackParcelDTO : byUserTrack) {
-            if(trackParcelDTO.getStatus().startsWith("Вручено") ||
-                    trackParcelDTO.getStatus().startsWith("Почтовое отправление выдано.") ||
-                    trackParcelDTO.getStatus().startsWith("Почтовое отправление возвращено отправителю") ){
+            if(trackParcelDTO.getStatus().startsWith("Вручена") ||
+                    trackParcelDTO.getStatus().startsWith("Возврат забран") ){
                 continue;
             } else {
                 trackInfoListDTO = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(trackParcelDTO.getNumber());
@@ -75,7 +77,7 @@ public class TrackParcelService {
             Optional<User> user = userService.findByUser(name);
             Long userId = user.get().getId();
             TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(trackParcelDTO.getNumber(), userId);
-            trackParcel.setStatus(list.get(0).getInfoTrack());
+            trackParcel.setStatus(statusTrackService.setStatus(list.get(0).getInfoTrack()));
             trackParcel.setData(list.get(0).getTimex());
             trackParcelRepository.save(trackParcel);
         }

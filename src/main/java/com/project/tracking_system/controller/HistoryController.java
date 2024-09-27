@@ -2,7 +2,7 @@ package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackParcelDTO;
-import com.project.tracking_system.service.StatusIconService;
+import com.project.tracking_system.service.StatusTrackService;
 import com.project.tracking_system.service.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.TrackParcelService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,15 +22,15 @@ import java.util.List;
 public class HistoryController {
 
     private final TrackParcelService trackParcelService;
-    private final StatusIconService statusIconService;
+    private final StatusTrackService statusTrackService;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
 
     @Autowired
-    public HistoryController(TrackParcelService trackParcelService, StatusIconService statusIconService,
+    public HistoryController(TrackParcelService trackParcelService, StatusTrackService statusTrackService,
                              TypeDefinitionTrackPostService typeDefinitionTrackPostService) {
         this.trackParcelService = trackParcelService;
-        this.statusIconService = statusIconService;
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
+        this.statusTrackService = statusTrackService;
     }
 
     @GetMapping()
@@ -42,7 +42,7 @@ public class HistoryController {
             model.addAttribute("trackParcelNotification", "Отслеживаемых посылок нет");
         } else {
             model.addAttribute("trackParcelDTO", byUserTrack);
-            model.addAttribute("statusIconService", statusIconService);
+            model.addAttribute("statusTrackService", statusTrackService);
         }
         return "history";
     }
