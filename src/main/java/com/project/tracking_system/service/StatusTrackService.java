@@ -24,7 +24,7 @@ public class StatusTrackService {
                 statusTrack.startsWith("Отправлено") ||
                 statusTrack.startsWith("Принято от отправителя") ||
                 statusTrack.startsWith("Поступило в обработку")) {
-            return "Впути к клиенту";
+            return "В пути к клиенту";
 
         } else if (statusTrack.equals("Заявка на почтовое отправление зарегистрирована")) {
             return statusTrack;
@@ -36,7 +36,7 @@ public class StatusTrackService {
 
         } else if (statusTrack.equals("Почтовое отправление готово к возврату") ||
                 statusTrack.equals("Почтовое отправление подготовлено в ОПС к доставке на сортировочный пункт")){
-            return "Возврат впути";
+            return "Возврат в пути";
 
         } else if (statusTrack.matches("Почтовое отправление прибыло на Отделение №([0-9]+)*")) {
             return statusTrack;
@@ -52,25 +52,25 @@ public class StatusTrackService {
         if (status.equals("Вручена")) {
             return "<i class=\"bi bi-check2-circle\"  style=\"font-size: 2rem; color: #008000\"></i>";
 
-        } else if (status.equals("Почтовое отправление прибыло на ОПС выдачи")) {
+        } else if (status.equals("Ожидает клиента")) {
             return "<i class=\"bi bi-clock-history\"  style=\"font-size: 2rem; color: #fff200\"></i>";
 
-        } else if (status.equals("Почтовое отправление принято на ОПС")) {
+        } else if (status.equals("В пути к клиенту")) {
             return "<i class=\"bi bi-truck\"  style=\"font-size: 2rem; color: #0000FF\"></i>";
 
         } else if (status.equals("Заявка на почтовое отправление зарегистрирована")) {
             return "<i class=\"bi bi-pass\"  style=\"font-size: 2rem; color: #000080\"></i>";
 
-        } else if (status.matches("Добрый день. Отправление ([A-Z0-9]+) не востребовано получателем.*")) {
+        } else if (status.equals("Клиент не забирает посылку")) {
             return "<i class=\"bi bi-clock-history\"  style=\"font-size: 2rem; color: #ff7300\"></i>";
 
-        } else if (status.equals("Почтовое отправление готово к возврату")){
+        } else if (status.equals("Возврат в пути")){
             return "<i class=\"bi bi-truck\"  style=\"font-size: 2rem; color: #FF0000; transform: scaleX(-1)\"></i>";
 
         } else if (status.matches("Почтовое отправление прибыло на Отделение №([0-9]+)*")) {
             return "<i class=\"bi bi-clock-history\"  style=\"font-size: 2rem\"></i>";
 
-        } else if (status.equals("Почтовое отправление возвращено отправителю")) {
+        } else if (status.equals("Возврат забран")) {
             return "<i class=\"bi bi-check2-circle\"  style=\"font-size: 2rem; color: #FF0000\"></i>";
         }
         return "<i class=\"bi bi-tencent-qq\"  style=\"font-size: 2rem\"></i>";
