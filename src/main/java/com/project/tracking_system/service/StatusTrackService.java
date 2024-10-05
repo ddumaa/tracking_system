@@ -1,79 +1,51 @@
 package com.project.tracking_system.service;
 
+import com.project.tracking_system.model.GlobalStatus;
 import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.regex.Pattern;
 
 @Service
 public class StatusTrackService {
 
+    private static final Map<Pattern, GlobalStatus> statusPatterns = new HashMap<>();
+
+    static {
+        statusPatterns.put(Pattern.compile("^Почтовое отправление выдано.|^Вручено"), GlobalStatus.DELIVERED);
+        statusPatterns.put(Pattern.compile("^Почтовое отправление прибыло на ОПС выдачи|^Добрый день\\. Срок бесплатного хранения|" +
+                "^Поступило в учреждение доставки"), GlobalStatus.WAITING_FOR_CUSTOMER);
+        statusPatterns.put(Pattern.compile("^Почтовое отправление принято на ОПС|" +
+                "^Оплачено на ОПС|^Почтовое отправление подготовлено в ОПС к доставке|^Почтовое отправление прибыло на сортировочный пункт|" +
+                "^Почтовое отправление подготовлено в сортировочном пункте к доставке на ОПС назначения|^Отправлено|^Принято от отправителя|" +
+                "^Поступило в обработку"), GlobalStatus.IN_TRANSIT);
+        statusPatterns.put(Pattern.compile("^Заявка на почтовое отправление зарегистрирована$"), null);  // Возврат оригинального статуса
+        statusPatterns.put(Pattern.compile("^Добрый день\\. Отправление [A-Z0-9]+ не востребовано получателем.*|" +
+                "^Отправление с [0-9]{2}\\.[0-9]{2}\\.[0-9]{4} ожидает вручения в Отделение.*|" +
+                "^Добрый день\\. Ваше почтовое отправление [A-Z0-9]+ будет возвращено отправителю через 10 дней\\."), GlobalStatus.CUSTOMER_NOT_PICKING_UP);
+        statusPatterns.put(Pattern.compile("^Почтовое отправление готово к возврату|" +
+                "^Почтовое отправление подготовлено в ОПС к доставке на сортировочный пункт"), GlobalStatus.RETURN_IN_PROGRESS);
+        statusPatterns.put(Pattern.compile("^Почтовое отправление возвращено отправителю$"), GlobalStatus.RETURNED_TO_SENDER);
+    }
+
     public String setStatus(String statusTrack) {
-
-        if (statusTrack.startsWith("Почтовое отправление выдано.") ||
-                statusTrack.startsWith("Вручено")) {
-            return "Вручена";
-
-        } else if (statusTrack.startsWith("Почтовое отправление прибыло на ОПС выдачи") ||
-                statusTrack.startsWith("Добрый день. Срок бесплатного хранения почтового отправления ") ||
-                statusTrack.startsWith("Поступило в учреждение доставки")) {
-            return "Ожидает клиента";
-
-        } else if (statusTrack.equals("Почтовое отправление принято на ОПС") ||
-                statusTrack.equals("Оплачено на ОПС") ||
-                statusTrack.equals("Почтовое отправление подготовлено в ОПС к доставке") ||
-                statusTrack.equals("Почтовое отправление прибыло на сортировочный пункт") ||
-                statusTrack.equals("Почтовое отправление подготовлено в сортировочном пункте к доставке на ОПС назначения") ||
-                statusTrack.startsWith("Отправлено") ||
-                statusTrack.startsWith("Принято от отправителя") ||
-                statusTrack.startsWith("Поступило в обработку")) {
-            return "В пути к клиенту";
-
-        } else if (statusTrack.equals("Заявка на почтовое отправление зарегистрирована")) {
-            return statusTrack;
-
-        } else if (statusTrack.matches("Добрый день. Отправление ([A-Z0-9]+) не востребовано получателем.*") ||
-                statusTrack.matches("Отправление с ([0-9]{2}\\.[0-9]{2}\\.[0-9]{4}) ожидает вручения в Отделение*") ||
-                statusTrack.matches("Добрый день. Ваше почтовое отправление ([A-Z0-9]+) будет возвращено отправителю через 10 дней.")) {
-            return "Клиент не забирает посылку";
-
-        } else if (statusTrack.equals("Почтовое отправление готово к возврату") ||
-                statusTrack.equals("Почтовое отправление подготовлено в ОПС к доставке на сортировочный пункт")){
-            return "Возврат в пути";
-
-        } else if (statusTrack.matches("Почтовое отправление прибыло на Отделение №([0-9]+)*")) {
-            return statusTrack;
-
-        } else if (statusTrack.equals("Почтовое отправление возвращено отправителю")) {
-            return "Возврат забран";
+        for (Map.Entry<Pattern, GlobalStatus> entry : statusPatterns.entrySet()) {
+            if (entry.getKey().matcher(statusTrack).find()) {
+                return entry.getValue() != null ? entry.getValue().getDescription() : statusTrack;
+            }
         }
         return statusTrack;
     }
 
     public String getIcon(String status) {
-
-        if (status.equals("Вручена")) {
-            return "<i class=\"bi bi-check2-circle\"  style=\"font-size: 2rem; color: #008000\"></i>";
-
-        } else if (status.equals("Ожидает клиента")) {
-            return "<i class=\"bi bi-clock-history\"  style=\"font-size: 2rem; color: #fff200\"></i>";
-
-        } else if (status.equals("В пути к клиенту")) {
-            return "<i class=\"bi bi-truck\"  style=\"font-size: 2rem; color: #0000FF\"></i>";
-
-        } else if (status.equals("Заявка на почтовое отправление зарегистрирована")) {
-            return "<i class=\"bi bi-pass\"  style=\"font-size: 2rem; color: #000080\"></i>";
-
-        } else if (status.equals("Клиент не забирает посылку")) {
-            return "<i class=\"bi bi-clock-history\"  style=\"font-size: 2rem; color: #ff7300\"></i>";
-
-        } else if (status.equals("Возврат в пути")){
-            return "<i class=\"bi bi-truck\"  style=\"font-size: 2rem; color: #FF0000; transform: scaleX(-1)\"></i>";
-
-        } else if (status.matches("Почтовое отправление прибыло на Отделение №([0-9]+)*")) {
-            return "<i class=\"bi bi-clock-history\"  style=\"font-size: 2rem\"></i>";
-
-        } else if (status.equals("Возврат забран")) {
-            return "<i class=\"bi bi-check2-circle\"  style=\"font-size: 2rem; color: #FF0000\"></i>";
+        for (GlobalStatus globalStatus : GlobalStatus.values()) {
+            if (globalStatus.getDescription().equals(status)) {
+                return globalStatus.getIconHtml();
+            }
         }
-        return "<i class=\"bi bi-tencent-qq\"  style=\"font-size: 2rem\"></i>";
+        // Статус не найден, возвращаем иконку по умолчанию (отладка новых статусов)
+        return "<i class=\"bi bi-tencent-qq\" style=\"font-size: 2rem\"></i>";
     }
 
 }

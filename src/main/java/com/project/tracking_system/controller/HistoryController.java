@@ -36,7 +36,7 @@ public class HistoryController {
     @GetMapping()
     public String history(Model model) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        trackParcelService.updateHistory(auth.getName());
+        //trackParcelService.updateHistory(auth.getName());
         List<TrackParcelDTO> byUserTrack = trackParcelService.findByUserTracks(auth.getName());
         if (byUserTrack.isEmpty()) {
             model.addAttribute("trackParcelNotification", "Отслеживаемых посылок нет");

@@ -5,6 +5,7 @@ import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.model.GlobalStatus;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.user.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,9 +68,9 @@ public class TrackParcelService {
         List<TrackParcelDTO> byUserTrack = findByUserTracks(name);
         TrackInfoListDTO trackInfoListDTO;
         for (TrackParcelDTO trackParcelDTO : byUserTrack) {
-            if(trackParcelDTO.getStatus().startsWith("Вручена") ||
-                    trackParcelDTO.getStatus().startsWith("Возврат забран") ){
-                continue;
+            if (trackParcelDTO.getStatus().equals(GlobalStatus.DELIVERED.getDescription()) ||
+                    trackParcelDTO.getStatus().equals(GlobalStatus.RETURNED_TO_SENDER.getDescription())) {
+                continue;  // Пропускаем, если статус "Вручена" или "Возврат забран"
             } else {
                 trackInfoListDTO = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(trackParcelDTO.getNumber());
             }
