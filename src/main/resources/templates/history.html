@@ -46,9 +46,6 @@
     <div class="row justify-content-md-center">
         <div class="col-3"></div>
         <div class="col-6 d-flex flex-column align-items-center">
-            <div th:if="${trackParcelDTO == null}">
-                <a th:text="${trackParcelNotification}"></a>
-            </div>
             <div th:if="${trackParcelDTO != null}" class="mt-5 w-100">
                 <h2 class="text-center">Информация о посылках
                     <div class="btn-group" style="display: inline-block;">
@@ -59,6 +56,29 @@
                         </form>
                     </div>
                 </h2>
+
+                <div th:if="${trackParcelNotification}" class="alert alert-warning" role="alert">
+                    <span th:text="${trackParcelNotification}"></span>
+                </div>
+
+                <form th:action="@{/history}" method="get" class="mb-4">
+                    <div class="form-group">
+                        <label for="status">Фильтровать по статусу:</label>
+                        <select id="status" name="status" class="form-select" aria-label="Выберите статус">
+                            <option value="" th:selected="${statusString == null}">Все статусы</option>
+                            <option value="DELIVERED" th:selected="${statusString == 'DELIVERED'}">Вручена</option>
+                            <option value="WAITING_FOR_CUSTOMER" th:selected="${statusString == 'WAITING_FOR_CUSTOMER'}">Ожидает клиента</option>
+                            <option value="IN_TRANSIT" th:selected="${statusString == 'IN_TRANSIT'}">В пути к клиенту</option>
+                            <option value="CUSTOMER_NOT_PICKING_UP" th:selected="${statusString == 'CUSTOMER_NOT_PICKING_UP'}">Клиент не забирает посылку</option>
+                            <option value="RETURN_IN_PROGRESS" th:selected="${statusString == 'RETURN_IN_PROGRESS'}">Возврат в пути</option>
+                            <option value="RETURNED_TO_SENDER" th:selected="${statusString == 'RETURNED_TO_SENDER'}">Возврат забран</option>
+                        </select>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-primary">Применить</button>
+                    </div>
+                </form>
+
                 <table class="table mt-3 table-striped">
                     <thead>
                     <tr>

@@ -2,6 +2,7 @@ package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackParcelDTO;
+import com.project.tracking_system.model.GlobalStatus;
 import com.project.tracking_system.service.StatusTrackService;
 import com.project.tracking_system.service.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.TrackParcelService;
@@ -10,10 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -34,14 +32,33 @@ public class HistoryController {
     }
 
     @GetMapping()
-    public String history(Model model) {
+    public String history(@RequestParam(value = "status", required = false) String statusString, Model model) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        //trackParcelService.updateHistory(auth.getName());
-        List<TrackParcelDTO> byUserTrack = trackParcelService.findByUserTracks(auth.getName());
+        List<TrackParcelDTO> byUserTrack;
+
+        GlobalStatus status = null;
+        if (statusString != null && !statusString.isEmpty()) {
+            try {
+                status = GlobalStatus.valueOf(statusString);
+            } catch (IllegalArgumentException e) {
+                model.addAttribute("trackParcelNotification", "Неверный статус посылки");
+                return "history";
+            }
+        }
+        // Если статус указан, фильтруем по нему
+        if (status != null) {
+            byUserTrack = trackParcelService.findByUserTracksAndStatus(auth.getName(), status);
+        } else {
+            // Если статус не указан, возвращаем все посылки
+            byUserTrack = trackParcelService.findByUserTracks(auth.getName());
+        }
+
+        model.addAttribute("trackParcelDTO", byUserTrack);
+        model.addAttribute("statusString", statusString);
+
         if (byUserTrack.isEmpty()) {
             model.addAttribute("trackParcelNotification", "Отслеживаемых посылок нет");
         } else {
-            model.addAttribute("trackParcelDTO", byUserTrack);
             model.addAttribute("statusTrackService", statusTrackService);
         }
         return "history";
