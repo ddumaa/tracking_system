@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 public class TrackParcelService {
@@ -64,23 +65,48 @@ public class TrackParcelService {
         return List.of();
     }
 
+    public List<TrackParcelDTO> findByUserTracksAndStatus(String username, GlobalStatus status) {
+        Optional<User> byUser = userService.findByUser(username);
+        if (byUser.isPresent()) {
+            Long id = byUser.get().getId();
+            // Получаем статус как строку
+            String statusString = status != null ? status.getDescription() : null;
+            List<TrackParcel> byUserIdAndStatus = trackParcelRepository.findByUserIdAndStatus(id, statusString);
+
+            List<TrackParcelDTO> trackParcelDTOList = new ArrayList<>();
+            for (TrackParcel trackParcel : byUserIdAndStatus) {
+                trackParcelDTOList.add(new TrackParcelDTO(trackParcel));
+            }
+            return trackParcelDTOList;
+        }
+        return List.of();
+    }
+
     public void updateHistory (String name){
         List<TrackParcelDTO> byUserTrack = findByUserTracks(name);
-        TrackInfoListDTO trackInfoListDTO;
+        List<CompletableFuture<Void>> futures = new ArrayList<>(); // Список для хранения асинхронных задач
+
         for (TrackParcelDTO trackParcelDTO : byUserTrack) {
             if (trackParcelDTO.getStatus().equals(GlobalStatus.DELIVERED.getDescription()) ||
                     trackParcelDTO.getStatus().equals(GlobalStatus.RETURNED_TO_SENDER.getDescription())) {
                 continue;  // Пропускаем, если статус "Вручена" или "Возврат забран"
             } else {
-                trackInfoListDTO = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(trackParcelDTO.getNumber());
+                // Вызываем асинхронный метод и добавляем CompletableFuture в список
+                CompletableFuture<Void> future = typeDefinitionTrackPostService
+                        .getTypeDefinitionTrackPostServiceAsync(trackParcelDTO.getNumber())
+                        .thenAccept(trackInfoListDTO -> {
+                            List<TrackInfoDTO> list = trackInfoListDTO.getList();
+                            Optional<User> user = userService.findByUser(name);
+                            Long userId = user.get().getId();
+                            TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(trackParcelDTO.getNumber(), userId);
+                            trackParcel.setStatus(statusTrackService.setStatus(list.get(0).getInfoTrack()));
+                            trackParcel.setData(list.get(0).getTimex());
+                            trackParcelRepository.save(trackParcel);
+                        });
+                futures.add(future); // Добавляем асинхронную задачу в список
             }
-            List<TrackInfoDTO> list = trackInfoListDTO.getList();
-            Optional<User> user = userService.findByUser(name);
-            Long userId = user.get().getId();
-            TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(trackParcelDTO.getNumber(), userId);
-            trackParcel.setStatus(statusTrackService.setStatus(list.get(0).getInfoTrack()));
-            trackParcel.setData(list.get(0).getTimex());
-            trackParcelRepository.save(trackParcel);
         }
+        // Ждём завершения всех асинхронных операций
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
     }
 }
