@@ -10,13 +10,21 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 public class WebBelPost {
+
+    @Async("Post")
+    public CompletableFuture<TrackInfoListDTO> webAutomationAsync(String number) {
+        TrackInfoListDTO trackInfoListDTO = webAutomation(number);
+        return CompletableFuture.completedFuture(trackInfoListDTO);
+    }
 
     public TrackInfoListDTO webAutomation(String number) {
         WebDriver driver = null;
