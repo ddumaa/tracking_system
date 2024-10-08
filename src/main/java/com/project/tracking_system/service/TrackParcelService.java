@@ -9,6 +9,9 @@ import com.project.tracking_system.model.GlobalStatus;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.user.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -51,24 +54,39 @@ public class TrackParcelService {
         }
     }
 
-    public List<TrackParcelDTO> findByUserTracks(String username){
+    public Page<TrackParcelDTO> findByUserTracks(String username, int page, int size){
         Optional<User> byUser = userService.findByUser(username);
         if (byUser.isPresent()) {
             Long id = byUser.get().getId();
-            List<TrackParcel> byUserId = trackParcelRepository.findByUserId(id);
-            return convertToDTO(byUserId);
+            Pageable pageable = PageRequest.of(page, size);
+            Page<TrackParcel> trackParcels = trackParcelRepository.findByUserId(id, pageable);
+            return trackParcels.map(TrackParcelDTO::new);
         }
-        return List.of();
+        return Page.empty();
     }
 
-    public List<TrackParcelDTO> findByUserTracksAndStatus(String username, GlobalStatus status) {
+    public Page<TrackParcelDTO> findByUserTracksAndStatus(String username, GlobalStatus status, int page, int size) {
         Optional<User> byUser = userService.findByUser(username);
         if (byUser.isPresent()) {
             Long id = byUser.get().getId();
             // Получаем статус как строку
             String statusString = status != null ? status.getDescription() : null;
-            List<TrackParcel> byUserIdAndStatus = trackParcelRepository.findByUserIdAndStatus(id, statusString);
-            return convertToDTO(byUserIdAndStatus);
+            // Создаем объект Pageable
+            Pageable pageable = PageRequest.of(page, size);
+            // Получаем страницу посылок
+            Page<TrackParcel> trackParcels = trackParcelRepository.findByUserIdAndStatus(id, statusString, pageable);
+            // Преобразуем страницу TrackParcel в страницу TrackParcelDTO
+            return trackParcels.map(TrackParcelDTO::new);
+        }
+        return Page.empty();
+    }
+
+    public List<TrackParcelDTO> findAllByUserTracks(String username) {
+        Optional<User> byUser = userService.findByUser(username);
+        if (byUser.isPresent()) {
+            Long id = byUser.get().getId();
+            List<TrackParcel> trackParcels = trackParcelRepository.findByUserId(id);
+            return convertToDTO(trackParcels);
         }
         return List.of();
     }
@@ -83,7 +101,7 @@ public class TrackParcelService {
     }
 
     public void updateHistory (String name){
-        List<TrackParcelDTO> byUserTrack = findByUserTracks(name);
+        List<TrackParcelDTO> byUserTrack = findAllByUserTracks(name);
         List<CompletableFuture<Void>> futures = new ArrayList<>(); // Список для хранения асинхронных задач
 
         for (TrackParcelDTO trackParcelDTO : byUserTrack) {

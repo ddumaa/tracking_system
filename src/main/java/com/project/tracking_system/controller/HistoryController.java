@@ -7,6 +7,7 @@ import com.project.tracking_system.service.StatusTrackService;
 import com.project.tracking_system.service.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.TrackParcelService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
@@ -32,9 +33,13 @@ public class HistoryController {
     }
 
     @GetMapping()
-    public String history(@RequestParam(value = "status", required = false) String statusString, Model model) {
+    public String history(
+            @RequestParam(value = "status", required = false) String statusString,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "10") int size,
+            Model model) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        List<TrackParcelDTO> byUserTrackList;
+        Page<TrackParcelDTO> trackParcelPage;
         GlobalStatus status = null;
         if (statusString != null && !statusString.isEmpty()) {
             try {
@@ -44,20 +49,18 @@ public class HistoryController {
                 return "history";
             }
         }
-        // Если статус указан, фильтруем по нему
         if (status != null) {
-            byUserTrackList = trackParcelService.findByUserTracksAndStatus(auth.getName(), status);
+            trackParcelPage = trackParcelService.findByUserTracksAndStatus(auth.getName(), status, page, size);
         } else {
-            // Если статус не указан, возвращаем все посылки
-            byUserTrackList = trackParcelService.findByUserTracks(auth.getName());
+            trackParcelPage = trackParcelService.findByUserTracks(auth.getName(), page, size);
         }
-        model.addAttribute("trackParcelDTO", byUserTrackList);
+        model.addAttribute("size", size);
+        model.addAttribute("trackParcelDTO", trackParcelPage.getContent());
         model.addAttribute("statusString", statusString);
-        if (byUserTrackList.isEmpty()) {
-            model.addAttribute("trackParcelNotification", "Отслеживаемых посылок нет");
-        } else {
-            model.addAttribute("statusTrackService", statusTrackService);
-        }
+        model.addAttribute("currentPage", trackParcelPage.getNumber());
+        model.addAttribute("totalPages", trackParcelPage.getTotalPages());
+        model.addAttribute("trackParcelNotification", trackParcelPage.isEmpty() ? "Отслеживаемых посылок нет" : null);
+        model.addAttribute("statusTrackService", statusTrackService);
         return "history";
     }
 
