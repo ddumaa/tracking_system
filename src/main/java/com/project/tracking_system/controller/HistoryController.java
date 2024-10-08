@@ -34,8 +34,7 @@ public class HistoryController {
     @GetMapping()
     public String history(@RequestParam(value = "status", required = false) String statusString, Model model) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        List<TrackParcelDTO> byUserTrack;
-
+        List<TrackParcelDTO> byUserTrackList;
         GlobalStatus status = null;
         if (statusString != null && !statusString.isEmpty()) {
             try {
@@ -47,16 +46,14 @@ public class HistoryController {
         }
         // Если статус указан, фильтруем по нему
         if (status != null) {
-            byUserTrack = trackParcelService.findByUserTracksAndStatus(auth.getName(), status);
+            byUserTrackList = trackParcelService.findByUserTracksAndStatus(auth.getName(), status);
         } else {
             // Если статус не указан, возвращаем все посылки
-            byUserTrack = trackParcelService.findByUserTracks(auth.getName());
+            byUserTrackList = trackParcelService.findByUserTracks(auth.getName());
         }
-
-        model.addAttribute("trackParcelDTO", byUserTrack);
+        model.addAttribute("trackParcelDTO", byUserTrackList);
         model.addAttribute("statusString", statusString);
-
-        if (byUserTrack.isEmpty()) {
+        if (byUserTrackList.isEmpty()) {
             model.addAttribute("trackParcelNotification", "Отслеживаемых посылок нет");
         } else {
             model.addAttribute("statusTrackService", statusTrackService);

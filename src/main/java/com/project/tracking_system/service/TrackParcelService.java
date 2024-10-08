@@ -72,7 +72,6 @@ public class TrackParcelService {
             // Получаем статус как строку
             String statusString = status != null ? status.getDescription() : null;
             List<TrackParcel> byUserIdAndStatus = trackParcelRepository.findByUserIdAndStatus(id, statusString);
-
             List<TrackParcelDTO> trackParcelDTOList = new ArrayList<>();
             for (TrackParcel trackParcel : byUserIdAndStatus) {
                 trackParcelDTOList.add(new TrackParcelDTO(trackParcel));
