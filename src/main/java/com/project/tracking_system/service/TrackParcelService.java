@@ -56,11 +56,7 @@ public class TrackParcelService {
         if (byUser.isPresent()) {
             Long id = byUser.get().getId();
             List<TrackParcel> byUserId = trackParcelRepository.findByUserId(id);
-            List<TrackParcelDTO> trackParcelDTOList = new ArrayList<>();
-            for (TrackParcel trackParcel : byUserId) {
-                trackParcelDTOList.add(new TrackParcelDTO(trackParcel));
-            }
-            return trackParcelDTOList;
+            return convertToDTO(byUserId);
         }
         return List.of();
     }
@@ -72,13 +68,18 @@ public class TrackParcelService {
             // Получаем статус как строку
             String statusString = status != null ? status.getDescription() : null;
             List<TrackParcel> byUserIdAndStatus = trackParcelRepository.findByUserIdAndStatus(id, statusString);
-            List<TrackParcelDTO> trackParcelDTOList = new ArrayList<>();
-            for (TrackParcel trackParcel : byUserIdAndStatus) {
-                trackParcelDTOList.add(new TrackParcelDTO(trackParcel));
-            }
-            return trackParcelDTOList;
+            return convertToDTO(byUserIdAndStatus);
         }
         return List.of();
+    }
+
+    // Вспомогательный метод для преобразования посылок в DTO
+    private List<TrackParcelDTO> convertToDTO(List<TrackParcel> parcels) {
+        List<TrackParcelDTO> dtoList = new ArrayList<>();
+        for (TrackParcel parcel : parcels) {
+            dtoList.add(new TrackParcelDTO(parcel));
+        }
+        return dtoList;
     }
 
     public void updateHistory (String name){
