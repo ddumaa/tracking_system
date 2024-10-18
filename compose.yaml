@@ -9,3 +9,17 @@ services:
       - POSTGRES_USER=postgres
     ports:
       - '5433:5432'
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/postgres
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=root
+    ports:
+      - '8080:8080'
+    depends_on:
+      - db
