@@ -28,17 +28,14 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Задайте версию ChromeDriver
-ARG CHROMEDRIVER_VERSION=126.0.6478.26
-
 # Установка ChromeDriver
-RUN wget -N https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip \
+RUN wget -N https://storage.googleapis.com/chrome-for-testing-public/126.0.6478.26/linux64/chromedriver-linux64.zip \
     && unzip chromedriver-linux64.zip -d /usr/local/bin/ \
     && chmod +x /usr/local/bin/chromedriver \
     && rm chromedriver-linux64.zip
 
 # Установка Google Chrome
-RUN wget -N https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chrome-linux64.zip \
+RUN wget -N https://storage.googleapis.com/chrome-for-testing-public/126.0.6478.26/linux64/chrome-linux64.zip \
     && unzip chrome-linux64.zip -d /usr/local/bin/ \
     && chmod +x /usr/local/bin/chrome \
     && rm chrome-linux64.zip
