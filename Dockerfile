@@ -28,17 +28,22 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Установка ChromeDriver
-RUN wget -N https://storage.googleapis.com/chrome-for-testing-public/126.0.6478.26/linux64/chromedriver-linux64.zip \
-    && unzip chromedriver-linux64.zip -d /usr/local/bin/ \
-    && chmod +x /usr/local/bin/chromedriver \
-    && rm chromedriver-linux64.zip
+# Добавление ключа Google
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
+
+# Добавление репозитория Google Chrome
+RUN echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list
 
 # Установка Google Chrome
-RUN wget -N https://storage.googleapis.com/chrome-for-testing-public/126.0.6478.26/linux64/chrome-linux64.zip \
-    && unzip chrome-linux64.zip -d /usr/local/bin/ \
-    && chmod +x /usr/local/bin/chrome \
-    && rm chrome-linux64.zip
+RUN apt-get update && apt-get install -y google-chrome-stable && apt-get clean
+
+# Установка ChromeDriver (при этом версия должна совпадать с установленной версией Chrome)
+RUN CHROMEDRIVER_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+' | head -n 1) && \
+    echo "ChromeDriver version: $CHROMEDRIVER_VERSION" && \
+    wget -N "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip" && \
+    unzip chromedriver_linux64.zip -d /usr/local/bin/ && \
+    chmod +x /usr/local/bin/chromedriver && \
+    rm chromedriver_linux64.zip
 
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
