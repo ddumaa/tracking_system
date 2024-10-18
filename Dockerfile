@@ -5,23 +5,44 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 FROM openjdk:17.0.2-jdk-slim-buster
-# Установка необходимых пакетов и Google Chrome
+
+# Установка необходимых пакетов
 RUN apt-get update && apt-get install -y \
     wget \
     unzip \
     curl \
-    gnupg \
-    && curl -sSL https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update && apt-get install -y google-chrome-stable \
+    gnupg2 \
+    libnss3 \
+    libgconf-2-4 \
+    libxss1 \
+    libxi6 \
+    libgdk-pixbuf2.0-0 \
+    fonts-liberation \
+    libappindicator3-1 \
+    libxrandr2 \
+    libx11-xcb1 \
+    libasound2 \
+    libatk1.0-0 \
+    libxcomposite1 \
+    libgtk-3-0 \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Задайте версию ChromeDriver
+ARG CHROMEDRIVER_VERSION=126.0.6478.26
+
 # Установка ChromeDriver
-ARG CHROMEDRIVER_VERSION=126.0.6478.126
-RUN wget -N https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip \
-    && unzip chromedriver_linux64.zip -d /usr/local/bin/ \
+RUN wget -N https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip \
+    && unzip chromedriver-linux64.zip -d /usr/local/bin/ \
     && chmod +x /usr/local/bin/chromedriver \
-    && rm chromedriver_linux64.zip
-# Копируем вашу программу
+    && rm chromedriver-linux64.zip
+
+# Установка Google Chrome
+RUN wget -N https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chrome-linux64.zip \
+    && unzip chrome-linux64.zip -d /usr/local/bin/ \
+    && chmod +x /usr/local/bin/chrome \
+    && rm chrome-linux64.zip
+
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 ENTRYPOINT ["java", "-jar", "app.jar"]
