@@ -48,7 +48,7 @@ public class TrackParcelService {
             TrackParcel trackParcel = new TrackParcel();
             trackParcel.setNumber(number);
             trackParcel.setUser(user.get());
-            trackParcel.setStatus(statusTrackService.setStatus(trackInfoDTOList.get(0).getInfoTrack()));
+            trackParcel.setStatus(statusTrackService.setStatus(trackInfoDTOList));
             trackParcel.setData(trackInfoDTOList.get(0).getTimex());
             trackParcelRepository.save(trackParcel);
         }
@@ -117,7 +117,7 @@ public class TrackParcelService {
                             Optional<User> user = userService.findByUser(name);
                             Long userId = user.get().getId();
                             TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(trackParcelDTO.getNumber(), userId);
-                            trackParcel.setStatus(statusTrackService.setStatus(list.get(0).getInfoTrack()));
+                            trackParcel.setStatus(statusTrackService.setStatus(list));
                             trackParcel.setData(list.get(0).getTimex());
                             trackParcelRepository.save(trackParcel);
                         });

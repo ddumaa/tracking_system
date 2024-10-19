@@ -1,14 +1,23 @@
 package com.project.tracking_system.service;
 
+import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.model.GlobalStatus;
+import com.project.tracking_system.repository.TrackParcelRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
 @Service
 public class StatusTrackService {
+
+    private final TrackParcelRepository trackParcelRepository;
+
+    public StatusTrackService(TrackParcelRepository trackParcelRepository) {
+        this.trackParcelRepository = trackParcelRepository;
+    }
 
     private static final Map<Pattern, GlobalStatus> statusPatterns = new HashMap<>();
 
@@ -23,11 +32,10 @@ public class StatusTrackService {
                         "^Почтовое отправление прибыло на сортировочный пункт$|" +
                         "^Почтовое отправление подготовлено в сортировочном пункте к доставке на ОПС назначения$"),
                 GlobalStatus.IN_TRANSIT);
-        statusPatterns.put(Pattern.compile("^Почтовое отправление готово к возврату|" +
-                        "^Почтовое отправление подготовлено в ОПС к доставке на сортировочный пункт.*возврат.*$|" +
-                        "^Почтовое отправление прибыло на сортировочный пункт.*возврат.*$|" +
-                        "^Почтовое отправление подготовлено в сортировочном пункте к доставке на ОПС отправителя$"),
+        statusPatterns.put(Pattern.compile("^Почтовое отправление готово к возврату"),
                 GlobalStatus.RETURN_IN_PROGRESS);
+        statusPatterns.put(Pattern.compile("^Почтовое отправление прибыло на Отделение №\\d+.*для возврата.*"),
+                GlobalStatus.RETURN_PENDING_PICKUP);
         statusPatterns.put(Pattern.compile("^Почтовое отправление возвращено отправителю$"), GlobalStatus.RETURNED_TO_SENDER);
         statusPatterns.put(Pattern.compile("^Заявка на почтовое отправление зарегистрирована$"), GlobalStatus.REGISTERED);
         statusPatterns.put(Pattern.compile("^Добрый день\\. Отправление [A-Z0-9]+ не востребовано получателем.*|" +
@@ -36,13 +44,28 @@ public class StatusTrackService {
                 GlobalStatus.CUSTOMER_NOT_PICKING_UP);
     }
 
-    public String setStatus(String statusTrack) {
+    public String setStatus(List<TrackInfoDTO> trackInfoDTOList) {
+        // Получаем последний статус
+        String lastStatus = trackInfoDTOList.get(trackInfoDTOList.size() - 1).getInfoTrack();
+        // Проверяем последний статус
         for (Map.Entry<Pattern, GlobalStatus> entry : statusPatterns.entrySet()) {
-            if (entry.getKey().matcher(statusTrack).find()) {
-                return entry.getValue() != null ? entry.getValue().getDescription() : statusTrack;
+            if (entry.getKey().matcher(lastStatus).find()) {
+                // Если последний статус соответствует определенному паттерну
+                Pattern returnPattern = Pattern.compile("^Почтовое отправление подготовлено в ОПС к доставке на сортировочный пункт$|" +
+                        "^Почтовое отправление прибыло на сортировочный пункт$|" +
+                        "^Почтовое отправление подготовлено в сортировочном пункте к доставке на ОПС отправителя$");
+                if (returnPattern.matcher(lastStatus).find()) {
+                    // Проверяем историю на наличие статуса возврата
+                    for (TrackInfoDTO trackInfoDTO : trackInfoDTOList) {
+                        if (trackInfoDTO.getInfoTrack().equals("Почтовое отправление готово к возврату")) {
+                            return GlobalStatus.RETURN_IN_PROGRESS.getDescription();
+                        }
+                    }
+                }
+                return entry.getValue() != null ? entry.getValue().getDescription() : lastStatus;
             }
         }
-        return statusTrack;
+        return lastStatus;
     }
 
     public String getIcon(String status) {
