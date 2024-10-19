@@ -20,9 +20,10 @@ RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add
 
 # Установите ChromeDriver версии 130.0.6723.58
 RUN wget -N "https://storage.googleapis.com/chrome-for-testing-public/130.0.6723.58/linux64/chromedriver-linux64.zip" -O /tmp/chromedriver.zip && \
-    unzip /tmp/chromedriver.zip -d /usr/local/bin/ && \
+    unzip /tmp/chromedriver.zip -d /tmp && \
+    mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/ && \
     chmod +x /usr/local/bin/chromedriver && \
-    rm /tmp/chromedriver.zip
+    rm -rf /tmp/chromedriver.zip /tmp/chromedriver-linux64
 
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
