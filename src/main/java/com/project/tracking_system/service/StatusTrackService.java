@@ -39,7 +39,7 @@ public class StatusTrackService {
 
     public String setStatus(List<TrackInfoDTO> trackInfoDTOList) {
         // Получаем последний статус
-        String lastStatus = trackInfoDTOList.get(trackInfoDTOList.size() - 1).getInfoTrack();
+        String lastStatus = trackInfoDTOList.get(0).getInfoTrack();
         // Проверяем последний статус
         for (Map.Entry<Pattern, GlobalStatus> entry : statusPatterns.entrySet()) {
             if (entry.getKey().matcher(lastStatus).find()) {
