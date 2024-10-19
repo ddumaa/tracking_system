@@ -2,7 +2,6 @@ package com.project.tracking_system.service;
 
 import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.model.GlobalStatus;
-import com.project.tracking_system.repository.TrackParcelRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -12,12 +11,6 @@ import java.util.regex.Pattern;
 
 @Service
 public class StatusTrackService {
-
-    private final TrackParcelRepository trackParcelRepository;
-
-    public StatusTrackService(TrackParcelRepository trackParcelRepository) {
-        this.trackParcelRepository = trackParcelRepository;
-    }
 
     private static final Map<Pattern, GlobalStatus> statusPatterns = new HashMap<>();
 
