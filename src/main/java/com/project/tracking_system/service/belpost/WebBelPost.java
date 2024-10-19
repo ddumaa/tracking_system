@@ -35,6 +35,9 @@ public class WebBelPost {
             options.addArguments("--disable-gpu");
             options.addArguments("--window-size=1920,1080");
             options.addArguments("--ignore-certificate-errors");
+            options.addArguments("--no-sandbox");
+            options.addArguments("--disable-dev-shm-usage");
+            options.addArguments("--remote-debugging-port=9222");
 
             driver = new ChromeDriver(options);
             driver.get("https://belpost.by/Otsleditotpravleniye");
