@@ -17,21 +17,17 @@ public class StatusTrackService {
         statusPatterns.put(Pattern.compile("^Почтовое отправление прибыло на ОПС выдачи|^Добрый день\\. Срок бесплатного хранения|" +
                 "^Поступило в учреждение доставки"), GlobalStatus.WAITING_FOR_CUSTOMER);
         statusPatterns.put(Pattern.compile("^Почтовое отправление принято на ОПС|" +
-                "^Оплачено на ОПС|^Отправлено|^Принято от отправителя|" +
-                "^Поступило в обработку"), GlobalStatus.IN_TRANSIT);
-        statusPatterns.put(Pattern.compile("^Почтовое отправление подготовлено в ОПС к доставке на сортировочный пункт$"),
-                GlobalStatus.IN_TRANSIT_TO_SORTING);
-        statusPatterns.put(Pattern.compile("^Почтовое отправление прибыло на сортировочный пункт$"),
-                GlobalStatus.IN_TRANSIT_TO_SORTING);
-        statusPatterns.put(Pattern.compile("^Почтовое отправление подготовлено в сортировочном пункте к доставке на ОПС назначения$"),
-                GlobalStatus.IN_TRANSIT_TO_DELIVERY);
-        statusPatterns.put(Pattern.compile("^Почтовое отправление готово к возврату"), GlobalStatus.RETURN_IN_PROGRESS);
-        statusPatterns.put(Pattern.compile("^Почтовое отправление подготовлено в ОПС к доставке на сортировочный пункт.*возврат.*$"),
-                GlobalStatus.RETURN_IN_TRANSIT_TO_SORTING);
-        statusPatterns.put(Pattern.compile("^Почтовое отправление прибыло на сортировочный пункт.*возврат.*$"),
-                GlobalStatus.RETURN_IN_TRANSIT_TO_SORTING);
-        statusPatterns.put(Pattern.compile("^Почтовое отправление подготовлено в сортировочном пункте к доставке на ОПС отправителя$"),
-                GlobalStatus.RETURN_IN_TRANSIT_TO_SENDER);
+                        "^Оплачено на ОПС|^Отправлено|^Принято от отправителя|" +
+                        "^Поступило в обработку|" +
+                        "^Почтовое отправление подготовлено в ОПС к доставке на сортировочный пункт$|" +
+                        "^Почтовое отправление прибыло на сортировочный пункт$|" +
+                        "^Почтовое отправление подготовлено в сортировочном пункте к доставке на ОПС назначения$"),
+                GlobalStatus.IN_TRANSIT);
+        statusPatterns.put(Pattern.compile("^Почтовое отправление готово к возврату|" +
+                        "^Почтовое отправление подготовлено в ОПС к доставке на сортировочный пункт.*возврат.*$|" +
+                        "^Почтовое отправление прибыло на сортировочный пункт.*возврат.*$|" +
+                        "^Почтовое отправление подготовлено в сортировочном пункте к доставке на ОПС отправителя$"),
+                GlobalStatus.RETURN_IN_PROGRESS);
         statusPatterns.put(Pattern.compile("^Почтовое отправление возвращено отправителю$"), GlobalStatus.RETURNED_TO_SENDER);
         statusPatterns.put(Pattern.compile("^Заявка на почтовое отправление зарегистрирована$"), GlobalStatus.REGISTERED);
         statusPatterns.put(Pattern.compile("^Добрый день\\. Отправление [A-Z0-9]+ не востребовано получателем.*|" +
