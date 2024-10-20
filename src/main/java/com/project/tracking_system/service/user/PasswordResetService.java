@@ -54,7 +54,7 @@ public class PasswordResetService {
         if (byEmail.isPresent()) {
             PasswordResetToken passwordResetToken = byEmail.get();
             passwordResetToken.setToken(token);
-            passwordResetToken.setExpirationDate(ZonedDateTime.now(ZoneOffset.UTC));
+            passwordResetToken.setExpirationDate(ZonedDateTime.now(ZoneOffset.UTC).plusHours(1));
             tokenRepository.save(passwordResetToken);
         } else {
             PasswordResetToken resetToken = new PasswordResetToken(email, token);
