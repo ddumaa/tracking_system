@@ -47,7 +47,7 @@ public class PasswordResetService {
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден"));
 
         String token = randomStringGenerator.generateConfirmCodRegistration();
-        String resetLink = "http://localhost:8080/reset-password?token=" + token;
+        String resetLink = "https://belivery.by/reset-password?token=" + token;
         String emailContent = htmlEmailTemplateService.generatePasswordResetEmail(resetLink);
 
         Optional<PasswordResetToken> byEmail = tokenRepository.findByEmail(email);
