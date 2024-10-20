@@ -10,7 +10,7 @@ services:
     ports:
       - '${DB_PORT1}:${DB_PORT2}'
     volumes:
-      - ${DB_VOLUMES}
+      - db_data:${DB_VOLUMES}
 
   app:
     build:
