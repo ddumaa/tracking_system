@@ -55,6 +55,10 @@ public class PasswordResetService {
             PasswordResetToken passwordResetToken = byEmail.get();
             passwordResetToken.setToken(token);
             passwordResetToken.setExpirationDate(ZonedDateTime.now(ZoneOffset.UTC).plusHours(1));
+
+            System.out.println("Время сейчас" + ZonedDateTime.now(ZoneOffset.UTC));
+            System.out.println("Время истечения токена: " + passwordResetToken.getExpirationDate());
+
             tokenRepository.save(passwordResetToken);
         } else {
             PasswordResetToken resetToken = new PasswordResetToken(email, token);
@@ -101,6 +105,7 @@ public class PasswordResetService {
 
             return expiration.isAfter(now);
         }
+        System.out.println("Токен не найден");
         return false;
     }
 
