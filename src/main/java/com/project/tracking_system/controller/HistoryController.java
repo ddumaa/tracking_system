@@ -13,8 +13,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
+
 
 @Controller
 @RequestMapping("/history")
@@ -86,6 +88,19 @@ public class HistoryController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         trackParcelService.updateHistory(auth.getName());
         return "redirect:/history";
+    }
+
+    @PostMapping("/delete-selected")
+    public String deleteSelected(@RequestBody List<String> selectedNumbers, RedirectAttributes redirectAttributes) {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            trackParcelService.deleteByNumbersAndUserId(selectedNumbers, auth.getName());
+            redirectAttributes.addFlashAttribute("deleteMessage", "Выбранные посылки успешно удалены.");
+            return "redirect:/history";
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("deleteMessage", "Ошибка при удалении посылок.");
+            return "redirect:/history";
+        }
     }
 
 }

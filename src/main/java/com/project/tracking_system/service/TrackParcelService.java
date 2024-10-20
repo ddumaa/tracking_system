@@ -127,4 +127,18 @@ public class TrackParcelService {
         // Ждём завершения всех асинхронных операций
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
     }
+
+    public void deleteTrackParcel(TrackParcel trackParcel) {
+        trackParcelRepository.delete(trackParcel);
+    }
+
+    public void deleteTrackParcels(List<TrackParcel> trackParcels) {
+        trackParcelRepository.deleteAll(trackParcels);
+    }
+
+    public void deleteByNumbersAndUserId(List<String> numbers, String username) {
+        List<TrackParcel> parcelsToDelete = trackParcelRepository.findByNumberInAndUserId(numbers, username);
+        trackParcelRepository.deleteAll(parcelsToDelete);
+    }
+
 }

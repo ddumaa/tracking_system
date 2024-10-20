@@ -12,6 +12,8 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
 
     List<TrackParcel> findByUserId(Long userId);
 
+    List<TrackParcel> findByNumberInAndUserId(List<String> numbers, String userId);
+
     Page<TrackParcel> findByUserId(Long userId, Pageable pageable);
 
     TrackParcel findByNumberAndUserId(String number, Long userId);
