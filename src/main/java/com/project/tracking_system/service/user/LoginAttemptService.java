@@ -7,7 +7,7 @@ import com.project.tracking_system.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Optional;
 
@@ -43,8 +43,8 @@ public class LoginAttemptService {
             User user = userOptional.get();
             LoginAttempt loginAttempt = user.getLoginAttempt();
             if (loginAttempt != null && loginAttempt.getAttempts() >= MAX_ATTEMPTS) {
-                ZonedDateTime localDateTime = loginAttempt.getLastModified().plusHours(LOCK_TIME_DURATION);
-                if (localDateTime.isAfter(ZonedDateTime.now())) {
+                ZonedDateTime zonedDateTime = loginAttempt.getLastModified().plusHours(LOCK_TIME_DURATION);
+                if (zonedDateTime.isAfter(ZonedDateTime.now(ZoneOffset.UTC))) {
                     return true;
                 } else {
                     loginAttempt.setAttempts(0);
@@ -66,7 +66,7 @@ public class LoginAttemptService {
                 user.setLoginAttempt(loginAttempt);
             }
             loginAttempt.setAttempts(loginAttempt.getAttempts() + 1);
-            loginAttempt.setLastModified(ZonedDateTime.now());
+            loginAttempt.setLastModified(ZonedDateTime.now(ZoneOffset.UTC));
             loginAttemptRepository.save(loginAttempt);
         }
     }

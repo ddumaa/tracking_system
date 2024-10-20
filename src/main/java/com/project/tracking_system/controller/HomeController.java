@@ -3,6 +3,7 @@ package com.project.tracking_system.controller;
 import com.project.tracking_system.dto.PasswordResetDTO;
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
+import com.project.tracking_system.entity.User;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.service.user.LoginAttemptService;
 import com.project.tracking_system.service.TypeDefinitionTrackPostService;
@@ -26,6 +27,7 @@ import java.security.Principal;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 @Controller
@@ -177,6 +179,11 @@ public class HomeController {
 
     @PostMapping("/forgot-password")
     public String handleForgotPassword(@RequestParam String email, Model model) {
+        Optional<User> byUser = userService.findByUser(email);
+        if (byUser.isEmpty()) {
+            model.addAttribute("error", "Пользователь с таким адресом электронной почты не найден.");
+            return "forgot-password";
+        }
         try {
             passwordResetService.createPasswordResetToken(email);
             model.addAttribute("message", "Ссылка для сброса пароля была отправлена на ваш адрес электронной почты.");
