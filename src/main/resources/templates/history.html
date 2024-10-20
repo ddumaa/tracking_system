@@ -114,15 +114,15 @@
 
                 <!-- Пагинация -->
                 <div>
-                    <ul class="pagination">
+                    <ul class="pagination" th:if="${totalPages > 0}">
                         <li class="page-item" th:class="${currentPage == 0} ? 'disabled'">
-                            <a class="page-link" th:href="@{/history(status=${statusString}, page=${currentPage - 1}, size=${size})}">Назад</a>
+                            <a class="page-link" th:href="@{/history(status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size})}">Назад</a>
                         </li>
-                        <li class="page-item" th:each="i : ${#numbers.sequence(0, totalPages - 1)}">
+                        <li class="page-item" th:each="i : ${#numbers.sequence(0, totalPages - 1)}" th:class="${i == currentPage} ? 'active'">
                             <a class="page-link" th:href="@{/history(status=${statusString}, page=${i}, size=${size})}" th:text="${i + 1}"></a>
                         </li>
                         <li class="page-item" th:class="${currentPage == totalPages - 1} ? 'disabled'">
-                            <a class="page-link" th:href="@{/history(status=${statusString}, page=${currentPage + 1}, size=${size})}">Вперёд</a>
+                            <a class="page-link" th:href="@{/history(status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size})}">Вперёд</a>
                         </li>
                     </ul>
                 </div>

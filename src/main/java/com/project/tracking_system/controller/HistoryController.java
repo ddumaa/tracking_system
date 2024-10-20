@@ -41,6 +41,7 @@ public class HistoryController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Page<TrackParcelDTO> trackParcelPage;
         GlobalStatus status = null;
+        page = Math.max(page, 0);
         if (statusString != null && !statusString.isEmpty()) {
             try {
                 status = GlobalStatus.valueOf(statusString);
@@ -53,6 +54,14 @@ public class HistoryController {
             trackParcelPage = trackParcelService.findByUserTracksAndStatus(auth.getName(), status, page, size);
         } else {
             trackParcelPage = trackParcelService.findByUserTracks(auth.getName(), page, size);
+        }
+        if (page >= trackParcelPage.getTotalPages() && trackParcelPage.getTotalPages() > 0) {
+            page = 0;
+            if (status != null) {
+                trackParcelPage = trackParcelService.findByUserTracksAndStatus(auth.getName(), status, page, size);
+            } else {
+                trackParcelPage = trackParcelService.findByUserTracks(auth.getName(), page, size);
+            }
         }
         model.addAttribute("size", size);
         model.addAttribute("trackParcelDTO", trackParcelPage.getContent());
