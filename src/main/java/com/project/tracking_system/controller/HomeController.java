@@ -201,7 +201,6 @@ public class HomeController {
             model.addAttribute("error", "Неверный или просроченный токен.");
             return "forgot-password";
         }
-
         model.addAttribute("token", token);
         return "reset-password";
     }

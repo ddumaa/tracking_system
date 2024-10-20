@@ -136,8 +136,11 @@ public class TrackParcelService {
         trackParcelRepository.deleteAll(trackParcels);
     }
 
-    public void deleteByNumbersAndUserId(List<String> numbers, Long id) {
-        List<TrackParcel> parcelsToDelete = trackParcelRepository.findByNumberInAndUserId(numbers, id);
+    public void deleteByNumbersAndUserId(List<String> numbers, Long userId) {
+        List<TrackParcel> parcelsToDelete = trackParcelRepository.findByNumberInAndUserId(numbers, userId);
+        if (parcelsToDelete.isEmpty()) {
+            throw new RuntimeException("Нет посылок для удаления.");
+        }
         trackParcelRepository.deleteAll(parcelsToDelete);
     }
 

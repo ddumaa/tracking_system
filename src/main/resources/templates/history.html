@@ -227,9 +227,9 @@
             })
                 .then(response => {
                     if (response.ok) {
-                        window.location.href = '/history'; // Перенаправление на ту же страницу
+                        window.location.href = '/history';
                     } else {
-                        alert('Ошибка при удалении элементов.');
+                        alert('Ошибка при удалении элементов.' + text);
                     }
                 })
                 .catch(error => console.error('Ошибка при отправке запроса:', error));

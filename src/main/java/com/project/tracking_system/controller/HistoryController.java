@@ -105,13 +105,16 @@ public class HistoryController {
             if (byUser.isPresent()) {
                 Long userId = byUser.get().getId();
                 trackParcelService.deleteByNumbersAndUserId(selectedNumbers, userId);
+
+                System.out.println("номер посылки: " + selectedNumbers +" id: " + userId);
+
                 redirectAttributes.addFlashAttribute("deleteMessage", "Выбранные посылки успешно удалены.");
             } else {
                 redirectAttributes.addFlashAttribute("deleteMessage", "Пользователь не найден.");
             }
             return "redirect:/history";
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("deleteMessage", "Ошибка при удалении посылок.");
+            redirectAttributes.addFlashAttribute("deleteMessage", "Ошибка при удалении посылок." + e.getMessage());
             return "redirect:/history";
         }
     }
