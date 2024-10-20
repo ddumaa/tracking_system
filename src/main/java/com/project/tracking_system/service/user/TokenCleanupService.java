@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 
 @Service
 public class TokenCleanupService {
@@ -25,14 +26,14 @@ public class TokenCleanupService {
     // Ежечасное удаление токенов подтверждения, срок действия которых истек
     @Scheduled(cron = "0 0 * * * *")
     public void cleanupExpiredConfirmationTokens() {
-        LocalDateTime expiryDate = LocalDateTime.now(ZoneOffset.UTC).minusHours(1);
+        ZonedDateTime expiryDate = ZonedDateTime.now(ZoneOffset.UTC).minusHours(1);
         confirmationTokenRepository.deleteByCreatedAtBefore(expiryDate);
     }
 
     // Ежечасное удаление токенов для восстановления пароля, срок действия которых истек
     @Scheduled(cron = "0 0 * * * *")
     public void cleanupExpiredPasswordResetTokens() {
-        LocalDateTime expiryDate = LocalDateTime.now(ZoneOffset.UTC).minusHours(1);
+        ZonedDateTime expiryDate = ZonedDateTime.now(ZoneOffset.UTC).minusHours(1);
         passwordResetTokenRepository.deleteByExpirationDateBefore(expiryDate);
     }
 }
