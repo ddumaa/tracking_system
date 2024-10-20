@@ -12,7 +12,7 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
 
     List<TrackParcel> findByUserId(Long userId);
 
-    List<TrackParcel> findByNumberInAndUserId(List<String> numbers, String userId);
+    List<TrackParcel> findByNumberInAndUserId(List<String> numbers, Long userId);
 
     Page<TrackParcel> findByUserId(Long userId, Pageable pageable);
 

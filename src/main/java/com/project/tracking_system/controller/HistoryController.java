@@ -2,10 +2,12 @@ package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackParcelDTO;
+import com.project.tracking_system.entity.User;
 import com.project.tracking_system.model.GlobalStatus;
 import com.project.tracking_system.service.StatusTrackService;
 import com.project.tracking_system.service.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.TrackParcelService;
+import com.project.tracking_system.service.user.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.security.core.Authentication;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
+import java.util.Optional;
 
 
 @Controller
@@ -25,13 +28,15 @@ public class HistoryController {
     private final TrackParcelService trackParcelService;
     private final StatusTrackService statusTrackService;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
+    private final UserService userService;
 
     @Autowired
     public HistoryController(TrackParcelService trackParcelService, StatusTrackService statusTrackService,
-                             TypeDefinitionTrackPostService typeDefinitionTrackPostService) {
+                             TypeDefinitionTrackPostService typeDefinitionTrackPostService, UserService userService) {
         this.trackParcelService = trackParcelService;
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
         this.statusTrackService = statusTrackService;
+        this.userService = userService;
     }
 
     @GetMapping()
@@ -94,8 +99,16 @@ public class HistoryController {
     public String deleteSelected(@RequestBody List<String> selectedNumbers, RedirectAttributes redirectAttributes) {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            trackParcelService.deleteByNumbersAndUserId(selectedNumbers, auth.getName());
-            redirectAttributes.addFlashAttribute("deleteMessage", "Выбранные посылки успешно удалены.");
+            String username = auth.getName();
+            Optional<User> byUser = userService.findByUser(username);
+
+            if (byUser.isPresent()) {
+                Long userId = byUser.get().getId();
+                trackParcelService.deleteByNumbersAndUserId(selectedNumbers, userId);
+                redirectAttributes.addFlashAttribute("deleteMessage", "Выбранные посылки успешно удалены.");
+            } else {
+                redirectAttributes.addFlashAttribute("deleteMessage", "Пользователь не найден.");
+            }
             return "redirect:/history";
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("deleteMessage", "Ошибка при удалении посылок.");

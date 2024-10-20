@@ -136,8 +136,8 @@ public class TrackParcelService {
         trackParcelRepository.deleteAll(trackParcels);
     }
 
-    public void deleteByNumbersAndUserId(List<String> numbers, String username) {
-        List<TrackParcel> parcelsToDelete = trackParcelRepository.findByNumberInAndUserId(numbers, username);
+    public void deleteByNumbersAndUserId(List<String> numbers, Long id) {
+        List<TrackParcel> parcelsToDelete = trackParcelRepository.findByNumberInAndUserId(numbers, id);
         trackParcelRepository.deleteAll(parcelsToDelete);
     }
 
