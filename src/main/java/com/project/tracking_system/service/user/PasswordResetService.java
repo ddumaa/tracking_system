@@ -96,6 +96,9 @@ public class PasswordResetService {
             // Время истечения токена в UTC
             ZonedDateTime expiration = tokenEntity.getExpirationDate();
 
+            System.out.println("Сейчас время: " + now);
+            System.out.println("Время истечения токена: " + expiration);
+
             return expiration.isAfter(now);
         }
         return false;
