@@ -80,10 +80,10 @@ public class HomeController {
             }
             return "home";
         } catch (IllegalArgumentException e) {
-            model.addAttribute("error", e.getMessage());
+            model.addAttribute("customError", e.getMessage());
             return "home";
         } catch (Exception e) {
-            model.addAttribute("error", "Произошла ошибка при обработке запроса.");
+            model.addAttribute("generalError", "Произошла ошибка при обработке запроса.");
             return "home";
         }
 
