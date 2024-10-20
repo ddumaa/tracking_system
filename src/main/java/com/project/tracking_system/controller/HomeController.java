@@ -203,7 +203,7 @@ public class HomeController {
         }
 
         model.addAttribute("token", token);
-        return "/reset-password";
+        return "reset-password";
     }
 
     @PostMapping("/reset-password")
