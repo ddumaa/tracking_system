@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.CompletableFuture;
 
 @Controller
 @RequestMapping("/")
@@ -63,7 +64,11 @@ public class HomeController {
 
 
         try {
-            TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(number);
+            // Получаем асинхронный результат
+            CompletableFuture<TrackInfoListDTO> futureTrackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostServiceAsync(number);
+            // Обработка завершения CompletableFuture
+            TrackInfoListDTO trackInfo = futureTrackInfo.get(); // Можно использовать get() для простоты или использовать callback-и.
+
             model.addAttribute("trackInfo", trackInfo);
             if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
                 model.addAttribute("authenticatedUser", auth.getName());
