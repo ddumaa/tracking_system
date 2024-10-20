@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.Optional;
 
 @Service
@@ -42,8 +43,8 @@ public class LoginAttemptService {
             User user = userOptional.get();
             LoginAttempt loginAttempt = user.getLoginAttempt();
             if (loginAttempt != null && loginAttempt.getAttempts() >= MAX_ATTEMPTS) {
-                LocalDateTime localDateTime = loginAttempt.getLastModified().plusHours(LOCK_TIME_DURATION);
-                if (localDateTime.isAfter(LocalDateTime.now())) {
+                ZonedDateTime localDateTime = loginAttempt.getLastModified().plusHours(LOCK_TIME_DURATION);
+                if (localDateTime.isAfter(ZonedDateTime.now())) {
                     return true;
                 } else {
                     loginAttempt.setAttempts(0);
@@ -65,7 +66,7 @@ public class LoginAttemptService {
                 user.setLoginAttempt(loginAttempt);
             }
             loginAttempt.setAttempts(loginAttempt.getAttempts() + 1);
-            loginAttempt.setLastModified(LocalDateTime.now());
+            loginAttempt.setLastModified(ZonedDateTime.now());
             loginAttemptRepository.save(loginAttempt);
         }
     }
@@ -82,7 +83,7 @@ public class LoginAttemptService {
         return MAX_ATTEMPTS;
     }
 
-    public LocalDateTime getUnlockTime(String email) {
+    public ZonedDateTime getUnlockTime(String email) {
         Optional<User> userOptional = userRepository.findByEmail(email);
         if (userOptional.isPresent()) {
             User user = userOptional.get();

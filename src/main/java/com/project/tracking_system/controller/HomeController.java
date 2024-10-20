@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.CompletableFuture;
 
@@ -158,7 +159,7 @@ public class HomeController {
         }
         String email = (String) session.getAttribute("email");
         if (blocked != null && email != null) {
-            LocalDateTime unlockTime = loginAttemptService.getUnlockTime(email);
+            ZonedDateTime unlockTime = loginAttemptService.getUnlockTime(email);
             model.addAttribute("blockedMessage", "Ваш аккаунт заблокирован из-за превышения количества попыток входа. Попробуйте снова после: " + unlockTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
         }
         if (error != null && email != null) {
