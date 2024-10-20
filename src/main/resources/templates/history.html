@@ -107,8 +107,8 @@
                                 <button type="button" class="btn btn-link" onclick="loadModal(this.getAttribute('data-itemnumber'))" th:text="${item.number}" th:data-itemnumber="${item.number}" style="padding: 0;"></button>
                             </form>
                         </td>
-                        <td style="display: flex; align-items: center;" th:text="${item.status}"></td>
-                        <td style="display: flex; align-items: center;" th:text="${item.data}"></td>
+                        <td style="text-align: center;" th:text="${item.status}"></td>
+                        <td style="text-align: center;" th:text="${item.data}"></td>
                     </tr>
                     </tbody>
                     </table>
