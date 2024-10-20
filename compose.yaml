@@ -10,7 +10,7 @@ services:
     ports:
       - '${DB_PORT1}:${DB_PORT2}'
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - ${DB_VOLUMES}
 
   app:
     build:
