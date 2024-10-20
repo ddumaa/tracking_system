@@ -90,7 +90,8 @@
                     </div>
                 </form>
 
-                <table class="table mt-3 table-striped">
+                <div th:if="${trackParcelDTO != null and !trackParcelDTO.isEmpty()}" class="mt-3">
+                    <table class="table table-striped">
                     <thead>
                     <tr>
                         <th scope="col">№ посылки</th>
@@ -110,7 +111,8 @@
                         <td th:text="${item.data}"></td>
                     </tr>
                     </tbody>
-                </table>
+                    </table>
+                </div>
 
                 <!-- Пагинация -->
                 <div>

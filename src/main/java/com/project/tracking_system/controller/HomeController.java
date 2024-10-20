@@ -60,9 +60,10 @@ public class HomeController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
         model.addAttribute("number", number);
-        TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(number);
+
 
         try {
+            TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(number);
             model.addAttribute("trackInfo", trackInfo);
             if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
                 model.addAttribute("authenticatedUser", auth.getName());
@@ -73,8 +74,11 @@ public class HomeController {
                 model.addAttribute("authenticatedUser", null);
             }
             return "home";
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
             model.addAttribute("error", e.getMessage());
+            return "home";
+        } catch (Exception e) {
+            model.addAttribute("error", "Произошла ошибка при обработке запроса.");
             return "home";
         }
 

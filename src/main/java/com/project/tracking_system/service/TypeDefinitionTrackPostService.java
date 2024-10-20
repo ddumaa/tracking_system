@@ -37,7 +37,7 @@ public class TypeDefinitionTrackPostService {
             TrackInfoListDTO trackInfoListDTO = jsonEvroTrackingResponseMapper.mapJsonEvroTrackingResponseToDTO(json);
             return CompletableFuture.completedFuture(trackInfoListDTO);
         }
-        return CompletableFuture.completedFuture(new TrackInfoListDTO());
+        throw new IllegalArgumentException("Указан некорректный код посылки.");
     }
 
     public TrackInfoListDTO getTypeDefinitionTrackPostService(String number) {
