@@ -16,9 +16,9 @@ services:
       dockerfile: Dockerfile
     container_name: app
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
-      - SPRING_DATASOURCE_USERNAME=${DB_USER}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://172.18.0.7:5432/postgres
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=PB84vtruCikHEBjMduWTS1Rb7wErsAmqIAMGo4yBAgYZWlEDPXf5kJ6m4acvGrGC
 #    environment:
 #      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/postgres
 #      - SPRING_DATASOURCE_USERNAME=postgres
