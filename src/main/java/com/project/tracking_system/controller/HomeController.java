@@ -62,14 +62,14 @@ public class HomeController {
 
         model.addAttribute("number", number);
 
-
         try {
-            // Получаем асинхронный результат
-            CompletableFuture<TrackInfoListDTO> futureTrackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostServiceAsync(number);
-            // Обработка завершения CompletableFuture
-            TrackInfoListDTO trackInfo = futureTrackInfo.get(); // Можно использовать get() для простоты или использовать callback-и.
-
+            TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(number);
             model.addAttribute("trackInfo", trackInfo);
+
+            if (trackInfo.getList().isEmpty()) {
+                model.addAttribute("customError", "Нет данных для указанного номера посылки.");
+            }
+
             if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
                 model.addAttribute("authenticatedUser", auth.getName());
                 session.setAttribute("userSession", auth.getName());
@@ -79,6 +79,7 @@ public class HomeController {
                 model.addAttribute("authenticatedUser", null);
             }
             return "home";
+
         } catch (IllegalArgumentException e) {
             model.addAttribute("customError", e.getMessage());
             return "home";

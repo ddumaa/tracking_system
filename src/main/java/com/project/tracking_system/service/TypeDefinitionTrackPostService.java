@@ -10,6 +10,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 @Service
 public class TypeDefinitionTrackPostService {
@@ -43,9 +44,21 @@ public class TypeDefinitionTrackPostService {
     public TrackInfoListDTO getTypeDefinitionTrackPostService(String number) {
         try {
             return getTypeDefinitionTrackPostServiceAsync(number).get(); // Ожидание результата
+        } catch (ExecutionException e) {
+            // Обработка исключения ExecutionException
+            Throwable cause = e.getCause(); // Получаем исходное исключение
+            if (cause instanceof IllegalArgumentException) {
+                throw (IllegalArgumentException) cause; // Перебрасываем IllegalArgumentException
+            } else {
+                e.printStackTrace(); // Логируем другие исключения
+                throw new RuntimeException("Произошла ошибка при выполнении запроса.", e);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // Восстанавливаем состояние прерывания
+            throw new RuntimeException("Ожидание прервано.", e);
         } catch (Exception e) {
-            e.printStackTrace();
-            return new TrackInfoListDTO(); // Возвращаем пустой объект при ошибке
+            e.printStackTrace(); // Логируем общие исключения
+            return new TrackInfoListDTO(); // Возвращаем пустой объект при других ошибках
         }
     }
 
