@@ -109,7 +109,7 @@
                         <tbody>
                         <tr th:each="item : ${trackParcelDTO}">
                             <td>
-                                <input type="checkbox" class="selectCheckbox" value="${item.number}" onclick="updateDeleteButtonState()">
+                                <input type="checkbox" class="selectCheckbox" th:value="${item.number}" onclick="updateDeleteButtonState()">
                             </td>
                             <td>
                                 <div style="display: flex; align-items: center;">
@@ -229,7 +229,9 @@
                     if (response.ok) {
                         window.location.href = '/history';
                     } else {
-                        alert('Ошибка при удалении элементов.' + text);
+                        return response.text().then(text => {
+                            alert('Ошибка при удалении элементов: ' + text);
+                        });
                     }
                 })
                 .catch(error => console.error('Ошибка при отправке запроса:', error));
