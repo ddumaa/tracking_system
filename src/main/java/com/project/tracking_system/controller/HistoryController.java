@@ -97,6 +97,7 @@ public class HistoryController {
 
     @PostMapping("/delete-selected")
     public String deleteSelected(@RequestBody List<String> selectedNumbers, RedirectAttributes redirectAttributes) {
+        System.out.println("вызов метода произошёл " + selectedNumbers);
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             String username = auth.getName();
