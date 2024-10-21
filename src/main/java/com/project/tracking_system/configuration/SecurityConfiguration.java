@@ -70,7 +70,7 @@ public class SecurityConfiguration {
                 )
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .ignoringRequestMatchers("/login", "/logout")
+                        .ignoringRequestMatchers("/login", "/logout", "/history/delete-selected")
                 );
 
         return http.build();
