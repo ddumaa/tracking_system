@@ -97,17 +97,13 @@ public class HistoryController {
 
     @PostMapping("/delete-selected")
     public String deleteSelected(@RequestBody List<String> selectedNumbers, RedirectAttributes redirectAttributes) {
-        System.out.println("вызов метода произошёл " + selectedNumbers);
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            String username = auth.getName();
-            Optional<User> byUser = userService.findByUser(username);
+            Optional<User> byUser = userService.findByUser(auth.getName());
 
             if (byUser.isPresent()) {
                 Long userId = byUser.get().getId();
                 trackParcelService.deleteByNumbersAndUserId(selectedNumbers, userId);
-
-                System.out.println("номер посылки: " + selectedNumbers +" id: " + userId);
 
                 redirectAttributes.addFlashAttribute("deleteMessage", "Выбранные посылки успешно удалены.");
             } else {
