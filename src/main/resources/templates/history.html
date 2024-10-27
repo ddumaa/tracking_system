@@ -93,37 +93,41 @@
                 <div th:if="${deleteMessage != null}" class="alert alert-success mt-3" th:text="${deleteMessage}"></div>
 
                 <div th:if="${trackParcelDTO != null and !trackParcelDTO.isEmpty()}" class="mt-3">
-                    <div class="mb-2">
-                        <button id="selectAllBtn" class="btn btn-primary" onclick="toggleSelectAll()">Выделить всё</button>
-                        <button id="deleteSelectedBtn" class="btn btn-danger" disabled onclick="deleteSelected()">Удалить выделенное</button>
-                    </div>
-                    <table class="table table-striped">
-                        <thead>
-                        <tr>
-                            <th><input type="checkbox" id="selectAllCheckbox" onclick="toggleAllCheckboxes(this)"></th>
-                            <th scope="col">№ посылки</th>
-                            <th scope="col">Статус</th>
-                            <th scope="col">Дата</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr th:each="item : ${trackParcelDTO}">
-                            <td>
-                                <input type="checkbox" class="selectCheckbox" th:value="${item.number}" onclick="updateDeleteButtonState()">
-                            </td>
-                            <td>
-                                <div style="display: flex; align-items: center;">
-                                    <span th:utext="${statusTrackService.getIcon(item.status)}" style="margin-right: 10px;"></span>
-                                    <form th:action="@{/history/{itemNumber}(itemNumber=${item.number})}" method="get" style="margin: 0;">
-                                        <button type="button" class="btn btn-link" onclick="loadModal(this.getAttribute('data-itemnumber'))" th:text="${item.number}" th:data-itemnumber="${item.number}" style="padding: 0;"></button>
-                                    </form>
-                                </div>
-                            </td>
-                            <td style="vertical-align: middle;" th:text="${item.status}"></td>
-                            <td style="vertical-align: middle;" th:text="${item.data}"></td>
-                        </tr>
-                        </tbody>
-                    </table>
+                    <form action="/history/delete-selected" method="post"> <!-- Обернули в форму -->
+                        <div class="mb-2">
+                            <button id="selectAllBtn" type="button" class="btn btn-primary" onclick="toggleSelectAll()">Выделить всё</button>
+                            <button type="submit" class="btn btn-danger" disabled id="deleteSelectedBtn">Удалить выделенное</button>
+                        </div>
+                        <table class="table table-striped">
+                            <thead>
+                            <tr>
+                                <th><input type="checkbox" id="selectAllCheckbox" onclick="toggleAllCheckboxes(this)"></th>
+                                <th scope="col">№ посылки</th>
+                                <th scope="col">Статус</th>
+                                <th scope="col">Дата</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="item : ${trackParcelDTO}">
+                                <td>
+                                    <div style="display: flex; align-items: center;">
+                                        <input type="checkbox" class="selectCheckbox" th:value="${item.number}" name="selectedNumbers" onclick="updateDeleteButtonState()">
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="display: flex; align-items: center;">
+                                        <span th:utext="${statusTrackService.getIcon(item.status)}" style="margin-right: 10px;"></span>
+                                        <form th:action="@{/history/{itemNumber}(itemNumber=${item.number})}" method="get" style="margin: 0;">
+                                            <button type="button" class="btn btn-link" onclick="loadModal(this.getAttribute('data-itemnumber'))" th:text="${item.number}" th:data-itemnumber="${item.number}" style="padding: 0;"></button>
+                                        </form>
+                                    </div>
+                                </td>
+                                <td style="vertical-align: middle;" th:text="${item.status}"></td>
+                                <td style="vertical-align: middle;" th:text="${item.data}"></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </form>
                 </div>
 
                 <!-- Пагинация -->
@@ -214,29 +218,6 @@
         }
     }
 
-    function deleteSelected() {
-        const selectedNumbers = Array.from(document.querySelectorAll('.selectCheckbox:checked'))
-            .map(checkbox => checkbox.value);
-        if (selectedNumbers.length > 0) {
-            fetch('/history/delete-selected', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(selectedNumbers)
-            })
-                .then(response => {
-                    if (response.ok) {
-                        location.reload();
-                    } else {
-                        return response.text().then(text => {
-                            alert('Ошибка при удалении элементов: ' + text);
-                        });
-                    }
-                })
-                .catch(error => console.error('Ошибка при отправке запроса:', error));
-        }
-    }
 </script>
 </body>
 </html>
