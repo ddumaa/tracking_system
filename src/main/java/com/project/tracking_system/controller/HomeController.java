@@ -5,6 +5,7 @@ import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
+import com.project.tracking_system.service.TrackingNumberServiceXLS;
 import com.project.tracking_system.service.user.LoginAttemptService;
 import com.project.tracking_system.service.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.TrackParcelService;
@@ -22,13 +23,14 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.security.Principal;
-import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 @Controller
 @RequestMapping("/")
@@ -39,17 +41,20 @@ public class HomeController {
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final LoginAttemptService loginAttemptService;
     private final PasswordResetService passwordResetService;
+    private final TrackingNumberServiceXLS trackingNumberServiceXLS;
 
     @Autowired
     public HomeController(UserService userService, TrackParcelService trackParcelService,
                           TypeDefinitionTrackPostService typeDefinitionTrackPostService,
                           LoginAttemptService loginAttemptService,
-                          PasswordResetService passwordResetService) {
+                          PasswordResetService passwordResetService,
+                          TrackingNumberServiceXLS trackingNumberServiceXLS) {
         this.userService = userService;
         this.trackParcelService = trackParcelService;
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
         this.loginAttemptService = loginAttemptService;
         this.passwordResetService = passwordResetService;
+        this.trackingNumberServiceXLS = trackingNumberServiceXLS;
     }
 
     @GetMapping
@@ -233,6 +238,29 @@ public class HomeController {
             model.addAttribute("error", "Не удалось сбросить пароль. Попробуйте снова.");
             return "reset-password";
         }
+    }
+
+    @PostMapping("/upload")
+    public String uploadFile (@RequestParam("file") MultipartFile file, Model model, HttpServletRequest request) {
+        HttpSession session = request.getSession();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String authenticatedUser = auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken) ? auth.getName() : null;
+
+        if (file.isEmpty()){
+            model.addAttribute("customError", "Пожалуйста, выберите файл для загрузки.");
+            return "home";
+        }
+
+        try {
+            List<String> trackingNumbers = trackingNumberServiceXLS.processTrackingNumber(file, authenticatedUser);
+            model.addAttribute("successMessage", "Номера отслеживания успешно добавлены: " + trackingNumbers);
+            return "home";
+
+        }catch (IOException e) {
+            model.addAttribute("generalError", "Ошибка при обработке файла.");
+            return "home";
+        }
+
     }
 
 }

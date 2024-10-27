@@ -54,6 +54,22 @@
                     </div>
                 </div>
             </form>
+
+            <!-- Новая форма для загрузки через XLS -->
+            <div th:if="${authenticatedUser == null}" class="alert alert-warning w-100 text-center">
+                Для использования авторизуйтесь
+            </div>
+
+            <form th:if="${authenticatedUser != null}" th:action="@{/upload}" method="post" enctype="multipart/form-data" class="w-100">
+                <div class="form-group">
+                    <label for="file" class="d-block">Загрузите файл с номерами отслеживания (XLS)</label>
+                    <div class="input-group">
+                        <input type="file" id="file" name="file" class="form-control" accept=".xls,.xlsx" required>
+                        <button type="submit" class="btn btn-outline-secondary" id="upload-button">Загрузить</button>
+                    </div>
+                </div>
+            </form>
+
             <div th:if="${customError}" class="alert alert-danger mt-3">
                 <p th:text="${customError}"></p>
             </div>
