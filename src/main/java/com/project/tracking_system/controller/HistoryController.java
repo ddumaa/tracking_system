@@ -98,8 +98,7 @@ public class HistoryController {
     }
 
     @PostMapping("/delete-selected")
-    @ResponseBody
-    public ResponseEntity<?> deleteSelected(@RequestBody List<String> selectedNumbers) {
+    public String deleteSelected(@RequestBody List<String> selectedNumbers, RedirectAttributes redirectAttributes) {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             Optional<User> byUser = userService.findByUser(auth.getName());
@@ -108,13 +107,14 @@ public class HistoryController {
                 Long userId = byUser.get().getId();
                 trackParcelService.deleteByNumbersAndUserId(selectedNumbers, userId);
 
-                return ResponseEntity.ok("Выбранные посылки успешно удалены.");
+                redirectAttributes.addFlashAttribute("deleteMessage", "Выбранные посылки успешно удалены.");
             } else {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Пользователь не найден.");
+                redirectAttributes.addFlashAttribute("deleteMessage", "Пользователь не найден.");
             }
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Ошибка при удалении посылок." + e.getMessage());
+            redirectAttributes.addFlashAttribute("deleteMessage", "Ошибка при удалении посылок: " + e.getMessage());
         }
+        return "redirect:/history";
     }
 
 }
