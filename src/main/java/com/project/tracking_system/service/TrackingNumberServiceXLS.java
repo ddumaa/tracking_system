@@ -1,6 +1,7 @@
 package com.project.tracking_system.service;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
+import com.project.tracking_system.dto.TrackingResultAdd;
 import org.apache.poi.ss.usermodel.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -23,8 +24,8 @@ public class TrackingNumberServiceXLS {
         this.trackParcelService = trackParcelService;
     }
 
-    public List<String> processTrackingNumber(MultipartFile file, String authenticatedUser) throws IOException {
-        List<String> trackingNumbers = new ArrayList<>();
+    public List<TrackingResultAdd> processTrackingNumber(MultipartFile file, String authenticatedUser) throws IOException {
+        List<TrackingResultAdd> trackingResult = new ArrayList<>();
 
         try(InputStream in = file.getInputStream(); Workbook workbook = WorkbookFactory.create(in)) {
             Sheet sheet = workbook.getSheetAt(0);
@@ -33,15 +34,20 @@ public class TrackingNumberServiceXLS {
                 Cell cell = row.getCell(0);
                 if (cell != null) {
                     String trackingNumber  = cell.getStringCellValue();
-                    trackingNumbers.add(trackingNumber);
-
                     TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(trackingNumber);
-                    trackParcelService.save(trackingNumber, trackInfo, authenticatedUser);
+
+                    String status;
+                    if (trackInfo != null && !trackInfo.getList().isEmpty()) {
+                        trackParcelService.save(trackingNumber, trackInfo, authenticatedUser);
+                        status = "Добавлен";
+                    } else {
+                        status = "Ошибка: некорректные данные";
+                    }
+                    trackingResult.add(new TrackingResultAdd(trackingNumber, status));
                 }
             }
-
         }
-        return trackingNumbers;
+        return trackingResult;
     }
 
 }

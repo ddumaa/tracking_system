@@ -10,6 +10,7 @@ import com.project.tracking_system.service.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
@@ -46,6 +47,8 @@ public class HistoryController {
             @RequestParam(value = "size", defaultValue = "10") int size,
             Model model) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String authUserName = auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken) ? auth.getName() : null;
+
         Page<TrackParcelDTO> trackParcelPage;
         GlobalStatus status = null;
         page = Math.max(page, 0);
@@ -58,16 +61,16 @@ public class HistoryController {
             }
         }
         if (status != null) {
-            trackParcelPage = trackParcelService.findByUserTracksAndStatus(auth.getName(), status, page, size);
+            trackParcelPage = trackParcelService.findByUserTracksAndStatus(authUserName, status, page, size);
         } else {
-            trackParcelPage = trackParcelService.findByUserTracks(auth.getName(), page, size);
+            trackParcelPage = trackParcelService.findByUserTracks(authUserName, page, size);
         }
         if (page >= trackParcelPage.getTotalPages() && trackParcelPage.getTotalPages() > 0) {
             page = 0;
             if (status != null) {
-                trackParcelPage = trackParcelService.findByUserTracksAndStatus(auth.getName(), status, page, size);
+                trackParcelPage = trackParcelService.findByUserTracksAndStatus(authUserName, status, page, size);
             } else {
-                trackParcelPage = trackParcelService.findByUserTracks(auth.getName(), page, size);
+                trackParcelPage = trackParcelService.findByUserTracks(authUserName, page, size);
             }
         }
         model.addAttribute("size", size);
@@ -91,7 +94,8 @@ public class HistoryController {
     @PostMapping("/history-update")
     public String history(){
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        trackParcelService.updateHistory(auth.getName());
+        String authUserName = auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken) ? auth.getName() : null;
+        trackParcelService.updateHistory(authUserName);
         return "redirect:/history";
     }
 
@@ -99,7 +103,8 @@ public class HistoryController {
     public String deleteSelected(@RequestParam List<String> selectedNumbers, RedirectAttributes redirectAttributes) {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            Optional<User> byUser = userService.findByUser(auth.getName());
+            String authUserName = auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken) ? auth.getName() : null;
+            Optional<User> byUser = userService.findByUser(authUserName);
 
             if (byUser.isPresent()) {
                 Long userId = byUser.get().getId();

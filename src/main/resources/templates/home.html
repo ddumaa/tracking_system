@@ -55,11 +55,7 @@
                 </div>
             </form>
 
-            <!-- Новая форма для загрузки через XLS -->
-            <div th:if="${authenticatedUser == null}" class="alert alert-warning w-100 text-center">
-                Для использования авторизуйтесь
-            </div>
-
+            <!-- форма для загрузки через XLS -->
             <form th:if="${authenticatedUser != null}" th:action="@{/upload}" method="post" enctype="multipart/form-data" class="w-100">
                 <div class="form-group">
                     <label for="file" class="d-block">Загрузите файл с номерами отслеживания (XLS)</label>
@@ -76,6 +72,7 @@
             <div th:if="${generalError}" class="alert alert-danger mt-3">
                 <p th:text="${generalError}"></p>
             </div>
+
             <div th:if="${trackInfo != null and customError == null and generalError == null}" class="mt-5 w-100">
                 <h2 class="text-center">Информация о посылке</h2>
                 <div th:if="${number != null}" class="d-flex justify-content-center text-center">
@@ -96,6 +93,25 @@
                     </tbody>
                 </table>
             </div>
+
+            <div th:if="${trackingResults}" class="mt-5 w-100">
+                <h2 class="text-center">Результаты загрузки</h2>
+                <table class="table mt-3 table-striped">
+                    <thead>
+                    <tr>
+                        <th scope="col">Номер посылки</th>
+                        <th scope="col">Статус</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="result : ${trackingResults}">
+                        <td th:text="${result.trackingNumber}"></td>
+                        <td th:text="${result.status}"></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
         </div>
         <div class="col-3"></div>
     </div>

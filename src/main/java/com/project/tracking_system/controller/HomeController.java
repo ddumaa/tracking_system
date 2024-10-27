@@ -1,6 +1,7 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.PasswordResetDTO;
+import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.entity.User;
@@ -67,6 +68,7 @@ public class HomeController {
 
         HttpSession session = request.getSession();
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String authUserName = auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken) ? auth.getName() : null;
 
         model.addAttribute("number", number);
 
@@ -79,9 +81,9 @@ public class HomeController {
             }
 
             if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
-                model.addAttribute("authenticatedUser", auth.getName());
-                session.setAttribute("userSession", auth.getName());
-                trackParcelService.save(number, trackInfo, auth.getName());
+                model.addAttribute("authenticatedUser", authUserName);
+                session.setAttribute("userSession", authUserName);
+                trackParcelService.save(number, trackInfo, authUserName);
             } else {
                 session.removeAttribute("userSession");
                 model.addAttribute("authenticatedUser", null);
@@ -241,26 +243,22 @@ public class HomeController {
     }
 
     @PostMapping("/upload")
-    public String uploadFile (@RequestParam("file") MultipartFile file, Model model, HttpServletRequest request) {
-        HttpSession session = request.getSession();
+    public String uploadFile (@RequestParam("file") MultipartFile file, Model model) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String authenticatedUser = auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken) ? auth.getName() : null;
+        String authUserName = auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken) ? auth.getName() : null;
 
         if (file.isEmpty()){
-            model.addAttribute("customError", "Пожалуйста, выберите файл для загрузки.");
+            model.addAttribute("customError", "Пожалуйста, выберите xls файл для загрузки.");
             return "home";
         }
 
         try {
-            List<String> trackingNumbers = trackingNumberServiceXLS.processTrackingNumber(file, authenticatedUser);
-            model.addAttribute("successMessage", "Номера отслеживания успешно добавлены: " + trackingNumbers);
-            return "home";
-
-        }catch (IOException e) {
-            model.addAttribute("generalError", "Ошибка при обработке файла.");
-            return "home";
+            List<TrackingResultAdd> trackingResults = trackingNumberServiceXLS.processTrackingNumber(file, authUserName);
+            model.addAttribute("trackingResults", trackingResults);
+        } catch (IOException e) {
+            model.addAttribute("generalError", "Ошибка при обработке файла: " + e.getMessage());
         }
-
+        return "home";
     }
 
 }
