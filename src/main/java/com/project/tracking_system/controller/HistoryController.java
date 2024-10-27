@@ -96,7 +96,7 @@ public class HistoryController {
     }
 
     @PostMapping("/delete-selected")
-    public String deleteSelected(@RequestBody List<String> selectedNumbers, RedirectAttributes redirectAttributes) {
+    public String deleteSelected(@RequestParam List<String> selectedNumbers, RedirectAttributes redirectAttributes) {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             Optional<User> byUser = userService.findByUser(auth.getName());
