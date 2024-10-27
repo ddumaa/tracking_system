@@ -45,12 +45,22 @@ public class TrackParcelService {
         Optional<User> user = userService.findByUser(username);
 
         if (user.isPresent()) {
-            TrackParcel trackParcel = new TrackParcel();
-            trackParcel.setNumber(number);
-            trackParcel.setUser(user.get());
-            trackParcel.setStatus(statusTrackService.setStatus(trackInfoDTOList));
-            trackParcel.setData(trackInfoDTOList.get(0).getTimex());
+            Long userId = user.get().getId();
+            TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(number, userId);
+            if (trackParcel != null) {
+                // обновляем существующую запись
+                trackParcel.setStatus(statusTrackService.setStatus(trackInfoDTOList));
+                trackParcel.setData(trackInfoDTOList.get(0).getTimex());
+            } else {
+                // создаём новую запись
+                trackParcel = new TrackParcel();
+                trackParcel.setNumber(number);
+                trackParcel.setUser(user.get());
+                trackParcel.setStatus(statusTrackService.setStatus(trackInfoDTOList));
+                trackParcel.setData(trackInfoDTOList.get(0).getTimex());
+            }
             trackParcelRepository.save(trackParcel);
+
         }
     }
 
