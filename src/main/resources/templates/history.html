@@ -227,7 +227,7 @@
             })
                 .then(response => {
                     if (response.ok) {
-                        window.location.reload();
+                        location.reload();
                     } else {
                         return response.text().then(text => {
                             alert('Ошибка при удалении элементов: ' + text);
