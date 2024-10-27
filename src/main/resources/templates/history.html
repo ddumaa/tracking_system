@@ -227,7 +227,10 @@
             })
                 .then(response => {
                     if (response.ok) {
-                        location.reload(); // Обновляет всю страницу
+                        return response.text().then(message => {
+                            alert(message);
+                            location.reload();
+                        });
                     } else {
                         return response.text().then(text => {
                             alert('Ошибка при удалении элементов: ' + text);

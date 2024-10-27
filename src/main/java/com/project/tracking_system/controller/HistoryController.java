@@ -10,6 +10,8 @@ import com.project.tracking_system.service.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
@@ -96,7 +98,8 @@ public class HistoryController {
     }
 
     @PostMapping("/delete-selected")
-    public String deleteSelected(@RequestBody List<String> selectedNumbers, RedirectAttributes redirectAttributes) {
+    @ResponseBody
+    public ResponseEntity<?> deleteSelected(@RequestBody List<String> selectedNumbers) {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             Optional<User> byUser = userService.findByUser(auth.getName());
@@ -105,14 +108,12 @@ public class HistoryController {
                 Long userId = byUser.get().getId();
                 trackParcelService.deleteByNumbersAndUserId(selectedNumbers, userId);
 
-                redirectAttributes.addFlashAttribute("deleteMessage", "Выбранные посылки успешно удалены.");
+                return ResponseEntity.ok("Выбранные посылки успешно удалены.");
             } else {
-                redirectAttributes.addFlashAttribute("deleteMessage", "Пользователь не найден.");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Пользователь не найден.");
             }
-            return "redirect:/history";
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("deleteMessage", "Ошибка при удалении посылок." + e.getMessage());
-            return "redirect:/history";
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Ошибка при удалении посылок." + e.getMessage());
         }
     }
 
