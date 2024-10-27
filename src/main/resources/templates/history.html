@@ -218,7 +218,7 @@
         const selectedNumbers = Array.from(document.querySelectorAll('.selectCheckbox:checked'))
             .map(checkbox => checkbox.value);
         if (selectedNumbers.length > 0) {
-            fetch('history/delete-selected', {
+            fetch('/history/delete-selected', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -227,7 +227,7 @@
             })
                 .then(response => {
                     if (response.ok) {
-                        location.reload();
+                        location.reload(); // Обновляет всю страницу
                     } else {
                         return response.text().then(text => {
                             alert('Ошибка при удалении элементов: ' + text);
