@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 public class TrackingNumberServiceXLS {
@@ -29,22 +30,32 @@ public class TrackingNumberServiceXLS {
 
         try(InputStream in = file.getInputStream(); Workbook workbook = WorkbookFactory.create(in)) {
             Sheet sheet = workbook.getSheetAt(0);
+            List<CompletableFuture<TrackingResultAdd>> futures = new ArrayList<>();
             
             for (Row row : sheet) {
                 Cell cell = row.getCell(0);
                 if (cell != null) {
                     String trackingNumber  = cell.getStringCellValue();
-                    TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(trackingNumber);
 
-                    String status;
-                    if (trackInfo != null && !trackInfo.getList().isEmpty()) {
-                        trackParcelService.save(trackingNumber, trackInfo, authenticatedUser);
-                        status = "Добавлен";
-                    } else {
-                        status = "Ошибка: некорректные данные";
-                    }
-                    trackingResult.add(new TrackingResultAdd(trackingNumber, status));
+                    CompletableFuture<TrackingResultAdd> future = CompletableFuture.supplyAsync(() -> {
+                        try {
+                            TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(trackingNumber);
+                            trackParcelService.save(trackingNumber, trackInfo, authenticatedUser);
+                            return new TrackingResultAdd(trackingNumber, "Добавлена");
+                        } catch (Exception e) {
+                            return new TrackingResultAdd(trackingNumber, "Ошибка: " + e.getMessage());
+                        }
+                    });
+                    futures.add(future);
                 }
+            }
+
+            // Ожидание завершения всех асинхронных задач
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+            // Получение результатов из всех CompletableFuture
+            for (CompletableFuture<TrackingResultAdd> future : futures) {
+                trackingResult.add(future.join());
             }
         }
         return trackingResult;
