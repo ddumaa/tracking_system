@@ -32,8 +32,6 @@ RUN apt-get update && apt-get install -y \
     unzip \
     software-properties-common && \
     add-apt-repository ppa:ubuntu-toolchain-r/test && \
-    apt-get update && \
-    apt-get install -y \
     libstdc++6 \
     tesseract-ocr \
     libtesseract-dev && \
