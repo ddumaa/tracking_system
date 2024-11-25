@@ -27,15 +27,17 @@ RUN apt-get update && apt-get install -y \
     libtool \
     autoconf \
     automake \
-    gcc g++ \
+    gcc \
+    g++ \
     unzip \
     software-properties-common && \
     add-apt-repository ppa:ubuntu-toolchain-r/test && \
     apt-get update && \
-    apt-get install -y libstdc++6 tesseract-ocr libtesseract-dev && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
+    apt-get install -y \
+    libstdc++6 \
+    tesseract-ocr \
+    libtesseract-dev && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 
 # Установите Google Chrome
