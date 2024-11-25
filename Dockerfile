@@ -6,7 +6,7 @@ RUN mvn clean package -DskipTests
 
 FROM openjdk:17.0.2-jdk-slim-buster
 
-# Установить зависимости
+# Установка необходимых инструментов и библиотек
 RUN apt-get update && apt-get install -y \
     wget \
     curl \
@@ -26,7 +26,12 @@ RUN apt-get update && apt-get install -y \
     autoconf \
     automake
 
-# Скачиваем исходный код Tesseract версии 5.5.0
+# Обновление CMake (если стандартная версия слишком старая)
+RUN apt-get remove -y cmake && \
+    wget https://github.com/Kitware/CMake/releases/download/v3.31.0/cmake-3.31.0-linux-x86_64.tar.gz && \
+    tar -xvzf cmake-3.31.0-linux-x86_64.tar.gz --strip-components=1 -C /usr/local
+
+# Скачивание исходного кода Tesseract 5.5.0
 RUN wget https://github.com/tesseract-ocr/tesseract/archive/refs/tags/5.5.0.tar.gz -O /tmp/tesseract-5.5.0.tar.gz && \
     tar -xvzf /tmp/tesseract-5.5.0.tar.gz -C /tmp && \
     cd /tmp/tesseract-5.5.0 && \
@@ -37,12 +42,12 @@ RUN wget https://github.com/tesseract-ocr/tesseract/archive/refs/tags/5.5.0.tar.
     make install && \
     ldconfig
 
-# Скачиваем улучшенные языковые файлы для Tesseract
+# Скачивание языковых данных
 RUN mkdir -p /usr/local/share/tessdata/ && \
     wget https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/eng.traineddata -O /usr/local/share/tessdata/eng.traineddata && \
     wget https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/rus.traineddata -O /usr/local/share/tessdata/rus.traineddata
 
-# Установить переменную окружения для Tesseract
+# Установить переменную окружения
 ENV TESSDATA_PREFIX=/usr/local/share/tessdata/
 
 # Добавьте репозиторий Google Chrome
