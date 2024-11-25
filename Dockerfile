@@ -5,7 +5,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # Слой с Tesseract 5.5.0 из jitesoft/tesseract-ocr
-FROM jitesoft/tesseract-ocr:5-5.5.0 AS tesseract
+FROM jitesoft/tesseract-ocr:5.5.0 AS tesseract
 
 # Слой с Java (OpenJDK 17)
 FROM openjdk:17-slim-bullseye
