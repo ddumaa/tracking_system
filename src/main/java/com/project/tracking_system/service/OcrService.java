@@ -44,9 +44,16 @@ public class OcrService {
 
     public String recognizeText(String imagePath) throws TesseractException {
         Tesseract tesseract = new Tesseract();
-        tesseract.setDatapath("/usr/share/tesseract-ocr/5.3.4/tessdata/"); // Путь к языковым данным
+        tesseract.setDatapath("/usr/share/tesseract-ocr/5.3.4/tessdata/");
         tesseract.setLanguage("rus+eng");
-        return tesseract.doOCR(new File(imagePath));
+
+        try {
+            String result = tesseract.doOCR(new File(imagePath));
+            return result;
+        } catch (TesseractException e) {
+            e.printStackTrace();
+            throw new RuntimeException("Ошибка OCR: " + e.getMessage(), e);
+        }
     }
 
     public List<TrackInfoListDTO> extractAndProcessTrackingNumbers(String text) {
