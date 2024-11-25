@@ -6,7 +6,7 @@ RUN mvn clean package -DskipTests
 
 FROM openjdk:17.0.2-jdk-slim-buster
 
-# Установить необходимые зависимости
+# Установить зависимости
 RUN apt-get update && apt-get install -y \
     wget \
     curl \
@@ -23,10 +23,10 @@ RUN apt-get update && apt-get install -y \
     libpango1.0-dev \
     libglib2.0-dev
 
-# Скачиваем исходный код Tesseract
-RUN git clone https://github.com/tesseract-ocr/tesseract.git /tesseract && \
-    cd /tesseract && \
-    git checkout 5.3.1 && \
+# Скачиваем исходный код Tesseract версии 5.5.0
+RUN wget https://github.com/tesseract-ocr/tesseract/archive/refs/tags/5.5.0.tar.gz -O /tmp/tesseract-5.5.0.tar.gz && \
+    tar -xvzf /tmp/tesseract-5.5.0.tar.gz -C /tmp && \
+    cd /tmp/tesseract-5.5.0 && \
     mkdir build && \
     cd build && \
     cmake .. && \
