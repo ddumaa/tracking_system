@@ -24,20 +24,23 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-dev \
     libtool \
     autoconf \
-    automake
+    automake \
+    gcc-10 g++-10 && \
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 100
 
 # Обновление CMake (если стандартная версия слишком старая)
 RUN apt-get remove -y cmake && \
     wget https://github.com/Kitware/CMake/releases/download/v3.31.0/cmake-3.31.0-linux-x86_64.tar.gz && \
     tar -xvzf cmake-3.31.0-linux-x86_64.tar.gz --strip-components=1 -C /usr/local
 
-# Скачивание исходного кода Tesseract 5.5.0
+# Скачивание и сборка Tesseract 5.5.0
 RUN wget https://github.com/tesseract-ocr/tesseract/archive/refs/tags/5.5.0.tar.gz -O /tmp/tesseract-5.5.0.tar.gz && \
     tar -xvzf /tmp/tesseract-5.5.0.tar.gz -C /tmp && \
     cd /tmp/tesseract-5.5.0 && \
     mkdir build && \
     cd build && \
-    cmake .. && \
+    cmake .. -DCMAKE_CXX_FLAGS="-std=c++17 -lstdc++fs" && \
     make && \
     make install && \
     ldconfig
