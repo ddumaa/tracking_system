@@ -4,7 +4,7 @@ COPY pom.xml .
 COPY src ./src
 RUN mvn clean package -DskipTests
 
-FROM openjdk:17.0.2-jdk-slim-buster
+FROM openjdk:17-slim-bookworm
 
 # Установка необходимых инструментов и библиотек
 RUN apt-get update && apt-get install -y \
@@ -25,9 +25,7 @@ RUN apt-get update && apt-get install -y \
     libtool \
     autoconf \
     automake \
-    gcc-10 g++-10 && \
-    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 100
+    gcc g++
 
 # Обновление CMake (если стандартная версия слишком старая)
 RUN apt-get remove -y cmake && \
