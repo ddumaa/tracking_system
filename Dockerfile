@@ -13,8 +13,8 @@ RUN apt-get update && apt-get install -y \
     unzip \
     gnupg \
     apt-transport-https \
-    sudo apt install tesseract-ocr \
-    sudo apt install libtesseract-dev
+    tesseract-ocr \
+    libtesseract-dev
 
 # Скачиваем и добавляем языковые файлы для Tesseract
 RUN mkdir -p /usr/local/share/tessdata/ && \
