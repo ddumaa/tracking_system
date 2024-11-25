@@ -10,22 +10,11 @@ FROM openjdk:17-slim-bullseye
 # Установка необходимых инструментов и библиотек
 RUN apt-get update && apt-get install -y \
     wget \
-    curl \
-    git \
-    build-essential \
-    cmake \
-    pkg-config \
-    autoconf \
-    automake \
-    gcc \
-    g++ \
     unzip \
-    software-properties-common \
-    add-apt-repository ppa:ubuntu-toolchain-r/test \
-    libstdc++6 \
-    tesseract-ocr \
-    libtesseract-dev \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    gnupg \
+    apt-transport-https \
+    sudo apt install tesseract-ocr \
+    sudo apt install libtesseract-dev
 
 # Скачиваем и добавляем языковые файлы для Tesseract
 RUN mkdir -p /usr/local/share/tessdata/ && \
