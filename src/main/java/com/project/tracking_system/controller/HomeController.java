@@ -6,6 +6,7 @@ import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
+import com.project.tracking_system.service.OcrService;
 import com.project.tracking_system.service.TrackingNumberServiceXLS;
 import com.project.tracking_system.service.user.LoginAttemptService;
 import com.project.tracking_system.service.TypeDefinitionTrackPostService;
@@ -43,19 +44,21 @@ public class HomeController {
     private final LoginAttemptService loginAttemptService;
     private final PasswordResetService passwordResetService;
     private final TrackingNumberServiceXLS trackingNumberServiceXLS;
+    private final OcrService ocrService;
 
     @Autowired
     public HomeController(UserService userService, TrackParcelService trackParcelService,
                           TypeDefinitionTrackPostService typeDefinitionTrackPostService,
                           LoginAttemptService loginAttemptService,
                           PasswordResetService passwordResetService,
-                          TrackingNumberServiceXLS trackingNumberServiceXLS) {
+                          TrackingNumberServiceXLS trackingNumberServiceXLS, OcrService ocrService) {
         this.userService = userService;
         this.trackParcelService = trackParcelService;
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
         this.loginAttemptService = loginAttemptService;
         this.passwordResetService = passwordResetService;
         this.trackingNumberServiceXLS = trackingNumberServiceXLS;
+        this.ocrService = ocrService;
     }
 
     @GetMapping
@@ -243,21 +246,45 @@ public class HomeController {
     }
 
     @PostMapping("/upload")
-    public String uploadFile (@RequestParam("file") MultipartFile file, Model model) {
+    public String uploadFile(@RequestParam("file") MultipartFile file, Model model) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String authUserName = auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken) ? auth.getName() : null;
+        String authUserName = (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken))
+                ? auth.getName() : null;
 
-        if (file.isEmpty()){
-            model.addAttribute("customError", "Пожалуйста, выберите xls файл для загрузки.");
+        if (file.isEmpty()) {
+            model.addAttribute("customError", "Пожалуйста, выберите XLS, XLSX или изображение для загрузки.");
+            return "home";
+        }
+
+        // Определяем MIME-тип файла
+        String contentType = file.getContentType();
+        if (contentType == null) {
+            model.addAttribute("customError", "Не удалось определить тип файла.");
             return "home";
         }
 
         try {
-            List<TrackingResultAdd> trackingResults = trackingNumberServiceXLS.processTrackingNumber(file, authUserName);
-            model.addAttribute("trackingResults", trackingResults);
+            if (contentType.equals("application/vnd.ms-excel") || contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
+                // Обработка XLS или XLSX файла
+                List<TrackingResultAdd> trackingResults = trackingNumberServiceXLS.processTrackingNumber(file, authUserName);
+                model.addAttribute("trackingResults", trackingResults);
+            } else if (contentType.startsWith("image/")) {
+                // Обработка изображения (OCR)
+                String recognizedText = ocrService.processImage(file);
+                List<TrackInfoListDTO> trackInfoList = ocrService.extractAndProcessTrackingNumbers(recognizedText);
+
+                // Добавляем информацию о трек-номерах и их статусах в модель
+                model.addAttribute("trackInfoList", trackInfoList);
+            } else {
+                model.addAttribute("customError", "Неподдерживаемый тип файла. Загрузите XLS, XLSX или изображение.");
+                return "home";
+            }
         } catch (IOException e) {
             model.addAttribute("generalError", "Ошибка при обработке файла: " + e.getMessage());
+        } catch (Exception e) {
+            model.addAttribute("generalError", "Ошибка: " + e.getMessage());
         }
+
         return "home";
     }
 

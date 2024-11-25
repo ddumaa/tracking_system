@@ -56,9 +56,9 @@
             </form>
 
             <!-- форма для загрузки через XLS -->
-            <form th:if="${authenticatedUser != null}" th:action="@{/upload}" method="post" enctype="multipart/form-data" class="w-100">
+            <form th:action="@{/upload}" method="post" enctype="multipart/form-data" class="w-100">
                 <div class="form-group">
-                    <label for="file" class="d-block">Загрузите файл с номерами отслеживания (XLS)</label>
+                    <label for="file" class="d-block">Загрузите XLS, XLSX или изображение.</label>
                     <div class="input-group">
                         <input type="file" id="file" name="file" class="form-control" accept=".xls,.xlsx" required>
                         <button type="submit" class="btn btn-outline-secondary" id="upload-button">Загрузить</button>

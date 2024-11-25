@@ -10,6 +10,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 @Service
 public class TypeDefinitionTrackPostService {
@@ -43,11 +44,13 @@ public class TypeDefinitionTrackPostService {
     public TrackInfoListDTO getTypeDefinitionTrackPostService(String number) {
         try {
             return getTypeDefinitionTrackPostServiceAsync(number).get();
-        } catch (IllegalArgumentException e) {
-            throw e;
-        } catch (Exception e) {
+        } catch (ExecutionException | InterruptedException e) {
+            // Обрабатываем ошибки при ожидании асинхронного ответа
             e.printStackTrace();
-            return new TrackInfoListDTO();
+            return new TrackInfoListDTO();  // Возвращаем пустой объект, если произошла ошибка
+        } catch (IllegalArgumentException e) {
+            // Обрабатываем ошибку неправильного формата трек-номера
+            throw e;
         }
     }
 
