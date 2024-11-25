@@ -6,23 +6,41 @@ RUN mvn clean package -DskipTests
 
 FROM openjdk:17.0.2-jdk-slim-buster
 
-# Установите необходимые пакеты
+# Установить необходимые зависимости
 RUN apt-get update && apt-get install -y \
     wget \
     curl \
-    gnupg \
-    apt-transport-https
+    git \
+    build-essential \
+    cmake \
+    pkg-config \
+    libleptonica-dev \
+    libtiff-dev \
+    libpng-dev \
+    libjpeg-dev \
+    zlib1g-dev \
+    libicu-dev \
+    libpango1.0-dev \
+    libglib2.0-dev
 
-# Добавление репозитория для Tesseract 5.x
-RUN apt-get update && apt-get install -y \
-    wget gnupg apt-transport-https && \
-    echo "deb http://deb.debian.org/debian bullseye-backports main" > /etc/apt/sources.list.d/backports.list && \
-    apt-get update && apt-get install -y \
-    tesseract-ocr/tesseract-ocr5 \
-    tesseract-ocr-eng \
-    tesseract-ocr-rus \
-    libleptonica-dev && \
-    rm -rf /var/lib/apt/lists/*
+# Скачиваем исходный код Tesseract
+RUN git clone https://github.com/tesseract-ocr/tesseract.git /tesseract && \
+    cd /tesseract && \
+    git checkout 5.3.1 && \
+    mkdir build && \
+    cd build && \
+    cmake .. && \
+    make && \
+    make install && \
+    ldconfig
+
+# Скачиваем улучшенные языковые файлы для Tesseract
+RUN mkdir -p /usr/local/share/tessdata/ && \
+    wget https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/eng.traineddata -O /usr/local/share/tessdata/eng.traineddata && \
+    wget https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/rus.traineddata -O /usr/local/share/tessdata/rus.traineddata
+
+# Установить переменную окружения для Tesseract
+ENV TESSDATA_PREFIX=/usr/local/share/tessdata/
 
 # Добавьте репозиторий Google Chrome
 RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
