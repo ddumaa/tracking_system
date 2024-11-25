@@ -4,7 +4,7 @@ COPY pom.xml .
 COPY src ./src
 RUN mvn clean package -DskipTests
 
-FROM openjdk:17-slim-bookworm
+FROM openjdk:17-slim-bullseye
 
 # Установка необходимых инструментов и библиотек
 RUN apt-get update && apt-get install -y \
