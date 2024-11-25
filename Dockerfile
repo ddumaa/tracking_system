@@ -6,12 +6,23 @@ RUN mvn clean package -DskipTests
 
 FROM openjdk:17.0.2-jdk-slim-buster
 
-# Установите необходимые зависимости
+# Установите необходимые пакеты
 RUN apt-get update && apt-get install -y \
     wget \
-    unzip \
+    curl \
     gnupg \
     apt-transport-https
+
+# Добавление репозитория для Tesseract 5.x
+RUN apt-get update && apt-get install -y \
+    wget gnupg apt-transport-https && \
+    echo "deb http://deb.debian.org/debian bullseye-backports main" > /etc/apt/sources.list.d/backports.list && \
+    apt-get update && apt-get install -y \
+    tesseract-ocr/tesseract-ocr5 \
+    tesseract-ocr-eng \
+    tesseract-ocr-rus \
+    libleptonica-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 # Добавьте репозиторий Google Chrome
 RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
@@ -24,11 +35,6 @@ RUN wget -N "https://storage.googleapis.com/chrome-for-testing-public/130.0.6723
     mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/ && \
     chmod +x /usr/local/bin/chromedriver && \
     rm -rf /tmp/chromedriver.zip /tmp/chromedriver-linux64
-
-RUN apt-get update && apt-get install -y \
-    tesseract-ocr \
-    tesseract-ocr-eng \
-    tesseract-ocr-rus
 
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
