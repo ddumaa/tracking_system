@@ -17,8 +17,8 @@ RUN apt-get update && apt-get install -y \
     tesseract-ocr-eng \
     tesseract-ocr-rus \
     libtesseract-dev \
-    apt-get updat \
-    apt-get install libstdc++6
+    updat \
+    install libstdc++6
 
 # Скачиваем и добавляем языковые файлы для Tesseract
 RUN mkdir -p /usr/local/share/tessdata/ && \
