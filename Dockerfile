@@ -28,15 +28,12 @@ RUN apt-get update && apt-get install -y \
     autoconf \
     automake \
     gcc g++ \
-    unzip
-
-# Добавление PPA и установка libstdc++6
-RUN apt-get update && apt-get install -y software-properties-common && \
-    add-apt-repository ppa:ubuntu-toolchain-r/test && \
+    unzip \
+    sudo add-apt-repository ppa:ubuntu-toolchain-r/test  && \
     apt-get update && apt-get install -y libstdc++6 && \
     sudo apt install tesseract-ocr \
-    sudo apt install libtesseract-dev \
-    apt-get clean
+    sudo apt install libtesseract-dev
+
 
 # Установите Google Chrome
 RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
