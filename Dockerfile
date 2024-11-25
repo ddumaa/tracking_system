@@ -16,10 +16,11 @@ RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     tesseract-ocr-eng \
     tesseract-ocr-rus \
+    libleptonica-dev \
     libtesseract-dev \
     libpng-dev \
-    libjpeg-dev \
-    libleptonica-dev
+    libjpeg-dev
+
 
 
 # Скачиваем и добавляем языковые файлы для Tesseract

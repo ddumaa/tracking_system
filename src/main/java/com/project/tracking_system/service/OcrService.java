@@ -44,7 +44,7 @@ public class OcrService {
 
     public String recognizeText(String imagePath) throws TesseractException {
         Tesseract tesseract = new Tesseract();
-        tesseract.setDatapath("/usr/share/tesseract-ocr/5.3.4/tessdata/");
+        tesseract.setDatapath("/usr/local/share/tessdata");
         tesseract.setLanguage("rus+eng");
 
         try {
