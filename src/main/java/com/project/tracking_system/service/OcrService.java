@@ -7,11 +7,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Service
@@ -25,35 +25,22 @@ public class OcrService {
     }
 
     public String processImage(MultipartFile file) throws IOException {
-        // Логика обработки изображения из файла
-        String imagePath = saveImage(file);
         try {
-            return recognizeText(imagePath);
+            BufferedImage bufferedImage = ImageIO.read(file.getInputStream());
+            if (bufferedImage == null) {
+                throw new IOException("Формат файла не поддерживается: " + file.getOriginalFilename());
+            }
+            return recognizeText(bufferedImage);
         } catch (TesseractException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Ошибка OCR: " + e.getMessage(), e);
         }
     }
 
-    private String saveImage(MultipartFile file) throws IOException {
-        // Сохранение изображения на диск для обработки OCR
-        String path = "/tmp/" + UUID.randomUUID().toString() + ".png"; // Пример пути
-        File dest = new File(path);
-        file.transferTo(dest);
-        return path;
-    }
-
-    public String recognizeText(String imagePath) throws TesseractException {
+    public String recognizeText(BufferedImage image) throws TesseractException {
         Tesseract tesseract = new Tesseract();
         tesseract.setDatapath("/usr/local/share/tessdata");
         tesseract.setLanguage("rus+eng");
-
-        try {
-            String result = tesseract.doOCR(new File(imagePath));
-            return result;
-        } catch (TesseractException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Ошибка OCR: " + e.getMessage(), e);
-        }
+        return tesseract.doOCR(image);
     }
 
     public List<TrackInfoListDTO> extractAndProcessTrackingNumbers(String text) {
