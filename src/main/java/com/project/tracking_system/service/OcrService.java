@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -26,14 +27,25 @@ public class OcrService {
 
     public String processImage(MultipartFile file) throws IOException {
         try {
-            BufferedImage bufferedImage = ImageIO.read(file.getInputStream());
-            if (bufferedImage == null) {
-                throw new IOException("Формат файла не поддерживается: " + file.getOriginalFilename());
-            }
+            BufferedImage bufferedImage = preprocessImage(file);
             return recognizeText(bufferedImage);
         } catch (TesseractException e) {
             throw new RuntimeException("Ошибка OCR: " + e.getMessage(), e);
         }
+    }
+
+    private BufferedImage preprocessImage(MultipartFile file) throws IOException {
+        BufferedImage originalImage = ImageIO.read(file.getInputStream());
+        if (originalImage == null) {
+            throw new IOException("Формат изображения не поддерживается");
+        }
+
+        // Преобразование в оттенки серого
+        BufferedImage grayscaleImage = new BufferedImage(originalImage.getWidth(), originalImage.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
+        Graphics g = grayscaleImage.getGraphics();
+        g.drawImage(originalImage, 0, 0, null);
+        g.dispose();
+        return grayscaleImage;
     }
 
     public String recognizeText(BufferedImage image) throws TesseractException {
