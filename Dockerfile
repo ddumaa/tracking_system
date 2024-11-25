@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     cmake \
     pkg-config \
     libleptonica-dev \
+    libjpeg62-turbo-dev \
     libtiff-dev \
     libpng-dev \
     libjpeg-dev \
