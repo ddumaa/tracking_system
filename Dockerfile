@@ -15,28 +15,22 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
     pkg-config \
-    libleptonica-dev \
-    libjpeg62-turbo-dev \
-    libtiff-dev \
-    libpng-dev \
-    libjpeg-dev \
-    zlib1g-dev \
-    libicu-dev \
-    libpango1.0-dev \
-    libglib2.0-dev \
-    libtool \
     autoconf \
     automake \
     gcc \
     g++ \
     unzip \
-    software-properties-common && \
-    add-apt-repository ppa:ubuntu-toolchain-r/test && \
+    software-properties-common \
+    add-apt-repository ppa:ubuntu-toolchain-r/test \
     libstdc++6 \
     tesseract-ocr \
-    libtesseract-dev && \
+    libtesseract-dev \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Скачиваем и добавляем языковые файлы для Tesseract
+RUN mkdir -p /usr/local/share/tessdata/ && \
+    wget https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/eng.traineddata -O /usr/local/share/tessdata/eng.traineddata && \
+    wget https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/rus.traineddata -O /usr/local/share/tessdata/rus.traineddata
 
 # Установите Google Chrome
 RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
@@ -49,11 +43,6 @@ RUN wget -N "https://storage.googleapis.com/chrome-for-testing-public/130.0.6723
     mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/ && \
     chmod +x /usr/local/bin/chromedriver && \
     rm -rf /tmp/chromedriver.zip /tmp/chromedriver-linux64
-
-# Скачиваем и добавляем языковые файлы для Tesseract
-RUN mkdir -p /usr/local/share/tessdata/ && \
-    wget https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/eng.traineddata -O /usr/local/share/tessdata/eng.traineddata && \
-    wget https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/rus.traineddata -O /usr/local/share/tessdata/rus.traineddata
 
 # Копируем приложение
 WORKDIR /app
