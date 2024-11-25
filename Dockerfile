@@ -38,7 +38,7 @@ COPY --from=tesseract /usr/local/bin/tesseract /usr/local/bin/tesseract
 COPY --from=tesseract /usr/local/share/tessdata/ /usr/local/share/tessdata/
 COPY --from=tesseract /usr/local/lib/ /usr/local/lib/
 
-RUN ln -s /usr/lib/x86_64-linux-gnu/libjpeg.so.62 /usr/lib/x86_64-linux-gnu/libjpeg.so.8
+
 
 # Установите Google Chrome
 RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
