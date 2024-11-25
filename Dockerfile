@@ -4,9 +4,6 @@ COPY pom.xml .
 COPY src ./src
 RUN mvn clean package -DskipTests
 
-# Слой с Tesseract 5.5.0 из jitesoft/tesseract-ocr
-FROM jitesoft/tesseract-ocr:5-latest AS tesseract
-
 # Слой с Java (OpenJDK 17)
 FROM openjdk:17-slim-bullseye
 
@@ -33,34 +30,13 @@ RUN apt-get update && apt-get install -y \
     gcc g++ \
     unzip
 
-# Скопировать установленные файлы Tesseract из предыдущего слоя
-COPY --from=tesseract /usr/local/bin/tesseract /usr/local/bin/tesseract
-COPY --from=tesseract /usr/local/share/tessdata/ /usr/local/share/tessdata/
-COPY --from=tesseract /usr/local/lib/ /usr/local/lib/
-
-# Символьная ссылка для libjpeg
-RUN ln -s /usr/lib/x86_64-linux-gnu/libjpeg.so.62 /usr/lib/x86_64-linux-gnu/libjpeg.so.8
-# Символьная ссылка для libtiff
-RUN ln -s /usr/lib/x86_64-linux-gnu/libtiff.so.5 /usr/lib/x86_64-linux-gnu/libtiff.so.6
-# Символьная ссылка для libwebp
-RUN ln -s /usr/lib/x86_64-linux-gnu/libwebp.so.6 /usr/lib/x86_64-linux-gnu/libwebp.so.7
-
-# Установим необходимую версию glibc
-RUN apt-get update && apt-get install -y wget && \
-    wget http://ftp.gnu.org/gnu/libc/glibc-2.38.tar.gz && \
-    tar -xvzf glibc-2.38.tar.gz && cd glibc-2.38 && \
-    mkdir build && cd build && \
-    ../configure --prefix=/opt/glibc-2.38 && make -j$(nproc) && make install && \
-    rm -rf /glibc-2.38.tar.gz /glibc-2.38 && \
-    echo "/opt/glibc-2.38/lib" >> /etc/ld.so.conf.d/glibc-2.38.conf && ldconfig
-ENV LD_LIBRARY_PATH="/opt/glibc-2.38/lib:$LD_LIBRARY_PATH"
-
-# Установка GCC 12
+# Добавление PPA и установка libstdc++6
 RUN apt-get update && apt-get install -y software-properties-common && \
     add-apt-repository ppa:ubuntu-toolchain-r/test && \
-    apt-get update && apt-get install -y gcc-12 g++-12 && \
-    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 12 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 12
+    apt-get update && apt-get install -y libstdc++6 && \
+    sudo apt install tesseract-ocr \
+    sudo apt install libtesseract-dev \
+    apt-get clean
 
 # Установите Google Chrome
 RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
