@@ -35,6 +35,7 @@ RUN apt-get update && apt-get install -y \
 # Скопировать установленные файлы Tesseract из предыдущего слоя
 COPY --from=tesseract /usr/local/bin/tesseract /usr/local/bin/tesseract
 COPY --from=tesseract /usr/local/share/tessdata/ /usr/local/share/tessdata/
+COPY --from=tesseract /usr/local/lib/ /usr/local/lib/
 
 # Установите Google Chrome
 RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
@@ -52,9 +53,6 @@ RUN wget -N "https://storage.googleapis.com/chrome-for-testing-public/130.0.6723
 RUN mkdir -p /usr/local/share/tessdata/ && \
     wget https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/eng.traineddata -O /usr/local/share/tessdata/eng.traineddata && \
     wget https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/rus.traineddata -O /usr/local/share/tessdata/rus.traineddata
-
-# Устанавливаем переменную окружения для указания пути к языковым данным
-ENV TESSDATA_PREFIX=/usr/local/share/tessdata/
 
 # Копируем приложение
 WORKDIR /app
