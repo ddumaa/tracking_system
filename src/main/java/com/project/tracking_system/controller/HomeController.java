@@ -271,10 +271,9 @@ public class HomeController {
             } else if (contentType.startsWith("image/")) {
                 // Обработка изображения (OCR)
                 String recognizedText = ocrService.processImage(file);
+                // Извлечение трек-номеров из текста
                 List<TrackInfoListDTO> trackInfoList = ocrService.extractAndProcessTrackingNumbers(recognizedText);
-
-                // Добавляем информацию о трек-номерах и их статусах в модель
-                model.addAttribute("trackInfoList", trackInfoList);
+                model.addAttribute("trackingResults", trackInfoList);
             } else {
                 model.addAttribute("customError", "Неподдерживаемый тип файла. Загрузите XLS, XLSX или изображение.");
                 return "home";
