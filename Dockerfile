@@ -17,7 +17,6 @@ RUN apt-get update && apt-get install -y \
     tesseract-ocr-eng \
     tesseract-ocr-rus \
     libtesseract-dev \
-    add-apt-repository ppa:ubuntu-toolchain-r/test \
     apt-get updat \
     apt-get install libstdc++6
 
