@@ -29,7 +29,9 @@ RUN apt-get update && apt-get install -y \
     libtool \
     autoconf \
     automake \
-    gcc g++
+    gcc g++ \
+    unzip
+
 
 # Установите Google Chrome
 RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
