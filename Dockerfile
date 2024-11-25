@@ -21,7 +21,10 @@ RUN apt-get update && apt-get install -y \
     zlib1g-dev \
     libicu-dev \
     libpango1.0-dev \
-    libglib2.0-dev
+    libglib2.0-dev \
+    libtool \
+    autoconf \
+    automake
 
 # Скачиваем исходный код Tesseract версии 5.5.0
 RUN wget https://github.com/tesseract-ocr/tesseract/archive/refs/tags/5.5.0.tar.gz -O /tmp/tesseract-5.5.0.tar.gz && \
