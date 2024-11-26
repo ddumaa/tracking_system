@@ -274,11 +274,11 @@ public class HomeController {
                 System.out.println("Распознанный текст: " + recognizedText);  // Для дебага
 
                 // Извлечение трек-номеров из текста
-                List<TrackInfoListDTO> trackInfoList = ocrService.extractAndProcessTrackingNumbers(recognizedText);
-                System.out.println("Трек-номера: " + trackInfoList);  // Для дебага
+                List<TrackingResultAdd> trackingResults = ocrService.extractAndProcessTrackingNumbers(recognizedText, authUserName);
+                System.out.println("Трек-номера: " + trackingResults);  // Для дебага
 
                 // Добавление результатов в модель
-                model.addAttribute("trackingResults", trackInfoList);
+                model.addAttribute("trackingResults", trackingResults);
             } else {
                 model.addAttribute("customError", "Неподдерживаемый тип файла. Загрузите XLS, XLSX или изображение.");
                 return "home";

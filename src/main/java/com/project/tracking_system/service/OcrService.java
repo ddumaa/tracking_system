@@ -1,6 +1,7 @@
 package com.project.tracking_system.service;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
+import com.project.tracking_system.dto.TrackingResultAdd;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,10 +21,12 @@ import java.util.regex.Pattern;
 public class OcrService {
 
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
+    private final TrackParcelService trackParcelService;
 
     @Autowired
-    public OcrService(TypeDefinitionTrackPostService typeDefinitionTrackPostService) {
+    public OcrService(TypeDefinitionTrackPostService typeDefinitionTrackPostService, TrackParcelService trackParcelService) {
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
+        this.trackParcelService = trackParcelService;
     }
 
     public String processImage(MultipartFile file) throws IOException {
@@ -62,7 +65,7 @@ public class OcrService {
         return tesseract.doOCR(image);
     }
 
-    public List<TrackInfoListDTO> extractAndProcessTrackingNumbers(String text) {
+    public List<TrackingResultAdd> extractAndProcessTrackingNumbers(String text, String authenticatedUser) {
         if (text == null || text.trim().isEmpty()) {
             return new ArrayList<>();  // Если текста нет, возвращаем пустой список
         }
@@ -72,7 +75,7 @@ public class OcrService {
 
         // Разделяем текст на строки
         String[] lines = text.split("\\R"); // Разделяем текст по строкам
-        List<TrackInfoListDTO> trackInfoList = new ArrayList<>();
+        List<TrackingResultAdd> trackInfoResult = new ArrayList<>();
 
         for (String line : lines) {
             line = line.trim(); // Убираем лишние пробелы
@@ -87,16 +90,27 @@ public class OcrService {
                 String trackNumber = matcher.group();
                 System.out.println("Найден трек-номер: " + trackNumber);
 
-                // Обрабатываем извлечённый трек-номер
-                TrackInfoListDTO trackInfo = processTrackingNumber(trackNumber);
-                trackInfoList.add(trackInfo);
+                // Обработка трек-номера в блоке try-catch
+                try {
+                    // Получаем информацию о трек-номере
+                    TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(trackNumber);
+
+                    // Сохраняем данные о трек-номере в сервис
+                    trackParcelService.save(trackNumber, trackInfo, authenticatedUser);
+
+                    // Добавляем в результат успешное добавление
+                    trackInfoResult.add(new TrackingResultAdd(trackNumber, "Добавлена"));
+                } catch (Exception e) {
+                    // В случае ошибки, добавляем в результат сообщение об ошибке
+                    trackInfoResult.add(new TrackingResultAdd(trackNumber, "Ошибка: " + e.getMessage()));
+                }
             }
         }
 
         // Логирование полученных трек-номеров
-        System.out.println("Трек-номера: " + trackInfoList);
+        System.out.println("Трек-номера: " + trackInfoResult);
 
-        return trackInfoList;
+        return trackInfoResult;
     }
 
 
