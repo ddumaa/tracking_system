@@ -71,7 +71,7 @@ public class OcrService {
     public String recognizeText(BufferedImage image) throws TesseractException {
         Tesseract tesseract = new Tesseract();
         tesseract.setDatapath("/usr/local/share/tessdata");
-        tesseract.setLanguage("eng");
+        tesseract.setLanguage("rus+eng");
         tesseract.setVariable("user_defined_dpi", "300");
         return tesseract.doOCR(image);
     }
