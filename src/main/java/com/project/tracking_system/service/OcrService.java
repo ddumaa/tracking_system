@@ -56,6 +56,10 @@ public class OcrService {
     }
 
     public List<TrackInfoListDTO> extractAndProcessTrackingNumbers(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return new ArrayList<>();  // Если текста нет, возвращаем пустой список
+        }
+
         Pattern belPostPattern = Pattern.compile("^(PC|BV|BP)\\d{9}BY$");
         Pattern byPattern = Pattern.compile("^BY\\d{12}$");
 
