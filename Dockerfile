@@ -7,24 +7,32 @@ RUN mvn clean package -DskipTests
 # Слой с Java (OpenJDK 17)
 FROM openjdk:17-slim-bullseye
 
-# Установка необходимых инструментов и библиотек
+# Устанавливаем необходимые зависимости
 RUN apt-get update && apt-get install -y \
     wget \
-    unzip \
     gnupg \
     apt-transport-https \
+    && echo "deb http://ftp.debian.org/debian bullseye-backports main" > /etc/apt/sources.list.d/backports.list \
+    && apt-get update
+
+# Устанавливаем Tesseract из backports
+RUN apt-get -t bullseye-backports install -y \
     tesseract-ocr \
     tesseract-ocr-eng \
     tesseract-ocr-rus \
     libleptonica-dev \
     libtesseract-dev \
     libpng-dev \
-    libjpeg-dev
+    libjpeg-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Скачиваем и добавляем языковые файлы для Tesseract
 RUN mkdir -p /usr/local/share/tessdata/ && \
     wget https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/eng.traineddata -O /usr/local/share/tessdata/eng.traineddata && \
     wget https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/rus.traineddata -O /usr/local/share/tessdata/rus.traineddata
+
+# Указываем путь к языковым файлам в переменной окружения
+ENV TESSDATA_PREFIX=/usr/local/share/
 
 # Установите Google Chrome
 RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \

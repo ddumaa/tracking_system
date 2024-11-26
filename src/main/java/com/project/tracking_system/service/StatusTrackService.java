@@ -15,7 +15,7 @@ public class StatusTrackService {
     private static final Map<Pattern, GlobalStatus> statusPatterns = new HashMap<>();
 
     static {
-        statusPatterns.put(Pattern.compile("^Почтовое отправление выдано.|^Вручено"), GlobalStatus.DELIVERED);
+        statusPatterns.put(Pattern.compile("^Почтовое отправление выдано|^Вручено"), GlobalStatus.DELIVERED);
         statusPatterns.put(Pattern.compile("^Почтовое отправление прибыло на ОПС выдачи|^Добрый день\\. Срок бесплатного хранения|" +
                 "^Поступило в учреждение доставки"), GlobalStatus.WAITING_FOR_CUSTOMER);
         statusPatterns.put(Pattern.compile("^Почтовое отправление принято на ОПС|" +

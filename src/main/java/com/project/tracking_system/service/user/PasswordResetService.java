@@ -41,13 +41,16 @@ public class PasswordResetService {
         this.htmlEmailTemplateService = htmlEmailTemplateService;
     }
 
+    //String link = "http://localhost:8080/reset-password?token=";
+    String link = "https://belivery.by/reset-password?token=";
+
     @Transactional
     public void createPasswordResetToken(String email) {
         userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден"));
 
         String token = randomStringGenerator.generateConfirmCodRegistration();
-        String resetLink = "https://belivery.by/reset-password?token=" + token;
+        String resetLink = link + token;
         String emailContent = htmlEmailTemplateService.generatePasswordResetEmail(resetLink);
 
         Optional<PasswordResetToken> byEmail = tokenRepository.findByEmail(email);
