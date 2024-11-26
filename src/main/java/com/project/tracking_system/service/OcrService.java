@@ -28,7 +28,13 @@ public class OcrService {
     public String processImage(MultipartFile file) throws IOException {
         try {
             BufferedImage bufferedImage = preprocessImage(file);
-            return recognizeText(bufferedImage);
+            String recognizedText = recognizeText(bufferedImage);
+
+            if (recognizedText == null || recognizedText.trim().isEmpty()) {
+                throw new RuntimeException("Ошибка: текст не распознан");
+            }
+
+            return recognizedText;
         } catch (TesseractException e) {
             throw new RuntimeException("Ошибка OCR: " + e.getMessage(), e);
         }
@@ -51,7 +57,7 @@ public class OcrService {
     public String recognizeText(BufferedImage image) throws TesseractException {
         Tesseract tesseract = new Tesseract();
         tesseract.setDatapath("/usr/local/share/tessdata");
-        tesseract.setLanguage("rus+eng");
+        tesseract.setLanguage("eng");
         return tesseract.doOCR(image);
     }
 
