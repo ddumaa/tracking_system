@@ -13,6 +13,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Service
@@ -66,25 +67,38 @@ public class OcrService {
             return new ArrayList<>();  // Если текста нет, возвращаем пустой список
         }
 
-        Pattern belPostPattern = Pattern.compile("^(PC|BV|BP)\\d{9}BY$");
-        Pattern byPattern = Pattern.compile("^BY\\d{12}$");
+        // Паттерн для поиска трек-номеров
+        Pattern trackPattern = Pattern.compile("(BY\\d{12}|(PC|BV|BP)\\d{9}BY)");
 
+        // Разделяем текст на строки
         String[] lines = text.split("\\R"); // Разделяем текст по строкам
         List<TrackInfoListDTO> trackInfoList = new ArrayList<>();
 
         for (String line : lines) {
             line = line.trim(); // Убираем лишние пробелы
-            System.out.println("Обрабатываем строку: " + line); // Отладочный вывод
 
-            if (belPostPattern.matcher(line).matches() || byPattern.matcher(line).matches()) {
-                // Если трек-номер соответствует паттерну, вызываем соответствующую службу
-                TrackInfoListDTO trackInfo = processTrackingNumber(line);
+            // Логирование строки перед обработкой
+            System.out.println("Обрабатываем строку: " + line);
+
+            // Ищем все возможные трек-номера в строке
+            Matcher matcher = trackPattern.matcher(line);
+            while (matcher.find()) {
+                // Извлекаем найденный трек-номер
+                String trackNumber = matcher.group();
+                System.out.println("Найден трек-номер: " + trackNumber);
+
+                // Обрабатываем извлечённый трек-номер
+                TrackInfoListDTO trackInfo = processTrackingNumber(trackNumber);
                 trackInfoList.add(trackInfo);
             }
         }
 
+        // Логирование полученных трек-номеров
+        System.out.println("Трек-номера: " + trackInfoList);
+
         return trackInfoList;
     }
+
 
     private TrackInfoListDTO processTrackingNumber(String number) {
         // Используем уже существующую службу для получения информации по трек-номеру
