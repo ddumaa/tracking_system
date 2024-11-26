@@ -74,6 +74,8 @@ public class OcrService {
 
         for (String line : lines) {
             line = line.trim(); // Убираем лишние пробелы
+            System.out.println("Обрабатываем строку: " + line); // Отладочный вывод
+
             if (belPostPattern.matcher(line).matches() || byPattern.matcher(line).matches()) {
                 // Если трек-номер соответствует паттерну, вызываем соответствующую службу
                 TrackInfoListDTO trackInfo = processTrackingNumber(line);
