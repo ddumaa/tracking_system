@@ -21,8 +21,6 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev
 
-
-
 # Скачиваем и добавляем языковые файлы для Tesseract
 RUN mkdir -p /usr/local/share/tessdata/ && \
     wget https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/eng.traineddata -O /usr/local/share/tessdata/eng.traineddata && \

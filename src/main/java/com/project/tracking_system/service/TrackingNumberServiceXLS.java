@@ -41,7 +41,7 @@ public class TrackingNumberServiceXLS {
                         try {
                             TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(trackingNumber);
                             trackParcelService.save(trackingNumber, trackInfo, authenticatedUser);
-                            return new TrackingResultAdd(trackingNumber, "Добавлена");
+                            return new TrackingResultAdd(trackingNumber, "Добавлен");
                         } catch (Exception e) {
                             return new TrackingResultAdd(trackingNumber, "Ошибка: " + e.getMessage());
                         }

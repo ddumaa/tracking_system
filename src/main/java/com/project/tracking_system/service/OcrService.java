@@ -55,6 +55,16 @@ public class OcrService {
         Graphics g = grayscaleImage.getGraphics();
         g.drawImage(originalImage, 0, 0, null);
         g.dispose();
+
+        // Бинаризация (пороговое преобразование)
+        for (int y = 0; y < grayscaleImage.getHeight(); y++) {
+            for (int x = 0; x < grayscaleImage.getWidth(); x++) {
+                int color = grayscaleImage.getRGB(x, y) & 0xFF; // Извлекаем уровень яркости (0-255)
+                int binaryColor = color > 128 ? 0xFFFFFF : 0; // Применяем порог
+                grayscaleImage.setRGB(x, y, binaryColor);
+            }
+        }
+
         return grayscaleImage;
     }
 
@@ -62,19 +72,20 @@ public class OcrService {
         Tesseract tesseract = new Tesseract();
         tesseract.setDatapath("/usr/local/share/tessdata");
         tesseract.setLanguage("eng");
+        tesseract.setVariable("user_defined_dpi", "300");
         return tesseract.doOCR(image);
     }
 
     public List<TrackingResultAdd> extractAndProcessTrackingNumbers(String text, String authenticatedUser) {
         if (text == null || text.trim().isEmpty()) {
-            return new ArrayList<>();  // Если текста нет, возвращаем пустой список
+            return new ArrayList<>();
         }
 
         // Паттерн для поиска трек-номеров
         Pattern trackPattern = Pattern.compile("(BY\\d{12}|(PC|BV|BP)\\d{9}BY)");
 
         // Разделяем текст на строки
-        String[] lines = text.split("\\R"); // Разделяем текст по строкам
+        String[] lines = text.split("\\R");
         List<TrackingResultAdd> trackInfoResult = new ArrayList<>();
 
         for (String line : lines) {
@@ -99,7 +110,7 @@ public class OcrService {
                     trackParcelService.save(trackNumber, trackInfo, authenticatedUser);
 
                     // Добавляем в результат успешное добавление
-                    trackInfoResult.add(new TrackingResultAdd(trackNumber, "Добавлена"));
+                    trackInfoResult.add(new TrackingResultAdd(trackNumber, "Добавлен"));
                 } catch (Exception e) {
                     // В случае ошибки, добавляем в результат сообщение об ошибке
                     trackInfoResult.add(new TrackingResultAdd(trackNumber, "Ошибка: " + e.getMessage()));
@@ -112,7 +123,6 @@ public class OcrService {
 
         return trackInfoResult;
     }
-
 
     private TrackInfoListDTO processTrackingNumber(String number) {
         // Используем уже существующую службу для получения информации по трек-номеру
