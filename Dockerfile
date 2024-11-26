@@ -11,6 +11,7 @@ FROM openjdk:17-slim-bullseye
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
+    unzip \
     apt-transport-https \
     && echo "deb http://ftp.debian.org/debian bullseye-backports main" > /etc/apt/sources.list.d/backports.list \
     && apt-get update
