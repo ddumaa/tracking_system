@@ -4,6 +4,9 @@ import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackingResultAdd;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.imgproc.Imgproc;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -11,6 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferByte;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -56,16 +60,11 @@ public class OcrService {
         g.drawImage(originalImage, 0, 0, null);
         g.dispose();
 
-        // Бинаризация (пороговое преобразование)
-        for (int y = 0; y < grayscaleImage.getHeight(); y++) {
-            for (int x = 0; x < grayscaleImage.getWidth(); x++) {
-                int color = grayscaleImage.getRGB(x, y) & 0xFF; // Извлекаем уровень яркости (0-255)
-                int binaryColor = color > 128 ? 0xFFFFFF : 0; // Применяем порог
-                grayscaleImage.setRGB(x, y, binaryColor);
-            }
-        }
-
-        return grayscaleImage;
+        // Применение адаптивной бинаризации (используем OpenCV для лучшей точности)
+        Mat mat = bufferedImageToMat(grayscaleImage);
+        Mat binaryMat = new Mat();
+        Imgproc.adaptiveThreshold(mat, binaryMat, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 15, 10);
+        return matToBufferedImage(binaryMat);
     }
 
     public String recognizeText(BufferedImage image) throws TesseractException {
@@ -73,6 +72,8 @@ public class OcrService {
         tesseract.setDatapath("/usr/local/share/tessdata");
         tesseract.setLanguage("rus+eng");
         tesseract.setVariable("user_defined_dpi", "300");
+        tesseract.setPageSegMode(6); // Анализ текста построчно
+        tesseract.setOcrEngineMode(3); // Нейронные сети
         return tesseract.doOCR(image);
     }
 
@@ -124,8 +125,20 @@ public class OcrService {
         return trackInfoResult;
     }
 
-    private TrackInfoListDTO processTrackingNumber(String number) {
-        // Используем уже существующую службу для получения информации по трек-номеру
-        return typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(number);
+    private Mat bufferedImageToMat(BufferedImage bi) {
+        byte[] pixels = ((DataBufferByte) bi.getRaster().getDataBuffer()).getData();
+        Mat mat = new Mat(bi.getHeight(), bi.getWidth(), CvType.CV_8UC1);
+        mat.put(0, 0, pixels);
+        return mat;
+    }
+
+    private BufferedImage matToBufferedImage(Mat mat) {
+        int type = BufferedImage.TYPE_BYTE_GRAY;
+        if (mat.channels() > 1) {
+            type = BufferedImage.TYPE_3BYTE_BGR;
+        }
+        BufferedImage image = new BufferedImage(mat.cols(), mat.rows(), type);
+        mat.get(0, 0, ((DataBufferByte) image.getRaster().getDataBuffer()).getData());
+        return image;
     }
 }
