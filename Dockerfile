@@ -33,6 +33,8 @@ RUN wget -N "https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDR
     chmod +x /usr/local/bin/chromedriver && \
     rm -rf /tmp/chromedriver.zip /tmp/chromedriver-linux64
 
+ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+
 # Копируем собранное приложение из предыдущего шага
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
