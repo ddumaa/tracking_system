@@ -16,6 +16,8 @@ RUN apt-get update && apt-get install -y \
     apt-transport-https \
     openjdk-17-jdk \
     unzip \
+    libopencv-dev \
+    python3-opencv \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/*
 
 # Скачиваем Google Chrome
