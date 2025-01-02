@@ -10,6 +10,7 @@ FROM ddumaa/tesseract:5.5
 
 # Устанавливаем Java и другие зависимости
 RUN apt-get update && apt-get install -y \
+    wget gnupg software-properties-common \
     openjdk-17-jdk \
     apt-transport-https \
     gnupg \
@@ -17,10 +18,12 @@ RUN apt-get update && apt-get install -y \
     unzip \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/*
 
+# Добавляем ключ Google Chrome напрямую в доверенные ключи apt
+RUN wget -q -O /usr/share/keyrings/google-chrome-archive-keyring.gpg https://dl.google.com/linux/linux_signing_key.pub && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-archive-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+
 # Устанавливаем Google Chrome
-RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
-    echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
-    apt-get update && apt-get install -y google-chrome-stable
+RUN apt-get update && apt-get install -y google-chrome-stable
 
 # Устанавливаем ChromeDriver
 ENV CHROMEDRIVER_VERSION=130.0.6723.58
