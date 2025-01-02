@@ -18,13 +18,10 @@ RUN apt-get update && apt-get install -y \
     unzip \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/*
 
-# Добавляем ключ Google Chrome напрямую в доверенные ключи
-RUN wget -q -O /usr/share/keyrings/google-chrome-archive-keyring.gpg https://dl.google.com/linux/linux_signing_key.pub && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-archive-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
-
-# Устанавливаем Google Chrome
-RUN apt-get update && apt-get install -y google-chrome-stable && \
-    rm -rf /var/lib/apt/lists/*
+# Скачиваем Google Chrome
+RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
+    dpkg -i google-chrome-stable_current_amd64.deb || apt-get -f install -y && \
+    rm -f google-chrome-stable_current_amd64.deb
 
 # Устанавливаем ChromeDriver
 ENV CHROMEDRIVER_VERSION=131.0.6778.204
