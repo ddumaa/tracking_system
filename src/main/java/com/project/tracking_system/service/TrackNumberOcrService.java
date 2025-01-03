@@ -71,7 +71,7 @@ public class TrackNumberOcrService {
         Imgproc.adaptiveThreshold(mat, binaryMat, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 15, 10);
 
         // Выравнивание изображения
-        //Mat deskewedMat = deskewImage(binaryMat);
+        Mat deskewedMat = deskewImage(binaryMat);
 
         return matToBufferedImage(binaryMat);
     }
