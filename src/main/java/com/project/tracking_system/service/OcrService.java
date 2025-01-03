@@ -37,24 +37,17 @@ public class OcrService {
 
     @PostConstruct
     public void init() {
-        System.out.println("Initializing OCR Service");
         System.load("/usr/lib/jni/libopencv_java460.so");
-        System.out.println("OpenCV library loaded during service initialization");
     }
 
     public String processImage(MultipartFile file) throws IOException {
-        System.out.println("Entering rocessImage method");
         try {
-            System.out.println("TRY Entering bufferedImage method");
             BufferedImage bufferedImage = preprocessImage(file);
-
-            System.out.println("TRY Entering recognizedText method");
             String recognizedText = recognizeText(bufferedImage);
 
             if (recognizedText == null || recognizedText.trim().isEmpty()) {
                 throw new RuntimeException("Ошибка: текст не распознан");
             }
-
             return recognizedText;
         } catch (TesseractException e) {
             throw new RuntimeException("Ошибка OCR: " + e.getMessage(), e);
@@ -76,15 +69,16 @@ public class OcrService {
         // Применение адаптивной бинаризации (используем OpenCV для лучшей точности)
         Mat mat = bufferedImageToMat(grayscaleImage);
         Mat binaryMat = new Mat();
-        Imgproc.adaptiveThreshold(mat, binaryMat, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 15, 10);
+        Imgproc.adaptiveThreshold(mat, binaryMat, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 11, 2);
         return matToBufferedImage(binaryMat);
     }
 
     public String recognizeText(BufferedImage image) throws TesseractException {
         Tesseract tesseract = new Tesseract();
         tesseract.setDatapath("/usr/local/share/tessdata");
-        tesseract.setLanguage("rus+eng");
+        tesseract.setLanguage("eng");
         tesseract.setVariable("user_defined_dpi", "300");
+        tesseract.setVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789BY");
         tesseract.setPageSegMode(6); // Анализ текста построчно
         tesseract.setOcrEngineMode(3); // Нейронные сети
         return tesseract.doOCR(image);
@@ -94,7 +88,6 @@ public class OcrService {
         if (text == null || text.trim().isEmpty()) {
             return new ArrayList<>();
         }
-
         // Паттерн для поиска трек-номеров
         Pattern trackPattern = Pattern.compile("(BY\\d{12}|(PC|BV|BP)\\d{9}BY)");
 
