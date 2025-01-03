@@ -271,6 +271,7 @@ public class HomeController {
             } else if (contentType.startsWith("image/")) {
                 // Обработка изображения (OCR)
                 System.out.println("ИНФО перед вызовом OCR");
+                System.out.println("java.library.path: " + System.getProperty("java.library.path"));
                 String recognizedText = ocrService.processImage(file);
                 System.out.println("Распознанный текст: " + recognizedText);  // Для дебага
 

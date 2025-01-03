@@ -37,7 +37,10 @@ public class OcrService {
     public String processImage(MultipartFile file) throws IOException {
         System.out.println("Entering rocessImage method");
         try {
+            System.out.println("TRY Entering bufferedImage method");
             BufferedImage bufferedImage = preprocessImage(file);
+
+            System.out.println("TRY Entering recognizedText method");
             String recognizedText = recognizeText(bufferedImage);
 
             if (recognizedText == null || recognizedText.trim().isEmpty()) {
