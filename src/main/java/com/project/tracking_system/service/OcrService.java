@@ -69,14 +69,14 @@ public class OcrService {
         // Применение адаптивной бинаризации (используем OpenCV для лучшей точности)
         Mat mat = bufferedImageToMat(grayscaleImage);
         Mat binaryMat = new Mat();
-        Imgproc.adaptiveThreshold(mat, binaryMat, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 11, 2);
+        Imgproc.adaptiveThreshold(mat, binaryMat, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 15, 10);
         return matToBufferedImage(binaryMat);
     }
 
     public String recognizeText(BufferedImage image) throws TesseractException {
         Tesseract tesseract = new Tesseract();
         tesseract.setDatapath("/usr/local/share/tessdata");
-        tesseract.setLanguage("eng");
+        tesseract.setLanguage("rus+eng");
         tesseract.setVariable("user_defined_dpi", "300");
         tesseract.setVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789BY");
         tesseract.setPageSegMode(6); // Анализ текста построчно
