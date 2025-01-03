@@ -123,7 +123,6 @@ public class TrackNumberOcrService {
                 }
             }
         }
-
         // Логирование полученных трек-номеров
         System.out.println("Трек-номера: " + trackInfoResult);
 
