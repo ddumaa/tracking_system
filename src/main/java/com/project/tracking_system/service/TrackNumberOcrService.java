@@ -13,7 +13,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
-import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.io.IOException;
@@ -70,45 +69,7 @@ public class TrackNumberOcrService {
         Mat binaryMat = new Mat();
         Imgproc.adaptiveThreshold(mat, binaryMat, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 15, 10);
 
-        // Выравнивание изображения
-        Mat deskewedMat = deskewImage(binaryMat);
-
-        //return matToBufferedImage(binaryMat);
-        return matToBufferedImage(deskewedMat);
-    }
-
-    private Mat deskewImage(Mat binaryMat) {
-        // Найти контуры для анализа наклона
-        Mat lines = new Mat();
-        Imgproc.HoughLinesP(binaryMat, lines, 1, Math.PI / 180, 100, 100, 10);
-
-        double angle = 0;
-        int count = 0;
-
-        // Рассчитать средний угол всех линий
-        for (int i = 0; i < lines.rows(); i++) {
-            double[] line = lines.get(i, 0);
-            double dx = line[2] - line[0];
-            double dy = line[3] - line[1];
-            if (dx != 0) {
-                angle += Math.atan2(dy, dx);
-                count++;
-            }
-        }
-
-        if (count > 0) {
-            angle = angle / count; // Средний угол
-        }
-
-        angle = Math.toDegrees(angle); // Преобразование в градусы
-
-        // Корректировать изображение
-        Point center = new Point(binaryMat.cols() / 2, binaryMat.rows() / 2);
-        Mat rotationMatrix = Imgproc.getRotationMatrix2D(new org.opencv.core.Point(center.x, center.y), angle, 1.0);
-        Mat rotated = new Mat();
-        Imgproc.warpAffine(binaryMat, rotated, rotationMatrix, new Size(binaryMat.cols(), binaryMat.rows()), Imgproc.INTER_LINEAR, Core.BORDER_CONSTANT, new Scalar(255));
-
-        return rotated;
+        return matToBufferedImage(binaryMat);
     }
 
     public String recognizeText(BufferedImage image) throws TesseractException {
