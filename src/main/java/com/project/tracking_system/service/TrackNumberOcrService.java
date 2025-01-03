@@ -5,7 +5,6 @@ import com.project.tracking_system.dto.TrackingResultAdd;
 import jakarta.annotation.PostConstruct;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
-import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.imgproc.Imgproc;
@@ -24,13 +23,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Service
-public class OcrService {
+public class TrackNumberOcrService {
 
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final TrackParcelService trackParcelService;
 
     @Autowired
-    public OcrService(TypeDefinitionTrackPostService typeDefinitionTrackPostService, TrackParcelService trackParcelService) {
+    public TrackNumberOcrService(TypeDefinitionTrackPostService typeDefinitionTrackPostService, TrackParcelService trackParcelService) {
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
         this.trackParcelService = trackParcelService;
     }
@@ -42,15 +41,10 @@ public class OcrService {
 
     public String processImage(MultipartFile file) throws IOException {
         try {
-            BufferedImage bufferedImage = preprocessImage(file);
-            String recognizedText = recognizeText(bufferedImage);
-
-            if (recognizedText == null || recognizedText.trim().isEmpty()) {
-                throw new RuntimeException("Ошибка: текст не распознан");
-            }
-            return recognizedText;
+            BufferedImage preprocessedImage = preprocessImage(file);
+            return recognizeText(preprocessedImage);
         } catch (TesseractException e) {
-            throw new RuntimeException("Ошибка OCR: " + e.getMessage(), e);
+            throw new RuntimeException("Ошибка при распознавании текста: " + e.getMessage(), e);
         }
     }
 
@@ -66,8 +60,10 @@ public class OcrService {
         g.drawImage(originalImage, 0, 0, null);
         g.dispose();
 
-        // Применение фильтра для удаления шума
+        // Преобразование в Mat для дальнейшей обработки с OpenCV
         Mat mat = bufferedImageToMat(grayscaleImage);
+
+        // Удаление шума с помощью медианного размытия
         Imgproc.medianBlur(mat, mat, 3);
 
         // Применение адаптивной бинаризации
@@ -83,7 +79,6 @@ public class OcrService {
         tesseract.setLanguage("rus+eng");
         tesseract.setVariable("user_defined_dpi", "300");
         tesseract.setVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789BY");
-        tesseract.setVariable("preserve_interword_spaces", "1");
         tesseract.setPageSegMode(6); // Анализ текста построчно
         tesseract.setOcrEngineMode(1); // Только LSTM
 

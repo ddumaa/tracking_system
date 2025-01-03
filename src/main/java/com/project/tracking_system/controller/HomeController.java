@@ -6,7 +6,7 @@ import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
-import com.project.tracking_system.service.OcrService;
+import com.project.tracking_system.service.TrackNumberOcrService;
 import com.project.tracking_system.service.TrackingNumberServiceXLS;
 import com.project.tracking_system.service.user.LoginAttemptService;
 import com.project.tracking_system.service.TypeDefinitionTrackPostService;
@@ -44,21 +44,21 @@ public class HomeController {
     private final LoginAttemptService loginAttemptService;
     private final PasswordResetService passwordResetService;
     private final TrackingNumberServiceXLS trackingNumberServiceXLS;
-    private final OcrService ocrService;
+    private final TrackNumberOcrService trackNumberOcrService;
 
     @Autowired
     public HomeController(UserService userService, TrackParcelService trackParcelService,
                           TypeDefinitionTrackPostService typeDefinitionTrackPostService,
                           LoginAttemptService loginAttemptService,
                           PasswordResetService passwordResetService,
-                          TrackingNumberServiceXLS trackingNumberServiceXLS, OcrService ocrService) {
+                          TrackingNumberServiceXLS trackingNumberServiceXLS, TrackNumberOcrService trackNumberOcrService) {
         this.userService = userService;
         this.trackParcelService = trackParcelService;
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
         this.loginAttemptService = loginAttemptService;
         this.passwordResetService = passwordResetService;
         this.trackingNumberServiceXLS = trackingNumberServiceXLS;
-        this.ocrService = ocrService;
+        this.trackNumberOcrService = trackNumberOcrService;
     }
 
     @GetMapping
@@ -269,14 +269,13 @@ public class HomeController {
                 List<TrackingResultAdd> trackingResults = trackingNumberServiceXLS.processTrackingNumber(file, authUserName);
                 model.addAttribute("trackingResults", trackingResults);
             } else if (contentType.startsWith("image/")) {
+
                 // Обработка изображения (OCR)
-                System.out.println("ИНФО перед вызовом OCR");
-                System.out.println("java.library.path: " + System.getProperty("java.library.path"));
-                String recognizedText = ocrService.processImage(file);
+                String recognizedText = trackNumberOcrService.processImage(file);
                 System.out.println("Распознанный текст: " + recognizedText);  // Для дебага
 
                 // Извлечение трек-номеров из текста
-                List<TrackingResultAdd> trackingResults = ocrService.extractAndProcessTrackingNumbers(recognizedText, authUserName);
+                List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, authUserName);
                 System.out.println("Трек-номера: " + trackingResults);  // Для дебага
 
                 // Добавление результатов в модель
