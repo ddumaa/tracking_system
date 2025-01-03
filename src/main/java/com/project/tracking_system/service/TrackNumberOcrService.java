@@ -64,11 +64,11 @@ public class TrackNumberOcrService {
         Mat mat = bufferedImageToMat(grayscaleImage);
 
         // Удаление шума с помощью медианного размытия
-        Imgproc.medianBlur(mat, mat, 3);
+        //Imgproc.medianBlur(mat, mat, 3);
 
         // Применение адаптивной бинаризации
         Mat binaryMat = new Mat();
-        Imgproc.adaptiveThreshold(mat, binaryMat, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 11, 2);
+        Imgproc.adaptiveThreshold(mat, binaryMat, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 15, 2);
 
         return matToBufferedImage(binaryMat);
     }
@@ -78,9 +78,9 @@ public class TrackNumberOcrService {
         tesseract.setDatapath("/usr/local/share/tessdata");
         tesseract.setLanguage("rus+eng");
         tesseract.setVariable("user_defined_dpi", "300");
-        tesseract.setVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789BY");
-        tesseract.setPageSegMode(6); // Анализ текста построчно
-        tesseract.setOcrEngineMode(1); // Только LSTM
+//        tesseract.setVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789BY");
+//        tesseract.setPageSegMode(6); // Анализ текста построчно
+//        tesseract.setOcrEngineMode(1); // Только LSTM
 
         return tesseract.doOCR(image);
     }
