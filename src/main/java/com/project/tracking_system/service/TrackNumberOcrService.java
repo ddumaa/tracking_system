@@ -73,7 +73,8 @@ public class TrackNumberOcrService {
         // Выравнивание изображения
         Mat deskewedMat = deskewImage(binaryMat);
 
-        return matToBufferedImage(binaryMat);
+        //return matToBufferedImage(binaryMat);
+        return matToBufferedImage(deskewedMat);
     }
 
     private Mat deskewImage(Mat binaryMat) {
@@ -115,7 +116,7 @@ public class TrackNumberOcrService {
         tesseract.setDatapath("/usr/local/share/tessdata");
         tesseract.setLanguage("rus+eng");
         tesseract.setVariable("user_defined_dpi", "300");
-        tesseract.setPageSegMode(3);
+        tesseract.setPageSegMode(6);
         tesseract.setOcrEngineMode(1); // Только LSTM
 
         return tesseract.doOCR(image);
