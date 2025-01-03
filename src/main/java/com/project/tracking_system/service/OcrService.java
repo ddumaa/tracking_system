@@ -2,6 +2,7 @@ package com.project.tracking_system.service;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackingResultAdd;
+import jakarta.annotation.PostConstruct;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
 import org.opencv.core.Core;
@@ -32,6 +33,13 @@ public class OcrService {
     public OcrService(TypeDefinitionTrackPostService typeDefinitionTrackPostService, TrackParcelService trackParcelService) {
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
         this.trackParcelService = trackParcelService;
+    }
+
+    @PostConstruct
+    public void init() {
+        System.out.println("Initializing OCR Service");
+        System.load("/usr/lib/jni/libopencv_java460.so");
+        System.out.println("OpenCV library loaded during service initialization");
     }
 
     public String processImage(MultipartFile file) throws IOException {
@@ -73,10 +81,6 @@ public class OcrService {
     }
 
     public String recognizeText(BufferedImage image) throws TesseractException {
-        System.out.println("Entering recognizeText method");
-        System.out.println("java.library.path: " + System.getProperty("java.library.path"));
-
-        System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
         Tesseract tesseract = new Tesseract();
         tesseract.setDatapath("/usr/local/share/tessdata");
         tesseract.setLanguage("rus+eng");
