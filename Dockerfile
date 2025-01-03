@@ -5,7 +5,7 @@ COPY pom.xml .
 COPY src ./src
 RUN mvn clean package -DskipTests
 
-# Слой с Ubuntu
+# Слой с Ubuntu и Tesseract
 FROM ddumaa/tesseract:5.5
 
 # Устанавливаем Java и другие зависимости
@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y \
     python3-opencv \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/*
 
-# Скачиваем Google Chrome
+# Устанавливаем Google Chrome
 RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
     dpkg -i google-chrome-stable_current_amd64.deb || apt-get -f install -y && \
     rm -f google-chrome-stable_current_amd64.deb
@@ -33,7 +33,8 @@ RUN wget -N "https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDR
     chmod +x /usr/local/bin/chromedriver && \
     rm -rf /tmp/chromedriver.zip /tmp/chromedriver-linux64
 
-ENV LD_LIBRARY_PATH=/usr/lib/jni:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/usr/lib/jni:/usr/local/lib:$LD_LIBRARY_PATH
+ENV JAVA_OPTS="-Djava.library.path=/usr/lib/jni"
 ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
 
