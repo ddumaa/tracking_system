@@ -66,10 +66,14 @@ public class OcrService {
         g.drawImage(originalImage, 0, 0, null);
         g.dispose();
 
-        // Применение адаптивной бинаризации (используем OpenCV для лучшей точности)
+        // Применение фильтра для удаления шума
         Mat mat = bufferedImageToMat(grayscaleImage);
+        Imgproc.medianBlur(mat, mat, 3);
+
+        // Применение адаптивной бинаризации
         Mat binaryMat = new Mat();
-        Imgproc.adaptiveThreshold(mat, binaryMat, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 15, 10);
+        Imgproc.adaptiveThreshold(mat, binaryMat, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 11, 2);
+
         return matToBufferedImage(binaryMat);
     }
 
@@ -79,8 +83,10 @@ public class OcrService {
         tesseract.setLanguage("rus+eng");
         tesseract.setVariable("user_defined_dpi", "300");
         tesseract.setVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789BY");
+        tesseract.setVariable("preserve_interword_spaces", "1");
         tesseract.setPageSegMode(6); // Анализ текста построчно
-        tesseract.setOcrEngineMode(3); // Нейронные сети
+        tesseract.setOcrEngineMode(1); // Только LSTM
+
         return tesseract.doOCR(image);
     }
 
