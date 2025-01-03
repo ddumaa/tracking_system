@@ -35,6 +35,7 @@ public class OcrService {
     }
 
     public String processImage(MultipartFile file) throws IOException {
+        System.out.println("Entering rocessImage method");
         try {
             BufferedImage bufferedImage = preprocessImage(file);
             String recognizedText = recognizeText(bufferedImage);
@@ -69,6 +70,7 @@ public class OcrService {
     }
 
     public String recognizeText(BufferedImage image) throws TesseractException {
+        System.out.println("Entering recognizeText method");
         System.out.println("java.library.path: " + System.getProperty("java.library.path"));
 
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);

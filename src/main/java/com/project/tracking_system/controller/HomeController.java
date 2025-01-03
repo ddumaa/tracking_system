@@ -270,6 +270,7 @@ public class HomeController {
                 model.addAttribute("trackingResults", trackingResults);
             } else if (contentType.startsWith("image/")) {
                 // Обработка изображения (OCR)
+                System.out.println("ИНФО перед вызовом OCR");
                 String recognizedText = ocrService.processImage(file);
                 System.out.println("Распознанный текст: " + recognizedText);  // Для дебага
 
