@@ -4,6 +4,7 @@ import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackingResultAdd;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
+import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.imgproc.Imgproc;
@@ -68,6 +69,7 @@ public class OcrService {
     }
 
     public String recognizeText(BufferedImage image) throws TesseractException {
+        System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
         Tesseract tesseract = new Tesseract();
         tesseract.setDatapath("/usr/local/share/tessdata");
         tesseract.setLanguage("rus+eng");
