@@ -33,7 +33,7 @@ RUN wget -N "https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDR
     chmod +x /usr/local/bin/chromedriver && \
     rm -rf /tmp/chromedriver.zip /tmp/chromedriver-linux64
 
-ENV LD_LIBRARY_PATH=/usr/lib/jni:/usr/local/lib:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/usr/lib/jni:/usr/local/lib:/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 ENV JAVA_OPTS="-Djava.library.path=/usr/lib/jni"
 ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8

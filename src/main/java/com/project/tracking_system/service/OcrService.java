@@ -69,6 +69,8 @@ public class OcrService {
     }
 
     public String recognizeText(BufferedImage image) throws TesseractException {
+        System.out.println("java.library.path: " + System.getProperty("java.library.path"));
+
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
         Tesseract tesseract = new Tesseract();
         tesseract.setDatapath("/usr/local/share/tessdata");
