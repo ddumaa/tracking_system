@@ -151,16 +151,16 @@ public class TrackNumberOcrService {
     }
 
     private String normalizeText(String text) {
-        // Проверяем, что строка содержит хотя бы 12 цифр
-        if (text.length() >= 12) {
-            // Извлекаем последние 12 цифр из строки
-            String last12Digits = text.substring(text.length() - 12);
+        // Шаблон для поиска всех 12 цифр подряд
+        Pattern pattern = Pattern.compile("\\d{12}$");
+        Matcher matcher = pattern.matcher(text);
 
-            // Добавляем "BY" в начало этих 12 цифр
-            text = "BY" + last12Digits;
+        // Если находим последние 12 цифр
+        if (matcher.find()) {
+            String digits = matcher.group(); // Получаем последние 12 цифр
+            text = "BY" + digits; // Заменяем на "BY" + последние 12 цифр
         }
 
         return text;
     }
-
 }
