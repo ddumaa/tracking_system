@@ -87,6 +87,10 @@ public class TrackNumberOcrService {
         if (text == null || text.trim().isEmpty()) {
             return new ArrayList<>();
         }
+
+        // Нормализуем текст
+        text = normalizeText(text);
+
         // Паттерн для поиска трек-номеров
         Pattern trackPattern = Pattern.compile("(BY\\d{12}|(PC|BV|BP)\\d{9}BY)");
 
@@ -144,5 +148,15 @@ public class TrackNumberOcrService {
         BufferedImage image = new BufferedImage(mat.cols(), mat.rows(), type);
         mat.get(0, 0, ((DataBufferByte) image.getRaster().getDataBuffer()).getData());
         return image;
+    }
+
+    private String normalizeText(String text) {
+        // Заменяем частые ошибки OCR
+        text = text.replace("ВУ", "BY");
+        text = text.replace("В\\", "BY");
+        text = text.replace("В/", "BY");
+        text = text.replace("В|", "BY");
+        text = text.replace("В ", "BY");
+        return text;
     }
 }
