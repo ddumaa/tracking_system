@@ -151,25 +151,16 @@ public class TrackNumberOcrService {
     }
 
     private String normalizeText(String text) {
-        // Заменяем частые ошибки OCR
-        text = text.replace("ВУ", "BY");
-        text = text.replace("В\\", "BY");
-        text = text.replace("В/", "BY");
-        text = text.replace("В|", "BY");
-        text = text.replace("В ", "BY");
-        text = text.replace("8Y", "BY");
-        text = text.replace("8У", "BY");
-
-        // Шаблон только для BY-доставки (12 цифр)
-        Pattern byPattern = Pattern.compile("\\d{12}");
+        // Проверяем, есть ли в конце строки 12 цифр
+        Pattern byPattern = Pattern.compile("\\d{12}$");
         Matcher byMatcher = byPattern.matcher(text);
 
-        // Проверяем и корректируем только для BY
-        if (byMatcher.find() && !text.matches("(PC|BV|BP)\\d{9}BY")) {
-            String digits = byMatcher.group(); // Получаем только 12 цифр
-            text = "BY" + digits; // Добавляем "BY"
+        if (byMatcher.find()) {
+            // Если найдено 12 цифр в конце, добавляем "BY" в начало
+            text = "BY" + byMatcher.group();
         }
 
         return text;
     }
+
 }
