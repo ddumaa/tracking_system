@@ -157,6 +157,19 @@ public class TrackNumberOcrService {
         text = text.replace("В/", "BY");
         text = text.replace("В|", "BY");
         text = text.replace("В ", "BY");
+        text = text.replace("8Y", "BY");
+        text = text.replace("8У", "BY");
+
+        // Шаблон только для BY-доставки (12 цифр)
+        Pattern byPattern = Pattern.compile("\\d{12}");
+        Matcher byMatcher = byPattern.matcher(text);
+
+        // Проверяем и корректируем только для BY
+        if (byMatcher.find() && !text.matches("(PC|BV|BP)\\d{9}BY")) {
+            String digits = byMatcher.group(); // Получаем только 12 цифр
+            text = "BY" + digits; // Добавляем "BY"
+        }
+
         return text;
     }
 }
