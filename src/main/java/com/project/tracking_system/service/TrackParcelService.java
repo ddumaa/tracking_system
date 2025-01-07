@@ -55,6 +55,17 @@ public class TrackParcelService {
         this.statusTrackService = statusTrackService;
     }
 
+    /**
+     * Сохраняет или обновляет посылку пользователя.
+     * <p>
+     * Этот метод сохраняет новую посылку или обновляет существующую, основываясь на номере посылки.
+     * Статус и дата обновляются на основе информации о посылке, полученной из {@link TrackInfoListDTO}.
+     * </p>
+     *
+     * @param number номер посылки
+     * @param trackInfoListDTO информация о посылке
+     * @param username имя пользователя
+     */
     public void save(String number, TrackInfoListDTO trackInfoListDTO, String username) {
         if (number == null || trackInfoListDTO == null) {
             throw new IllegalArgumentException("Отсутствует посылка");
@@ -82,6 +93,17 @@ public class TrackParcelService {
         }
     }
 
+    /**
+     * Ищет посылки пользователя с поддержкой пагинации.
+     * <p>
+     * Этот метод возвращает страницу посылок пользователя по имени, используя пагинацию.
+     * </p>
+     *
+     * @param username имя пользователя
+     * @param page номер страницы
+     * @param size размер страницы
+     * @return страница с посылками пользователя
+     */
     public Page<TrackParcelDTO> findByUserTracks(String username, int page, int size){
         Optional<User> byUser = userService.findByUser(username);
         if (byUser.isPresent()) {
@@ -93,6 +115,18 @@ public class TrackParcelService {
         return Page.empty();
     }
 
+    /**
+     * Ищет посылки пользователя по статусу с поддержкой пагинации.
+     * <p>
+     * Этот метод возвращает страницу посылок пользователя по статусу и имени, с использованием пагинации.
+     * </p>
+     *
+     * @param username имя пользователя
+     * @param status статус посылки
+     * @param page номер страницы
+     * @param size размер страницы
+     * @return страница с посылками пользователя по статусу
+     */
     public Page<TrackParcelDTO> findByUserTracksAndStatus(String username, GlobalStatus status, int page, int size) {
         Optional<User> byUser = userService.findByUser(username);
         if (byUser.isPresent()) {
@@ -109,6 +143,15 @@ public class TrackParcelService {
         return Page.empty();
     }
 
+    /**
+     * Ищет все посылки пользователя.
+     * <p>
+     * Этот метод возвращает список всех посылок пользователя по имени.
+     * </p>
+     *
+     * @param username имя пользователя
+     * @return список посылок пользователя
+     */
     public List<TrackParcelDTO> findAllByUserTracks(String username) {
         Optional<User> byUser = userService.findByUser(username);
         if (byUser.isPresent()) {
@@ -119,7 +162,15 @@ public class TrackParcelService {
         return List.of();
     }
 
-    // Вспомогательный метод для преобразования посылок в DTO
+    /**
+     * Вспомогательный метод для преобразования посылок в DTO.
+     * <p>
+     * Этот метод преобразует список сущностей {@link TrackParcel} в список DTO {@link TrackParcelDTO}.
+     * </p>
+     *
+     * @param parcels список посылок
+     * @return список DTO посылок
+     */
     private List<TrackParcelDTO> convertToDTO(List<TrackParcel> parcels) {
         List<TrackParcelDTO> dtoList = new ArrayList<>();
         for (TrackParcel parcel : parcels) {
@@ -128,6 +179,14 @@ public class TrackParcelService {
         return dtoList;
     }
 
+    /**
+     * Обновляет историю отслеживания посылок пользователя асинхронно.
+     * <p>
+     * Этот метод обновляет статус и данные всех посылок пользователя, вызывая асинхронные запросы к сервису {@link TypeDefinitionTrackPostService}.
+     * </p>
+     *
+     * @param name имя пользователя
+     */
     public void updateHistory (String name){
         List<TrackParcelDTO> byUserTrack = findAllByUserTracks(name);
         List<CompletableFuture<Void>> futures = new ArrayList<>(); // Список для хранения асинхронных задач
@@ -156,6 +215,15 @@ public class TrackParcelService {
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
     }
 
+    /**
+     * Удаляет посылки пользователя по номерам.
+     * <p>
+     * Этот метод удаляет посылки по номерам и идентификатору пользователя.
+     * </p>
+     *
+     * @param numbers список номеров посылок
+     * @param userId идентификатор пользователя
+     */
     public void deleteByNumbersAndUserId(List<String> numbers, Long userId) {
         List<TrackParcel> parcelsToDelete = trackParcelRepository.findByNumberInAndUserId(numbers, userId);
         if (parcelsToDelete.isEmpty()) {
@@ -163,5 +231,4 @@ public class TrackParcelService {
         }
         trackParcelRepository.deleteAll(parcelsToDelete);
     }
-
 }
