@@ -7,6 +7,16 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+/**
+ * Модель для представления ответа от сервиса EuroPost, содержащего список данных о трекинге посылок.
+ * <p>
+ * Эта модель используется для сериализации и десериализации JSON-ответа, получаемого от сервиса отслеживания посылок EuroPost.
+ * Она представляет собой обёртку для поля "Table", которое содержит список объектов {@link JsonEvroTracking}.
+ * </p>
+ *
+ * @author Dmitriy Anisimov
+ * @date 07.01.2025
+ */
 @Component
 @JsonIgnoreProperties(ignoreUnknown = true)
 @Data

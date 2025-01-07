@@ -9,12 +9,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+/**
+ * Сервис для обработки статусов почтовых отправлений.
+ * Предоставляет методы для установки статуса на основе информации о трекинге
+ * и возвращает соответствующие иконки для каждого статуса.
+ *
+ * @author Dmitriy Anisimov
+ * @date Добавлено 07.01.2025
+ */
 @Service
 public class StatusTrackService {
 
+    /**
+     * Карта, которая сопоставляет регулярные выражения для статусов с их соответствующими значениями.
+     */
     private static final Map<Pattern, GlobalStatus> statusPatterns = new HashMap<>();
 
     static {
+        // Инициализация карты регулярных выражений и статусов
         statusPatterns.put(Pattern.compile("^Почтовое отправление выдано|^Вручено"), GlobalStatus.DELIVERED);
         statusPatterns.put(Pattern.compile("^Почтовое отправление прибыло на ОПС выдачи|^Добрый день\\. Срок бесплатного хранения|" +
                 "^Поступило в учреждение доставки"), GlobalStatus.WAITING_FOR_CUSTOMER);
@@ -37,6 +49,12 @@ public class StatusTrackService {
                 GlobalStatus.CUSTOMER_NOT_PICKING_UP);
     }
 
+    /**
+     * Устанавливает статус для списка треков посылок.
+     *
+     * @param trackInfoDTOList Список объектов с информацией о трекинге.
+     * @return Статус, который соответствует последнему трекинговому событию.
+     */
     public String setStatus(List<TrackInfoDTO> trackInfoDTOList) {
         // Получаем последний статус
         String lastStatus = trackInfoDTOList.get(0).getInfoTrack();
@@ -61,6 +79,12 @@ public class StatusTrackService {
         return lastStatus;
     }
 
+    /**
+     * Получает HTML-иконку для заданного статуса.
+     *
+     * @param status Статус, для которого необходимо получить иконку.
+     * @return HTML-код иконки для статуса.
+     */
     public String getIcon(String status) {
         for (GlobalStatus globalStatus : GlobalStatus.values()) {
             if (globalStatus.getDescription().equals(status)) {
@@ -70,5 +94,4 @@ public class StatusTrackService {
         // Статус не найден, возвращаем иконку по умолчанию (отладка новых статусов)
         return "<i class=\"bi bi-tencent-qq\" style=\"font-size: 2rem\"></i>";
     }
-
 }

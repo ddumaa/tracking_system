@@ -2,10 +2,27 @@ package com.project.tracking_system.service.user;
 
 import org.springframework.stereotype.Service;
 
-
+/**
+ * Сервис для генерации HTML-шаблонов для отправки email.
+ * <p>
+ * Этот сервис предоставляет методы для создания HTML-шаблонов сообщений, таких как письмо с кодом подтверждения.
+ * </p>
+ *
+ * @author Dmitriy Anisimov
+ * @date Добавленно 07.01.2025
+ */
 @Service
 public class HtmlEmailTemplateService {
 
+    /**
+     * Генерирует HTML-шаблон письма с кодом подтверждения.
+     * <p>
+     * Этот метод принимает код подтверждения и генерирует HTML-сообщение, которое может быть использовано для отправки email.
+     * </p>
+     *
+     * @param confirmationCode код подтверждения, который будет вставлен в сообщение
+     * @return HTML-строка с письмом, содержащим код подтверждения
+     */
     public String generateConfirmationEmail(String confirmationCode) {
         return "<!DOCTYPE html>" +
                 "<html lang=\"ru\">" +
@@ -93,6 +110,15 @@ public class HtmlEmailTemplateService {
                 "</html>";
     }
 
+    /**
+     * Генерирует HTML-шаблон письма для сброса пароля.
+     * <p>
+     * Этот метод принимает ссылку на страницу сброса пароля и генерирует HTML-сообщение, которое может быть использовано для отправки email.
+     * </p>
+     *
+     * @param resetLink ссылка для сброса пароля, которая будет вставлена в сообщение
+     * @return HTML-строка с письмом, содержащим ссылку для сброса пароля
+     */
     public String generatePasswordResetEmail(String resetLink) {
         return "<!DOCTYPE html>" +
                 "<html lang=\"ru\">" +
@@ -180,6 +206,4 @@ public class HtmlEmailTemplateService {
                 "</body>" +
                 "</html>";
     }
-
-
 }

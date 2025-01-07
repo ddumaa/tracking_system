@@ -21,23 +21,50 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Сервис для обработки изображений с номерами отслеживания, включая их предобработку и распознавание текста с помощью OCR.
+ * <p>
+ * Этот сервис использует библиотеку Tesseract для распознавания текста и OpenCV для предварительной обработки изображений.
+ * </p>
+ *
+ * @author Dmitriy Anisimov
+ * @date Добавлено 07.01.2025
+ */
 @Service
 public class TrackNumberOcrService {
 
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final TrackParcelService trackParcelService;
 
+    /**
+     * Конструктор сервиса.
+     * @param typeDefinitionTrackPostService Сервис для получения информации о трек-номере.
+     * @param trackParcelService Сервис для сохранения данных о посылках.
+     */
     @Autowired
     public TrackNumberOcrService(TypeDefinitionTrackPostService typeDefinitionTrackPostService, TrackParcelService trackParcelService) {
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
         this.trackParcelService = trackParcelService;
     }
 
+    /**
+     * Инициализация библиотеки OpenCV.
+     */
     @PostConstruct
     public void init() {
         System.load("/usr/lib/jni/libopencv_java460.so");
     }
 
+    /**
+     * Обрабатывает изображение, извлекая с него текст с номером отслеживания.
+     * <p>
+     * Изображение передается через MultipartFile, далее оно проходит предобработку, и затем распознается текст с использованием Tesseract.
+     * </p>
+     * @param file Изображение с номером отслеживания.
+     * @return Извлеченный номер отслеживания в виде строки.
+     * @throws IOException Если возникла ошибка при обработке изображения.
+     * @throws TesseractException Если возникла ошибка при распознавании текста.
+     */
     public String processImage(MultipartFile file) throws IOException {
         try {
             BufferedImage preprocessedImage = preprocessImage(file);
@@ -47,6 +74,12 @@ public class TrackNumberOcrService {
         }
     }
 
+    /**
+     * Выполняет предобработку изображения: преобразование в оттенки серого, медианное размытие и бинаризацию.
+     * @param file Изображение для предобработки.
+     * @return Изображение после предобработки в виде объекта BufferedImage.
+     * @throws IOException Если возникла ошибка при чтении изображения.
+     */
     private BufferedImage preprocessImage(MultipartFile file) throws IOException {
         BufferedImage originalImage = ImageIO.read(file.getInputStream());
         if (originalImage == null) {
@@ -72,6 +105,12 @@ public class TrackNumberOcrService {
         return matToBufferedImage(binaryMat);
     }
 
+    /**
+     * Распознает текст на изображении с использованием Tesseract OCR.
+     * @param image Изображение, с которого нужно распознать текст.
+     * @return Распознанный текст.
+     * @throws TesseractException Если возникла ошибка при распознавании текста.
+     */
     public String recognizeText(BufferedImage image) throws TesseractException {
         Tesseract tesseract = new Tesseract();
         tesseract.setDatapath("/usr/local/share/tessdata");
@@ -83,6 +122,15 @@ public class TrackNumberOcrService {
         return tesseract.doOCR(image);
     }
 
+    /**
+     * Извлекает и обрабатывает номера отслеживания из распознанного текста.
+     * <p>
+     * Каждый найденный трек-номер обрабатывается, и для каждого номера выполняется сохранение данных о посылке.
+     * </p>
+     * @param text Распознанный текст с изображений.
+     * @param authenticatedUser Пользователь, который выполнил запрос.
+     * @return Список объектов TrackingResultAdd, содержащих результат обработки каждого трек-номера.
+     */
     public List<TrackingResultAdd> extractAndProcessTrackingNumbers(String text, String authenticatedUser) {
         if (text == null || text.trim().isEmpty()) {
             return new ArrayList<>();
@@ -168,5 +216,4 @@ public class TrackNumberOcrService {
 
         return text;
     }
-
 }

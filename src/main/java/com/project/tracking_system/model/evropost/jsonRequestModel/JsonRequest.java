@@ -6,6 +6,16 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Component;
 
+/**
+ * Класс, представляющий структуру запроса, отправляемого в систему EuroPost.
+ * <p>
+ * Этот класс используется для формирования общего запроса, который содержит информацию о CRC (контрольной сумме) и пакете данных,
+ * необходимом для выполнения различных операций в системе EuroPost.
+ * </p>
+ *
+ * @author Dmitriy Anisimov
+ * @date 07.01.2025
+ */
 @Component
 @Data
 @AllArgsConstructor

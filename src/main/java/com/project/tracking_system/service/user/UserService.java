@@ -20,6 +20,16 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Optional;
 
+/**
+ * Сервис для управления пользователями.
+ * <p>
+ * Этот сервис обрабатывает операции, связанные с пользователями,
+ * включая регистрацию, подтверждение регистрации, смену пароля и удаление пользователя.
+ * </p>
+ *
+ * @author Dmitriy Anisimov
+ * @date 07.01.2025
+ */
 @Service
 public class UserService {
 
@@ -42,6 +52,16 @@ public class UserService {
         this.htmlEmailTemplateService = htmlEmailTemplateService;
     }
 
+    /**
+     * Отправляет код подтверждения на email для регистрации нового пользователя.
+     * <p>
+     * Метод генерирует код подтверждения, создает токен подтверждения и отправляет ссылку для подтверждения регистрации.
+     * Если токен уже существует, его данные обновляются.
+     * </p>
+     *
+     * @param userDTO DTO с данными нового пользователя.
+     * @throws UserAlreadyExistsException Если пользователь с указанным email уже существует.
+     */
     @Transactional
     public void sendConfirmationCode(UserRegistrationDTO userDTO) {
         if (userRepository.findByEmail(userDTO.getEmail()).isPresent()) {
@@ -73,6 +93,15 @@ public class UserService {
         }
     }
 
+    /**
+     * Подтверждает регистрацию нового пользователя с использованием кода подтверждения.
+     * <p>
+     * Метод проверяет код подтверждения и время его создания. Если код действителен, создается новый пользователь и его данные сохраняются.
+     * </p>
+     *
+     * @param userDTO DTO с данными пользователя, включая код подтверждения.
+     * @throws IllegalArgumentException Если код подтверждения неверный или срок его действия истек.
+     */
     @Transactional
     public void confirmRegistration(UserRegistrationDTO userDTO) {
         Optional<ConfirmationToken> optionalToken = confirmationTokenRepository.findByEmail(userDTO.getEmail());
@@ -103,10 +132,26 @@ public class UserService {
         }
     }
 
+    /**
+     * Находит пользователя по его email.
+     *
+     * @param email Email пользователя.
+     * @return Опциональный объект с пользователем.
+     */
     public Optional<User> findByUser(String email) {
         return userRepository.findByEmail(email);
     }
 
+    /**
+     * Меняет пароль пользователя.
+     * <p>
+     * Метод проверяет правильность текущего пароля, и если он верен, обновляет пароль на новый.
+     * </p>
+     *
+     * @param email            Email пользователя.
+     * @param userSettingsDTO DTO с новыми данными пользователя.
+     * @throws IllegalArgumentException Если текущий пароль неверен или пользователь не найден.
+     */
     public void changePassword(String email, UserSettingsDTO userSettingsDTO) {
         Optional<User> userOptional = userRepository.findByEmail(email);
         if (userOptional.isPresent()) {
@@ -122,6 +167,12 @@ public class UserService {
         }
     }
 
+    /**
+     * Удаляет текущего пользователя.
+     * <p>
+     * Метод удаляет пользователя из базы данных на основе данных текущей аутентификации.
+     * </p>
+     */
     public void deleteUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();

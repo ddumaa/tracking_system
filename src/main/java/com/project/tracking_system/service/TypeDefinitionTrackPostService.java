@@ -12,6 +12,16 @@ import org.springframework.stereotype.Service;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+/**
+ * Сервис для получения информации о статусе почтовых отправлений.
+ * <p>
+ * Этот сервис предоставляет методы для получения информации о посылках на основе номера отслеживания.
+ * Включает асинхронную обработку запросов для различных типов кодов посылок и интеграцию с сервисами WebBelPost и EuroPost.
+ * </p>
+ *
+ * @author Dmitriy Anisimov
+ * @date Добавленно 07.01.2025
+ */
 @Service
 public class TypeDefinitionTrackPostService {
 
@@ -19,6 +29,13 @@ public class TypeDefinitionTrackPostService {
     private final JsonEvroTrackingService jsonEvroTrackingService;
     private final JsonEvroTrackingResponseMapper jsonEvroTrackingResponseMapper;
 
+    /**
+     * Конструктор класса {@link TypeDefinitionTrackPostService}.
+     *
+     * @param webBelPost сервис для работы с WebBelPost
+     * @param jsonEvroTrackingService сервис для получения данных о посылке от EuroPost
+     * @param jsonEvroTrackingResponseMapper маппер для преобразования ответа от EuroPost в объект DTO
+     */
     @Autowired
     public TypeDefinitionTrackPostService(WebBelPost webBelPost, JsonEvroTrackingService jsonEvroTrackingService,
                                           JsonEvroTrackingResponseMapper jsonEvroTrackingResponseMapper) {
@@ -27,6 +44,17 @@ public class TypeDefinitionTrackPostService {
         this.jsonEvroTrackingResponseMapper = jsonEvroTrackingResponseMapper;
     }
 
+    /**
+     * Асинхронный метод для получения информации о статусе посылки по номеру отслеживания.
+     * <p>
+     * В зависимости от формата номера отслеживания, сервис обращается к разным источникам данных:
+     * WebBelPost для белорусских почтовых отправлений и EuroPost для международных.
+     * </p>
+     *
+     * @param number номер отслеживания посылки
+     * @return объект {@link CompletableFuture} с результатом обработки запроса
+     * @throws IllegalArgumentException если номер отслеживания имеет некорректный формат
+     */
     @Async("Post")
     public CompletableFuture<TrackInfoListDTO> getTypeDefinitionTrackPostServiceAsync(String number) {
         if (number.matches("^PC\\d{9}BY$") || number.matches("^BV\\d{9}BY$") ||
@@ -41,6 +69,16 @@ public class TypeDefinitionTrackPostService {
         throw new IllegalArgumentException("Указан некорректный код посылки.");
     }
 
+    /**
+     * Синхронный метод для получения информации о статусе посылки.
+     * <p>
+     * Этот метод ожидает завершения асинхронного запроса и возвращает результат или пустой объект в случае ошибки.
+     * </p>
+     *
+     * @param number номер отслеживания посылки
+     * @return объект {@link TrackInfoListDTO} с информацией о статусе посылки
+     * @throws IllegalArgumentException если номер отслеживания имеет некорректный формат
+     */
     public TrackInfoListDTO getTypeDefinitionTrackPostService(String number) {
         try {
             return getTypeDefinitionTrackPostServiceAsync(number).get();
@@ -53,5 +91,4 @@ public class TypeDefinitionTrackPostService {
             throw e;
         }
     }
-
 }

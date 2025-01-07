@@ -9,6 +9,16 @@ import org.springframework.stereotype.Component;
 
 import java.util.stream.Collectors;
 
+/**
+ * Маппер для преобразования объекта {@link JsonEvroTrackingResponse} в объект {@link TrackInfoListDTO}.
+ * <p>
+ * Этот компонент используется для преобразования данных о статусах посылок, полученных от EuroPost,
+ * в формат, пригодный для передачи в бизнес-логику приложения.
+ * </p>
+ *
+ * @author Dmitriy Anisimov
+ * @date 07.01.2025
+ */
 @Component
 public class JsonEvroTrackingResponseMapper {
 
@@ -19,6 +29,15 @@ public class JsonEvroTrackingResponseMapper {
         this.modelMapper = modelMapper;
     }
 
+    /**
+     * Преобразует объект {@link JsonEvroTrackingResponse} в объект {@link TrackInfoListDTO}.
+     * <p>
+     * Метод извлекает таблицу данных из ответа и преобразует каждый элемент в объект {@link TrackInfoDTO}.
+     * </p>
+     *
+     * @param response Объект {@link JsonEvroTrackingResponse}, содержащий данные отслеживания посылки.
+     * @return {@link TrackInfoListDTO}, содержащий список информации о статусах посылки.
+     */
     public TrackInfoListDTO mapJsonEvroTrackingResponseToDTO(JsonEvroTrackingResponse response) {
         TrackInfoListDTO dto = new TrackInfoListDTO();
         dto.setList(response.getTable().stream()

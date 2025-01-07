@@ -6,10 +6,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 
+/**
+ * Сервис для очистки устаревших токенов подтверждения и восстановления пароля.
+ * <p>
+ * Этот сервис периодически удаляет токены, срок действия которых истек, чтобы освободить пространство в базе данных
+ * и предотвратить использование недействительных токенов.
+ * </p>
+ *
+ * @author Dmitriy Anisimov
+ * @date Добавленно 07.01.2025
+ */
 @Service
 public class TokenCleanupService {
 
@@ -23,17 +32,21 @@ public class TokenCleanupService {
         this.passwordResetTokenRepository = passwordResetTokenRepository;
     }
 
-    // Ежечасное удаление токенов подтверждения, срок действия которых истек
+    /**
+     * Удаляет токены, срок действия которых истек.
+     * <p>
+     * Метод запускается каждый час с помощью планировщика задач.
+     * Токены, созданные более чем час назад или истекшие, будут удалены.
+     * </p>
+     */
     @Scheduled(cron = "0 0 * * * *")
-    public void cleanupExpiredConfirmationTokens() {
+    public void cleanupExpiredTokens() {
         ZonedDateTime expiryDate = ZonedDateTime.now(ZoneOffset.UTC).minusHours(1);
-        confirmationTokenRepository.deleteByCreatedAtBefore(expiryDate);
-    }
 
-    // Ежечасное удаление токенов для восстановления пароля, срок действия которых истек
-    @Scheduled(cron = "0 0 * * * *")
-    public void cleanupExpiredPasswordResetTokens() {
-        ZonedDateTime expiryDate = ZonedDateTime.now(ZoneOffset.UTC).minusHours(1);
+        // Удаление токенов подтверждения
+        confirmationTokenRepository.deleteByCreatedAtBefore(expiryDate);
+
+        // Удаление токенов восстановления пароля
         passwordResetTokenRepository.deleteByExpirationDateBefore(expiryDate);
     }
 }

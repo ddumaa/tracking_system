@@ -13,25 +13,55 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Сервис для обработки номеров отслеживания из XLS-файлов.
+ * <p>
+ * Этот сервис позволяет загружать файлы с номерами отслеживания и асинхронно обрабатывать каждый номер,
+ * получая информацию о нем и сохраняем её в систему.
+ * </p>
+ *
+ * @author Dmitriy Anisimov
+ * @date Добавлено 07.01.2025
+ */
 @Service
 public class TrackingNumberServiceXLS {
 
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final TrackParcelService trackParcelService;
 
+    /**
+     * Конструктор класса {@link TrackingNumberServiceXLS}.
+     *
+     * @param typeDefinitionTrackPostService сервис для получения информации о посылке по номеру отслеживания
+     * @param trackParcelService сервис для сохранения информации о посылке
+     */
     @Autowired
     public TrackingNumberServiceXLS(TypeDefinitionTrackPostService typeDefinitionTrackPostService, TrackParcelService trackParcelService) {
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
         this.trackParcelService = trackParcelService;
     }
 
+    /**
+     * Обрабатывает номера отслеживания, загруженные в формате XLS.
+     * <p>
+     * Для каждого номера отслеживания, загруженного из файла, сервис извлекает информацию о посылке,
+     * сохраняет её в базу данных и возвращает результаты обработки.
+     * </p>
+     *
+     * @param file              файл XLS с номерами отслеживания
+     * @param authenticatedUser авторизованный пользователь, который загрузил файл
+     * @return список результатов добавления, включая номер отслеживания и статус добавления или ошибку
+     * @throws IOException если не удалось прочитать файл
+     */
     public List<TrackingResultAdd> processTrackingNumber(MultipartFile file, String authenticatedUser) throws IOException {
         List<TrackingResultAdd> trackingResult = new ArrayList<>();
 
+        // Чтение файла XLS
         try(InputStream in = file.getInputStream(); Workbook workbook = WorkbookFactory.create(in)) {
             Sheet sheet = workbook.getSheetAt(0);
             List<CompletableFuture<TrackingResultAdd>> futures = new ArrayList<>();
-            
+
+            // Асинхронная обработка каждого номера отслеживания
             for (Row row : sheet) {
                 Cell cell = row.getCell(0);
                 if (cell != null) {

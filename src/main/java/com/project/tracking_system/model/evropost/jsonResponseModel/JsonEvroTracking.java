@@ -7,6 +7,15 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Component;
 
+/**
+ * Модель для представления JSON-ответа от сервиса EuroPost.
+ * <p>
+ * Эта модель используется для сериализации и десериализации данных, получаемых от сервиса отслеживания посылок EuroPost.
+ * </p>
+ *
+ * @author Dmitriy Anisimov
+ * @date 07.01.2025
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @Data
 @NoArgsConstructor
@@ -45,5 +54,4 @@ public class JsonEvroTracking {
         this.checkxTo = checkxTo;
         this.info = info;
     }
-
 }

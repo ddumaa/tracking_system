@@ -6,7 +6,15 @@ import com.project.tracking_system.model.evropost.jsonRequestModel.JsonRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-
+/**
+ * Сервис для получения JWT токена.
+ * <p>
+ * Этот сервис выполняет запрос для получения JWT токена от внешнего API и сохраняет его для дальнейшего использования.
+ * </p>
+ *
+ * @author Dmitriy Anisimov
+ * @date 07.01.2025
+ */
 @Service
 public class GetJwtTokenService {
 
@@ -19,9 +27,15 @@ public class GetJwtTokenService {
         this.requestFactory = requestFactory;
         this.jsonHandlerService = jsonHandlerService;
         this.jsonPacket = jsonPacket;
-
     }
 
+    /**
+     * Получает JWT токен от внешнего API.
+     * <p>
+     * Метод выполняет запрос для получения JWT токена, извлекает его из ответа и сохраняет в объект {@link JsonPacket}.
+     * Если токен не найден, выбрасывается исключение {@link RuntimeException}.
+     * </p>
+     */
     public void getJwtToken() {
 
         JsonRequest jsonRequest = requestFactory.createGetJWTRequest();
