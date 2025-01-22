@@ -19,14 +19,12 @@ import org.springframework.stereotype.Service;
 public class GetJwtTokenService {
 
     private final JsonHandlerService jsonHandlerService;
-    private final JsonPacket jsonPacket;
     private final RequestFactory requestFactory;
 
     @Autowired
-    public GetJwtTokenService(RequestFactory requestFactory, JsonHandlerService jsonHandlerService, JsonPacket jsonPacket) {
+    public GetJwtTokenService(RequestFactory requestFactory, JsonHandlerService jsonHandlerService) {
         this.requestFactory = requestFactory;
         this.jsonHandlerService = jsonHandlerService;
-        this.jsonPacket = jsonPacket;
     }
 
     /**
@@ -36,8 +34,7 @@ public class GetJwtTokenService {
      * Если токен не найден, выбрасывается исключение {@link RuntimeException}.
      * </p>
      */
-    public void getJwtToken() {
-
+    public String getJwtToken() {
         JsonRequest jsonRequest = requestFactory.createGetJWTRequest();
         JsonNode jsonNode = jsonHandlerService.jsonRequest(jsonRequest);
 
@@ -46,6 +43,6 @@ public class GetJwtTokenService {
             throw new RuntimeException("Токен JWT не найден в ответе");
         }
 
-        jsonPacket.setJwt(jwtNode.asText());
+        return jwtNode.asText(); // Возвращаем сгенерированный токен
     }
 }

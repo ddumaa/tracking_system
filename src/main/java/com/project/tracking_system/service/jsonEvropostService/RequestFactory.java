@@ -18,20 +18,20 @@ import org.springframework.stereotype.Service;
 public class RequestFactory {
 
     private final JsonData jsonData;
-    private final JsonPacket jsonPacket;
     private final JsonRequest jsonRequest;
+    private final JsonPacket jsonPacket;
 
     @Autowired
-    public RequestFactory(JsonData jsonData, JsonPacket jsonPacket, JsonRequest jsonRequest) {
+    public RequestFactory(JsonData jsonData, JsonRequest jsonRequest, JsonPacket jsonPacket) {
         this.jsonData = jsonData;
-        this.jsonPacket = jsonPacket;
         this.jsonRequest = jsonRequest;
+        this.jsonPacket = jsonPacket;
     }
 
     /**
      * Создаёт запрос для отслеживания посылки по номеру.
      * <p>
-     * Метод формирует JSON-запрос для операции отслеживания посылки на основе переданного номера.
+     * Метод формирует JSON-запрос для получения информации по треку.
      * </p>
      *
      * @param number номер посылки, которую необходимо отследить.
@@ -46,14 +46,15 @@ public class RequestFactory {
     /**
      * Создаёт запрос для получения JWT токена.
      * <p>
-     * Метод формирует JSON-запрос для получения JWT токена, который используется для аутентификации в дальнейшем.
+     * Метод формирует JSON-запрос для получения JWT токена.
      * </p>
      *
      * @return {@link JsonRequest} сформированный запрос для получения JWT токена.
      */
     public JsonRequest createGetJWTRequest() {
         JsonDataAbstract data = new JsonGetJWTData(jsonData.getLoginName(), jsonData.getPassword(), jsonData.getLoginNameTypeId());
-        JsonPacket packet = new JsonPacket(jsonPacket.getJwt(), JsonMethodName.GET_JWT.toString(), jsonPacket.getServiceNumber(), data);
+        JsonPacket packet = new JsonPacket(null, JsonMethodName.GET_JWT.toString(), jsonPacket.getServiceNumber(), data);
         return new JsonRequest(jsonRequest.getCrc(), packet);
     }
+
 }
