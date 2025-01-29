@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="_csrf" th:content="${_csrf.token}" />
+    <meta name="_csrf_header" th:content="${_csrf.headerName}" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
           rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
           crossorigin="anonymous">
+    <link rel="stylesheet" href="/css/app.css">
     <title>Title</title>
 </head>
 <body>
@@ -42,14 +45,22 @@
     <div class="row d-flex align-items-start">
         <div class="col-3 nav flex-column nav-pills me-3" id="v-pills-tab" role="tablist" aria-orientation="vertical">
             <a class="nav-link active" id="v-pills-home-tab" data-bs-toggle="pill" href="#v-pills-home" role="tab" aria-controls="v-pills-home" aria-selected="true">Об аккаунте</a>
-            <a class="nav-link" id="settings-link" data-bs-toggle="pill" href="#v-pills-profile" role="tab" aria-controls="v-pills-profile" aria-selected="false">Изменить пароль</a>
-            <a class="nav-link" id="v-pills-messages-tab" data-bs-toggle="pill" href="#v-pills-messages" role="tab" aria-controls="v-pills-messages" aria-selected="false">Удалить аккаунт</a> <!--Исправили с button на anchor-->
+            <a class="nav-link" id="password-settings-link" data-bs-toggle="pill" href="#v-pills-profile" role="tab" aria-controls="v-pills-profile" aria-selected="false">Изменить пароль</a>
+            <a class="nav-link" id="evropost-settings-link" data-bs-toggle="pill" href="#v-pills-evropost" role="tab" aria-controls="v-pills-evropost" aria-selected="false">Европочта</a>
+            <a class="nav-link" id="v-pills-messages-tab" data-bs-toggle="pill" href="#v-pills-messages" role="tab" aria-controls="v-pills-messages" aria-selected="false">Удалить аккаунт</a>
         </div>
         <div class="col-6 tab-content" id="v-pills-tabContent">
-            <div class="tab-pane fade show active" id="v-pills-home" role="tabpanel" aria-labelledby="v-pills-home-tab">Тут просто информация</div>
-            <div class="tab-pane fade" id="v-pills-profile" role="tabpanel" aria-labelledby="v-pills-profile-tab"></div>
+            <div class="tab-pane fade show active" id="v-pills-home" role="tabpanel" aria-labelledby="v-pills-home-tab">
+                Тут просто информация
+            </div>
+            <div class="tab-pane fade" id="v-pills-profile" role="tabpanel" aria-labelledby="password-settings-link">
+                <!-- Сюда будет загружаться форма изменения пароля -->
+            </div>
+            <div class="tab-pane fade" id="v-pills-evropost" role="tabpanel" aria-labelledby="evropost-settings-link">
+                <!-- Сюда будет загружаться форма настроек Европочты -->
+            </div>
             <div class="tab-pane fade" id="v-pills-messages" role="tabpanel" aria-labelledby="v-pills-messages-tab">
-                Вы уверены что хотите удалить аккаунт? Вся информация и аккаунт будут удалены без возможности восстановления!
+                Вы уверены, что хотите удалить аккаунт? Вся информация и аккаунт будут удалены без возможности восстановления!
                 <form th:action="@{/profile/settings/delete}" method="post">
                     <button class="btn btn-primary w-50 py-2" type="submit">Удалить</button>
                 </form>
@@ -61,43 +72,6 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
-<script>
-    $(document).ready(function(){
-        $("#settings-link").click(function(event){
-            event.preventDefault(); // Предотвращаем стандартное поведение ссылки
-
-            $.ajax({
-                url: '/profile/settings', // Используем URL /profile/settings
-                method: 'GET',
-                success: function(response) {
-                    $("#v-pills-profile").html(response); // Вставить ответ в контейнер
-                    attachFormSubmitHandler(); // Привязываем обработчик отправки формы
-                },
-                error: function() {
-                    alert('Ошибка загрузки формы. Пожалуйста, попробуйте позже.');
-                }
-            });
-        });
-
-        function attachFormSubmitHandler() {
-            $("#settings-form").on("submit", function(event) {
-                event.preventDefault(); // Предотвращаем стандартное поведение формы
-
-                $.ajax({
-                    url: $(this).attr("action"),
-                    method: $(this).attr("method"),
-                    data: $(this).serialize(),
-                    success: function(response) {
-                        $("#v-pills-profile").html(response); // Обновить содержимое контейнера
-                        attachFormSubmitHandler(); // Привязываем обработчик снова, так как содержимое заменено
-                    },
-                    error: function() {
-                        alert('Ошибка при изменении пароля. Пожалуйста, попробуйте позже.');
-                    }
-                });
-            });
-        }
-    });
-</script>
+<script src="/js/app.js"></script>
 </body>
 </html>

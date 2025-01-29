@@ -1,23 +1,26 @@
 package com.project.tracking_system.controller;
 
+import com.project.tracking_system.dto.EvropostCredentialsDTO;
 import com.project.tracking_system.dto.UserSettingsDTO;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.user.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.Optional;
 
 /**
@@ -33,6 +36,8 @@ import java.util.Optional;
 @Controller
 @RequestMapping("/profile")
 public class ProfileController {
+
+    private static final Logger logger = LoggerFactory.getLogger(ProfileController.class);
 
     private final UserService userService;
 
@@ -55,8 +60,17 @@ public class ProfileController {
     public String profile(Model model) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = authentication.getName();
+        logger.info("Получен запрос на отображение профиля для пользователя: {}", username);
+
         Optional<User> user = userService.findByUser(username);
-        user.ifPresent(u -> model.addAttribute("username", u.getEmail()));
+        user.ifPresentOrElse(
+                u -> {
+                    model.addAttribute("username", u.getEmail());
+                    logger.debug("Данные профиля добавлены в модель для пользователя: {}", u.getEmail());
+                },
+                () -> logger.warn("Пользователь с именем {} не найден в базе данных.", username)
+        );
+
         return "profile";
     }
 
@@ -70,9 +84,84 @@ public class ProfileController {
      * @return имя представления для части страницы с настройками
      */
     @GetMapping("/settings")
-    public String settings(Model model) {
-        model.addAttribute("userSettingsDTO", new UserSettingsDTO());
-        return "settings :: form";
+    public String settings(
+            @RequestParam(value = "tab", required = false, defaultValue = "password") String tab,
+            Model model) {
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+
+        if ("password".equals(tab)) {
+            model.addAttribute("userSettingsDTO", new UserSettingsDTO());
+            logger.debug("Форма смены пароля подготовлена для пользователя: {}", username);
+            return "settings :: password-form";
+        }
+
+        if ("evropost".equals(tab)) {
+            EvropostCredentialsDTO evropostCredentialsDTO = userService.getEvropostCredentials(username);
+            model.addAttribute("evropostCredentialsDTO", evropostCredentialsDTO);
+            logger.debug("Форма Европочты подготовлена для пользователя: {}", username);
+            return "settings :: evropost-form";
+        }
+        logger.error("Неизвестный тип вкладки: {} для пользователя: {}", tab, username);
+        throw new IllegalArgumentException("Unknown tab type: " + tab);
+    }
+
+
+    @PostMapping("/settings/evropost")
+    public String updateEvropostCredentials(
+            @Valid @ModelAttribute("evropostCredentialsDTO") EvropostCredentialsDTO evropostCredentialsDTO,
+            BindingResult bindingResult, Model model) {
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        logger.info("Запрос на обновление данных Европочты для пользователя: {}", email);
+
+        // Проверяем ошибки валидации
+        if (bindingResult.hasErrors()) {
+            logger.warn("Обнаружены ошибки валидации для данных Европочты пользователя: {}", email);
+            model.addAttribute("evropostCredentialsDTO", evropostCredentialsDTO);
+            return "settings :: evropost-form";
+        }
+
+        try {
+            userService.updateEvropostCredentialsAndSettings(email, evropostCredentialsDTO);
+            logger.info("Данные Европочты успешно обновлены для пользователя: {}", email);
+
+            EvropostCredentialsDTO updatedDto = userService.getEvropostCredentials(email);
+            model.addAttribute("evropostCredentialsDTO", updatedDto);
+            model.addAttribute("notification", "Данные Европочты успешно обновлены");
+        } catch (Exception e) {
+            logger.error("Ошибка при обновлении данных Европочты для пользователя {}: {}", email, e.getMessage(), e);
+        }
+
+        return "settings :: evropost-form";
+    }
+
+    @PostMapping("/settings/use-custom-credentials")
+    public ResponseEntity<String> updateUseCustomCredentials(
+            @RequestParam(value = "useCustomCredentials", required = false) Boolean useCustomCredentials,
+            Principal principal) {
+
+        String email = principal.getName();
+        logger.info("Запрос на обновление флага 'useCustomCredentials' для пользователя: {}", email);
+
+        // Проверяем наличие параметра useCustomCredentials
+        if (useCustomCredentials == null) {
+            logger.warn("Не указан параметр 'useCustomCredentials' для пользователя: {}", email);
+            return ResponseEntity.badRequest().body("Не указан параметр useCustomCredentials");
+        }
+
+        try {
+            // Обновляем данные в БД
+            userService.updateUseCustomCredentials(email, useCustomCredentials);
+            logger.info("Флаг 'useCustomCredentials' успешно обновлён для пользователя: {}", email);
+            return ResponseEntity.ok("Настройки успешно обновлены.");
+        } catch (Exception e) {
+            logger.error("Ошибка при обновлении настройки для пользователя {}: {}", email, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Ошибка при обновлении настроек.");
+        }
     }
 
     /**
@@ -87,25 +176,33 @@ public class ProfileController {
      * @param result результат валидации формы
      * @return имя представления для части страницы с настройками
      */
-    @PostMapping("/settings")
-    public String settings(Model model, @Valid @ModelAttribute("userSettingsDTO") UserSettingsDTO userSettingsDTO, BindingResult result) {
-        if (result.hasErrors()) {
-            return "settings :: form";
-        }
-        if (!userSettingsDTO.getNewPassword().equals(userSettingsDTO.getConfirmPassword())) {
-            result.rejectValue("confirmPassword", "password.mismatch", "Пароли не совпадают");
-            return "settings :: form";
-        }
+    @PostMapping("/settings/password")
+    public String updatePassword(Model model, @Valid @ModelAttribute("userSettingsDTO") UserSettingsDTO userSettingsDTO, BindingResult result) {
+
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
+        logger.info("Запрос на смену пароля для пользователя: {}", email);
+
+        if (result.hasErrors()) {
+            logger.warn("Обнаружены ошибки валидации при смене пароля для пользователя: {}", email);
+            return "settings :: password-form";
+        }
+        if (!userSettingsDTO.getNewPassword().equals(userSettingsDTO.getConfirmPassword())) {
+            logger.warn("Пароли не совпадают для пользователя: {}", email);
+            result.rejectValue("confirmPassword", "password.mismatch", "Пароли не совпадают");
+            return "settings :: password-form";
+        }
+
         try {
             userService.changePassword(email, userSettingsDTO);
+            logger.info("Пароль успешно изменен для пользователя: {}", email);
             model.addAttribute("notification", "Пароль успешно изменен");
-            return "settings :: form";
+            return "settings :: password-form";
         } catch (IllegalArgumentException e) {
+            logger.error("Ошибка при смене пароля для пользователя {}: {}", email, e.getMessage());
             result.rejectValue("currentPassword", "password.incorrect", e.getMessage());
         }
-        return "settings :: form";
+        return "settings :: password-form";
     }
 
     /**
@@ -121,11 +218,16 @@ public class ProfileController {
      */
     @PostMapping("/settings/delete")
     public String delete(HttpServletRequest request, HttpServletResponse response) {
-        userService.deleteUser();
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication != null ? authentication.getName() : "неизвестный пользователь";
+        logger.info("Запрос на удаление учетной записи пользователя: {}", email);
+
+        userService.deleteUser();
         if (authentication != null) {
             new SecurityContextLogoutHandler().logout(request, response, authentication);
         }
+
+        logger.info("Учетная запись пользователя {} успешно удалена.", email);
         return "redirect:/";
     }
 }

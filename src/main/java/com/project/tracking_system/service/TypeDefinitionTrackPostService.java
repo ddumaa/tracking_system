@@ -1,6 +1,7 @@
 package com.project.tracking_system.service;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
+import com.project.tracking_system.entity.User;
 import com.project.tracking_system.maper.JsonEvroTrackingResponseMapper;
 import com.project.tracking_system.model.evropost.jsonResponseModel.JsonEvroTrackingResponse;
 import com.project.tracking_system.service.belpost.WebBelPost;
@@ -56,17 +57,17 @@ public class TypeDefinitionTrackPostService {
      * @throws IllegalArgumentException если номер отслеживания имеет некорректный формат
      */
     @Async("Post")
-    public CompletableFuture<TrackInfoListDTO> getTypeDefinitionTrackPostServiceAsync(String number) {
+    public CompletableFuture<TrackInfoListDTO> getTypeDefinitionTrackPostServiceAsync(User user, String number) {
         if (number.matches("^PC\\d{9}BY$") || number.matches("^BV\\d{9}BY$") ||
                 number.matches("^BP\\d{9}BY$")) {
             return webBelPost.webAutomationAsync(number);
         }
         if (number.matches("^BY\\d{12}$")) {
-            JsonEvroTrackingResponse json = jsonEvroTrackingService.getJson(number);
+            JsonEvroTrackingResponse json = jsonEvroTrackingService.getJson(user, number);
             TrackInfoListDTO trackInfoListDTO = jsonEvroTrackingResponseMapper.mapJsonEvroTrackingResponseToDTO(json);
             return CompletableFuture.completedFuture(trackInfoListDTO);
         }
-        throw new IllegalArgumentException("Указан некорректный код посылки.");
+        throw new IllegalArgumentException("Указан некорректный код посылки: " + number);
     }
 
     /**
@@ -79,9 +80,9 @@ public class TypeDefinitionTrackPostService {
      * @return объект {@link TrackInfoListDTO} с информацией о статусе посылки
      * @throws IllegalArgumentException если номер отслеживания имеет некорректный формат
      */
-    public TrackInfoListDTO getTypeDefinitionTrackPostService(String number) {
+    public TrackInfoListDTO getTypeDefinitionTrackPostService(User user, String number) {
         try {
-            return getTypeDefinitionTrackPostServiceAsync(number).get();
+            return getTypeDefinitionTrackPostServiceAsync(user, number).get();
         } catch (ExecutionException | InterruptedException e) {
             // Обрабатываем ошибки при ожидании асинхронного ответа
             e.printStackTrace();

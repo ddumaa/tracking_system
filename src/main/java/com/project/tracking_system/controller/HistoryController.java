@@ -121,9 +121,19 @@ public class HistoryController {
      */
     @GetMapping("/{itemNumber}")
     public String history(Model model, @PathVariable("itemNumber") String itemNumber) {
-        TrackInfoListDTO trackInfoListDTO = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(itemNumber);
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken) {
+            throw new RuntimeException("Пользователь не аутентифицирован.");
+        }
+
+        User user = (User) auth.getPrincipal();
+
+        TrackInfoListDTO trackInfoListDTO = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(user, itemNumber);
+
         model.addAttribute("jsonTracking", trackInfoListDTO);
         model.addAttribute("itemNumber", itemNumber);
+
         return "partials/history-info";
     }
 
@@ -135,8 +145,11 @@ public class HistoryController {
     @PostMapping("/history-update")
     public String history(){
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String authUserName = auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken) ? auth.getName() : null;
-        trackParcelService.updateHistory(authUserName);
+
+        if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
+            User user = (User) auth.getPrincipal();
+            trackParcelService.updateHistory(user);
+        }
         return "redirect:/history";
     }
 

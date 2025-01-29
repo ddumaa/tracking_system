@@ -66,31 +66,29 @@ public class TrackParcelService {
      * @param trackInfoListDTO информация о посылке
      * @param username имя пользователя
      */
-    public void save(String number, TrackInfoListDTO trackInfoListDTO, String username) {
+    public void save(String number, TrackInfoListDTO trackInfoListDTO, User user) {
         if (number == null || trackInfoListDTO == null) {
             throw new IllegalArgumentException("Отсутствует посылка");
         }
         List<TrackInfoDTO> trackInfoDTOList = trackInfoListDTO.getList();
-        Optional<User> user = userService.findByUser(username);
 
-        if (user.isPresent()) {
-            Long userId = user.get().getId();
-            TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(number, userId);
-            if (trackParcel != null) {
+        Long userId = user.getId();
+        TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(number, userId);
+
+        if (trackParcel != null) {
                 // обновляем существующую запись
                 trackParcel.setStatus(statusTrackService.setStatus(trackInfoDTOList));
                 trackParcel.setData(trackInfoDTOList.get(0).getTimex());
-            } else {
+        } else {
                 // создаём новую запись
                 trackParcel = new TrackParcel();
                 trackParcel.setNumber(number);
-                trackParcel.setUser(user.get());
+                trackParcel.setUser(user);
                 trackParcel.setStatus(statusTrackService.setStatus(trackInfoDTOList));
                 trackParcel.setData(trackInfoDTOList.get(0).getTimex());
-            }
-            trackParcelRepository.save(trackParcel);
-
         }
+        trackParcelRepository.save(trackParcel);
+
     }
 
     /**
@@ -187,8 +185,8 @@ public class TrackParcelService {
      *
      * @param name имя пользователя
      */
-    public void updateHistory (String name){
-        List<TrackParcelDTO> byUserTrack = findAllByUserTracks(name);
+    public void updateHistory (User user){
+        List<TrackParcelDTO> byUserTrack = findAllByUserTracks(user.getEmail());
         List<CompletableFuture<Void>> futures = new ArrayList<>(); // Список для хранения асинхронных задач
 
         for (TrackParcelDTO trackParcelDTO : byUserTrack) {
@@ -198,11 +196,11 @@ public class TrackParcelService {
             } else {
                 // Вызываем асинхронный метод и добавляем CompletableFuture в список
                 CompletableFuture<Void> future = typeDefinitionTrackPostService
-                        .getTypeDefinitionTrackPostServiceAsync(trackParcelDTO.getNumber())
+                        .getTypeDefinitionTrackPostServiceAsync(user, trackParcelDTO.getNumber())
                         .thenAccept(trackInfoListDTO -> {
                             List<TrackInfoDTO> list = trackInfoListDTO.getList();
-                            Optional<User> user = userService.findByUser(name);
-                            Long userId = user.get().getId();
+
+                            Long userId = user.getId();
                             TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(trackParcelDTO.getNumber(), userId);
                             trackParcel.setStatus(statusTrackService.setStatus(list));
                             trackParcel.setData(list.get(0).getTimex());

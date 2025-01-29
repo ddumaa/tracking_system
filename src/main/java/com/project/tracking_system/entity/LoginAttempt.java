@@ -2,14 +2,17 @@ package com.project.tracking_system.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.ZonedDateTime;
+import java.util.Objects;
 
+@Setter
+@Getter
 @AllArgsConstructor
 @NoArgsConstructor
-@Data
 @Entity
 public class LoginAttempt {
 
@@ -25,4 +28,18 @@ public class LoginAttempt {
     @OneToOne
     @JoinColumn(name = "user_id", referencedColumnName = "id")
     private User user;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        LoginAttempt that = (LoginAttempt) o;
+        return Objects.equals(id, that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
+    }
+
 }

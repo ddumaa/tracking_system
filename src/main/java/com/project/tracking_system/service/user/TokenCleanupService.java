@@ -5,6 +5,7 @@ import com.project.tracking_system.repository.PasswordResetTokenRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -39,6 +40,7 @@ public class TokenCleanupService {
      * Токены, созданные более чем час назад или истекшие, будут удалены.
      * </p>
      */
+    @Transactional
     @Scheduled(cron = "0 0 * * * *")
     public void cleanupExpiredTokens() {
         ZonedDateTime expiryDate = ZonedDateTime.now(ZoneOffset.UTC).minusHours(1);

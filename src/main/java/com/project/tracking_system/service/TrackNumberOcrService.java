@@ -2,6 +2,7 @@ package com.project.tracking_system.service;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackingResultAdd;
+import com.project.tracking_system.entity.User;
 import jakarta.annotation.PostConstruct;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
@@ -30,6 +31,7 @@ import java.util.regex.Pattern;
  * @author Dmitriy Anisimov
  * @date Добавлено 07.01.2025
  */
+
 @Service
 public class TrackNumberOcrService {
 
@@ -41,7 +43,7 @@ public class TrackNumberOcrService {
      * @param typeDefinitionTrackPostService Сервис для получения информации о трек-номере.
      * @param trackParcelService Сервис для сохранения данных о посылках.
      */
-    @Autowired
+    //@Autowired
     public TrackNumberOcrService(TypeDefinitionTrackPostService typeDefinitionTrackPostService, TrackParcelService trackParcelService) {
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
         this.trackParcelService = trackParcelService;
@@ -131,7 +133,7 @@ public class TrackNumberOcrService {
      * @param authenticatedUser Пользователь, который выполнил запрос.
      * @return Список объектов TrackingResultAdd, содержащих результат обработки каждого трек-номера.
      */
-    public List<TrackingResultAdd> extractAndProcessTrackingNumbers(String text, String authenticatedUser) {
+    public List<TrackingResultAdd> extractAndProcessTrackingNumbers(String text, User user) {
         if (text == null || text.trim().isEmpty()) {
             return new ArrayList<>();
         }
@@ -162,10 +164,10 @@ public class TrackNumberOcrService {
                 // Обработка трек-номера в блоке try-catch
                 try {
                     // Получаем информацию о трек-номере
-                    TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(trackNumber);
+                    TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(user, trackNumber);
 
                     // Сохраняем данные о трек-номере в сервис
-                    trackParcelService.save(trackNumber, trackInfo, authenticatedUser);
+                    trackParcelService.save(trackNumber, trackInfo, user);
 
                     // Добавляем в результат успешное добавление
                     trackInfoResult.add(new TrackingResultAdd(trackNumber, "Добавлен"));

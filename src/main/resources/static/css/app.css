@@ -1,0 +1,38 @@
+/* Гарантируем, что .form-floating будет корректно обрабатывать вложенные элементы */
+.form-floating {
+    margin-bottom: 1rem;
+}
+
+/* Корректируем input для правильного позиционирования кнопки */
+.password-input {
+    padding-right: 3.5rem !important; /* Отступ справа, чтобы текст не перекрывал кнопку */
+}
+
+/* Фиксируем кнопку внутри поля */
+.toggle-password {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    z-index: 10;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+}
+
+/* Увеличиваем правый отступ у поля, чтобы текст не перекрывался кнопкой */
+.form-control {
+    padding-right: 3rem; /* Достаточный отступ для кнопки */
+}
+
+/* Отступ сверху для сообщений об ошибке */
+.text-danger {
+    margin-top: 0.5rem;
+    display: block; /* Делаем, чтобы ошибки шли под полем */
+}
+
+/* Учитываем кнопку при вводе текста */
+.form-signin input[type="password"] {
+    padding-right: 3.5rem; /* Делаем отступ справа для кнопки */
+    margin-bottom: 0 !important; /* Убираем ненужный margin-bottom */
+    border-radius: 5px; /* Восстанавливаем скругление границ */
+}

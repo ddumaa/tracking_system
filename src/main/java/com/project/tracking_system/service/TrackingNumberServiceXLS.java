@@ -2,6 +2,7 @@ package com.project.tracking_system.service;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackingResultAdd;
+import com.project.tracking_system.entity.User;
 import org.apache.poi.ss.usermodel.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -53,7 +54,7 @@ public class TrackingNumberServiceXLS {
      * @return список результатов добавления, включая номер отслеживания и статус добавления или ошибку
      * @throws IOException если не удалось прочитать файл
      */
-    public List<TrackingResultAdd> processTrackingNumber(MultipartFile file, String authenticatedUser) throws IOException {
+    public List<TrackingResultAdd> processTrackingNumber(MultipartFile file, User user) throws IOException {
         List<TrackingResultAdd> trackingResult = new ArrayList<>();
 
         // Чтение файла XLS
@@ -69,8 +70,12 @@ public class TrackingNumberServiceXLS {
 
                     CompletableFuture<TrackingResultAdd> future = CompletableFuture.supplyAsync(() -> {
                         try {
-                            TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(trackingNumber);
-                            trackParcelService.save(trackingNumber, trackInfo, authenticatedUser);
+                            TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(user, trackingNumber);
+
+                            if (user != null) {
+                                trackParcelService.save(trackingNumber, trackInfo, user);
+                            }
+
                             return new TrackingResultAdd(trackingNumber, "Добавлен");
                         } catch (Exception e) {
                             return new TrackingResultAdd(trackingNumber, "Ошибка: " + e.getMessage());
