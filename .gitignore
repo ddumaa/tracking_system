@@ -29,6 +29,6 @@ replay_pid*
 
 
 target/*
+docs/*
+logs/*
 /docs/
-controller/HomeController.java
-service/TrackNumberOcrService.java
