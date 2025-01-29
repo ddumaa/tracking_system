@@ -182,27 +182,15 @@ public class UserService {
         userRepository.save(user);
     }
 
-
     public EvropostCredentialsDTO getEvropostCredentials(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
 
-        try {
-            // Расшифровка данных
-            String decryptedPassword = encryptionUtils.decrypt(user.getEvropostPassword());
-            String decryptedServiceNumber = encryptionUtils.decrypt(user.getServiceNumber());
+        EvropostCredentialsDTO dto = new EvropostCredentialsDTO();
+        dto.setEvropostUsername(user.getEvropostUsername());
+        dto.setUseCustomCredentials(user.getUseCustomCredentials());
 
-            // Возврат DTO с расшифрованными данными
-            EvropostCredentialsDTO dto = new EvropostCredentialsDTO();
-            dto.setEvropostUsername(user.getEvropostUsername());
-            dto.setEvropostPassword(decryptedPassword);
-            dto.setServiceNumber(decryptedServiceNumber);
-            dto.setUseCustomCredentials(user.getUseCustomCredentials());
-
-            return dto;
-        } catch (Exception e) {
-            throw new RuntimeException("Ошибка при расшифровке данных", e);
-        }
+        return dto;
     }
 
     /**
