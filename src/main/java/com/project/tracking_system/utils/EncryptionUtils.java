@@ -33,6 +33,9 @@ public class EncryptionUtils {
     }
 
     public String decrypt(String encryptedData) throws Exception {
+        if (encryptedData == null || encryptedData.isBlank()) {
+            return "";
+        }
         Cipher cipher = Cipher.getInstance(TRANSFORMATION);
         cipher.init(Cipher.DECRYPT_MODE, secretKeySpec);
         byte[] decodedData = Base64.getDecoder().decode(encryptedData);
