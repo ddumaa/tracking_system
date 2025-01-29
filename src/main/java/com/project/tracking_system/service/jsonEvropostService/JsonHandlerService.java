@@ -10,6 +10,16 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+/**
+ * Сервис для выполнения JSON-запросов к API ЕвроПочты.
+ * <p>
+ * Этот сервис обрабатывает HTTP-запросы, отправляя запросы в формате JSON и обрабатывая ответы.
+ * Он использует {@link RestTemplate} для выполнения запросов и {@link ObjectMapper} для обработки JSON-ответов.
+ * </p>
+ *
+ * @author Dmitriy Anisimov
+ * @date 07.01.2025
+ */
 @Service
 public class JsonHandlerService {
 
@@ -25,6 +35,17 @@ public class JsonHandlerService {
     @Value("${evro.jwt.ApiUrl}")
     private String URL;
 
+    /**
+     * Выполняет HTTP POST-запрос к API ЕвроПочты с передачей JSON-объекта.
+     * <p>
+     * Метод формирует и отправляет POST-запрос с данным объектом в теле запроса.
+     * Ответ обрабатывается, и если запрос успешен, возвращается десериализованный {@link JsonNode}.
+     * </p>
+     *
+     * @param jsonRequest объект запроса, который будет сериализован в JSON.
+     * @return {@link JsonNode} десериализованный ответ от API.
+     * @throws RuntimeException если запрос не удался или произошла ошибка при обработке ответа.
+     */
     public JsonNode jsonRequest(JsonRequest jsonRequest) {
 
         HttpHeaders headers = new HttpHeaders();
@@ -52,5 +73,4 @@ public class JsonHandlerService {
 
         return jsonNode;
     }
-
 }

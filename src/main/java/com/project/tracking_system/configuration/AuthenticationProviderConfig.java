@@ -14,18 +14,44 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
+/**
+ * Конфигурация провайдера аутентификации для Spring Security.
+ * <p>
+ * Этот класс настраивает кастомизированный {@link AuthenticationProvider}, который проверяет, заблокирован ли аккаунт пользователя,
+ * прежде чем выполнять аутентификацию. Используется {@link DaoAuthenticationProvider} с дополнительной логикой для блокировки аккаунтов
+ * на основе количества неудачных попыток входа, а также {@link BCryptPasswordEncoder} для кодирования пароля.
+ * </p>
+ *
+ * @author Dmitriy Anisimov
+ * @date 07.01.2025
+ */
 @Configuration
 public class AuthenticationProviderConfig {
 
     private final LoginAttemptService loginAttemptService;
     private final UserDetailsServiceImpl userDetailsService;
 
+    /**
+     * Конструктор для инъекции зависимостей.
+     *
+     * @param loginAttemptService Сервис для отслеживания попыток входа.
+     * @param userDetailsService Реализация {@link org.springframework.security.core.userdetails.UserDetailsService}.
+     */
     @Autowired
     public AuthenticationProviderConfig(LoginAttemptService loginAttemptService, UserDetailsServiceImpl userDetailsService) {
         this.loginAttemptService = loginAttemptService;
         this.userDetailsService = userDetailsService;
     }
 
+    /**
+     * Создает и настраивает {@link AuthenticationProvider} для аутентификации пользователей.
+     * <p>
+     * Провайдер аутентификации проверяет, заблокирован ли аккаунт пользователя, и если да, то выбрасывает исключение {@link LockedException}.
+     * Используется {@link BCryptPasswordEncoder} для кодирования пароля и {@link DaoAuthenticationProvider} для стандартной аутентификации.
+     * </p>
+     *
+     * @return Настроенный {@link AuthenticationProvider}.
+     */
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider(){
@@ -43,6 +69,16 @@ public class AuthenticationProviderConfig {
         return daoAuthenticationProvider;
     }
 
+    /**
+     * Создает {@link AuthenticationManager} для аутентификации пользователей.
+     * <p>
+     * {@link AuthenticationManager} используется для обработки аутентификаций в Spring Security.
+     * </p>
+     *
+     * @param authenticationConfiguration Конфигурация аутентификации.
+     * @return Настроенный {@link AuthenticationManager}.
+     * @throws Exception если не удается создать {@link AuthenticationManager}.
+     */
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
         return authenticationConfiguration.getAuthenticationManager();

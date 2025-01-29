@@ -68,10 +68,11 @@
                             <option value="" th:selected="${statusString == null}">Все статусы</option>
                             <option value="DELIVERED" th:selected="${statusString == 'DELIVERED'}">Вручена</option>
                             <option value="WAITING_FOR_CUSTOMER" th:selected="${statusString == 'WAITING_FOR_CUSTOMER'}">Ожидает клиента</option>
-                            <option value="IN_TRANSIT" th:selected="${statusString == 'IN_TRANSIT'}">В пути к клиенту</option>
+                            <option value="IN_TRANSIT" th:selected="${statusString == 'IN_TRANSIT'}">В пути</option>
                             <option value="CUSTOMER_NOT_PICKING_UP" th:selected="${statusString == 'CUSTOMER_NOT_PICKING_UP'}">Клиент не забирает посылку</option>
                             <option value="RETURN_IN_PROGRESS" th:selected="${statusString == 'RETURN_IN_PROGRESS'}">Возврат в пути</option>
                             <option value="RETURNED_TO_SENDER" th:selected="${statusString == 'RETURNED_TO_SENDER'}">Возврат забран</option>
+                            <option value="REGISTERED" th:selected="${statusString == 'REGISTERED'}">Заявка зарегистрирована</option>
                         </select>
                     </div>
                     <!-- Параметры размера страницы -->
@@ -89,39 +90,57 @@
                     </div>
                 </form>
 
-                <table class="table mt-3 table-striped">
-                    <thead>
-                    <tr>
-                        <th scope="col">№ посылки</th>
-                        <th scope="col">Статус</th>
-                        <th scope="col">Дата</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr th:each="item : ${trackParcelDTO}" >
-                        <td style="display: flex; align-items: center;">
-                            <span th:utext="${statusTrackService.getIcon(item.status)}" style="margin-right: 10px;"></span>
-                            <form th:action="@{/history/{itemNumber}(itemNumber=${item.number})}" method="get" style="margin: 0;">
-                                <button type="button" class="btn btn-link" onclick="loadModal(this.getAttribute('data-itemnumber'))" th:text="${item.number}" th:data-itemnumber="${item.number}" style="padding: 0;"></button>
-                            </form>
-                        </td>
-                        <td th:text="${item.status}"></td>
-                        <td th:text="${item.data}"></td>
-                    </tr>
-                    </tbody>
-                </table>
+                <div th:if="${deleteMessage != null}" class="alert alert-success mt-3" th:text="${deleteMessage}"></div>
+
+                <div th:if="${trackParcelDTO != null and !trackParcelDTO.isEmpty()}" class="mt-3">
+                    <form action="/history/delete-selected" method="post"> <!-- Обернули в форму -->
+                        <div class="mb-2">
+                            <button id="selectAllBtn" type="button" class="btn btn-primary" onclick="toggleSelectAll()">Выделить всё</button>
+                            <button type="submit" class="btn btn-danger" disabled id="deleteSelectedBtn">Удалить выделенное</button>
+                        </div>
+                        <table class="table table-striped">
+                            <thead>
+                            <tr>
+                                <th><input type="checkbox" id="selectAllCheckbox" onclick="toggleAllCheckboxes(this)"></th>
+                                <th scope="col">№ посылки</th>
+                                <th scope="col">Статус</th>
+                                <th scope="col">Дата</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="item : ${trackParcelDTO}">
+                                <td>
+                                    <div style="display: flex; align-items: center;">
+                                        <input type="checkbox" class="selectCheckbox" th:value="${item.number}" name="selectedNumbers" onclick="updateDeleteButtonState()">
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="display: flex; align-items: center;">
+                                        <span th:utext="${statusTrackService.getIcon(item.status)}" style="margin-right: 10px;"></span>
+                                        <form th:action="@{/history/{itemNumber}(itemNumber=${item.number})}" method="get" style="margin: 0;">
+                                            <button type="button" class="btn btn-link" onclick="loadModal(this.getAttribute('data-itemnumber'))" th:text="${item.number}" th:data-itemnumber="${item.number}" style="padding: 0;"></button>
+                                        </form>
+                                    </div>
+                                </td>
+                                <td style="vertical-align: middle;" th:text="${item.status}"></td>
+                                <td style="vertical-align: middle;" th:text="${item.data}"></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </form>
+                </div>
 
                 <!-- Пагинация -->
                 <div>
-                    <ul class="pagination">
+                    <ul class="pagination" th:if="${totalPages > 0}">
                         <li class="page-item" th:class="${currentPage == 0} ? 'disabled'">
-                            <a class="page-link" th:href="@{/history(status=${statusString}, page=${currentPage - 1}, size=${size})}">Назад</a>
+                            <a class="page-link" th:href="@{/history(status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size})}">Назад</a>
                         </li>
-                        <li class="page-item" th:each="i : ${#numbers.sequence(0, totalPages - 1)}">
+                        <li class="page-item" th:each="i : ${#numbers.sequence(0, totalPages - 1)}" th:class="${i == currentPage} ? 'active'">
                             <a class="page-link" th:href="@{/history(status=${statusString}, page=${i}, size=${size})}" th:text="${i + 1}"></a>
                         </li>
                         <li class="page-item" th:class="${currentPage == totalPages - 1} ? 'disabled'">
-                            <a class="page-link" th:href="@{/history(status=${statusString}, page=${currentPage + 1}, size=${size})}">Вперёд</a>
+                            <a class="page-link" th:href="@{/history(status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size})}">Вперёд</a>
                         </li>
                     </ul>
                 </div>
@@ -165,6 +184,40 @@
             }
         });
     }
+
+    function toggleAllCheckboxes(selectAllCheckbox) {
+        const checkboxes = document.querySelectorAll('.selectCheckbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = selectAllCheckbox.checked;
+        });
+        updateDeleteButtonState();
+        updateSelectAllButton();
+    }
+
+    function updateDeleteButtonState() {
+        const checkboxes = document.querySelectorAll('.selectCheckbox');
+        const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+        const anyChecked = Array.from(checkboxes).some(checkbox => checkbox.checked);
+        deleteSelectedBtn.disabled = !anyChecked;
+    }
+
+    function toggleSelectAll() {
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        selectAllCheckbox.checked = !selectAllCheckbox.checked;
+        toggleAllCheckboxes(selectAllCheckbox);
+        updateSelectAllButton();
+    }
+
+    function updateSelectAllButton() {
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        if (selectAllCheckbox.checked) {
+            selectAllBtn.textContent = 'Отменить выделение';
+        } else {
+            selectAllBtn.textContent = 'Выделить всё';
+        }
+    }
+
 </script>
 </body>
 </html>

@@ -1,9 +1,13 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.PasswordResetDTO;
+import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
+import com.project.tracking_system.entity.User;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
+import com.project.tracking_system.service.TrackNumberOcrService;
+import com.project.tracking_system.service.TrackingNumberServiceXLS;
 import com.project.tracking_system.service.user.LoginAttemptService;
 import com.project.tracking_system.service.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.TrackParcelService;
@@ -21,11 +25,26 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.security.Principal;
-import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Optional;
 
+/**
+ * Контроллер для обработки запросов на главной странице, регистрации, входа, сброса пароля и загрузки файлов.
+ * <p>
+ * Этот контроллер предоставляет методы для отображения домашней страницы, обработки регистрации пользователя,
+ * входа в систему, сброса пароля и загрузки файлов (в том числе изображений и XLS/XLSX файлов).
+ * Также контроллер взаимодействует с сервисами для обработки информации об отслеживаемых посылках.
+ * </p>
+ *
+ * @author Dmitriy Anisimov
+ * @date 07.01.2025
+ */
 @Controller
 @RequestMapping("/")
 public class HomeController {
@@ -35,57 +54,102 @@ public class HomeController {
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final LoginAttemptService loginAttemptService;
     private final PasswordResetService passwordResetService;
+    private final TrackingNumberServiceXLS trackingNumberServiceXLS;
+    private final TrackNumberOcrService trackNumberOcrService;
 
     @Autowired
     public HomeController(UserService userService, TrackParcelService trackParcelService,
                           TypeDefinitionTrackPostService typeDefinitionTrackPostService,
                           LoginAttemptService loginAttemptService,
-                          PasswordResetService passwordResetService) {
+                          PasswordResetService passwordResetService,
+                          TrackingNumberServiceXLS trackingNumberServiceXLS, TrackNumberOcrService trackNumberOcrService) {
         this.userService = userService;
         this.trackParcelService = trackParcelService;
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
         this.loginAttemptService = loginAttemptService;
         this.passwordResetService = passwordResetService;
+        this.trackingNumberServiceXLS = trackingNumberServiceXLS;
+        this.trackNumberOcrService = trackNumberOcrService;
     }
 
+    /**
+     * Обрабатывает запросы на главной странице. Отображает домашнюю страницу.
+     *
+     * @return имя представления домашней страницы
+     */
     @GetMapping
     public String home() {
         return "home";
     }
 
+    /**
+     * Обрабатывает POST-запросы на главной странице. Выполняет отслеживание посылки по номеру.
+     * Отображает информацию о посылке и сохраняет данные отслеживания для авторизованного пользователя.
+     *
+     * @param number номер посылки для отслеживания
+     * @param model модель для добавления данных в представление
+     * @param request запрос для получения информации о сессии
+     * @return имя представления домашней страницы
+     */
     @PostMapping
     public String home(@ModelAttribute("number") String number, Model model, HttpServletRequest request) {
 
         HttpSession session = request.getSession();
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String authUserName = auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken) ? auth.getName() : null;
 
         model.addAttribute("number", number);
-        TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(number);
 
         try {
+            TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(number);
             model.addAttribute("trackInfo", trackInfo);
+
+            if (trackInfo.getList().isEmpty()) {
+                model.addAttribute("customError", "Нет данных для указанного номера посылки.");
+            }
+
             if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
-                model.addAttribute("authenticatedUser", auth.getName());
-                session.setAttribute("userSession", auth.getName());
-                trackParcelService.save(number, trackInfo, auth.getName());
+                model.addAttribute("authenticatedUser", authUserName);
+                session.setAttribute("userSession", authUserName);
+                trackParcelService.save(number, trackInfo, authUserName);
             } else {
                 session.removeAttribute("userSession");
                 model.addAttribute("authenticatedUser", null);
             }
             return "home";
+
+        } catch (IllegalArgumentException e) {
+            model.addAttribute("customError", e.getMessage());
+            return "home";
         } catch (Exception e) {
-            model.addAttribute("error", e.getMessage());
+            model.addAttribute("generalError", "Произошла ошибка при обработке запроса.");
             return "home";
         }
 
     }
 
+    /**
+     * Отображает страницу регистрации нового пользователя.
+     *
+     * @param userRegistrationDTO DTO для регистрации пользователя
+     * @param model модель для добавления данных в представление
+     * @return имя представления страницы регистрации
+     */
     @GetMapping("/registration")
     public String registration(@ModelAttribute("userDTO") UserRegistrationDTO userRegistrationDTO, Model model) {
         model.addAttribute("userDTO", new UserRegistrationDTO());
         return "registration";
     }
 
+    /**
+     * Обрабатывает POST-запросы на регистрацию пользователя.
+     * Выполняет проверку и регистрацию пользователя, отправку кода подтверждения.
+     *
+     * @param userDTO DTO для регистрации пользователя
+     * @param result результат валидации формы
+     * @param model модель для добавления данных в представление
+     * @return имя представления для регистрации
+     */
     @PostMapping("/registration")
     public String registration(@Valid @ModelAttribute("userDTO") UserRegistrationDTO userDTO, BindingResult result, Model model) {
         // Проверка, на каком этапе находится процесс регистрации
@@ -139,6 +203,16 @@ public class HomeController {
         }
     }
 
+    /**
+     * Отображает страницу входа в систему.
+     *
+     * @param error сообщение об ошибке входа
+     * @param blocked сообщение о блокировке аккаунта
+     * @param session сессия для проверки состояния пользователя
+     * @param model модель для добавления данных в представление
+     * @param principal информация о текущем пользователе
+     * @return имя представления страницы входа
+     */
     @GetMapping("/login")
     public String loginPage(@RequestParam(value = "error", required = false) String error,
                             @RequestParam(value = "blocked", required = false) String blocked,
@@ -148,7 +222,7 @@ public class HomeController {
         }
         String email = (String) session.getAttribute("email");
         if (blocked != null && email != null) {
-            LocalDateTime unlockTime = loginAttemptService.getUnlockTime(email);
+            ZonedDateTime unlockTime = loginAttemptService.getUnlockTime(email);
             model.addAttribute("blockedMessage", "Ваш аккаунт заблокирован из-за превышения количества попыток входа. Попробуйте снова после: " + unlockTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
         }
         if (error != null && email != null) {
@@ -158,14 +232,32 @@ public class HomeController {
         return "login";
     }
 
+    /**
+     * Отображает страницу для восстановления пароля.
+     *
+     * @param model модель для добавления данных в представление
+     * @return имя представления страницы восстановления пароля
+     */
     @GetMapping("/forgot-password")
     public String showForgotPasswordForm(Model model) {
         model.addAttribute("email", "");
         return "forgot-password";
     }
 
+    /**
+     * Обрабатывает запросы на восстановление пароля.
+     *
+     * @param email адрес электронной почты для восстановления пароля
+     * @param model модель для добавления данных в представление
+     * @return имя представления страницы восстановления пароля
+     */
     @PostMapping("/forgot-password")
     public String handleForgotPassword(@RequestParam String email, Model model) {
+        Optional<User> byUser = userService.findByUser(email);
+        if (byUser.isEmpty()) {
+            model.addAttribute("error", "Пользователь с таким адресом электронной почты не найден.");
+            return "forgot-password";
+        }
         try {
             passwordResetService.createPasswordResetToken(email);
             model.addAttribute("message", "Ссылка для сброса пароля была отправлена на ваш адрес электронной почты.");
@@ -177,17 +269,33 @@ public class HomeController {
         return "forgot-password";
     }
 
+    /**
+     * Отображает страницу для сброса пароля по токену.
+     *
+     * @param token токен для сброса пароля
+     * @param passwordResetDTO DTO для сброса пароля
+     * @param model модель для добавления данных в представление
+     * @return имя представления страницы сброса пароля
+     */
     @GetMapping("/reset-password")
     public String showResetPasswordForm(@RequestParam String token, @ModelAttribute("passwordResetDTO") PasswordResetDTO passwordResetDTO, Model model) {
         if (!passwordResetService.isTokenValid(token)) {
             model.addAttribute("error", "Неверный или просроченный токен.");
             return "forgot-password";
         }
-
         model.addAttribute("token", token);
-        return "/reset-password";
+        return "reset-password";
     }
 
+    /**
+     * Обрабатывает запросы на сброс пароля по токену.
+     *
+     * @param token токен для сброса пароля
+     * @param passwordResetDTO DTO для сброса пароля
+     * @param bindingResult результат валидации формы
+     * @param model модель для добавления данных в представление
+     * @return имя представления страницы сброса пароля
+     */
     @PostMapping("/reset-password")
     public String handleResetPassword(@RequestParam String token,
                                       @Valid @ModelAttribute("passwordResetDTO") PasswordResetDTO passwordResetDTO,
@@ -218,4 +326,59 @@ public class HomeController {
         }
     }
 
+    /**
+     * Обрабатывает загрузку файла (XLS, XLSX или изображения).
+     * В зависимости от типа файла выполняется обработка данных или распознавание текста.
+     *
+     * @param file загружаемый файл
+     * @param model модель для добавления данных в представление
+     * @return имя представления домашней страницы
+     */
+    @PostMapping("/upload")
+    public String uploadFile(@RequestParam("file") MultipartFile file, Model model) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String authUserName = (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken))
+                ? auth.getName() : null;
+
+        if (file.isEmpty()) {
+            model.addAttribute("customError", "Пожалуйста, выберите XLS, XLSX или изображение для загрузки.");
+            return "home";
+        }
+
+        // Определяем MIME-тип файла
+        String contentType = file.getContentType();
+        if (contentType == null) {
+            model.addAttribute("customError", "Не удалось определить тип файла.");
+            return "home";
+        }
+
+        try {
+            if (contentType.equals("application/vnd.ms-excel") || contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
+                // Обработка XLS или XLSX файла
+                List<TrackingResultAdd> trackingResults = trackingNumberServiceXLS.processTrackingNumber(file, authUserName);
+                model.addAttribute("trackingResults", trackingResults);
+            } else if (contentType.startsWith("image/")) {
+
+                // Обработка изображения (OCR)
+                String recognizedText = trackNumberOcrService.processImage(file);
+                System.out.println("Распознанный текст: " + recognizedText);  // Для дебага
+
+                // Извлечение трек-номеров из текста
+                List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, authUserName);
+                System.out.println("Трек-номера: " + trackingResults);  // Для дебага
+
+                // Добавление результатов в модель
+                model.addAttribute("trackingResults", trackingResults);
+            } else {
+                model.addAttribute("customError", "Неподдерживаемый тип файла. Загрузите XLS, XLSX или изображение.");
+                return "home";
+            }
+        } catch (IOException e) {
+            model.addAttribute("generalError", "Ошибка при обработке файла: " + e.getMessage());
+        } catch (Exception e) {
+            model.addAttribute("generalError", "Ошибка: " + e.getMessage());
+        }
+
+        return "home";
+    }
 }

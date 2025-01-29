@@ -8,33 +8,6 @@
           rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
           crossorigin="anonymous">
     <title>Settings</title>
-<!--    <style>-->
-<!--        html, body {-->
-<!--            height: 100%;-->
-<!--        }-->
-
-<!--        .form-signin {-->
-<!--            max-width: 600px;-->
-<!--            width: 100%;-->
-<!--            padding: 1rem;-->
-<!--        }-->
-
-<!--        .form-signin .form-floating:focus-within {-->
-<!--            z-index: 2;-->
-<!--        }-->
-
-<!--        .form-signin input[type="email"] {-->
-<!--            margin-bottom: -1px;-->
-<!--            border-bottom-right-radius: 0;-->
-<!--            border-bottom-left-radius: 0;-->
-<!--        }-->
-
-<!--        .form-signin input[type="password"] {-->
-<!--            margin-bottom: 10px;-->
-<!--            border-top-left-radius: 0;-->
-<!--            border-top-right-radius: 0;-->
-<!--        }-->
-<!--    </style>-->
 </head>
 <body>
 <div th:fragment="form">
@@ -44,24 +17,19 @@
             <div class="form-floating mb-3">
                 <input type="password" class="form-control" id="currentPassword" name="currentPassword" th:field="*{currentPassword}" placeholder="Текущий пароль">
                 <label for="currentPassword">Текущий пароль</label>
-                <div th:if="${#fields.hasErrors('currentPassword')}" th:errors="*{currentPassword}" class="text-danger"></div>
+                <div th:errors="*{currentPassword}" class="text-danger"></div>
             </div>
             <div class="form-floating mb-3">
-                <label for="newPassword"></label>
                 <input type="password" class="form-control" id="newPassword" name="newPassword" th:field="*{newPassword}" placeholder="Новый пароль">
                 <label for="newPassword">Новый пароль</label>
-                <div th:if="${#fields.hasErrors('newPassword')}" th:errors="*{newPassword}" class="text-danger"></div>
+                <div th:errors="*{newPassword}" class="text-danger"></div>
             </div>
             <div class="form-floating mb-3">
-                <label for="confirmPassword"></label>
                 <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" th:field="*{confirmPassword}" placeholder="Подтвердите пароль">
                 <label for="confirmPassword">Подтвердите пароль</label>
-                <div th:if="${#fields.hasErrors('confirmPassword')}" th:errors="*{confirmPassword}" class="text-danger"></div>
+                <div th:errors="*{confirmPassword}" class="text-danger"></div>
             </div>
-            <div th:if="${#fields.hasErrors('confirmPassword')}">
-                <p th:errors="*{confirmPassword}" class="text-danger"></p>
-            </div>
-            <div th:if="${notification != null}" class="mb-3">
+            <div th:if="${notification}" class="mb-3">
                 <p th:text="${notification}" class="text-success"></p>
             </div>
             <button class="btn btn-primary w-100 py-2" type="submit">Изменить пароль</button>
