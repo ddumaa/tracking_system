@@ -62,7 +62,8 @@ public class SecurityConfiguration {
         http
                 .headers(h -> h.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests
-                        .requestMatchers("/", "/login", "/logout", "/registration", "/forgot-password", "/reset-password", "/templates/css/**", "/templates/js/**").permitAll()
+                        .requestMatchers("/", "/login", "/logout", "/registration", "/forgot-password", "/reset-password",
+                                "/css/**", "/js/**", "/images/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .formLogin(formLogin -> formLogin

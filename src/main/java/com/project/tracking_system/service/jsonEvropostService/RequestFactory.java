@@ -1,6 +1,8 @@
 package com.project.tracking_system.service.jsonEvropostService;
 
 import com.project.tracking_system.model.evropost.jsonRequestModel.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -17,15 +19,13 @@ import org.springframework.stereotype.Service;
 @Service
 public class RequestFactory {
 
-    private final JsonData jsonData;
+    private static final Logger logger = LoggerFactory.getLogger(RequestFactory.class);
+
     private final JsonRequest jsonRequest;
-    private final JsonPacket jsonPacket;
 
     @Autowired
-    public RequestFactory(JsonData jsonData, JsonRequest jsonRequest, JsonPacket jsonPacket) {
-        this.jsonData = jsonData;
+    public RequestFactory(JsonRequest jsonRequest) {
         this.jsonRequest = jsonRequest;
-        this.jsonPacket = jsonPacket;
     }
 
     /**
@@ -37,23 +37,18 @@ public class RequestFactory {
      * @param number номер посылки, которую необходимо отследить.
      * @return {@link JsonRequest} сформированный запрос для отслеживания.
      */
-    public JsonRequest createTrackingRequest(String number) {
-        JsonDataAbstract data = new JsonTrackingData(number);
-        JsonPacket packet = new JsonPacket(jsonPacket.getJwt(), JsonMethodName.POSTAL_TRACKING.toString(), jsonPacket.getServiceNumber(), data);
-        return new JsonRequest(jsonRequest.getCrc(), packet);
-    }
+    public JsonRequest createTrackingRequest(String jwt, String serviceNumber, String postalNumber) {
+        JsonDataAbstract data = new JsonTrackingData(postalNumber);
+        JsonPacket packet = new JsonPacket(
+                jwt,
+                JsonMethodName.POSTAL_TRACKING.toString(),
+                serviceNumber,
+                data
+        );
 
-    /**
-     * Создаёт запрос для получения JWT токена.
-     * <p>
-     * Метод формирует JSON-запрос для получения JWT токена.
-     * </p>
-     *
-     * @return {@link JsonRequest} сформированный запрос для получения JWT токена.
-     */
-    public JsonRequest createGetJWTRequest() {
-        JsonDataAbstract data = new JsonGetJWTData(jsonData.getLoginName(), jsonData.getPassword(), jsonData.getLoginNameTypeId());
-        JsonPacket packet = new JsonPacket(null, JsonMethodName.GET_JWT.toString(), jsonPacket.getServiceNumber(), data);
+        logger.info("Создан запрос для отслеживания. Почтовый номер: {}, Метод: {}",
+                postalNumber, JsonMethodName.POSTAL_TRACKING);
+
         return new JsonRequest(jsonRequest.getCrc(), packet);
     }
 

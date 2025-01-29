@@ -1,0 +1,1 @@
+ALTER TABLE tb_users ADD COLUMN use_custom_credentials BOOLEAN NOT NULL DEFAULT false;

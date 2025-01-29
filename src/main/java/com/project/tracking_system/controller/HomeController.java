@@ -93,40 +93,44 @@ public class HomeController {
      */
     @PostMapping
     public String home(@ModelAttribute("number") String number, Model model, HttpServletRequest request) {
-
         HttpSession session = request.getSession();
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String authUserName = auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken) ? auth.getName() : null;
+
+        // Проверка на аутентификацию
+        boolean isAuthenticated = auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken);
+        User user = isAuthenticated ? (User) auth.getPrincipal() : null;
 
         model.addAttribute("number", number);
+        model.addAttribute("authenticatedUser", user != null ? user.getEmail() : null);
 
         try {
-            TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(number);
+            // Получение данных посылки
+            TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(user, number);
             model.addAttribute("trackInfo", trackInfo);
 
+            // Если данные пустые
             if (trackInfo.getList().isEmpty()) {
                 model.addAttribute("customError", "Нет данных для указанного номера посылки.");
             }
 
-            if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
-                model.addAttribute("authenticatedUser", authUserName);
-                session.setAttribute("userSession", authUserName);
-                trackParcelService.save(number, trackInfo, authUserName);
+            // Сохраняем данные, если пользователь аутентифицирован
+            if (isAuthenticated) {
+                session.setAttribute("userSession", user.getEmail());
+                trackParcelService.save(number, trackInfo, user);
             } else {
                 session.removeAttribute("userSession");
-                model.addAttribute("authenticatedUser", null);
             }
-            return "home";
 
         } catch (IllegalArgumentException e) {
             model.addAttribute("customError", e.getMessage());
-            return "home";
         } catch (Exception e) {
             model.addAttribute("generalError", "Произошла ошибка при обработке запроса.");
-            return "home";
         }
 
+        return "home";
     }
+
+
 
     /**
      * Отображает страницу регистрации нового пользователя.
@@ -337,8 +341,16 @@ public class HomeController {
     @PostMapping("/upload")
     public String uploadFile(@RequestParam("file") MultipartFile file, Model model) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String authUserName = (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken))
-                ? auth.getName() : null;
+        User user = null;
+
+        if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
+        // Если пользователь авторизован, извлекаем объект User
+        user = (User) auth.getPrincipal();
+        model.addAttribute("authenticatedUser", user.getEmail());
+    } else {
+        // Если пользователь не авторизован
+        model.addAttribute("authenticatedUser", null);
+    }
 
         if (file.isEmpty()) {
             model.addAttribute("customError", "Пожалуйста, выберите XLS, XLSX или изображение для загрузки.");
@@ -355,20 +367,22 @@ public class HomeController {
         try {
             if (contentType.equals("application/vnd.ms-excel") || contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
                 // Обработка XLS или XLSX файла
-                List<TrackingResultAdd> trackingResults = trackingNumberServiceXLS.processTrackingNumber(file, authUserName);
+                List<TrackingResultAdd> trackingResults = trackingNumberServiceXLS.processTrackingNumber(file, user);
                 model.addAttribute("trackingResults", trackingResults);
             } else if (contentType.startsWith("image/")) {
+                System.out.println("я тут");
 
                 // Обработка изображения (OCR)
                 String recognizedText = trackNumberOcrService.processImage(file);
                 System.out.println("Распознанный текст: " + recognizedText);  // Для дебага
 
                 // Извлечение трек-номеров из текста
-                List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, authUserName);
+                List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, user);
                 System.out.println("Трек-номера: " + trackingResults);  // Для дебага
 
                 // Добавление результатов в модель
                 model.addAttribute("trackingResults", trackingResults);
+
             } else {
                 model.addAttribute("customError", "Неподдерживаемый тип файла. Загрузите XLS, XLSX или изображение.");
                 return "home";
@@ -381,4 +395,5 @@ public class HomeController {
 
         return "home";
     }
+
 }

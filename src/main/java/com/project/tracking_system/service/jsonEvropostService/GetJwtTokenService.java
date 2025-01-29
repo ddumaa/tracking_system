@@ -1,8 +1,7 @@
 package com.project.tracking_system.service.jsonEvropostService;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.project.tracking_system.model.evropost.jsonRequestModel.JsonPacket;
-import com.project.tracking_system.model.evropost.jsonRequestModel.JsonRequest;
+import com.project.tracking_system.model.evropost.jsonRequestModel.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -19,12 +18,17 @@ import org.springframework.stereotype.Service;
 public class GetJwtTokenService {
 
     private final JsonHandlerService jsonHandlerService;
-    private final RequestFactory requestFactory;
+    private final JsonData jsonData;
+    private final JsonRequest jsonRequest;
+    private final JsonPacket jsonPacket;
 
     @Autowired
-    public GetJwtTokenService(RequestFactory requestFactory, JsonHandlerService jsonHandlerService) {
-        this.requestFactory = requestFactory;
+    public GetJwtTokenService(JsonHandlerService jsonHandlerService, JsonData jsonData,
+                              JsonRequest jsonRequest, JsonPacket jsonPacket) {
         this.jsonHandlerService = jsonHandlerService;
+        this.jsonData = jsonData;
+        this.jsonRequest = jsonRequest;
+        this.jsonPacket = jsonPacket;
     }
 
     /**
@@ -34,15 +38,70 @@ public class GetJwtTokenService {
      * Если токен не найден, выбрасывается исключение {@link RuntimeException}.
      * </p>
      */
-    public String getJwtToken() {
-        JsonRequest jsonRequest = requestFactory.createGetJWTRequest();
-        JsonNode jsonNode = jsonHandlerService.jsonRequest(jsonRequest);
+    // Получение системного токена
+    public String getSystemTokenFromApi() {
 
-        JsonNode jwtNode = jsonNode.path("Table").path(0).path("JWT");
+        JsonDataAbstract data = new JsonGetJWTData(
+                jsonData.getLoginName(),
+                jsonData.getPassword(),
+                jsonData.getLoginNameTypeId()
+        );
+
+        JsonPacket packet = new JsonPacket(
+                null,
+                JsonMethodName.GET_JWT.toString(),
+                jsonPacket.getServiceNumber(),
+                data
+                );
+
+        JsonRequest request = new JsonRequest(
+                jsonRequest.getCrc(),
+                packet
+        );
+
+        // Делаем запрос
+        JsonNode response = jsonHandlerService.jsonRequest(request);
+
+        // Извлекаем JWT токен из ответа
+        JsonNode jwtNode = response.path("Table").path(0).path("JWT");
         if (jwtNode.isMissingNode()) {
-            throw new RuntimeException("Токен JWT не найден в ответе");
+            throw new RuntimeException("Токен JWT не найден в ответе при запросе системного JWT");
         }
 
-        return jwtNode.asText(); // Возвращаем сгенерированный токен
+        return jwtNode.asText();
     }
+
+    // Получение пользовательского токена
+    public String getUserTokenFromApi(String username, String password, String serviceNumber) {
+
+        JsonDataAbstract data = new JsonGetJWTData(
+                username,
+                password,
+                jsonData.getLoginNameTypeId()
+        );
+
+        JsonPacket packet = new JsonPacket(
+                null,
+                JsonMethodName.GET_JWT.toString(),
+                serviceNumber,
+                data
+        );
+
+        JsonRequest request = new JsonRequest(
+                jsonRequest.getCrc(),
+                packet
+        );
+
+        // Делаем запрос
+        JsonNode response = jsonHandlerService.jsonRequest(request);
+
+        // Извлекаем JWT токен из ответа
+        JsonNode jwtNode = response.path("Table").path(0).path("JWT");
+        if (jwtNode.isMissingNode()) {
+            throw new RuntimeException("Токен JWT не найден в ответе при запросе пользовательского JWT");
+        }
+
+        return jwtNode.asText();
+    }
+
 }
