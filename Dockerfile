@@ -21,14 +21,9 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/
 
 
-RUN apt-get update && \
-    apt-get install -y wget ca-certificates libnss3 libxss1 libappindicator3-1 libindicator7
-
-# Устанавливаем Google Chrome
-RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
-    dpkg -i google-chrome-stable_current_amd64.deb || (apt-get -f install -y && dpkg -i google-chrome-stable_current_amd64.deb) && \
-    rm -f google-chrome-stable_current_amd64.deb
-
+RUN apt-get install -y wget
+RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+RUN apt-get install -y ./google-chrome-stable_current_amd64.deb
 
 # Устанавливаем ChromeDriver
 ENV CHROMEDRIVER_VERSION=131.0.6778.204
