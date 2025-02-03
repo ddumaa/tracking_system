@@ -1,27 +1,27 @@
 @use '../abstracts/_variables.scss' as vars;
 @use '../abstracts/_mixins.scss' as mixins;
 
-.policy-container {
+.legal-container {
   // Зададим базовый шрифт из переменных
   font-family: vars.$font-stack;
   font-size: vars.$font-size-base;
   max-width: 800px;
   margin: 0 auto;
 
-  .policy-title {
+  .legal-title {
     font-size: 2rem;
     font-weight: 700;
     margin-bottom: 0.5rem;
     color: vars.$dark; // Используем тёмный цвет
   }
 
-  .policy-date {
+  .legal-date {
     color: vars.$secondary; // Можно использовать второстепенный цвет
     font-size: 0.9rem;
     margin-bottom: 1.5rem;
   }
 
-  .policy-section {
+  .legal-section {
     margin-bottom: 1.5rem;
 
     .section-title {
@@ -45,7 +45,7 @@
     }
   }
 
-  .policy-note {
+  .legal-note {
     margin-top: 2rem;
     padding: 1rem;
     font-size: 0.9rem;

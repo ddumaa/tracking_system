@@ -62,8 +62,7 @@ public class HomeController {
                           TypeDefinitionTrackPostService typeDefinitionTrackPostService,
                           LoginAttemptService loginAttemptService,
                           PasswordResetService passwordResetService,
-                          TrackingNumberServiceXLS trackingNumberServiceXLS,
-                          TrackNumberOcrService trackNumberOcrService) {
+                          TrackingNumberServiceXLS trackingNumberServiceXLS, TrackNumberOcrService trackNumberOcrService) {
         this.userService = userService;
         this.trackParcelService = trackParcelService;
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
@@ -160,7 +159,7 @@ public class HomeController {
 
         // Первый этап регистрации: проверка email и паролей
         if (isInitialRegistration) {
-            if (result.hasFieldErrors("email") || result.hasFieldErrors("password") || result.hasFieldErrors("confirmPassword")) {
+            if (result.hasFieldErrors("email") || result.hasFieldErrors("password") || result.hasFieldErrors("confirmPassword") || result.hasFieldErrors("agreeToTerms")) {
                 return "registration";
             }
 
@@ -398,6 +397,11 @@ public class HomeController {
     @GetMapping("/privacy-policy")
     public String privacyPolicy() {
         return "privacy-policy";
+    }
+
+    @GetMapping("/terms-of-use")
+    public String termsOfUse() {
+        return "terms-of-use";
     }
 
 }
