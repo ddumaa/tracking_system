@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y \
     unzip \
     libopencv-dev \
     python3-opencv \
-    && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/*
+    apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/
 
 # Устанавливаем Google Chrome
 RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \

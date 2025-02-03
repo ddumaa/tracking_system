@@ -99,7 +99,12 @@ public class SecurityConfiguration {
                 )
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .ignoringRequestMatchers("/login", "/logout", "/history", "/history/delete-selected")
+                        .ignoringRequestMatchers("/login", "/logout")
+                )
+                .headers(headers -> headers
+                                .addHeaderWriter((request, response) -> {
+                    response.addHeader("Set-Cookie", "JSESSIONID=" + request.getSession().getId() + "; Path=/; HttpOnly; SameSite=None; Secure");
+                                })
                 );
 
         return http.build();

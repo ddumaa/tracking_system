@@ -8,6 +8,7 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.model.GlobalStatus;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.user.UserService;
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -18,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
  * Сервис для управления посылками пользователей в системе отслеживания.
@@ -44,6 +46,9 @@ public class TrackParcelService {
     private final UserService userService;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final StatusTrackService statusTrackService;
+
+    @Getter
+    private volatile boolean updateCompleted = false;
 
     @Autowired
     public TrackParcelService(TrackParcelRepository trackParcelRepository, UserService userService,
@@ -160,6 +165,12 @@ public class TrackParcelService {
         return List.of();
     }
 
+    public List<TrackParcelDTO> findByUserTracksByNumbers(String email, List<String> numbers) {
+        return findAllByUserTracks(email).stream()
+                .filter(parcel -> numbers.contains(parcel.getNumber()))
+                .collect(Collectors.toList());
+    }
+
     /**
      * Вспомогательный метод для преобразования посылок в DTO.
      * <p>
@@ -211,6 +222,41 @@ public class TrackParcelService {
         }
         // Ждём завершения всех асинхронных операций
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+    }
+
+    public void updateSelectedParcels(User user, List<String> selectedNumbers) {
+        updateCompleted = false; // Фиксируем, что обновление началось
+
+        CompletableFuture.runAsync(() -> {
+            List<TrackParcelDTO> selectedParcels = findByUserTracksByNumbers(user.getEmail(), selectedNumbers);
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+            for (TrackParcelDTO trackParcelDTO : selectedParcels) {
+                if (trackParcelDTO.getStatus().equals(GlobalStatus.DELIVERED.getDescription()) ||
+                        trackParcelDTO.getStatus().equals(GlobalStatus.RETURNED_TO_SENDER.getDescription())) {
+                    continue; // Пропускаем статусы "Вручена" и "Возврат забран"
+                }
+
+                CompletableFuture<Void> future = typeDefinitionTrackPostService
+                        .getTypeDefinitionTrackPostServiceAsync(user, trackParcelDTO.getNumber())
+                        .thenAccept(trackInfoListDTO -> {
+                            List<TrackInfoDTO> list = trackInfoListDTO.getList();
+                            Long userId = user.getId();
+                            TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(trackParcelDTO.getNumber(), userId);
+
+                            if (trackParcel != null) {
+                                trackParcel.setStatus(statusTrackService.setStatus(list));
+                                trackParcel.setData(list.get(0).getTimex());
+                                trackParcelRepository.save(trackParcel);
+                            }
+                        });
+
+                futures.add(future);
+            }
+
+            // После завершения всех задач обновляем флаг
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> updateCompleted = true);
+        });
     }
 
     /**

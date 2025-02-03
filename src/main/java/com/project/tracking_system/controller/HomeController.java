@@ -62,7 +62,8 @@ public class HomeController {
                           TypeDefinitionTrackPostService typeDefinitionTrackPostService,
                           LoginAttemptService loginAttemptService,
                           PasswordResetService passwordResetService,
-                          TrackingNumberServiceXLS trackingNumberServiceXLS, TrackNumberOcrService trackNumberOcrService) {
+                          TrackingNumberServiceXLS trackingNumberServiceXLS,
+                          TrackNumberOcrService trackNumberOcrService) {
         this.userService = userService;
         this.trackParcelService = trackParcelService;
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
@@ -129,8 +130,6 @@ public class HomeController {
 
         return "home";
     }
-
-
 
     /**
      * Отображает страницу регистрации нового пользователя.
@@ -394,6 +393,11 @@ public class HomeController {
         }
 
         return "home";
+    }
+
+    @GetMapping("/privacy-policy")
+    public String privacyPolicy() {
+        return "privacy-policy";
     }
 
 }

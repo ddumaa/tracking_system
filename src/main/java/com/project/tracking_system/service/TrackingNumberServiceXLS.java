@@ -4,6 +4,8 @@ import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.entity.User;
 import org.apache.poi.ss.usermodel.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,6 +28,8 @@ import java.util.concurrent.CompletableFuture;
  */
 @Service
 public class TrackingNumberServiceXLS {
+
+    Logger logger = LoggerFactory.getLogger(TrackingNumberServiceXLS.class);
 
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final TrackParcelService trackParcelService;
@@ -51,22 +55,21 @@ public class TrackingNumberServiceXLS {
      *
      * @param file              файл XLS с номерами отслеживания
      * @param authenticatedUser авторизованный пользователь, который загрузил файл
-     * @return список результатов добавления, включая номер отслеживания и статус добавления или ошибку
+     * @return список результатов добавления, включая номер отслеживания и статус или ошибку
      * @throws IOException если не удалось прочитать файл
      */
     public List<TrackingResultAdd> processTrackingNumber(MultipartFile file, User user) throws IOException {
         List<TrackingResultAdd> trackingResult = new ArrayList<>();
 
-        // Чтение файла XLS
-        try(InputStream in = file.getInputStream(); Workbook workbook = WorkbookFactory.create(in)) {
+        try (InputStream in = file.getInputStream(); Workbook workbook = WorkbookFactory.create(in)) {
             Sheet sheet = workbook.getSheetAt(0);
             List<CompletableFuture<TrackingResultAdd>> futures = new ArrayList<>();
 
-            // Асинхронная обработка каждого номера отслеживания
             for (Row row : sheet) {
                 Cell cell = row.getCell(0);
                 if (cell != null) {
-                    String trackingNumber  = cell.getStringCellValue();
+                    String trackingNumber = cell.getStringCellValue();
+                    logger.info("Обрабатываем трек-номер: {}", trackingNumber);
 
                     CompletableFuture<TrackingResultAdd> future = CompletableFuture.supplyAsync(() -> {
                         try {
@@ -76,23 +79,32 @@ public class TrackingNumberServiceXLS {
                                 trackParcelService.save(trackingNumber, trackInfo, user);
                             }
 
-                            return new TrackingResultAdd(trackingNumber, "Добавлен");
+                            // Получение последнего статуса
+                            String lastStatus = "Нет данных";
+                            if (trackInfo != null && trackInfo.getList() != null && !trackInfo.getList().isEmpty()) {
+                                lastStatus = trackInfo.getList().get(0).getInfoTrack();
+                            }
+
+                            logger.info("Трек-номер: {}, последний статус: {}", trackingNumber, lastStatus);
+                            return new TrackingResultAdd(trackingNumber, lastStatus);
+
                         } catch (Exception e) {
+                            logger.error("Ошибка обработки трек-номера {}: {}", trackingNumber, e.getMessage());
                             return new TrackingResultAdd(trackingNumber, "Ошибка: " + e.getMessage());
                         }
                     });
+
                     futures.add(future);
                 }
             }
 
-            // Ожидание завершения всех асинхронных задач
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
-            // Получение результатов из всех CompletableFuture
             for (CompletableFuture<TrackingResultAdd> future : futures) {
                 trackingResult.add(future.join());
             }
         }
+
         return trackingResult;
     }
 

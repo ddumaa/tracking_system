@@ -1,68 +1,73 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="/css/app.css">
-    <style>
-        html, body {
-            height: 100%;
-        }
-        .form-signin {
-            max-width: 330px;
-            padding: 1rem;
-        }
-        .form-signin .form-floating:focus-within {
-            z-index: 2;
-        }
-        .form-signin input[type="email"] {
-            margin-bottom: -1px;
-            border-bottom-right-radius: 0;
-            border-bottom-left-radius: 0;
-        }
-    </style>
-    <title>Login</title>
-</head>
-<body class="d-flex align-items-center py-4 bg-body-tertiary">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+    <link rel="stylesheet" th:href="@{/css/style.css}">
 
-<main class="form-signin w-100 m-auto">
+    <title>Вход</title>
+</head>
+<body class="d-flex align-items-center justify-content-center vh-100 bg-light">
+
+<div class="card shadow-lg p-4 rounded-4 auth-form">
+    <h2 class="text-center mb-3">Вход</h2>
+
+    <!-- Глобальные ошибки (неверный пароль, блокировка) -->
+    <div th:if="${param.error}" class="alert alert-danger text-center">
+        <p class="mb-0">Email или пароль неверный</p>
+    </div>
+    <div th:if="${blockedMessage != null}" class="alert alert-danger text-center">
+        <p class="mb-0" th:text="${blockedMessage}"></p>
+    </div>
+    <div th:if="${remainingAttempts != null}" class="alert alert-warning text-center">
+        <p class="mb-0" th:text="'Осталось попыток входа: ' + ${remainingAttempts}"></p>
+    </div>
+
     <form th:action="@{/login}" method="post">
-        <h1 class="h3 mb-3 fw-normal text-center">Пожалуйста, войдите</h1>
+        <!-- Поле Email -->
         <div class="form-floating mb-3">
-            <input type="email" class="form-control" id="floatingInput" name="email" placeholder="Email">
-            <label for="floatingInput">Email</label>
+            <input type="email" class="form-control" id="email" name="email" placeholder="Email" required>
+            <label for="email">Email</label>
         </div>
-        <div class="form-floating position-relative mb-3">
-            <input type="password" class="form-control password-input" id="floatingPassword" name="password" placeholder="Пароль">
-            <label for="floatingPassword">Пароль</label>
-            <button type="button"
-                    class="btn btn-sm btn-outline-secondary toggle-password"
-                    data-target="floatingPassword">
-                Показать
-            </button>
+
+        <!-- Поле Пароль -->
+        <div class="form-floating mb-3 position-relative">
+            <input type="password" class="form-control password-input" id="password" name="password" placeholder="Пароль" required>
+            <label for="password">Пароль</label>
+            <span class="toggle-password" data-target="password">
+                <i class="bi bi-eye"></i>
+            </span>
         </div>
+
+        <!-- Запомнить меня -->
         <div class="form-check text-start my-3">
             <input class="form-check-input" type="checkbox" value="true" name="remember-me" id="flexCheckDefault">
             <label class="form-check-label" for="flexCheckDefault">Запомнить меня</label>
         </div>
-        <div th:if="${param.error}">
-            <p th:text="${'Email или пароль неверный'}" style="color: red;"></p>
-        </div>
-        <div th:if="${remainingAttempts != null}">
-            <p th:text="'Осталось попыток входа: ' + ${remainingAttempts}" style="color: red;"></p>
-        </div>
-        <div th:if="${blockedMessage != null}">
-            <p th:text="${blockedMessage}" style="color: red;"></p>
-        </div>
-        <button class="btn btn-primary w-100 py-2" type="submit">Войти</button>
-        <div class="text-center mt-3">
-            <a href="/forgot-password">Забыли пароль?</a><br/>
-            <a href="/registration">Зарегистрироваться</a><br/>
-            <a href="/">Вернуться на главную страницу</a>
+
+        <!-- Кнопка входа -->
+        <button type="submit" class="btn btn-primary w-100">Войти</button>
+
+        <!-- Дополнительные ссылки -->
+        <div class="text-center mt-4">
+            <p class="mb-2">Забыли пароль?</p>
+            <a href="/forgot-password" class="btn btn-outline-secondary w-100 mb-2">
+                <i class="bi bi-question-circle"></i> Восстановить пароль
+            </a>
+            <p class="mb-2">Нет аккаунта?</p>
+            <a href="/registration" class="btn btn-outline-primary w-100 mb-2">
+                <i class="bi bi-person-plus"></i> Зарегистрироваться
+            </a>
+            <a href="/" class="btn btn-link">
+                <i class="bi bi-house-door"></i> На главную
+            </a>
         </div>
     </form>
-</main>
+</div>
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>

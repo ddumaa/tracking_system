@@ -1,0 +1,17 @@
+@use '../abstracts/_variables.scss' as vars;
+@use '../abstracts/_mixins.scss' as mixins;
+
+@mixin card-style {
+  background: vars.$white;
+  border-radius: 10px;
+  @include mixins.box-shadow(0, 4px, 8px);
+  padding: 20px;
+}
+
+.card {
+  @include card-style;
+}
+
+.table-container {
+  @include card-style;
+}
