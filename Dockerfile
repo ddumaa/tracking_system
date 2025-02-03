@@ -21,8 +21,9 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/
 
 # Устанавливаем Google Chrome
-RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
-    dpkg -i google-chrome-stable_current_amd64.deb || apt-get -f install -y && \
+RUN apt-get update && \
+    wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
+    dpkg -i google-chrome-stable_current_amd64.deb || (apt-get -f install -y && dpkg -i google-chrome-stable_current_amd64.deb) && \
     rm -f google-chrome-stable_current_amd64.deb
 
 # Устанавливаем ChromeDriver
