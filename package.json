@@ -1,0 +1,13 @@
+{
+  "name": "tracking_system",
+  "version": "1.0.0",
+  "description": "SCSS compilation for tracking system",
+  "scripts": {
+    "build:css": "sass --no-source-map src/main/resources/static/scss/main.scss src/main/resources/static/css/style.css",
+    "watch:css": "sass --watch src/main/resources/static/scss/main.scss src/main/resources/static/css/style.css",
+    "start": "npm run watch:css"
+  },
+  "devDependencies": {
+    "sass": "^1.83.4"
+  }
+}

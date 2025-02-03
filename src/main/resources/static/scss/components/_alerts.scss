@@ -1,0 +1,17 @@
+.text-danger {
+  margin-top: 0.5rem;
+  display: block;
+  font-size: 0.875rem;
+
+  &.small {
+    font-size: 0.875rem;
+    margin-top: 5px;
+  }
+}
+
+.alert,
+.alert-danger {
+  padding: 10px;
+  font-size: 0.9rem;
+  border-radius: 8px;
+}

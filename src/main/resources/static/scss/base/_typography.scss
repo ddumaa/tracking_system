@@ -1,0 +1,72 @@
+@use '../abstracts/_variables.scss' as vars;
+@use '../abstracts/_mixins.scss' as mixins;
+
+// Общие стили для заголовков
+h1, h3, h4, h5 {
+  color: vars.$dark;
+  font-weight: bold;
+  margin-bottom: 15px;
+}
+
+h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 1.5rem;
+
+  @include mixins.respond-to(lg) {
+    font-size: 2rem;
+  }
+
+  @include mixins.respond-to(md) {
+    font-size: 1.75rem;
+  }
+
+  @include mixins.respond-to(sm) {
+    font-size: 1.5rem;
+  }
+}
+
+h3 {
+  font-size: 1.75rem;
+}
+
+h4 {
+  font-size: 1.5rem;
+}
+
+h5 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 1rem;
+
+  @include mixins.respond-to(md) {
+    font-size: 1.3rem;
+  }
+
+  @include mixins.respond-to(sm) {
+    font-size: 1.2rem;
+  }
+}
+
+// Стили ссылок
+.text-center a {
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.text-center a.btn-link {
+  font-size: 0.95rem;
+  color: vars.$secondary;
+
+  &:hover {
+    color: vars.$dark;
+  }
+}

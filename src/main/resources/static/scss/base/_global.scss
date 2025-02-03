@@ -1,0 +1,37 @@
+@use '../abstracts/_variables.scss' as vars;
+@use '../abstracts/_mixins.scss' as mixins;
+
+html, body {
+  height: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: vars.$light;
+  font-family: vars.$font-stack;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start; // Вместо center, чтобы контент не "прилипал"
+  padding: 2rem 0; // Достаточно отступов сверху и снизу
+}
+
+.container-xl {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+
+@include mixins.respond-to(sm) {
+  .nav-link {
+    padding: 8px 10px;
+    font-size: 0.9rem;
+
+    i {
+      margin-right: 5px;
+    }
+  }
+}

@@ -10,6 +10,7 @@ import com.project.tracking_system.service.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,7 +19,9 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -32,8 +35,8 @@ import java.util.Optional;
  * @date 07.01.2025
  */
 @Controller
-@RequestMapping("/history")
-public class HistoryController {
+@RequestMapping("/departures")
+public class DeparturesController {
 
     private final TrackParcelService trackParcelService;
     private final StatusTrackService statusTrackService;
@@ -49,8 +52,8 @@ public class HistoryController {
      * @param userService сервис для работы с пользователями.
      */
     @Autowired
-    public HistoryController(TrackParcelService trackParcelService, StatusTrackService statusTrackService,
-                             TypeDefinitionTrackPostService typeDefinitionTrackPostService, UserService userService) {
+    public DeparturesController(TrackParcelService trackParcelService, StatusTrackService statusTrackService,
+                                TypeDefinitionTrackPostService typeDefinitionTrackPostService, UserService userService) {
         this.trackParcelService = trackParcelService;
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
         this.statusTrackService = statusTrackService;
@@ -70,10 +73,10 @@ public class HistoryController {
      * @return имя представления для отображения истории.
      */
     @GetMapping()
-    public String history(
+    public String departures(
             @RequestParam(value = "status", required = false) String statusString,
             @RequestParam(value = "page", defaultValue = "0") int page,
-            @RequestParam(value = "size", defaultValue = "10") int size,
+            @RequestParam(value = "size", defaultValue = "20") int size,
             Model model) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String authUserName = auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken) ? auth.getName() : null;
@@ -86,7 +89,7 @@ public class HistoryController {
                 status = GlobalStatus.valueOf(statusString);
             } catch (IllegalArgumentException e) {
                 model.addAttribute("trackParcelNotification", "Неверный статус посылки");
-                return "history";
+                return "departures";
             }
         }
         if (status != null) {
@@ -109,7 +112,7 @@ public class HistoryController {
         model.addAttribute("totalPages", trackParcelPage.getTotalPages());
         model.addAttribute("trackParcelNotification", trackParcelPage.isEmpty() ? "Отслеживаемых посылок нет" : null);
         model.addAttribute("statusTrackService", statusTrackService);
-        return "history";
+        return "departures";
     }
 
     /**
@@ -120,7 +123,7 @@ public class HistoryController {
      * @return имя частичного представления с информацией о посылке.
      */
     @GetMapping("/{itemNumber}")
-    public String history(Model model, @PathVariable("itemNumber") String itemNumber) {
+    public String departures(Model model, @PathVariable("itemNumber") String itemNumber) {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken) {
@@ -128,13 +131,12 @@ public class HistoryController {
         }
 
         User user = (User) auth.getPrincipal();
+        TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(user, itemNumber);
 
-        TrackInfoListDTO trackInfoListDTO = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(user, itemNumber);
-
-        model.addAttribute("jsonTracking", trackInfoListDTO);
+        model.addAttribute("trackInfo", trackInfo);
         model.addAttribute("itemNumber", itemNumber);
 
-        return "partials/history-info";
+        return "partials/track-info-departures";
     }
 
     /**
@@ -142,15 +144,31 @@ public class HistoryController {
      *
      * @return перенаправление на страницу истории.
      */
-    @PostMapping("/history-update")
-    public String history(){
+    @PostMapping("/track-update")
+    public String updateDepartures(@RequestParam(required = false) List<String> selectedNumbers, RedirectAttributes redirectAttributes) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
         if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
             User user = (User) auth.getPrincipal();
-            trackParcelService.updateHistory(user);
+
+            if (selectedNumbers != null && !selectedNumbers.isEmpty()) {
+                trackParcelService.updateSelectedParcels(user, selectedNumbers);
+                redirectAttributes.addFlashAttribute("successMessage", "Выбранные посылки успешно обновлены.");
+            } else {
+                trackParcelService.updateHistory(user);
+                redirectAttributes.addFlashAttribute("successMessage", "Все посылки успешно обновлены.");
+            }
+        } else {
+            redirectAttributes.addFlashAttribute("errorMessage", "Ошибка: Не удалось обновить посылки.");
         }
-        return "redirect:/history";
+        return "redirect:/departures";
+    }
+
+    @GetMapping("/update-status")
+    @ResponseBody
+    public ResponseEntity<Map<String, Boolean>> checkUpdateStatus() {
+        boolean isCompleted = trackParcelService.isUpdateCompleted();
+        return ResponseEntity.ok(Collections.singletonMap("completed", isCompleted));
     }
 
     /**
@@ -167,21 +185,21 @@ public class HistoryController {
     public String deleteSelected(@RequestParam List<String> selectedNumbers, RedirectAttributes redirectAttributes) {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            String authUserName = auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken) ? auth.getName() : null;
-            Optional<User> byUser = userService.findByUser(authUserName);
+            String authUserName = (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken))
+                    ? auth.getName() : null;
 
+            Optional<User> byUser = userService.findByUser(authUserName);
             if (byUser.isPresent()) {
                 Long userId = byUser.get().getId();
                 trackParcelService.deleteByNumbersAndUserId(selectedNumbers, userId);
-
-                redirectAttributes.addFlashAttribute("deleteMessage", "Выбранные посылки успешно удалены.");
+                redirectAttributes.addFlashAttribute("successMessage", "Выбранные посылки успешно удалены.");
             } else {
-                redirectAttributes.addFlashAttribute("deleteMessage", "Пользователь не найден.");
+                redirectAttributes.addFlashAttribute("errorMessage", "Пользователь не найден.");
             }
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("deleteMessage", "Ошибка при удалении посылок: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("errorMessage", "Ошибка при удалении посылок: " + e.getMessage());
         }
-        return "redirect:/history";
+        return "redirect:/departures";
     }
 
 }

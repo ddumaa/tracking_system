@@ -1,0 +1,19 @@
+@use '../abstracts/_variables.scss' as vars;
+@use '../abstracts/_mixins.scss' as mixins;
+
+button {
+  @include mixins.transition;
+
+  &:hover {
+    transform: scale(1.05);
+  }
+}
+
+.btn-equal {
+  width: 150px;
+  flex-shrink: 0;
+
+  @include mixins.respond-to(sm) {
+    width: 100%;
+  }
+}

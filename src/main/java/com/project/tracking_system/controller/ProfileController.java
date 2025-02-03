@@ -71,6 +71,10 @@ public class ProfileController {
                 () -> logger.warn("Пользователь с именем {} не найден в базе данных.", username)
         );
 
+        model.addAttribute("userSettingsDTO", new UserSettingsDTO());
+        model.addAttribute("evropostCredentialsDTO", userService.getEvropostCredentials(username));
+
+
         return "profile";
     }
 
@@ -91,20 +95,16 @@ public class ProfileController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = authentication.getName();
 
-        if ("password".equals(tab)) {
-            model.addAttribute("userSettingsDTO", new UserSettingsDTO());
-            logger.debug("Форма смены пароля подготовлена для пользователя: {}", username);
-            return "settings :: password-form";
-        }
+        model.addAttribute("userSettingsDTO", new UserSettingsDTO());
 
         if ("evropost".equals(tab)) {
-            EvropostCredentialsDTO evropostCredentialsDTO = userService.getEvropostCredentials(username);
-            model.addAttribute("evropostCredentialsDTO", evropostCredentialsDTO);
+            model.addAttribute("evropostCredentialsDTO", userService.getEvropostCredentials(username));
             logger.debug("Форма Европочты подготовлена для пользователя: {}", username);
-            return "settings :: evropost-form";
+        } else {
+            logger.debug("Открыта вкладка по умолчанию (пароль) для пользователя: {}", username);
         }
-        logger.error("Неизвестный тип вкладки: {} для пользователя: {}", tab, username);
-        throw new IllegalArgumentException("Unknown tab type: " + tab);
+
+        return "profile";
     }
 
 
@@ -121,7 +121,7 @@ public class ProfileController {
         if (bindingResult.hasErrors()) {
             logger.warn("Обнаружены ошибки валидации для данных Европочты пользователя: {}", email);
             model.addAttribute("evropostCredentialsDTO", evropostCredentialsDTO);
-            return "settings :: evropost-form";
+            return "profile :: #v-pills-evropost";
         }
 
         try {
@@ -131,11 +131,13 @@ public class ProfileController {
             EvropostCredentialsDTO updatedDto = userService.getEvropostCredentials(email);
             model.addAttribute("evropostCredentialsDTO", updatedDto);
             model.addAttribute("notification", "Данные Европочты успешно обновлены");
+
+            return "profile :: #v-pills-evropost";
         } catch (Exception e) {
             logger.error("Ошибка при обновлении данных Европочты для пользователя {}: {}", email, e.getMessage(), e);
         }
 
-        return "settings :: evropost-form";
+        return "profile :: #v-pills-evropost";
     }
 
     @PostMapping("/settings/use-custom-credentials")
@@ -177,7 +179,8 @@ public class ProfileController {
      * @return имя представления для части страницы с настройками
      */
     @PostMapping("/settings/password")
-    public String updatePassword(Model model, @Valid @ModelAttribute("userSettingsDTO") UserSettingsDTO userSettingsDTO, BindingResult result) {
+    public String updatePassword(Model model, @Valid @ModelAttribute("userSettingsDTO") UserSettingsDTO userSettingsDTO,
+                                 BindingResult result) {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
@@ -185,24 +188,24 @@ public class ProfileController {
 
         if (result.hasErrors()) {
             logger.warn("Обнаружены ошибки валидации при смене пароля для пользователя: {}", email);
-            return "settings :: password-form";
+            return "profile :: #v-pills-profile";
         }
         if (!userSettingsDTO.getNewPassword().equals(userSettingsDTO.getConfirmPassword())) {
             logger.warn("Пароли не совпадают для пользователя: {}", email);
             result.rejectValue("confirmPassword", "password.mismatch", "Пароли не совпадают");
-            return "settings :: password-form";
+            return "profile :: #v-pills-profile";
         }
 
         try {
             userService.changePassword(email, userSettingsDTO);
             logger.info("Пароль успешно изменен для пользователя: {}", email);
             model.addAttribute("notification", "Пароль успешно изменен");
-            return "settings :: password-form";
+            return "profile :: #v-pills-profile";
         } catch (IllegalArgumentException e) {
             logger.error("Ошибка при смене пароля для пользователя {}: {}", email, e.getMessage());
             result.rejectValue("currentPassword", "password.incorrect", e.getMessage());
         }
-        return "settings :: password-form";
+        return "profile :: #v-pills-profile";
     }
 
     /**

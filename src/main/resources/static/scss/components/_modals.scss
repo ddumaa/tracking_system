@@ -1,0 +1,105 @@
+@use "../abstracts/_mixins.scss" as mixins;
+
+.modal {
+  display: none;
+
+  &.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 1rem;
+  }
+
+  .modal-dialog {
+    max-width: 600px;
+    width: 100%;
+    margin: auto;
+  }
+
+  .modal-content {
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  }
+
+  .modal-header {
+    border-bottom: none;
+    font-size: 1.25rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: 15px;
+  }
+
+  .modal-footer {
+    border-top: none;
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 10px;
+  }
+
+  .btn-close {
+    font-size: 1rem;
+    opacity: 0.8;
+    transition: opacity 0.3s ease-in-out;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  .modal-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+  }
+
+  @include mixins.respond-to(md){
+    .modal-dialog {
+      max-width: 90%;
+    }
+
+    .modal-content {
+      padding: 15px;
+    }
+
+    .modal-title {
+      font-size: 1.3rem;
+    }
+
+    .modal-body {
+      max-height: 60vh;
+      padding: 10px;
+    }
+
+    .modal-footer {
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      width: 100%;
+    }
+  }
+
+  @include mixins.respond-to(sm) {
+    .modal-dialog {
+      max-width: 95%;
+    }
+
+    .modal-title {
+      font-size: 1.1rem;
+    }
+
+    .modal-body {
+      max-height: 55vh;
+    }
+  }
+}

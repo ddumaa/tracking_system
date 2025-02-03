@@ -1,0 +1,59 @@
+@use '../abstracts/_variables.scss' as vars;
+@use '../abstracts/_mixins.scss' as mixins;
+
+.legal-container {
+  // Зададим базовый шрифт из переменных
+  font-family: vars.$font-stack;
+  font-size: vars.$font-size-base;
+  max-width: 800px;
+  margin: 0 auto;
+
+  .legal-title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: vars.$dark; // Используем тёмный цвет
+  }
+
+  .legal-date {
+    color: vars.$secondary; // Можно использовать второстепенный цвет
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .legal-section {
+    margin-bottom: 1.5rem;
+
+    .section-title {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: vars.$dark;
+      border-left: 4px solid vars.$primary; // Линия слева с цветом primary
+      padding-left: 0.5rem;
+    }
+
+    p,
+    li {
+      line-height: 1.6;
+      margin-bottom: 0.5rem;
+    }
+
+    ul {
+      padding-left: 1.5rem;
+      list-style: disc outside;
+    }
+  }
+
+  .legal-note {
+    margin-top: 2rem;
+    padding: 1rem;
+    font-size: 0.9rem;
+    background-color: vars.$light;
+    border-left: 4px solid vars.$warning;
+
+    strong {
+      color: vars.$danger;
+    }
+  }
+}

@@ -130,8 +130,6 @@ public class HomeController {
         return "home";
     }
 
-
-
     /**
      * Отображает страницу регистрации нового пользователя.
      *
@@ -161,7 +159,7 @@ public class HomeController {
 
         // Первый этап регистрации: проверка email и паролей
         if (isInitialRegistration) {
-            if (result.hasFieldErrors("email") || result.hasFieldErrors("password") || result.hasFieldErrors("confirmPassword")) {
+            if (result.hasFieldErrors("email") || result.hasFieldErrors("password") || result.hasFieldErrors("confirmPassword") || result.hasFieldErrors("agreeToTerms")) {
                 return "registration";
             }
 
@@ -394,6 +392,16 @@ public class HomeController {
         }
 
         return "home";
+    }
+
+    @GetMapping("/privacy-policy")
+    public String privacyPolicy() {
+        return "privacy-policy";
+    }
+
+    @GetMapping("/terms-of-use")
+    public String termsOfUse() {
+        return "terms-of-use";
     }
 
 }

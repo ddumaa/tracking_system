@@ -1,0 +1,158 @@
+@use '../abstracts/_variables.scss' as vars;
+@use '../abstracts/_mixins.scss' as mixins;
+
+header {
+  background-color: vars.$white;
+  @include mixins.box-shadow(0, 4px, 10px);
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+
+  .container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1200px;
+    width: 100%;
+    padding: 0 20px;
+  }
+
+  .logo svg {
+    width: 200px;
+    height: auto;
+    max-width: 100%;
+  }
+
+  /* Навигация */
+  .nav-container {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+    @include mixins.transition(color);
+  }
+
+  .nav-link {
+    font-weight: 500;
+    color: vars.$dark;
+    @include mixins.transition(color);
+
+    &:hover {
+      color: vars.$primary;
+    }
+
+    &.active {
+      font-weight: bold;
+      color: vars.$primary;
+      border-bottom: 3px solid vars.$primary; // Подчеркиваем активную вкладку
+    }
+
+  }
+
+  /* Кнопки авторизации */
+  .auth-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-shrink: 0;
+    gap: 10px;
+
+    /* Кнопки */
+    .btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+      @include mixins.hover-effect;
+    }
+
+    /* Иконки */
+    .icon-btn {
+      display: none;
+    }
+
+    /* Анимация */
+    button {
+      @include mixins.hover-effect;
+    }
+  }
+
+  /* ============================= */
+  /* Адаптивные стили */
+  /* ============================= */
+  @include mixins.respond-to(md) {
+    height: auto;
+    padding: 10px 0;
+
+    .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo svg {
+      width: 150px; /* Уменьшаем на средних экранах */
+    }
+
+    .nav-container {
+      flex: 2;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    /* Кнопки остаются справа */
+    .auth-buttons {
+      flex: 1;
+      display: flex;
+      justify-content: flex-end;
+
+      /* Прячем текстовые кнопки */
+      .btn-text {
+        display: none;
+      }
+
+      /* Показываем иконки */
+      .icon-btn {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        font-size: 1.3rem;
+        color: vars.$white;
+        background-color: vars.$primary;
+        border: none;
+        @include mixins.hover-effect;
+
+        &.logout {
+          background-color: vars.$danger;
+        }
+      }
+    }
+  }
+
+  @include mixins.respond-to(sm) {
+    .logo svg {
+      width: 120px;
+    }
+  }
+
+}

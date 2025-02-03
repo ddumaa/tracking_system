@@ -1,0 +1,48 @@
+@use '../abstracts/_variables.scss' as vars;
+@use "sass:color";
+
+@mixin respond-to($breakpoint) {
+  @if $breakpoint == sm {
+    @media (max-width: vars.$sm) { @content; }
+  } @else if $breakpoint == md {
+    @media (max-width: vars.$md) { @content; }
+  } @else if $breakpoint == lg {
+    @media (max-width: vars.$lg) { @content; }
+  } @else if $breakpoint == xl {
+    @media (max-width: vars.$xl) { @content; }
+  } @else if $breakpoint == xxl {
+    @media (max-width: vars.$xxl) { @content; }
+  }
+}
+
+@mixin box-shadow($x: 0, $y: 4px, $blur: 8px, $color: rgba(0, 0, 0, 0.1)) {
+  box-shadow: $x $y $blur $color;
+}
+
+@mixin transition($properties: all, $time: 0.3s, $easing: ease-in-out) {
+  transition: $properties $time $easing;
+}
+
+@mixin button-style($bg-color) {
+  background-color: $bg-color;
+  color: vars.$white;
+  padding: 10px 15px;
+  border-radius: 5px;
+  text-align: center;
+  display: inline-block;
+  @include transition((background, border-color, filter));
+
+  &:hover {
+    background-color: color.adjust($bg-color, $lightness: -10%);
+    border-color: color.adjust($bg-color, $lightness: -15%);
+    filter: brightness(90%);
+  }
+}
+
+@mixin hover-effect {
+  @include transition();
+
+  &:hover {
+    transform: scale(1.05);
+  }
+}

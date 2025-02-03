@@ -40,30 +40,23 @@ public class SecurityConfiguration {
         this.loginAttemptService = loginAttemptService;
     }
 
-    /**
-     * Бин для создания {@link PasswordEncoder}, используемого для хеширования паролей.
-     *
-     * @return BCryptPasswordEncoder для хеширования паролей.
-     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    /**
-     * Бин для настройки {@link SecurityFilterChain}, который управляет правилами безопасности HTTP-запросов.
-     *
-     * @param http объект конфигурации {@link HttpSecurity}.
-     * @return {@link SecurityFilterChain} с настроенными параметрами безопасности.
-     * @throws Exception если возникают ошибки при настройке безопасности.
-     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .headers(h -> h.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
+                .headers(h -> h
+                        .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
+                        .contentSecurityPolicy(csp -> csp
+                                .policyDirectives("default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none';")
+                        )
+                )
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests
                         .requestMatchers("/", "/login", "/logout", "/registration", "/forgot-password", "/reset-password",
-                                "/css/**", "/js/**", "/images/**").permitAll()
+                                "/privacy-policy", "/terms-of-use", "/css/**", "/js/**", "/images/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .formLogin(formLogin -> formLogin
@@ -77,7 +70,7 @@ public class SecurityConfiguration {
                         })
                         .failureHandler((request, response, exception) -> {
                             String email = request.getParameter("email");
-                            request.getSession().setAttribute("email", email); // Store email in session
+                            request.getSession().setAttribute("email", email);
                             if (loginAttemptService.isBlocked(email)) {
                                 response.sendRedirect("/login?blocked=true");
                             } else {
@@ -91,7 +84,7 @@ public class SecurityConfiguration {
                         .logoutUrl("/logout")
                         .logoutSuccessUrl("/")
                         .invalidateHttpSession(true)
-                        .deleteCookies("JSESSIONID")
+                        .deleteCookies("JSESSIONID", "XSRF-TOKEN")
                 )
                 .sessionManagement(sessionManagement -> sessionManagement
                         .sessionCreationPolicy(SessionCreationPolicy.ALWAYS)
@@ -99,7 +92,11 @@ public class SecurityConfiguration {
                 )
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .ignoringRequestMatchers("/login", "/logout", "/history", "/history/delete-selected")
+                )
+                .headers(headers -> headers
+                                .addHeaderWriter((request, response) -> {
+                    response.addHeader("Set-Cookie", "JSESSIONID=" + request.getSession().getId() + "; Path=/; HttpOnly; SameSite=None; Secure");
+                                })
                 );
 
         return http.build();
