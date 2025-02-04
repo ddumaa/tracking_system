@@ -110,7 +110,7 @@
                                     <thead>
                                     <tr>
                                         <th class="checkbox-column">
-                                            <input type="checkbox" id="selectAllCheckbox" onclick="toggleAllCheckboxes(this)" aria-label="Выделить все посылки">
+                                            <input type="checkbox" id="selectAllCheckbox" aria-label="Выделить все посылки">
                                         </th>
                                         <th scope="col">№ посылки</th>
                                         <th scope="col">Статус</th>
@@ -120,13 +120,12 @@
                                     <tbody>
                                     <tr th:each="item : ${trackParcelDTO}">
                                         <td class="checkbox-column">
-                                            <input type="checkbox" class="selectCheckbox" th:value="${item.number}" name="selectedNumbers" onclick="updateDeleteButtonState()">
+                                            <input type="checkbox" class="selectCheckbox" th:value="${item.number}" name="selectedNumbers">
                                         </td>
                                         <td>
                                             <div class="d-flex align-items-center">
                                                 <span th:utext="${statusTrackService.getIcon(item.status)}" class="status-icon"></span>
-                                                <button type="button" class="btn btn-link parcel-number"
-                                                        onclick="loadModal(this.getAttribute('data-itemnumber'))"
+                                                <button type="button" class="btn btn-link parcel-number open-modal"
                                                         th:text="${item.number}"
                                                         th:data-itemnumber="${item.number}"
                                                         aria-label="Открыть детали посылки">

@@ -92,6 +92,7 @@ public class StatusTrackService {
             }
         }
         // Статус не найден, возвращаем иконку по умолчанию (отладка новых статусов)
-        return "<i class=\"bi bi-tencent-qq\" style=\"font-size: 2rem\"></i>";
+        return "<i class='bi bi-tencent-qq status-icon custom-qq'></i>";
+
     }
 }

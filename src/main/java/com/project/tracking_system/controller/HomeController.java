@@ -55,21 +55,21 @@ public class HomeController {
     private final LoginAttemptService loginAttemptService;
     private final PasswordResetService passwordResetService;
     private final TrackingNumberServiceXLS trackingNumberServiceXLS;
-    private final TrackNumberOcrService trackNumberOcrService;
+    //private final TrackNumberOcrService trackNumberOcrService;
 
     @Autowired
     public HomeController(UserService userService, TrackParcelService trackParcelService,
                           TypeDefinitionTrackPostService typeDefinitionTrackPostService,
                           LoginAttemptService loginAttemptService,
                           PasswordResetService passwordResetService,
-                          TrackingNumberServiceXLS trackingNumberServiceXLS, TrackNumberOcrService trackNumberOcrService) {
+                          TrackingNumberServiceXLS trackingNumberServiceXLS) {
         this.userService = userService;
         this.trackParcelService = trackParcelService;
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
         this.loginAttemptService = loginAttemptService;
         this.passwordResetService = passwordResetService;
         this.trackingNumberServiceXLS = trackingNumberServiceXLS;
-        this.trackNumberOcrService = trackNumberOcrService;
+        //this.trackNumberOcrService = trackNumberOcrService;
     }
 
     /**
@@ -218,19 +218,29 @@ public class HomeController {
     @GetMapping("/login")
     public String loginPage(@RequestParam(value = "error", required = false) String error,
                             @RequestParam(value = "blocked", required = false) String blocked,
-                            HttpSession session, Model model, Principal principal) {
+                            @RequestParam(value = "blockedIP", required = false) String blockedIP,
+                            HttpSession session, Model model, Principal principal, HttpServletRequest request) {
         if (principal != null) {
             return "redirect:/";
         }
+
         String email = (String) session.getAttribute("email");
+
         if (blocked != null && email != null) {
             ZonedDateTime unlockTime = loginAttemptService.getUnlockTime(email);
             model.addAttribute("blockedMessage", "Ваш аккаунт заблокирован из-за превышения количества попыток входа. Попробуйте снова после: " + unlockTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
         }
+
+        if (blockedIP != null) {
+            String ip = request.getRemoteAddr();
+            model.addAttribute("blockedIPMessage", "Ваш IP (" + ip + ") временно заблокирован из-за множественных неудачных попыток входа. Попробуйте снова позже.");
+        }
+
         if (error != null && email != null) {
             int remainingAttempts = loginAttemptService.getRemainingAttempts(email);
             model.addAttribute("remainingAttempts", remainingAttempts);
         }
+
         return "login";
     }
 
@@ -336,6 +346,7 @@ public class HomeController {
      * @param model модель для добавления данных в представление
      * @return имя представления домашней страницы
      */
+    /*
     @PostMapping("/upload")
     public String uploadFile(@RequestParam("file") MultipartFile file, Model model) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -392,7 +403,7 @@ public class HomeController {
         }
 
         return "home";
-    }
+    }*/
 
     @GetMapping("/privacy-policy")
     public String privacyPolicy() {

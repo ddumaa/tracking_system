@@ -4,12 +4,19 @@ import com.project.tracking_system.entity.LoginAttempt;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.repository.LoginAttemptRepository;
 import com.project.tracking_system.repository.UserRepository;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Сервис для управления попытками входа в систему.
@@ -24,11 +31,17 @@ import java.util.Optional;
 @Service
 public class LoginAttemptService {
 
+    Logger logger = LoggerFactory.getLogger(LoginAttemptService.class);
+
     private static final int MAX_ATTEMPTS = 4;  // Максимальное количество попыток входа
     private static final long LOCK_TIME_DURATION = 1;  // Время блокировки аккаунта в часах
+    private static final long IP_BLOCK_TIME_MINUTES = 10; // Блокировка IP на 10 минут
 
     private final UserRepository userRepository;  // Репозиторий для работы с пользователями
     private final LoginAttemptRepository loginAttemptRepository;  // Репозиторий для работы с попытками входа
+
+    private final Map<String, Integer> ipAttempts = new ConcurrentHashMap<>();
+    private final Map<String, ZonedDateTime> blockedIPs = new ConcurrentHashMap<>();
 
     /**
      * Конструктор класса {@link LoginAttemptService}.
@@ -50,16 +63,35 @@ public class LoginAttemptService {
      *
      * @param email адрес электронной почты пользователя
      */
-    public void loginSucceeded(String email) {
+    public void loginSucceeded(String email, String ip) {
         Optional<User> userOptional = userRepository.findByEmail(email);
+
         if (userOptional.isPresent()) {
             User user = userOptional.get();
             LoginAttempt loginAttempt = user.getLoginAttempt();
+
             if (loginAttempt != null) {
                 loginAttempt.setAttempts(0);
                 loginAttemptRepository.save(loginAttempt);
             }
         }
+        ipAttempts.remove(ip);
+        blockedIPs.remove(ip);
+
+        logger.info("Пользователь {} успешно вошел. IP {} разблокирован.", email, ip);
+    }
+
+    public boolean isIPBlocked(String ip) {
+        if (blockedIPs.containsKey(ip)) {
+
+            if (ZonedDateTime.now(ZoneOffset.UTC).isAfter(blockedIPs.get(ip))) {
+                blockedIPs.remove(ip);
+                ipAttempts.remove(ip);
+                return false;
+            }
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -72,17 +104,26 @@ public class LoginAttemptService {
      * @param email адрес электронной почты пользователя
      * @return {@code true}, если пользователь заблокирован, иначе {@code false}
      */
-    public boolean isBlocked(String email) {
+    public boolean isEmailBlocked(String email) {
         Optional<User> userOptional = userRepository.findByEmail(email);
+
         if (userOptional.isPresent()) {
             User user = userOptional.get();
             LoginAttempt loginAttempt = user.getLoginAttempt();
+
             if (loginAttempt != null && loginAttempt.getAttempts() >= MAX_ATTEMPTS) {
-                ZonedDateTime zonedDateTime = loginAttempt.getLastModified().plusHours(LOCK_TIME_DURATION);
+                ZonedDateTime lastModified = loginAttempt.getLastModified();
+
+                if (lastModified == null) { // Защита от NPE
+                    return false; // Считаем, что блокировки нет
+                }
+
+                ZonedDateTime zonedDateTime = lastModified.plusHours(LOCK_TIME_DURATION);
                 if (zonedDateTime.isAfter(ZonedDateTime.now(ZoneOffset.UTC))) {
                     return true;
                 } else {
                     loginAttempt.setAttempts(0);
+                    loginAttempt.setLastModified(ZonedDateTime.now(ZoneOffset.UTC));
                     loginAttemptRepository.save(loginAttempt);
                 }
             }
@@ -99,19 +140,30 @@ public class LoginAttemptService {
      *
      * @param email адрес электронной почты пользователя
      */
-    public void loginFailed(String email) {
+    public void loginFailed(String email, String ip) {
         Optional<User> userOptional = userRepository.findByEmail(email);
+
         if (userOptional.isPresent()) {
             User user = userOptional.get();
             LoginAttempt loginAttempt = user.getLoginAttempt();
+
             if (loginAttempt == null) {
                 loginAttempt = new LoginAttempt();
                 loginAttempt.setUser(user);
+                loginAttempt.setLastModified(ZonedDateTime.now(ZoneOffset.UTC)); // 🛠 Добавляем дату при создании
                 user.setLoginAttempt(loginAttempt);
             }
+
             loginAttempt.setAttempts(loginAttempt.getAttempts() + 1);
-            loginAttempt.setLastModified(ZonedDateTime.now(ZoneOffset.UTC));
+            loginAttempt.setLastModified(ZonedDateTime.now(ZoneOffset.UTC)); // 🛠 Обновляем дату при каждом провале
             loginAttemptRepository.save(loginAttempt);
+        }
+
+        int attempts = ipAttempts.getOrDefault(ip, 0) + 1;
+        ipAttempts.put(ip, attempts);
+
+        if (attempts >= MAX_ATTEMPTS) {
+            blockedIPs.put(ip, ZonedDateTime.now(ZoneOffset.UTC).plusMinutes(IP_BLOCK_TIME_MINUTES));
         }
     }
 
@@ -126,9 +178,11 @@ public class LoginAttemptService {
      */
     public int getRemainingAttempts(String email) {
         Optional<User> userOptional = userRepository.findByEmail(email);
+
         if (userOptional.isPresent()) {
             User user = userOptional.get();
             LoginAttempt loginAttempt = user.getLoginAttempt();
+
             if (loginAttempt != null) {
                 return MAX_ATTEMPTS - loginAttempt.getAttempts();
             }
@@ -147,13 +201,33 @@ public class LoginAttemptService {
      */
     public ZonedDateTime getUnlockTime(String email) {
         Optional<User> userOptional = userRepository.findByEmail(email);
+
         if (userOptional.isPresent()) {
             User user = userOptional.get();
             LoginAttempt loginAttempt = user.getLoginAttempt();
+
             if (loginAttempt != null && loginAttempt.getAttempts() >= MAX_ATTEMPTS) {
                 return loginAttempt.getLastModified().plusHours(LOCK_TIME_DURATION);
             }
         }
         return null;
     }
+
+    public boolean checkAndRedirect(HttpServletRequest request, HttpServletResponse response,
+                                    String email, String ip) throws IOException {
+        if (isIPBlocked(ip)) {
+            logger.warn("Блокировка по IP: {} (Попытка входа заблокирована)", ip);
+            response.sendRedirect("/login?blockedIP=true");
+            return true;
+        }
+
+        if (email != null && isEmailBlocked(email)) {
+            logger.warn("Блокировка по email: {} (Попытка входа заблокирована)", email);
+            response.sendRedirect("/login?blocked=true");
+            return true;
+        }
+
+        return false;
+    }
+
 }

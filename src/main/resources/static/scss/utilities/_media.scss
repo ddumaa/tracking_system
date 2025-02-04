@@ -1,0 +1,31 @@
+.status-icon {
+  font-size: 2rem;
+}
+.delivered {
+  color: #008000;
+}
+.waiting {
+  color: #fff200;
+}
+.transit {
+  color: #0000FF;
+}
+.not-picking {
+  color: #ff7300;
+}
+.return-progress {
+  color: #FF0000;
+  transform: scaleX(-1);
+}
+.return-pending {
+  color: #FF7F00;
+}
+.returned {
+  color: #FF0000;
+}
+.registered {
+  color: #007bff;
+}
+.custom-qq {
+  color: #007bff;
+}

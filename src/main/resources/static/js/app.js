@@ -21,6 +21,11 @@ function showAlert(message, type) {
     }, 5000);
 }
 
+function updateDeleteButtonState() {
+    const hasChecked = document.querySelectorAll(".selectCheckbox:checked").length > 0;
+    document.getElementById("applyActionBtn").disabled = !hasChecked;
+}
+
 function updateApplyButtonState() {
     $("#applyActionBtn").prop("disabled", $(".selectCheckbox:checked").length === 0);
 }
@@ -28,11 +33,6 @@ function updateApplyButtonState() {
 function toggleAllCheckboxes(checked) {
     $(".selectCheckbox").prop("checked", checked);
     updateApplyButtonState();
-}
-
-function updateDeleteButtonState() {
-    const hasChecked = $(".selectCheckbox:checked").length > 0;
-    $("#applyActionBtn").prop("disabled", !hasChecked);
 }
 
 function loadModal(itemNumber) {
@@ -172,10 +172,65 @@ $(document).ready(function () {
     /// Авто-скрытие уведомлений
     setTimeout(() => { $(".alert").fadeOut("slow"); }, 5000);
 
+    const cookieModal = document.getElementById("cookieConsentModal");
+    const acceptButton = document.getElementById("acceptCookies");
+
+    if (!localStorage.getItem("cookiesAccepted")) {
+        cookieModal.classList.add("show");
+    }
+
+    acceptButton.addEventListener("click", function () {
+        localStorage.setItem("cookiesAccepted", "true");
+        setCookie("cookie_consent", "accepted", 365);
+        cookieModal.classList.remove("show");
+    });
+
+    function setCookie(name, value, days) {
+        let expires = "";
+        if (days) {
+            let date = new Date();
+            date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
+            expires = "; expires=" + date.toUTCString();
+        }
+        document.cookie = name + "=" + value + "; Path=/; Secure; SameSite=None" + expires;
+    }
+
+    function getCookie(name) {
+        let nameEQ = name + "=";
+        let ca = document.cookie.split(';');
+        for (let i = 0; i < ca.length; i++) {
+            let c = ca[i].trim(); // Вместо цикла просто trim()
+            if (c.startsWith(nameEQ)) {
+                return c.substring(nameEQ.length);
+            }
+        }
+        return null;
+    }
+
+    // Если кука нет - показываем окно
+    if (!getCookie("cookie_consent")) {
+        cookieModal.classList.add("show");
+    }
+
     // Инициализация логики форм
     attachPasswordFormHandler();
     attachEvropostFormHandler();
     initializeCustomCredentialsCheckbox();
+
+    document.getElementById("selectAllCheckbox")?.addEventListener("click", function () {
+        toggleAllCheckboxes(this);
+    });
+
+    document.querySelectorAll(".open-modal").forEach(button => {
+        button.addEventListener("click", function () {
+            const itemNumber = this.getAttribute("data-itemnumber");
+            loadModal(itemNumber);
+        });
+    });
+
+    document.querySelectorAll(".selectCheckbox").forEach(checkbox => {
+        checkbox.addEventListener("change", updateDeleteButtonState);
+    });
 
     //установка активной вкладки в хедере
     const currentPath = window.location.pathname;
