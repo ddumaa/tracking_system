@@ -55,22 +55,22 @@ public class HomeController {
     private final LoginAttemptService loginAttemptService;
     private final PasswordResetService passwordResetService;
     private final TrackingNumberServiceXLS trackingNumberServiceXLS;
-    private final TrackNumberOcrService trackNumberOcrService;
+    //private final TrackNumberOcrService trackNumberOcrService;
 
     @Autowired
     public HomeController(UserService userService, TrackParcelService trackParcelService,
                           TypeDefinitionTrackPostService typeDefinitionTrackPostService,
                           LoginAttemptService loginAttemptService,
                           PasswordResetService passwordResetService,
-                          TrackingNumberServiceXLS trackingNumberServiceXLS,
-                          TrackNumberOcrService trackNumberOcrService) {
+                          TrackingNumberServiceXLS trackingNumberServiceXLS
+                          /*TrackNumberOcrService trackNumberOcrService*/) {
         this.userService = userService;
         this.trackParcelService = trackParcelService;
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
         this.loginAttemptService = loginAttemptService;
         this.passwordResetService = passwordResetService;
         this.trackingNumberServiceXLS = trackingNumberServiceXLS;
-        this.trackNumberOcrService = trackNumberOcrService;
+        //this.trackNumberOcrService = trackNumberOcrService;
     }
 
     /**
@@ -94,6 +94,8 @@ public class HomeController {
      */
     @PostMapping
     public String home(@ModelAttribute("number") String number, Model model, HttpServletRequest request) {
+        System.out.println("🚀 Контроллер вызван! Номер посылки: " + number);
+
         HttpSession session = request.getSession();
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
@@ -101,12 +103,18 @@ public class HomeController {
         boolean isAuthenticated = auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken);
         User user = isAuthenticated ? (User) auth.getPrincipal() : null;
 
+        System.out.println("🔍 Пользователь аутентифицирован: " + isAuthenticated);
+        System.out.println("📦 Получен номер посылки: " + number);
+
         model.addAttribute("number", number);
         model.addAttribute("authenticatedUser", user != null ? user.getEmail() : null);
 
         try {
             // Получение данных посылки
             TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(user, number);
+
+            System.out.println("📊 Данные получены: " + trackInfo);
+
             model.addAttribute("trackInfo", trackInfo);
 
             // Если данные пустые
@@ -126,6 +134,7 @@ public class HomeController {
             model.addAttribute("customError", e.getMessage());
         } catch (Exception e) {
             model.addAttribute("generalError", "Произошла ошибка при обработке запроса.");
+            System.err.println("❌ Общая ошибка: " + e.getMessage());
         }
 
         return "home";
@@ -379,18 +388,17 @@ public class HomeController {
                 List<TrackingResultAdd> trackingResults = trackingNumberServiceXLS.processTrackingNumber(file, user);
                 model.addAttribute("trackingResults", trackingResults);
             } else if (contentType.startsWith("image/")) {
-                System.out.println("я тут");
 
                 // Обработка изображения (OCR)
-                String recognizedText = trackNumberOcrService.processImage(file);
-                System.out.println("Распознанный текст: " + recognizedText);  // Для дебага
+               // String recognizedText = trackNumberOcrService.processImage(file);
+                //System.out.println("Распознанный текст: " + recognizedText);  // Для дебага
 
                 // Извлечение трек-номеров из текста
-                List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, user);
-                System.out.println("Трек-номера: " + trackingResults);  // Для дебага
+                //List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, user);
+                //System.out.println("Трек-номера: " + trackingResults);  // Для дебага
 
                 // Добавление результатов в модель
-                model.addAttribute("trackingResults", trackingResults);
+                //model.addAttribute("trackingResults", trackingResults);
 
             } else {
                 model.addAttribute("customError", "Неподдерживаемый тип файла. Загрузите XLS, XLSX или изображение.");
