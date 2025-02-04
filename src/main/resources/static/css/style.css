@@ -540,6 +540,95 @@ button:hover {
   }
 }
 
+.cookie-modal {
+  position: fixed;
+  bottom: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ffffff;
+  padding: 14px 20px;
+  border-radius: 8px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  max-width: 420px;
+  min-width: 280px;
+  z-index: 1050;
+  opacity: 0;
+  visibility: hidden;
+  font-size: 16px;
+  text-align: center;
+  word-wrap: break-word;
+  line-height: 1.4;
+  transition: opacity 0.3s ease-in-out;
+}
+.cookie-modal.show {
+  opacity: 1;
+  visibility: visible;
+}
+.cookie-modal p {
+  font-size: 15px;
+  color: #343a40;
+  margin: 0 0 12px 0;
+  max-width: 380px;
+}
+.cookie-modal a {
+  color: #007bff;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.3s ease-in-out;
+}
+.cookie-modal a:hover {
+  transform: scale(1.05);
+}
+.cookie-modal .cookie-buttons {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+.cookie-modal .cookie-buttons .btn {
+  padding: 8px 14px;
+  font-size: 15px;
+  border-radius: 6px;
+  cursor: pointer;
+  width: 60%;
+  max-width: 220px;
+  text-align: center;
+  transition: all 0.3s ease-in-out;
+}
+.cookie-modal .cookie-buttons .btn.btn-primary {
+  background-color: #007bff;
+  color: #ffffff;
+  padding: 10px 15px;
+  border-radius: 5px;
+  text-align: center;
+  display: inline-block;
+  transition: background, border-color, filter 0.3s ease-in-out;
+}
+.cookie-modal .cookie-buttons .btn.btn-primary:hover {
+  background-color: rgb(0, 98.4, 204);
+  border-color: rgb(0, 86.1, 178.5);
+  filter: brightness(90%);
+}
+
+@media (max-width: 576px) {
+  .cookie-modal {
+    width: 90%;
+    max-width: 320px;
+  }
+  .cookie-buttons {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+  .cookie-buttons .btn {
+    width: 100%;
+    max-width: 240px;
+  }
+}
 .text-danger {
   margin-top: 0.5rem;
   display: block;
@@ -925,27 +1014,31 @@ button:hover {
     overflow-x: auto;
   }
 }
-.policy-container {
+.hidden {
+  display: none;
+}
+
+.legal-container {
   font-family: "Arial", sans-serif;
   font-size: 16px;
   max-width: 800px;
   margin: 0 auto;
 }
-.policy-container .policy-title {
+.legal-container .legal-title {
   font-size: 2rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
   color: #343a40;
 }
-.policy-container .policy-date {
+.legal-container .legal-date {
   color: #6c757d;
   font-size: 0.9rem;
   margin-bottom: 1.5rem;
 }
-.policy-container .policy-section {
+.legal-container .legal-section {
   margin-bottom: 1.5rem;
 }
-.policy-container .policy-section .section-title {
+.legal-container .legal-section .section-title {
   font-size: 1.3rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
@@ -953,24 +1046,65 @@ button:hover {
   border-left: 4px solid #007bff;
   padding-left: 0.5rem;
 }
-.policy-container .policy-section p,
-.policy-container .policy-section li {
+.legal-container .legal-section p,
+.legal-container .legal-section li {
   line-height: 1.6;
   margin-bottom: 0.5rem;
 }
-.policy-container .policy-section ul {
+.legal-container .legal-section ul {
   padding-left: 1.5rem;
   list-style: disc outside;
 }
-.policy-container .policy-note {
+.legal-container .legal-note {
   margin-top: 2rem;
   padding: 1rem;
   font-size: 0.9rem;
   background-color: #f8f9fa;
   border-left: 4px solid #ffc107;
 }
-.policy-container .policy-note strong {
+.legal-container .legal-note strong {
   color: #dc3545;
+}
+
+.status-icon {
+  font-size: 2rem;
+}
+
+.delivered {
+  color: #008000;
+}
+
+.waiting {
+  color: #fff200;
+}
+
+.transit {
+  color: #0000FF;
+}
+
+.not-picking {
+  color: #ff7300;
+}
+
+.return-progress {
+  color: #FF0000;
+  transform: scaleX(-1);
+}
+
+.return-pending {
+  color: #FF7F00;
+}
+
+.returned {
+  color: #FF0000;
+}
+
+.registered {
+  color: #007bff;
+}
+
+.custom-qq {
+  color: #007bff;
 }
 
 /*# sourceMappingURL=style.css.map */

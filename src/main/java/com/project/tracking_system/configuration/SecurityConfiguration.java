@@ -1,6 +1,10 @@
 package com.project.tracking_system.configuration;
 
 import com.project.tracking_system.service.user.LoginAttemptService;
+import com.project.tracking_system.utils.CspNonceFilter;
+import jakarta.servlet.http.HttpSession;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,7 +15,12 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.context.SecurityContextPersistenceFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.security.web.savedrequest.DefaultSavedRequest;
+
+import static org.springframework.security.config.Customizer.withDefaults;
 
 /**
  * Конфигурация безопасности приложения с настройками для аутентификации, авторизации, защиты от атак и управления сессиями.
@@ -33,6 +42,8 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 @EnableWebSecurity
 public class SecurityConfiguration {
 
+    Logger logger = LoggerFactory.getLogger(SecurityConfiguration.class);
+
     private final LoginAttemptService loginAttemptService;
 
     @Autowired
@@ -46,13 +57,19 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, CspNonceFilter cspNonceFilter) throws Exception {
         http
+                .addFilterBefore(cspNonceFilter, SecurityContextPersistenceFilter.class)
                 .headers(h -> h
                         .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
-                        .contentSecurityPolicy(csp -> csp
-                                .policyDirectives("default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none';")
+                        .httpStrictTransportSecurity(hsts -> hsts
+                                .maxAgeInSeconds(31536000)
+                                .includeSubDomains(true)
+                                .preload(true)
                         )
+                        .defaultsDisabled()
+                        .contentTypeOptions(withDefaults())
+                        .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN))
                 )
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests
                         .requestMatchers("/", "/login", "/logout", "/registration", "/forgot-password", "/reset-password",
@@ -65,21 +82,37 @@ public class SecurityConfiguration {
                         .passwordParameter("password")
                         .successHandler((request, response, authentication) -> {
                             String email = request.getParameter("email");
-                            loginAttemptService.loginSucceeded(email);
+                            String ip = request.getRemoteAddr();
+
+                            loginAttemptService.loginSucceeded(email, ip);
+
+                            HttpSession session = request.getSession(false);
+                            if (session != null) {
+                                Object savedRequestObj = session.getAttribute("SPRING_SECURITY_SAVED_REQUEST");
+                                if (savedRequestObj instanceof DefaultSavedRequest savedRequest) {
+                                    response.sendRedirect(savedRequest.getRedirectUrl());
+                                    return;
+                                }
+                            }
                             response.sendRedirect("/");
                         })
                         .failureHandler((request, response, exception) -> {
                             String email = request.getParameter("email");
+                            String ip = request.getRemoteAddr();
+
                             request.getSession().setAttribute("email", email);
-                            if (loginAttemptService.isBlocked(email)) {
-                                response.sendRedirect("/login?blocked=true");
-                            } else {
-                                loginAttemptService.loginFailed(email);
-                                response.sendRedirect("/login?error=true");
-                            }
+
+                            if (loginAttemptService.checkAndRedirect(request, response, email, ip)) return;
+
+                            loginAttemptService.loginFailed(email, ip);
+                            logger.info("Неудачная попытка входа: email={}, IP={}", email, ip);
+                            response.sendRedirect("/login?error=true");
                         })
                 )
-                .rememberMe(rememberMe -> rememberMe.key("remember-me"))
+                .rememberMe(rememberMe -> rememberMe
+                        .key(System.getenv("REMEMBER_ME_KEY"))
+                        .tokenValiditySeconds(14 * 24 * 60 * 60)
+                )
                 .logout(logout -> logout
                         .logoutUrl("/logout")
                         .logoutSuccessUrl("/")
@@ -92,13 +125,11 @@ public class SecurityConfiguration {
                 )
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                )
-                .headers(headers -> headers
-                                .addHeaderWriter((request, response) -> {
-                    response.addHeader("Set-Cookie", "JSESSIONID=" + request.getSession().getId() + "; Path=/; HttpOnly; SameSite=None; Secure");
-                                })
+
                 );
 
         return http.build();
     }
+
+
 }

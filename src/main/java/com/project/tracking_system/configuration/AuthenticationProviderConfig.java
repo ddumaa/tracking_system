@@ -58,7 +58,7 @@ public class AuthenticationProviderConfig {
             @Override
             public Authentication authenticate(Authentication authentication) throws AuthenticationException {
                 String email = authentication.getName();
-                if (loginAttemptService.isBlocked(email)){
+                if (loginAttemptService.isEmailBlocked(email)){
                     throw new LockedException("Аккант временно заблокирован");
                 }
                 return super.authenticate(authentication);

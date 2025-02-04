@@ -1,4 +1,6 @@
 @use "../abstracts/_mixins.scss" as mixins;
+@use "../abstracts/_variables.scss" as vars;
+@use "sass:color";
 
 .modal {
   display: none;
@@ -100,6 +102,91 @@
 
     .modal-body {
       max-height: 55vh;
+    }
+  }
+}
+
+.cookie-modal {
+  position: fixed;
+  bottom: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: vars.$white;
+  padding: 14px 20px;
+  border-radius: 8px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  max-width: 420px; // Ограничиваем максимальную ширину
+  min-width: 280px;
+  z-index: 1050;
+  opacity: 0;
+  visibility: hidden;
+  font-size: vars.$font-size-base; // Увеличиваем размер шрифта
+  text-align: center;
+  word-wrap: break-word;
+  line-height: 1.4;
+  @include mixins.transition(opacity, 0.3s, ease-in-out);
+
+  &.show {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  p {
+    font-size: vars.$font-size-base - 1px; // Поднимаем размер шрифта
+    color: vars.$dark;
+    margin: 0 0 12px 0; // Больше отступа снизу
+    max-width: 380px; // Ограничиваем ширину текста, чтобы не растягивался
+  }
+
+  a {
+    color: vars.$primary;
+    text-decoration: none;
+    font-weight: 500;
+    @include mixins.hover-effect;
+  }
+
+  .cookie-buttons {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+
+    .btn {
+      padding: 8px 14px;
+      font-size: 15px; // Чуть больше кнопка
+      border-radius: 6px;
+      cursor: pointer;
+      width: 60%; // Немного шире
+      max-width: 220px;
+      text-align: center;
+      @include mixins.transition();
+
+      &.btn-primary {
+        @include mixins.button-style(vars.$primary);
+      }
+    }
+  }
+}
+
+// 🔹 Адаптация для мобильных устройств
+@include mixins.respond-to(sm) {
+  .cookie-modal {
+    width: 90%;
+    max-width: 320px;
+  }
+
+  .cookie-buttons {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+
+    .btn {
+      width: 100%; // На мобильных кнопка шире
+      max-width: 240px;
     }
   }
 }

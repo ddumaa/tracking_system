@@ -32,7 +32,7 @@ import java.util.regex.Pattern;
  * @date Добавлено 07.01.2025
  */
 
-@Service
+//@Service
 public class TrackNumberOcrService {
 
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
