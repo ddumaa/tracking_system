@@ -55,21 +55,22 @@ public class HomeController {
     private final LoginAttemptService loginAttemptService;
     private final PasswordResetService passwordResetService;
     private final TrackingNumberServiceXLS trackingNumberServiceXLS;
-    //private final TrackNumberOcrService trackNumberOcrService;
+    private final TrackNumberOcrService trackNumberOcrService;
 
     @Autowired
     public HomeController(UserService userService, TrackParcelService trackParcelService,
                           TypeDefinitionTrackPostService typeDefinitionTrackPostService,
                           LoginAttemptService loginAttemptService,
                           PasswordResetService passwordResetService,
-                          TrackingNumberServiceXLS trackingNumberServiceXLS) {
+                          TrackingNumberServiceXLS trackingNumberServiceXLS,
+                          TrackNumberOcrService trackNumberOcrService) {
         this.userService = userService;
         this.trackParcelService = trackParcelService;
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
         this.loginAttemptService = loginAttemptService;
         this.passwordResetService = passwordResetService;
         this.trackingNumberServiceXLS = trackingNumberServiceXLS;
-        //this.trackNumberOcrService = trackNumberOcrService;
+        this.trackNumberOcrService = trackNumberOcrService;
     }
 
     /**
@@ -346,7 +347,6 @@ public class HomeController {
      * @param model модель для добавления данных в представление
      * @return имя представления домашней страницы
      */
-    /*
     @PostMapping("/upload")
     public String uploadFile(@RequestParam("file") MultipartFile file, Model model) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -403,7 +403,7 @@ public class HomeController {
         }
 
         return "home";
-    }*/
+    }
 
     @GetMapping("/privacy-policy")
     public String privacyPolicy() {
