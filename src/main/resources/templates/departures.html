@@ -31,6 +31,7 @@
                     <div class="d-flex justify-content-center align-items-center history-header">
                         <h1>Информация о посылках</h1>
                         <form th:action="@{/departures/track-update}" method="post" class="d-inline ms-3">
+                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                             <button type="submit" class="history-refresh-btn" aria-label="Обновить данные">
                                 <i class="bi bi-arrow-repeat"></i>
                             </button>
@@ -40,6 +41,18 @@
                     <!-- Уведомления -->
                     <div th:if="${trackParcelNotification}" class="alert alert-warning" role="alert">
                         <span th:text="${trackParcelNotification}"></span>
+                    </div>
+
+                    <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        <span th:text="${successMessage}"></span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Закрыть"></button>
+                    </div>
+
+                    <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <span th:text="${errorMessage}"></span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Закрыть"></button>
                     </div>
 
                     <!-- Форма действий, фильтрации и количества элементов -->
@@ -89,22 +102,10 @@
 
                     </div>
 
-                    <!-- Уведомления -->
-                    <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
-                        <i class="bi bi-check-circle-fill me-2"></i>
-                        <span th:text="${successMessage}"></span>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Закрыть"></button>
-                    </div>
-
-                    <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                        <span th:text="${errorMessage}"></span>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Закрыть"></button>
-                    </div>
-
                     <!-- Таблица истории -->
                     <div th:if="${trackParcelDTO != null and !trackParcelDTO.isEmpty()}" class="mt-3">
                         <form action="/departures/delete-selected" method="post">
+                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                             <div class="table-responsive">
                                 <table class="table history-table">
                                     <thead>

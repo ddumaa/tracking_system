@@ -162,6 +162,7 @@ function toggleFieldsVisibility(checkbox, fieldsContainer) {
 }
 
 $(document).ready(function () {
+
     // === Добавляем CSRF-токен ===
     const csrfToken = $('meta[name="_csrf"]').attr('content');
     const csrfHeader = $('meta[name="_csrf_header"]').attr('content');
@@ -171,6 +172,11 @@ $(document).ready(function () {
 
     /// Авто-скрытие уведомлений
     setTimeout(() => { $(".alert").fadeOut("slow"); }, 5000);
+
+    // мобильный хедер
+    document.getElementById('burgerMenu').addEventListener('click', function () {
+        document.getElementById('mobileNav').classList.toggle('active');
+    });
 
     const cookieModal = document.getElementById("cookieConsentModal");
     const acceptButton = document.getElementById("acceptCookies");
@@ -199,7 +205,7 @@ $(document).ready(function () {
         let nameEQ = name + "=";
         let ca = document.cookie.split(';');
         for (let i = 0; i < ca.length; i++) {
-            let c = ca[i].trim(); // Вместо цикла просто trim()
+            let c = ca[i].trim();
             if (c.startsWith(nameEQ)) {
                 return c.substring(nameEQ.length);
             }

@@ -67,16 +67,10 @@ public class WebBelPost {
 
             // Создание и запуск драйвера
             driver = new ChromeDriver(options);
-            driver.get("https://belpost.by/Otsleditotpravleniye");
 
-            // Ожидание загрузки поля для ввода номера посылки
-            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-            WebElement inputField = wait.until(ExpectedConditions.visibilityOfElementLocated(By.name("number")));
-            inputField.sendKeys(number);
-
-            // Нажатие кнопки для поиска
-            WebElement button = driver.findElement(By.xpath("//button[@type='submit']"));
-            button.click();
+            // передаём ссылку + номер
+            String url = "https://belpost.by/Otsleditotpravleniye?number=" + number;
+            driver.get(url);
 
             // Ожидание загрузки страницы с результатами отслеживания
             WebDriverWait wait2 = new WebDriverWait(driver, Duration.ofSeconds(10));
@@ -113,10 +107,8 @@ public class WebBelPost {
                 trackInfoListDTO.addTrackInfo(trackInfoDTO);
             }
         } catch (Exception e) {
-            // Логирование ошибки
             System.err.println("Error: " + e.getMessage());
         } finally {
-            // Закрытие драйвера после выполнения
             if (driver != null) {
                 driver.quit();
             }
