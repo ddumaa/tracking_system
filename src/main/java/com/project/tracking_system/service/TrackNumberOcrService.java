@@ -43,7 +43,7 @@ public class TrackNumberOcrService {
      * @param typeDefinitionTrackPostService Сервис для получения информации о трек-номере.
      * @param trackParcelService Сервис для сохранения данных о посылках.
      */
-    //@Autowired
+    @Autowired
     public TrackNumberOcrService(TypeDefinitionTrackPostService typeDefinitionTrackPostService, TrackParcelService trackParcelService) {
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
         this.trackParcelService = trackParcelService;
