@@ -7,8 +7,8 @@ header {
   height: 80px;
   display: flex;
   align-items: center;
-  justify-content: center;
   position: relative;
+  z-index: 1000;
 
   .container {
     display: flex;
@@ -53,9 +53,8 @@ header {
     &.active {
       font-weight: bold;
       color: vars.$primary;
-      border-bottom: 3px solid vars.$primary; // Подчеркиваем активную вкладку
+      border-bottom: 3px solid vars.$primary;
     }
-
   }
 
   /* Кнопки авторизации */
@@ -79,49 +78,91 @@ header {
     .icon-btn {
       display: none;
     }
+  }
 
-    /* Анимация */
-    button {
-      @include mixins.hover-effect;
+  /* Бургер-меню */
+  .burger-menu {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 2rem;
+    cursor: pointer;
+    position: relative;
+    z-index: 1100;
+  }
+
+  /* Выпадающее меню (анимация) */
+  .mobile-nav {
+    display: none;
+    position: absolute;
+    top: 80px;
+    left: 0;
+    width: 100%;
+    background: vars.$white;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    padding: 10px 0;
+    border-radius: 0 0 10px 10px;
+    overflow: hidden;
+    transform: translateY(-10px);
+    opacity: 0;
+    transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+
+      li {
+        a {
+          text-decoration: none;
+          font-size: 1.2rem;
+          font-weight: bold;
+          color: vars.$dark;
+          display: block;
+          padding: 10px;
+          &:hover {
+            background: vars.$primary;
+            color: vars.$white;
+          }
+        }
+      }
     }
+  }
+
+  .mobile-nav.active {
+    display: block;
+    transform: translateY(0);
+    opacity: 1;
   }
 
   /* ============================= */
   /* Адаптивные стили */
   /* ============================= */
   @include mixins.respond-to(md) {
-    height: auto;
-    padding: 10px 0;
-
-    .container {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .logo svg {
-      width: 150px; /* Уменьшаем на средних экранах */
+    .burger-menu {
+      display: block;
+      position: absolute;
+      left: 10px;
     }
 
     .nav-container {
-      flex: 2;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
+      display: none;
     }
 
-    .nav {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
+    .logo {
+      text-align: center;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
     }
 
-    /* Кнопки остаются справа */
     .auth-buttons {
-      flex: 1;
-      display: flex;
-      justify-content: flex-end;
+      position: absolute;
+      right: 10px;
 
       /* Прячем текстовые кнопки */
       .btn-text {
@@ -148,11 +189,4 @@ header {
       }
     }
   }
-
-  @include mixins.respond-to(sm) {
-    .logo svg {
-      width: 120px;
-    }
-  }
-
 }

@@ -2,6 +2,11 @@
     <header class="bg-white shadow-sm">
         <div class="container">
 
+            <!-- Бургер-кнопка (только для мобильных) -->
+            <button class="burger-menu" id="burgerMenu">
+                <i class="bi bi-list"></i>
+            </button>
+
             <!-- Логотип -->
             <div class="logo">
                 <a href="/" class="d-inline-flex link-body-emphasis text-decoration-none">
@@ -32,14 +37,13 @@
                 </a>
             </div>
 
-            <!-- Навигация -->
+            <!-- Навигация (скрывается на мобильных) -->
             <div class="nav-container">
                 <ul class="nav">
                     <li><a href="/" class="nav-link px-2" data-path="/">Трекинг</a></li>
                     <li><a href="/departures" class="nav-link px-2" data-path="/departures">Отправления</a></li>
                     <li><a href="/profile" class="nav-link px-2" data-path="/profile">Профиль</a></li>
                     <li><a href="/faqs" class="nav-link px-2" data-path="/faqs">FAQs</a></li>
-                    <li><a href="/about" class="nav-link px-2" data-path="/about">О нас</a></li>
                 </ul>
             </div>
 
@@ -71,7 +75,16 @@
                     </button>
                 </form>
             </div>
-
         </div>
+
+        <nav id="mobileNav" class="mobile-nav">
+            <ul>
+                <li><a href="/" data-path="/">Трекинг</a></li>
+                <li><a href="/departures" data-path="/departures">Отправления</a></li>
+                <li><a href="/profile" data-path="/profile">Профиль</a></li>
+                <li><a href="/faqs" data-path="/faqs">FAQs</a></li>
+            </ul>
+        </nav>
+
     </header>
 </div>

@@ -94,8 +94,6 @@ public class HomeController {
      */
     @PostMapping
     public String home(@ModelAttribute("number") String number, Model model, HttpServletRequest request) {
-        System.out.println("🚀 Контроллер вызван! Номер посылки: " + number);
-
         HttpSession session = request.getSession();
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
@@ -103,18 +101,12 @@ public class HomeController {
         boolean isAuthenticated = auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken);
         User user = isAuthenticated ? (User) auth.getPrincipal() : null;
 
-        System.out.println("🔍 Пользователь аутентифицирован: " + isAuthenticated);
-        System.out.println("📦 Получен номер посылки: " + number);
-
         model.addAttribute("number", number);
         model.addAttribute("authenticatedUser", user != null ? user.getEmail() : null);
 
         try {
             // Получение данных посылки
             TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(user, number);
-
-            System.out.println("📊 Данные получены: " + trackInfo);
-
             model.addAttribute("trackInfo", trackInfo);
 
             // Если данные пустые
@@ -134,7 +126,6 @@ public class HomeController {
             model.addAttribute("customError", e.getMessage());
         } catch (Exception e) {
             model.addAttribute("generalError", "Произошла ошибка при обработке запроса.");
-            System.err.println("❌ Общая ошибка: " + e.getMessage());
         }
 
         return "home";

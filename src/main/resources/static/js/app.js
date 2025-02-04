@@ -173,6 +173,11 @@ $(document).ready(function () {
     /// Авто-скрытие уведомлений
     setTimeout(() => { $(".alert").fadeOut("slow"); }, 5000);
 
+    // мобильный хедер
+    document.getElementById('burgerMenu').addEventListener('click', function () {
+        document.getElementById('mobileNav').classList.toggle('active');
+    });
+
     const cookieModal = document.getElementById("cookieConsentModal");
     const acceptButton = document.getElementById("acceptCookies");
 

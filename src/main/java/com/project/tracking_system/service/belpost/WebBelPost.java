@@ -57,7 +57,7 @@ public class WebBelPost {
         try {
             // Настройка ChromeDriver с нужными параметрами
             ChromeOptions options = new ChromeOptions();
-            //options.addArguments("--headless"); // Запуск без графического интерфейса
+            options.addArguments("--headless"); // Запуск без графического интерфейса
             options.addArguments("--disable-gpu");
             options.addArguments("--window-size=1920,1080");
             options.addArguments("--ignore-certificate-errors");
