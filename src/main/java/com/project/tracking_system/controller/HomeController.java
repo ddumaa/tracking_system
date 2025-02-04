@@ -55,22 +55,22 @@ public class HomeController {
     private final LoginAttemptService loginAttemptService;
     private final PasswordResetService passwordResetService;
     private final TrackingNumberServiceXLS trackingNumberServiceXLS;
-    //private final TrackNumberOcrService trackNumberOcrService;
+    private final TrackNumberOcrService trackNumberOcrService;
 
     @Autowired
     public HomeController(UserService userService, TrackParcelService trackParcelService,
                           TypeDefinitionTrackPostService typeDefinitionTrackPostService,
                           LoginAttemptService loginAttemptService,
                           PasswordResetService passwordResetService,
-                          TrackingNumberServiceXLS trackingNumberServiceXLS
-                          /*TrackNumberOcrService trackNumberOcrService*/) {
+                          TrackingNumberServiceXLS trackingNumberServiceXLS,
+                          TrackNumberOcrService trackNumberOcrService) {
         this.userService = userService;
         this.trackParcelService = trackParcelService;
         this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
         this.loginAttemptService = loginAttemptService;
         this.passwordResetService = passwordResetService;
         this.trackingNumberServiceXLS = trackingNumberServiceXLS;
-        //this.trackNumberOcrService = trackNumberOcrService;
+        this.trackNumberOcrService = trackNumberOcrService;
     }
 
     /**
@@ -381,15 +381,13 @@ public class HomeController {
             } else if (contentType.startsWith("image/")) {
 
                 // Обработка изображения (OCR)
-               // String recognizedText = trackNumberOcrService.processImage(file);
-                //System.out.println("Распознанный текст: " + recognizedText);  // Для дебага
+                String recognizedText = trackNumberOcrService.processImage(file);
 
                 // Извлечение трек-номеров из текста
-                //List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, user);
-                //System.out.println("Трек-номера: " + trackingResults);  // Для дебага
+                List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, user);
 
                 // Добавление результатов в модель
-                //model.addAttribute("trackingResults", trackingResults);
+                model.addAttribute("trackingResults", trackingResults);
 
             } else {
                 model.addAttribute("customError", "Неподдерживаемый тип файла. Загрузите XLS, XLSX или изображение.");
