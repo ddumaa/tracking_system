@@ -1,5 +1,6 @@
 package com.project.tracking_system.entity;
 
+import com.project.tracking_system.model.Role;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -11,10 +12,8 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Objects;
+import java.time.ZonedDateTime;
+import java.util.*;
 
 @Setter
 @Getter
@@ -60,9 +59,18 @@ public class User implements UserDetails {
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private LoginAttempt loginAttempt;
 
+    @Column(name = "role_expiration_date")
+    private ZonedDateTime roleExpirationDate;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "tb_user_roles", joinColumns = @JoinColumn(name = "user_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role")
+    private Set<Role> roles = new HashSet<>();
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(); // Верни роли, если используешь
+        return List.of();
     }
 
     @Override
