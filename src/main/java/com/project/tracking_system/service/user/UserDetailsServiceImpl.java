@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.stream.Collectors;
@@ -55,7 +56,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
         if (user.getRoles().contains(Role.ROLE_PAID_USER)) {
             if (user.getRoleExpirationDate() != null
-                && user.getRoleExpirationDate().isBefore(LocalDateTime.now(ZoneOffset.UTC))){
+                && user.getRoleExpirationDate().isBefore(ZonedDateTime.now(ZoneOffset.UTC))){
 
                 user.getRoles().remove(Role.ROLE_PAID_USER);
                 user.getRoles().add(Role.ROLE_FREE_USER);
