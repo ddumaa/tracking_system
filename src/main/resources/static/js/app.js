@@ -174,9 +174,14 @@ $(document).ready(function () {
     setTimeout(() => { $(".alert").fadeOut("slow"); }, 5000);
 
     // мобильный хедер
-    document.getElementById('burgerMenu').addEventListener('click', function () {
-        document.getElementById('mobileNav').classList.toggle('active');
-    });
+    const burgerMenu = document.getElementById('burgerMenu');
+    const mobileNav = document.getElementById('mobileNav');
+
+    if (burgerMenu && mobileNav) {
+        burgerMenu.addEventListener('click', function () {
+            mobileNav.classList.toggle('active');
+        });
+    }
 
     const cookieModal = document.getElementById("cookieConsentModal");
     const acceptButton = document.getElementById("acceptCookies");
