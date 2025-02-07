@@ -16,6 +16,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import com.project.tracking_system.service.user.UserService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -48,6 +50,8 @@ import java.util.Optional;
 @Controller
 @RequestMapping("/")
 public class HomeController {
+
+    private final static Logger logger = LoggerFactory.getLogger(HomeController.class);
 
     private final UserService userService;
     private final TrackParcelService trackParcelService;
@@ -93,39 +97,44 @@ public class HomeController {
      * @return имя представления домашней страницы
      */
     @PostMapping
-    public String home(@ModelAttribute("number") String number, Model model, HttpServletRequest request) {
-        HttpSession session = request.getSession();
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    public String home(@ModelAttribute("number") String number, Model model) {
+        // Получаем аутентификацию текущего пользователя
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        // Проверка на аутентификацию
-        boolean isAuthenticated = auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken);
-        User user = isAuthenticated ? (User) auth.getPrincipal() : null;
+        if (authentication != null && authentication.isAuthenticated() && !(authentication instanceof AnonymousAuthenticationToken)) {
+            // Получаем кастомного пользователя
+            User user = (User) authentication.getPrincipal();
 
-        model.addAttribute("number", number);
-        model.addAttribute("authenticatedUser", user != null ? user.getEmail() : null);
+            logger.info("Получен запрос на обновление посылки для пользователя: {}", user.getEmail());
 
-        try {
-            // Получение данных посылки
-            TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(user, number);
-            model.addAttribute("trackInfo", trackInfo);
+            model.addAttribute("authenticatedUser", user.getEmail());
+            model.addAttribute("number", number);
 
-            // Если данные пустые
-            if (trackInfo.getList().isEmpty()) {
-                model.addAttribute("customError", "Нет данных для указанного номера посылки.");
-            }
+            try {
+                // Получаем данные посылки
+                TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(user, number);
+                model.addAttribute("trackInfo", trackInfo);
 
-            // Сохраняем данные, если пользователь аутентифицирован
-            if (isAuthenticated) {
-                session.setAttribute("userSession", user.getEmail());
+                // Если данные пустые, отображаем сообщение об ошибке
+                if (trackInfo.getList().isEmpty()) {
+                    model.addAttribute("customError", "Нет данных для указанного номера посылки.");
+                }
+
+                // Сохраняем данные, если посылка была найдена
                 trackParcelService.save(number, trackInfo, user);
-            } else {
-                session.removeAttribute("userSession");
+                logger.debug("Данные посылки сохранены для пользователя: {}", user.getEmail());
+
+            } catch (IllegalArgumentException e) {
+                model.addAttribute("customError", e.getMessage());
+                logger.error("Ошибка при получении данных посылки: {}", e.getMessage());
+            } catch (Exception e) {
+                model.addAttribute("generalError", "Произошла ошибка при обработке запроса.");
+                logger.error("Общая ошибка при обработке запроса: {}", e.getMessage());
             }
 
-        } catch (IllegalArgumentException e) {
-            model.addAttribute("customError", e.getMessage());
-        } catch (Exception e) {
-            model.addAttribute("generalError", "Произошла ошибка при обработке запроса.");
+        } else {
+            model.addAttribute("error", "Пожалуйста, авторизуйтесь.");
+            logger.warn("Попытка доступа к посылке неаутентифицированным пользователем.");
         }
 
         return "home";
@@ -352,21 +361,21 @@ public class HomeController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         User user = null;
 
+        // Проверка аутентификации и извлечение кастомного пользователя
         if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
-        // Если пользователь авторизован, извлекаем объект User
-        user = (User) auth.getPrincipal();
-        model.addAttribute("authenticatedUser", user.getEmail());
-    } else {
-        // Если пользователь не авторизован
-        model.addAttribute("authenticatedUser", null);
-    }
+            user = (User) auth.getPrincipal(); // Прямо извлекаем кастомного пользователя
+            model.addAttribute("authenticatedUser", user.getEmail());
+        } else {
+            model.addAttribute("authenticatedUser", null);
+        }
 
+        // Проверка, что файл не пустой
         if (file.isEmpty()) {
             model.addAttribute("customError", "Пожалуйста, выберите XLS, XLSX или изображение для загрузки.");
             return "home";
         }
 
-        // Определяем MIME-тип файла
+        // Определение MIME-типа файла
         String contentType = file.getContentType();
         if (contentType == null) {
             model.addAttribute("customError", "Не удалось определить тип файла.");
@@ -374,29 +383,32 @@ public class HomeController {
         }
 
         try {
+            // Обработка различных типов файлов
             if (contentType.equals("application/vnd.ms-excel") || contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
                 // Обработка XLS или XLSX файла
                 List<TrackingResultAdd> trackingResults = trackingNumberServiceXLS.processTrackingNumber(file, user);
                 model.addAttribute("trackingResults", trackingResults);
             } else if (contentType.startsWith("image/")) {
+                // Обработка изображений (например, OCR, извлечение текста с изображений)
+                // Пример: используем сервис для обработки изображений
+                 String recognizedText = trackNumberOcrService.processImage(file);
+                 List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, user);
+                 model.addAttribute("trackingResults", trackingResults);
 
-                // Обработка изображения (OCR)
-                String recognizedText = trackNumberOcrService.processImage(file);
-
-                // Извлечение трек-номеров из текста
-                List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, user);
-
-                // Добавление результатов в модель
-                model.addAttribute("trackingResults", trackingResults);
-
+                model.addAttribute("customError", "OCR не реализован в текущей версии.");
+                return "home";
             } else {
                 model.addAttribute("customError", "Неподдерживаемый тип файла. Загрузите XLS, XLSX или изображение.");
                 return "home";
             }
         } catch (IOException e) {
+            // Логирование и обработка ошибок ввода-вывода
             model.addAttribute("generalError", "Ошибка при обработке файла: " + e.getMessage());
+            logger.error("IOException при обработке файла: " + e.getMessage(), e);
         } catch (Exception e) {
+            // Логирование других ошибок
             model.addAttribute("generalError", "Ошибка: " + e.getMessage());
+            logger.error("Ошибка при обработке файла: " + e.getMessage(), e);
         }
 
         return "home";

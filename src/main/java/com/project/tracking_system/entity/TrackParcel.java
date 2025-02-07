@@ -18,7 +18,7 @@ public class TrackParcel {
     private Long id;
 
     @NotBlank(message = "Введите номер посылки")
-    @Column(name = "tracking_number", nullable = false, unique = true)
+    @Column(name = "tracking_number", nullable = false)
     private String number;
 
     @Column(name = "status", nullable = false)

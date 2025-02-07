@@ -1,4 +1,4 @@
-package com.project.tracking_system.model;
+package com.project.tracking_system.entity;
 
 /**
  * @author Dmitriy Anisimov
@@ -7,5 +7,6 @@ package com.project.tracking_system.model;
 public enum Role {
     ROLE_ADMIN,
     ROLE_PAID_USER,
-    ROLE_FREE_USER
+    ROLE_FREE_USER;
+
 }

@@ -6,7 +6,7 @@ import com.project.tracking_system.dto.UserSettingsDTO;
 import com.project.tracking_system.entity.ConfirmationToken;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
-import com.project.tracking_system.model.Role;
+import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.repository.ConfirmationTokenRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.service.email.EmailService;
@@ -22,9 +22,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -187,6 +187,17 @@ public class UserService {
         userRepository.save(user);
     }
 
+    public void updateUserRole(String usersEmail, String newRole) {
+        Optional<User> userOptional = userRepository.findByEmail(usersEmail);
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            user.getRoles().clear();
+            user.getRoles().add(Role.valueOf(newRole));
+
+            userRepository.save(user);
+        }
+    }
+
     public void updateEvropostCredentialsAndSettings(String email, EvropostCredentialsDTO dto) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
@@ -246,6 +257,18 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
+    public List<User> findAll() {
+        return userRepository.findAll();
+    }
+
+    public long countUsers() {
+        return userRepository.count();
+    }
+
+    public long countPaidUsers() {
+        return userRepository.countByRolesContaining(Role.ROLE_PAID_USER);
+    }
+
     /**
      * Меняет пароль пользователя.
      * <p>
@@ -269,6 +292,18 @@ public class UserService {
         } else {
             throw new IllegalArgumentException("Пользователь не найден");
         }
+    }
+
+    public void updateUserUpdateInfo(User user, int updatesCount) {
+        // Получаем текущую дату в UTC
+        ZonedDateTime currentDate = ZonedDateTime.now(ZoneOffset.UTC);
+
+        // Обновляем счетчик обновлений (увеличиваем на количество обновленных посылок)
+        user.setUpdateCount(user.getUpdateCount() + updatesCount);
+
+        user.setLastUpdateDate(currentDate);
+
+        userRepository.save(user);
     }
 
     /**

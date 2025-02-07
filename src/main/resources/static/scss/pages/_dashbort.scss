@@ -1,0 +1,63 @@
+@use "../abstracts/_variables.scss" as vars;
+@use "../abstracts/_mixins.scss" as mixins;
+@use "sass:color";
+
+/* Основные стили для всего контейнера */
+.container {
+  padding-top: 40px;
+  padding-bottom: 40px;
+}
+
+/* Стили для карточек */
+.custom-card {
+  border-radius: 10px;
+  padding: 20px;
+  background-color: vars.$light;
+  @include mixins.box-shadow(0, 4px, 10px, rgba(0, 0, 0, 0.1));
+  @include mixins.transition(all, 0.3s);
+
+  &:hover {
+    transform: translateY(-5px);
+    @include mixins.box-shadow(0, 8px, 15px, rgba(0, 0, 0, 0.15));
+  }
+
+  .card-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: vars.$dark;
+    text-align: center;
+  }
+
+  .card-text {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: vars.$primary;
+    text-align: center;
+  }
+}
+
+/* Стили для элементов списка */
+.custom-list-item {
+  border-radius: 8px;
+  margin-bottom: 10px;
+  padding: 15px;
+  color: vars.$dark;
+  font-size: 1.1rem;
+  @include mixins.transition(all, 0.3s);
+
+  &:hover {
+    background-color: vars.$light;
+    @include mixins.box-shadow(0, 4px, 10px, rgba(0, 0, 0, 0.05));
+  }
+
+  i {
+    margin-right: 10px;
+    color: vars.$primary;
+  }
+}
+
+@include mixins.respond-to(md) {
+  .custom-card {
+    margin-bottom: 30px;
+  }
+}

@@ -1,6 +1,7 @@
 package com.project.tracking_system.repository;
 
 import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -19,5 +20,7 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
     TrackParcel findByNumberAndUserId(String number, Long userId);
 
     Page<TrackParcel> findByUserIdAndStatus(Long userId, String status, Pageable pageable);
+
+    long countByUser(User user);
 
 }

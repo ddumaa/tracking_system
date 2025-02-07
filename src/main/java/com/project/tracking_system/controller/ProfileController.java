@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
@@ -21,7 +22,6 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
-import java.util.Optional;
 
 /**
  * Контроллер для управления профилем пользователя.
@@ -58,25 +58,32 @@ public class ProfileController {
      */
     @GetMapping
     public String profile(Model model) {
+        // Получаем аутентификацию текущего пользователя
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-        logger.info("Получен запрос на отображение профиля для пользователя: {}", username);
 
-        Optional<User> user = userService.findByUser(username);
-        user.ifPresentOrElse(
-                u -> {
-                    model.addAttribute("username", u.getEmail());
-                    logger.debug("Данные профиля добавлены в модель для пользователя: {}", u.getEmail());
-                },
-                () -> logger.warn("Пользователь с именем {} не найден в базе данных.", username)
-        );
+        if (authentication != null && authentication.isAuthenticated() && !(authentication instanceof AnonymousAuthenticationToken)) {
+            // Получаем кастомного пользователя
+            User user = (User) authentication.getPrincipal();
 
-        model.addAttribute("userSettingsDTO", new UserSettingsDTO());
-        model.addAttribute("evropostCredentialsDTO", userService.getEvropostCredentials(username));
+            logger.info("Получен запрос на отображение профиля для пользователя: {}", user.getEmail());
 
+            // Добавляем данные профиля в модель
+            model.addAttribute("username", user.getEmail());
+            logger.debug("Данные профиля добавлены в модель для пользователя: {}", user.getEmail());
+
+            // Добавляем настройки и другие данные пользователя в модель
+            model.addAttribute("userSettingsDTO", new UserSettingsDTO());
+            model.addAttribute("evropostCredentialsDTO", userService.getEvropostCredentials(user.getEmail()));
+
+        } else {
+            // Обработка случая, если пользователь не аутентифицирован
+            model.addAttribute("error", "Пожалуйста, авторизуйтесь.");
+            logger.warn("Попытка доступа к профилю неаутентифицированного пользователя.");
+        }
 
         return "profile";
     }
+
 
     /**
      * Отображает форму настроек пользователя.

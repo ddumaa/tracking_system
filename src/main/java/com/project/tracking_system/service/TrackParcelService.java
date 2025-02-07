@@ -3,6 +3,7 @@ package com.project.tracking_system.service;
 import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
+import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.model.GlobalStatus;
@@ -13,8 +14,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -75,25 +79,37 @@ public class TrackParcelService {
         if (number == null || trackInfoListDTO == null) {
             throw new IllegalArgumentException("Отсутствует посылка");
         }
-        List<TrackInfoDTO> trackInfoDTOList = trackInfoListDTO.getList();
 
+        List<TrackInfoDTO> trackInfoDTOList = trackInfoListDTO.getList();
         Long userId = user.getId();
+
+        // Проверка на ограничения для бесплатных пользователей
+        if (user.getRoles().contains(Role.ROLE_FREE_USER)) {
+            long existingParcelCount = trackParcelRepository.countByUser(user);
+
+            if (existingParcelCount >= 10) {
+                throw new IllegalArgumentException("Для бесплатного аккаунта можно хранить не более 10 посылок. Для снятия ограничения, перейдите на платный аккаунт.");
+            }
+        }
+
+        // Ищем посылку по номеру отслеживания и пользователю
         TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(number, userId);
 
         if (trackParcel != null) {
-                // обновляем существующую запись
-                trackParcel.setStatus(statusTrackService.setStatus(trackInfoDTOList));
-                trackParcel.setData(trackInfoDTOList.get(0).getTimex());
+            // Если посылка существует для данного пользователя, обновляем её
+            trackParcel.setStatus(statusTrackService.setStatus(trackInfoDTOList));
+            trackParcel.setData(trackInfoDTOList.get(0).getTimex());
         } else {
-                // создаём новую запись
-                trackParcel = new TrackParcel();
-                trackParcel.setNumber(number);
-                trackParcel.setUser(user);
-                trackParcel.setStatus(statusTrackService.setStatus(trackInfoDTOList));
-                trackParcel.setData(trackInfoDTOList.get(0).getTimex());
+            // Если посылка не найдена, создаём новую
+            trackParcel = new TrackParcel();
+            trackParcel.setNumber(number);
+            trackParcel.setUser(user);
+            trackParcel.setStatus(statusTrackService.setStatus(trackInfoDTOList));
+            trackParcel.setData(trackInfoDTOList.get(0).getTimex());
         }
-        trackParcelRepository.save(trackParcel);
 
+        // Сохраняем запись в базу данных
+        trackParcelRepository.save(trackParcel);
     }
 
     /**
@@ -171,6 +187,10 @@ public class TrackParcelService {
                 .collect(Collectors.toList());
     }
 
+    public long countAllParcels() {
+        return trackParcelRepository.count();
+    }
+
     /**
      * Вспомогательный метод для преобразования посылок в DTO.
      * <p>
@@ -197,6 +217,11 @@ public class TrackParcelService {
      * @param name имя пользователя
      */
     public void updateHistory (User user){
+        // Проверяем, что пользователь платный
+        if (!user.getRoles().contains(Role.ROLE_PAID_USER)) {
+            throw new AccessDeniedException("Эта функция доступна только для платных пользователей. Для использования, перейдите на платный аккаунт.");
+        }
+
         List<TrackParcelDTO> byUserTrack = findAllByUserTracks(user.getEmail());
         List<CompletableFuture<Void>> futures = new ArrayList<>(); // Список для хранения асинхронных задач
 
@@ -225,6 +250,28 @@ public class TrackParcelService {
     }
 
     public void updateSelectedParcels(User user, List<String> selectedNumbers) {
+        // Проверяем, является ли пользователь бесплатным
+        boolean isFreeUser = !user.getRoles().contains(Role.ROLE_PAID_USER);
+
+        // Если пользователь бесплатный, проверяем количество обновлений за день
+        if (isFreeUser) {
+            // Получаем текущую дату в UTC
+            ZonedDateTime currentDate = ZonedDateTime.now(ZoneOffset.UTC);
+
+            // Проверяем, была ли уже попытка обновления в этот день
+            if (user.getLastUpdateDate() != null && user.getLastUpdateDate().toLocalDate().equals(currentDate.toLocalDate())) {
+                // Проверяем лимит обновлений в день
+                if (user.getUpdateCount() >= 10) {
+                    throw new IllegalStateException("Бесплатные пользователи могут обновить не более 10 посылок в день. Для снятия ограничения, перейдите на платный аккаунт.");
+                }
+            }
+
+            // Если прошло больше суток, сбрасываем счетчик обновлений
+            if (user.getLastUpdateDate() == null || !user.getLastUpdateDate().toLocalDate().equals(currentDate.toLocalDate())) {
+                user.setUpdateCount(0);  // сбрасываем счетчик
+            }
+        }
+
         updateCompleted = false; // Фиксируем, что обновление началось
 
         CompletableFuture.runAsync(() -> {
@@ -256,8 +303,18 @@ public class TrackParcelService {
 
             // После завершения всех задач обновляем флаг
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> updateCompleted = true);
+
+            // После завершения всех операций обновляем дату и счетчик
+            if (isFreeUser) {
+                // Увеличиваем счетчик обновлений и сохраняем дату последнего обновления
+                user.setUpdateCount(user.getUpdateCount() + selectedNumbers.size());
+                user.setLastUpdateDate(ZonedDateTime.now(ZoneOffset.UTC));  // Сохраняем текущую дату и время в UTC
+                userService.updateUserUpdateInfo(user, selectedNumbers.size());  // Сохраняем изменения в базе данных
+            }
         });
     }
+
+
 
     /**
      * Удаляет посылки пользователя по номерам.

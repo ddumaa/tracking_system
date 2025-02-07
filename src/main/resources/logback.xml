@@ -1,6 +1,6 @@
 <configuration debug="true">
 
-    <property name="LOG_DIR" value="C:/Users/dimad/IdeaProjects/tracking_system/logs" />
+    <property name="LOG_DIR" value="${LOG_DIR:-/default/path/to/logs}" />
 
     <appender name="consoleAppender" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
