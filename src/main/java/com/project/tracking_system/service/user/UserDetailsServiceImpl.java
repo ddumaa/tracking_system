@@ -1,14 +1,20 @@
 package com.project.tracking_system.service.user;
 
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.util.Collection;
+import java.util.stream.Collectors;
 
 /**
  * Реализация сервиса для загрузки деталей пользователя для аутентификации.
@@ -43,7 +49,28 @@ public class UserDetailsServiceImpl implements UserDetailsService {
      */
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        return userRepository.findByEmail(email)
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Такой пользователь не найден: " + email));
+
+        if (user.getRoles().contains(Role.ROLE_PAID_USER)) {
+            if (user.getRoleExpirationDate() != null
+                && user.getRoleExpirationDate().isBefore(ZonedDateTime.now(ZoneOffset.UTC))){
+
+                user.getRoles().remove(Role.ROLE_PAID_USER);
+                user.getRoles().add(Role.ROLE_FREE_USER);
+
+                user.setRoleExpirationDate(null);
+
+                userRepository.save(user);
+            }
+        }
+
+        return user;
+    }
+
+    private Collection<? extends GrantedAuthority> mapRolesToAuthorities(Collection<Role> roles) {
+        return roles.stream()
+                .map(role -> new SimpleGrantedAuthority(role.name()))
+                .collect(Collectors.toSet());
     }
 }

@@ -12,6 +12,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -42,13 +43,16 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @EnableWebSecurity
 public class SecurityConfiguration {
 
-    Logger logger = LoggerFactory.getLogger(SecurityConfiguration.class);
+    private final static Logger logger = LoggerFactory.getLogger(SecurityConfiguration.class);
 
+    private final UserDetailsService userDetailsService;
     private final LoginAttemptService loginAttemptService;
 
     @Autowired
-    public SecurityConfiguration(LoginAttemptService loginAttemptService) {
+    public SecurityConfiguration(LoginAttemptService loginAttemptService,
+                                 UserDetailsService userDetailsService) {
         this.loginAttemptService = loginAttemptService;
+        this.userDetailsService = userDetailsService;
     }
 
     @Bean
@@ -69,11 +73,13 @@ public class SecurityConfiguration {
                         )
                         .defaultsDisabled()
                         .contentTypeOptions(withDefaults())
-                        .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN))
+                        .referrerPolicy(referrer -> referrer
+                                .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN))
                 )
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests
                         .requestMatchers("/", "/login", "/logout", "/registration", "/forgot-password", "/reset-password",
                                 "/privacy-policy", "/terms-of-use", "/css/**", "/js/**", "/images/**").permitAll()
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .formLogin(formLogin -> formLogin
@@ -127,6 +133,7 @@ public class SecurityConfiguration {
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 
                 );
+        http.userDetailsService(userDetailsService);
 
         return http.build();
     }

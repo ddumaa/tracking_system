@@ -2,6 +2,7 @@ package com.project.tracking_system.service;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackingResultAdd;
+import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.entity.User;
 import org.apache.poi.ss.usermodel.*;
 import org.slf4j.Logger;
@@ -29,7 +30,7 @@ import java.util.concurrent.CompletableFuture;
 @Service
 public class TrackingNumberServiceXLS {
 
-    Logger logger = LoggerFactory.getLogger(TrackingNumberServiceXLS.class);
+    private final static Logger logger = LoggerFactory.getLogger(TrackingNumberServiceXLS.class);
 
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final TrackParcelService trackParcelService;
@@ -61,11 +62,30 @@ public class TrackingNumberServiceXLS {
     public List<TrackingResultAdd> processTrackingNumber(MultipartFile file, User user) throws IOException {
         List<TrackingResultAdd> trackingResult = new ArrayList<>();
 
+        // Проверка на роль пользователя и ограничение количества треков
+        boolean isFreeUser = user != null && user.getRoles().contains(Role.ROLE_FREE_USER);
+        boolean isAuthenticatedUser = user != null;
+        boolean isAnonymousUser = !isAuthenticatedUser;
+
+        // Ограничения для разных типов пользователей
+        int maxTrackingLimit = Integer.MAX_VALUE; // Для платных пользователей без ограничений
+        if (isFreeUser) {
+            maxTrackingLimit = 10; // Для бесплатных пользователей — максимум 10 треков
+        } else if (isAnonymousUser) {
+            maxTrackingLimit = 5;  // Для анонимных пользователей — максимум 5 треков
+        }
+
         try (InputStream in = file.getInputStream(); Workbook workbook = WorkbookFactory.create(in)) {
             Sheet sheet = workbook.getSheetAt(0);
             List<CompletableFuture<TrackingResultAdd>> futures = new ArrayList<>();
 
-            for (Row row : sheet) {
+            // Ограничиваем количество обрабатываемых треков в зависимости от типа пользователя
+            int rowCount = Math.min(sheet.getPhysicalNumberOfRows(), maxTrackingLimit);
+
+            for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+                Row row = sheet.getRow(rowIndex);
+                if (row == null) continue;
+
                 Cell cell = row.getCell(0);
                 if (cell != null) {
                     String trackingNumber = cell.getStringCellValue();
@@ -103,6 +123,16 @@ public class TrackingNumberServiceXLS {
             for (CompletableFuture<TrackingResultAdd> future : futures) {
                 trackingResult.add(future.join());
             }
+
+            // Если количество треков превышает ограничение для анонимных или бесплатных пользователей, добавляем ошибку
+            if (isAnonymousUser && sheet.getPhysicalNumberOfRows() > 5) {
+                trackingResult.add(new TrackingResultAdd("",
+                        "Для анонимных пользователей доступно не более 5 треков. Зарегистрируйтесь, чтобы повысить лимит."));
+            } else if (isFreeUser && sheet.getPhysicalNumberOfRows() > 10) {
+                trackingResult.add(new TrackingResultAdd("",
+                        "Для бесплатных пользователей доступно не более 10 треков. Перейдите на платный аккаунт, чтобы не было ограничений."));
+            }
+
         }
 
         return trackingResult;

@@ -6,6 +6,7 @@ import com.project.tracking_system.dto.UserSettingsDTO;
 import com.project.tracking_system.entity.ConfirmationToken;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
+import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.repository.ConfirmationTokenRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.service.email.EmailService;
@@ -23,7 +24,11 @@ import org.springframework.stereotype.Service;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+
+import static java.time.ZoneOffset.UTC;
 
 /**
  * Сервис для управления пользователями.
@@ -90,7 +95,7 @@ public class UserService {
             // Если токен существует, обновляем код подтверждения и время создания
             ConfirmationToken token = existingToken.get();
             token.setConfirmationCode(confirmationCode);
-            token.setCreatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+            token.setCreatedAt(ZonedDateTime.now(UTC));
             confirmationTokenRepository.save(token);
         } else {
             // Если токена нет, создаем новый
@@ -124,7 +129,7 @@ public class UserService {
             if (token.getConfirmationCode().equals(userDTO.getConfirmCodRegistration())) {
 
                 ZonedDateTime tokenCreatedAt = token.getCreatedAt();
-                ZonedDateTime oneHourAgoUtc = ZonedDateTime.now(ZoneOffset.UTC).minusHours(1);
+                ZonedDateTime oneHourAgoUtc = ZonedDateTime.now(UTC).minusHours(1);
 
                 if (tokenCreatedAt.isBefore(oneHourAgoUtc)) {
                     throw new IllegalArgumentException("Срок действия кода подтверждения истек");
@@ -133,6 +138,7 @@ public class UserService {
                 User user = new User();
                 user.setEmail(userDTO.getEmail());
                 user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
+                user.setRoles(Set.of(Role.ROLE_FREE_USER));
                 userRepository.save(user);
 
                 confirmationTokenRepository.deleteByEmail(userDTO.getEmail());
@@ -141,6 +147,54 @@ public class UserService {
             }
         } else {
             throw new IllegalArgumentException("Код подтверждения не найден");
+        }
+    }
+
+    public void upgradeOrExtendRole(String email, int months) {
+        Optional<User> userOptional = userRepository.findByEmail(email);
+        if (userOptional.isEmpty()) {
+            throw new IllegalArgumentException("Пользователь не найден");
+        }
+
+        User user = userOptional.get();
+
+        // Текущее время в UTC
+        ZonedDateTime nowUtc = ZonedDateTime.now(ZoneOffset.UTC);
+
+        if (user.getRoles().contains(Role.ROLE_PAID_USER)) {
+            // Уже платный пользователь. Проверяем, не истёк ли срок
+            ZonedDateTime currentExpiry = user.getRoleExpirationDate();
+
+            // Если срок не установлен (null) или уже просрочен
+            // (например, сравниваем currentExpiry и nowUtc)
+            if (currentExpiry == null || currentExpiry.isBefore(nowUtc)) {
+                currentExpiry = nowUtc;
+            }
+            // продлеваем на нужное кол-во месяцев
+            user.setRoleExpirationDate(currentExpiry.plusMonths(months));
+
+        } else if (user.getRoles().contains(Role.ROLE_FREE_USER)) {
+            // Был фри, апгрейдим до платного
+            user.getRoles().remove(Role.ROLE_FREE_USER);
+            user.getRoles().add(Role.ROLE_PAID_USER);
+
+            user.setRoleExpirationDate(nowUtc.plusMonths(months));
+
+        } else {
+            throw new IllegalArgumentException("Пользователь в статусе, который нельзя апгрейдить (например, Admin?)");
+        }
+
+        userRepository.save(user);
+    }
+
+    public void updateUserRole(String usersEmail, String newRole) {
+        Optional<User> userOptional = userRepository.findByEmail(usersEmail);
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            user.getRoles().clear();
+            user.getRoles().add(Role.valueOf(newRole));
+
+            userRepository.save(user);
         }
     }
 
@@ -203,6 +257,18 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
+    public List<User> findAll() {
+        return userRepository.findAll();
+    }
+
+    public long countUsers() {
+        return userRepository.count();
+    }
+
+    public long countPaidUsers() {
+        return userRepository.countByRolesContaining(Role.ROLE_PAID_USER);
+    }
+
     /**
      * Меняет пароль пользователя.
      * <p>
@@ -226,6 +292,18 @@ public class UserService {
         } else {
             throw new IllegalArgumentException("Пользователь не найден");
         }
+    }
+
+    public void updateUserUpdateInfo(User user, int updatesCount) {
+        // Получаем текущую дату в UTC
+        ZonedDateTime currentDate = ZonedDateTime.now(ZoneOffset.UTC);
+
+        // Обновляем счетчик обновлений (увеличиваем на количество обновленных посылок)
+        user.setUpdateCount(user.getUpdateCount() + updatesCount);
+
+        user.setLastUpdateDate(currentDate);
+
+        userRepository.save(user);
     }
 
     /**
