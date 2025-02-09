@@ -1,0 +1,50 @@
+@use '../abstracts/_variables.scss' as vars;
+@use '../abstracts/_mixins.scss' as mixins;
+@use "sass:color";
+
+.email-container {
+  font-family: vars.$font-stack;
+  background-color: vars.$light;
+  color: vars.$dark;
+  padding: 20px;
+  text-align: center;
+
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+    background: vars.$white;
+    border-radius: 8px;
+    @include mixins.box-shadow();
+  }
+
+  .header {
+    background-color: vars.$primary;
+    color: vars.$white;
+    text-align: center;
+    padding: 10px;
+
+    img {
+      max-width: 150px;
+      margin-bottom: 10px;
+    }
+  }
+
+  .content {
+    padding: 20px;
+    text-align: center;
+  }
+
+  .confirmation-code,
+  .reset-link {
+    @include mixins.button-style(vars.$success);
+    font-size: 18px;
+    margin-top: 20px;
+  }
+
+  .footer {
+    text-align: center;
+    color: vars.$secondary;
+    padding: 20px;
+  }
+}

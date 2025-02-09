@@ -2,12 +2,12 @@ package com.project.tracking_system.service;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackingResultAdd;
-import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.model.TrackingResponse;
+import com.project.tracking_system.service.user.UserService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -16,6 +16,8 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Сервис для обработки номеров отслеживания из XLS-файлов.
@@ -27,25 +29,15 @@ import java.util.concurrent.CompletableFuture;
  * @author Dmitriy Anisimov
  * @date Добавлено 07.01.2025
  */
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class TrackingNumberServiceXLS {
 
-    private final static Logger logger = LoggerFactory.getLogger(TrackingNumberServiceXLS.class);
-
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final TrackParcelService trackParcelService;
-
-    /**
-     * Конструктор класса {@link TrackingNumberServiceXLS}.
-     *
-     * @param typeDefinitionTrackPostService сервис для получения информации о посылке по номеру отслеживания
-     * @param trackParcelService сервис для сохранения информации о посылке
-     */
-    @Autowired
-    public TrackingNumberServiceXLS(TypeDefinitionTrackPostService typeDefinitionTrackPostService, TrackParcelService trackParcelService) {
-        this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
-        this.trackParcelService = trackParcelService;
-    }
+    private final UserService userService;
+    private final ExecutorService executor = Executors.newFixedThreadPool(5);
 
     /**
      * Обрабатывает номера отслеживания, загруженные в формате XLS.
@@ -59,27 +51,25 @@ public class TrackingNumberServiceXLS {
      * @return список результатов добавления, включая номер отслеживания и статус или ошибку
      * @throws IOException если не удалось прочитать файл
      */
-    public List<TrackingResultAdd> processTrackingNumber(MultipartFile file, User user) throws IOException {
+    public TrackingResponse processTrackingNumber(MultipartFile file, Long userId) throws IOException {
         List<TrackingResultAdd> trackingResult = new ArrayList<>();
+        String limitExceededMessage = null;
 
-        // Проверка на роль пользователя и ограничение количества треков
-        boolean isFreeUser = user != null && user.getRoles().contains(Role.ROLE_FREE_USER);
-        boolean isAuthenticatedUser = user != null;
-        boolean isAnonymousUser = !isAuthenticatedUser;
+        int maxTrackingLimit;
+        User user = null;
 
-        // Ограничения для разных типов пользователей
-        int maxTrackingLimit = Integer.MAX_VALUE; // Для платных пользователей без ограничений
-        if (isFreeUser) {
-            maxTrackingLimit = 10; // Для бесплатных пользователей — максимум 10 треков
-        } else if (isAnonymousUser) {
-            maxTrackingLimit = 5;  // Для анонимных пользователей — максимум 5 треков
+        if (userId == null) {
+            log.warn("Обработка файла анонимным пользователем.");
+            maxTrackingLimit = 5;
+        } else {
+            user = userService.findUserById(userId);
+            maxTrackingLimit = userService.getMaxTrackingLimit(user);
         }
 
         try (InputStream in = file.getInputStream(); Workbook workbook = WorkbookFactory.create(in)) {
             Sheet sheet = workbook.getSheetAt(0);
             List<CompletableFuture<TrackingResultAdd>> futures = new ArrayList<>();
 
-            // Ограничиваем количество обрабатываемых треков в зависимости от типа пользователя
             int rowCount = Math.min(sheet.getPhysicalNumberOfRows(), maxTrackingLimit);
 
             for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
@@ -89,53 +79,57 @@ public class TrackingNumberServiceXLS {
                 Cell cell = row.getCell(0);
                 if (cell != null) {
                     String trackingNumber = cell.getStringCellValue();
-                    logger.info("Обрабатываем трек-номер: {}", trackingNumber);
+                    log.info("Обрабатываем трек-номер: {}", trackingNumber);
 
-                    CompletableFuture<TrackingResultAdd> future = CompletableFuture.supplyAsync(() -> {
-                        try {
-                            TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(user, trackingNumber);
-
-                            if (user != null) {
-                                trackParcelService.save(trackingNumber, trackInfo, user);
-                            }
-
-                            // Получение последнего статуса
-                            String lastStatus = "Нет данных";
-                            if (trackInfo != null && trackInfo.getList() != null && !trackInfo.getList().isEmpty()) {
-                                lastStatus = trackInfo.getList().get(0).getInfoTrack();
-                            }
-
-                            logger.info("Трек-номер: {}, последний статус: {}", trackingNumber, lastStatus);
-                            return new TrackingResultAdd(trackingNumber, lastStatus);
-
-                        } catch (Exception e) {
-                            logger.error("Ошибка обработки трек-номера {}: {}", trackingNumber, e.getMessage());
-                            return new TrackingResultAdd(trackingNumber, "Ошибка: " + e.getMessage());
-                        }
-                    });
-
+                    CompletableFuture<TrackingResultAdd> future = CompletableFuture.supplyAsync(
+                            () -> processSingleTracking(trackingNumber, userId), executor);
                     futures.add(future);
                 }
             }
 
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+            futures.forEach(future -> trackingResult.add(future.join()));
 
-            for (CompletableFuture<TrackingResultAdd> future : futures) {
-                trackingResult.add(future.join());
+            // Если анонимный пользователь превысил лимит → передаем сообщение в отдельную переменную
+            if (sheet.getPhysicalNumberOfRows() > maxTrackingLimit) {
+                limitExceededMessage = userService.getLimitExceededMessage(user);
             }
-
-            // Если количество треков превышает ограничение для анонимных или бесплатных пользователей, добавляем ошибку
-            if (isAnonymousUser && sheet.getPhysicalNumberOfRows() > 5) {
-                trackingResult.add(new TrackingResultAdd("",
-                        "Для анонимных пользователей доступно не более 5 треков. Зарегистрируйтесь, чтобы повысить лимит."));
-            } else if (isFreeUser && sheet.getPhysicalNumberOfRows() > 10) {
-                trackingResult.add(new TrackingResultAdd("",
-                        "Для бесплатных пользователей доступно не более 10 треков. Перейдите на платный аккаунт, чтобы не было ограничений."));
-            }
-
         }
 
-        return trackingResult;
+        return new TrackingResponse(trackingResult, limitExceededMessage);
+    }
+
+    private TrackingResultAdd processSingleTracking(String trackingNumber, Long userId) {
+        try {
+            TrackInfoListDTO trackInfo;
+
+            if (userId == null) {
+                log.warn("Трек-номер {} обрабатывается анонимным пользователем.", trackingNumber);
+                trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(null, trackingNumber);
+            } else {
+                trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(userId, trackingNumber);
+            }
+
+            if (trackInfo == null || trackInfo.getList() == null || trackInfo.getList().isEmpty()) {
+                log.warn("Нет данных по трек-номеру {}", trackingNumber);
+                return new TrackingResultAdd(trackingNumber, "Нет данных");
+            }
+
+            // Сохраняем посылку только для авторизованных пользователей
+            if (userId != null) {
+                trackParcelService.save(trackingNumber, trackInfo, userId);
+            } else {
+                log.info("Анонимный пользователь обработал трек-номер {} без сохранения.", trackingNumber);
+            }
+
+            String lastStatus = trackInfo.getList().get(0).getInfoTrack();
+            log.info("Трек-номер: {}, последний статус: {}", trackingNumber, lastStatus);
+
+            return new TrackingResultAdd(trackingNumber, lastStatus);
+        } catch (Exception e) {
+            log.error("Ошибка обработки трек-номера {}: {}", trackingNumber, e.getMessage(), e);
+            return new TrackingResultAdd(trackingNumber, "Ошибка: " + e.getMessage());
+        }
     }
 
 }

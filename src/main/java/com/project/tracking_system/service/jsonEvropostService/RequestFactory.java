@@ -1,8 +1,7 @@
 package com.project.tracking_system.service.jsonEvropostService;
 
 import com.project.tracking_system.model.evropost.jsonRequestModel.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -16,10 +15,9 @@ import org.springframework.stereotype.Service;
  * @author Дмитрий Анисимов
  * @date 07.01.2025
  */
+@Slf4j
 @Service
 public class RequestFactory {
-
-    private static final Logger logger = LoggerFactory.getLogger(RequestFactory.class);
 
     private final JsonRequest jsonRequest;
 
@@ -46,7 +44,7 @@ public class RequestFactory {
                 data
         );
 
-        logger.info("Создан запрос для отслеживания. Почтовый номер: {}, Метод: {}",
+        log.info("Создан запрос для отслеживания. Почтовый номер: {}, Метод: {}",
                 postalNumber, JsonMethodName.POSTAL_TRACKING);
 
         return new JsonRequest(jsonRequest.getCrc(), packet);

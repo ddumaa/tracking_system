@@ -4,15 +4,14 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.tracking_system.dto.ResolvedCredentialsDTO;
-import com.project.tracking_system.entity.User;
 import com.project.tracking_system.model.evropost.jsonRequestModel.JsonRequest;
 import com.project.tracking_system.model.evropost.jsonResponseModel.JsonEvroTracking;
 import com.project.tracking_system.model.evropost.jsonResponseModel.JsonEvroTrackingResponse;
+import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.utils.UserCredentialsResolver;
 import jakarta.json.bind.JsonbException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -27,22 +26,15 @@ import java.util.List;
  * @author Dmitriy Anisimov
  * @date 07.01.2025
  */
+@RequiredArgsConstructor
+@Slf4j
 @Service
 public class JsonEvroTrackingService {
 
-    private static final Logger logger = LoggerFactory.getLogger(JsonEvroTrackingService.class);
-
     private final JsonHandlerService jsonHandlerService;
     private final RequestFactory requestFactory;
+    private final UserService userService;
     private final UserCredentialsResolver userCredentialsResolver;
-
-    @Autowired
-    public JsonEvroTrackingService(JsonHandlerService jsonHandlerService, RequestFactory requestFactory,
-                                   UserCredentialsResolver userCredentialsResolver) {
-        this.jsonHandlerService = jsonHandlerService;
-        this.requestFactory = requestFactory;
-        this.userCredentialsResolver = userCredentialsResolver;
-    }
 
     /**
      * Получает информацию о трекинге посылки от ЕвроПочты.
@@ -55,25 +47,35 @@ public class JsonEvroTrackingService {
      * @return {@link JsonEvroTrackingResponse} объект с данными о трекинге.
      * @throws RuntimeException если произошла ошибка десериализации JSON.
      */
-    public JsonEvroTrackingResponse getJson(User user, String number) {
-        logger.info("Запрос на получение данных для пользователя: {}, почтовый номер: {}", user.getEmail(), number);
+    public JsonEvroTrackingResponse getJson(Long userId, String number) {
+        ResolvedCredentialsDTO credentials;
+        boolean useCustomCredentials = false;
 
-        ResolvedCredentialsDTO credentials = userCredentialsResolver.resolveCredentials(user);
-        logger.info("Данные для запроса определены. Используются {} данные.",
-                user.getUseCustomCredentials() ? "пользовательские" : "системные");
+        if (userId == null) {
+            log.warn("Анонимный пользователь делает запрос. Используем системные учетные данные.");
+            credentials = userCredentialsResolver.getSystemCredentials(); // Новый метод
+        } else {
+            useCustomCredentials = userService.isUsingCustomCredentials(userId);
+            log.info("Запрос на получение данных для пользователя ID: {}, почтовый номер: {}", userId, number);
+            credentials = userService.resolveCredentials(userId);
+        }
 
+        log.info("Данные для запроса определены. Используются {} данные.",
+                useCustomCredentials ? "пользовательские" : "системные");
+
+        // Выполняем запрос
         JsonRequest jsonRequest = requestFactory.createTrackingRequest(
                 credentials.getJwt(),
                 credentials.getServiceNumber(),
                 number);
-        logger.debug("Запрос создан. Почтовый номер: {}", number);
+        log.debug("Запрос создан. Почтовый номер: {}", number);
 
         JsonNode jsonNode;
         try {
             jsonNode = jsonHandlerService.jsonRequest(jsonRequest);
-            logger.info("Запрос успешно выполнен для почтового номера: {}", number);
+            log.info("Запрос успешно выполнен для почтового номера: {}", number);
         } catch (Exception e) {
-            logger.error("Ошибка при выполнении запроса для почтового номера: {}", number, e);
+            log.error("Ошибка при выполнении запроса для почтового номера: {}", number, e);
             throw new RuntimeException("Ошибка при выполнении запроса.", e);
         }
 
@@ -82,15 +84,14 @@ public class JsonEvroTrackingService {
 
         try {
             ObjectMapper mapper = new ObjectMapper();
-            List<JsonEvroTracking> table = mapper.convertValue(tableNode,
-                    new TypeReference<List<JsonEvroTracking>>() {});
+            List<JsonEvroTracking> table = mapper.convertValue(tableNode, new TypeReference<List<JsonEvroTracking>>() {});
             response.setTable(table);
-
-            logger.info("Ответ успешно обработан. Количество записей: {}", table.size());
+            log.info("Ответ успешно обработан. Количество записей: {}", table.size());
             return response;
         } catch (JsonbException e) {
-            logger.error("Ошибка десериализации ответа JSON для почтового номера: {}", number, e);
+            log.error("Ошибка десериализации ответа JSON для почтового номера: {}", number, e);
             throw new RuntimeException("Ошибка десериализации ответа JSON.", e);
         }
     }
+
 }

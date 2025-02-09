@@ -7,13 +7,14 @@ import com.project.tracking_system.model.GlobalStatus;
 import com.project.tracking_system.service.StatusTrackService;
 import com.project.tracking_system.service.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.TrackParcelService;
-import com.project.tracking_system.service.user.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -22,7 +23,6 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * Контроллер для отображения и управления историей отслеживания посылок пользователя.
@@ -34,6 +34,8 @@ import java.util.Optional;
  * @author Dmitriy Anisimov
  * @date 07.01.2025
  */
+@Slf4j
+@RequiredArgsConstructor
 @Controller
 @RequestMapping("/departures")
 public class DeparturesController {
@@ -41,24 +43,6 @@ public class DeparturesController {
     private final TrackParcelService trackParcelService;
     private final StatusTrackService statusTrackService;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
-    private final UserService userService;
-
-    /**
-     * Конструктор для инициализации зависимостей контроллера.
-     *
-     * @param trackParcelService сервис для работы с посылками.
-     * @param statusTrackService сервис для работы со статусами посылок.
-     * @param typeDefinitionTrackPostService сервис для определения типа отслеживания.
-     * @param userService сервис для работы с пользователями.
-     */
-    @Autowired
-    public DeparturesController(TrackParcelService trackParcelService, StatusTrackService statusTrackService,
-                                TypeDefinitionTrackPostService typeDefinitionTrackPostService, UserService userService) {
-        this.trackParcelService = trackParcelService;
-        this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
-        this.statusTrackService = statusTrackService;
-        this.userService = userService;
-    }
 
     /**
      * Метод для отображения списка отслеживаемых посылок пользователя с возможностью фильтрации по статусу.
@@ -77,34 +61,45 @@ public class DeparturesController {
             @RequestParam(value = "status", required = false) String statusString,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size,
-            Model model) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String authUserName = auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken) ? auth.getName() : null;
+            Model model,
+            Authentication authentication) {
 
-        Page<TrackParcelDTO> trackParcelPage;
+        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
+            log.debug("Попытка доступа к странице 'Отправления' без аутентификации.");
+            return "redirect:/login"; // Перенаправление, если пользователь не аутентифицирован
+        }
+
+        Long userId = user.getId();
+        log.info("Запрос на отображение отправлений для пользователя с ID: {}", userId);
+
+        // Определяем статус посылки (если передан)
         GlobalStatus status = null;
-        page = Math.max(page, 0);
         if (statusString != null && !statusString.isEmpty()) {
             try {
                 status = GlobalStatus.valueOf(statusString);
             } catch (IllegalArgumentException e) {
+                log.warn("Некорректный статус посылки: {}", statusString);
                 model.addAttribute("trackParcelNotification", "Неверный статус посылки");
                 return "departures";
             }
         }
-        if (status != null) {
-            trackParcelPage = trackParcelService.findByUserTracksAndStatus(authUserName, status, page, size);
-        } else {
-            trackParcelPage = trackParcelService.findByUserTracks(authUserName, page, size);
-        }
+
+        // Загружаем посылки с учетом статуса
+        page = Math.max(page, 0);
+        Page<TrackParcelDTO> trackParcelPage = (status != null)
+                ? trackParcelService.findByUserTracksAndStatus(userId, status, page, size)
+                : trackParcelService.findByUserTracks(userId, page, size);
+
+        // Если текущая страница выходит за пределы, загружаем с первой страницы
         if (page >= trackParcelPage.getTotalPages() && trackParcelPage.getTotalPages() > 0) {
+            log.warn("Выход за пределы страниц, сброс страницы на 0 для пользователя с ID: {}", userId);
             page = 0;
-            if (status != null) {
-                trackParcelPage = trackParcelService.findByUserTracksAndStatus(authUserName, status, page, size);
-            } else {
-                trackParcelPage = trackParcelService.findByUserTracks(authUserName, page, size);
-            }
+            trackParcelPage = (status != null)
+                    ? trackParcelService.findByUserTracksAndStatus(userId, status, page, size)
+                    : trackParcelService.findByUserTracks(userId, page, size);
         }
+
+        // Добавляем атрибуты в модель
         model.addAttribute("size", size);
         model.addAttribute("trackParcelDTO", trackParcelPage.getContent());
         model.addAttribute("statusString", statusString);
@@ -112,6 +107,7 @@ public class DeparturesController {
         model.addAttribute("totalPages", trackParcelPage.getTotalPages());
         model.addAttribute("trackParcelNotification", trackParcelPage.isEmpty() ? "Отслеживаемых посылок нет" : null);
         model.addAttribute("statusTrackService", statusTrackService);
+
         return "departures";
     }
 
@@ -123,15 +119,13 @@ public class DeparturesController {
      * @return имя частичного представления с информацией о посылке.
      */
     @GetMapping("/{itemNumber}")
-    public String departures(Model model, @PathVariable("itemNumber") String itemNumber) {
-
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken) {
+    public String departures(Model model, @PathVariable("itemNumber") String itemNumber, Authentication authentication) {
+        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
             throw new RuntimeException("Пользователь не аутентифицирован.");
         }
 
-        User user = (User) auth.getPrincipal();
-        TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(user, itemNumber);
+        Long userId = user.getId();
+        TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(userId, itemNumber);
 
         model.addAttribute("trackInfo", trackInfo);
         model.addAttribute("itemNumber", itemNumber);
@@ -145,29 +139,43 @@ public class DeparturesController {
      * @return перенаправление на страницу истории.
      */
     @PostMapping("/track-update")
-    public String updateDepartures(@RequestParam(required = false) List<String> selectedNumbers, RedirectAttributes redirectAttributes) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    public String updateDepartures(
+            @RequestParam(required = false) List<String> selectedNumbers,
+            RedirectAttributes redirectAttributes,
+            Authentication authentication) {
 
-        if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
-            User user = (User) auth.getPrincipal();
-
-            if (selectedNumbers != null && !selectedNumbers.isEmpty()) {
-                trackParcelService.updateSelectedParcels(user, selectedNumbers);
-                redirectAttributes.addFlashAttribute("successMessage", "Выбранные посылки успешно обновлены.");
-            } else {
-                trackParcelService.updateHistory(user);
-                redirectAttributes.addFlashAttribute("successMessage", "Все посылки успешно обновлены.");
-            }
-        } else {
-            redirectAttributes.addFlashAttribute("errorMessage", "Ошибка: Не удалось обновить посылки.");
+        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
+            log.warn("Попытка обновления посылок без аутентификации.");
+            redirectAttributes.addFlashAttribute("errorMessage", "Ошибка: Необходимо войти в систему.");
+            return "redirect:/login";
         }
+
+        Long userId = user.getId();
+        log.info("Запрос на обновление посылок для пользователя с ID: {}", userId);
+
+        if (selectedNumbers != null && !selectedNumbers.isEmpty()) {
+            trackParcelService.updateSelectedParcels(userId, selectedNumbers);
+            log.info("Выбранные посылки {} обновлены для пользователя с ID: {}", selectedNumbers, userId);
+            redirectAttributes.addFlashAttribute("successMessage", "Выбранные посылки успешно обновлены.");
+        } else {
+            trackParcelService.updateHistory(userId);
+            log.info("Обновлены все посылки для пользователя с ID: {}", userId);
+            redirectAttributes.addFlashAttribute("successMessage", "Все посылки успешно обновлены.");
+        }
+
         return "redirect:/departures";
     }
 
     @GetMapping("/update-status")
     @ResponseBody
-    public ResponseEntity<Map<String, Boolean>> checkUpdateStatus() {
-        boolean isCompleted = trackParcelService.isUpdateCompleted();
+    public ResponseEntity<Map<String, Boolean>> checkUpdateStatus(Authentication authentication) {
+        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Collections.singletonMap("error", false));
+        }
+
+        Long userId = user.getId();
+        boolean isCompleted = trackParcelService.isUpdateCompleted(userId);
+        log.debug("Проверка статуса обновления для пользователя {}: {}", userId, isCompleted);
         return ResponseEntity.ok(Collections.singletonMap("completed", isCompleted));
     }
 
@@ -182,23 +190,35 @@ public class DeparturesController {
      * @return перенаправление на страницу истории.
      */
     @PostMapping("/delete-selected")
-    public String deleteSelected(@RequestParam List<String> selectedNumbers, RedirectAttributes redirectAttributes) {
-        try {
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            String authUserName = (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken))
-                    ? auth.getName() : null;
+    public String deleteSelected(
+            @RequestParam List<String> selectedNumbers,
+            RedirectAttributes redirectAttributes,
+            Authentication authentication) {
 
-            Optional<User> byUser = userService.findByUser(authUserName);
-            if (byUser.isPresent()) {
-                Long userId = byUser.get().getId();
-                trackParcelService.deleteByNumbersAndUserId(selectedNumbers, userId);
-                redirectAttributes.addFlashAttribute("successMessage", "Выбранные посылки успешно удалены.");
-            } else {
-                redirectAttributes.addFlashAttribute("errorMessage", "Пользователь не найден.");
-            }
+        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
+            log.warn("Попытка удаления посылок без аутентификации.");
+            redirectAttributes.addFlashAttribute("errorMessage", "Ошибка: Необходимо войти в систему.");
+            return "redirect:/login";
+        }
+
+        Long userId = user.getId();
+        log.info("Запрос на удаление посылок {} для пользователя с ID: {}", selectedNumbers, userId);
+
+        if (selectedNumbers == null || selectedNumbers.isEmpty()) {
+            log.warn("Попытка удаления без выбранных посылок пользователем с ID: {}", userId);
+            redirectAttributes.addFlashAttribute("errorMessage", "Ошибка: Не выбраны посылки для удаления.");
+            return "redirect:/departures";
+        }
+
+        try {
+            trackParcelService.deleteByNumbersAndUserId(selectedNumbers, userId);
+            log.info("Выбранные посылки {} удалены пользователем с ID: {}", selectedNumbers, userId);
+            redirectAttributes.addFlashAttribute("successMessage", "Выбранные посылки успешно удалены.");
         } catch (Exception e) {
+            log.error("Ошибка при удалении посылок {} пользователем с ID: {}: {}", selectedNumbers, userId, e.getMessage(), e);
             redirectAttributes.addFlashAttribute("errorMessage", "Ошибка при удалении посылок: " + e.getMessage());
         }
+
         return "redirect:/departures";
     }
 

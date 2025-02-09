@@ -3,18 +3,13 @@ package com.project.tracking_system.controller;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collection;
 import java.util.List;
 
 /**
@@ -23,21 +18,15 @@ import java.util.List;
  * @author Dmitriy Anisimov
  * @date 07.02.2025
  */
+@Slf4j
+@RequiredArgsConstructor
 @Controller
 @RequestMapping("/admin")
 @PreAuthorize("hasRole('ROLE_ADMIN')")
 public class AdminController {
 
-    private final static Logger logger = LoggerFactory.getLogger(AdminController.class);
-
     private final UserService userService;
     private final TrackParcelService trackParcelService;
-
-    @Autowired
-    public AdminController(UserService userService, TrackParcelService trackParcelService) {
-        this.userService = userService;
-        this.trackParcelService = trackParcelService;
-    }
 
     @GetMapping()
     public String adminDashboard(Model model) {
@@ -60,29 +49,28 @@ public class AdminController {
         return "admin/user-list";
     }
 
-    @GetMapping("/users/{usersEmail}")
-    public String getUserDetails(@PathVariable String usersEmail, Model model) {
-        User user = userService.findByUser(usersEmail)
-                .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
+    @GetMapping("/users/{usersId}")
+    public String getUserDetails(@PathVariable Long usersId, Model model) {
+        User user = userService.findUserById(usersId);
 
-        var parcels = trackParcelService.findAllByUserTracks(usersEmail);
+        var parcels = trackParcelService.findAllByUserTracks(usersId);
 
         model.addAttribute("user", user);
         model.addAttribute("parcels", parcels);
         return "admin/user-details";
     }
 
-    @PostMapping("/users/{usersEmail}/role-update")
-    public String updateUserRole(@PathVariable String usersEmail,
+    @PostMapping("/users/{usersId}/role-update")
+    public String updateUserRole(@PathVariable Long usersId,
                                  @RequestParam("role") String role) {
-        userService.updateUserRole(usersEmail, role);
-        return "redirect:/admin/users/" + usersEmail;
+        userService.updateUserRole(usersId, role);
+        return "redirect:/admin/users/" + usersId;
     }
 
-    @PostMapping("/users/{usersEmail}/extend-role")
-    public String extendUserRole(@PathVariable String usersEmail,
+    @PostMapping("/users/{usersId}/extend-role")
+    public String extendUserRole(@PathVariable Long usersId,
                                  @RequestParam int months) {
-        userService.upgradeOrExtendRole(usersEmail, months);
-        return "redirect:/admin/users/" + usersEmail;
+        userService.upgradeOrExtendRole(usersId, months);
+        return "redirect:/admin/users/" + usersId;
     }
 }

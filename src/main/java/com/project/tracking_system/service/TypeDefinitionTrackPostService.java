@@ -1,12 +1,12 @@
 package com.project.tracking_system.service;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
-import com.project.tracking_system.entity.User;
 import com.project.tracking_system.maper.JsonEvroTrackingResponseMapper;
 import com.project.tracking_system.model.evropost.jsonResponseModel.JsonEvroTrackingResponse;
 import com.project.tracking_system.service.belpost.WebBelPost;
 import com.project.tracking_system.service.jsonEvropostService.JsonEvroTrackingService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -23,27 +23,14 @@ import java.util.concurrent.ExecutionException;
  * @author Dmitriy Anisimov
  * @date Добавленно 07.01.2025
  */
+@RequiredArgsConstructor
+@Slf4j
 @Service
 public class TypeDefinitionTrackPostService {
 
     private final WebBelPost webBelPost;
     private final JsonEvroTrackingService jsonEvroTrackingService;
     private final JsonEvroTrackingResponseMapper jsonEvroTrackingResponseMapper;
-
-    /**
-     * Конструктор класса {@link TypeDefinitionTrackPostService}.
-     *
-     * @param webBelPost сервис для работы с WebBelPost
-     * @param jsonEvroTrackingService сервис для получения данных о посылке от EuroPost
-     * @param jsonEvroTrackingResponseMapper маппер для преобразования ответа от EuroPost в объект DTO
-     */
-    @Autowired
-    public TypeDefinitionTrackPostService(WebBelPost webBelPost, JsonEvroTrackingService jsonEvroTrackingService,
-                                          JsonEvroTrackingResponseMapper jsonEvroTrackingResponseMapper) {
-        this.webBelPost = webBelPost;
-        this.jsonEvroTrackingService = jsonEvroTrackingService;
-        this.jsonEvroTrackingResponseMapper = jsonEvroTrackingResponseMapper;
-    }
 
     /**
      * Асинхронный метод для получения информации о статусе посылки по номеру отслеживания.
@@ -57,18 +44,34 @@ public class TypeDefinitionTrackPostService {
      * @throws IllegalArgumentException если номер отслеживания имеет некорректный формат
      */
     @Async("Post")
-    public CompletableFuture<TrackInfoListDTO> getTypeDefinitionTrackPostServiceAsync(User user, String number) {
-        if (number.matches("^PC\\d{9}BY$") || number.matches("^BV\\d{9}BY$") ||
-                number.matches("^BP\\d{9}BY$")) {
-            return webBelPost.webAutomationAsync(number);
-        }
-        if (number.matches("^BY\\d{12}$")) {
-            JsonEvroTrackingResponse json = jsonEvroTrackingService.getJson(user, number);
-            TrackInfoListDTO trackInfoListDTO = jsonEvroTrackingResponseMapper.mapJsonEvroTrackingResponseToDTO(json);
-            return CompletableFuture.completedFuture(trackInfoListDTO);
-        }
-        throw new IllegalArgumentException("Указан некорректный код посылки: " + number);
+    public CompletableFuture<TrackInfoListDTO> getTypeDefinitionTrackPostServiceAsync(Long userId, String number) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                if (number.matches("^PC\\d{9}BY$") || number.matches("^BV\\d{9}BY$") || number.matches("^BP\\d{9}BY$")) {
+                    return webBelPost.webAutomationAsync(number).join();
+                }
+
+                if (number.matches("^BY\\d{12}$")) {
+                    if (userId == null) {
+                        log.warn("Анонимный пользователь запрашивает данные по номеру: {}", number);
+                        // Используем альтернативный метод без userId
+                        JsonEvroTrackingResponse json = jsonEvroTrackingService.getJson(userId, number);
+                        return jsonEvroTrackingResponseMapper.mapJsonEvroTrackingResponseToDTO(json);
+                    }
+
+                    JsonEvroTrackingResponse json = jsonEvroTrackingService.getJson(userId, number);
+                    return jsonEvroTrackingResponseMapper.mapJsonEvroTrackingResponseToDTO(json);
+                }
+
+                log.warn("Некорректный код посылки: {}", number);
+                throw new IllegalArgumentException("Указан некорректный код посылки: " + number);
+            } catch (Exception e) {
+                log.error("Ошибка при обработке трек-номера {} для пользователя с ID {}: {}", number, userId, e.getMessage(), e);
+                return new TrackInfoListDTO(); // Возвращаем пустой объект при ошибке
+            }
+        });
     }
+
 
     /**
      * Синхронный метод для получения информации о статусе посылки.
@@ -80,16 +83,14 @@ public class TypeDefinitionTrackPostService {
      * @return объект {@link TrackInfoListDTO} с информацией о статусе посылки
      * @throws IllegalArgumentException если номер отслеживания имеет некорректный формат
      */
-    public TrackInfoListDTO getTypeDefinitionTrackPostService(User user, String number) {
+    public TrackInfoListDTO getTypeDefinitionTrackPostService(Long userId, String number) {
         try {
-            return getTypeDefinitionTrackPostServiceAsync(user, number).get();
+            return getTypeDefinitionTrackPostServiceAsync(userId, number).get();
         } catch (ExecutionException | InterruptedException e) {
-            // Обрабатываем ошибки при ожидании асинхронного ответа
-            e.printStackTrace();
-            return new TrackInfoListDTO();  // Возвращаем пустой объект, если произошла ошибка
-        } catch (IllegalArgumentException e) {
-            // Обрабатываем ошибку неправильного формата трек-номера
-            throw e;
+            log.error("Ошибка при получении данных по треку {} для пользователя с ID {}: {}", number, userId, e.getMessage(), e);
+            Thread.currentThread().interrupt(); // Восстанавливаем статус прерывания потока
+            return new TrackInfoListDTO(); // Возвращаем пустой объект, если произошла ошибка
         }
     }
+
 }

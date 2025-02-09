@@ -712,6 +712,36 @@ button:hover {
     display: none;
   }
 }
+.limit-warning {
+  font-size: 18px;
+  font-weight: bold;
+  color: #b30000;
+  background-color: #ffe6e6;
+  padding: 12px;
+  border: 2px solid #b30000;
+  border-radius: 6px;
+  text-align: center;
+  margin-top: 15px;
+  transition: fadeIn 0.5s ease-in-out;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+}
+@media (max-width: 768px) {
+  .limit-warning {
+    font-size: 16px;
+    padding: 10px;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 /* --- Стили для кнопки обновления --- */
 .history-refresh-btn {
   background: transparent;
@@ -1148,6 +1178,59 @@ button:hover {
     margin-bottom: 30px;
   }
 }
+.email-container {
+  font-family: "Arial", sans-serif;
+  background-color: #f8f9fa;
+  color: #343a40;
+  padding: 20px;
+  text-align: center;
+}
+.email-container .container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+.email-container .header {
+  background-color: #007bff;
+  color: #ffffff;
+  text-align: center;
+  padding: 10px;
+}
+.email-container .header img {
+  max-width: 150px;
+  margin-bottom: 10px;
+}
+.email-container .content {
+  padding: 20px;
+  text-align: center;
+}
+.email-container .confirmation-code,
+.email-container .reset-link {
+  background-color: #28a745;
+  color: #ffffff;
+  padding: 10px 15px;
+  border-radius: 5px;
+  text-align: center;
+  display: inline-block;
+  transition: background, border-color, filter 0.3s ease-in-out;
+  font-size: 18px;
+  margin-top: 20px;
+}
+.email-container .confirmation-code:hover,
+.email-container .reset-link:hover {
+  background-color: rgb(30.1449275362, 125.8550724638, 52);
+  border-color: rgb(25.2173913043, 105.2826086957, 43.5);
+  filter: brightness(90%);
+}
+.email-container .footer {
+  text-align: center;
+  color: #6c757d;
+  padding: 20px;
+}
+
 .status-icon {
   font-size: 2rem;
 }

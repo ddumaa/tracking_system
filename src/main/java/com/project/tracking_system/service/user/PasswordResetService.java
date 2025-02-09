@@ -5,9 +5,9 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.repository.PasswordResetTokenRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.service.email.EmailService;
-import jakarta.mail.MessagingException;
 import jakarta.transaction.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -27,6 +27,8 @@ import java.util.Optional;
  * @date Добавленно 07.01.2025
  */
 @Service
+@Slf4j
+@RequiredArgsConstructor
 public class PasswordResetService {
 
     private final PasswordResetTokenRepository tokenRepository;  // Репозиторий для работы с токенами сброса пароля
@@ -34,34 +36,8 @@ public class PasswordResetService {
     private final EmailService emailService;  // Сервис для отправки email
     private final RandomlyGeneratedString randomStringGenerator;  // Генератор случайных строк для токенов
     private final PasswordEncoder passwordEncoder;  // Кодировщик паролей
-    private final HtmlEmailTemplateService htmlEmailTemplateService;  // Сервис для генерации шаблонов email
 
     private static final String LINK = "https://belivery.by/reset-password?token=";  // Ссылка для восстановления пароля
-
-    /**
-     * Конструктор класса {@link PasswordResetService}.
-     *
-     * @param tokenRepository репозиторий для работы с токенами сброса пароля
-     * @param userRepository репозиторий для работы с пользователями
-     * @param emailService сервис для отправки email
-     * @param randomStringGenerator генератор случайных строк для токенов
-     * @param passwordEncoder кодировщик паролей
-     * @param htmlEmailTemplateService сервис для генерации шаблонов email
-     */
-    @Autowired
-    public PasswordResetService(PasswordResetTokenRepository tokenRepository,
-                                UserRepository userRepository,
-                                EmailService emailService,
-                                RandomlyGeneratedString randomStringGenerator,
-                                PasswordEncoder passwordEncoder,
-                                HtmlEmailTemplateService htmlEmailTemplateService) {
-        this.tokenRepository = tokenRepository;
-        this.userRepository = userRepository;
-        this.emailService = emailService;
-        this.randomStringGenerator = randomStringGenerator;
-        this.passwordEncoder = passwordEncoder;
-        this.htmlEmailTemplateService = htmlEmailTemplateService;
-    }
 
     /**
      * Создаёт токен для восстановления пароля и отправляет ссылку на email пользователя.
@@ -74,28 +50,46 @@ public class PasswordResetService {
      */
     @Transactional
     public void createPasswordResetToken(String email) {
-        userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден"));
+        log.info("🔍 Поиск пользователя с email: {}", email);
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> {
+                    log.warn("❌ Пользователь с email {} не найден", email);
+                    return new UsernameNotFoundException("Пользователь с email " + email + " не найден");
+                });
+
+        log.info("✅ Пользователь {} найден. Генерируем токен...", user.getEmail());
 
         String token = randomStringGenerator.generateConfirmCodRegistration();
         String resetLink = LINK + token;
-        String emailContent = htmlEmailTemplateService.generatePasswordResetEmail(resetLink);
 
-        Optional<PasswordResetToken> byEmail = tokenRepository.findByEmail(email);
-        if (byEmail.isPresent()) {
-            PasswordResetToken passwordResetToken = byEmail.get();
-            passwordResetToken.setToken(token);
-            passwordResetToken.setExpirationDate(ZonedDateTime.now(ZoneOffset.UTC).plusHours(1));
-            tokenRepository.save(passwordResetToken);
-        } else {
-            PasswordResetToken resetToken = new PasswordResetToken(email, token);
-            tokenRepository.save(resetToken);
-        }
-        try {
-            emailService.sendHtmlEmail(email, "Восстановление пароля", emailContent);
-        } catch (MessagingException e) {
-            throw new RuntimeException("Ошибка при отправке email", e);
-        }
+        log.debug("🔑 Сгенерирован токен: {} для email {}", token, email);
+
+        saveOrUpdatePasswordResetToken(email, token);
+
+        log.info("📧 Отправка email для сброса пароля пользователю {}", email);
+        emailService.sendPasswordResetEmail(email, resetLink);
+        log.info("✅ Email для сброса пароля отправлен пользователю {}", email);
+    }
+
+    /**
+     * Обновляет токен для сброса пароля, если он уже есть, или создает новый.
+     */
+    private void saveOrUpdatePasswordResetToken(String email, String token) {
+        tokenRepository.findByEmail(email)
+                .ifPresentOrElse(
+                        existingToken -> {
+                            log.info("♻️ Обновление существующего токена для email {}", email);
+                            existingToken.setToken(token);
+                            existingToken.setExpirationDate(ZonedDateTime.now(ZoneOffset.UTC).plusHours(1));
+                            tokenRepository.save(existingToken);
+                        },
+                        () -> {
+                            log.info("🆕 Создание нового токена для email {}", email);
+                            PasswordResetToken newToken = new PasswordResetToken(email, token);
+                            tokenRepository.save(newToken);
+                        }
+                );
     }
 
     /**

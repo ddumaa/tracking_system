@@ -5,9 +5,7 @@ import com.project.tracking_system.model.evropost.jsonRequestModel.JsonPacket;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.utils.EncryptionUtils;
 import jakarta.annotation.PostConstruct;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,10 +30,9 @@ import java.util.List;
  * @author Dmitriy Anisimov
  * @date 08.01.2025
  */
+@Slf4j
 @Service
 public class JwtTokenManager {
-
-    private static final Logger logger = LoggerFactory.getLogger(JwtTokenManager.class);
 
     private final EncryptionUtils encryptionUtils;
     private final GetJwtTokenService getJwtTokenService;
@@ -45,13 +42,14 @@ public class JwtTokenManager {
 
     private static final long TOKEN_LIFETIME_DAYS = 29;
 
-    @Autowired
-    public JwtTokenManager(UserRepository userRepository, GetJwtTokenService getJwtTokenService,
-                           EncryptionUtils encryptionUtils) {
-        this.userRepository = userRepository;
-        this.getJwtTokenService = getJwtTokenService;
+    public JwtTokenManager(EncryptionUtils encryptionUtils,
+                           GetJwtTokenService getJwtTokenService,
+                           UserRepository userRepository) {
         this.encryptionUtils = encryptionUtils;
+        this.getJwtTokenService = getJwtTokenService;
+        this.userRepository = userRepository;
     }
+
 
     /**
      * Метод, вызываемый после создания бина, для инициализации токена.
@@ -61,12 +59,12 @@ public class JwtTokenManager {
      */
     @PostConstruct
     private void initializeSystemToken() {
-        logger.info("Инициализация системного JWT токена при старте приложения.");
+        log.info("Инициализация системного JWT токена при старте приложения.");
         try {
             refreshSystemTokenIfExpired();
-            logger.info("Системный JWT токен успешно инициализирован.");
+            log.info("Системный JWT токен успешно инициализирован.");
         } catch (Exception e) {
-            logger.error("Ошибка при инициализации системного JWT токена: {}", e.getMessage());
+            log.error("Ошибка при инициализации системного JWT токена: {}", e.getMessage());
         }
     }
 
@@ -83,9 +81,9 @@ public class JwtTokenManager {
                 String newSystemToken = getJwtTokenService.getSystemTokenFromApi();
                 this.systemToken = newSystemToken;
                 this.systemTokenExpiryTime = LocalDateTime.now().plusDays(TOKEN_LIFETIME_DAYS);
-                logger.info("Системный токен успешно обновлён. Новый срок действия: {}", systemTokenExpiryTime);
+                log.info("Системный токен успешно обновлён. Новый срок действия: {}", systemTokenExpiryTime);
             } catch (Exception e) {
-                logger.error("Ошибка при обновлении системного токена: {}", e.getMessage());
+                log.error("Ошибка при обновлении системного токена: {}", e.getMessage());
                 throw new RuntimeException("Не удалось обновить системный токен.", e);
             }
         }
@@ -99,7 +97,7 @@ public class JwtTokenManager {
     private boolean isSystemTokenExpired() {
         boolean expired = systemTokenExpiryTime == null || LocalDateTime.now().isAfter(systemTokenExpiryTime);
         if (expired) {
-            logger.debug("Системный токен истёк. Требуется обновление.");
+            log.debug("Системный токен истёк. Требуется обновление.");
         }
         return expired;
     }
@@ -108,19 +106,19 @@ public class JwtTokenManager {
      * Получение системного токена
      */
     public synchronized String getSystemToken() {
-        logger.debug("Запрос системного токена.");
+        log.debug("Запрос системного токена.");
         if (isSystemTokenExpired()) {
             refreshSystemTokenIfExpired();
         }
-        logger.debug("Системный токен успешно возвращён.");
+        log.debug("Системный токен успешно возвращён.");
         return systemToken;
     }
 
     public synchronized String getUserToken(User user) {
-        logger.info("Получение пользовательского токена для пользователя: {}", user.getEmail());
+        log.info("Получение пользовательского токена для пользователя: {}", user.getEmail());
         if (user.getJwtToken() == null || isUserTokenExpired(user)) {
             try {
-                logger.debug("JWT токен отсутствует или истёк. Генерация нового токена...");
+                log.debug("JWT токен отсутствует или истёк. Генерация нового токена...");
                 String decryptedPassword = encryptionUtils.decrypt(user.getEvropostPassword());
                 String decryptedServiceNumber = encryptionUtils.decrypt(user.getServiceNumber());
 
@@ -133,14 +131,14 @@ public class JwtTokenManager {
                 user.setJwtToken(newToken);
                 user.setTokenCreatedAt(LocalDateTime.now());
                 userRepository.save(user);
-                logger.info("Новый пользовательский токен успешно создан и сохранён для пользователя: {}", user.getEmail());
+                log.info("Новый пользовательский токен успешно создан и сохранён для пользователя: {}", user.getEmail());
             } catch (Exception e) {
-                logger.error("Не удалось получить пользовательский JWT токен для пользователя: {}. Причина: {}",
+                log.error("Не удалось получить пользовательский JWT токен для пользователя: {}. Причина: {}",
                         user.getEmail(), e.getMessage());
                 return null;
             }
         }
-        logger.debug("Действующий JWT токен найден для пользователя: {}", user.getEmail());
+        log.debug("Действующий JWT токен найден для пользователя: {}", user.getEmail());
         return user.getJwtToken();
     }
 
@@ -148,7 +146,7 @@ public class JwtTokenManager {
         boolean expired = user.getTokenCreatedAt() == null
                 || user.getTokenCreatedAt().plusDays(TOKEN_LIFETIME_DAYS).isBefore(LocalDateTime.now());
         if (expired) {
-            logger.debug("Пользовательский токен для {} истёк.", user.getEmail());
+            log.debug("Пользовательский токен для {} истёк.", user.getEmail());
         }
         return expired;
     }
@@ -162,7 +160,7 @@ public class JwtTokenManager {
     @Transactional
     @Scheduled(cron = "0 0 0 * * ?") // Обновление токена в полночь
     public void scheduledTokenRefresh() {
-        logger.info("Запуск планового обновления токенов в полночь.");
+        log.info("Запуск планового обновления токенов в полночь.");
         try {
             refreshSystemTokenIfExpired();
 
@@ -172,7 +170,7 @@ public class JwtTokenManager {
                     .toList();
 
             for (User user : users) {
-                logger.info("Обновление токена для пользователя: {}", user.getEmail());
+                log.info("Обновление токена для пользователя: {}", user.getEmail());
                 try {
                     String decryptedPassword = encryptionUtils.decrypt(user.getEvropostPassword());
                     String decryptedServiceNumber = encryptionUtils.decrypt(user.getServiceNumber());
@@ -185,14 +183,14 @@ public class JwtTokenManager {
                     user.setJwtToken(newToken);
                     user.setTokenCreatedAt(LocalDateTime.now());
                     userRepository.save(user);
-                    logger.info("Токен для пользователя {} успешно обновлён.", user.getEmail());
+                    log.info("Токен для пользователя {} успешно обновлён.", user.getEmail());
                 } catch (Exception e) {
-                    logger.error("Не удалось обновить токен для пользователя: {}", user.getEmail());
+                    log.error("Не удалось обновить токен для пользователя: {}", user.getEmail());
                 }
             }
-            logger.info("Плановое обновление токенов завершено.");
+            log.info("Плановое обновление токенов завершено.");
         } catch (Exception e) {
-            logger.error("Ошибка при плановом обновлении токенов: {}", e.getMessage());
+            log.error("Ошибка при плановом обновлении токенов: {}", e.getMessage());
         }
     }
 

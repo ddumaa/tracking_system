@@ -3,6 +3,7 @@ package com.project.tracking_system.service.user;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -27,14 +28,11 @@ import java.util.stream.Collectors;
  * @date 07.01.2025
  */
 @Service
+@RequiredArgsConstructor
 public class UserDetailsServiceImpl implements UserDetailsService {
 
     private final UserRepository userRepository;
-
-    @Autowired
-    public UserDetailsServiceImpl(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
+    private final UserService userService;
 
     /**
      * Загружает данные пользователя по его email.
@@ -52,18 +50,8 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Такой пользователь не найден: " + email));
 
-        if (user.getRoles().contains(Role.ROLE_PAID_USER)) {
-            if (user.getRoleExpirationDate() != null
-                && user.getRoleExpirationDate().isBefore(ZonedDateTime.now(ZoneOffset.UTC))){
-
-                user.getRoles().remove(Role.ROLE_PAID_USER);
-                user.getRoles().add(Role.ROLE_FREE_USER);
-
-                user.setRoleExpirationDate(null);
-
-                userRepository.save(user);
-            }
-        }
+        // Переносим проверку подписки в UserService
+        userService.checkAndUpdateUserRole(user);
 
         return user;
     }
