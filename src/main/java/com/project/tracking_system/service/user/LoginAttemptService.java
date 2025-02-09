@@ -6,9 +6,8 @@ import com.project.tracking_system.repository.LoginAttemptRepository;
 import com.project.tracking_system.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -29,9 +28,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * @date Добавленно 07.01.2025
  */
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class LoginAttemptService {
-
-    Logger logger = LoggerFactory.getLogger(LoginAttemptService.class);
 
     private static final int MAX_ATTEMPTS = 4;  // Максимальное количество попыток входа
     private static final long LOCK_TIME_DURATION = 1;  // Время блокировки аккаунта в часах
@@ -42,18 +41,6 @@ public class LoginAttemptService {
 
     private final Map<String, Integer> ipAttempts = new ConcurrentHashMap<>();
     private final Map<String, ZonedDateTime> blockedIPs = new ConcurrentHashMap<>();
-
-    /**
-     * Конструктор класса {@link LoginAttemptService}.
-     *
-     * @param userRepository репозиторий для работы с пользователями
-     * @param loginAttemptRepository репозиторий для работы с попытками входа
-     */
-    @Autowired
-    public LoginAttemptService(UserRepository userRepository, LoginAttemptRepository loginAttemptRepository) {
-        this.userRepository = userRepository;
-        this.loginAttemptRepository = loginAttemptRepository;
-    }
 
     /**
      * Сбрасывает счётчик неудачных попыток входа при успешном входе.
@@ -78,7 +65,7 @@ public class LoginAttemptService {
         ipAttempts.remove(ip);
         blockedIPs.remove(ip);
 
-        logger.info("Пользователь {} успешно вошел. IP {} разблокирован.", email, ip);
+        log.info("Пользователь {} успешно вошел. IP {} разблокирован.", email, ip);
     }
 
     public boolean isIPBlocked(String ip) {
@@ -216,13 +203,13 @@ public class LoginAttemptService {
     public boolean checkAndRedirect(HttpServletRequest request, HttpServletResponse response,
                                     String email, String ip) throws IOException {
         if (isIPBlocked(ip)) {
-            logger.warn("Блокировка по IP: {} (Попытка входа заблокирована)", ip);
+            log.warn("Блокировка по IP: {} (Попытка входа заблокирована)", ip);
             response.sendRedirect("/login?blockedIP=true");
             return true;
         }
 
         if (email != null && isEmailBlocked(email)) {
-            logger.warn("Блокировка по email: {} (Попытка входа заблокирована)", email);
+            log.warn("Блокировка по email: {} (Попытка входа заблокирована)", email);
             response.sendRedirect("/login?blocked=true");
             return true;
         }

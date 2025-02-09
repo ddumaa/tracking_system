@@ -1,11 +1,11 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.PasswordResetDTO;
-import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
+import com.project.tracking_system.model.TrackingResponse;
 import com.project.tracking_system.service.TrackNumberOcrService;
 import com.project.tracking_system.service.TrackingNumberServiceXLS;
 import com.project.tracking_system.service.user.LoginAttemptService;
@@ -16,9 +16,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import com.project.tracking_system.service.user.UserService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -47,11 +46,11 @@ import java.util.Optional;
  * @author Dmitriy Anisimov
  * @date 07.01.2025
  */
+@RequiredArgsConstructor
+@Slf4j
 @Controller
 @RequestMapping("/")
 public class HomeController {
-
-    private final static Logger logger = LoggerFactory.getLogger(HomeController.class);
 
     private final UserService userService;
     private final TrackParcelService trackParcelService;
@@ -59,23 +58,7 @@ public class HomeController {
     private final LoginAttemptService loginAttemptService;
     private final PasswordResetService passwordResetService;
     private final TrackingNumberServiceXLS trackingNumberServiceXLS;
-    private final TrackNumberOcrService trackNumberOcrService;
-
-    @Autowired
-    public HomeController(UserService userService, TrackParcelService trackParcelService,
-                          TypeDefinitionTrackPostService typeDefinitionTrackPostService,
-                          LoginAttemptService loginAttemptService,
-                          PasswordResetService passwordResetService,
-                          TrackingNumberServiceXLS trackingNumberServiceXLS,
-                          TrackNumberOcrService trackNumberOcrService) {
-        this.userService = userService;
-        this.trackParcelService = trackParcelService;
-        this.typeDefinitionTrackPostService = typeDefinitionTrackPostService;
-        this.loginAttemptService = loginAttemptService;
-        this.passwordResetService = passwordResetService;
-        this.trackingNumberServiceXLS = trackingNumberServiceXLS;
-        this.trackNumberOcrService = trackNumberOcrService;
-    }
+    //private final TrackNumberOcrService trackNumberOcrService;
 
     /**
      * Обрабатывает запросы на главной странице. Отображает домашнюю страницу.
@@ -98,43 +81,49 @@ public class HomeController {
      */
     @PostMapping
     public String home(@ModelAttribute("number") String number, Model model) {
-        // Получаем аутентификацию текущего пользователя
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Long userId = null; // По умолчанию NULL для неаутентифицированных пользователей
 
         if (authentication != null && authentication.isAuthenticated() && !(authentication instanceof AnonymousAuthenticationToken)) {
-            // Получаем кастомного пользователя
+            // Пользователь авторизован
             User user = (User) authentication.getPrincipal();
-
-            logger.info("Получен запрос на обновление посылки для пользователя: {}", user.getEmail());
-
+            userId = user.getId();
             model.addAttribute("authenticatedUser", user.getEmail());
-            model.addAttribute("number", number);
+            log.info("Получен запрос на обновление посылки для пользователя ID: {}", userId);
+        } else {
+            // Гость
+            log.info("Гость запросил информацию по трек-номеру: {}", number);
+        }
 
-            try {
-                // Получаем данные посылки
-                TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(user, number);
-                model.addAttribute("trackInfo", trackInfo);
+        model.addAttribute("number", number);
 
-                // Если данные пустые, отображаем сообщение об ошибке
-                if (trackInfo.getList().isEmpty()) {
-                    model.addAttribute("customError", "Нет данных для указанного номера посылки.");
-                }
+        try {
+            // Получаем данные посылки
+            TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(userId, number);
 
-                // Сохраняем данные, если посылка была найдена
-                trackParcelService.save(number, trackInfo, user);
-                logger.debug("Данные посылки сохранены для пользователя: {}", user.getEmail());
-
-            } catch (IllegalArgumentException e) {
-                model.addAttribute("customError", e.getMessage());
-                logger.error("Ошибка при получении данных посылки: {}", e.getMessage());
-            } catch (Exception e) {
-                model.addAttribute("generalError", "Произошла ошибка при обработке запроса.");
-                logger.error("Общая ошибка при обработке запроса: {}", e.getMessage());
+            if (trackInfo == null || trackInfo.getList() == null || trackInfo.getList().isEmpty()) {
+                model.addAttribute("customError", "Нет данных для указанного номера посылки.");
+                log.warn("Нет данных для номера: {}", number);
+                return "home";
             }
 
-        } else {
-            model.addAttribute("error", "Пожалуйста, авторизуйтесь.");
-            logger.warn("Попытка доступа к посылке неаутентифицированным пользователем.");
+            // Добавляем данные в модель
+            model.addAttribute("trackInfo", trackInfo);
+
+            // Сохраняем посылку только для авторизованных пользователей
+            if (userId != null) {
+                trackParcelService.save(number, trackInfo, userId);
+                log.debug("Данные посылки сохранены для пользователя ID: {}", userId);
+            } else {
+                log.info("Гость просмотрел данные посылки без сохранения.");
+            }
+
+        } catch (IllegalArgumentException e) {
+            model.addAttribute("customError", e.getMessage());
+            log.error("Ошибка при получении данных посылки: {}", e.getMessage(), e);
+        } catch (Exception e) {
+            model.addAttribute("generalError", "Произошла ошибка при обработке запроса.");
+            log.error("Общая ошибка при обработке запроса: {}", e.getMessage(), e);
         }
 
         return "home";
@@ -275,7 +264,7 @@ public class HomeController {
      */
     @PostMapping("/forgot-password")
     public String handleForgotPassword(@RequestParam String email, Model model) {
-        Optional<User> byUser = userService.findByUser(email);
+        Optional<User> byUser = userService.findByUserEmail(email);
         if (byUser.isEmpty()) {
             model.addAttribute("error", "Пользователь с таким адресом электронной почты не найден.");
             return "forgot-password";
@@ -359,23 +348,20 @@ public class HomeController {
     @PostMapping("/upload")
     public String uploadFile(@RequestParam("file") MultipartFile file, Model model) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = null;
+        Long userId = null;
 
-        // Проверка аутентификации и извлечение кастомного пользователя
         if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
-            user = (User) auth.getPrincipal(); // Прямо извлекаем кастомного пользователя
-            model.addAttribute("authenticatedUser", user.getEmail());
+            userId = ((User) auth.getPrincipal()).getId();
+            model.addAttribute("authenticatedUser", ((User) auth.getPrincipal()).getEmail());
         } else {
             model.addAttribute("authenticatedUser", null);
         }
 
-        // Проверка, что файл не пустой
         if (file.isEmpty()) {
             model.addAttribute("customError", "Пожалуйста, выберите XLS, XLSX или изображение для загрузки.");
             return "home";
         }
 
-        // Определение MIME-типа файла
         String contentType = file.getContentType();
         if (contentType == null) {
             model.addAttribute("customError", "Не удалось определить тип файла.");
@@ -383,17 +369,15 @@ public class HomeController {
         }
 
         try {
-            // Обработка различных типов файлов
             if (contentType.equals("application/vnd.ms-excel") || contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
-                // Обработка XLS или XLSX файла
-                List<TrackingResultAdd> trackingResults = trackingNumberServiceXLS.processTrackingNumber(file, user);
-                model.addAttribute("trackingResults", trackingResults);
+                TrackingResponse trackingResponse = trackingNumberServiceXLS.processTrackingNumber(file, userId);
+
+                model.addAttribute("trackingResults", trackingResponse.getTrackingResults());
+                model.addAttribute("limitExceededMessage", trackingResponse.getLimitExceededMessage());
             } else if (contentType.startsWith("image/")) {
-                // Обработка изображений (например, OCR, извлечение текста с изображений)
-                // Пример: используем сервис для обработки изображений
-                 String recognizedText = trackNumberOcrService.processImage(file);
-                 List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, user);
-                 model.addAttribute("trackingResults", trackingResults);
+//                String recognizedText = trackNumberOcrService.processImage(file);
+//                List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, userId);
+//                model.addAttribute("trackingResults", trackingResults);
 
                 model.addAttribute("customError", "OCR не реализован в текущей версии.");
                 return "home";
@@ -402,13 +386,11 @@ public class HomeController {
                 return "home";
             }
         } catch (IOException e) {
-            // Логирование и обработка ошибок ввода-вывода
             model.addAttribute("generalError", "Ошибка при обработке файла: " + e.getMessage());
-            logger.error("IOException при обработке файла: " + e.getMessage(), e);
+            log.error("IOException при обработке файла: {}", e.getMessage(), e);
         } catch (Exception e) {
-            // Логирование других ошибок
             model.addAttribute("generalError", "Ошибка: " + e.getMessage());
-            logger.error("Ошибка при обработке файла: " + e.getMessage(), e);
+            log.error("Ошибка при обработке файла: {}", e.getMessage(), e);
         }
 
         return "home";

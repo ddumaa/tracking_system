@@ -1,6 +1,7 @@
 package com.project.tracking_system.service.user;
 
 import com.project.tracking_system.dto.EvropostCredentialsDTO;
+import com.project.tracking_system.dto.ResolvedCredentialsDTO;
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.dto.UserSettingsDTO;
 import com.project.tracking_system.entity.ConfirmationToken;
@@ -8,17 +9,16 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.repository.ConfirmationTokenRepository;
+import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.service.email.EmailService;
 import com.project.tracking_system.service.jsonEvropostService.JwtTokenManager;
 import com.project.tracking_system.utils.EncryptionUtils;
-import jakarta.mail.MessagingException;
+import com.project.tracking_system.utils.UserCredentialsResolver;
 import jakarta.transaction.Transactional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -41,33 +41,19 @@ import static java.time.ZoneOffset.UTC;
  * @date 07.01.2025
  */
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class UserService {
-
-    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final RandomlyGeneratedString randomlyGeneratedString;
     private final ConfirmationTokenRepository confirmationTokenRepository;
-    private final HtmlEmailTemplateService htmlEmailTemplateService;
     private final EncryptionUtils encryptionUtils;
     private final JwtTokenManager jwtTokenManager;
-
-    @Autowired
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder,
-                       EmailService emailService, RandomlyGeneratedString randomlyGeneratedString,
-                       ConfirmationTokenRepository confirmationTokenRepository, HtmlEmailTemplateService htmlEmailTemplateService,
-                       EncryptionUtils encryptionUtils, JwtTokenManager jwtTokenManager) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.emailService = emailService;
-        this.randomlyGeneratedString = randomlyGeneratedString;
-        this.confirmationTokenRepository = confirmationTokenRepository;
-        this.htmlEmailTemplateService = htmlEmailTemplateService;
-        this.encryptionUtils = encryptionUtils;
-        this.jwtTokenManager = jwtTokenManager;
-    }
+    private final UserCredentialsResolver userCredentialsResolver;
+    private final TrackParcelRepository trackParcelRepository;
 
     /**
      * Отправляет код подтверждения на email для регистрации нового пользователя.
@@ -81,33 +67,46 @@ public class UserService {
      */
     @Transactional
     public void sendConfirmationCode(UserRegistrationDTO userDTO) {
-        if (userRepository.findByEmail(userDTO.getEmail()).isPresent()) {
+        String email = userDTO.getEmail();
+
+        if (isEmailAlreadyRegistered(email)) {
             throw new UserAlreadyExistsException("Пользователь с таким email уже существует.");
         }
 
         String confirmationCode = randomlyGeneratedString.generateConfirmCodRegistration();
+        saveOrUpdateConfirmationToken(email, confirmationCode);
 
-        String emailContent = htmlEmailTemplateService.generateConfirmationEmail(confirmationCode);
+        // Отправка email в фоне (не блокируем основной поток)
+        emailService.sendConfirmationEmail(email, confirmationCode);
 
-        Optional<ConfirmationToken> existingToken = confirmationTokenRepository.findByEmail(userDTO.getEmail());
+        log.info("Код подтверждения отправлен на email: {}", email);
+    }
 
-        if (existingToken.isPresent()) {
-            // Если токен существует, обновляем код подтверждения и время создания
-            ConfirmationToken token = existingToken.get();
-            token.setConfirmationCode(confirmationCode);
-            token.setCreatedAt(ZonedDateTime.now(UTC));
-            confirmationTokenRepository.save(token);
-        } else {
-            // Если токена нет, создаем новый
-            ConfirmationToken token = new ConfirmationToken(userDTO.getEmail(), confirmationCode);
-            confirmationTokenRepository.save(token);
-        }
+    /**
+     * Проверяет, зарегистрирован ли email в системе.
+     */
+    private boolean isEmailAlreadyRegistered(String email) {
+        return userRepository.findByEmail(email).isPresent();
+    }
 
-        try {
-            emailService.sendHtmlEmail(userDTO.getEmail(), "Подтверждение регистрации", emailContent);
-        } catch (MessagingException e) {
-            throw new RuntimeException("Ошибка при отправке email", e);
-        }
+    /**
+     * Обновляет код подтверждения, если токен существует, или создает новый.
+     */
+    private void saveOrUpdateConfirmationToken(String email, String confirmationCode) {
+        confirmationTokenRepository.findByEmail(email)
+                .ifPresentOrElse(
+                        token -> {
+                            token.setConfirmationCode(confirmationCode);
+                            token.setCreatedAt(ZonedDateTime.now(UTC));
+                            confirmationTokenRepository.save(token);
+                            log.info("Обновлен код подтверждения для email: {}", email);
+                        },
+                        () -> {
+                            ConfirmationToken newToken = new ConfirmationToken(email, confirmationCode);
+                            confirmationTokenRepository.save(newToken);
+                            log.info("Создан новый код подтверждения для email: {}", email);
+                        }
+                );
     }
 
     /**
@@ -121,91 +120,108 @@ public class UserService {
      */
     @Transactional
     public void confirmRegistration(UserRegistrationDTO userDTO) {
-        Optional<ConfirmationToken> optionalToken = confirmationTokenRepository.findByEmail(userDTO.getEmail());
+        ConfirmationToken token = confirmationTokenRepository.findByEmail(userDTO.getEmail())
+                .orElseThrow(() -> new IllegalArgumentException("Код подтверждения не найден"));
 
-        if (optionalToken.isPresent()) {
-            ConfirmationToken token = optionalToken.get();
+        ZonedDateTime tokenCreatedAt = token.getCreatedAt();
+        ZonedDateTime oneHourAgoUtc = ZonedDateTime.now(UTC).minusHours(1);
 
-            if (token.getConfirmationCode().equals(userDTO.getConfirmCodRegistration())) {
-
-                ZonedDateTime tokenCreatedAt = token.getCreatedAt();
-                ZonedDateTime oneHourAgoUtc = ZonedDateTime.now(UTC).minusHours(1);
-
-                if (tokenCreatedAt.isBefore(oneHourAgoUtc)) {
-                    throw new IllegalArgumentException("Срок действия кода подтверждения истек");
-                }
-
-                User user = new User();
-                user.setEmail(userDTO.getEmail());
-                user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
-                user.setRoles(Set.of(Role.ROLE_FREE_USER));
-                userRepository.save(user);
-
-                confirmationTokenRepository.deleteByEmail(userDTO.getEmail());
-            } else {
-                throw new IllegalArgumentException("Неверный код подтверждения");
-            }
-        } else {
-            throw new IllegalArgumentException("Код подтверждения не найден");
+        if (tokenCreatedAt.isBefore(oneHourAgoUtc)) {
+            log.warn("Код подтверждения для email {} истек", userDTO.getEmail());
+            throw new IllegalArgumentException("Срок действия кода подтверждения истек");
         }
+
+        if (!token.getConfirmationCode().equals(userDTO.getConfirmCodRegistration())) {
+            log.warn("Неверный код подтверждения для email {}", userDTO.getEmail());
+            throw new IllegalArgumentException("Неверный код подтверждения");
+        }
+
+        User user = new User();
+        user.setEmail(userDTO.getEmail());
+        user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
+        user.setRoles(Set.of(Role.ROLE_FREE_USER));
+        userRepository.save(user);
+
+        confirmationTokenRepository.deleteByEmail(userDTO.getEmail());
+
+        log.info("Регистрация пользователя {} завершена. Код подтверждения удален.", userDTO.getEmail());
     }
 
-    public void upgradeOrExtendRole(String email, int months) {
-        Optional<User> userOptional = userRepository.findByEmail(email);
-        if (userOptional.isEmpty()) {
-            throw new IllegalArgumentException("Пользователь не найден");
-        }
+    @Transactional
+    public void upgradeOrExtendRole(Long userId, int months) {
+        log.info("Попытка обновления роли для пользователя с ID: {}", userId);
 
-        User user = userOptional.get();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> {
+                    log.warn("Пользователь с ID {} не найден", userId);
+                    return new IllegalArgumentException("Пользователь не найден");
+                });
 
-        // Текущее время в UTC
         ZonedDateTime nowUtc = ZonedDateTime.now(ZoneOffset.UTC);
 
+        if (user.getRoles() == null) {
+            log.error("У пользователя {} отсутствует список ролей!", userId);
+            throw new IllegalStateException("У пользователя отсутствуют роли");
+        }
+
         if (user.getRoles().contains(Role.ROLE_PAID_USER)) {
-            // Уже платный пользователь. Проверяем, не истёк ли срок
-            ZonedDateTime currentExpiry = user.getRoleExpirationDate();
-
-            // Если срок не установлен (null) или уже просрочен
-            // (например, сравниваем currentExpiry и nowUtc)
-            if (currentExpiry == null || currentExpiry.isBefore(nowUtc)) {
-                currentExpiry = nowUtc;
-            }
-            // продлеваем на нужное кол-во месяцев
-            user.setRoleExpirationDate(currentExpiry.plusMonths(months));
-
+            extendPaidUser(user, months, nowUtc);
         } else if (user.getRoles().contains(Role.ROLE_FREE_USER)) {
-            // Был фри, апгрейдим до платного
-            user.getRoles().remove(Role.ROLE_FREE_USER);
-            user.getRoles().add(Role.ROLE_PAID_USER);
-
-            user.setRoleExpirationDate(nowUtc.plusMonths(months));
-
+            upgradeToPaidUser(user, months, nowUtc);
         } else {
+            log.warn("Попытка обновления роли у пользователя {}, но его статус не позволяет это сделать", userId);
             throw new IllegalArgumentException("Пользователь в статусе, который нельзя апгрейдить (например, Admin?)");
         }
 
         userRepository.save(user);
+        log.info("Роль пользователя ID={} успешно обновлена до {} до {}", userId, user.getRoles(), user.getRoleExpirationDate());
     }
 
-    public void updateUserRole(String usersEmail, String newRole) {
-        Optional<User> userOptional = userRepository.findByEmail(usersEmail);
-        if (userOptional.isPresent()) {
-            User user = userOptional.get();
-            user.getRoles().clear();
-            user.getRoles().add(Role.valueOf(newRole));
+    private void extendPaidUser(User user, int months, ZonedDateTime nowUtc) {
+        ZonedDateTime currentExpiry = user.getRoleExpirationDate();
+        if (currentExpiry == null || currentExpiry.isBefore(nowUtc)) {
+            currentExpiry = nowUtc;
+        }
+        user.setRoleExpirationDate(currentExpiry.plusMonths(months));
+        log.info("Продление подписки пользователя {} до {}", user.getEmail(), user.getRoleExpirationDate());
+    }
 
+    private void upgradeToPaidUser(User user, int months, ZonedDateTime nowUtc) {
+        user.getRoles().remove(Role.ROLE_FREE_USER);
+        user.getRoles().add(Role.ROLE_PAID_USER);
+        user.setRoleExpirationDate(nowUtc.plusMonths(months));
+        log.info("Апгрейд пользователя {} до платного с подпиской до {}", user.getId(), user.getRoleExpirationDate());
+    }
+
+    public void updateUserRole(Long userId, String newRole) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
+
+        try {
+            Role role = Role.valueOf(newRole); // Проверяем, что роль существует
+
+            user.getRoles().clear(); // Полностью заменяем роли пользователя
+            user.getRoles().add(role);
             userRepository.save(user);
+
+            log.info("Роль пользователя с ID {} успешно обновлена до {}", userId, newRole);
+        } catch (IllegalArgumentException e) {
+            log.error("Ошибка обновления роли: Некорректное значение '{}'", newRole, e);
+            throw new IllegalArgumentException("Некорректная роль: " + newRole);
         }
     }
 
-    public void updateEvropostCredentialsAndSettings(String email, EvropostCredentialsDTO dto) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+    public void updateEvropostCredentialsAndSettings(Long userId, EvropostCredentialsDTO dto) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
 
         try {
             // Шифрование пароля и номера сервиса
             String encryptedPassword = encryptionUtils.encrypt(dto.getEvropostPassword());
             String encryptedServiceNumber = encryptionUtils.encrypt(dto.getServiceNumber());
+
+            // Логируем обновление данных перед сохранением
+            log.info("Обновление учетных данных Evropost для пользователя с ID: {}", userId);
 
             // Обновление всех данных
             user.setEvropostUsername(dto.getEvropostUsername());
@@ -214,35 +230,42 @@ public class UserService {
             user.setUseCustomCredentials(dto.getUseCustomCredentials());
 
             userRepository.save(user);
+            log.info("Данные успешно обновлены для пользователя с ID: {}", userId);
 
-            String newToken = jwtTokenManager.getUserToken(user);
-            if (newToken == null) {
-                throw new RuntimeException("Не удалось создать JWT токен");
-            }
         } catch (Exception e) {
+            log.error("Ошибка при шифровании данных для пользователя с ID: {}", userId, e);
             throw new RuntimeException("Ошибка при шифровании данных", e);
         }
+
+        // Генерация нового JWT токена
+        String newToken = jwtTokenManager.getUserToken(user);
+        if (newToken == null) {
+            log.error("Не удалось создать JWT токен для пользователя с ID: {}", userId);
+            throw new RuntimeException("Не удалось создать JWT токен");
+        }
+
+        log.info("Новый JWT токен успешно создан для пользователя с ID: {}", userId);
     }
 
-    public void updateUseCustomCredentials(String email, Boolean useCustomCredentials) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+    public void updateUseCustomCredentials(Long userId, Boolean useCustomCredentials) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
 
         user.setUseCustomCredentials(useCustomCredentials);
-
-        // Логирование изменений
-        logger.info("Обновление useCustomCredentials для пользователя {}: {}", email, useCustomCredentials);
-
         userRepository.save(user);
+
+        log.info("Флаг 'useCustomCredentials' обновлён для пользователя с ID {}: {}", userId, useCustomCredentials);
     }
 
-    public EvropostCredentialsDTO getEvropostCredentials(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+    public EvropostCredentialsDTO getEvropostCredentials(long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
 
         EvropostCredentialsDTO dto = new EvropostCredentialsDTO();
         dto.setEvropostUsername(user.getEvropostUsername());
         dto.setUseCustomCredentials(user.getUseCustomCredentials());
+
+        log.info("Запрошены учетные данные Evropost для пользователя с ID {}", userId);
 
         return dto;
     }
@@ -253,8 +276,13 @@ public class UserService {
      * @param email Email пользователя.
      * @return Опциональный объект с пользователем.
      */
-    public Optional<User> findByUser(String email) {
+    public Optional<User> findByUserEmail(String email) {
         return userRepository.findByEmail(email);
+    }
+
+    public User findUserById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
     }
 
     public List<User> findAll() {
@@ -269,6 +297,76 @@ public class UserService {
         return userRepository.countByRolesContaining(Role.ROLE_PAID_USER);
     }
 
+    public boolean isUserPaid(long userId) {
+        return userRepository.isUserPaid(userId);
+    }
+
+    public int getUpdateCount(Long userId) {
+        return userRepository.getUpdateCount(userId);
+    }
+
+    public ZonedDateTime getLastUpdateDate(Long userId) {
+        return userRepository.getLastUpdateDate(userId);
+    }
+
+    @Transactional
+    public void resetUpdateCount(Long userId) {
+        userRepository.resetUpdateCount(userId, ZonedDateTime.now(ZoneOffset.UTC));
+    }
+
+    @Transactional
+    public void incrementUpdateCount(Long userId, int count) {
+        userRepository.incrementUpdateCount(userId, count, ZonedDateTime.now(ZoneOffset.UTC));
+    }
+
+    public ResolvedCredentialsDTO resolveCredentials(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
+        return userCredentialsResolver.resolveCredentials(user);
+    }
+
+    public boolean isUsingCustomCredentials(Long userId) {
+        return userRepository.isUsingCustomCredentials(userId);
+    }
+
+    public void validateFreeUserLimit(Long userId) {
+        if (!userRepository.isUserPaid(userId)) {
+            long existingParcelCount = trackParcelRepository.countByUserId(userId);
+            if (existingParcelCount >= 10) {
+                throw new IllegalArgumentException("Для бесплатного аккаунта можно хранить не более 10 посылок. Перейдите на платный аккаунт.");
+            }
+        }
+    }
+
+    public void checkAndUpdateUserRole(User user) {
+        if (user.getRoles().contains(Role.ROLE_PAID_USER) &&
+                user.getRoleExpirationDate() != null &&
+                user.getRoleExpirationDate().isBefore(ZonedDateTime.now(ZoneOffset.UTC))) {
+
+            user.getRoles().remove(Role.ROLE_PAID_USER);
+            user.getRoles().add(Role.ROLE_FREE_USER);
+            user.setRoleExpirationDate(null);
+
+            userRepository.save(user);
+        }
+    }
+
+    public int getMaxTrackingLimit(User user) {
+        if (user == null) return 5; //  Лимит для анонимных пользователей
+        if (user.getRoles().contains(Role.ROLE_FREE_USER)) return 10;
+        return Integer.MAX_VALUE; // Платные пользователи без ограничений
+    }
+
+    public String getLimitExceededMessage(User user) {
+        if (user == null) {
+            return "Для незарегистрированный пользователей доступно не более 5 треков.";
+        }
+        if (user.getRoles().contains(Role.ROLE_FREE_USER)) {
+            return "Для бесплатных пользователей доступно не более 10 треков.";
+        }
+        return "";
+    }
+
     /**
      * Меняет пароль пользователя.
      * <p>
@@ -279,31 +377,18 @@ public class UserService {
      * @param userSettingsDTO DTO с новыми данными пользователя.
      * @throws IllegalArgumentException Если текущий пароль неверен или пользователь не найден.
      */
-    public void changePassword(String email, UserSettingsDTO userSettingsDTO) {
-        Optional<User> userOptional = userRepository.findByEmail(email);
-        if (userOptional.isPresent()) {
-            User user = userOptional.get();
-            if (passwordEncoder.matches(userSettingsDTO.getCurrentPassword(), user.getPassword())) {
-                user.setPassword(passwordEncoder.encode(userSettingsDTO.getNewPassword()));
-                userRepository.save(user);
-            } else {
-                throw new IllegalArgumentException("Текущий пароль введён неверно");
-            }
-        } else {
-            throw new IllegalArgumentException("Пользователь не найден");
+    public void changePassword(Long userId, UserSettingsDTO userSettingsDTO) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
+
+        if (!passwordEncoder.matches(userSettingsDTO.getCurrentPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("Текущий пароль введён неверно");
         }
-    }
 
-    public void updateUserUpdateInfo(User user, int updatesCount) {
-        // Получаем текущую дату в UTC
-        ZonedDateTime currentDate = ZonedDateTime.now(ZoneOffset.UTC);
-
-        // Обновляем счетчик обновлений (увеличиваем на количество обновленных посылок)
-        user.setUpdateCount(user.getUpdateCount() + updatesCount);
-
-        user.setLastUpdateDate(currentDate);
-
+        user.setPassword(passwordEncoder.encode(userSettingsDTO.getNewPassword()));
         userRepository.save(user);
+
+        log.info("Пароль пользователя с ID {} был успешно изменен.", userId);
     }
 
     /**
@@ -312,13 +397,12 @@ public class UserService {
      * Метод удаляет пользователя из базы данных на основе данных текущей аутентификации.
      * </p>
      */
-    public void deleteUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-        Optional<User> userOptional = userRepository.findByEmail(email);
-        if (userOptional.isPresent()) {
-            User user = userOptional.get();
-            userRepository.delete(user);
-        }
+    public void deleteUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
+
+        userRepository.delete(user);
+        log.info("Пользователь с ID {} был удален.", userId);
     }
+
 }

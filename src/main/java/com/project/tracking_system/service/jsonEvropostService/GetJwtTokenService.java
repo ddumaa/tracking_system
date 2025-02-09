@@ -2,7 +2,8 @@ package com.project.tracking_system.service.jsonEvropostService;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.project.tracking_system.model.evropost.jsonRequestModel.*;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
@@ -14,6 +15,8 @@ import org.springframework.stereotype.Service;
  * @author Dmitriy Anisimov
  * @date 07.01.2025
  */
+@RequiredArgsConstructor
+@Slf4j
 @Service
 public class GetJwtTokenService {
 
@@ -21,15 +24,6 @@ public class GetJwtTokenService {
     private final JsonData jsonData;
     private final JsonRequest jsonRequest;
     private final JsonPacket jsonPacket;
-
-    @Autowired
-    public GetJwtTokenService(JsonHandlerService jsonHandlerService, JsonData jsonData,
-                              JsonRequest jsonRequest, JsonPacket jsonPacket) {
-        this.jsonHandlerService = jsonHandlerService;
-        this.jsonData = jsonData;
-        this.jsonRequest = jsonRequest;
-        this.jsonPacket = jsonPacket;
-    }
 
     /**
      * Получает JWT токен от внешнего API.

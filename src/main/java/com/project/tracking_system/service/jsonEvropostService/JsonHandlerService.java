@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.tracking_system.model.evropost.jsonRequestModel.JsonRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -20,6 +21,7 @@ import org.springframework.web.client.RestTemplate;
  * @author Dmitriy Anisimov
  * @date 07.01.2025
  */
+@Slf4j
 @Service
 public class JsonHandlerService {
 

@@ -2,6 +2,7 @@ package com.project.tracking_system.configuration;
 
 import com.project.tracking_system.service.user.LoginAttemptService;
 import com.project.tracking_system.service.user.UserDetailsServiceImpl;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,6 +14,7 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
  * Конфигурация провайдера аутентификации для Spring Security.
@@ -26,22 +28,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
  * @date 07.01.2025
  */
 @Configuration
+@RequiredArgsConstructor
 public class AuthenticationProviderConfig {
 
     private final LoginAttemptService loginAttemptService;
     private final UserDetailsServiceImpl userDetailsService;
-
-    /**
-     * Конструктор для инъекции зависимостей.
-     *
-     * @param loginAttemptService Сервис для отслеживания попыток входа.
-     * @param userDetailsService Реализация {@link org.springframework.security.core.userdetails.UserDetailsService}.
-     */
-    @Autowired
-    public AuthenticationProviderConfig(LoginAttemptService loginAttemptService, UserDetailsServiceImpl userDetailsService) {
-        this.loginAttemptService = loginAttemptService;
-        this.userDetailsService = userDetailsService;
-    }
+    private final PasswordEncoder passwordEncoder;
 
     /**
      * Создает и настраивает {@link AuthenticationProvider} для аутентификации пользователей.
@@ -65,7 +57,7 @@ public class AuthenticationProviderConfig {
             }
         };
         daoAuthenticationProvider.setUserDetailsService(userDetailsService);
-        daoAuthenticationProvider.setPasswordEncoder(new BCryptPasswordEncoder());
+        daoAuthenticationProvider.setPasswordEncoder(passwordEncoder);
         return daoAuthenticationProvider;
     }
 

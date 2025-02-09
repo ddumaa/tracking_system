@@ -3,18 +3,14 @@ package com.project.tracking_system.configuration;
 import com.project.tracking_system.service.user.LoginAttemptService;
 import com.project.tracking_system.utils.CspNonceFilter;
 import jakarta.servlet.http.HttpSession;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.SecurityContextPersistenceFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -41,24 +37,12 @@ import static org.springframework.security.config.Customizer.withDefaults;
  */
 @Configuration
 @EnableWebSecurity
+@Slf4j
+@RequiredArgsConstructor
 public class SecurityConfiguration {
 
-    private final static Logger logger = LoggerFactory.getLogger(SecurityConfiguration.class);
-
-    private final UserDetailsService userDetailsService;
+    private final AuthenticationProviderConfig authenticationProviderConfig;
     private final LoginAttemptService loginAttemptService;
-
-    @Autowired
-    public SecurityConfiguration(LoginAttemptService loginAttemptService,
-                                 UserDetailsService userDetailsService) {
-        this.loginAttemptService = loginAttemptService;
-        this.userDetailsService = userDetailsService;
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, CspNonceFilter cspNonceFilter) throws Exception {
@@ -78,7 +62,7 @@ public class SecurityConfiguration {
                 )
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests
                         .requestMatchers("/", "/login", "/logout", "/registration", "/forgot-password", "/reset-password",
-                                "/privacy-policy", "/terms-of-use", "/css/**", "/js/**", "/images/**").permitAll()
+                                "/privacy-policy", "/terms-of-use", "/css/**", "/js/**", "/images/**", "/upload").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
@@ -111,7 +95,7 @@ public class SecurityConfiguration {
                             if (loginAttemptService.checkAndRedirect(request, response, email, ip)) return;
 
                             loginAttemptService.loginFailed(email, ip);
-                            logger.info("Неудачная попытка входа: email={}, IP={}", email, ip);
+                            log.info("Неудачная попытка входа: email={}, IP={}", email, ip);
                             response.sendRedirect("/login?error=true");
                         })
                 )
@@ -133,10 +117,9 @@ public class SecurityConfiguration {
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 
                 );
-        http.userDetailsService(userDetailsService);
+        http.authenticationProvider(authenticationProviderConfig.authenticationProvider());
 
         return http.build();
     }
-
 
 }

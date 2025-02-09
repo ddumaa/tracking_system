@@ -2,10 +2,15 @@ package com.project.tracking_system.service.email;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+
+import java.util.Map;
 
 /**
  * Сервис для отправки HTML email сообщений.
@@ -18,34 +23,74 @@ import org.springframework.stereotype.Service;
  * @date 07.01.2025
  */
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class EmailService {
 
     private final JavaMailSender emailSender;
+    private final HtmlEmailTemplateService templateService;
 
-    @Autowired
-    public EmailService(JavaMailSender emailSender) {
-        this.emailSender = emailSender;
+    @Value("${spring.mail.username}")
+    private String senderEmail;
+
+    /**
+     * Отправляет письмо с кодом подтверждения.
+     *
+     * @param to               Email получателя.
+     * @param confirmationCode Код подтверждения.
+     */
+    public void sendConfirmationEmail(String to, String confirmationCode) {
+        if (to == null || to.isBlank()) {
+            log.warn("⚠ Email получателя пуст, письмо не отправлено.");
+            return;
+        }
+
+        String htmlContent = templateService.generateEmail("confirmation-email",
+                Map.of("to", to, "confirmationCode", confirmationCode));
+
+        sendHtmlEmailAsync(to, "Подтверждение регистрации", htmlContent);
     }
 
     /**
-     * Отправляет HTML email сообщение.
-     * <p>
-     * Этот метод используется для отправки email с заданным адресом получателя, темой и HTML-содержимым.
-     * </p>
+     * Отправляет письмо для сброса пароля.
+     *
+     * @param to        Email получателя.
+     * @param resetLink Ссылка для сброса пароля.
+     */
+    public void sendPasswordResetEmail(String to, String resetLink) {
+        if (to == null || to.isBlank()) {
+            log.warn("⚠ Email получателя пуст, письмо не отправлено.");
+            return;
+        }
+
+        String htmlContent = templateService.generateEmail("password-reset-email",
+                Map.of("to", to, "resetLink", resetLink));
+
+        sendHtmlEmailAsync(to, "Восстановление пароля", htmlContent);
+    }
+
+    /**
+     * Асинхронно отправляет HTML email сообщение.
      *
      * @param to      адрес получателя.
      * @param subject тема письма.
      * @param content HTML-содержимое письма.
-     * @throws MessagingException если произошла ошибка при отправке сообщения.
      */
-    public void sendHtmlEmail(String to, String subject, String content) throws MessagingException {
-        MimeMessage message = emailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+    @Async
+    public void sendHtmlEmailAsync(String to, String subject, String content) {
+        try {
+            MimeMessage message = emailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-        helper.setTo(to);
-        helper.setSubject(subject);
-        helper.setText(content, true);
+            helper.setFrom(senderEmail);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(content, true);
 
-        emailSender.send(message);
+            emailSender.send(message);
+            log.info("✅ Письмо успешно отправлено на {}", to);
+        } catch (MessagingException e) {
+            log.error("❌ Ошибка при отправке письма на {}: {}", to, e.getMessage(), e);
+        }
     }
 }

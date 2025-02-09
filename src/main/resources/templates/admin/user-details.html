@@ -29,7 +29,7 @@
     </div>
 
     <h4>Сменить роль</h4>
-    <form th:action="@{/admin/users/{usersEmail}/role-update(usersEmail=${user.email})}" method="post" class="mb-4">
+    <form th:action="@{/admin/users/{usersEmail}/role-update(usersId=${user.id})}" method="post" class="mb-4">
         <div class="d-flex">
             <div class="mb-3 me-2">
                 <label for="role" class="form-label">Новая роль:</label>
@@ -44,7 +44,7 @@
     </form>
 
     <h4>Продлить роль</h4>
-    <form th:action="@{/admin/users/{usersEmail}/extend-role(usersEmail=${user.email})}" method="post" class="mb-4">
+    <form th:action="@{/admin/users/{usersEmail}/extend-role(usersId=${user.id})}" method="post" class="mb-4">
         <div class="d-flex">
             <div class="mb-3 me-2">
                 <label for="months" class="form-label">Продлить на (месяцев):</label>

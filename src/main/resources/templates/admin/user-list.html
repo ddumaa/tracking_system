@@ -34,7 +34,7 @@
                 <span th:each="role : ${user.roles}" th:text="${role.name}"></span>
             </td>
             <td>
-                <a th:href="@{/admin/users/{usersEmail}(usersEmail=${user.email})}" class="btn btn-info btn-sm">Подробнее</a>
+                <a th:href="@{/admin/users/{usersId}(usersId=${user.id})}" class="btn btn-info btn-sm">Подробнее</a>
             </td>
         </tr>
         </tbody>

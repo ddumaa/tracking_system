@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru" xmlns:th="http://www.thymeleaf.org" xmlns="http://www.w3.org/1999/html">
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -105,8 +105,14 @@
                             </tbody>
                         </table>
                     </div>
-                </div>
 
+                    <!-- Вывод сообщения о лимите -->
+                    <div th:if="${limitExceededMessage != null and not #strings.isEmpty(limitExceededMessage)}"
+                         class="limit-warning">
+                        <strong th:text="${limitExceededMessage}"></strong>
+                    </div>
+
+                </div>
             </div>
         </div>
     </div>

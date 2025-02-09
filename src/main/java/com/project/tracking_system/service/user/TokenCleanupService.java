@@ -2,7 +2,7 @@ package com.project.tracking_system.service.user;
 
 import com.project.tracking_system.repository.ConfirmationTokenRepository;
 import com.project.tracking_system.repository.PasswordResetTokenRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,17 +21,11 @@ import java.time.ZonedDateTime;
  * @date Добавленно 07.01.2025
  */
 @Service
+@RequiredArgsConstructor
 public class TokenCleanupService {
 
     private final ConfirmationTokenRepository confirmationTokenRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
-
-    @Autowired
-    public TokenCleanupService(ConfirmationTokenRepository confirmationTokenRepository,
-                               PasswordResetTokenRepository passwordResetTokenRepository) {
-        this.confirmationTokenRepository = confirmationTokenRepository;
-        this.passwordResetTokenRepository = passwordResetTokenRepository;
-    }
 
     /**
      * Удаляет токены, срок действия которых истек.
