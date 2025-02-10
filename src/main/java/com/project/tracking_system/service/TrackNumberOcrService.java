@@ -3,7 +3,6 @@ package com.project.tracking_system.service;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackingResultAdd;
 import jakarta.annotation.PostConstruct;
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.sourceforge.tess4j.Tesseract;
@@ -35,7 +34,7 @@ import java.util.regex.Pattern;
 
 @Slf4j
 @RequiredArgsConstructor
-//@Service
+@Service
 public class TrackNumberOcrService {
 
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
