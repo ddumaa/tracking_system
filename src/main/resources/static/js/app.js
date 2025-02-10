@@ -57,6 +57,7 @@ function checkUpdateStatus(applyBtn) {
         $.ajax({
             url: "/departures/update-status",
             type: "GET",
+            cache: false,
             success: function (response) {
                 console.log("Ответ API:", response); // Логируем ответ API в консоль
 

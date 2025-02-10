@@ -173,7 +173,9 @@ public class TrackParcelService {
 
     // Метод для получения последней ошибки
     public String getLastErrorMessage(Long userId) {
-        return lastErrorMessages.getOrDefault(userId, "");
+        String error = lastErrorMessages.get(userId);
+        lastErrorMessages.remove(userId);
+        return error;
     }
 
     /**
@@ -215,6 +217,8 @@ public class TrackParcelService {
     }
 
     public void updateSelectedParcels(Long userId, List<String> selectedNumbers) {
+        lastErrorMessages.remove(userId);
+
         try {
             boolean isFreeUser = !userService.isUserPaid(userId);
             ZonedDateTime currentDate = ZonedDateTime.now(ZoneOffset.UTC);

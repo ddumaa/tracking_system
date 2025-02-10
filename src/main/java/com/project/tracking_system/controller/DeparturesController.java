@@ -21,7 +21,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -197,12 +197,16 @@ public class DeparturesController {
         boolean isCompleted = trackParcelService.isUpdateCompleted(userId);
         String errorMessage = trackParcelService.getLastErrorMessage(userId);
 
-        log.info("Проверка статуса обновления для пользователя {}: completed={}, errorMessage={}", userId, isCompleted, errorMessage);
+        log.debug("Проверка статуса обновления для пользователя {}: completed={}, errorMessage={}", userId, isCompleted, errorMessage);
 
-        return ResponseEntity.ok(Map.of(
-                "completed", isCompleted,
-                "errorMessage", errorMessage
-        ));
+        Map<String, Object> response = new HashMap<>();
+        response.put("completed", isCompleted);
+
+        if (errorMessage != null) {
+            response.put("errorMessage", errorMessage);
+        }
+
+        return ResponseEntity.ok(response);
     }
 
     /**
