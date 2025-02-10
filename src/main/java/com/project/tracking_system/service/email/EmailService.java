@@ -4,6 +4,7 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.validator.routines.EmailValidator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -40,15 +41,22 @@ public class EmailService {
      * @param confirmationCode Код подтверждения.
      */
     public void sendConfirmationEmail(String to, String confirmationCode) {
-        if (to == null || to.isBlank()) {
-            log.warn("⚠ Email получателя пуст, письмо не отправлено.");
+        log.info("📨 Генерация email для: {} с кодом {}", to, confirmationCode);
+
+        if (!isValidEmail(to)) {
+            log.warn("⚠ Неверный формат email: {}", to);
             return;
         }
 
-        String htmlContent = templateService.generateEmail("confirmation-email",
-                Map.of("to", to, "confirmationCode", confirmationCode));
+        try {
+            String htmlContent = templateService.generateEmail("confirmation-email",
+                    Map.of("confirmationCode", confirmationCode));
 
-        sendHtmlEmailAsync(to, "Подтверждение регистрации", htmlContent);
+            log.info("✅ HTML-шаблон успешно сгенерирован, отправляем письмо...");
+            sendHtmlEmailAsync(to, "Подтверждение регистрации", htmlContent);
+        } catch (Exception e) {
+            log.error("❌ Ошибка при генерации email-шаблона: {}", e.getMessage(), e);
+        }
     }
 
     /**
@@ -58,15 +66,19 @@ public class EmailService {
      * @param resetLink Ссылка для сброса пароля.
      */
     public void sendPasswordResetEmail(String to, String resetLink) {
-        if (to == null || to.isBlank()) {
-            log.warn("⚠ Email получателя пуст, письмо не отправлено.");
+        if (!isValidEmail(to)) {
+            log.warn("⚠ Неверный формат email: {}", to);
             return;
         }
 
-        String htmlContent = templateService.generateEmail("password-reset-email",
-                Map.of("to", to, "resetLink", resetLink));
+        try {
+            String htmlContent = templateService.generateEmail("password-reset-email",
+                    Map.of("resetLink", resetLink));
 
-        sendHtmlEmailAsync(to, "Восстановление пароля", htmlContent);
+            sendHtmlEmailAsync(to, "Восстановление пароля", htmlContent);
+        } catch (Exception e) {
+            log.error("❌ Ошибка при генерации email-шаблона для сброса пароля: {}", e.getMessage(), e);
+        }
     }
 
     /**
@@ -78,19 +90,34 @@ public class EmailService {
      */
     @Async
     public void sendHtmlEmailAsync(String to, String subject, String content) {
+        log.info("📧 Начинаем отправку email на {}", to);
+
         try {
-            MimeMessage message = emailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-            helper.setFrom(senderEmail);
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(content, true);
-
+            MimeMessage message = createMimeMessage(to, subject, content);
             emailSender.send(message);
-            log.info("✅ Письмо успешно отправлено на {}", to);
+            log.info("✅ Email успешно отправлен на {}", to);
         } catch (MessagingException e) {
-            log.error("❌ Ошибка при отправке письма на {}: {}", to, e.getMessage(), e);
+            log.error("❌ Ошибка при отправке email: {}", e.getMessage(), e);
         }
+    }
+
+    /**
+     * Создает email-сообщение с заданным содержимым.
+     */
+    private MimeMessage createMimeMessage(String to, String subject, String content) throws MessagingException {
+        MimeMessage message = emailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+        helper.setFrom(senderEmail);
+        helper.setTo(to);
+        helper.setSubject(subject);
+        helper.setText(content, true);
+        return message;
+    }
+
+    /**
+     * Проверяет, является ли email корректным.
+     */
+    private boolean isValidEmail(String email) {
+        return email != null && EmailValidator.getInstance().isValid(email);
     }
 }

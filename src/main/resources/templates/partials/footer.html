@@ -1,42 +1,64 @@
 <div th:fragment="footer">
     <footer class="footer mt-auto py-3 bg-light">
         <div class="container footer-content">
-
             <!-- Контакты (слева) -->
             <div class="footer-column">
-                <div class="footer-title">Контакты</div>
-                <div class="footer-contacts">
-                    <a href="tel:+375333743218">
-                        <i class="fas fa-phone"></i> +375 33 374 32 18
-                    </a>
-                    <a href="mailto:dimaduma62@gmail.com">
-                        <i class="fas fa-envelope"></i> dimaduma62@gmail.com
-                    </a>
-                    <a href="https://www.instagram.com/_dmitriy_anisimov_" target="_blank">
-                        <i class="fab fa-instagram"></i> @_dmitriy_anisimov_
-                    </a>
-                    <a href="https://t.me/ddumaa" target="_blank">
-                        <i class="fab fa-telegram"></i> @ddumaa
-                    </a>
+                <h4>Контакты</h4>
+                <div class="footer-contacts text-md-start text-center">
+                    <div class="contact-group">
+                        <h5 class="text-md-start text-center">Техническая поддержка</h5>
+                        <div class="d-flex justify-content-md-start justify-content-center">
+                            <a href="mailto:support@belivery.by">
+                                <i class="fas fa-envelope"></i> support@belivery.by
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="contact-group">
+                        <h5 class="text-md-start text-center">Общие вопросы</h5>
+                        <div class="d-flex justify-content-md-start justify-content-center">
+                            <a href="mailto:info@belivery.by">
+                                <i class="fas fa-envelope"></i> info@belivery.by
+                            </a>
+                        </div>
+                    </div>
+
+                    <!--
+                    <div class="contact-group">
+                        <h5>Связаться в Telegram</h5>
+                        <a href="https://t.me/belivery_support" target="_blank">
+                            <i class="fab fa-telegram"></i> Поддержка в Telegram
+                        </a>
+                    </div>
+                    -->
                 </div>
             </div>
 
-            <!-- О компании (справа) -->
-            <div class="footer-column">
-                <div class="footer-title">О нас</div>
+            <!-- Описание проекта (по центру) -->
+            <div class="footer-column text-center">
+                <h4>О сервисе</h4>
+                <p class="footer-description">
+                    Belivery Monitoring – сервис для удобного управления отправлениями.
+                    Объединяет все посылки в одном месте, автоматически обновляет их статусы и помогает контролировать логистику.
+                </p>
+            </div>
+
+            <!-- Правовая информация (справа) -->
+            <div class="footer-column text-md-end text-center">
+                <h4>Правовая информация</h4>
                 <p>
                     <strong>ИП Анисимов Дмитрий Вадимович</strong><br>
                     УНП 291760554<br>
-                    Адрес: г. Брест, ул. Московская 247 кв. 68<br>
-                    Свидетельство выдано Администрацией Московского района г. Бреста 05.12.2022 №291760554
+                    г. Брест, ул. Московская 247-68<br>
+                    Свидетельство №291760554 от 05.12.2022
                 </p>
             </div>
         </div>
 
         <!-- Нижняя часть футера -->
-        <div class="footer-bottom">
+        <div class="footer-bottom text-center">
             <span class="text-muted">
-                &copy; 2025 belivery. Все права защищены.
+                &copy; 2025 Belivery. Все права защищены.
                 <a href="/privacy-policy" class="text-muted">Политика конфиденциальности</a> |
                 <a href="/terms-of-use" class="text-muted">Пользовательское соглашение</a>
             </span>
@@ -44,6 +66,4 @@
     </footer>
 
     <div th:replace="~{partials/cookies :: cookieFragment}"></div>
-
 </div>
-

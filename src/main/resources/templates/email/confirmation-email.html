@@ -3,24 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" th:href="@{/css/style.css}">
     <title>Подтверждение регистрации</title>
 </head>
-<body class="email-container">
-<div class="container">
-    <div class="header">
-        <img src="https://belivery/images/Logo.png" alt="Belivery">
-        <h1>Подтверждение регистрации</h1>
+<body style="font-family: 'Arial', sans-serif; background-color: #f8f9fa; color: #333333; padding: 30px; text-align: center;">
+
+<div style="max-width: 600px; margin: 0 auto; padding: 30px; background: #ffffff; border-radius: 10px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); border: 1px solid #e0e0e0;">
+
+    <!-- Логотип -->
+    <div style="text-align: center; padding-bottom: 20px;">
+        <img src="https://belivery.by/images/Logo.png" alt="Belivery" width="180">
     </div>
-    <div class="content">
-        <p>Здравствуйте!</p>
-        <p>Вы получили это письмо, потому что ваш email был использован для регистрации.</p>
-        <p>Ваш код подтверждения:</p>
-        <div class="confirmation-code" th:text="${confirmationCode}"></div>
-        <p>Если вы не регистрировались, проигнорируйте это письмо.</p>
+
+    <!-- Заголовок -->
+    <h1 style="color: #007bff; font-size: 24px; margin-bottom: 10px; text-align: center;">Подтверждение регистрации</h1>
+
+    <!-- Основной контент -->
+    <div style="padding: 20px; text-align: center;">
+        <p style="font-size: 16px;">Добро пожаловать в <strong>Belivery</strong>!</p>
+        <p style="font-size: 16px;">Чтобы завершить регистрацию, введите код подтверждения:</p>
+
+        <!-- Код подтверждения -->
+        <div style="background-color: #28a745; color: #ffffff; padding: 12px 24px; border-radius: 6px; font-size: 20px; font-weight: bold; display: inline-block; letter-spacing: 1px; margin-top: 20px;">
+            <strong th:text="${confirmationCode}"></strong>
+        </div>
+
+        <p style="font-size: 16px; margin-top: 20px;">Код действителен <strong>30 минут</strong>. Если вы не запрашивали регистрацию, проигнорируйте это письмо.</p>
     </div>
-    <div class="footer">
-        <p>С уважением,<br>Команда Belivery</p>
+
+    <!-- Подвал -->
+    <div style="text-align: center; color: #6c757d; padding: 20px; font-size: 14px;">
+        <p>По вопросам регистрации: <a href="mailto:support@belivery.by" style="color: #007bff; text-decoration: none;">support@belivery.by</a></p>
+        <p>Для общих вопросов: <a href="mailto:info@belivery.by" style="color: #007bff; text-decoration: none;">info@belivery.by</a></p>
+        <p style="margin-top: 10px;">С уважением,<br><strong>Команда Belivery</strong></p>
     </div>
 </div>
 </body>

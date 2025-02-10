@@ -77,6 +77,7 @@ public class UserService {
         saveOrUpdateConfirmationToken(email, confirmationCode);
 
         // Отправка email в фоне (не блокируем основной поток)
+        log.info("Отправка email с кодом подтверждения на: {}", email);
         emailService.sendConfirmationEmail(email, confirmationCode);
 
         log.info("Код подтверждения отправлен на email: {}", email);
