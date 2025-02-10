@@ -3,11 +3,11 @@
 
 .footer {
   width: 100%;
-  background-color: vars.$white;
-  @include mixins.box-shadow(0px, -4px, 10px);
+  background-color: #ffffff;
+  box-shadow: 0px -4px 10px rgba(0, 0, 0, 0.1);
   padding: 20px 0;
   font-size: 14px;
-  color: vars.$dark;
+  color: #343a40;
   position: relative;
   bottom: 0;
   z-index: 10;
@@ -21,47 +21,101 @@
     flex-wrap: wrap;
     text-align: left;
 
-    .footer-column {
-      flex: 1;
-      min-width: 280px;
-      padding: 10px;
+    @media (max-width: 768px) {
+      flex-direction: column; // На мобильных футер становится вертикальным
+      text-align: center;
+      align-items: center;
+    }
+  }
 
-      .footer-title {
+  .footer-column {
+    flex: 1;
+    min-width: 280px;
+    padding: 10px;
+
+    h4 {
+      font-weight: bold;
+      margin-bottom: 10px;
+      font-size: 16px; // Размер чуть больше обычного, но не огромный
+      color: #212529;
+    }
+
+    @media (max-width: 768px) {
+      text-align: center; // Центрируем блоки на мобильных
+    }
+  }
+
+  // Выравнивание блока правовой информации
+  .text-md-end {
+    text-align: right;
+
+    @media (max-width: 768px) {
+      text-align: center;
+    }
+  }
+
+  .footer-contacts {
+    display: flex;
+    flex-direction: column;
+    gap: 16px; // Отступ между группами
+
+    @media (max-width: 768px) {
+      align-items: center; // Центрируем контакты на мобильных
+      text-align: center;
+    }
+
+    .contact-group {
+      h5 {
+        font-size: 14px;
         font-weight: bold;
-        margin-bottom: 10px;
-        font-size: 16px;
+        margin-bottom: 5px;
+        color: #212529;
       }
 
-      .footer-contacts {
+      a {
         display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        color: #343a40;
+        font-weight: bold;
+
+        &:hover {
+          color: #007bff;
+        }
+
+        i {
+          font-size: 16px;
+        }
+      }
+
+      .footer-description {
+        text-align: center;
+        font-size: 14px;
+        color: #6c757d;
+        max-width: 300px;
+        margin: 0 auto;
+      }
+
+      .footer-bottom {
+        margin-top: 20px;
+        text-align: center;
+        font-size: 12px;
+        color: #6c757d;
+        width: 100%; // Гарантируем, что занимает всю ширину
+        display: flex;
+        justify-content: center; // Центрируем содержимое
+        align-items: center;
 
         a {
-          display: flex;
-          align-items: center;
-          gap: 10px;
           text-decoration: none;
-          color: vars.$dark;
-          font-weight: bold;
+          color: #6c757d;
 
           &:hover {
-            color: vars.$primary;
-          }
-
-          i {
-            font-size: 18px;
+            color: #007bff;
           }
         }
       }
     }
-  }
-
-  .footer-bottom {
-    margin-top: 20px;
-    text-align: center;
-    font-size: 12px;
-    color: vars.$secondary;
   }
 }
