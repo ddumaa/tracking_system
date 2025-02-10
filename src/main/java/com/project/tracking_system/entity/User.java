@@ -74,11 +74,14 @@ public class User implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // Добавляем роль ROLE_PAID_USER для админа
-        if (this.roles.contains(Role.ROLE_ADMIN)) {
-            this.roles.add(Role.ROLE_PAID_USER);
+        Set<Role> effectiveRoles = new HashSet<>(roles);
+
+        // Если пользователь — админ, дополнительно добавляем ему роль ROLE_PAID_USER
+        if (effectiveRoles.contains(Role.ROLE_ADMIN)) {
+            effectiveRoles.add(Role.ROLE_PAID_USER);
         }
-        return roles.stream()
+
+        return effectiveRoles.stream()
                 .map(role -> new SimpleGrantedAuthority(role.name()))
                 .collect(Collectors.toSet());
     }

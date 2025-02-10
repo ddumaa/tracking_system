@@ -58,6 +58,15 @@ function checkUpdateStatus(applyBtn) {
             url: "/departures/update-status",
             type: "GET",
             success: function (response) {
+                console.log("Ответ API:", response); // Логируем ответ API в консоль
+
+                if (response.errorMessage) {
+                    // Если есть ошибка, показываем её и прерываем обновление
+                    showAlert(response.errorMessage, "danger");
+                    applyBtn.prop("disabled", false).html("Применить");
+                    return;
+                }
+
                 if (response.completed) {
                     showAlert("Обновление завершено!", "success");
                     applyBtn.prop("disabled", false).html("Применить");

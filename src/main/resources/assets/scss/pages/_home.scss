@@ -1,5 +1,5 @@
-@use '../abstracts/_variables.scss' as var;
-@use '../abstracts/_mixins.scss' as mixins;
+@use '../abstracts/variables' as var;
+@use '../abstracts/mixins' as mixins;
 
 .limit-warning {
   font-size: 18px; // Увеличенный размер шрифта

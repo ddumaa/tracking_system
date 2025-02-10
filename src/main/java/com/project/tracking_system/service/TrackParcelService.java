@@ -55,6 +55,7 @@ public class TrackParcelService {
     private final StatusTrackService statusTrackService;
 
     private final Map<Long, AtomicBoolean> updateStatusMap = new ConcurrentHashMap<>(); // Храним статус по userId
+    private final Map<Long, String> lastErrorMessages = new ConcurrentHashMap<>();
 
     /**
      * Сохраняет или обновляет посылку пользователя.
@@ -170,6 +171,11 @@ public class TrackParcelService {
         return dtoList;
     }
 
+    // Метод для получения последней ошибки
+    public String getLastErrorMessage(Long userId) {
+        return lastErrorMessages.getOrDefault(userId, "");
+    }
+
     /**
      * Обновляет историю отслеживания посылок пользователя асинхронно.
      * <p>
@@ -209,55 +215,66 @@ public class TrackParcelService {
     }
 
     public void updateSelectedParcels(Long userId, List<String> selectedNumbers) {
-        boolean isFreeUser = !userService.isUserPaid(userId);
-        ZonedDateTime currentDate = ZonedDateTime.now(ZoneOffset.UTC);
+        try {
+            boolean isFreeUser = !userService.isUserPaid(userId);
+            ZonedDateTime currentDate = ZonedDateTime.now(ZoneOffset.UTC);
 
-        // Если пользователь бесплатный, проверяем лимиты обновлений
-        if (isFreeUser) {
-            int updateCount = userService.getUpdateCount(userId);
-            ZonedDateTime lastUpdate = userService.getLastUpdateDate(userId);
+            if (isFreeUser) {
+                int updateCount = userService.getUpdateCount(userId);
+                ZonedDateTime lastUpdate = userService.getLastUpdateDate(userId);
 
-            if (lastUpdate != null && lastUpdate.toLocalDate().equals(currentDate.toLocalDate())) {
-                if (updateCount >= 10) {
-                    throw new IllegalStateException("Ваш бесплатный лимит в день исчерпан.");
+                if (lastUpdate != null && lastUpdate.toLocalDate().equals(currentDate.toLocalDate())) {
+                    if (updateCount >= 10) {
+                        log.warn("Лимит обновлений исчерпан для пользователя ID: {}", userId);
+                        lastErrorMessages.put(userId, "Ваш бесплатный лимит в день исчерпан.");
+                        throw new IllegalStateException("Ваш бесплатный лимит в день исчерпан.");
+                    }
+                } else {
+                    userService.resetUpdateCount(userId);
                 }
-            } else {
-                // Если новый день, сбрасываем счетчик обновлений
-                userService.resetUpdateCount(userId);
             }
-        }
 
-        updateStatusMap.put(userId, new AtomicBoolean(false)); // Устанавливаем начальный статус обновления
+            updateStatusMap.put(userId, new AtomicBoolean(false));
 
-        CompletableFuture.runAsync(() -> {
-            List<TrackParcelDTO> selectedParcels = findByUserTracksByNumbers(userId, selectedNumbers);
+            CompletableFuture.runAsync(() -> {
+                try {
+                    List<TrackParcelDTO> selectedParcels = findByUserTracksByNumbers(userId, selectedNumbers);
 
-            List<CompletableFuture<Void>> futures = selectedParcels.stream()
-                    .filter(parcel -> !parcel.getStatus().equals(GlobalStatus.DELIVERED.getDescription()) &&
-                            !parcel.getStatus().equals(GlobalStatus.RETURNED_TO_SENDER.getDescription()))
-                    .map(parcel -> typeDefinitionTrackPostService
-                            .getTypeDefinitionTrackPostServiceAsync(userId, parcel.getNumber())
-                            .thenAccept(trackInfoListDTO -> {
-                                List<TrackInfoDTO> list = trackInfoListDTO.getList();
-                                TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(parcel.getNumber(), userId);
+                    List<CompletableFuture<Void>> futures = selectedParcels.stream()
+                            .map(parcel -> typeDefinitionTrackPostService
+                                    .getTypeDefinitionTrackPostServiceAsync(userId, parcel.getNumber())
+                                    .thenAccept(trackInfoListDTO -> {
+                                        List<TrackInfoDTO> list = trackInfoListDTO.getList();
+                                        TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(parcel.getNumber(), userId);
 
-                                if (trackParcel != null) {
-                                    trackParcel.setStatus(statusTrackService.setStatus(list));
-                                    trackParcel.setData(list.get(0).getTimex());
-                                    trackParcelRepository.save(trackParcel);
-                                }
-                            })
-                    ).toList();
+                                        if (trackParcel != null) {
+                                            trackParcel.setStatus(statusTrackService.setStatus(list));
+                                            trackParcel.setData(list.get(0).getTimex());
+                                            trackParcelRepository.save(trackParcel);
+                                        }
+                                    })
+                            ).toList();
 
-            // После завершения всех задач обновляем флаг
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> {
-                updateStatusMap.get(userId).set(true); // Обновление завершено
+                    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> {
+                        updateStatusMap.get(userId).set(true);
+                        lastErrorMessages.remove(userId); // Очистить ошибку при успешном обновлении
+                        if (isFreeUser) {
+                            userService.incrementUpdateCount(userId, selectedNumbers.size());
+                        }
+                    });
 
-                if (isFreeUser) {
-                    userService.incrementUpdateCount(userId, selectedNumbers.size());
+                } catch (Exception e) {
+                    log.error("Ошибка при обновлении посылок пользователя {}: {}", userId, e.getMessage());
+                    lastErrorMessages.put(userId, "Произошла ошибка обновления: " + e.getMessage());
+                    updateStatusMap.get(userId).set(true);
                 }
             });
-        });
+
+        } catch (IllegalStateException e) {
+            log.warn("Ошибка бизнес-логики (лимит) для пользователя {}: {}", userId, e.getMessage());
+            lastErrorMessages.put(userId, e.getMessage());
+            throw e;
+        }
     }
 
     public boolean isUpdateCompleted(Long userId) {
