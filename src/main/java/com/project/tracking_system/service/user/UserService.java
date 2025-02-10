@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -331,21 +332,34 @@ public class UserService {
     }
 
     public void validateFreeUserLimit(Long userId) {
-        if (!userRepository.isUserPaid(userId)) {
-            long existingParcelCount = trackParcelRepository.countByUserId(userId);
-            if (existingParcelCount >= 10) {
-                throw new IllegalArgumentException("Для бесплатного аккаунта можно хранить не более 10 посылок. Перейдите на платный аккаунт.");
-            }
+        if (userRepository.isUserPaid(userId)) {
+            return; // Если пользователь платный, проверка не нужна
+        }
+
+        long existingParcelCount = trackParcelRepository.countByUserId(userId);
+        if (existingParcelCount >= 10) {
+            throw new IllegalArgumentException("Для бесплатного аккаунта можно хранить не более 10 посылок. Перейдите на платный аккаунт.");
         }
     }
 
     public void checkAndUpdateUserRole(User user) {
-        if (user.getRoles().contains(Role.ROLE_PAID_USER) &&
-                user.getRoleExpirationDate() != null &&
-                user.getRoleExpirationDate().isBefore(ZonedDateTime.now(ZoneOffset.UTC))) {
+        if (user == null) {
+            return;
+        }
 
-            user.getRoles().remove(Role.ROLE_PAID_USER);
-            user.getRoles().add(Role.ROLE_FREE_USER);
+        if (!user.getRoles().contains(Role.ROLE_PAID_USER)) {
+            return; // Если у пользователя нет платной роли, ничего не делаем
+        }
+
+        if (user.getRoleExpirationDate() != null && user.getRoleExpirationDate().isBefore(ZonedDateTime.now(ZoneOffset.UTC))) {
+            log.info("Платная подписка истекла для пользователя {}. Переключаем на бесплатный аккаунт.", user.getId());
+
+            // Обновляем список ролей
+            Set<Role> updatedRoles = new HashSet<>(user.getRoles());
+            updatedRoles.remove(Role.ROLE_PAID_USER);
+            updatedRoles.add(Role.ROLE_FREE_USER);
+
+            user.setRoles(updatedRoles);
             user.setRoleExpirationDate(null);
 
             userRepository.save(user);
@@ -359,13 +373,13 @@ public class UserService {
     }
 
     public String getLimitExceededMessage(User user) {
-        if (user == null) {
-            return "Для незарегистрированный пользователей доступно не более 5 треков.";
-        }
-        if (user.getRoles().contains(Role.ROLE_FREE_USER)) {
-            return "Для бесплатных пользователей доступно не более 10 треков.";
-        }
-        return "";
+        int maxLimit = getMaxTrackingLimit(user);
+
+        return switch (maxLimit) {
+            case 5 -> "Для незарегистрированных пользователей доступно не более 5 треков.";
+            case 10 -> "Для бесплатных пользователей доступно не более 10 треков.";
+            default -> "";
+        };
     }
 
     /**
