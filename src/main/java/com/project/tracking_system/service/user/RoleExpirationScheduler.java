@@ -1,6 +1,7 @@
 package com.project.tracking_system.service.user;
 
 import com.project.tracking_system.entity.Role;
+import com.project.tracking_system.entity.SubscriptionPlan;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.service.TrackParcelService;
@@ -27,39 +28,34 @@ import java.util.List;
 @Slf4j
 @RequiredArgsConstructor
 @Service
-public class RoleExpirationScheduler {
+public class SubscriptionExpirationScheduler {
 
     private final UserRepository userRepository;
-    private final TrackParcelService trackParcelService;
 
     @Scheduled(cron = "0 0 3 * * *", zone = "UTC")
-    public void checkExpiredRoles() {
+    public void checkExpiredSubscriptions() {
         ZonedDateTime nowUtc = ZonedDateTime.now(ZoneOffset.UTC);
 
-        // Получаем только тех пользователей, у кого срок действия истек
-        List<User> expiredUsers = userRepository.findExpiredPaidUsers(nowUtc);
+        // Получаем пользователей с истекшей подпиской
+        List<User> expiredUsers = userRepository.findUsersWithExpiredSubscription(nowUtc);
         List<User> usersToUpdate = new ArrayList<>();
 
         for (User user : expiredUsers) {
-            user.getRoles().remove(Role.ROLE_PAID_USER);
-            user.getRoles().add(Role.ROLE_FREE_USER);
-            user.setRoleExpirationDate(null);
+            user.setSubscriptionPlan(getFreePlan()); // Переключаем на бесплатный план
+            user.setSubscriptionEndDate(null); // Обнуляем дату окончания подписки
             usersToUpdate.add(user);
-            log.info("Пользователь с ID {} переведен на бесплатный тариф.", user.getId());
+            log.info("Пользователь с ID {} переведен на бесплатную подписку.", user.getId());
         }
 
         // Обновляем только измененных пользователей
         if (!usersToUpdate.isEmpty()) {
             userRepository.saveAll(usersToUpdate);
-            log.info("Обновлены {} пользователей с истекшим сроком подписки.", usersToUpdate.size());
+            log.info("Обновлены {} пользователей с истекшей подпиской.", usersToUpdate.size());
         }
-
-        // Обновляем историю только для тех, у кого подписка еще активна
-        List<Long> activePaidUsers = userRepository.findActivePaidUsers(nowUtc);
-        for (Long userId : activePaidUsers) {
-            trackParcelService.updateHistory(userId);
-        }
-        log.info("Обновлена история отслеживания для {} платных пользователей.", activePaidUsers.size());
     }
 
+    private SubscriptionPlan getFreePlan() {
+        // Можно внедрить SubscriptionPlanRepository и получать подписку из БД
+        return new SubscriptionPlan(1L, "FREE", 10, 10, 10, false);
+    }
 }

@@ -195,18 +195,19 @@ public class DeparturesController {
 
         Long userId = user.getId();
         boolean isCompleted = trackParcelService.isUpdateCompleted(userId);
-        String errorMessage = trackParcelService.getLastErrorMessage(userId);
-
-        log.debug("Проверка статуса обновления для пользователя {}: completed={}, errorMessage={}", userId, isCompleted, errorMessage);
+        log.debug("Проверка статуса обновления для пользователя {}: completed={}, errorMessage={}", userId, isCompleted);
 
         Map<String, Object> response = new HashMap<>();
         response.put("completed", isCompleted);
 
-        if (errorMessage != null) {
-            response.put("errorMessage", errorMessage);
+        String errorMessage = trackParcelService.getLastErrorMessage(userId);
+        if (errorMessage == null) {
+            errorMessage = "";
         }
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of(
+                "completed", isCompleted,
+                "errorMessage", errorMessage
+        ));
     }
 
     /**

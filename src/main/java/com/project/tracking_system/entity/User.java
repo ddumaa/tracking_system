@@ -60,10 +60,14 @@ public class User implements UserDetails {
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private LoginAttempt loginAttempt;
 
-    @Column(name = "role_expiration_date")
-    private ZonedDateTime roleExpirationDate;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "subscription_plan_id")
+    private SubscriptionPlan subscriptionPlan;
+
+    private ZonedDateTime subscriptionEndDate;
 
     private int updateCount = 0;
+
     private ZonedDateTime lastUpdateDate;
 
     @ElementCollection(fetch = FetchType.EAGER)
@@ -74,14 +78,7 @@ public class User implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        Set<Role> effectiveRoles = new HashSet<>(roles);
-
-        // Если пользователь — админ, дополнительно добавляем ему роль ROLE_PAID_USER
-        if (effectiveRoles.contains(Role.ROLE_ADMIN)) {
-            effectiveRoles.add(Role.ROLE_PAID_USER);
-        }
-
-        return effectiveRoles.stream()
+        return roles.stream()
                 .map(role -> new SimpleGrantedAuthority(role.name()))
                 .collect(Collectors.toSet());
     }

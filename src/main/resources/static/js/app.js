@@ -61,7 +61,7 @@ function checkUpdateStatus(applyBtn) {
             success: function (response) {
                 console.log("Ответ API:", response); // Логируем ответ API в консоль
 
-                if (response.errorMessage) {
+                if (response.errorMessage && response.errorMessage !== "") {
                     // Если есть ошибка, показываем её и прерываем обновление
                     showAlert(response.errorMessage, "danger");
                     applyBtn.prop("disabled", false).html("Применить");

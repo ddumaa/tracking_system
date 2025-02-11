@@ -6,7 +6,6 @@ package com.project.tracking_system.entity;
  */
 public enum Role {
     ROLE_ADMIN,
-    ROLE_PAID_USER,
-    ROLE_FREE_USER;
+    ROLE_USER;
 
 }

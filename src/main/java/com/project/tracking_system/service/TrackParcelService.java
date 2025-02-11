@@ -174,6 +174,7 @@ public class TrackParcelService {
     // Метод для получения последней ошибки
     public String getLastErrorMessage(Long userId) {
         String error = lastErrorMessages.get(userId);
+        log.debug("getLastErrorMessage: userId={}, error={}", userId, error); // ✅ Логируем, есть ли ошибка перед возвратом
         lastErrorMessages.remove(userId);
         return error;
     }

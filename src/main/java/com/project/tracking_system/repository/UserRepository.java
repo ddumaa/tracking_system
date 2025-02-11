@@ -1,6 +1,5 @@
 package com.project.tracking_system.repository;
 
-import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -13,34 +12,20 @@ import java.util.Optional;
 
 public interface UserRepository extends JpaRepository <User, Long> {
 
-    Optional<User> findByEmail(String username);
+    Optional<User> findByEmail(String userEmail);
 
     Optional<User> findById(Long userId);
 
-    @Query("""
-        SELECT u FROM User u
-        JOIN u.roles r
-        WHERE r = 'ROLE_PAID_USER'
-        """)
-    List<User> findUsersByRole(@Param("role") Role role);
+    // Поиск пользователей по подписке (FREE, PREMIUM)
+    @Query("SELECT u FROM User u WHERE u.subscriptionPlan.name = :planName")
+    List<User> findUsersBySubscription(@Param("planName") String planName);
 
-    List<User> findByRolesContaining(Role role);
+    // Проверяем, является ли пользователь PREMIUM
+    @Query("SELECT COUNT(u) > 0 FROM User u WHERE u.id = :userId AND u.subscriptionPlan.name = 'PREMIUM'")
+    boolean isUserPremium(@Param("userId") Long userId);
 
-    long countByRolesContaining(Role role);
-
-    @Query("""
-        SELECT COUNT(u) > 0 FROM User u
-        JOIN u.roles r
-        WHERE u.id = :userId
-        AND r = 'ROLE_PAID_USER'
-        """)
-    boolean isUserPaid(@Param("userId") Long userId);
-
-    @Query("SELECT u FROM User u JOIN u.roles r WHERE r = 'ROLE_PAID_USER' AND u.roleExpirationDate < :now")
-    List<User> findExpiredPaidUsers(@Param("now") ZonedDateTime now);
-
-    @Query("SELECT u.id FROM User u JOIN u.roles r WHERE r = 'ROLE_PAID_USER' AND (u.roleExpirationDate IS NULL OR u.roleExpirationDate >= :now)")
-    List<Long> findActivePaidUsers(@Param("now") ZonedDateTime now);
+    @Query("SELECT u FROM User u WHERE u.subscriptionEndDate IS NOT NULL AND u.subscriptionEndDate < :now")
+    List<User> findUsersWithExpiredSubscription(@Param("now") ZonedDateTime now);
 
     @Query("SELECT u.updateCount FROM User u WHERE u.id = :userId")
     int getUpdateCount(@Param("userId") Long userId);
