@@ -21,8 +21,8 @@ public interface UserRepository extends JpaRepository <User, Long> {
     List<User> findUsersBySubscription(@Param("planName") String planName);
 
     // Проверяем, является ли пользователь PREMIUM
-    @Query("SELECT COUNT(u) > 0 FROM User u WHERE u.id = :userId AND u.subscriptionPlan.name = 'PREMIUM'")
-    boolean isUserPremium(@Param("userId") Long userId);
+    @Query("SELECT COUNT(u) > 0 FROM User u WHERE u.id = :userId AND u.subscriptionPlan.name = :planName")
+    boolean isUserSubscribedToPlan(@Param("userId") Long userId, @Param("planName") String planName);
 
     @Query("SELECT u FROM User u WHERE u.subscriptionEndDate IS NOT NULL AND u.subscriptionEndDate < :now")
     List<User> findUsersWithExpiredSubscription(@Param("now") ZonedDateTime now);
@@ -44,5 +44,13 @@ public interface UserRepository extends JpaRepository <User, Long> {
     @Query("SELECT u.useCustomCredentials FROM User u WHERE u.id = :userId")
     boolean isUsingCustomCredentials(@Param("userId") Long userId);
 
+    @Query("SELECT u.updateCount, u.lastUpdateDate FROM User u WHERE u.id = :userId")
+    Object[] getUpdateCountAndLastUpdateDate(@Param("userId") Long userId);
 
+    @Query("SELECT sp.name FROM User u JOIN u.subscriptionPlan sp WHERE u.id = :userId")
+    String getSubscriptionPlanName(@Param("userId") Long userId);
+
+    // Подсчёт пользователей по подписке
+    @Query("SELECT COUNT(u) FROM User u WHERE u.subscriptionPlan.name = :planName")
+    long countUsersBySubscriptionPlan(@Param("planName") String planName);
 }

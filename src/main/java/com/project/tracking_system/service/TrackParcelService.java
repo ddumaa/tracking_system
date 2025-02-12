@@ -4,6 +4,7 @@ import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.entity.User;
 import com.project.tracking_system.model.GlobalStatus;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
@@ -16,11 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -53,6 +50,7 @@ public class TrackParcelService {
     private final UserRepository userRepository;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final StatusTrackService statusTrackService;
+    private final SubscriptionService subscriptionService;
 
     private final Map<Long, AtomicBoolean> updateStatusMap = new ConcurrentHashMap<>(); // Храним статус по userId
     private final Map<Long, String> lastErrorMessages = new ConcurrentHashMap<>();
@@ -75,24 +73,41 @@ public class TrackParcelService {
 
         List<TrackInfoDTO> trackInfoDTOList = trackInfoListDTO.getList();
 
-        // Проверка на ограничения для бесплатных пользователей
-        userService.validateFreeUserLimit(userId);
+        int currentSavedTracks = trackParcelRepository.countByUserId(userId);
 
-        // Ищем посылку по номеру отслеживания и пользователю
-        TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(number, userId);
+        int remainingTracks = subscriptionService.canSaveMoreTracks(userId, trackInfoDTOList.size());
 
-        if (trackParcel == null) {
-            trackParcel = new TrackParcel();
-            trackParcel.setNumber(number);
-            trackParcel.setUser(userRepository.getReferenceById(userId)); // Lazy загрузка пользователя
+        int availableSlots = remainingTracks - currentSavedTracks;
+
+        if (availableSlots <= 0) {
+            throw new IllegalArgumentException("Вы не можете сохранить больше посылок, так как превышен лимит сохранённых посылок.");
         }
 
-        // Обновляем статус и дату посылки
-        trackParcel.setStatus(statusTrackService.setStatus(trackInfoDTOList));
-        trackParcel.setData(trackInfoDTOList.get(0).getTimex());
+        int tracksToSave = Math.min(trackInfoDTOList.size(), availableSlots);
 
-        // Сохраняем запись в базу данных
-        trackParcelRepository.save(trackParcel);
+        for (int i = 0; i < tracksToSave; i++) {
+            TrackInfoDTO trackInfoDTO = trackInfoDTOList.get(i);
+            TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(number, userId);
+
+            if (trackParcel == null) {
+                trackParcel = new TrackParcel();
+                trackParcel.setNumber(number);
+                trackParcel.setUser(userRepository.getReferenceById(userId)); // Lazy загрузка пользователя
+            }
+
+            // Обновляем статус и дату посылки
+            trackParcel.setStatus(statusTrackService.setStatus(Collections.singletonList(trackInfoDTO)));
+            trackParcel.setData(trackInfoDTO.getTimex());
+
+            // Сохраняем запись в базу данных
+            trackParcelRepository.save(trackParcel);
+        }
+
+        // Уведомление о превышении лимита
+        if (tracksToSave < trackInfoDTOList.size()) {
+            log.warn("Не все треки были сохранены. Лимит сохранённых посылок для пользователя: {}. Сохранено всего {} треков.", userId, tracksToSave);
+        }
+
     }
 
     /**
@@ -154,6 +169,10 @@ public class TrackParcelService {
         return trackParcelRepository.count();
     }
 
+    public int getSavedTracksCountForUser(Long userId) {
+        return trackParcelRepository.countByUserId(userId);
+    }
+
     /**
      * Вспомогательный метод для преобразования посылок в DTO.
      * <p>
@@ -188,9 +207,8 @@ public class TrackParcelService {
      * @param name имя пользователя
      */
     public void updateHistory(Long userId) {
-        // Проверяем, является ли пользователь платным
-        boolean isPaidUser = userService.isUserPaid(userId);
-        if (!isPaidUser) {
+        // Проверяем, является ли пользователь платным (например, проверка на PREMIUM)
+        if (!subscriptionService.canUseBulkUpdate(userId)) {
             throw new AccessDeniedException("Обновить всё - Только для платных пользователей.");
         }
 
@@ -198,15 +216,19 @@ public class TrackParcelService {
         log.info("Запуск обновления истории посылок для пользователя с ID: {}", userId);
 
         List<CompletableFuture<Void>> futures = byUserTrack.stream()
+                // Фильтруем посылки, которые не находятся в статусах "Доставлено" или "Возвращено"
                 .filter(trackParcelDTO -> !(trackParcelDTO.getStatus().equals(GlobalStatus.DELIVERED.getDescription()) ||
                         trackParcelDTO.getStatus().equals(GlobalStatus.RETURNED_TO_SENDER.getDescription())))
                 .map(trackParcelDTO -> typeDefinitionTrackPostService
                         .getTypeDefinitionTrackPostServiceAsync(userId, trackParcelDTO.getNumber())
                         .thenAccept(trackInfoListDTO -> {
                             List<TrackInfoDTO> list = trackInfoListDTO.getList();
+                            // Находим посылку по номеру отслеживания и пользователю
                             TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(trackParcelDTO.getNumber(), userId);
+                            // Обновляем статус и дату посылки
                             trackParcel.setStatus(statusTrackService.setStatus(list));
                             trackParcel.setData(list.get(0).getTimex());
+
                             trackParcelRepository.save(trackParcel);
                             log.info("Обновлен статус посылки {} для пользователя с ID: {}", trackParcelDTO.getNumber(), userId);
                         })
@@ -221,29 +243,27 @@ public class TrackParcelService {
         lastErrorMessages.remove(userId);
 
         try {
-            boolean isFreeUser = !userService.isUserPaid(userId);
-            ZonedDateTime currentDate = ZonedDateTime.now(ZoneOffset.UTC);
+            // Получаем информацию о пользователе
+            User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("Пользователь не найден"));
 
-            if (isFreeUser) {
-                int updateCount = userService.getUpdateCount(userId);
-                ZonedDateTime lastUpdate = userService.getLastUpdateDate(userId);
+            // Проверяем, сколько обновлений пользователь ещё может сделать
+            int remainingUpdates = subscriptionService.canUpdateTracks(userId, selectedNumbers.size());
 
-                if (lastUpdate != null && lastUpdate.toLocalDate().equals(currentDate.toLocalDate())) {
-                    if (updateCount >= 10) {
-                        log.warn("Лимит обновлений исчерпан для пользователя ID: {}", userId);
-                        lastErrorMessages.put(userId, "Ваш бесплатный лимит в день исчерпан.");
-                        throw new IllegalStateException("Ваш бесплатный лимит в день исчерпан.");
-                    }
-                } else {
-                    userService.resetUpdateCount(userId);
-                }
+            if (remainingUpdates <= 0) {
+                log.warn("Лимит обновлений исчерпан для пользователя ID: {}", userId);
+                lastErrorMessages.put(userId, "Ваш лимит обновлений на сегодня исчерпан.");
+                throw new IllegalStateException("Ваш лимит обновлений на сегодня исчерпан.");
             }
+
+            // Если у пользователя есть лимит обновлений, обновляем только оставшееся количество
+            int updatesToProcess = Math.min(selectedNumbers.size(), remainingUpdates);
 
             updateStatusMap.put(userId, new AtomicBoolean(false));
 
+            // Асинхронное обновление статусов посылок
             CompletableFuture.runAsync(() -> {
                 try {
-                    List<TrackParcelDTO> selectedParcels = findByUserTracksByNumbers(userId, selectedNumbers);
+                    List<TrackParcelDTO> selectedParcels = findByUserTracksByNumbers(userId, selectedNumbers.subList(0, updatesToProcess));
 
                     List<CompletableFuture<Void>> futures = selectedParcels.stream()
                             .map(parcel -> typeDefinitionTrackPostService
@@ -260,11 +280,14 @@ public class TrackParcelService {
                                     })
                             ).toList();
 
+                    // Ожидаем завершения всех асинхронных задач
                     CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> {
                         updateStatusMap.get(userId).set(true);
                         lastErrorMessages.remove(userId); // Очистить ошибку при успешном обновлении
-                        if (isFreeUser) {
-                            userService.incrementUpdateCount(userId, selectedNumbers.size());
+
+                        // Увеличиваем количество обновлений для бесплатных пользователей
+                        if (user.getSubscriptionPlan() != null && "FREE".equals(user.getSubscriptionPlan().getName())) {
+                            userService.incrementUpdateCount(userId, updatesToProcess);
                         }
                     });
 

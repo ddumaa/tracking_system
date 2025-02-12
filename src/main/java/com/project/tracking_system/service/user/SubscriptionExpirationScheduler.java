@@ -1,10 +1,8 @@
 package com.project.tracking_system.service.user;
 
-import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.entity.SubscriptionPlan;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.repository.UserRepository;
-import com.project.tracking_system.service.TrackParcelService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;

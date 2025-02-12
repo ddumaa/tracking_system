@@ -113,8 +113,14 @@ public class HomeController {
 
             // Сохраняем посылку только для авторизованных пользователей
             if (userId != null) {
-                trackParcelService.save(number, trackInfo, userId);
-                log.debug("Данные посылки сохранены для пользователя ID: {}", userId);
+                try {
+                    trackParcelService.save(number, trackInfo, userId);
+                    log.debug("Данные посылки сохранены для пользователя ID: {}", userId);
+                } catch (IllegalArgumentException e) {
+                    // Ловим исключение и показываем пользователю сообщение о лимите
+                    model.addAttribute("customError", "Вы не можете сохранить больше 10 посылок.");
+                    log.warn("Ошибка сохранения посылки для пользователя ID {}: {}", userId, e.getMessage());
+                }
             } else {
                 log.info("Гость просмотрел данные посылки без сохранения.");
             }
@@ -380,7 +386,6 @@ public class HomeController {
                 List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, userId);
                 model.addAttribute("trackingResults", trackingResults);
 
-                model.addAttribute("customError", "OCR не реализован в текущей версии.");
                 return "home";
             } else {
                 model.addAttribute("customError", "Неподдерживаемый тип файла. Загрузите XLS, XLSX или изображение.");

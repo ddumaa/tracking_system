@@ -37,6 +37,7 @@ public class TrackingNumberServiceXLS {
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final TrackParcelService trackParcelService;
     private final UserService userService;
+    private final SubscriptionService subscriptionService;
     private final ExecutorService executor = Executors.newFixedThreadPool(5);
 
     /**
@@ -55,15 +56,16 @@ public class TrackingNumberServiceXLS {
         List<TrackingResultAdd> trackingResult = new ArrayList<>();
         String limitExceededMessage = null;
 
-        int maxTrackingLimit;
-        User user = null;
+        int maxTrackingLimit = 5;
 
-        if (userId == null) {
-            log.warn("Обработка файла анонимным пользователем.");
-            maxTrackingLimit = 5;
-        } else {
-            user = userService.findUserById(userId);
-            maxTrackingLimit = userService.getMaxTrackingLimit(user);
+        if (userId != null) {
+            // Получаем лимит загрузки для пользователя (сколько треков можно загрузить за раз)
+            maxTrackingLimit = subscriptionService.canUploadTracks(userId, Integer.MAX_VALUE);
+
+            // Для анонимных пользователей, если лимит превышен, возвращаем сообщение
+            if (maxTrackingLimit == 0) {
+                limitExceededMessage = "Вы не можете загрузить больше треков, так как превышен лимит для вашего аккаунта.";
+            }
         }
 
         try (InputStream in = file.getInputStream(); Workbook workbook = WorkbookFactory.create(in)) {
@@ -92,7 +94,9 @@ public class TrackingNumberServiceXLS {
 
             // Если анонимный пользователь превысил лимит → передаем сообщение в отдельную переменную
             if (sheet.getPhysicalNumberOfRows() > maxTrackingLimit) {
-                limitExceededMessage = userService.getLimitExceededMessage(user);
+                if (userId == null) {
+                    limitExceededMessage = "Превышен лимит на количество треков для вашего аккаунта. Для анонимных пользователей лимит составляет " + maxTrackingLimit + " треков.";
+                }
             }
         }
 
@@ -104,14 +108,14 @@ public class TrackingNumberServiceXLS {
             TrackInfoListDTO trackInfo;
 
             if (userId == null) {
-                log.warn("Трек-номер {} обрабатывается анонимным пользователем.", trackingNumber);
+                log.debug("Трек-номер {} обрабатывается анонимным пользователем.", trackingNumber);
                 trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(null, trackingNumber);
             } else {
                 trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(userId, trackingNumber);
             }
 
             if (trackInfo == null || trackInfo.getList() == null || trackInfo.getList().isEmpty()) {
-                log.warn("Нет данных по трек-номеру {}", trackingNumber);
+                log.debug("Нет данных по трек-номеру {}", trackingNumber);
                 return new TrackingResultAdd(trackingNumber, "Нет данных");
             }
 
@@ -119,11 +123,11 @@ public class TrackingNumberServiceXLS {
             if (userId != null) {
                 trackParcelService.save(trackingNumber, trackInfo, userId);
             } else {
-                log.info("Анонимный пользователь обработал трек-номер {} без сохранения.", trackingNumber);
+                log.debug("Анонимный пользователь обработал трек-номер {} без сохранения.", trackingNumber);
             }
 
             String lastStatus = trackInfo.getList().get(0).getInfoTrack();
-            log.info("Трек-номер: {}, последний статус: {}", trackingNumber, lastStatus);
+            log.debug("Трек-номер: {}, последний статус: {}", trackingNumber, lastStatus);
 
             return new TrackingResultAdd(trackingNumber, lastStatus);
         } catch (Exception e) {

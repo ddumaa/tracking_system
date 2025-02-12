@@ -1,4 +1,8 @@
-INSERT INTO subscription_plans (name, max_tracks_per_file, max_saved_tracks, max_track_updates, allow_bulk_update)
-VALUES
-    ('FREE', 10, 10, 10, false),
-    ('PREMIUM', NULL, NULL, NULL, true);
+CREATE TABLE subscription_plans (
+                                    id SERIAL PRIMARY KEY,
+                                    name VARCHAR(255) NOT NULL,
+                                    max_tracks_per_file INT DEFAULT NULL,
+                                    max_saved_tracks INT DEFAULT NULL,
+                                    max_track_updates INT DEFAULT NULL,
+                                    allow_bulk_update BOOLEAN NOT NULL
+);

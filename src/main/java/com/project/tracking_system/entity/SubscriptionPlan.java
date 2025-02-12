@@ -1,12 +1,16 @@
 package com.project.tracking_system.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * @author Dmitriy Anisimov
  * @date 11.02.2025
  */
+@AllArgsConstructor
+@NoArgsConstructor
 @Entity
 @Table(name = "subscription_plans")
 @Data
@@ -30,4 +34,5 @@ public class SubscriptionPlan {
 
     @Column(nullable = false)
     private boolean allowBulkUpdate;
+
 }

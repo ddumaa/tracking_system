@@ -1,6 +1,7 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
@@ -27,11 +28,12 @@ public class AdminController {
 
     private final UserService userService;
     private final TrackParcelService trackParcelService;
+    private final SubscriptionService subscriptionService;
 
     @GetMapping()
     public String adminDashboard(Model model) {
         long totalUsers = userService.countUsers();
-        long paidUsers = userService.countPaidUsers();
+        long paidUsers = userService.countUsersBySubscriptionPlan("PREMIUM");
         long totalParcels = trackParcelService.countAllParcels();
 
         // Добавляем статистику в модель
@@ -52,7 +54,6 @@ public class AdminController {
     @GetMapping("/users/{usersId}")
     public String getUserDetails(@PathVariable Long usersId, Model model) {
         User user = userService.findUserById(usersId);
-
         var parcels = trackParcelService.findAllByUserTracks(usersId);
 
         model.addAttribute("user", user);
@@ -67,10 +68,22 @@ public class AdminController {
         return "redirect:/admin/users/" + usersId;
     }
 
-    @PostMapping("/users/{usersId}/extend-role")
-    public String extendUserRole(@PathVariable Long usersId,
-                                 @RequestParam int months) {
-        userService.upgradeOrExtendRole(usersId, months);
-        return "redirect:/admin/users/" + usersId;
+    @PostMapping("/users/{userId}/change-subscription")
+    public String changeUserSubscription(@PathVariable Long userId,
+                                         @RequestParam("subscriptionPlan") String subscriptionPlan,
+                                         @RequestParam(value = "months", required = false) Integer months) {
+        // Проверяем, если месяц не передан, ставим значение по умолчанию 1
+        if (months == null) {
+            months = 1;
+        }
+
+        // Выбираем соответствующий сервисный метод в зависимости от наличия месяца
+        if (months != null) {
+            subscriptionService.upgradeOrExtendSubscription(userId, months);  // Продление подписки
+        } else {
+            subscriptionService.changeSubscription(userId, subscriptionPlan, months);  // Смена подписки
+        }
+        return "redirect:/admin/users/" + userId;
     }
+
 }
