@@ -1,14 +1,19 @@
 package com.project.tracking_system.service;
 
+import com.project.tracking_system.dto.UpdateInfoDto;
 import com.project.tracking_system.entity.SubscriptionPlan;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.repository.SubscriptionPlanRepository;
+import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
+import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 
@@ -21,7 +26,7 @@ import java.time.ZonedDateTime;
 @RequiredArgsConstructor
 public class SubscriptionService {
 
-    private final TrackParcelService trackParcelService;
+    private final TrackParcelRepository trackParcelRepository;
     private final UserRepository userRepository;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
 
@@ -58,36 +63,47 @@ public class SubscriptionService {
         }
 
         // Получаем количество уже сохраненных треков для пользователя
-        int currentSavedTracks = trackParcelService.getSavedTracksCountForUser(userId);
+        int currentSavedTracks = trackParcelRepository.countByUserId(userId);
         int remainingTracks = maxSavedTracks - currentSavedTracks;
 
         // Возвращаем оставшиеся треки, которые можно сохранить
         return Math.max(0, remainingTracks);
     }
 
-    public int canUpdateTracks(Long userId, int updatesMade) {
-        // Получаем название подписки пользователя
+    public int canUpdateTracks(Long userId, int updatesRequested) {
+        // Получаем информацию о подписке
         String planName = userRepository.getSubscriptionPlanName(userId);
-        if (planName == null) {
-            return 0; // Если подписка не найдена, возвратим 0
-        }
+        if (planName == null) return 0; // Если нет плана, обновления недоступны.
 
-        // Получаем количество обновлений и дату последнего обновления
-        Object[] userUpdateData = userRepository.getUpdateCountAndLastUpdateDate(userId);
-        int updateCount = (Integer) userUpdateData[0];
-        ZonedDateTime lastUpdate = (ZonedDateTime) userUpdateData[1];
-
-        // Получаем максимальное количество обновлений для текущего плана
+        // Проверяем лимиты
         Integer maxUpdates = subscriptionPlanRepository.getMaxUpdatesByName(planName);
-        if (maxUpdates == null) {
-            return Integer.MAX_VALUE; // Безлимитный план, если не найдено ограничений
+        if (maxUpdates == null) return updatesRequested; // Безлимитный план
+
+        // Получаем информацию о пользователе
+        UpdateInfoDto updateInfo = userRepository.getUpdateInfo(userId);
+        int usedUpdates = (updateInfo.updateCount() != null) ? updateInfo.updateCount() : 0;
+        ZonedDateTime lastUpdate = (updateInfo.lastUpdate() != null) ? updateInfo.lastUpdate() : ZonedDateTime.now().minusDays(1);
+
+        // Приводим `lastUpdate` к локальному часовому поясу сервера
+        ZoneId systemZone = ZoneId.systemDefault(); // Часовой пояс сервера
+        ZonedDateTime lastUpdateLocal = lastUpdate.withZoneSameInstant(systemZone);
+
+        // Проверяем смену дня
+        if (!lastUpdateLocal.toLocalDate().isEqual(LocalDate.now(systemZone))) {
+            log.warn("⚠️ [resetUpdateCount] Сбрасываем updateCount для userId={} (время в БД: {}, текущее время: {})",
+                    userId, lastUpdate, ZonedDateTime.now());
+            log.info("Смена дня: сброс счётчика обновлений для пользователя {}", userId);
+            userRepository.resetUpdateCount(userId, ZonedDateTime.now());
+            usedUpdates = 0;
         }
 
-        // Вычисляем оставшиеся обновления
-        int remainingUpdates = maxUpdates - updateCount;
+        // Считаем, сколько обновлений осталось
+        int remainingUpdates = Math.max(maxUpdates - usedUpdates, 0);
 
-        return Math.max(0, remainingUpdates);
+        // Возвращаем, сколько реально можно обновить
+        return Math.min(remainingUpdates, updatesRequested);
     }
+
 
     public boolean canUseBulkUpdate(Long userId) {
         String planName = userRepository.getSubscriptionPlanName(userId);
@@ -158,9 +174,14 @@ public class SubscriptionService {
         // Устанавливаем новый план подписки
         user.setSubscriptionPlan(newPlan);
 
-        // Если месяц не передан, ставим срок на 1 месяц по умолчанию
-        ZonedDateTime nowUtc = ZonedDateTime.now(ZoneOffset.UTC);
-        user.setSubscriptionEndDate(nowUtc.plusMonths(months));
+        if (premiumPlan.equalsIgnoreCase(newPlanName)) {
+            int subscriptionMonths = (months != null) ? months : 1; // По умолчанию 1 месяц
+            user.setSubscriptionEndDate(ZonedDateTime.now(ZoneOffset.UTC).plusMonths(subscriptionMonths));
+            log.info("Пользователь {} получил подписку {} до {}", userId, newPlanName, user.getSubscriptionEndDate());
+        } else {
+            user.setSubscriptionEndDate(null); // Убираем ограничение по сроку для бесплатного плана
+            log.info("Пользователь {} переведен на бесплатный план {}", userId, newPlanName);
+        }
 
         userRepository.save(user);
         log.info("Подписка пользователя с ID {} изменена на {} до {}", userId, newPlanName, user.getSubscriptionEndDate());

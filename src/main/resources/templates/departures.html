@@ -30,29 +30,14 @@
                     <!-- Заголовок с кнопкой обновления -->
                     <div class="d-flex justify-content-center align-items-center history-header">
                         <h1>Информация о посылках</h1>
-                        <form th:action="@{/departures/track-update}" method="post" class="d-inline ms-3">
-                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                            <button type="submit" class="history-refresh-btn" aria-label="Обновить данные">
-                                <i class="bi bi-arrow-repeat"></i>
-                            </button>
-                        </form>
+                        <button type="button" id="refreshAllBtn" class="history-refresh-btn ms-3" aria-label="Обновить данные">
+                            <i class="bi bi-arrow-repeat"></i>
+                        </button>
                     </div>
 
                     <!-- Уведомления -->
                     <div th:if="${trackParcelNotification}" class="alert alert-warning" role="alert">
                         <span th:text="${trackParcelNotification}"></span>
-                    </div>
-
-                    <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
-                        <i class="bi bi-check-circle-fill me-2"></i>
-                        <span th:text="${successMessage}"></span>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Закрыть"></button>
-                    </div>
-
-                    <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                        <span th:text="${errorMessage}"></span>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Закрыть"></button>
                     </div>
 
                     <!-- Форма действий, фильтрации и количества элементов -->
@@ -119,8 +104,8 @@
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    <tr th:each="item : ${trackParcelDTO}">
-                                        <td class="checkbox-column">
+                                    <tr th:each="item : ${trackParcelDTO}" th:attr="data-track-number=${item.number}">
+                                    <td class="checkbox-column">
                                             <input type="checkbox" class="selectCheckbox" th:value="${item.number}" name="selectedNumbers">
                                         </td>
                                         <td>
@@ -192,8 +177,14 @@
     </div>
 </div>
 
+<input type="hidden" id="userId" th:value="${#authentication.principal.id}">
+
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+<script src="/js/libs/stomp.min.js"></script>
+
 <script src="/js/app.js"></script>
+
 </body>
 </html>

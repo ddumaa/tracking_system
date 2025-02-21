@@ -10,6 +10,7 @@ import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.repository.ConfirmationTokenRepository;
 import com.project.tracking_system.repository.UserRepository;
+import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.email.EmailService;
 import com.project.tracking_system.service.jsonEvropostService.JwtTokenManager;
 import com.project.tracking_system.utils.EncryptionUtils;
@@ -52,6 +53,7 @@ public class UserService {
     private final EncryptionUtils encryptionUtils;
     private final JwtTokenManager jwtTokenManager;
     private final UserCredentialsResolver userCredentialsResolver;
+    private final SubscriptionService subscriptionService;
 
     /**
      * Отправляет код подтверждения на email для регистрации нового пользователя.
@@ -139,7 +141,10 @@ public class UserService {
         user.setEmail(userDTO.getEmail());
         user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
         user.setRoles(Set.of(Role.ROLE_USER));
+
         userRepository.save(user);
+
+        subscriptionService.changeSubscription(user.getId(), "FREE", null);
 
         confirmationTokenRepository.deleteByEmail(userDTO.getEmail());
 
@@ -250,11 +255,6 @@ public class UserService {
 
     public long countUsers() {
         return userRepository.count();
-    }
-
-    @Transactional
-    public void incrementUpdateCount(Long userId, int count) {
-        userRepository.incrementUpdateCount(userId, count, ZonedDateTime.now(ZoneOffset.UTC));
     }
 
     public ResolvedCredentialsDTO resolveCredentials(Long userId) {

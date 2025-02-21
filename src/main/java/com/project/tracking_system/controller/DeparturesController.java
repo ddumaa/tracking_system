@@ -2,6 +2,7 @@ package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackParcelDTO;
+import com.project.tracking_system.entity.UpdateResult;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.model.GlobalStatus;
 import com.project.tracking_system.service.StatusTrackService;
@@ -11,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
 import org.springframework.security.access.AccessDeniedException;
@@ -19,11 +21,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Контроллер для отображения и управления историей отслеживания посылок пользователя.
@@ -44,6 +43,7 @@ public class DeparturesController {
     private final TrackParcelService trackParcelService;
     private final StatusTrackService statusTrackService;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
+    private final WebSocketController webSocketController;
 
     /**
      * Метод для отображения списка отслеживаемых посылок пользователя с возможностью фильтрации по статусу.
@@ -67,11 +67,11 @@ public class DeparturesController {
 
         if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
             log.debug("Попытка доступа к странице 'Отправления' без аутентификации.");
-            return "redirect:/login"; // Перенаправление, если пользователь не аутентифицирован
+            return "redirect:/login";
         }
 
         Long userId = user.getId();
-        log.info("Запрос на отображение отправлений для пользователя с ID: {}", userId);
+        log.debug("Запрос на отображение отправлений для пользователя с ID: {}", userId);
 
         // Определяем статус посылки (если передан)
         GlobalStatus status = null;
@@ -127,6 +127,7 @@ public class DeparturesController {
 
         Long userId = user.getId();
         TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(userId, itemNumber);
+        log.info("🎯 Передача в шаблон: {} записей для трека {}", trackInfo.getList().size(), itemNumber);
 
         model.addAttribute("trackInfo", trackInfo);
         model.addAttribute("itemNumber", itemNumber);
@@ -140,75 +141,69 @@ public class DeparturesController {
      * @return перенаправление на страницу истории.
      */
     @PostMapping("/track-update")
-    public String updateDepartures(
+    public ResponseEntity<UpdateResult> updateDepartures(
             @RequestParam(required = false) List<String> selectedNumbers,
-            RedirectAttributes redirectAttributes,
-            Authentication authentication) {
-
+            Authentication authentication
+    ) {
         if (!(authentication instanceof UsernamePasswordAuthenticationToken auth)
                 || !(auth.getPrincipal() instanceof User user)) {
             log.warn("Попытка обновления посылок без аутентификации.");
-            redirectAttributes.addFlashAttribute("errorMessage", "Ошибка: Необходимо войти в систему.");
-            return "redirect:/login";
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         Long userId = user.getId();
         log.info("Запрос на обновление посылок для пользователя с ID: {}", userId);
 
+        UpdateResult result;
         try {
             if (selectedNumbers != null && !selectedNumbers.isEmpty()) {
-                trackParcelService.updateSelectedParcels(userId, selectedNumbers);
-                log.info("Выбранные посылки {} обновлены для пользователя с ID: {}", selectedNumbers, userId);
-                redirectAttributes.addFlashAttribute("successMessage", "Выбранные посылки успешно обновлены.");
+                result = trackParcelService.updateSelectedParcels(userId, selectedNumbers);
             } else {
-                // Здесь потенциально вылетает AccessDeniedException
-                trackParcelService.updateHistory(userId);
-                log.info("Обновлены все посылки для пользователя с ID: {}", userId);
-                redirectAttributes.addFlashAttribute("successMessage", "Все посылки успешно обновлены.");
+                result = trackParcelService.updateAllParcels(userId);
             }
-        } catch (IllegalStateException e) {
-            // Ловим исчерпанный лимит
-            log.warn("Ошибка бизнес-логики (лимит) для пользователя {}: {}", userId, e.getMessage());
-            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
-        } catch (AccessDeniedException e) {
-            // Ловим "Только для платных пользователей"
-            log.warn("Отказано в доступе для пользователя {}: {}", userId, e.getMessage());
-            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+
+            // Отправляем обновление через WebSocket
+            webSocketController.sendDetailUpdateStatus(userId, result);
+
+            return ResponseEntity.ok().build();
+
         } catch (Exception e) {
-            // Ловим все прочие неожиданности
-            log.error("Непредвиденная ошибка для пользователя {}", userId, e);
-            redirectAttributes.addFlashAttribute("errorMessage", "Произошла непредвиденная ошибка: " + e.getMessage());
-        }
+            log.error(" Непредвиденная ошибка для пользователя {}: {}", userId, e.getMessage(), e);
 
-        return "redirect:/departures";
+            // Отправляем уведомление через WebSocket
+            webSocketController.sendUpdateStatus(userId, "Произошла ошибка обновления.", false);
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
-    @GetMapping("/update-status")
-    @ResponseBody
-    public ResponseEntity<Map<String, Object>> checkUpdateStatus(Authentication authentication) {
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
-                    "completed", true,
-                    "errorMessage", "Ошибка: Необходимо войти в систему."
-            ));
-        }
 
-        Long userId = user.getId();
-        boolean isCompleted = trackParcelService.isUpdateCompleted(userId);
-        log.debug("Проверка статуса обновления для пользователя {}: completed={}, errorMessage={}", userId, isCompleted);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("completed", isCompleted);
-
-        String errorMessage = trackParcelService.getLastErrorMessage(userId);
-        if (errorMessage == null) {
-            errorMessage = "";
-        }
-        return ResponseEntity.ok(Map.of(
-                "completed", isCompleted,
-                "errorMessage", errorMessage
-        ));
-    }
+//    @GetMapping("/update-status")
+//    @ResponseBody
+//    public ResponseEntity<Map<String, Object>> checkUpdateStatus(Authentication authentication) {
+//        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
+//            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+//                    "completed", true,
+//                    "errorMessage", "Ошибка: Необходимо войти в систему."
+//            ));
+//        }
+//
+//        Long userId = user.getId();
+//        boolean isCompleted = trackParcelService.isUpdateCompleted(userId);
+//        log.debug("Проверка статуса обновления для пользователя {}: completed={}, errorMessage={}", userId, isCompleted);
+//
+//        Map<String, Object> response = new HashMap<>();
+//        response.put("completed", isCompleted);
+//
+//        String errorMessage = trackParcelService.getLastErrorMessage(userId);
+//        if (errorMessage == null) {
+//            errorMessage = "";
+//        }
+//        return ResponseEntity.ok(Map.of(
+//                "completed", isCompleted,
+//                "errorMessage", errorMessage
+//        ));
+//    }
 
     /**
      * Метод для удаления выбранных посылок.
@@ -221,15 +216,13 @@ public class DeparturesController {
      * @return перенаправление на страницу истории.
      */
     @PostMapping("/delete-selected")
-    public String deleteSelected(
+    public ResponseEntity<String> deleteSelected(
             @RequestParam List<String> selectedNumbers,
-            RedirectAttributes redirectAttributes,
             Authentication authentication) {
 
         if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
             log.warn("Попытка удаления посылок без аутентификации.");
-            redirectAttributes.addFlashAttribute("errorMessage", "Ошибка: Необходимо войти в систему.");
-            return "redirect:/login";
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Ошибка: Необходимо войти в систему.");
         }
 
         Long userId = user.getId();
@@ -237,20 +230,19 @@ public class DeparturesController {
 
         if (selectedNumbers == null || selectedNumbers.isEmpty()) {
             log.warn("Попытка удаления без выбранных посылок пользователем с ID: {}", userId);
-            redirectAttributes.addFlashAttribute("errorMessage", "Ошибка: Не выбраны посылки для удаления.");
-            return "redirect:/departures";
+            return ResponseEntity.badRequest().body("Ошибка: Не выбраны посылки для удаления.");
         }
 
         try {
             trackParcelService.deleteByNumbersAndUserId(selectedNumbers, userId);
             log.info("Выбранные посылки {} удалены пользователем с ID: {}", selectedNumbers, userId);
-            redirectAttributes.addFlashAttribute("successMessage", "Выбранные посылки успешно удалены.");
+            webSocketController.sendUpdateStatus(userId, "Выбранные посылки успешно удалены.", true);
+            return ResponseEntity.ok("Выбранные посылки успешно удалены.");
         } catch (Exception e) {
             log.error("Ошибка при удалении посылок {} пользователем с ID: {}: {}", selectedNumbers, userId, e.getMessage(), e);
-            redirectAttributes.addFlashAttribute("errorMessage", "Ошибка при удалении посылок: " + e.getMessage());
+            webSocketController.sendUpdateStatus(userId, "Ошибка при удалении посылок.", false);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Ошибка при удалении посылок.");
         }
-
-        return "redirect:/departures";
     }
 
 }

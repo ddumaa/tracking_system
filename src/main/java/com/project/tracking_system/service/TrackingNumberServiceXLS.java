@@ -2,9 +2,7 @@ package com.project.tracking_system.service;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackingResultAdd;
-import com.project.tracking_system.entity.User;
 import com.project.tracking_system.model.TrackingResponse;
-import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
@@ -36,7 +34,6 @@ public class TrackingNumberServiceXLS {
 
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final TrackParcelService trackParcelService;
-    private final UserService userService;
     private final SubscriptionService subscriptionService;
     private final ExecutorService executor = Executors.newFixedThreadPool(5);
 
@@ -53,26 +50,42 @@ public class TrackingNumberServiceXLS {
      * @throws IOException если не удалось прочитать файл
      */
     public TrackingResponse processTrackingNumber(MultipartFile file, Long userId) throws IOException {
+
         List<TrackingResultAdd> trackingResult = new ArrayList<>();
-        String limitExceededMessage = null;
+        StringBuilder messageBuilder = new StringBuilder();
 
-        int maxTrackingLimit = 5;
+        // 1. Получаем лимиты
+        int maxTrackingLimit = (userId == null)
+                ? 5
+                : subscriptionService.canUploadTracks(userId, Integer.MAX_VALUE);
 
-        if (userId != null) {
-            // Получаем лимит загрузки для пользователя (сколько треков можно загрузить за раз)
-            maxTrackingLimit = subscriptionService.canUploadTracks(userId, Integer.MAX_VALUE);
+        int availableSaveSlots = (userId == null)
+                ? 0
+                : subscriptionService.canSaveMoreTracks(userId, Integer.MAX_VALUE);
 
-            // Для анонимных пользователей, если лимит превышен, возвращаем сообщение
-            if (maxTrackingLimit == 0) {
-                limitExceededMessage = "Вы не можете загрузить больше треков, так как превышен лимит для вашего аккаунта.";
-            }
-        }
+        log.info("Лимит на обработку (maxTrackingLimit): {}, Лимит на сохранение (availableSaveSlots): {}",
+                maxTrackingLimit, availableSaveSlots);
 
+        // 2. Читаем Excel
         try (InputStream in = file.getInputStream(); Workbook workbook = WorkbookFactory.create(in)) {
             Sheet sheet = workbook.getSheetAt(0);
+
+            int physicalRows = sheet.getPhysicalNumberOfRows();
+            int rowCount = Math.min(physicalRows, maxTrackingLimit);
+
+            if (physicalRows > maxTrackingLimit) {
+                int skipped = physicalRows - maxTrackingLimit;
+                messageBuilder.append(String.format(
+                        "Вы загрузили %d треков, но можете проверить только %d. Пропущено %d треков.%n",
+                        physicalRows, rowCount, skipped
+                ));
+            }
+
             List<CompletableFuture<TrackingResultAdd>> futures = new ArrayList<>();
 
-            int rowCount = Math.min(sheet.getPhysicalNumberOfRows(), maxTrackingLimit);
+            int checkedCount = 0;
+            int savedNewCount = 0;
+            List<String> skippedSaves = new ArrayList<>();
 
             for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
                 Row row = sheet.getRow(rowIndex);
@@ -83,27 +96,57 @@ public class TrackingNumberServiceXLS {
                     String trackingNumber = cell.getStringCellValue();
                     log.info("Обрабатываем трек-номер: {}", trackingNumber);
 
+                    // Проверяем, новый ли трек
+                    boolean isNewTrack = (userId != null) && trackParcelService.isNewTrack(trackingNumber, userId);
+
+                    // Решаем, можно ли сохранять
+                    boolean canSaveThis;
+                    if (isNewTrack) {
+                        // Если трек действительно новый, проверяем слоты
+                        if (savedNewCount < availableSaveSlots) {
+                            canSaveThis = true;
+                            savedNewCount++;  // Занимаем слот
+                        } else {
+                            canSaveThis = false;
+                            skippedSaves.add(trackingNumber);
+                        }
+                    } else {
+                        // Если трек уже есть в БД, мы его только обновляем — слот не нужен
+                        canSaveThis = true;
+                    }
+
                     CompletableFuture<TrackingResultAdd> future = CompletableFuture.supplyAsync(
-                            () -> processSingleTracking(trackingNumber, userId), executor);
+                            () -> processSingleTracking(trackingNumber, userId, canSaveThis),
+                            executor
+                    );
+
                     futures.add(future);
+                    checkedCount++;
                 }
             }
+
 
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-            futures.forEach(future -> trackingResult.add(future.join()));
+            futures.forEach(f -> trackingResult.add(f.join())); // ✅ Теперь все обработанные треки добавлены
 
-            // Если анонимный пользователь превысил лимит → передаем сообщение в отдельную переменную
-            if (sheet.getPhysicalNumberOfRows() > maxTrackingLimit) {
-                if (userId == null) {
-                    limitExceededMessage = "Превышен лимит на количество треков для вашего аккаунта. Для анонимных пользователей лимит составляет " + maxTrackingLimit + " треков.";
-                }
+            if (!skippedSaves.isEmpty()) {
+                messageBuilder.append(String.format(
+                        "Из %d обработанных треков не удалось сохранить %d из-за лимита подписки: %s%n",
+                        checkedCount, skippedSaves.size(), skippedSaves
+                ));
             }
-        }
 
-        return new TrackingResponse(trackingResult, limitExceededMessage);
+            String limitExceededMessage = messageBuilder.length() > 0
+                    ? messageBuilder.toString().trim()
+                    : null;
+
+            log.info("Итоговое сообщение: {}", limitExceededMessage);
+
+            return new TrackingResponse(trackingResult, limitExceededMessage);
+        }
     }
 
-    private TrackingResultAdd processSingleTracking(String trackingNumber, Long userId) {
+    private TrackingResultAdd processSingleTracking(String trackingNumber, Long userId, boolean canSave) {
         try {
             TrackInfoListDTO trackInfo;
 
@@ -119,11 +162,11 @@ public class TrackingNumberServiceXLS {
                 return new TrackingResultAdd(trackingNumber, "Нет данных");
             }
 
-            // Сохраняем посылку только для авторизованных пользователей
-            if (userId != null) {
+            // Если разрешено, сохраняем, иначе просто обрабатываем без сохранения
+            if (userId != null && canSave) {
                 trackParcelService.save(trackingNumber, trackInfo, userId);
             } else {
-                log.debug("Анонимный пользователь обработал трек-номер {} без сохранения.", trackingNumber);
+                log.warn("Трек {} обработан, но не сохранён (превышен лимит).", trackingNumber);
             }
 
             String lastStatus = trackInfo.getList().get(0).getInfoTrack();
@@ -132,7 +175,7 @@ public class TrackingNumberServiceXLS {
             return new TrackingResultAdd(trackingNumber, lastStatus);
         } catch (Exception e) {
             log.error("Ошибка обработки трек-номера {}: {}", trackingNumber, e.getMessage(), e);
-            return new TrackingResultAdd(trackingNumber, "Ошибка: " + e.getMessage());
+            return new TrackingResultAdd(trackingNumber, "Ошибка обработки");
         }
     }
 

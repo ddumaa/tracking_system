@@ -73,15 +73,13 @@ public class AdminController {
                                          @RequestParam("subscriptionPlan") String subscriptionPlan,
                                          @RequestParam(value = "months", required = false) Integer months) {
         // Проверяем, если месяц не передан, ставим значение по умолчанию 1
-        if (months == null) {
-            months = 1;
-        }
-
-        // Выбираем соответствующий сервисный метод в зависимости от наличия месяца
-        if (months != null) {
-            subscriptionService.upgradeOrExtendSubscription(userId, months);  // Продление подписки
+        if ("PREMIUM".equalsIgnoreCase(subscriptionPlan)) {
+            if (months == null) {
+                months = 1;
+            }
+            subscriptionService.upgradeOrExtendSubscription(userId, months); // Продление платной подписки
         } else {
-            subscriptionService.changeSubscription(userId, subscriptionPlan, months);  // Смена подписки
+            subscriptionService.changeSubscription(userId, subscriptionPlan, null);  // Смена подписки
         }
         return "redirect:/admin/users/" + userId;
     }
