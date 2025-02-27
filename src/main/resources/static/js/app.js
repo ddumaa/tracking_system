@@ -121,10 +121,8 @@ $(document).ready(function () {
     function connectWebSocket() {
         console.log("🚀 connectWebSocket() вызван!");
 
-        const wsUrl = process.env.WS_URL || 'ws://localhost:8080/ws';
-
         stompClient = new StompJs.Client({
-            brokerURL: wsUrl,
+            brokerURL: 'ws://belivery.by/ws',
             reconnectDelay: 1000,
             heartbeatIncoming: 2000,
             heartbeatOutgoing: 2000,

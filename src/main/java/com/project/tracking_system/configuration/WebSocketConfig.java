@@ -27,4 +27,5 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.setApplicationDestinationPrefixes("/app");
         log.debug("✅ WebSocket Broker настроен!");
     }
+
 }
