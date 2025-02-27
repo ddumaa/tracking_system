@@ -1,21 +1,12 @@
 package com.project.tracking_system.service.user;
 
-import com.project.tracking_system.entity.User;
-import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.util.Collection;
-import java.util.stream.Collectors;
 
 /**
  * Реализация сервиса для загрузки деталей пользователя для аутентификации.
@@ -32,33 +23,17 @@ import java.util.stream.Collectors;
 public class UserDetailsServiceImpl implements UserDetailsService {
 
     private final UserRepository userRepository;
-    private final UserService userService;
 
     /**
      * Загружает данные пользователя по его email.
-     * <p>
-     * Метод ищет пользователя в базе данных по email. Если пользователь не найден,
-     * выбрасывается исключение {@link UsernameNotFoundException}.
-     * </p>
      *
-     * @param email Email пользователя, для которого нужно загрузить детали.
+     * @param email Email пользователя.
      * @return {@link UserDetails} с информацией о пользователе.
-     * @throws UsernameNotFoundException Если пользователь с указанным email не найден.
+     * @throws UsernameNotFoundException Если пользователь не найден.
      */
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(email)
+        return userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Такой пользователь не найден: " + email));
-
-        // Переносим проверку подписки в UserService
-        userService.checkAndUpdateUserRole(user);
-
-        return user;
-    }
-
-    private Collection<? extends GrantedAuthority> mapRolesToAuthorities(Collection<Role> roles) {
-        return roles.stream()
-                .map(role -> new SimpleGrantedAuthority(role.name()))
-                .collect(Collectors.toSet());
     }
 }

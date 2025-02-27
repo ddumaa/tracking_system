@@ -1,29 +1,29 @@
 package com.project.tracking_system.service;
 
+import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.entity.UpdateResult;
 import com.project.tracking_system.model.GlobalStatus;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
-import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.access.AccessDeniedException;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Сервис для управления посылками пользователей в системе отслеживания.
@@ -48,14 +48,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Service
 public class TrackParcelService {
 
+    private final WebSocketController webSocketController;
     private final TrackParcelRepository trackParcelRepository;
-    private final UserService userService;
     private final UserRepository userRepository;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final StatusTrackService statusTrackService;
-
-    private final Map<Long, AtomicBoolean> updateStatusMap = new ConcurrentHashMap<>(); // Храним статус по userId
-    private final Map<Long, String> lastErrorMessages = new ConcurrentHashMap<>();
+    private final SubscriptionService subscriptionService;
 
     /**
      * Сохраняет или обновляет посылку пользователя.
@@ -68,31 +66,40 @@ public class TrackParcelService {
      * @param trackInfoListDTO информация о посылке
      * @param username имя пользователя
      */
+    @Transactional
     public void save(String number, TrackInfoListDTO trackInfoListDTO, Long userId) {
         if (number == null || trackInfoListDTO == null) {
             throw new IllegalArgumentException("Отсутствует посылка");
         }
 
-        List<TrackInfoDTO> trackInfoDTOList = trackInfoListDTO.getList();
-
-        // Проверка на ограничения для бесплатных пользователей
-        userService.validateFreeUserLimit(userId);
-
-        // Ищем посылку по номеру отслеживания и пользователю
+        // Проверяем, существует ли уже этот трек у пользователя
         TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(number, userId);
 
-        if (trackParcel == null) {
+        boolean isNewTrack = (trackParcel == null);
+
+        int remainingTracks = subscriptionService.canSaveMoreTracks(userId, 1);
+
+        // Если трек новый, проверяем лимиты
+        if (isNewTrack) {
+
+            if (remainingTracks <= 0) {
+                throw new IllegalArgumentException("Вы не можете сохранить больше посылок, так как превышен лимит сохранённых посылок.");
+            }
+
+            // Создаём новый трек
             trackParcel = new TrackParcel();
             trackParcel.setNumber(number);
             trackParcel.setUser(userRepository.getReferenceById(userId)); // Lazy загрузка пользователя
         }
 
-        // Обновляем статус и дату посылки
-        trackParcel.setStatus(statusTrackService.setStatus(trackInfoDTOList));
-        trackParcel.setData(trackInfoDTOList.get(0).getTimex());
+        // Обновляем статус и дату трека на основе нового содержимого
+        trackParcel.setStatus(statusTrackService.setStatus(trackInfoListDTO.getList()));
+        trackParcel.setData(trackInfoListDTO.getList().get(trackInfoListDTO.getList().size() - 1).getTimex());
 
-        // Сохраняем запись в базу данных
         trackParcelRepository.save(trackParcel);
+
+        log.info("✅ Обновлено: userId={}, трек={}, новый статус={}", userId, trackParcel.getNumber(), trackParcel.getStatus());
+
     }
 
     /**
@@ -106,6 +113,7 @@ public class TrackParcelService {
      * @param size размер страницы
      * @return страница с посылками пользователя
      */
+    @Transactional
     public Page<TrackParcelDTO> findByUserTracks(Long userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<TrackParcel> trackParcels = trackParcelRepository.findByUserId(userId, pageable);
@@ -124,6 +132,7 @@ public class TrackParcelService {
      * @param size размер страницы
      * @return страница с посылками пользователя по статусу
      */
+    @Transactional
     public Page<TrackParcelDTO> findByUserTracksAndStatus(Long userId, GlobalStatus status, int page, int size) {
         String statusString = (status != null) ? status.getDescription() : null;
         Pageable pageable = PageRequest.of(page, size);
@@ -140,18 +149,31 @@ public class TrackParcelService {
      * @param username имя пользователя
      * @return список посылок пользователя
      */
+    @Transactional
     public List<TrackParcelDTO> findAllByUserTracks(Long userId) {
         List<TrackParcel> trackParcels = trackParcelRepository.findByUserId(userId);
         return convertToDTO(trackParcels);
     }
 
-    public List<TrackParcelDTO> findByUserTracksByNumbers(Long userId, List<String> numbers) {
-        List<TrackParcel> trackParcels = trackParcelRepository.findByNumberInAndUserId(numbers, userId);
-        return convertToDTO(trackParcels);
-    }
-
+    @Transactional
     public long countAllParcels() {
         return trackParcelRepository.count();
+    }
+
+    @Transactional
+    public boolean isNewTrack(String trackingNumber, Long userId) {
+        // Если null, считаем "нет пользователя" => аноним
+        if (userId == null) {
+            return true; // анонимному пользователю не сохраняем, но условно считаем "новым"
+        }
+
+        TrackParcel existing = trackParcelRepository.findByNumberAndUserId(trackingNumber, userId);
+        return (existing == null);
+    }
+
+    @Transactional
+    public void incrementUpdateCount(Long userId, int count) {
+        userRepository.incrementUpdateCount(userId, count, ZonedDateTime.now(ZoneOffset.UTC));
     }
 
     /**
@@ -171,13 +193,6 @@ public class TrackParcelService {
         return dtoList;
     }
 
-    // Метод для получения последней ошибки
-    public String getLastErrorMessage(Long userId) {
-        String error = lastErrorMessages.get(userId);
-        lastErrorMessages.remove(userId);
-        return error;
-    }
-
     /**
      * Обновляет историю отслеживания посылок пользователя асинхронно.
      * <p>
@@ -186,103 +201,211 @@ public class TrackParcelService {
      *
      * @param name имя пользователя
      */
-    public void updateHistory(Long userId) {
-        // Проверяем, является ли пользователь платным
-        boolean isPaidUser = userService.isUserPaid(userId);
-        if (!isPaidUser) {
-            throw new AccessDeniedException("Обновить всё - Только для платных пользователей.");
+    @Transactional
+    public UpdateResult updateAllParcels(Long userId) {
+        // Проверяем подписку
+        if (!subscriptionService.canUseBulkUpdate(userId)) {
+            String msg = "Обновление всех треков доступно только в премиум-версии.";
+            log.warn("Отказано в доступе для пользователя ID: {}", userId);
+
+            // Вместо исключения отправляем уведомление по WebSocket
+            webSocketController.sendUpdateStatus(userId, msg, false);
+            log.debug("📡 WebSocket отправлено: Обновление всех треков доступно только в премиум-версии.");
+
+            return new UpdateResult(false, 0, 0, msg);
         }
 
-        List<TrackParcelDTO> byUserTrack = findAllByUserTracks(userId);
-        log.info("Запуск обновления истории посылок для пользователя с ID: {}", userId);
+        List<TrackParcelDTO> allParcels = findAllByUserTracks(userId);
 
-        List<CompletableFuture<Void>> futures = byUserTrack.stream()
-                .filter(trackParcelDTO -> !(trackParcelDTO.getStatus().equals(GlobalStatus.DELIVERED.getDescription()) ||
-                        trackParcelDTO.getStatus().equals(GlobalStatus.RETURNED_TO_SENDER.getDescription())))
-                .map(trackParcelDTO -> typeDefinitionTrackPostService
-                        .getTypeDefinitionTrackPostServiceAsync(userId, trackParcelDTO.getNumber())
-                        .thenAccept(trackInfoListDTO -> {
-                            List<TrackInfoDTO> list = trackInfoListDTO.getList();
-                            TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(trackParcelDTO.getNumber(), userId);
-                            trackParcel.setStatus(statusTrackService.setStatus(list));
-                            trackParcel.setData(list.get(0).getTimex());
-                            trackParcelRepository.save(trackParcel);
-                            log.info("Обновлен статус посылки {} для пользователя с ID: {}", trackParcelDTO.getNumber(), userId);
-                        })
-                ).toList();
+        // Фильтруем треки, исключая те, что уже в финальном статусе
+        List<TrackParcelDTO> parcelsToUpdate = allParcels.stream()
+                .filter(dto -> !(dto.getStatus().equals(GlobalStatus.DELIVERED.getDescription()) ||
+                        dto.getStatus().equals(GlobalStatus.RETURNED_TO_SENDER.getDescription())))
+                .toList();
 
-        // Ожидание завершения всех асинхронных задач
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-        log.info("Обновление истории посылок завершено для пользователя с ID: {}", userId);
+        log.info("Запущено обновление всех {} треков для userId={}", parcelsToUpdate.size(), userId);
+
+        // Отправляем уведомление о запуске
+        webSocketController.sendUpdateStatus(userId, "Обновление всех треков запущено...", true);
+
+        // Запуск асинхронного процесса
+        processAllTrackUpdatesAsync(userId, parcelsToUpdate);
+
+        return new UpdateResult(true, parcelsToUpdate.size(), allParcels.size(),
+                "Запущено обновление " + parcelsToUpdate.size() + " треков из " + allParcels.size());
     }
 
-    public void updateSelectedParcels(Long userId, List<String> selectedNumbers) {
-        lastErrorMessages.remove(userId);
-
+    @Async
+    @Transactional
+    public void processAllTrackUpdatesAsync(Long userId, List<TrackParcelDTO> parcelsToUpdate) {
         try {
-            boolean isFreeUser = !userService.isUserPaid(userId);
-            ZonedDateTime currentDate = ZonedDateTime.now(ZoneOffset.UTC);
+            AtomicInteger successfulUpdates = new AtomicInteger(0);
 
-            if (isFreeUser) {
-                int updateCount = userService.getUpdateCount(userId);
-                ZonedDateTime lastUpdate = userService.getLastUpdateDate(userId);
+            List<CompletableFuture<Void>> futures = parcelsToUpdate.stream()
+                    .map(trackParcelDTO -> typeDefinitionTrackPostService
+                            .getTypeDefinitionTrackPostServiceAsync(userId, trackParcelDTO.getNumber())
+                            .thenAccept(trackInfoListDTO -> {
+                                List<TrackInfoDTO> list = trackInfoListDTO.getList();
+                                TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(trackParcelDTO.getNumber(), userId);
 
-                if (lastUpdate != null && lastUpdate.toLocalDate().equals(currentDate.toLocalDate())) {
-                    if (updateCount >= 10) {
-                        log.warn("Лимит обновлений исчерпан для пользователя ID: {}", userId);
-                        lastErrorMessages.put(userId, "Ваш бесплатный лимит в день исчерпан.");
-                        throw new IllegalStateException("Ваш бесплатный лимит в день исчерпан.");
-                    }
+                                if (trackParcel != null && !list.isEmpty()) {
+                                    trackParcel.setStatus(statusTrackService.setStatus(list));
+                                    trackParcel.setData(list.get(0).getTimex());
+                                    trackParcelRepository.save(trackParcel);
+
+                                    log.debug("✅ Обновлен статус посылки {} для пользователя ID: {}", trackParcelDTO.getNumber(), userId);
+
+                                    // Увеличиваем счётчик успешных обновлений
+                                    successfulUpdates.incrementAndGet();
+
+                                }
+                            })
+                            .exceptionally(ex -> {
+                                log.error("❌ Ошибка обновления трека {} для userId={}: {}", trackParcelDTO.getNumber(), userId, ex.getMessage());
+                                return null;
+                            })
+                    )
+                    .toList();
+
+            // Ждём завершения всех обновлений
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> {
+                int updatedCount = successfulUpdates.get();
+                int totalCount = parcelsToUpdate.size();
+
+                log.info("✅ Итог обновления всех треков для userId={}: {} обновлено, {} не изменено",
+                        userId, updatedCount, totalCount - updatedCount);
+
+                // Формируем сообщение
+                String message;
+                if (updatedCount == 0) {
+                    message = "Обновление завершено, но все треки уже были в финальном статусе.";
                 } else {
-                    userService.resetUpdateCount(userId);
+                    message = "Обновление завершено! " + updatedCount + " из " + totalCount + " треков обновлено.";
                 }
-            }
 
-            updateStatusMap.put(userId, new AtomicBoolean(false));
-
-            CompletableFuture.runAsync(() -> {
-                try {
-                    List<TrackParcelDTO> selectedParcels = findByUserTracksByNumbers(userId, selectedNumbers);
-
-                    List<CompletableFuture<Void>> futures = selectedParcels.stream()
-                            .map(parcel -> typeDefinitionTrackPostService
-                                    .getTypeDefinitionTrackPostServiceAsync(userId, parcel.getNumber())
-                                    .thenAccept(trackInfoListDTO -> {
-                                        List<TrackInfoDTO> list = trackInfoListDTO.getList();
-                                        TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(parcel.getNumber(), userId);
-
-                                        if (trackParcel != null) {
-                                            trackParcel.setStatus(statusTrackService.setStatus(list));
-                                            trackParcel.setData(list.get(0).getTimex());
-                                            trackParcelRepository.save(trackParcel);
-                                        }
-                                    })
-                            ).toList();
-
-                    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> {
-                        updateStatusMap.get(userId).set(true);
-                        lastErrorMessages.remove(userId); // Очистить ошибку при успешном обновлении
-                        if (isFreeUser) {
-                            userService.incrementUpdateCount(userId, selectedNumbers.size());
-                        }
-                    });
-
-                } catch (Exception e) {
-                    log.error("Ошибка при обновлении посылок пользователя {}: {}", userId, e.getMessage());
-                    lastErrorMessages.put(userId, "Произошла ошибка обновления: " + e.getMessage());
-                    updateStatusMap.get(userId).set(true);
-                }
+                // Отправляем финальное уведомление через WebSocket
+                webSocketController.sendDetailUpdateStatus(
+                        userId,
+                        new UpdateResult(true, updatedCount, totalCount, message)
+                );
             });
 
-        } catch (IllegalStateException e) {
-            log.warn("Ошибка бизнес-логики (лимит) для пользователя {}: {}", userId, e.getMessage());
-            lastErrorMessages.put(userId, e.getMessage());
-            throw e;
+        } catch (Exception e) {
+            log.error("❌ Ошибка при обновлении всех треков для пользователя {}: {}", userId, e.getMessage());
+            webSocketController.sendUpdateStatus(userId, "Ошибка при обновлении всех треков: " + e.getMessage(), false);
         }
     }
 
-    public boolean isUpdateCompleted(Long userId) {
-        return updateStatusMap.getOrDefault(userId, new AtomicBoolean(true)).get();
+    @Transactional
+    public UpdateResult updateSelectedParcels(Long userId, List<String> selectedNumbers) {
+        // Загружаем посылки
+        List<TrackParcel> selectedParcels = trackParcelRepository.findByNumberInAndUserId(selectedNumbers, userId);
+
+        // Считаем количество финальных и обновляемых треков
+        int totalRequested = selectedParcels.size();
+        List<TrackParcel> updatableParcels = selectedParcels.stream()
+                .filter(parcel -> !(parcel.getStatus().equals(GlobalStatus.DELIVERED.getDescription()) ||
+                        parcel.getStatus().equals(GlobalStatus.RETURNED_TO_SENDER.getDescription())))
+                .toList();
+        int nonUpdatableCount = totalRequested - updatableParcels.size();
+
+        log.info("Фильтрация завершена: {} треков можно обновить из {}, {} уже в финальном статусе",
+                updatableParcels.size(), totalRequested, nonUpdatableCount);
+
+        if (updatableParcels.isEmpty()) {
+            String msg = "Все выбранные треки уже в финальном статусе, обновление не требуется.";
+            log.warn(msg);
+            webSocketController.sendUpdateStatus(userId, msg, true);
+            return new UpdateResult(false, 0, selectedNumbers.size(), msg);
+        }
+
+        // Проверяем лимит
+        int remainingUpdates = subscriptionService.canUpdateTracks(userId, updatableParcels.size());
+
+        if (remainingUpdates <= 0) {
+            String msg = "Ваш лимит обновлений на сегодня исчерпан.";
+            log.warn("Лимит обновлений исчерпан для пользователя ID: {}", userId);
+            webSocketController.sendUpdateStatus(userId, msg, true);
+            return new UpdateResult(false, 0, updatableParcels.size(), msg);
+        }
+
+        int updatesToProcess = Math.min(updatableParcels.size(), remainingUpdates);
+
+        // Преобразуем в список номеров для передачи в асинхронный процесс
+        List<String> updatableNumbers = updatableParcels.stream().map(TrackParcel::getNumber).toList();
+
+        log.info("Запущено обновление {} треков для userId={}", updatesToProcess, userId);
+
+        // Вызов асинхронного метода
+        processTrackUpdatesAsync(userId, updatableNumbers.subList(0, updatesToProcess), totalRequested, nonUpdatableCount);
+        return new UpdateResult(true, updatesToProcess, selectedNumbers.size(),
+                "Обновление запущено...");
+    }
+
+    @Async
+    @Transactional
+    public void processTrackUpdatesAsync(Long userId, List<String> selectedNumbers, int totalRequested, int nonUpdatableCount) {
+        try {
+            List<TrackParcel> parcelsToUpdate = trackParcelRepository.findByNumberInAndUserId(selectedNumbers, userId);
+
+            AtomicInteger successfulUpdates = new AtomicInteger(0);
+
+            log.info(" Начато обновление {} треков для userId={}", parcelsToUpdate.size(), userId);
+
+            List<CompletableFuture<Void>> futures = parcelsToUpdate.stream()
+                    .map(parcel -> typeDefinitionTrackPostService
+                            .getTypeDefinitionTrackPostServiceAsync(userId, parcel.getNumber())
+                            .thenAccept(trackInfoListDTO -> {
+                                List<TrackInfoDTO> list = trackInfoListDTO.getList();
+                                TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(parcel.getNumber(), userId);
+                                if (trackParcel != null && !list.isEmpty()) {
+                                    trackParcel.setStatus(statusTrackService.setStatus(list));
+                                    trackParcel.setData(list.get(0).getTimex());
+                                    trackParcelRepository.save(trackParcel);
+                                    log.info(" Обновлено: userId={}, трек={}", userId, parcel.getNumber());
+
+                                    // Увеличиваем успешный счётчик
+                                    successfulUpdates.incrementAndGet();
+                                }
+                            })
+                    )
+                    .toList();
+
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> {
+                int updatedCount = successfulUpdates.get();
+
+                log.info("✅ Итог обновления для userId={}: {} обновлено, {} в финальном статусе",
+                        userId, updatedCount, nonUpdatableCount);
+
+                if (updatedCount > 0) {
+                    log.info("🔄 Финальное обновление updateCount для userId={}, добавляем={}", userId, updatedCount);
+                    incrementUpdateCount(userId, updatedCount);
+                }
+
+                // Формируем информативное сообщение
+                String message;
+                if (updatedCount == 0 && nonUpdatableCount == 0) {
+                    message = "Все треки уже были обновлены ранее.";
+                } else if (updatedCount == 0) {
+                    message = "Обновление завершено, но все треки уже в финальном статусе.";
+                } else {
+                    message = "Обновление завершено! " + updatedCount + " из " + totalRequested + " треков обновлено.";
+                    if (nonUpdatableCount > 0) {
+                        message += " " + nonUpdatableCount + " треков уже были в финальном статусе.";
+                    }
+                }
+
+                // Отправляем уведомление через WebSocket
+                webSocketController.sendDetailUpdateStatus(
+                        userId,
+                        new UpdateResult(true, updatedCount, totalRequested, message)
+                );
+            });
+
+        } catch (Exception e) {
+            log.error("❌ Ошибка при обновлении посылок пользователя {}: {}", userId, e.getMessage());
+            webSocketController.sendUpdateStatus(userId,"Ошибка обновления: " + e.getMessage(), false);
+        }
     }
 
     /**

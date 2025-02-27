@@ -2,25 +2,6 @@
  *  ГЛОБАЛЬНЫЕ ФУНКЦИИ
  * ===================== */
 
-function showAlert(message, type) {
-    console.log("Показываем уведомление:", message, type);
-
-    const alertHtml = `
-        <div class="alert alert-${type} alert-dismissible fade show notification" role="alert">
-            <i class="bi ${type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'} me-2"></i>
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Закрыть"></button>
-        </div>`;
-
-    $(".d-flex.flex-wrap.align-items-center.gap-3.justify-content-between").before(alertHtml);
-
-    setTimeout(() => {
-        $(".notification").fadeOut("slow", function () {
-            $(this).remove();
-        });
-    }, 5000);
-}
-
 function updateDeleteButtonState() {
     const hasChecked = document.querySelectorAll(".selectCheckbox:checked").length > 0;
     document.getElementById("applyActionBtn").disabled = !hasChecked;
@@ -46,49 +27,6 @@ function loadModal(itemNumber) {
         },
         error: () => showAlert('Ошибка при загрузке данных', "danger")
     });
-}
-
-// === Проверка статуса обновления ===
-function checkUpdateStatus(applyBtn) {
-    let attempts = 0;
-    const maxAttempts = 20;
-
-    function pollStatus() {
-        $.ajax({
-            url: "/departures/update-status",
-            type: "GET",
-            cache: false,
-            success: function (response) {
-                console.log("Ответ API:", response); // Логируем ответ API в консоль
-
-                if (response.errorMessage) {
-                    // Если есть ошибка, показываем её и прерываем обновление
-                    showAlert(response.errorMessage, "danger");
-                    applyBtn.prop("disabled", false).html("Применить");
-                    return;
-                }
-
-                if (response.completed) {
-                    showAlert("Обновление завершено!", "success");
-                    applyBtn.prop("disabled", false).html("Применить");
-                    setTimeout(() => location.reload(), 2000);
-                } else if (attempts < maxAttempts) {
-                    attempts++;
-                    setTimeout(pollStatus, 3000);
-                } else {
-                    showAlert("Обновление выполняется в фоне, данные обновятся автоматически.", "info");
-                    applyBtn.prop("disabled", false).html("Применить");
-                    setTimeout(() => location.reload(), 60000);
-                }
-            },
-            error: function () {
-                showAlert("Ошибка проверки статуса обновления.", "danger");
-                applyBtn.prop("disabled", false).html("Применить");
-            }
-        });
-    }
-
-    pollStatus();
 }
 
 // Привязка обработчика для формы изменения пароля
@@ -176,6 +114,126 @@ $(document).ready(function () {
     // === Добавляем CSRF-токен ===
     const csrfToken = $('meta[name="_csrf"]').attr('content');
     const csrfHeader = $('meta[name="_csrf_header"]').attr('content');
+
+    let stompClient = null;
+    let userId = $("#userId").val(); // Получаем userId из скрытого поля
+
+    function connectWebSocket() {
+        console.log("🚀 connectWebSocket() вызван!");
+
+        stompClient = new StompJs.Client({
+            brokerURL: 'ws://localhost:8080/ws',
+            reconnectDelay: 1000,
+            heartbeatIncoming: 2000,
+            heartbeatOutgoing: 2000,
+            debug: function (str) {
+                console.log('STOMP Debug: ', str);
+            }
+        });
+
+        stompClient.onConnect = function (frame) {
+            console.log('✅ WebSocket подключен: ' + frame);
+
+            let destination = '/topic/status/' + userId;
+            console.log("📡 Подписываемся на " + destination);
+
+            if (stompClient.connected) {
+                stompClient.subscribe(destination, function (message) {
+                    let response = JSON.parse(message.body);
+                    console.log("📡 WebSocket сообщение: ", response);
+
+                    console.log("⚠️ DEBUG: success=", response.success, "message=", response.message);
+
+                    showAlert(response.message, response.success ? "success" : "warning");
+
+                    $("#applyActionBtn").prop("disabled", false).html("Применить");
+
+                    $("#refreshAllBtn").prop("disabled", false).html('<i class="bi bi-arrow-repeat"></i>');
+
+                    // 🔥 Загружаем обновлённые данные из БД
+                    if (response.success && response.message.startsWith("Обновление завершено")) {
+                        reloadParcelTable();
+                    }
+                });
+            } else {
+                console.error("❌ STOMP не подключен! Повторная попытка подписки через 2 сек...");
+                setTimeout(() => {
+                    connectWebSocket();
+                }, 2000);
+            }
+        };
+
+        stompClient.onStompError = function (frame) {
+            console.error('❌ STOMP ошибка: ', frame);
+            showAlert("Ошибка WebSocket: " + frame.headers['message'], "danger");
+        };
+
+        console.log("🔄 WebSocket активация отправлена...");
+        stompClient.activate();
+    }
+
+    // Уведомления
+    function showAlert(message, type) {
+        let existingAlert = $(".notification");
+
+        // ❌ Игнорируем "Обновление запущено...", так как оно временное
+        if (message.includes("Обновление запущено")) {
+            console.log("⚠ Пропущено уведомление:", message);
+            return;
+        }
+
+        if (existingAlert.length > 0) {
+            let currentMessage = existingAlert.find("span.alert-text").text();
+            if (currentMessage === message) {
+                console.log("⚠ Повторное уведомление проигнорировано:", message);
+                return;
+            }
+            existingAlert.remove(); // Удаляем старое, если пришло новое
+        }
+
+        const alertHtml = `
+    <div class="alert alert-${type} alert-dismissible fade show notification" role="alert">
+        <i class="bi ${type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'} me-2"></i>
+        <span class="alert-text">${message}</span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Закрыть"></button>
+    </div>`;
+
+        $(".history-header").before(alertHtml);
+
+        setTimeout(() => {
+            $(".notification").fadeOut("slow", function () {
+                $(this).remove();
+            });
+        }, 5000);
+    }
+
+
+    $(document).ready(function () {
+        connectWebSocket();
+    });
+
+    function reloadParcelTable() {
+        console.log("🔄 AJAX-запрос для обновления таблицы...");
+        $.ajax({
+            url: "/departures",
+            type: "GET",
+            cache: false,
+            success: function (html) {
+                let newTableBody = $(html).find("tbody").html();
+                console.log("📊 Получены новые данные:", newTableBody);
+                $("tbody").html(newTableBody);
+                console.log("✅ Таблица обновлена!");
+            },
+            error: function () {
+                console.error("❌ Ошибка загрузки обновлённых данных!");
+            }
+        });
+    }
+
+    $("#updateAllForm").on("submit", function (event) {
+        event.preventDefault();
+        sendUpdateRequest(null);
+    });
 
     // Инициализация всплывающих подсказок (работает и для динамических элементов)
     $("body").tooltip({ selector: '[data-bs-toggle="tooltip"]' });
@@ -311,20 +369,45 @@ $(document).ready(function () {
         const selectedAction = $("#actionSelect").val();
 
         if (selectedNumbers.length === 0) {
-            showAlert("Выберите хотя бы одну посылку.", "danger");
+            showAlert("Выберите хотя бы одну посылку.", "warning");
             return;
         }
 
         if (!selectedAction) {
-            showAlert("Выберите действие.", "danger");
+            showAlert("Выберите действие перед нажатием кнопки.", "warning");
             return;
         }
 
+        const applyBtn = $("#applyActionBtn");
+        applyBtn.prop("disabled", true).html('<i class="bi bi-arrow-repeat spin"></i> Выполняется...');
+
         if (selectedAction === "delete") {
-            sendDeleteRequest(selectedNumbers);
+            sendDeleteRequest(selectedNumbers, applyBtn);
         } else if (selectedAction === "update") {
-            sendUpdateRequest(selectedNumbers);
+            sendUpdateRequest(selectedNumbers, applyBtn);
         }
+    });
+
+    // === Обработчик кнопки "Обновить всё" ===
+    $("#refreshAllBtn").on("click", function () {
+        const refreshBtn = $(this);
+        refreshBtn.prop("disabled", true).html('<i class="bi bi-arrow-repeat spin"></i>');
+
+        $.ajax({
+            url: "/departures/track-update",
+            type: "POST",
+            data: {},
+            beforeSend: function (xhr) {
+                xhr.setRequestHeader(csrfHeader, csrfToken);
+            },
+            success: function () {
+                console.log("✅ AJAX-запрос для обновления всех треков отправлен. Ждём WebSocket...");
+            },
+            error: function (xhr) {
+                showAlert("Ошибка при обновлении: " + xhr.responseText, "danger");
+                refreshBtn.prop("disabled", false).html('<i class="bi bi-arrow-repeat"></i>');
+            }
+        });
     });
 
     // === Фильтр по статусу ===
@@ -357,7 +440,7 @@ $(document).ready(function () {
     });
 
     // === Функция отправки запроса на удаление ===
-    function sendDeleteRequest(selectedNumbers) {
+    function sendDeleteRequest(selectedNumbers, applyBtn) {
         $.ajax({
             url: "/departures/delete-selected",
             type: "POST",
@@ -366,23 +449,30 @@ $(document).ready(function () {
             success: function () {
                 showAlert("Выбранные посылки успешно удалены.", "success");
                 $(".selectCheckbox:checked").closest("tr").fadeOut(500, function () { $(this).remove(); });
+
+                // ✅ Возвращаем кнопку в нормальное состояние
+                applyBtn.prop("disabled", false).html("Применить");
             },
-            error: (xhr) => showAlert("Ошибка при удалении: " + xhr.responseText, "danger")
+            error: (xhr) => {
+                showAlert("Ошибка при удалении: " + xhr.responseText, "danger");
+                applyBtn.prop("disabled", false).html("Применить");
+            }
         });
     }
 
-    function sendUpdateRequest(selectedNumbers) {
-        showAlert("Выбранные посылки обновляются. Это может занять время...", "info");
-        const applyBtn = $("#applyActionBtn");
+    function sendUpdateRequest(selectedNumbers, applyBtn) {
         applyBtn.prop("disabled", true).html('<i class="bi bi-arrow-repeat spin"></i> Обновление...');
 
         $.ajax({
             url: "/departures/track-update",
             type: "POST",
             data: { selectedNumbers: selectedNumbers },
-            beforeSend: (xhr) => xhr.setRequestHeader(csrfHeader, csrfToken),
+            beforeSend: function (xhr) {
+                xhr.setRequestHeader(csrfHeader, csrfToken);
+            },
             success: function () {
-                checkUpdateStatus(applyBtn);
+                console.log("✅ AJAX-запрос отправлен. Ждём уведомления через WebSocket...");
+                // Кнопка вернётся после получения уведомления через сокет
             },
             error: function (xhr) {
                 showAlert("Ошибка при обновлении: " + xhr.responseText, "danger");

@@ -59,7 +59,7 @@ public class HomeController {
     private final LoginAttemptService loginAttemptService;
     private final PasswordResetService passwordResetService;
     private final TrackingNumberServiceXLS trackingNumberServiceXLS;
-    private final TrackNumberOcrService trackNumberOcrService;
+    //private final TrackNumberOcrService trackNumberOcrService;
 
     /**
      * Обрабатывает запросы на главной странице. Отображает домашнюю страницу.
@@ -113,8 +113,14 @@ public class HomeController {
 
             // Сохраняем посылку только для авторизованных пользователей
             if (userId != null) {
-                trackParcelService.save(number, trackInfo, userId);
-                log.debug("Данные посылки сохранены для пользователя ID: {}", userId);
+                try {
+                    trackParcelService.save(number, trackInfo, userId);
+                    log.debug("Данные посылки сохранены для пользователя ID: {}", userId);
+                } catch (IllegalArgumentException e) {
+                    // Ловим исключение и показываем пользователю сообщение о лимите
+                    model.addAttribute("customError", "Вы не можете сохранить больше 10 посылок.");
+                    log.warn("Ошибка сохранения посылки для пользователя ID {}: {}", userId, e.getMessage());
+                }
             } else {
                 log.info("Гость просмотрел данные посылки без сохранения.");
             }
@@ -373,14 +379,15 @@ public class HomeController {
             if (contentType.equals("application/vnd.ms-excel") || contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
                 TrackingResponse trackingResponse = trackingNumberServiceXLS.processTrackingNumber(file, userId);
 
+                log.info("Передаём в модель limitExceededMessage: {}", trackingResponse.getLimitExceededMessage());
+
                 model.addAttribute("trackingResults", trackingResponse.getTrackingResults());
                 model.addAttribute("limitExceededMessage", trackingResponse.getLimitExceededMessage());
             } else if (contentType.startsWith("image/")) {
-                String recognizedText = trackNumberOcrService.processImage(file);
-                List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, userId);
-                model.addAttribute("trackingResults", trackingResults);
+//                String recognizedText = trackNumberOcrService.processImage(file);
+//                List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, userId);
+//                model.addAttribute("trackingResults", trackingResults);
 
-                model.addAttribute("customError", "OCR не реализован в текущей версии.");
                 return "home";
             } else {
                 model.addAttribute("customError", "Неподдерживаемый тип файла. Загрузите XLS, XLSX или изображение.");

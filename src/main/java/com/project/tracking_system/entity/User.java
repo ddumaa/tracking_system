@@ -14,7 +14,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Setter
 @Getter
@@ -60,30 +59,26 @@ public class User implements UserDetails {
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private LoginAttempt loginAttempt;
 
-    @Column(name = "role_expiration_date")
-    private ZonedDateTime roleExpirationDate;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "subscription_plan_id")
+    private SubscriptionPlan subscriptionPlan;
 
+    @Column(name = "subscription_end_date")
+    private ZonedDateTime subscriptionEndDate;
+
+    @Column(name = "update_count")
     private int updateCount = 0;
+
+    @Column(name = "last_update_date")
     private ZonedDateTime lastUpdateDate;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "tb_user_roles", joinColumns = @JoinColumn(name = "user_id"))
     @Enumerated(EnumType.STRING)
     @Column(name = "role")
-    private Set<Role> roles = new HashSet<>();
+    private Role role;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        Set<Role> effectiveRoles = new HashSet<>(roles);
-
-        // Если пользователь — админ, дополнительно добавляем ему роль ROLE_PAID_USER
-        if (effectiveRoles.contains(Role.ROLE_ADMIN)) {
-            effectiveRoles.add(Role.ROLE_PAID_USER);
-        }
-
-        return effectiveRoles.stream()
-                .map(role -> new SimpleGrantedAuthority(role.name()))
-                .collect(Collectors.toSet());
+        return Collections.singletonList(new SimpleGrantedAuthority(role.name())); // Только одна роль
     }
 
     @Override

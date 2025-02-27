@@ -9,8 +9,8 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.repository.ConfirmationTokenRepository;
-import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
+import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.email.EmailService;
 import com.project.tracking_system.service.jsonEvropostService.JwtTokenManager;
 import com.project.tracking_system.utils.EncryptionUtils;
@@ -22,12 +22,9 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static java.time.ZoneOffset.UTC;
 
@@ -54,7 +51,7 @@ public class UserService {
     private final EncryptionUtils encryptionUtils;
     private final JwtTokenManager jwtTokenManager;
     private final UserCredentialsResolver userCredentialsResolver;
-    private final TrackParcelRepository trackParcelRepository;
+    private final SubscriptionService subscriptionService;
 
     /**
      * Отправляет код подтверждения на email для регистрации нового пользователя.
@@ -141,58 +138,15 @@ public class UserService {
         User user = new User();
         user.setEmail(userDTO.getEmail());
         user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
-        user.setRoles(Set.of(Role.ROLE_FREE_USER));
+        user.setRole(Role.ROLE_USER);
+
         userRepository.save(user);
+
+        subscriptionService.changeSubscription(user.getId(), "FREE", null);
 
         confirmationTokenRepository.deleteByEmail(userDTO.getEmail());
 
         log.info("Регистрация пользователя {} завершена. Код подтверждения удален.", userDTO.getEmail());
-    }
-
-    @Transactional
-    public void upgradeOrExtendRole(Long userId, int months) {
-        log.info("Попытка обновления роли для пользователя с ID: {}", userId);
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> {
-                    log.warn("Пользователь с ID {} не найден", userId);
-                    return new IllegalArgumentException("Пользователь не найден");
-                });
-
-        ZonedDateTime nowUtc = ZonedDateTime.now(ZoneOffset.UTC);
-
-        if (user.getRoles() == null) {
-            log.error("У пользователя {} отсутствует список ролей!", userId);
-            throw new IllegalStateException("У пользователя отсутствуют роли");
-        }
-
-        if (user.getRoles().contains(Role.ROLE_PAID_USER)) {
-            extendPaidUser(user, months, nowUtc);
-        } else if (user.getRoles().contains(Role.ROLE_FREE_USER)) {
-            upgradeToPaidUser(user, months, nowUtc);
-        } else {
-            log.warn("Попытка обновления роли у пользователя {}, но его статус не позволяет это сделать", userId);
-            throw new IllegalArgumentException("Пользователь в статусе, который нельзя апгрейдить (например, Admin?)");
-        }
-
-        userRepository.save(user);
-        log.info("Роль пользователя ID={} успешно обновлена до {} до {}", userId, user.getRoles(), user.getRoleExpirationDate());
-    }
-
-    private void extendPaidUser(User user, int months, ZonedDateTime nowUtc) {
-        ZonedDateTime currentExpiry = user.getRoleExpirationDate();
-        if (currentExpiry == null || currentExpiry.isBefore(nowUtc)) {
-            currentExpiry = nowUtc;
-        }
-        user.setRoleExpirationDate(currentExpiry.plusMonths(months));
-        log.info("Продление подписки пользователя {} до {}", user.getEmail(), user.getRoleExpirationDate());
-    }
-
-    private void upgradeToPaidUser(User user, int months, ZonedDateTime nowUtc) {
-        user.getRoles().remove(Role.ROLE_FREE_USER);
-        user.getRoles().add(Role.ROLE_PAID_USER);
-        user.setRoleExpirationDate(nowUtc.plusMonths(months));
-        log.info("Апгрейд пользователя {} до платного с подпиской до {}", user.getId(), user.getRoleExpirationDate());
     }
 
     public void updateUserRole(Long userId, String newRole) {
@@ -202,8 +156,14 @@ public class UserService {
         try {
             Role role = Role.valueOf(newRole); // Проверяем, что роль существует
 
-            user.getRoles().clear(); // Полностью заменяем роли пользователя
-            user.getRoles().add(role);
+            // Если у пользователя уже есть такая роль, ничего не делаем
+            if (user.getRole() == role) {
+                log.info("Роль пользователя с ID {} уже установлена на {}", userId, newRole);
+                return;
+            }
+
+
+            user.setRole(role);
             userRepository.save(user);
 
             log.info("Роль пользователя с ID {} успешно обновлена до {}", userId, newRole);
@@ -295,32 +255,6 @@ public class UserService {
         return userRepository.count();
     }
 
-    public long countPaidUsers() {
-        return userRepository.countByRolesContaining(Role.ROLE_PAID_USER);
-    }
-
-    public boolean isUserPaid(long userId) {
-        return userRepository.isUserPaid(userId);
-    }
-
-    public int getUpdateCount(Long userId) {
-        return userRepository.getUpdateCount(userId);
-    }
-
-    public ZonedDateTime getLastUpdateDate(Long userId) {
-        return userRepository.getLastUpdateDate(userId);
-    }
-
-    @Transactional
-    public void resetUpdateCount(Long userId) {
-        userRepository.resetUpdateCount(userId, ZonedDateTime.now(ZoneOffset.UTC));
-    }
-
-    @Transactional
-    public void incrementUpdateCount(Long userId, int count) {
-        userRepository.incrementUpdateCount(userId, count, ZonedDateTime.now(ZoneOffset.UTC));
-    }
-
     public ResolvedCredentialsDTO resolveCredentials(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
@@ -331,55 +265,8 @@ public class UserService {
         return userRepository.isUsingCustomCredentials(userId);
     }
 
-    public void validateFreeUserLimit(Long userId) {
-        if (userRepository.isUserPaid(userId)) {
-            return; // Если пользователь платный, проверка не нужна
-        }
-
-        long existingParcelCount = trackParcelRepository.countByUserId(userId);
-        if (existingParcelCount >= 10) {
-            throw new IllegalArgumentException("Для бесплатного аккаунта можно хранить не более 10 посылок. Перейдите на платный аккаунт.");
-        }
-    }
-
-    public void checkAndUpdateUserRole(User user) {
-        if (user == null) {
-            return;
-        }
-
-        if (!user.getRoles().contains(Role.ROLE_PAID_USER)) {
-            return; // Если у пользователя нет платной роли, ничего не делаем
-        }
-
-        if (user.getRoleExpirationDate() != null && user.getRoleExpirationDate().isBefore(ZonedDateTime.now(ZoneOffset.UTC))) {
-            log.info("Платная подписка истекла для пользователя {}. Переключаем на бесплатный аккаунт.", user.getId());
-
-            // Обновляем список ролей
-            Set<Role> updatedRoles = new HashSet<>(user.getRoles());
-            updatedRoles.remove(Role.ROLE_PAID_USER);
-            updatedRoles.add(Role.ROLE_FREE_USER);
-
-            user.setRoles(updatedRoles);
-            user.setRoleExpirationDate(null);
-
-            userRepository.save(user);
-        }
-    }
-
-    public int getMaxTrackingLimit(User user) {
-        if (user == null) return 5; //  Лимит для анонимных пользователей
-        if (user.getRoles().contains(Role.ROLE_FREE_USER)) return 10;
-        return Integer.MAX_VALUE; // Платные пользователи без ограничений
-    }
-
-    public String getLimitExceededMessage(User user) {
-        int maxLimit = getMaxTrackingLimit(user);
-
-        return switch (maxLimit) {
-            case 5 -> "Для незарегистрированных пользователей доступно не более 5 треков.";
-            case 10 -> "Для бесплатных пользователей доступно не более 10 треков.";
-            default -> "";
-        };
+    public long countUsersBySubscriptionPlan(String planName) {
+        return userRepository.countUsersBySubscriptionPlan(planName);
     }
 
     /**

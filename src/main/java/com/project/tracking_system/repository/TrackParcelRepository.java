@@ -25,7 +25,6 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
     long countByUser(User user);
 
     @Query("SELECT COUNT(t) FROM TrackParcel t WHERE t.user.id = :userId")
-    long countByUserId(@Param("userId") Long userId);
-
+    int countByUserId(@Param("userId") Long userId);
 
 }

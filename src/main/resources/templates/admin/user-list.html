@@ -12,6 +12,8 @@
 </head>
 <body>
 
+<a href="/admin" class="btn btn-primary mb-4">Админ Панель</a>
+
 <div class="container mt-4">
     <h1 class="mb-4">Список пользователей</h1>
 
@@ -23,6 +25,7 @@
             <th>ID</th>
             <th>Email</th>
             <th>Роли</th>
+            <th>Подписка</th>
             <th>Действия</th>
         </tr>
         </thead>
@@ -30,9 +33,8 @@
         <tr th:each="user : ${users}">
             <td th:text="${user.id}"></td>
             <td th:text="${user.email}"></td>
-            <td>
-                <span th:each="role : ${user.roles}" th:text="${role.name}"></span>
-            </td>
+            <td th:text="${user.role}"></td>
+            <td th:text="${user.subscriptionPlanName}"></td>
             <td>
                 <a th:href="@{/admin/users/{usersId}(usersId=${user.id})}" class="btn btn-info btn-sm">Подробнее</a>
             </td>
@@ -40,8 +42,6 @@
         </tbody>
     </table>
 </div>
-
-<a href="/admin" class="btn btn-primary mb-4">Админ Панель</a>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 <script src="/js/app.js"></script>

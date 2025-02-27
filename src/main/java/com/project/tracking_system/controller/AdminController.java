@@ -1,6 +1,9 @@
 package com.project.tracking_system.controller;
 
+import com.project.tracking_system.dto.UserDetailsAdminInfoDTO;
+import com.project.tracking_system.dto.UserListAdminInfoDTO;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +13,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -27,11 +32,12 @@ public class AdminController {
 
     private final UserService userService;
     private final TrackParcelService trackParcelService;
+    private final SubscriptionService subscriptionService;
 
     @GetMapping()
     public String adminDashboard(Model model) {
         long totalUsers = userService.countUsers();
-        long paidUsers = userService.countPaidUsers();
+        long paidUsers = userService.countUsersBySubscriptionPlan("PREMIUM");
         long totalParcels = trackParcelService.countAllParcels();
 
         // Добавляем статистику в модель
@@ -45,17 +51,45 @@ public class AdminController {
     @GetMapping("/users")
     public String getAllUsers(Model model) {
         List<User> users = userService.findAll();
-        model.addAttribute("users", users);
+        List<UserListAdminInfoDTO> userListAdminInfoDTOS = new ArrayList<>();
+
+        for (User user : users) {
+
+            UserListAdminInfoDTO userListAdminInfoDTO = new UserListAdminInfoDTO(
+                    user.getId(),
+                    user.getEmail(),
+                    user.getRole(),
+                    user.getSubscriptionPlan().getName()
+            );
+
+            userListAdminInfoDTOS.add(userListAdminInfoDTO);
+        }
+
+        model.addAttribute("users", userListAdminInfoDTOS);
+
         return "admin/user-list";
     }
 
     @GetMapping("/users/{usersId}")
     public String getUserDetails(@PathVariable Long usersId, Model model) {
         User user = userService.findUserById(usersId);
-
         var parcels = trackParcelService.findAllByUserTracks(usersId);
 
-        model.addAttribute("user", user);
+        String subscriptionEndDate = null;
+        if (user.getSubscriptionEndDate() != null) {
+            subscriptionEndDate = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                    .format(user.getSubscriptionEndDate());
+        }
+
+        UserDetailsAdminInfoDTO adminInfoDTO = new UserDetailsAdminInfoDTO(
+                user.getId(),
+                user.getEmail(),
+                user.getRole(),
+                user.getSubscriptionPlan().getName(),
+                subscriptionEndDate
+        );
+
+        model.addAttribute("user", adminInfoDTO);
         model.addAttribute("parcels", parcels);
         return "admin/user-details";
     }
@@ -67,10 +101,20 @@ public class AdminController {
         return "redirect:/admin/users/" + usersId;
     }
 
-    @PostMapping("/users/{usersId}/extend-role")
-    public String extendUserRole(@PathVariable Long usersId,
-                                 @RequestParam int months) {
-        userService.upgradeOrExtendRole(usersId, months);
-        return "redirect:/admin/users/" + usersId;
+    @PostMapping("/users/{userId}/change-subscription")
+    public String changeUserSubscription(@PathVariable Long userId,
+                                         @RequestParam("subscriptionPlan") String subscriptionPlan,
+                                         @RequestParam(value = "months", required = false) Integer months) {
+        // Проверяем, если месяц не передан, ставим значение по умолчанию 1
+        if ("PREMIUM".equalsIgnoreCase(subscriptionPlan)) {
+            if (months == null) {
+                months = 1;
+            }
+            subscriptionService.upgradeOrExtendSubscription(userId, months); // Продление платной подписки
+        } else {
+            subscriptionService.changeSubscription(userId, subscriptionPlan, null);  // Смена подписки
+        }
+        return "redirect:/admin/users/" + userId;
     }
+
 }
