@@ -38,7 +38,7 @@ public class CspNonceFilter extends OncePerRequestFilter {
                 "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
                 "font-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
                 "img-src 'self' data:; " +
-                "connect-src 'self'; " +
+                "connect-src 'self' wss://belivery.by; " +
                 "object-src 'none'; " +
                 "frame-ancestors 'none'; " +
                 "base-uri 'self'; " +
