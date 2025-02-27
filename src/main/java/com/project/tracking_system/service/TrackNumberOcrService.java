@@ -31,7 +31,6 @@ import java.util.regex.Pattern;
  * @author Dmitriy Anisimov
  * @date Добавлено 07.01.2025
  */
-
 @Slf4j
 @RequiredArgsConstructor
 @Service
@@ -45,7 +44,7 @@ public class TrackNumberOcrService {
      */
     @PostConstruct
     public void init() {
-        System.load("/usr/lib/jni/libopencv_java460.so");
+        System.load("/usr/lib/jni/libopencv_java4100.so");
     }
 
     /**
