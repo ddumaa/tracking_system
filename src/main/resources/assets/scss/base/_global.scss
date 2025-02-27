@@ -24,7 +24,6 @@ html, body {
   flex-direction: column;
 }
 
-
 @include mixins.respond-to(sm) {
   .nav-link {
     padding: 8px 10px;
