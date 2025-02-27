@@ -14,7 +14,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Setter
 @Getter
@@ -64,23 +63,22 @@ public class User implements UserDetails {
     @JoinColumn(name = "subscription_plan_id")
     private SubscriptionPlan subscriptionPlan;
 
+    @Column(name = "subscription_end_date")
     private ZonedDateTime subscriptionEndDate;
 
+    @Column(name = "update_count")
     private int updateCount = 0;
 
+    @Column(name = "last_update_date")
     private ZonedDateTime lastUpdateDate;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "tb_user_roles", joinColumns = @JoinColumn(name = "user_id"))
     @Enumerated(EnumType.STRING)
     @Column(name = "role")
-    private Set<Role> roles = new HashSet<>();
+    private Role role;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return roles.stream()
-                .map(role -> new SimpleGrantedAuthority(role.name()))
-                .collect(Collectors.toSet());
+        return Collections.singletonList(new SimpleGrantedAuthority(role.name())); // Только одна роль
     }
 
     @Override

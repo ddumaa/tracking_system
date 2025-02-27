@@ -12,10 +12,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
@@ -176,34 +174,6 @@ public class DeparturesController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
-
-
-//    @GetMapping("/update-status")
-//    @ResponseBody
-//    public ResponseEntity<Map<String, Object>> checkUpdateStatus(Authentication authentication) {
-//        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
-//            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
-//                    "completed", true,
-//                    "errorMessage", "Ошибка: Необходимо войти в систему."
-//            ));
-//        }
-//
-//        Long userId = user.getId();
-//        boolean isCompleted = trackParcelService.isUpdateCompleted(userId);
-//        log.debug("Проверка статуса обновления для пользователя {}: completed={}, errorMessage={}", userId, isCompleted);
-//
-//        Map<String, Object> response = new HashMap<>();
-//        response.put("completed", isCompleted);
-//
-//        String errorMessage = trackParcelService.getLastErrorMessage(userId);
-//        if (errorMessage == null) {
-//            errorMessage = "";
-//        }
-//        return ResponseEntity.ok(Map.of(
-//                "completed", isCompleted,
-//                "errorMessage", errorMessage
-//        ));
-//    }
 
     /**
      * Метод для удаления выбранных посылок.

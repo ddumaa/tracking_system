@@ -1,5 +1,7 @@
 package com.project.tracking_system.controller;
 
+import com.project.tracking_system.dto.UserDetailsAdminInfoDTO;
+import com.project.tracking_system.dto.UserListAdminInfoDTO;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.TrackParcelService;
@@ -11,6 +13,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -47,7 +51,22 @@ public class AdminController {
     @GetMapping("/users")
     public String getAllUsers(Model model) {
         List<User> users = userService.findAll();
-        model.addAttribute("users", users);
+        List<UserListAdminInfoDTO> userListAdminInfoDTOS = new ArrayList<>();
+
+        for (User user : users) {
+
+            UserListAdminInfoDTO userListAdminInfoDTO = new UserListAdminInfoDTO(
+                    user.getId(),
+                    user.getEmail(),
+                    user.getRole(),
+                    user.getSubscriptionPlan().getName()
+            );
+
+            userListAdminInfoDTOS.add(userListAdminInfoDTO);
+        }
+
+        model.addAttribute("users", userListAdminInfoDTOS);
+
         return "admin/user-list";
     }
 
@@ -56,7 +75,21 @@ public class AdminController {
         User user = userService.findUserById(usersId);
         var parcels = trackParcelService.findAllByUserTracks(usersId);
 
-        model.addAttribute("user", user);
+        String subscriptionEndDate = null;
+        if (user.getSubscriptionEndDate() != null) {
+            subscriptionEndDate = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                    .format(user.getSubscriptionEndDate());
+        }
+
+        UserDetailsAdminInfoDTO adminInfoDTO = new UserDetailsAdminInfoDTO(
+                user.getId(),
+                user.getEmail(),
+                user.getRole(),
+                user.getSubscriptionPlan().getName(),
+                subscriptionEndDate
+        );
+
+        model.addAttribute("user", adminInfoDTO);
         model.addAttribute("parcels", parcels);
         return "admin/user-details";
     }

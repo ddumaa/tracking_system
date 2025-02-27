@@ -22,11 +22,9 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static java.time.ZoneOffset.UTC;
 
@@ -140,7 +138,7 @@ public class UserService {
         User user = new User();
         user.setEmail(userDTO.getEmail());
         user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
-        user.setRoles(Set.of(Role.ROLE_USER));
+        user.setRole(Role.ROLE_USER);
 
         userRepository.save(user);
 
@@ -159,13 +157,13 @@ public class UserService {
             Role role = Role.valueOf(newRole); // Проверяем, что роль существует
 
             // Если у пользователя уже есть такая роль, ничего не делаем
-            if (user.getRoles().contains(role)) {
+            if (user.getRole() == role) {
                 log.info("Роль пользователя с ID {} уже установлена на {}", userId, newRole);
                 return;
             }
 
-            user.getRoles().clear(); // Полностью заменяем роли пользователя
-            user.getRoles().add(role);
+
+            user.setRole(role);
             userRepository.save(user);
 
             log.info("Роль пользователя с ID {} успешно обновлена до {}", userId, newRole);
