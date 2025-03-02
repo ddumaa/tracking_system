@@ -20,14 +20,18 @@ public class WebSocketController {
     // Отправить только текстовое уведомление
     public void sendUpdateStatus(Long userId, String message, boolean completed) {
         UpdateResult updateResult = new UpdateResult(completed, message);
-        log.info("📡 WebSocket отправка сообщения на /topic/status/{}: {}", userId, updateResult);
+        getDebug(userId, updateResult);
         messagingTemplate.convertAndSend("/topic/status/" + userId, updateResult);
     }
 
     // Отправить детализированное уведомление с обновлёнными данными
     public void sendDetailUpdateStatus(Long userId, UpdateResult updateResult) {
-        log.info("📡 WebSocket отправка сообщения на /topic/status/{}: {}", userId, updateResult);
+        getDebug(userId, updateResult);
         messagingTemplate.convertAndSend("/topic/status/" + userId, updateResult);
+    }
+
+    private static void getDebug(Long userId, UpdateResult updateResult) {
+        log.debug("📡 WebSocket отправка сообщения на /topic/status/{}: {}", userId, updateResult);
     }
 
 }

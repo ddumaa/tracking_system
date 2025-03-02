@@ -18,15 +18,20 @@ function toggleAllCheckboxes(checked) {
 
 function loadModal(itemNumber) {
     if (!itemNumber) return;
-    $.ajax({
-        type: 'GET',
-        url: `/departures/${itemNumber}`,
-        success: (data) => {
-            $('#infoModal .modal-body').html(data);
-            $('#infoModal').modal('show');
-        },
-        error: () => showAlert('Ошибка при загрузке данных', "danger")
-    });
+
+    fetch(`/departures/${itemNumber}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Ошибка при загрузке данных');
+            }
+            return response.text();
+        })
+        .then(data => {
+            document.querySelector('#infoModal .modal-body').innerHTML = data;
+            let modal = new bootstrap.Modal(document.getElementById('infoModal'));
+            modal.show();
+        })
+        .catch(() => notifyUser('Ошибка при загрузке данных', "danger"));
 }
 
 // Привязка обработчика для формы изменения пароля
@@ -109,127 +114,180 @@ function toggleFieldsVisibility(checkbox, fieldsContainer) {
     fieldsContainer.toggle(checkbox.is(":checked"));
 }
 
-$(document).ready(function () {
+let lastPage = window.location.pathname; // Запоминаем текущую страницу при загрузке
 
-    // === Добавляем CSRF-токен ===
-    const csrfToken = $('meta[name="_csrf"]').attr('content');
-    const csrfHeader = $('meta[name="_csrf_header"]').attr('content');
+document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+        console.log("🔴 Пользователь ушёл со страницы");
+        lastPage = window.location.pathname; // Фиксируем страницу
+    } else {
+        console.log("🟢 Пользователь вернулся на страницу");
+        lastPage = window.location.pathname; // Фиксируем новую страницу
+    }
+});
 
-    let stompClient = null;
-    let userId = $("#userId").val(); // Получаем userId из скрытого поля
+// Определяем, есть ли уже открытое модальное окно
+function isModalOpen() {
+    return document.querySelector(".modal.show") !== null;
+}
 
-    function connectWebSocket() {
-        console.log("🚀 connectWebSocket() вызван!");
+// Функция выбора уведомления
+function notifyUser(message, type = "info") {
+    if (document.hidden || window.location.pathname !== lastPage || isModalOpen()) {
+        console.log("📢 Показываем toast, так как пользователь сменил страницу или уже в модальном окне");
+        showToast(message, type);
+    } else {
+        console.log("✅ Показываем alert, так как пользователь остаётся на странице");
+        showAlert(message, type);
+    }
+}
 
-        stompClient = new StompJs.Client({
-            //'wss://belivery.by/ws',
-            brokerURL: 'ws://localhost:8080/ws',
-            reconnectDelay: 1000,
-            heartbeatIncoming: 2000,
-            heartbeatOutgoing: 2000,
-            debug: function (str) {
-                console.log('STOMP Debug: ', str);
-            }
-        });
+// Уведомления
+function showAlert(message, type) {
+    let existingAlert = $(".notification");
 
-        stompClient.onConnect = function (frame) {
-            console.log('✅ WebSocket подключен: ' + frame);
-
-            let destination = '/topic/status/' + userId;
-            console.log("📡 Подписываемся на " + destination);
-
-            if (stompClient.connected) {
-                stompClient.subscribe(destination, function (message) {
-                    let response = JSON.parse(message.body);
-                    console.log("📡 WebSocket сообщение: ", response);
-
-                    console.log("⚠️ DEBUG: success=", response.success, "message=", response.message);
-
-                    showAlert(response.message, response.success ? "success" : "warning");
-
-                    $("#applyActionBtn").prop("disabled", false).html("Применить");
-
-                    $("#refreshAllBtn").prop("disabled", false).html('<i class="bi bi-arrow-repeat"></i>');
-
-                    // 🔥 Загружаем обновлённые данные из БД
-                    if (response.success && response.message.startsWith("Обновление завершено")) {
-                        reloadParcelTable();
-                    }
-                });
-            } else {
-                console.error("❌ STOMP не подключен! Повторная попытка подписки через 2 сек...");
-                setTimeout(() => {
-                    connectWebSocket();
-                }, 2000);
-            }
-        };
-
-        stompClient.onStompError = function (frame) {
-            console.error('❌ STOMP ошибка: ', frame);
-            showAlert("Ошибка WebSocket: " + frame.headers['message'], "danger");
-        };
-
-        console.log("🔄 WebSocket активация отправлена...");
-        stompClient.activate();
+    // ❌ Игнорируем "Обновление запущено...", так как оно временное
+    if (message.includes("Обновление запущено")) {
+        console.log("⚠ Пропущено уведомление:", message);
+        return;
     }
 
-    // Уведомления
-    function showAlert(message, type) {
-        let existingAlert = $(".notification");
-
-        // ❌ Игнорируем "Обновление запущено...", так как оно временное
-        if (message.includes("Обновление запущено")) {
-            console.log("⚠ Пропущено уведомление:", message);
+    if (existingAlert.length > 0) {
+        let currentMessage = existingAlert.find("span.alert-text").text();
+        if (currentMessage === message) {
+            console.log("⚠ Повторное уведомление проигнорировано:", message);
             return;
         }
+        existingAlert.remove(); // Удаляем старое
+    }
 
-        if (existingAlert.length > 0) {
-            let currentMessage = existingAlert.find("span.alert-text").text();
-            if (currentMessage === message) {
-                console.log("⚠ Повторное уведомление проигнорировано:", message);
-                return;
-            }
-            existingAlert.remove(); // Удаляем старое, если пришло новое
-        }
-
-        const alertHtml = `
+    const alertHtml = `
     <div class="alert alert-${type} alert-dismissible fade show notification" role="alert">
         <i class="bi ${type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'} me-2"></i>
         <span class="alert-text">${message}</span>
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Закрыть"></button>
     </div>`;
 
-        $(".history-header").before(alertHtml);
+    $(".history-header").before(alertHtml);
 
-        setTimeout(() => {
-            $(".notification").fadeOut("slow", function () {
-                $(this).remove();
-            });
-        }, 5000);
+    setTimeout(() => {
+        $(".notification").fadeOut("slow", function () {
+            $(this).remove();
+        });
+    }, 10000);
+}
+
+// Функция для показа Toast (если пользователь ушёл или уже в модальном окне)
+function showToast(message, type = "info") {
+    let toastContainer = document.getElementById("globalToastContainer");
+    if (!toastContainer) {
+        console.warn("❌ Не найден контейнер для тостов!");
+        return;
     }
 
+    let toastId = "toast-" + new Date().getTime();
+    let toastHtml = `
+        <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0 mb-2" role="alert" aria-live="assertive" aria-atomic="true">
+          <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+          </div>
+        </div>
+    `;
 
-    $(document).ready(function () {
-        connectWebSocket();
+    toastContainer.insertAdjacentHTML("beforeend", toastHtml);
+    let toastElement = document.getElementById(toastId);
+    let toast = new bootstrap.Toast(toastElement, { delay: 10000 });
+    toast.show();
+
+    toastElement.addEventListener("hidden.bs.toast", () => {
+        toastElement.remove();
+    });
+}
+
+let stompClient = null;
+let userId = $("#userId").val(); // Получаем userId из скрытого поля
+
+function connectWebSocket() {
+    console.log("🚀 connectWebSocket() вызван!");
+
+    stompClient = new StompJs.Client({
+        //'wss://belivery.by/ws', 'ws://localhost:8080/ws',
+        brokerURL: 'ws://localhost:8080/ws',
+        reconnectDelay: 1000,
+        heartbeatIncoming: 2000,
+        heartbeatOutgoing: 2000,
+        debug: function (str) {
+            console.log('STOMP Debug: ', str);
+        }
     });
 
-    function reloadParcelTable() {
-        console.log("🔄 AJAX-запрос для обновления таблицы...");
-        $.ajax({
-            url: "/departures",
-            type: "GET",
-            cache: false,
-            success: function (html) {
-                let newTableBody = $(html).find("tbody").html();
-                console.log("📊 Получены новые данные:", newTableBody);
-                $("tbody").html(newTableBody);
-                console.log("✅ Таблица обновлена!");
-            },
-            error: function () {
-                console.error("❌ Ошибка загрузки обновлённых данных!");
-            }
-        });
-    }
+    stompClient.onConnect = function (frame) {
+        console.log('✅ WebSocket подключен: ' + frame);
+
+        let destination = '/topic/status/' + userId;
+        console.log("📡 Подписываемся на " + destination);
+
+        if (stompClient.connected) {
+            stompClient.subscribe(destination, function (message) {
+                let response = JSON.parse(message.body);
+                console.log("📡 WebSocket сообщение: ", response);
+
+                console.log("⚠️ DEBUG: success=", response.success, "message=", response.message);
+
+                notifyUser(response.message, response.success ? "success" : "warning");
+
+                $("#applyActionBtn").prop("disabled", false).html("Применить");
+
+                $("#refreshAllBtn").prop("disabled", false).html('<i class="bi bi-arrow-repeat"></i>');
+
+                // 🔥 Загружаем обновлённые данные из БД
+                if (response.success && response.message.startsWith("Обновление завершено")) {
+                    reloadParcelTable();
+                }
+            });
+        } else {
+            console.error("❌ STOMP не подключен! Повторная попытка подписки через 2 сек...");
+            setTimeout(() => {
+                connectWebSocket();
+            }, 2000);
+        }
+    };
+
+    stompClient.onStompError = function (frame) {
+        console.error('❌ STOMP ошибка: ', frame);
+        notifyUser("Ошибка WebSocket: " + frame.headers['message'], "danger");
+    };
+
+    console.log("🔄 WebSocket активация отправлена...");
+    stompClient.activate();
+}
+
+function reloadParcelTable() {
+    console.log("🔄 AJAX-запрос для обновления таблицы...");
+    $.ajax({
+        url: "/departures",
+        type: "GET",
+        cache: false,
+        success: function (html) {
+            let newTableBody = $(html).find("tbody").html();
+            console.log("📊 Получены новые данные:", newTableBody);
+            $("tbody").html(newTableBody);
+            console.log("✅ Таблица обновлена!");
+        },
+        error: function () {
+            console.error("❌ Ошибка загрузки обновлённых данных!");
+        }
+    });
+}
+
+$(document).ready(function () {
+
+    // === Добавляем CSRF-токен ===
+    const csrfToken = $('meta[name="_csrf"]').attr('content');
+    const csrfHeader = $('meta[name="_csrf_header"]').attr('content');
+
+    connectWebSocket();
 
     $("#updateAllForm").on("submit", function (event) {
         event.preventDefault();
@@ -301,12 +359,34 @@ $(document).ready(function () {
         toggleAllCheckboxes(this);
     });
 
-    document.querySelectorAll(".open-modal").forEach(button => {
-        button.addEventListener("click", function () {
-            const itemNumber = this.getAttribute("data-itemnumber");
+    document.body.addEventListener("click", function (event) {
+        if (event.target.closest(".open-modal")) {
+            const button = event.target.closest(".open-modal");
+            const itemNumber = button.getAttribute("data-itemnumber");
             loadModal(itemNumber);
-        });
+        }
     });
+
+    document.body.addEventListener("click", function (event) {
+        if (event.target.closest(".btn-link")) {
+            const button = event.target.closest(".btn-link");
+            const itemNumber = button.getAttribute("data-itemnumber");
+            loadModal(itemNumber);
+        }
+    });
+
+    // Проверяем, есть ли модальное окно на странице
+    let modalElement = document.getElementById('infoModal');
+    if (modalElement) {
+        modalElement.addEventListener('hidden.bs.modal', function () {
+            let backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                backdrop.remove(); // Удаляем затемнение вручную
+            }
+            document.body.classList.remove('modal-open'); // Убираем класс, если остался
+            document.body.style.overflow = ''; // Восстанавливаем прокрутку
+        });
+    }
 
     document.querySelectorAll(".selectCheckbox").forEach(checkbox => {
         checkbox.addEventListener("change", updateDeleteButtonState);
@@ -321,27 +401,38 @@ $(document).ready(function () {
     });
 
     // Логика показа/скрытия пароля
-    $(document).on("click", ".toggle-password", function () {
-        const targetId = $(this).data("target");
-        const input = $("#" + targetId);
-        const icon = $(this).find("i");
+    document.querySelectorAll(".toggle-password").forEach(button => {
+        button.addEventListener("click", function () {
+            const targetId = this.getAttribute("data-target");
+            const input = document.getElementById(targetId);
+            const icon = this.querySelector("i");
 
-        if (!input.length || !icon.length) return;
+            if (!input || !icon) return;
 
-        const isPassword = input.attr("type") === "password";
-        input.attr("type", isPassword ? "text" : "password");
-        icon.toggleClass("bi-eye bi-eye-slash");
+            const isPassword = input.type === "password";
+            input.type = isPassword ? "text" : "password";
+            icon.classList.toggle("bi-eye");
+            icon.classList.toggle("bi-eye-slash");
+        });
     });
 
     // Закрытие Offcanvas при выборе пункта меню
-    $(document).on("click", "#settingsSidebar .nav-link", function () {
-        const sidebar = $("#settingsSidebar");
-        const offcanvasInstance = bootstrap.Offcanvas.getInstance(sidebar[0]);
-        if (offcanvasInstance) {
-            offcanvasInstance.hide();
-            setTimeout(() => $(".offcanvas-backdrop").remove(), 300);
-        }
-    });
+    const sidebar = document.getElementById("settingsSidebar");
+
+    if (sidebar) {
+        sidebar.querySelectorAll(".nav-link").forEach(link => {
+            link.addEventListener("click", function () {
+                const offcanvasInstance = bootstrap.Offcanvas.getInstance(sidebar);
+                if (offcanvasInstance) {
+                    offcanvasInstance.hide();
+                    setTimeout(() => {
+                        const backdrop = document.querySelector(".offcanvas-backdrop");
+                        if (backdrop) backdrop.remove();
+                    }, 300);
+                }
+            });
+        });
+    }
 
     $(".size-btn").on("click", function () {
         $(".size-btn").removeClass("active");
@@ -370,12 +461,12 @@ $(document).ready(function () {
         const selectedAction = $("#actionSelect").val();
 
         if (selectedNumbers.length === 0) {
-            showAlert("Выберите хотя бы одну посылку.", "warning");
+            notifyUser("Выберите хотя бы одну посылку.", "warning");
             return;
         }
 
         if (!selectedAction) {
-            showAlert("Выберите действие перед нажатием кнопки.", "warning");
+            notifyUser("Выберите действие перед нажатием кнопки.", "warning");
             return;
         }
 
@@ -405,7 +496,7 @@ $(document).ready(function () {
                 console.log("✅ AJAX-запрос для обновления всех треков отправлен. Ждём WebSocket...");
             },
             error: function (xhr) {
-                showAlert("Ошибка при обновлении: " + xhr.responseText, "danger");
+                notifyUser("Ошибка при обновлении: " + xhr.responseText, "danger");
                 refreshBtn.prop("disabled", false).html('<i class="bi bi-arrow-repeat"></i>');
             }
         });
@@ -425,20 +516,15 @@ $(document).ready(function () {
         window.location.href = currentUrl.toString();
     });
 
-    $(document).on("click", ".btn-link", function () {
-        const itemNumber = $(this).data("itemnumber");
-        loadModal(itemNumber);
-    });
-
     $(document).on("change", ".selectCheckbox", updateDeleteButtonState);
 
     // === Обработчик выбора количества элементов ===
-    $(".size-btn").on("click", function () {
-        const size = $(this).data("size");
-        const currentUrl = new URL(window.location.href);
-        currentUrl.searchParams.set("size", size);
-        window.location.href = currentUrl.toString();
-    });
+    // $(".size-btn").on("click", function () {
+    //     const size = $(this).data("size");
+    //     const currentUrl = new URL(window.location.href);
+    //     currentUrl.searchParams.set("size", size);
+    //     window.location.href = currentUrl.toString();
+    // });
 
     // === Функция отправки запроса на удаление ===
     function sendDeleteRequest(selectedNumbers, applyBtn) {
@@ -448,14 +534,14 @@ $(document).ready(function () {
             data: { selectedNumbers: selectedNumbers },
             beforeSend: (xhr) => xhr.setRequestHeader(csrfHeader, csrfToken),
             success: function () {
-                showAlert("Выбранные посылки успешно удалены.", "success");
+                notifyUser("Выбранные посылки успешно удалены.", "success");
                 $(".selectCheckbox:checked").closest("tr").fadeOut(500, function () { $(this).remove(); });
 
                 // ✅ Возвращаем кнопку в нормальное состояние
                 applyBtn.prop("disabled", false).html("Применить");
             },
             error: (xhr) => {
-                showAlert("Ошибка при удалении: " + xhr.responseText, "danger");
+                notifyUser("Ошибка при удалении: " + xhr.responseText, "danger");
                 applyBtn.prop("disabled", false).html("Применить");
             }
         });
@@ -476,7 +562,7 @@ $(document).ready(function () {
                 // Кнопка вернётся после получения уведомления через сокет
             },
             error: function (xhr) {
-                showAlert("Ошибка при обновлении: " + xhr.responseText, "danger");
+                notifyUser("Ошибка при обновлении: " + xhr.responseText, "danger");
                 applyBtn.prop("disabled", false).html("Применить");
             }
         });
