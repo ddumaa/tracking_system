@@ -48,14 +48,14 @@
                             <div class="filter-item d-flex align-items-center">
                                 <label for="status" class="form-label m-0 me-2"></label>
                                 <select id="status" name="status" class="form-select w-auto">
-                                    <option value="">Все статусы</option>
-                                    <option value="DELIVERED">Вручена</option>
-                                    <option value="WAITING_FOR_CUSTOMER">Ожидает клиента</option>
-                                    <option value="IN_TRANSIT">В пути</option>
-                                    <option value="CUSTOMER_NOT_PICKING_UP">Клиент не забирает</option>
-                                    <option value="RETURN_IN_PROGRESS">Возврат в пути</option>
-                                    <option value="RETURNED_TO_SENDER">Возврат забран</option>
-                                    <option value="REGISTERED">Зарегистрирована</option>
+                                    <option value="" th:selected="${statusString == null}">Все статусы</option>
+                                    <option value="DELIVERED" th:selected="${statusString == 'DELIVERED'}">Вручена</option>
+                                    <option value="WAITING_FOR_CUSTOMER" th:selected="${statusString == 'WAITING_FOR_CUSTOMER'}">Ожидает клиента</option>
+                                    <option value="IN_TRANSIT" th:selected="${statusString == 'IN_TRANSIT'}">В пути</option>
+                                    <option value="CUSTOMER_NOT_PICKING_UP" th:selected="${statusString == 'CUSTOMER_NOT_PICKING_UP'}">Клиент не забирает</option>
+                                    <option value="RETURN_IN_PROGRESS" th:selected="${statusString == 'RETURN_IN_PROGRESS'}">Возврат в пути</option>
+                                    <option value="RETURNED_TO_SENDER" th:selected="${statusString == 'RETURNED_TO_SENDER'}">Возврат забран</option>
+                                    <option value="REGISTERED" th:selected="${statusString == 'REGISTERED'}">Зарегистрирована</option>
                                 </select>
                             </div>
                             <button type="button" id="filterActionBtn" class="btn btn-outline-primary">Фильтровать</button>

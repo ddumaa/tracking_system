@@ -8,13 +8,31 @@ function updateDeleteButtonState() {
 }
 
 function updateApplyButtonState() {
-    $("#applyActionBtn").prop("disabled", $(".selectCheckbox:checked").length === 0);
+    const applyBtn = document.getElementById("applyActionBtn");
+    if (!applyBtn) return; // Если кнопки нет, просто выходим
+
+    const selectedCheckboxes = document.querySelectorAll(".selectCheckbox:checked").length;
+    const selectedAction = document.getElementById("actionSelect")?.value || ""; // Проверяем существование actionSelect
+
+    // Кнопка `disabled`, если не выбраны чекбоксы или не выбрано действие
+    applyBtn.disabled = !(selectedCheckboxes > 0 && selectedAction);
 }
 
 function toggleAllCheckboxes(checked) {
-    $(".selectCheckbox").prop("checked", checked);
+    document.querySelectorAll(".selectCheckbox").forEach(checkbox => {
+        checkbox.checked = checked;
+    });
     updateApplyButtonState();
 }
+
+// Обновляем кнопку при изменении чекбоксов
+document.body.addEventListener("change", function (event) {
+    if (event.target.classList.contains("selectCheckbox")) {
+        updateApplyButtonState();
+    }
+});
+
+document.getElementById("actionSelect")?.addEventListener("change", updateApplyButtonState);
 
 function loadModal(itemNumber) {
     if (!itemNumber) return;
@@ -298,7 +316,7 @@ $(document).ready(function () {
     $("body").tooltip({ selector: '[data-bs-toggle="tooltip"]' });
 
     /// Авто-скрытие уведомлений
-    setTimeout(() => { $(".alert").fadeOut("slow"); }, 5000);
+    setTimeout(() => { $(".alert").fadeOut("slow"); }, 10000);
 
     // мобильный хедер
     const burgerMenu = document.getElementById('burgerMenu');
@@ -355,10 +373,6 @@ $(document).ready(function () {
     attachEvropostFormHandler();
     initializeCustomCredentialsCheckbox();
 
-    document.getElementById("selectAllCheckbox")?.addEventListener("click", function () {
-        toggleAllCheckboxes(this);
-    });
-
     document.body.addEventListener("click", function (event) {
         if (event.target.closest(".open-modal")) {
             const button = event.target.closest(".open-modal");
@@ -387,10 +401,6 @@ $(document).ready(function () {
             document.body.style.overflow = ''; // Восстанавливаем прокрутку
         });
     }
-
-    document.querySelectorAll(".selectCheckbox").forEach(checkbox => {
-        checkbox.addEventListener("change", updateDeleteButtonState);
-    });
 
     //установка активной вкладки в хедере
     const currentPath = window.location.pathname;
@@ -434,31 +444,59 @@ $(document).ready(function () {
         });
     }
 
-    $(".size-btn").on("click", function () {
-        $(".size-btn").removeClass("active");
-        $(this).addClass("active");
+    // === Обработчик выбора количества элементов ===
+    document.querySelectorAll(".size-btn").forEach(button => {
+        button.addEventListener("click", function () {
+            // Убираем класс "active" у всех кнопок
+            document.querySelectorAll(".size-btn").forEach(btn => btn.classList.remove("active"));
 
-        const size = $(this).data("size");
-        const currentUrl = new URL(window.location.href);
-        currentUrl.searchParams.set("size", size);
-        window.location.href = currentUrl.toString();
+            // Добавляем "active" только на нажатую кнопку
+            this.classList.add("active");
+
+            // Получаем размер из атрибута data-size
+            const size = this.getAttribute("data-size");
+
+            // Обновляем URL, меняя параметр "size"
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set("size", size);
+
+            // Перенаправляем пользователя на обновленный URL
+            window.location.href = currentUrl.toString();
+        });
     });
 
-    // Переключение всех чекбоксов при выборе верхнего чекбокса
-    $(document).on("change", "#selectAllCheckbox", function () {
+    const selectAllCheckbox = document.getElementById("selectAllCheckbox");
+
+    // Обработчик клика: включает/выключает все чекбоксы
+    selectAllCheckbox?.addEventListener("click", function () {
         toggleAllCheckboxes(this.checked);
     });
 
-    $(document).on("change", ".selectCheckbox", function () {
-        const allChecked = $(".selectCheckbox:checked").length === $(".selectCheckbox").length;
-        $("#selectAllCheckbox").prop("checked", allChecked);
-        updateApplyButtonState();
+    // Обработчик изменений: если чекбоксы выбраны/сняты вручную
+    document.body.addEventListener("change", function (event) {
+        if (event.target.id === "selectAllCheckbox") {
+            toggleAllCheckboxes(event.target.checked);
+        }
+    });
+
+    document.body.addEventListener("change", function (event) {
+        if (event.target.classList.contains("selectCheckbox")) {
+            const allCheckboxes = document.querySelectorAll(".selectCheckbox");
+            const checkedCheckboxes = document.querySelectorAll(".selectCheckbox:checked");
+            const selectAllCheckbox = document.getElementById("selectAllCheckbox");
+
+            selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedCheckboxes.length === allCheckboxes.length;
+            updateApplyButtonState();
+        }
     });
 
     // === Обработчик кнопки "Применить" ===
-    $("#applyActionBtn").on("click", function () {
-        const selectedNumbers = $(".selectCheckbox:checked").map(function () { return this.value; }).get();
-        const selectedAction = $("#actionSelect").val();
+    document.getElementById("applyActionBtn")?.addEventListener("click", function () {
+        const selectedNumbers = Array.from(document.querySelectorAll(".selectCheckbox:checked"))
+            .map(checkbox => checkbox.value);
+
+        const selectedAction = document.getElementById("actionSelect").value;
+        const applyBtn = document.getElementById("applyActionBtn");
 
         if (selectedNumbers.length === 0) {
             notifyUser("Выберите хотя бы одну посылку.", "warning");
@@ -470,8 +508,8 @@ $(document).ready(function () {
             return;
         }
 
-        const applyBtn = $("#applyActionBtn");
-        applyBtn.prop("disabled", true).html('<i class="bi bi-arrow-repeat spin"></i> Выполняется...');
+        applyBtn.disabled = true;
+        applyBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Выполняется...';
 
         if (selectedAction === "delete") {
             sendDeleteRequest(selectedNumbers, applyBtn);
@@ -480,31 +518,47 @@ $(document).ready(function () {
         }
     });
 
-    // === Обработчик кнопки "Обновить всё" ===
-    $("#refreshAllBtn").on("click", function () {
-        const refreshBtn = $(this);
-        refreshBtn.prop("disabled", true).html('<i class="bi bi-arrow-repeat spin"></i>');
+    updateApplyButtonState();
 
-        $.ajax({
-            url: "/departures/track-update",
-            type: "POST",
-            data: {},
-            beforeSend: function (xhr) {
-                xhr.setRequestHeader(csrfHeader, csrfToken);
-            },
-            success: function () {
-                console.log("✅ AJAX-запрос для обновления всех треков отправлен. Ждём WebSocket...");
-            },
-            error: function (xhr) {
-                notifyUser("Ошибка при обновлении: " + xhr.responseText, "danger");
-                refreshBtn.prop("disabled", false).html('<i class="bi bi-arrow-repeat"></i>');
+    // === Обработчик кнопки "Обновить всё" ===
+    document.getElementById("refreshAllBtn")?.addEventListener("click", function () {
+        const refreshBtn = this;
+        refreshBtn.disabled = true;
+        refreshBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i>';
+
+        fetch("/departures/track-update", {
+            method: "POST",
+            headers: {
+                [csrfHeader]: csrfToken // CSRF-токен
             }
-        });
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text); });
+                }
+                console.log("✅ AJAX-запрос для обновления всех треков отправлен. Ждём WebSocket...");
+            })
+            .catch(error => {
+                notifyUser("Ошибка при обновлении: " + error.message, "danger");
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i>';
+            });
     });
 
+    // === Статус ===
+    const statusSelect = document.getElementById("status");
+
+    // Восстанавливаем сохранённый статус при загрузке страницы
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentStatus = urlParams.get("status");
+
+    if (currentStatus) {
+        statusSelect.value = currentStatus; // Устанавливаем значение из URL
+    }
+
     // === Фильтр по статусу ===
-    $("#filterActionBtn").on("click", function () {
-        const selectedStatus = $("#status").val();
+    document.getElementById("filterActionBtn")?.addEventListener("click", function () {
+        const selectedStatus = statusSelect.value;
         const currentUrl = new URL(window.location.href);
 
         if (selectedStatus) {
@@ -516,56 +570,94 @@ $(document).ready(function () {
         window.location.href = currentUrl.toString();
     });
 
-    $(document).on("change", ".selectCheckbox", updateDeleteButtonState);
-
-    // === Обработчик выбора количества элементов ===
-    // $(".size-btn").on("click", function () {
-    //     const size = $(this).data("size");
-    //     const currentUrl = new URL(window.location.href);
-    //     currentUrl.searchParams.set("size", size);
-    //     window.location.href = currentUrl.toString();
-    // });
+    document.body.addEventListener("change", function (event) {
+        if (event.target.classList.contains("selectCheckbox")) {
+            updateDeleteButtonState();
+        }
+    });
 
     // === Функция отправки запроса на удаление ===
     function sendDeleteRequest(selectedNumbers, applyBtn) {
-        $.ajax({
-            url: "/departures/delete-selected",
-            type: "POST",
-            data: { selectedNumbers: selectedNumbers },
-            beforeSend: (xhr) => xhr.setRequestHeader(csrfHeader, csrfToken),
-            success: function () {
+        applyBtn.disabled = true;
+        applyBtn.innerHTML = "Удаление...";
+
+        const formData = new URLSearchParams();
+        selectedNumbers.forEach(number => formData.append("selectedNumbers", number));
+
+        fetch("/departures/delete-selected", {
+            method: "POST",
+            headers: {
+                [csrfHeader]: csrfToken // CSRF-токен
+            },
+            body: formData
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text); });
+                }
                 notifyUser("Выбранные посылки успешно удалены.", "success");
-                $(".selectCheckbox:checked").closest("tr").fadeOut(500, function () { $(this).remove(); });
+
+                clearAllCheckboxes();
+
+                // Анимация исчезновения удалённых строк
+                document.querySelectorAll(".selectCheckbox:checked").forEach(checkbox => {
+                    const row = checkbox.closest("tr");
+                    if (row) {
+                        row.style.transition = "opacity 0.5s";
+                        row.style.opacity = "0";
+                        setTimeout(() => row.remove(), 500);
+                    }
+                });
 
                 // ✅ Возвращаем кнопку в нормальное состояние
-                applyBtn.prop("disabled", false).html("Применить");
-            },
-            error: (xhr) => {
-                notifyUser("Ошибка при удалении: " + xhr.responseText, "danger");
-                applyBtn.prop("disabled", false).html("Применить");
-            }
-        });
+                applyBtn.disabled = false;
+                applyBtn.innerHTML = "Применить";
+            })
+            .catch(error => {
+                notifyUser("Ошибка при удалении: " + error.message, "danger");
+                applyBtn.disabled = false;
+                applyBtn.innerHTML = "Применить";
+            });
     }
 
     function sendUpdateRequest(selectedNumbers, applyBtn) {
-        applyBtn.prop("disabled", true).html('<i class="bi bi-arrow-repeat spin"></i> Обновление...');
+        applyBtn.disabled = true;
+        applyBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Обновление...';
 
-        $.ajax({
-            url: "/departures/track-update",
-            type: "POST",
-            data: { selectedNumbers: selectedNumbers },
-            beforeSend: function (xhr) {
-                xhr.setRequestHeader(csrfHeader, csrfToken);
+        const formData = new URLSearchParams();
+        selectedNumbers.forEach(number => formData.append("selectedNumbers", number));
+
+        fetch("/departures/track-update", {
+            method: "POST",
+            headers: {
+                [csrfHeader]: csrfToken // CSRF-токен
             },
-            success: function () {
+            body: formData
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text); });
+                }
                 console.log("✅ AJAX-запрос отправлен. Ждём уведомления через WebSocket...");
-                // Кнопка вернётся после получения уведомления через сокет
-            },
-            error: function (xhr) {
-                notifyUser("Ошибка при обновлении: " + xhr.responseText, "danger");
-                applyBtn.prop("disabled", false).html("Применить");
-            }
+
+                clearAllCheckboxes();
+
+            })
+            .catch(error => {
+                notifyUser("Ошибка при обновлении: " + error.message, "danger");
+            })
+            .finally(() => {
+                applyBtn.disabled = false;
+                applyBtn.innerHTML = "Применить";
+            });
+    }
+
+    function clearAllCheckboxes() {
+        document.querySelectorAll(".selectCheckbox, #selectAllCheckbox").forEach(checkbox => {
+            checkbox.checked = false;
         });
+
+        setTimeout(updateApplyButtonState, 0); // Гарантированно обновляем кнопку после очистки чекбоксов
     }
 
 });
