@@ -1,20 +1,19 @@
 package com.project.tracking_system.service;
 
-import com.project.tracking_system.dto.UpdateInfoDto;
 import com.project.tracking_system.entity.SubscriptionPlan;
-import com.project.tracking_system.entity.User;
+import com.project.tracking_system.entity.UserSubscription;
 import com.project.tracking_system.repository.SubscriptionPlanRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
-import com.project.tracking_system.repository.UserRepository;
+import com.project.tracking_system.repository.UserSubscriptionRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.Optional;
 
 /**
  * @author Dmitriy Anisimov
@@ -26,164 +25,193 @@ import java.time.ZonedDateTime;
 public class SubscriptionService {
 
     private final TrackParcelRepository trackParcelRepository;
-    private final UserRepository userRepository;
+    private final UserSubscriptionRepository userSubscriptionRepository;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
 
-    private final String premiumPlan = "PREMIUM";
-    private final String freePlan  = "FREE";
+    private final String PREMIUM_PLAN = "PREMIUM";
+    private final String FREE_PLAN = "FREE";
 
     public int canUploadTracks(Long userId, int tracksCount) {
-        // Получаем название подписки пользователя
-        String planName = userRepository.getSubscriptionPlanName(userId);
-        if (planName == null) {
-            return 0; // Если подписка не найдена, возвратим 0
+        // Получаем подписку пользователя
+        Optional<UserSubscription> optionalSubscription = userSubscriptionRepository.findByUserId(userId);
+        if (optionalSubscription.isEmpty()) {
+            return 0; // Если подписки нет, загрузка невозможна
         }
 
-        // Получаем максимальное количество треков на файл для текущего плана
-        Integer maxTracksPerFile = subscriptionPlanRepository.getMaxTracksPerFileByName(planName);
+        UserSubscription subscription = optionalSubscription.get();
+        SubscriptionPlan plan = subscription.getSubscriptionPlan();
+
+        // Получаем лимит треков на файл
+        Integer maxTracksPerFile = (plan != null) ? plan.getMaxTracksPerFile() : null;
         if (maxTracksPerFile == null) {
-            return Integer.MAX_VALUE; // Безлимитный план, если не найдено ограничений
+            return Integer.MAX_VALUE; // Безлимитный план
         }
 
         return Math.min(tracksCount, maxTracksPerFile);
     }
 
     public int canSaveMoreTracks(Long userId, int tracksCountToSave) {
-        // Получаем название подписки пользователя
-        String planName = userRepository.getSubscriptionPlanName(userId);
-        if (planName == null) {
-            return 0; // Если подписка не найдена, возвратим 0
+        Optional<UserSubscription> optionalSubscription = userSubscriptionRepository.findByUserId(userId);
+        if (optionalSubscription.isEmpty()) {
+            log.warn("⛔ Пользователь {} не имеет активной подписки. Сохранение невозможно.", userId);
+            return 0;
         }
 
-        // Получаем максимальное количество сохраненных треков для текущего плана
-        Integer maxSavedTracks = subscriptionPlanRepository.getMaxSavedTracksByName(planName);
+        UserSubscription subscription = optionalSubscription.get();
+        SubscriptionPlan plan = subscription.getSubscriptionPlan();
+
+        Integer maxSavedTracks = (plan != null) ? plan.getMaxSavedTracks() : null;
         if (maxSavedTracks == null) {
-            return Integer.MAX_VALUE; // Безлимитный план, если не найдено ограничений
+            log.info("✅ У пользователя {} безлимитный план. Можно сохранить {} треков.", userId, tracksCountToSave);
+            return tracksCountToSave; // Безлимитный план позволяет сохранить все запрошенные треки
         }
 
-        // Получаем количество уже сохраненных треков для пользователя
         int currentSavedTracks = trackParcelRepository.countByUserId(userId);
-        int remainingTracks = maxSavedTracks - currentSavedTracks;
+        int remainingTracks = Math.max(0, maxSavedTracks - currentSavedTracks);
 
-        // Возвращаем оставшиеся треки, которые можно сохранить
-        return Math.max(0, remainingTracks);
+        // Возвращаем минимальное из возможного и запрошенного
+        int allowedToSave = Math.min(remainingTracks, tracksCountToSave);
+
+        log.info("🔄 Пользователь {} запросил сохранение {} треков. Доступно: {}. Разрешено сохранить: {}.",
+                userId, tracksCountToSave, remainingTracks, allowedToSave);
+
+        return allowedToSave;
     }
+
 
     public int canUpdateTracks(Long userId, int updatesRequested) {
-        // Получаем информацию о подписке
-        String planName = userRepository.getSubscriptionPlanName(userId);
-        if (planName == null) return 0; // Если нет плана, обновления недоступны.
-
-        // Проверяем лимиты
-        Integer maxUpdates = subscriptionPlanRepository.getMaxUpdatesByName(planName);
-        if (maxUpdates == null) return updatesRequested; // Безлимитный план
-
-        // Получаем информацию о пользователе
-        UpdateInfoDto updateInfo = userRepository.getUpdateInfo(userId);
-        int usedUpdates = (updateInfo.updateCount() != null) ? updateInfo.updateCount() : 0;
-        ZonedDateTime lastUpdate = (updateInfo.lastUpdate() != null) ? updateInfo.lastUpdate() : ZonedDateTime.now().minusDays(1);
-
-        // Приводим `lastUpdate` к локальному часовому поясу сервера
-        ZoneId systemZone = ZoneId.systemDefault(); // Часовой пояс сервера
-        ZonedDateTime lastUpdateLocal = lastUpdate.withZoneSameInstant(systemZone);
-
-        // Проверяем смену дня
-        if (!lastUpdateLocal.toLocalDate().isEqual(LocalDate.now(systemZone))) {
-            log.warn("⚠️ [resetUpdateCount] Сбрасываем updateCount для userId={} (время в БД: {}, текущее время: {})",
-                    userId, lastUpdate, ZonedDateTime.now());
-            log.info("Смена дня: сброс счётчика обновлений для пользователя {}", userId);
-            userRepository.resetUpdateCount(userId, ZonedDateTime.now());
-            usedUpdates = 0;
+        // Получаем подписку пользователя
+        UserSubscription subscription = userSubscriptionRepository.findByUserId(userId)
+                .orElse(null);
+        if (subscription == null) {
+            log.warn("⛔ Пользователь {} не имеет активной подписки. Обновление невозможно.", userId);
+            return 0; // Если подписки нет, обновления невозможны
         }
 
-        // Считаем, сколько обновлений осталось
+        SubscriptionPlan plan = subscription.getSubscriptionPlan();
+        Integer maxUpdates = (plan != null) ? plan.getMaxTrackUpdates() : null;
+        if (maxUpdates == null) {
+            log.info("✅ У пользователя {} безлимитный план. Разрешено {} обновлений.", userId, updatesRequested);
+            return updatesRequested; // Безлимитный план
+        }
+
+        // Проверяем и сбрасываем лимиты, если день сменился
+        LocalDate previousResetDate = subscription.getResetDate();
+        subscription.checkAndResetLimits();
+
+        // Если лимиты сбросились, логируем
+        if (!previousResetDate.equals(subscription.getResetDate())) {
+            log.warn("⚠️ [resetUpdateCount] Лимиты обновлений сброшены для userId={} (было: {}, стало: {}).",
+                    userId, previousResetDate, subscription.getResetDate());
+        }
+
+        // Получаем текущее количество использованных обновлений
+        int usedUpdates = subscription.getUpdateCount();
         int remainingUpdates = Math.max(maxUpdates - usedUpdates, 0);
 
-        // Возвращаем, сколько реально можно обновить
-        return Math.min(remainingUpdates, updatesRequested);
+        // Считаем, сколько обновлений можно выполнить
+        int updatesAllowed = Math.min(remainingUpdates, updatesRequested);
+
+        if (updatesAllowed > 0) {
+            subscription.setUpdateCount(usedUpdates + updatesAllowed);
+            userSubscriptionRepository.save(subscription);
+            log.info("🔄 Пользователь {} запросил {} обновлений, разрешено: {} (использовано: {}).",
+                    userId, updatesRequested, updatesAllowed, subscription.getUpdateCount());
+        } else {
+            log.warn("⛔ Пользователь {} достиг лимита обновлений: {}/{}", userId, usedUpdates, maxUpdates);
+        }
+
+        return updatesAllowed;
     }
 
-
     public boolean canUseBulkUpdate(Long userId) {
-        String planName = userRepository.getSubscriptionPlanName(userId);
-        return premiumPlan.equals(planName);
+        String planName = userSubscriptionRepository.getSubscriptionPlanName(userId);
+
+        if (planName == null) {
+            log.warn("Пользователь {} не имеет активной подписки. Массовое обновление недоступно.", userId);
+            return false;
+        }
+
+        boolean hasAccess = PREMIUM_PLAN.equals(planName);
+        log.debug("Пользователь {} пытается использовать массовое обновление. Доступ: {}", userId, hasAccess);
+        return hasAccess;
     }
 
     @Transactional
     public void upgradeOrExtendSubscription(Long userId, int months) {
-        log.info("Попытка обновления подписки для пользователя с ID: {}", userId);
+        log.info("🔄 Попытка обновления подписки для пользователя с ID: {}", userId);
 
-        User user = userRepository.findById(userId)
+        UserSubscription subscription = userSubscriptionRepository.findByUserId(userId)
                 .orElseThrow(() -> {
-                    log.warn("Пользователь с ID {} не найден", userId);
-                    return new IllegalArgumentException("Пользователь не найден");
+                    log.warn("⛔ Пользователь с ID {} не имеет активной подписки.", userId);
+                    return new IllegalArgumentException("Подписка не найдена");
                 });
 
         ZonedDateTime nowUtc = ZonedDateTime.now(ZoneOffset.UTC);
+        SubscriptionPlan plan = subscription.getSubscriptionPlan();
 
-        // Получаем информацию о подписке пользователя
-        SubscriptionPlan plan = user.getSubscriptionPlan();
         if (plan == null) {
-            log.error("У пользователя {} отсутствует подписка!", userId);
+            log.error("🚨 Ошибка! У пользователя {} отсутствует подписка!", userId);
             throw new IllegalStateException("У пользователя отсутствует подписка");
         }
 
-        // Проверяем текущий план и продлеваем или обновляем подписку
-        if (premiumPlan.equals(plan.getName())) {
-            extendPremiumUserSubscription(user, months, nowUtc);
-        } else if (freePlan.equals(plan.getName())) {
-            upgradeToPremiumSubscription(user, months, nowUtc);
+        if (PREMIUM_PLAN.equals(plan.getName())) {
+            extendPremiumSubscription(subscription, months, nowUtc);
+        } else if (FREE_PLAN.equals(plan.getName())) {
+            upgradeToPremiumSubscription(subscription, months, nowUtc);
         } else {
-            log.warn("Попытка обновления подписки пользователя {}, но его статус не позволяет это сделать", userId);
+            log.warn("⚠️ Попытка обновления подписки пользователя {}, но его статус не позволяет это сделать", userId);
             throw new IllegalArgumentException("Пользователь в статусе, который нельзя апгрейдить");
         }
 
-        userRepository.save(user);
-        log.info("Подписка пользователя ID={} успешно обновлена. Новый план: {} до {}", userId, plan.getName(), user.getSubscriptionEndDate());
+        userSubscriptionRepository.save(subscription);
+        log.info("✅ Подписка пользователя ID={} успешно обновлена. Новый план: {} до {}",
+                userId, subscription.getSubscriptionPlan().getName(), subscription.getSubscriptionEndDate());
     }
 
-    private void extendPremiumUserSubscription(User user, int months, ZonedDateTime nowUtc) {
-        ZonedDateTime currentExpiry = user.getSubscriptionEndDate();
+    private void extendPremiumSubscription(UserSubscription subscription, int months, ZonedDateTime nowUtc) {
+        ZonedDateTime currentExpiry = subscription.getSubscriptionEndDate();
         if (currentExpiry == null || currentExpiry.isBefore(nowUtc)) {
             currentExpiry = nowUtc;
         }
-        user.setSubscriptionEndDate(currentExpiry.plusMonths(months));
-        log.info("Продление подписки пользователя {} до {}", user.getId(), user.getSubscriptionEndDate());
+        subscription.setSubscriptionEndDate(currentExpiry.plusMonths(months));
+        log.info("🔄 Продление подписки пользователя {} до {}", subscription.getUser().getId(), subscription.getSubscriptionEndDate());
     }
 
-    private void upgradeToPremiumSubscription(User user, int months, ZonedDateTime nowUtc) {
-        SubscriptionPlan subscriptionPlan = subscriptionPlanRepository.findByName(premiumPlan)
-                .orElseThrow(() -> new RuntimeException("План " + premiumPlan + " не найден"));
+    private void upgradeToPremiumSubscription(UserSubscription subscription, int months, ZonedDateTime nowUtc) {
+        SubscriptionPlan premiumPlan = subscriptionPlanRepository.findByName(PREMIUM_PLAN)
+                .orElseThrow(() -> new RuntimeException("🚨 План " + PREMIUM_PLAN + " не найден"));
 
-        user.setSubscriptionPlan(subscriptionPlan);
-        user.setSubscriptionEndDate(nowUtc.plusMonths(months));
+        subscription.setSubscriptionPlan(premiumPlan);
+        subscription.setSubscriptionEndDate(nowUtc.plusMonths(months));
 
-        log.info("Апгрейд пользователя {} до подписки {} с подпиской до {}", user.getId(), premiumPlan, user.getSubscriptionEndDate());
+        log.info("⬆️ Апгрейд пользователя {} до подписки {} с подпиской до {}",
+                subscription.getUser().getId(), PREMIUM_PLAN, subscription.getSubscriptionEndDate());
     }
 
     @Transactional
     public void changeSubscription(Long userId, String newPlanName, Integer months) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+        UserSubscription subscription = userSubscriptionRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Подписка пользователя не найдена"));
 
         // Проверяем, существует ли новый план подписки
         SubscriptionPlan newPlan = subscriptionPlanRepository.findByName(newPlanName)
                 .orElseThrow(() -> new IllegalArgumentException("Подписка не найдена"));
 
         // Устанавливаем новый план подписки
-        user.setSubscriptionPlan(newPlan);
+        subscription.setSubscriptionPlan(newPlan);
 
-        if (premiumPlan.equalsIgnoreCase(newPlanName)) {
+        if (PREMIUM_PLAN.equalsIgnoreCase(newPlanName)) {
             int subscriptionMonths = (months != null) ? months : 1; // По умолчанию 1 месяц
-            user.setSubscriptionEndDate(ZonedDateTime.now(ZoneOffset.UTC).plusMonths(subscriptionMonths));
-            log.info("Пользователь {} получил подписку {} до {}", userId, newPlanName, user.getSubscriptionEndDate());
+            subscription.setSubscriptionEndDate(ZonedDateTime.now(ZoneOffset.UTC).plusMonths(subscriptionMonths));
+            log.info("⬆️ Пользователь {} получил подписку {} до {}", userId, newPlanName, subscription.getSubscriptionEndDate());
         } else {
-            user.setSubscriptionEndDate(null); // Убираем ограничение по сроку для бесплатного плана
-            log.info("Пользователь {} переведен на бесплатный план {}", userId, newPlanName);
+            subscription.setSubscriptionEndDate(null); // Убираем ограничение по сроку для бесплатного плана
+            log.info("⬇️ Пользователь {} переведен на бесплатный план {}", userId, newPlanName);
         }
 
-        userRepository.save(user);
-        log.info("Подписка пользователя с ID {} изменена на {} до {}", userId, newPlanName, user.getSubscriptionEndDate());
+        userSubscriptionRepository.save(subscription);
+        log.info("✅ Подписка пользователя с ID {} изменена на {} до {}", userId, newPlanName, subscription.getSubscriptionEndDate());
     }
 
 }

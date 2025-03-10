@@ -3,6 +3,7 @@ package com.project.tracking_system.controller;
 import com.project.tracking_system.dto.UserDetailsAdminInfoDTO;
 import com.project.tracking_system.dto.UserListAdminInfoDTO;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.entity.UserSubscription;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
@@ -54,12 +55,16 @@ public class AdminController {
         List<UserListAdminInfoDTO> userListAdminInfoDTOS = new ArrayList<>();
 
         for (User user : users) {
+            // Получаем подписку пользователя (если есть)
+            String subscriptionName = user.getSubscription() != null
+                    ? user.getSubscription().getSubscriptionPlan().getName()
+                    : "NONE"; // Если подписки нет, ставим "NONE" или "FREE"
 
             UserListAdminInfoDTO userListAdminInfoDTO = new UserListAdminInfoDTO(
                     user.getId(),
                     user.getEmail(),
                     user.getRole(),
-                    user.getSubscriptionPlan().getName()
+                    subscriptionName
             );
 
             userListAdminInfoDTOS.add(userListAdminInfoDTO);
@@ -75,17 +80,24 @@ public class AdminController {
         User user = userService.findUserById(usersId);
         var parcels = trackParcelService.findAllByUserTracks(usersId);
 
+        // Получаем подписку пользователя (если есть)
+        UserSubscription subscription = user.getSubscription();
+
+        String subscriptionName = (subscription != null)
+                ? subscription.getSubscriptionPlan().getName()
+                : "NONE"; // Если подписки нет, указываем "NONE" или "FREE"
+
         String subscriptionEndDate = null;
-        if (user.getSubscriptionEndDate() != null) {
+        if (subscription != null && subscription.getSubscriptionEndDate() != null) {
             subscriptionEndDate = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-                    .format(user.getSubscriptionEndDate());
+                    .format(subscription.getSubscriptionEndDate());
         }
 
         UserDetailsAdminInfoDTO adminInfoDTO = new UserDetailsAdminInfoDTO(
                 user.getId(),
                 user.getEmail(),
                 user.getRole(),
-                user.getSubscriptionPlan().getName(),
+                subscriptionName,
                 subscriptionEndDate
         );
 
