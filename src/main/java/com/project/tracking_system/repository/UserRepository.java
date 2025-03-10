@@ -18,22 +18,8 @@ public interface UserRepository extends JpaRepository <User, Long> {
 
     Optional<User> findById(Long userId);
 
-    // Поиск пользователей по подписке (FREE, PREMIUM)
-    @Query("SELECT u FROM User u WHERE u.subscriptionPlan.name = :planName")
-    List<User> findUsersBySubscription(@Param("planName") String planName);
-
-    // Проверяем, является ли пользователь PREMIUM
-    @Query("SELECT COUNT(u) > 0 FROM User u WHERE u.id = :userId AND u.subscriptionPlan.name = :planName")
-    boolean isUserSubscribedToPlan(@Param("userId") Long userId, @Param("planName") String planName);
-
     @Query("SELECT u FROM User u WHERE u.subscriptionEndDate IS NOT NULL AND u.subscriptionEndDate < :now")
     List<User> findUsersWithExpiredSubscription(@Param("now") ZonedDateTime now);
-
-    @Query("SELECT u.updateCount FROM User u WHERE u.id = :userId")
-    int getUpdateCount(@Param("userId") Long userId);
-
-    @Query("SELECT u.lastUpdateDate FROM User u WHERE u.id = :userId")
-    ZonedDateTime getLastUpdateDate(@Param("userId") Long userId);
 
     @Modifying
     @Transactional
@@ -45,9 +31,6 @@ public interface UserRepository extends JpaRepository <User, Long> {
        """)
     void incrementUpdateCount(@Param("userId") Long userId, @Param("count") int count, @Param("date") ZonedDateTime date);
 
-    @Query("SELECT u.useCustomCredentials FROM User u WHERE u.id = :userId")
-    boolean isUsingCustomCredentials(@Param("userId") Long userId);
-
     @Query("SELECT new com.project.tracking_system.dto.UpdateInfoDto(u.updateCount, u.lastUpdateDate) " +
             "FROM User u WHERE u.id = :userId")
     UpdateInfoDto getUpdateInfo(@Param("userId") Long userId);
@@ -58,11 +41,6 @@ public interface UserRepository extends JpaRepository <User, Long> {
     // Подсчёт пользователей по подписке
     @Query("SELECT COUNT(u) FROM User u WHERE u.subscriptionPlan.name = :planName")
     long countUsersBySubscriptionPlan(@Param("planName") String planName);
-
-    @Transactional
-    @Modifying
-    @Query("UPDATE User u SET u.updateCount = :updateCount, u.lastUpdateDate = :lastUpdateDate WHERE u.id = :userId")
-    void updateUserCounters(@Param("userId") Long userId, @Param("updateCount") int updateCount, @Param("lastUpdateDate") ZonedDateTime lastUpdateDate);
 
     @Modifying
     @Transactional

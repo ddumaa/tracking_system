@@ -29,7 +29,7 @@ public class UserCredentialsResolver {
                 // Если можно использовать пользовательские данные
                 log.debug("Пользовательские данные для {} могут быть использованы.", user.getEmail());
                 String jwt = jwtTokenManager.getUserToken(user);
-                String serviceNumber = encryptionUtils.decrypt(user.getServiceNumber());
+                String serviceNumber = encryptionUtils.decrypt(user.getEvropostServiceCredential().getServiceNumber());
                 log.debug("Успешно получены пользовательские данные для {}: JWT и ServiceNumber.", user.getEmail());
                 return new ResolvedCredentialsDTO(jwt, serviceNumber);
             } catch (Exception e) {
@@ -46,15 +46,15 @@ public class UserCredentialsResolver {
     private boolean canUseCustomCredentials(User user) {
         log.debug("Проверяем возможность использования пользовательских данных для пользователя: {}", user.getEmail());
 
-        if (!Boolean.TRUE.equals(user.getUseCustomCredentials())) {
+        if (!Boolean.TRUE.equals(user.getEvropostServiceCredential().getUseCustomCredentials())) {
             log.debug("Пользователь {} не настроил использование пользовательских данных.", user.getEmail());
             return false;
         }
 
         try {
-            boolean result = user.getEvropostUsername() != null && !user.getEvropostUsername().isBlank()
-                    && user.getEvropostPassword() != null && !encryptionUtils.decrypt(user.getEvropostPassword()).isBlank()
-                    && user.getServiceNumber() != null && !encryptionUtils.decrypt(user.getServiceNumber()).isBlank();
+            boolean result = user.getEvropostServiceCredential().getUsername() != null && !user.getEvropostServiceCredential().getUsername().isBlank()
+                    && user.getEvropostServiceCredential().getPassword() != null && !encryptionUtils.decrypt(user.getEvropostServiceCredential().getPassword()).isBlank()
+                    && user.getEvropostServiceCredential().getServiceNumber() != null && !encryptionUtils.decrypt(user.getEvropostServiceCredential().getServiceNumber()).isBlank();
             log.debug("Результат проверки пользовательских данных для {}: {}", user.getEmail(), result);
             return result;
         } catch (Exception e) {

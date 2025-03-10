@@ -8,238 +8,368 @@ function updateDeleteButtonState() {
 }
 
 function updateApplyButtonState() {
-    $("#applyActionBtn").prop("disabled", $(".selectCheckbox:checked").length === 0);
+    const applyBtn = document.getElementById("applyActionBtn");
+    if (!applyBtn) return; // Если кнопки нет, просто выходим
+
+    const selectedCheckboxes = document.querySelectorAll(".selectCheckbox:checked").length;
+    const selectedAction = document.getElementById("actionSelect")?.value || ""; // Проверяем существование actionSelect
+
+    // Кнопка `disabled`, если не выбраны чекбоксы или не выбрано действие
+    applyBtn.disabled = !(selectedCheckboxes > 0 && selectedAction);
 }
 
 function toggleAllCheckboxes(checked) {
-    $(".selectCheckbox").prop("checked", checked);
+    document.querySelectorAll(".selectCheckbox").forEach(checkbox => {
+        checkbox.checked = checked;
+    });
     updateApplyButtonState();
 }
 
+// Обновляем кнопку при изменении чекбоксов
+document.body.addEventListener("change", function (event) {
+    if (event.target.classList.contains("selectCheckbox")) {
+        updateApplyButtonState();
+    }
+});
+
+document.getElementById("actionSelect")?.addEventListener("change", updateApplyButtonState);
+
 function loadModal(itemNumber) {
     if (!itemNumber) return;
-    $.ajax({
-        type: 'GET',
-        url: `/departures/${itemNumber}`,
-        success: (data) => {
-            $('#infoModal .modal-body').html(data);
-            $('#infoModal').modal('show');
-        },
-        error: () => showAlert('Ошибка при загрузке данных', "danger")
+
+    fetch(`/departures/${itemNumber}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Ошибка при загрузке данных');
+            }
+            return response.text();
+        })
+        .then(data => {
+            document.querySelector('#infoModal .modal-body').innerHTML = data;
+            let modal = new bootstrap.Modal(document.getElementById('infoModal'));
+            modal.show();
+        })
+        .catch(() => notifyUser('Ошибка при загрузке данных', "danger"));
+}
+
+// Общая функция для отправки формы через AJAX
+function ajaxSubmitForm(formId, containerId, afterLoadCallbacks = []) {
+    const form = document.getElementById(formId);
+    if (!form) return;
+
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        fetch(form.action, {
+            method: form.method,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+            },
+            body: new URLSearchParams(new FormData(form))
+        })
+            .then(response => response.text())
+            .then(html => {
+                const container = document.getElementById(containerId);
+                container.innerHTML = html;
+
+                // Переинициализируем обработчики после замены HTML-кода вкладки
+                afterLoadCallbacks.forEach(callback => callback());
+            })
+            .catch(() => alert("Ошибка сети."));
     });
 }
 
-// Привязка обработчика для формы изменения пароля
-function attachPasswordFormHandler() {
-    $("#password-settings-form").off("submit").on("submit", function (event) {
-        event.preventDefault();
-
-        $.ajax({
-            url: $(this).attr("action"),
-            method: $(this).attr("method"),
-            data: $(this).serialize(),
-            success: function (response) {
-                $("#v-pills-profile").replaceWith(response).addClass("show active");
-                attachPasswordFormHandler();
-            },
-            error: function () {
-                alert('Ошибка при изменении пароля.');
-            }
-        });
-    });
+// Инициализация формы изменения пароля
+function initPasswordFormHandler() {
+    ajaxSubmitForm('password-settings-form', 'password-content', [initPasswordFormHandler]);
 }
 
-// Привязка обработчика для формы Европочты
-function attachEvropostFormHandler() {
-    $("#evropost-settings-form").off("submit").on("submit", function (event) {
-        event.preventDefault();
-
-        $.ajax({
-            url: $(this).attr("action"),
-            method: $(this).attr("method"),
-            data: $(this).serialize(),
-            success: function (response) {
-                $("#v-pills-evropost").replaceWith(response).addClass("show active");
-                attachEvropostFormHandler();
-                initializeCustomCredentialsCheckbox();
-            },
-            error: function () {
-                alert('Ошибка при сохранении данных Европочты.');
-            }
-        });
-    });
+// Инициализация формы Европочты
+function initEvropostFormHandler() {
+    ajaxSubmitForm('evropost-settings-form', 'evropost-content', [
+        initEvropostFormHandler,
+        initializeCustomCredentialsCheckbox
+    ]);
 }
 
 // Инициализация логики для чекбокса "Использовать пользовательские креды"
 function initializeCustomCredentialsCheckbox() {
-    const checkbox = $("#useCustomCredentials");
-    const fieldsContainer = $("#custom-credentials-fields");
+    const checkbox = document.getElementById("useCustomCredentials");
+    const fieldsContainer = document.getElementById("custom-credentials-fields");
 
-    if (checkbox.length && fieldsContainer.length) {
+    if (checkbox && fieldsContainer) {
+        // Первоначальная инициализация состояния формы
         toggleFieldsVisibility(checkbox, fieldsContainer);
 
         let debounceTimer;
-        checkbox.off("change").on("change", function () {
+
+        checkbox.addEventListener('change', function () {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
-                $.ajax({
-                    url: '/profile/settings/use-custom-credentials',
-                    type: 'POST',
-                    data: { useCustomCredentials: checkbox.is(":checked") },
-                    beforeSend: function (xhr) {
-                        xhr.setRequestHeader(
-                            $('meta[name="_csrf_header"]').attr('content'),
-                            $('meta[name="_csrf"]').attr('content')
-                        );
+                fetch('/profile/settings/use-custom-credentials', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
                     },
-                    success: function () {
-                        toggleFieldsVisibility(checkbox, fieldsContainer);
-                    },
-                    error: function () {
-                        alert("Ошибка при обновлении чекбокса.");
-                    }
-                });
+                    body: new URLSearchParams({ useCustomCredentials: checkbox.checked })
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            toggleFieldsVisibility(checkbox, fieldsContainer);
+                        } else {
+                            alert("Ошибка при обновлении чекбокса.");
+                        }
+                    })
+                    .catch(() => {
+                        alert("Ошибка сети при обновлении чекбокса.");
+                    });
             }, 300);
         });
     }
 }
 
-// Функция управления видимостью полей
+// Показать или скрыть поля
 function toggleFieldsVisibility(checkbox, fieldsContainer) {
-    fieldsContainer.toggle(checkbox.is(":checked"));
+    if (checkbox.checked) {
+        fieldsContainer.classList.remove('hidden');
+    } else {
+        fieldsContainer.classList.add('hidden');
+    }
 }
 
-$(document).ready(function () {
+let lastPage = window.location.pathname; // Запоминаем текущую страницу при загрузке
 
-    // === Добавляем CSRF-токен ===
-    const csrfToken = $('meta[name="_csrf"]').attr('content');
-    const csrfHeader = $('meta[name="_csrf_header"]').attr('content');
+document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+        console.log("🔴 Пользователь ушёл со страницы");
+        lastPage = window.location.pathname; // Фиксируем страницу
+    } else {
+        console.log("🟢 Пользователь вернулся на страницу");
+        lastPage = window.location.pathname; // Фиксируем новую страницу
+    }
+});
 
-    let stompClient = null;
-    let userId = $("#userId").val(); // Получаем userId из скрытого поля
+// Определяем, есть ли уже открытое модальное окно
+function isModalOpen() {
+    return document.querySelector(".modal.show") !== null;
+}
 
-    function connectWebSocket() {
-        console.log("🚀 connectWebSocket() вызван!");
+// Функция выбора уведомления
+function notifyUser(message, type = "info") {
+    if (document.hidden || window.location.pathname !== lastPage || isModalOpen()) {
+        console.log("📢 Показываем toast, так как пользователь сменил страницу или уже в модальном окне");
+        showToast(message, type);
+    } else {
+        console.log("✅ Показываем alert, так как пользователь остаётся на странице");
+        showAlert(message, type);
+    }
+}
 
-        stompClient = new StompJs.Client({
-            brokerURL: 'wss://belivery.by/ws',
-            reconnectDelay: 1000,
-            heartbeatIncoming: 2000,
-            heartbeatOutgoing: 2000,
-            debug: function (str) {
-                console.log('STOMP Debug: ', str);
-            }
-        });
+// Уведомления
+function showAlert(message, type) {
+    let existingAlert = document.querySelector(".notification"); // Берём только первый найденный alert
 
-        stompClient.onConnect = function (frame) {
-            console.log('✅ WebSocket подключен: ' + frame);
-
-            let destination = '/topic/status/' + userId;
-            console.log("📡 Подписываемся на " + destination);
-
-            if (stompClient.connected) {
-                stompClient.subscribe(destination, function (message) {
-                    let response = JSON.parse(message.body);
-                    console.log("📡 WebSocket сообщение: ", response);
-
-                    console.log("⚠️ DEBUG: success=", response.success, "message=", response.message);
-
-                    showAlert(response.message, response.success ? "success" : "warning");
-
-                    $("#applyActionBtn").prop("disabled", false).html("Применить");
-
-                    $("#refreshAllBtn").prop("disabled", false).html('<i class="bi bi-arrow-repeat"></i>');
-
-                    // 🔥 Загружаем обновлённые данные из БД
-                    if (response.success && response.message.startsWith("Обновление завершено")) {
-                        reloadParcelTable();
-                    }
-                });
-            } else {
-                console.error("❌ STOMP не подключен! Повторная попытка подписки через 2 сек...");
-                setTimeout(() => {
-                    connectWebSocket();
-                }, 2000);
-            }
-        };
-
-        stompClient.onStompError = function (frame) {
-            console.error('❌ STOMP ошибка: ', frame);
-            showAlert("Ошибка WebSocket: " + frame.headers['message'], "danger");
-        };
-
-        console.log("🔄 WebSocket активация отправлена...");
-        stompClient.activate();
+    // ❌ Игнорируем "Обновление запущено...", так как оно временное
+    if (message.includes("Обновление запущено")) {
+        console.log("⚠ Пропущено уведомление:", message);
+        return;
     }
 
-    // Уведомления
-    function showAlert(message, type) {
-        let existingAlert = $(".notification");
-
-        // ❌ Игнорируем "Обновление запущено...", так как оно временное
-        if (message.includes("Обновление запущено")) {
-            console.log("⚠ Пропущено уведомление:", message);
+    // Проверяем, есть ли уже уведомление с таким же текстом
+    if (existingAlert) {
+        let currentMessage = existingAlert.querySelector("span.alert-text")?.textContent || "";
+        if (currentMessage === message) {
+            console.log("⚠ Повторное уведомление проигнорировано:", message);
             return;
         }
+        existingAlert.remove(); // Удаляем старое уведомление перед добавлением нового
+    }
 
-        if (existingAlert.length > 0) {
-            let currentMessage = existingAlert.find("span.alert-text").text();
-            if (currentMessage === message) {
-                console.log("⚠ Повторное уведомление проигнорировано:", message);
-                return;
-            }
-            existingAlert.remove(); // Удаляем старое, если пришло новое
-        }
-
-        const alertHtml = `
+    // Создаём HTML уведомления
+    const alertHtml = `
     <div class="alert alert-${type} alert-dismissible fade show notification" role="alert">
         <i class="bi ${type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'} me-2"></i>
         <span class="alert-text">${message}</span>
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Закрыть"></button>
     </div>`;
 
-        $(".history-header").before(alertHtml);
+    notificationContainer.insertAdjacentHTML("afterbegin", alertHtml);
 
-        setTimeout(() => {
-            $(".notification").fadeOut("slow", function () {
-                $(this).remove();
-            });
-        }, 5000);
+    // Убираем уведомление через 5 секунд
+    setTimeout(() => {
+        let notification = document.querySelector(".notification");
+        if (notification) {
+            notification.style.transition = "opacity 0.5s";
+            notification.style.opacity = "0";
+            setTimeout(() => notification.remove(), 500);
+        }
+    }, 5000);
+}
+
+// Функция для показа Toast (если пользователь ушёл или уже в модальном окне)
+function showToast(message, type = "info") {
+    let toastContainer = document.getElementById("globalToastContainer");
+    if (!toastContainer) {
+        console.warn("❌ Не найден контейнер для тостов!");
+        return;
     }
 
+    let toastId = "toast-" + new Date().getTime();
+    let toastHtml = `
+        <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0 mb-2" role="alert" aria-live="assertive" aria-atomic="true">
+          <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+          </div>
+        </div>
+    `;
 
-    $(document).ready(function () {
-        connectWebSocket();
+    toastContainer.insertAdjacentHTML("beforeend", toastHtml);
+    let toastElement = document.getElementById(toastId);
+    let toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+    toast.show();
+
+    toastElement.addEventListener("hidden.bs.toast", () => {
+        toastElement.remove();
+    });
+}
+
+let stompClient = null;
+let userId = document.getElementById("userId")?.value || ""; // Получаем userId из скрытого поля
+
+function connectWebSocket() {
+    console.log("🚀 connectWebSocket() вызван!");
+
+    stompClient = new StompJs.Client({
+        //'wss://belivery.by/ws', 'ws://localhost:8080/ws',
+        brokerURL: 'wss://belivery.by/ws',
+        reconnectDelay: 1000,
+        heartbeatIncoming: 2000,
+        heartbeatOutgoing: 2000,
+        debug: function (str) {
+            console.log('STOMP Debug: ', str);
+        }
     });
 
-    function reloadParcelTable() {
-        console.log("🔄 AJAX-запрос для обновления таблицы...");
-        $.ajax({
-            url: "/departures",
-            type: "GET",
-            cache: false,
-            success: function (html) {
-                let newTableBody = $(html).find("tbody").html();
-                console.log("📊 Получены новые данные:", newTableBody);
-                $("tbody").html(newTableBody);
-                console.log("✅ Таблица обновлена!");
-            },
-            error: function () {
-                console.error("❌ Ошибка загрузки обновлённых данных!");
-            }
-        });
-    }
+    stompClient.onConnect = function (frame) {
+        console.log('✅ WebSocket подключен: ' + frame);
 
-    $("#updateAllForm").on("submit", function (event) {
+        let destination = '/topic/status/' + userId;
+        console.log("📡 Подписываемся на " + destination);
+
+        if (stompClient.connected) {
+            stompClient.subscribe(destination, function (message) {
+                let response = JSON.parse(message.body);
+                console.log("📡 WebSocket сообщение: ", response);
+
+                console.log("⚠️ DEBUG: success=", response.success, "message=", response.message);
+
+                notifyUser(response.message, response.success ? "success" : "warning");
+
+                let applyActionBtn = document.getElementById("applyActionBtn");
+                if (applyActionBtn) {
+                    applyActionBtn.disabled = false;
+                    applyActionBtn.innerHTML = "Применить";
+                }
+
+                let refreshAllBtn = document.getElementById("refreshAllBtn");
+                if (refreshAllBtn) {
+                    refreshAllBtn.disabled = false;
+                    refreshAllBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i>';
+                }
+
+                // 🔥 Загружаем обновлённые данные из БД
+                if (response.success && response.message.startsWith("Обновление завершено")) {
+                    reloadParcelTable();
+                }
+            });
+        } else {
+            console.error("❌ STOMP не подключен! Повторная попытка подписки через 2 сек...");
+            setTimeout(() => {
+                connectWebSocket();
+            }, 2000);
+        }
+    };
+
+    stompClient.onStompError = function (frame) {
+        console.error('❌ STOMP ошибка: ', frame);
+        notifyUser("Ошибка WebSocket: " + frame.headers['message'], "danger");
+    };
+
+    console.log("🔄 WebSocket активация отправлена...");
+    stompClient.activate();
+}
+
+function reloadParcelTable() {
+    console.log("🔄 AJAX-запрос для обновления таблицы...");
+
+    fetch("/departures", { method: "GET", cache: "no-store" })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Ошибка загрузки данных");
+            }
+            return response.text();
+        })
+        .then(html => {
+            let parser = new DOMParser();
+            let doc = parser.parseFromString(html, "text/html");
+            let newTableBody = doc.querySelector("tbody")?.innerHTML || "";
+
+            if (newTableBody) {
+                let currentTbody = document.querySelector("tbody");
+                if (currentTbody) {
+                    currentTbody.innerHTML = newTableBody;
+                    console.log("✅ Таблица обновлена!");
+                }
+            }
+        })
+        .catch(error => {
+            console.error("❌ Ошибка загрузки обновлённых данных!", error);
+        });
+}
+
+function enableTooltips() {
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    tooltipTriggerList.forEach(tooltipTriggerEl => {
+        new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+}
+
+// Повторная инициализация Tooltips при динамическом изменении страницы
+document.addEventListener("mouseover", function (event) {
+    if (event.target.matches('[data-bs-toggle="tooltip"]')) {
+        enableTooltips();
+    }
+});
+
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    // === Добавляем CSRF-токен ===
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content || "";
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || "";
+
+    // === WebSocket ===
+    connectWebSocket();
+
+    document.getElementById("updateAllForm")?.addEventListener("submit", function (event) {
         event.preventDefault();
         sendUpdateRequest(null);
     });
 
-    // Инициализация всплывающих подсказок (работает и для динамических элементов)
-    $("body").tooltip({ selector: '[data-bs-toggle="tooltip"]' });
+    // === Всплывающие подсказки (tooltips) ===
+    enableTooltips();
 
     /// Авто-скрытие уведомлений
-    setTimeout(() => { $(".alert").fadeOut("slow"); }, 5000);
+    setTimeout(() => {
+        document.querySelectorAll(".alert").forEach(alert => {
+            alert.style.transition = "opacity 0.5s";
+            alert.style.opacity = "0";
+            setTimeout(() => alert.remove(), 500); // Удаляем после завершения анимации
+        });
+    }, 10000);
 
     // мобильный хедер
     const burgerMenu = document.getElementById('burgerMenu');
@@ -292,24 +422,38 @@ $(document).ready(function () {
     }
 
     // Инициализация логики форм
-    attachPasswordFormHandler();
-    attachEvropostFormHandler();
+    initPasswordFormHandler();
+    initEvropostFormHandler();
     initializeCustomCredentialsCheckbox();
 
-    document.getElementById("selectAllCheckbox")?.addEventListener("click", function () {
-        toggleAllCheckboxes(this);
-    });
-
-    document.querySelectorAll(".open-modal").forEach(button => {
-        button.addEventListener("click", function () {
-            const itemNumber = this.getAttribute("data-itemnumber");
+    document.body.addEventListener("click", function (event) {
+        if (event.target.closest(".open-modal")) {
+            const button = event.target.closest(".open-modal");
+            const itemNumber = button.getAttribute("data-itemnumber");
             loadModal(itemNumber);
-        });
+        }
     });
 
-    document.querySelectorAll(".selectCheckbox").forEach(checkbox => {
-        checkbox.addEventListener("change", updateDeleteButtonState);
+    document.body.addEventListener("click", function (event) {
+        if (event.target.closest(".btn-link")) {
+            const button = event.target.closest(".btn-link");
+            const itemNumber = button.getAttribute("data-itemnumber");
+            loadModal(itemNumber);
+        }
     });
+
+    // Проверяем, есть ли модальное окно на странице
+    let modalElement = document.getElementById('infoModal');
+    if (modalElement) {
+        modalElement.addEventListener('hidden.bs.modal', function () {
+            let backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                backdrop.remove(); // Удаляем затемнение вручную
+            }
+            document.body.classList.remove('modal-open'); // Убираем класс, если остался
+            document.body.style.overflow = ''; // Восстанавливаем прокрутку
+        });
+    }
 
     //установка активной вкладки в хедере
     const currentPath = window.location.pathname;
@@ -320,66 +464,105 @@ $(document).ready(function () {
     });
 
     // Логика показа/скрытия пароля
-    $(document).on("click", ".toggle-password", function () {
-        const targetId = $(this).data("target");
-        const input = $("#" + targetId);
-        const icon = $(this).find("i");
+    document.querySelectorAll(".toggle-password").forEach(button => {
+        button.addEventListener("click", function () {
+            const targetId = this.getAttribute("data-target");
+            const input = document.getElementById(targetId);
+            const icon = this.querySelector("i");
 
-        if (!input.length || !icon.length) return;
+            if (!input || !icon) return;
 
-        const isPassword = input.attr("type") === "password";
-        input.attr("type", isPassword ? "text" : "password");
-        icon.toggleClass("bi-eye bi-eye-slash");
+            const isPassword = input.type === "password";
+            input.type = isPassword ? "text" : "password";
+            icon.classList.toggle("bi-eye");
+            icon.classList.toggle("bi-eye-slash");
+        });
     });
 
     // Закрытие Offcanvas при выборе пункта меню
-    $(document).on("click", "#settingsSidebar .nav-link", function () {
-        const sidebar = $("#settingsSidebar");
-        const offcanvasInstance = bootstrap.Offcanvas.getInstance(sidebar[0]);
-        if (offcanvasInstance) {
-            offcanvasInstance.hide();
-            setTimeout(() => $(".offcanvas-backdrop").remove(), 300);
-        }
+    const sidebar = document.getElementById("settingsSidebar");
+
+    if (sidebar) {
+        sidebar.querySelectorAll(".nav-link").forEach(link => {
+            link.addEventListener("click", function () {
+                const offcanvasInstance = bootstrap.Offcanvas.getInstance(sidebar);
+                if (offcanvasInstance) {
+                    offcanvasInstance.hide();
+                    setTimeout(() => {
+                        const backdrop = document.querySelector(".offcanvas-backdrop");
+                        if (backdrop) backdrop.remove();
+                    }, 300);
+                }
+            });
+        });
+    }
+
+    // === Обработчик выбора количества элементов ===
+    document.querySelectorAll(".size-btn").forEach(button => {
+        button.addEventListener("click", function () {
+            // Убираем класс "active" у всех кнопок
+            document.querySelectorAll(".size-btn").forEach(btn => btn.classList.remove("active"));
+
+            // Добавляем "active" только на нажатую кнопку
+            this.classList.add("active");
+
+            // Получаем размер из атрибута data-size
+            const size = this.getAttribute("data-size");
+
+            // Обновляем URL, меняя параметр "size"
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set("size", size);
+
+            // Перенаправляем пользователя на обновленный URL
+            window.location.href = currentUrl.toString();
+        });
     });
 
-    $(".size-btn").on("click", function () {
-        $(".size-btn").removeClass("active");
-        $(this).addClass("active");
+    const selectAllCheckbox = document.getElementById("selectAllCheckbox");
 
-        const size = $(this).data("size");
-        const currentUrl = new URL(window.location.href);
-        currentUrl.searchParams.set("size", size);
-        window.location.href = currentUrl.toString();
-    });
-
-    // Переключение всех чекбоксов при выборе верхнего чекбокса
-    $(document).on("change", "#selectAllCheckbox", function () {
+    // Обработчик клика: включает/выключает все чекбоксы
+    selectAllCheckbox?.addEventListener("click", function () {
         toggleAllCheckboxes(this.checked);
     });
 
-    $(document).on("change", ".selectCheckbox", function () {
-        const allChecked = $(".selectCheckbox:checked").length === $(".selectCheckbox").length;
-        $("#selectAllCheckbox").prop("checked", allChecked);
-        updateApplyButtonState();
+    // Обработчик изменений: если чекбоксы выбраны/сняты вручную
+    document.body.addEventListener("change", function (event) {
+        if (event.target.id === "selectAllCheckbox") {
+            toggleAllCheckboxes(event.target.checked);
+        }
+    });
+
+    document.body.addEventListener("change", function (event) {
+        if (event.target.classList.contains("selectCheckbox")) {
+            const allCheckboxes = document.querySelectorAll(".selectCheckbox");
+            const checkedCheckboxes = document.querySelectorAll(".selectCheckbox:checked");
+            const selectAllCheckbox = document.getElementById("selectAllCheckbox");
+
+            selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedCheckboxes.length === allCheckboxes.length;
+            updateApplyButtonState();
+        }
     });
 
     // === Обработчик кнопки "Применить" ===
-    $("#applyActionBtn").on("click", function () {
-        const selectedNumbers = $(".selectCheckbox:checked").map(function () { return this.value; }).get();
-        const selectedAction = $("#actionSelect").val();
+    document.getElementById("applyActionBtn")?.addEventListener("click", function () {
+        const selectedNumbers = Array.from(document.querySelectorAll(".selectCheckbox:checked"))
+            .map(checkbox => checkbox.value);
+
+        const selectedAction = document.getElementById("actionSelect").value;
+        const applyBtn = document.getElementById("applyActionBtn");
 
         if (selectedNumbers.length === 0) {
-            showAlert("Выберите хотя бы одну посылку.", "warning");
+            notifyUser("Выберите хотя бы одну посылку.", "warning");
             return;
         }
 
         if (!selectedAction) {
-            showAlert("Выберите действие перед нажатием кнопки.", "warning");
+            notifyUser("Выберите действие перед нажатием кнопки.", "warning");
             return;
         }
 
-        const applyBtn = $("#applyActionBtn");
-        applyBtn.prop("disabled", true).html('<i class="bi bi-arrow-repeat spin"></i> Выполняется...');
+        applyBtn.disabled = true;
+        applyBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Выполняется...';
 
         if (selectedAction === "delete") {
             sendDeleteRequest(selectedNumbers, applyBtn);
@@ -388,31 +571,47 @@ $(document).ready(function () {
         }
     });
 
-    // === Обработчик кнопки "Обновить всё" ===
-    $("#refreshAllBtn").on("click", function () {
-        const refreshBtn = $(this);
-        refreshBtn.prop("disabled", true).html('<i class="bi bi-arrow-repeat spin"></i>');
+    updateApplyButtonState();
 
-        $.ajax({
-            url: "/departures/track-update",
-            type: "POST",
-            data: {},
-            beforeSend: function (xhr) {
-                xhr.setRequestHeader(csrfHeader, csrfToken);
-            },
-            success: function () {
-                console.log("✅ AJAX-запрос для обновления всех треков отправлен. Ждём WebSocket...");
-            },
-            error: function (xhr) {
-                showAlert("Ошибка при обновлении: " + xhr.responseText, "danger");
-                refreshBtn.prop("disabled", false).html('<i class="bi bi-arrow-repeat"></i>');
+    // === Обработчик кнопки "Обновить всё" ===
+    document.getElementById("refreshAllBtn")?.addEventListener("click", function () {
+        const refreshBtn = this;
+        refreshBtn.disabled = true;
+        refreshBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i>';
+
+        fetch("/departures/track-update", {
+            method: "POST",
+            headers: {
+                [csrfHeader]: csrfToken // CSRF-токен
             }
-        });
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text); });
+                }
+                console.log("✅ AJAX-запрос для обновления всех треков отправлен. Ждём WebSocket...");
+            })
+            .catch(error => {
+                notifyUser("Ошибка при обновлении: " + error.message, "danger");
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i>';
+            });
     });
 
+    // === Статус ===
+    const statusSelect = document.getElementById("status");
+
+    // Восстанавливаем сохранённый статус при загрузке страницы
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentStatus = urlParams.get("status");
+
+    if (currentStatus) {
+        statusSelect.value = currentStatus; // Устанавливаем значение из URL
+    }
+
     // === Фильтр по статусу ===
-    $("#filterActionBtn").on("click", function () {
-        const selectedStatus = $("#status").val();
+    document.getElementById("filterActionBtn")?.addEventListener("click", function () {
+        const selectedStatus = statusSelect.value;
         const currentUrl = new URL(window.location.href);
 
         if (selectedStatus) {
@@ -424,61 +623,94 @@ $(document).ready(function () {
         window.location.href = currentUrl.toString();
     });
 
-    $(document).on("click", ".btn-link", function () {
-        const itemNumber = $(this).data("itemnumber");
-        loadModal(itemNumber);
-    });
-
-    $(document).on("change", ".selectCheckbox", updateDeleteButtonState);
-
-    // === Обработчик выбора количества элементов ===
-    $(".size-btn").on("click", function () {
-        const size = $(this).data("size");
-        const currentUrl = new URL(window.location.href);
-        currentUrl.searchParams.set("size", size);
-        window.location.href = currentUrl.toString();
+    document.body.addEventListener("change", function (event) {
+        if (event.target.classList.contains("selectCheckbox")) {
+            updateDeleteButtonState();
+        }
     });
 
     // === Функция отправки запроса на удаление ===
     function sendDeleteRequest(selectedNumbers, applyBtn) {
-        $.ajax({
-            url: "/departures/delete-selected",
-            type: "POST",
-            data: { selectedNumbers: selectedNumbers },
-            beforeSend: (xhr) => xhr.setRequestHeader(csrfHeader, csrfToken),
-            success: function () {
-                showAlert("Выбранные посылки успешно удалены.", "success");
-                $(".selectCheckbox:checked").closest("tr").fadeOut(500, function () { $(this).remove(); });
+        applyBtn.disabled = true;
+        applyBtn.innerHTML = "Удаление...";
+
+        const formData = new URLSearchParams();
+        selectedNumbers.forEach(number => formData.append("selectedNumbers", number));
+
+        fetch("/departures/delete-selected", {
+            method: "POST",
+            headers: {
+                [csrfHeader]: csrfToken // CSRF-токен
+            },
+            body: formData
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text); });
+                }
+                notifyUser("Выбранные посылки успешно удалены.", "success");
+
+                clearAllCheckboxes();
+
+                // Анимация исчезновения удалённых строк
+                document.querySelectorAll(".selectCheckbox:checked").forEach(checkbox => {
+                    const row = checkbox.closest("tr");
+                    if (row) {
+                        row.style.transition = "opacity 0.5s";
+                        row.style.opacity = "0";
+                        setTimeout(() => row.remove(), 500);
+                    }
+                });
 
                 // ✅ Возвращаем кнопку в нормальное состояние
-                applyBtn.prop("disabled", false).html("Применить");
-            },
-            error: (xhr) => {
-                showAlert("Ошибка при удалении: " + xhr.responseText, "danger");
-                applyBtn.prop("disabled", false).html("Применить");
-            }
-        });
+                applyBtn.disabled = false;
+                applyBtn.innerHTML = "Применить";
+            })
+            .catch(error => {
+                notifyUser("Ошибка при удалении: " + error.message, "danger");
+                applyBtn.disabled = false;
+                applyBtn.innerHTML = "Применить";
+            });
     }
 
     function sendUpdateRequest(selectedNumbers, applyBtn) {
-        applyBtn.prop("disabled", true).html('<i class="bi bi-arrow-repeat spin"></i> Обновление...');
+        applyBtn.disabled = true;
+        applyBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Обновление...';
 
-        $.ajax({
-            url: "/departures/track-update",
-            type: "POST",
-            data: { selectedNumbers: selectedNumbers },
-            beforeSend: function (xhr) {
-                xhr.setRequestHeader(csrfHeader, csrfToken);
+        const formData = new URLSearchParams();
+        selectedNumbers.forEach(number => formData.append("selectedNumbers", number));
+
+        fetch("/departures/track-update", {
+            method: "POST",
+            headers: {
+                [csrfHeader]: csrfToken // CSRF-токен
             },
-            success: function () {
+            body: formData
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text); });
+                }
                 console.log("✅ AJAX-запрос отправлен. Ждём уведомления через WebSocket...");
-                // Кнопка вернётся после получения уведомления через сокет
-            },
-            error: function (xhr) {
-                showAlert("Ошибка при обновлении: " + xhr.responseText, "danger");
-                applyBtn.prop("disabled", false).html("Применить");
-            }
+
+                clearAllCheckboxes();
+
+            })
+            .catch(error => {
+                notifyUser("Ошибка при обновлении: " + error.message, "danger");
+            })
+            .finally(() => {
+                applyBtn.disabled = false;
+                applyBtn.innerHTML = "Применить";
+            });
+    }
+
+    function clearAllCheckboxes() {
+        document.querySelectorAll(".selectCheckbox, #selectAllCheckbox").forEach(checkbox => {
+            checkbox.checked = false;
         });
+
+        setTimeout(updateApplyButtonState, 0); // Гарантированно обновляем кнопку после очистки чекбоксов
     }
 
 });

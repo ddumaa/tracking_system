@@ -62,7 +62,7 @@ public class SecurityConfiguration {
                 )
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests
                         .requestMatchers("/", "/login", "/logout", "/registration", "/forgot-password", "/reset-password",
-                                "/privacy-policy", "/terms-of-use", "/css/**", "/js/**", "/images/**", "/upload", "/ws/**").permitAll()
+                                "/privacy-policy", "/terms-of-use", "/css/**", "/js/**", "/bootstrap/**", "/images/**", "/upload", "/ws/**").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
