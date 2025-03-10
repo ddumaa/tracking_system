@@ -9,6 +9,7 @@ import com.project.tracking_system.entity.UpdateResult;
 import com.project.tracking_system.model.GlobalStatus;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
+import com.project.tracking_system.repository.UserSubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -18,11 +19,10 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -54,6 +54,7 @@ public class TrackParcelService {
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final StatusTrackService statusTrackService;
     private final SubscriptionService subscriptionService;
+    private final UserSubscriptionRepository userSubscriptionRepository;
 
     /**
      * Сохраняет или обновляет посылку пользователя.
@@ -173,7 +174,7 @@ public class TrackParcelService {
 
     @Transactional
     public void incrementUpdateCount(Long userId, int count) {
-        userRepository.incrementUpdateCount(userId, count, ZonedDateTime.now(ZoneOffset.UTC));
+        userSubscriptionRepository.incrementUpdateCount(userId, count, LocalDate.now(ZoneOffset.UTC));
     }
 
     /**

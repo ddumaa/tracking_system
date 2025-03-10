@@ -11,7 +11,6 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.time.ZonedDateTime;
 import java.util.*;
 
 @Setter
@@ -43,18 +42,8 @@ public class User implements UserDetails {
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private EvropostServiceCredential evropostServiceCredential;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "subscription_plan_id")
-    private SubscriptionPlan subscriptionPlan;
-
-    @Column(name = "subscription_end_date")
-    private ZonedDateTime subscriptionEndDate;
-
-    @Column(name = "update_count")
-    private int updateCount = 0;
-
-    @Column(name = "last_update_date")
-    private ZonedDateTime lastUpdateDate;
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL,orphanRemoval = true, fetch = FetchType.LAZY)
+    private UserSubscription subscription;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "role")
