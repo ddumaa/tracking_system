@@ -52,84 +52,91 @@ function loadModal(itemNumber) {
         .catch(() => notifyUser('Ошибка при загрузке данных', "danger"));
 }
 
-// Привязка обработчика для формы изменения пароля
-function attachPasswordFormHandler() {
-    $("#password-settings-form").off("submit").on("submit", function (event) {
+// Общая функция для отправки формы через AJAX
+function ajaxSubmitForm(formId, containerId, afterLoadCallbacks = []) {
+    const form = document.getElementById(formId);
+    if (!form) return;
+
+    form.addEventListener('submit', function (event) {
         event.preventDefault();
 
-        $.ajax({
-            url: $(this).attr("action"),
-            method: $(this).attr("method"),
-            data: $(this).serialize(),
-            success: function (response) {
-                $("#v-pills-profile").replaceWith(response).addClass("show active");
-                attachPasswordFormHandler();
+        fetch(form.action, {
+            method: form.method,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
             },
-            error: function () {
-                alert('Ошибка при изменении пароля.');
-            }
-        });
+            body: new URLSearchParams(new FormData(form))
+        })
+            .then(response => response.text())
+            .then(html => {
+                const container = document.getElementById(containerId);
+                container.innerHTML = html;
+
+                // Переинициализируем обработчики после замены HTML-кода вкладки
+                afterLoadCallbacks.forEach(callback => callback());
+            })
+            .catch(() => alert("Ошибка сети."));
     });
 }
 
-// Привязка обработчика для формы Европочты
-function attachEvropostFormHandler() {
-    $("#evropost-settings-form").off("submit").on("submit", function (event) {
-        event.preventDefault();
+// Инициализация формы изменения пароля
+function initPasswordFormHandler() {
+    ajaxSubmitForm('password-settings-form', 'password-content', [initPasswordFormHandler]);
+}
 
-        $.ajax({
-            url: $(this).attr("action"),
-            method: $(this).attr("method"),
-            data: $(this).serialize(),
-            success: function (response) {
-                $("#v-pills-evropost").replaceWith(response).addClass("show active");
-                attachEvropostFormHandler();
-                initializeCustomCredentialsCheckbox();
-            },
-            error: function () {
-                alert('Ошибка при сохранении данных Европочты.');
-            }
-        });
-    });
+// Инициализация формы Европочты
+function initEvropostFormHandler() {
+    ajaxSubmitForm('evropost-settings-form', 'evropost-content', [
+        initEvropostFormHandler,
+        initializeCustomCredentialsCheckbox
+    ]);
 }
 
 // Инициализация логики для чекбокса "Использовать пользовательские креды"
 function initializeCustomCredentialsCheckbox() {
-    const checkbox = $("#useCustomCredentials");
-    const fieldsContainer = $("#custom-credentials-fields");
+    const checkbox = document.getElementById("useCustomCredentials");
+    const fieldsContainer = document.getElementById("custom-credentials-fields");
 
-    if (checkbox.length && fieldsContainer.length) {
+    if (checkbox && fieldsContainer) {
+        // Первоначальная инициализация состояния формы
         toggleFieldsVisibility(checkbox, fieldsContainer);
 
         let debounceTimer;
-        checkbox.off("change").on("change", function () {
+
+        checkbox.addEventListener('change', function () {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
-                $.ajax({
-                    url: '/profile/settings/use-custom-credentials',
-                    type: 'POST',
-                    data: { useCustomCredentials: checkbox.is(":checked") },
-                    beforeSend: function (xhr) {
-                        xhr.setRequestHeader(
-                            $('meta[name="_csrf_header"]').attr('content'),
-                            $('meta[name="_csrf"]').attr('content')
-                        );
+                fetch('/profile/settings/use-custom-credentials', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
                     },
-                    success: function () {
-                        toggleFieldsVisibility(checkbox, fieldsContainer);
-                    },
-                    error: function () {
-                        alert("Ошибка при обновлении чекбокса.");
-                    }
-                });
+                    body: new URLSearchParams({ useCustomCredentials: checkbox.checked })
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            toggleFieldsVisibility(checkbox, fieldsContainer);
+                        } else {
+                            alert("Ошибка при обновлении чекбокса.");
+                        }
+                    })
+                    .catch(() => {
+                        alert("Ошибка сети при обновлении чекбокса.");
+                    });
             }, 300);
         });
     }
 }
 
-// Функция управления видимостью полей
+// Показать или скрыть поля
 function toggleFieldsVisibility(checkbox, fieldsContainer) {
-    fieldsContainer.toggle(checkbox.is(":checked"));
+    if (checkbox.checked) {
+        fieldsContainer.classList.remove('hidden');
+    } else {
+        fieldsContainer.classList.add('hidden');
+    }
 }
 
 let lastPage = window.location.pathname; // Запоминаем текущую страницу при загрузке
@@ -162,7 +169,7 @@ function notifyUser(message, type = "info") {
 
 // Уведомления
 function showAlert(message, type) {
-    let existingAlert = $(".notification");
+    let existingAlert = document.querySelector(".notification"); // Берём только первый найденный alert
 
     // ❌ Игнорируем "Обновление запущено...", так как оно временное
     if (message.includes("Обновление запущено")) {
@@ -170,15 +177,17 @@ function showAlert(message, type) {
         return;
     }
 
-    if (existingAlert.length > 0) {
-        let currentMessage = existingAlert.find("span.alert-text").text();
+    // Проверяем, есть ли уже уведомление с таким же текстом
+    if (existingAlert) {
+        let currentMessage = existingAlert.querySelector("span.alert-text")?.textContent || "";
         if (currentMessage === message) {
             console.log("⚠ Повторное уведомление проигнорировано:", message);
             return;
         }
-        existingAlert.remove(); // Удаляем старое
+        existingAlert.remove(); // Удаляем старое уведомление перед добавлением нового
     }
 
+    // Создаём HTML уведомления
     const alertHtml = `
     <div class="alert alert-${type} alert-dismissible fade show notification" role="alert">
         <i class="bi ${type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'} me-2"></i>
@@ -186,13 +195,17 @@ function showAlert(message, type) {
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Закрыть"></button>
     </div>`;
 
-    $(".history-header").before(alertHtml);
+    notificationContainer.insertAdjacentHTML("afterbegin", alertHtml);
 
+    // Убираем уведомление через 5 секунд
     setTimeout(() => {
-        $(".notification").fadeOut("slow", function () {
-            $(this).remove();
-        });
-    }, 10000);
+        let notification = document.querySelector(".notification");
+        if (notification) {
+            notification.style.transition = "opacity 0.5s";
+            notification.style.opacity = "0";
+            setTimeout(() => notification.remove(), 500);
+        }
+    }, 5000);
 }
 
 // Функция для показа Toast (если пользователь ушёл или уже в модальном окне)
@@ -215,7 +228,7 @@ function showToast(message, type = "info") {
 
     toastContainer.insertAdjacentHTML("beforeend", toastHtml);
     let toastElement = document.getElementById(toastId);
-    let toast = new bootstrap.Toast(toastElement, { delay: 10000 });
+    let toast = new bootstrap.Toast(toastElement, { delay: 5000 });
     toast.show();
 
     toastElement.addEventListener("hidden.bs.toast", () => {
@@ -224,14 +237,14 @@ function showToast(message, type = "info") {
 }
 
 let stompClient = null;
-let userId = $("#userId").val(); // Получаем userId из скрытого поля
+let userId = document.getElementById("userId")?.value || ""; // Получаем userId из скрытого поля
 
 function connectWebSocket() {
     console.log("🚀 connectWebSocket() вызван!");
 
     stompClient = new StompJs.Client({
         //'wss://belivery.by/ws', 'ws://localhost:8080/ws',
-        brokerURL: 'ws://localhost:8080/ws',
+        brokerURL: 'wss://belivery.by/ws',
         reconnectDelay: 1000,
         heartbeatIncoming: 2000,
         heartbeatOutgoing: 2000,
@@ -255,9 +268,17 @@ function connectWebSocket() {
 
                 notifyUser(response.message, response.success ? "success" : "warning");
 
-                $("#applyActionBtn").prop("disabled", false).html("Применить");
+                let applyActionBtn = document.getElementById("applyActionBtn");
+                if (applyActionBtn) {
+                    applyActionBtn.disabled = false;
+                    applyActionBtn.innerHTML = "Применить";
+                }
 
-                $("#refreshAllBtn").prop("disabled", false).html('<i class="bi bi-arrow-repeat"></i>');
+                let refreshAllBtn = document.getElementById("refreshAllBtn");
+                if (refreshAllBtn) {
+                    refreshAllBtn.disabled = false;
+                    refreshAllBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i>';
+                }
 
                 // 🔥 Загружаем обновлённые данные из БД
                 if (response.success && response.message.startsWith("Обновление завершено")) {
@@ -283,40 +304,72 @@ function connectWebSocket() {
 
 function reloadParcelTable() {
     console.log("🔄 AJAX-запрос для обновления таблицы...");
-    $.ajax({
-        url: "/departures",
-        type: "GET",
-        cache: false,
-        success: function (html) {
-            let newTableBody = $(html).find("tbody").html();
-            console.log("📊 Получены новые данные:", newTableBody);
-            $("tbody").html(newTableBody);
-            console.log("✅ Таблица обновлена!");
-        },
-        error: function () {
-            console.error("❌ Ошибка загрузки обновлённых данных!");
-        }
+
+    fetch("/departures", { method: "GET", cache: "no-store" })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Ошибка загрузки данных");
+            }
+            return response.text();
+        })
+        .then(html => {
+            let parser = new DOMParser();
+            let doc = parser.parseFromString(html, "text/html");
+            let newTableBody = doc.querySelector("tbody")?.innerHTML || "";
+
+            if (newTableBody) {
+                let currentTbody = document.querySelector("tbody");
+                if (currentTbody) {
+                    currentTbody.innerHTML = newTableBody;
+                    console.log("✅ Таблица обновлена!");
+                }
+            }
+        })
+        .catch(error => {
+            console.error("❌ Ошибка загрузки обновлённых данных!", error);
+        });
+}
+
+function enableTooltips() {
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    tooltipTriggerList.forEach(tooltipTriggerEl => {
+        new bootstrap.Tooltip(tooltipTriggerEl);
     });
 }
 
-$(document).ready(function () {
+// Повторная инициализация Tooltips при динамическом изменении страницы
+document.addEventListener("mouseover", function (event) {
+    if (event.target.matches('[data-bs-toggle="tooltip"]')) {
+        enableTooltips();
+    }
+});
+
+
+document.addEventListener("DOMContentLoaded", function () {
 
     // === Добавляем CSRF-токен ===
-    const csrfToken = $('meta[name="_csrf"]').attr('content');
-    const csrfHeader = $('meta[name="_csrf_header"]').attr('content');
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content || "";
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || "";
 
+    // === WebSocket ===
     connectWebSocket();
 
-    $("#updateAllForm").on("submit", function (event) {
+    document.getElementById("updateAllForm")?.addEventListener("submit", function (event) {
         event.preventDefault();
         sendUpdateRequest(null);
     });
 
-    // Инициализация всплывающих подсказок (работает и для динамических элементов)
-    $("body").tooltip({ selector: '[data-bs-toggle="tooltip"]' });
+    // === Всплывающие подсказки (tooltips) ===
+    enableTooltips();
 
     /// Авто-скрытие уведомлений
-    setTimeout(() => { $(".alert").fadeOut("slow"); }, 10000);
+    setTimeout(() => {
+        document.querySelectorAll(".alert").forEach(alert => {
+            alert.style.transition = "opacity 0.5s";
+            alert.style.opacity = "0";
+            setTimeout(() => alert.remove(), 500); // Удаляем после завершения анимации
+        });
+    }, 10000);
 
     // мобильный хедер
     const burgerMenu = document.getElementById('burgerMenu');
@@ -369,8 +422,8 @@ $(document).ready(function () {
     }
 
     // Инициализация логики форм
-    attachPasswordFormHandler();
-    attachEvropostFormHandler();
+    initPasswordFormHandler();
+    initEvropostFormHandler();
     initializeCustomCredentialsCheckbox();
 
     document.body.addEventListener("click", function (event) {

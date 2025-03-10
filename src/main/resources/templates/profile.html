@@ -75,7 +75,12 @@
                     <p>Тут просто информация.</p>
                 </div>
 
-                <div class="tab-pane fade card p-4 shadow-sm rounded-4" id="v-pills-profile" role="tabpanel">
+                <div class="tab-pane fade card p-4 shadow-sm rounded-4"
+                     id="v-pills-profile"
+                     role="tabpanel">
+
+                    <div id="password-content" th:fragment="passwordFragment">
+
                     <h5 class="mb-3">Изменение пароля</h5>
                         <form id="password-settings-form" th:action="@{/profile/settings/password}"
                               th:object="${userSettingsDTO}" method="post">
@@ -118,10 +123,19 @@
 
                             <button class="btn btn-primary w-100 py-2" type="submit">Изменить пароль</button>
                         </form>
+                    </div>
                 </div>
 
-                <div class="tab-pane fade card p-4 shadow-sm rounded-4" id="v-pills-evropost" role="tabpanel">
-                    <h5 class="mb-3">Настройки Европочты</h5>
+                <div class="tab-pane fade card p-4 shadow-sm rounded-4"
+                     id="v-pills-evropost"
+                     role="tabpanel">
+
+                    <!-- Контейнер для уведомлений -->
+                    <div id="notificationContainer"></div>
+
+                    <div id="evropost-content" th:fragment="evropostFragment">
+
+                        <h5 class="mb-3">Настройки Европочты</h5>
 
                         <form id="evropost-settings-form" th:action="@{/profile/settings/evropost}"
                               th:object="${evropostCredentialsDTO}" method="post">
@@ -165,9 +179,13 @@
                                 <button class="btn btn-primary w-100 py-2" type="submit">Сохранить данные</button>
                             </div>
                         </form>
+                    </div>
                 </div>
 
-                <div class="tab-pane fade card p-4 shadow-sm rounded-4" id="v-pills-belpost" role="tabpanel">
+                <div class="tab-pane fade card p-4 shadow-sm rounded-4"
+                     id="v-pills-belpost"
+                     role="tabpanel">
+
                     <h5 class="mb-3">Белпочта</h5>
                     <p>Если у вас есть доступ к API Белпочты, напишите мне.</p>
                 </div>

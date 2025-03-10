@@ -9,6 +9,7 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.repository.ConfirmationTokenRepository;
+import com.project.tracking_system.repository.EvropostServiceCredentialRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.email.EmailService;
@@ -44,6 +45,7 @@ import static java.time.ZoneOffset.UTC;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final EvropostServiceCredentialRepository evropostServiceCredentialRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final RandomlyGeneratedString randomlyGeneratedString;
@@ -186,10 +188,10 @@ public class UserService {
             log.info("Обновление учетных данных Evropost для пользователя с ID: {}", userId);
 
             // Обновление всех данных
-            user.setEvropostUsername(dto.getEvropostUsername());
-            user.setEvropostPassword(encryptedPassword);
-            user.setServiceNumber(encryptedServiceNumber);
-            user.setUseCustomCredentials(dto.getUseCustomCredentials());
+            user.getEvropostServiceCredential().setUsername(dto.getEvropostUsername());
+            user.getEvropostServiceCredential().setPassword(encryptedPassword);
+            user.getEvropostServiceCredential().setServiceNumber(encryptedServiceNumber);
+            user.getEvropostServiceCredential().setUseCustomCredentials(dto.getUseCustomCredentials());
 
             userRepository.save(user);
             log.info("Данные успешно обновлены для пользователя с ID: {}", userId);
@@ -213,7 +215,7 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
 
-        user.setUseCustomCredentials(useCustomCredentials);
+        user.getEvropostServiceCredential().setUseCustomCredentials(useCustomCredentials);
         userRepository.save(user);
 
         log.info("Флаг 'useCustomCredentials' обновлён для пользователя с ID {}: {}", userId, useCustomCredentials);
@@ -224,8 +226,8 @@ public class UserService {
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
 
         EvropostCredentialsDTO dto = new EvropostCredentialsDTO();
-        dto.setEvropostUsername(user.getEvropostUsername());
-        dto.setUseCustomCredentials(user.getUseCustomCredentials());
+        dto.setEvropostUsername(user.getEvropostServiceCredential().getUsername());
+        dto.setUseCustomCredentials(user.getEvropostServiceCredential().getUseCustomCredentials());
 
         log.info("Запрошены учетные данные Evropost для пользователя с ID {}", userId);
 
@@ -262,7 +264,7 @@ public class UserService {
     }
 
     public boolean isUsingCustomCredentials(Long userId) {
-        return userRepository.isUsingCustomCredentials(userId);
+        return evropostServiceCredentialRepository.isUsingCustomCredentials(userId);
     }
 
     public long countUsersBySubscriptionPlan(String planName) {

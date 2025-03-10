@@ -37,6 +37,7 @@ import org.springframework.web.bind.annotation.*;
 public class ProfileController {
 
     private final UserService userService;
+    private final WebSocketController webSocketController;
 
     /**
      * Отображает страницу профиля пользователя.
@@ -126,15 +127,21 @@ public class ProfileController {
 
                 EvropostCredentialsDTO updatedDto = userService.getEvropostCredentials(userId);
                 model.addAttribute("evropostCredentialsDTO", updatedDto);
-                model.addAttribute("notification", "Данные Европочты успешно обновлены");
+
+                // ✅ Отправляем WebSocket-уведомление
+                String successMessage = "Данные API Европочты успешно обновлены!";
+                webSocketController.sendUpdateStatus(userId, successMessage, true);
 
             } catch (Exception e) {
                 log.error("Ошибка при обновлении данных Европочты для пользователя с ID {}: {}", userId, e.getMessage(), e);
                 model.addAttribute("error", "Ошибка при обновлении данных: " + e.getMessage());
+
+                // ❌ Отправляем WebSocket-уведомление об ошибке
+                webSocketController.sendUpdateStatus(userId, "Ошибка обновления Европочты!", false);
             }
         }
 
-        return "profile :: #v-pills-evropost";
+        return "profile :: evropostFragment";
     }
 
     @PostMapping("/settings/use-custom-credentials")
@@ -165,7 +172,6 @@ public class ProfileController {
                     .body("Ошибка при обновлении настроек.");
         }
     }
-
 
     /**
      * Обрабатывает запросы на изменение настроек пользователя, включая смену пароля.
@@ -208,7 +214,7 @@ public class ProfileController {
             }
         }
 
-        return "profile :: #v-pills-profile";
+        return "profile :: passwordFragment";
     }
 
     /**

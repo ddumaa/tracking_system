@@ -10,7 +10,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 /**
@@ -37,7 +37,7 @@ public class JwtTokenManager {
     private final EncryptionUtils encryptionUtils;
     private final GetJwtTokenService getJwtTokenService;
     private final UserRepository userRepository;
-    private LocalDateTime systemTokenExpiryTime;
+    private ZonedDateTime systemTokenExpiryTime;
     private String systemToken;
 
     private static final long TOKEN_LIFETIME_DAYS = 29;
@@ -80,7 +80,7 @@ public class JwtTokenManager {
             try {
                 String newSystemToken = getJwtTokenService.getSystemTokenFromApi();
                 this.systemToken = newSystemToken;
-                this.systemTokenExpiryTime = LocalDateTime.now().plusDays(TOKEN_LIFETIME_DAYS);
+                this.systemTokenExpiryTime = ZonedDateTime.now().plusDays(TOKEN_LIFETIME_DAYS);
                 log.info("Системный токен успешно обновлён. Новый срок действия: {}", systemTokenExpiryTime);
             } catch (Exception e) {
                 log.error("Ошибка при обновлении системного токена: {}", e.getMessage());
@@ -95,7 +95,7 @@ public class JwtTokenManager {
      * @return {@code true}, если токен истёк, иначе {@code false}.
      */
     private boolean isSystemTokenExpired() {
-        boolean expired = systemTokenExpiryTime == null || LocalDateTime.now().isAfter(systemTokenExpiryTime);
+        boolean expired = systemTokenExpiryTime == null || ZonedDateTime.now().isAfter(systemTokenExpiryTime);
         if (expired) {
             log.debug("Системный токен истёк. Требуется обновление.");
         }
@@ -116,20 +116,20 @@ public class JwtTokenManager {
 
     public synchronized String getUserToken(User user) {
         log.info("Получение пользовательского токена для пользователя: {}", user.getEmail());
-        if (user.getJwtToken() == null || isUserTokenExpired(user)) {
+        if (user.getEvropostServiceCredential().getJwtToken() == null || isUserTokenExpired(user)) {
             try {
                 log.debug("JWT токен отсутствует или истёк. Генерация нового токена...");
-                String decryptedPassword = encryptionUtils.decrypt(user.getEvropostPassword());
-                String decryptedServiceNumber = encryptionUtils.decrypt(user.getServiceNumber());
+                String decryptedPassword = encryptionUtils.decrypt(user.getEvropostServiceCredential().getPassword());
+                String decryptedServiceNumber = encryptionUtils.decrypt(user.getEvropostServiceCredential().getServiceNumber());
 
                 String newToken = getJwtTokenService.getUserTokenFromApi(
-                        user.getEvropostUsername(),
+                        user.getEvropostServiceCredential().getUsername(),
                         decryptedPassword,
                         decryptedServiceNumber
                 );
 
-                user.setJwtToken(newToken);
-                user.setTokenCreatedAt(LocalDateTime.now());
+                user.getEvropostServiceCredential().setJwtToken(newToken);
+                user.getEvropostServiceCredential().setTokenCreatedAt(ZonedDateTime.now());
                 userRepository.save(user);
                 log.info("Новый пользовательский токен успешно создан и сохранён для пользователя: {}", user.getEmail());
             } catch (Exception e) {
@@ -139,12 +139,12 @@ public class JwtTokenManager {
             }
         }
         log.debug("Действующий JWT токен найден для пользователя: {}", user.getEmail());
-        return user.getJwtToken();
+        return user.getEvropostServiceCredential().getJwtToken();
     }
 
     private boolean isUserTokenExpired(User user) {
-        boolean expired = user.getTokenCreatedAt() == null
-                || user.getTokenCreatedAt().plusDays(TOKEN_LIFETIME_DAYS).isBefore(LocalDateTime.now());
+        boolean expired = user.getEvropostServiceCredential().getTokenCreatedAt() == null
+                || user.getEvropostServiceCredential().getTokenCreatedAt().plusDays(TOKEN_LIFETIME_DAYS).isBefore(ZonedDateTime.now());
         if (expired) {
             log.debug("Пользовательский токен для {} истёк.", user.getEmail());
         }
@@ -165,23 +165,24 @@ public class JwtTokenManager {
             refreshSystemTokenIfExpired();
 
             List<User> users = userRepository.findAll().stream()
-                    .filter(User::getUseCustomCredentials) // Только пользователи с пользовательскими кредами
+                    .filter(user -> user.getEvropostServiceCredential() != null)
+                    .filter(user -> user.getEvropostServiceCredential().getUseCustomCredentials()) // Только пользователи с пользовательскими кредами
                     .filter(this::isUserTokenExpired)      // Проверяем, истёк ли токен
                     .toList();
 
             for (User user : users) {
                 log.info("Обновление токена для пользователя: {}", user.getEmail());
                 try {
-                    String decryptedPassword = encryptionUtils.decrypt(user.getEvropostPassword());
-                    String decryptedServiceNumber = encryptionUtils.decrypt(user.getServiceNumber());
+                    String decryptedPassword = encryptionUtils.decrypt(user.getEvropostServiceCredential().getPassword());
+                    String decryptedServiceNumber = encryptionUtils.decrypt(user.getEvropostServiceCredential().getServiceNumber());
 
                     String newToken = getJwtTokenService.getUserTokenFromApi(
-                            user.getEvropostUsername(),
+                            user.getEvropostServiceCredential().getUsername(),
                             decryptedPassword,
                             decryptedServiceNumber
                     );
-                    user.setJwtToken(newToken);
-                    user.setTokenCreatedAt(LocalDateTime.now());
+                    user.getEvropostServiceCredential().setJwtToken(newToken);
+                    user.getEvropostServiceCredential().setTokenCreatedAt(ZonedDateTime.now());
                     userRepository.save(user);
                     log.info("Токен для пользователя {} успешно обновлён.", user.getEmail());
                 } catch (Exception e) {

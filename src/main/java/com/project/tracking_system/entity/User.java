@@ -11,7 +11,6 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.*;
 
@@ -35,29 +34,14 @@ public class User implements UserDetails {
     @NotBlank(message = "Введите пароль")
     private String password;
 
-    @Column(name = "evropost_username")
-    private String evropostUsername;
-
-    @Column(name = "evropost_password")
-    private String evropostPassword;
-
-    @Column(name = "jwt_token", length = 512)
-    private String jwtToken;
-
-    @Column(name = "service_number")
-    private String serviceNumber;
-
-    @Column(name = "use_custom_credentials", nullable = false)
-    private Boolean useCustomCredentials = false;
-
-    @Column(name = "token_created_at")
-    private LocalDateTime tokenCreatedAt;
-
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TrackParcel> trackParcels = new ArrayList<>();
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private LoginAttempt loginAttempt;
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private EvropostServiceCredential evropostServiceCredential;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subscription_plan_id")
