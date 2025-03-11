@@ -64,24 +64,28 @@
 
     <hr/>
 
-    <h2 class="mb-4">Список посылок</h2>
+    <h2 class="mb-4">Посылки по магазинам</h2>
 
-    <table class="table table-bordered table-striped">
-        <thead class="thead-dark">
-        <tr>
-            <th>Номер</th>
-            <th>Статус</th>
-            <th>Дата</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr th:each="parcel : ${parcels}">
-            <td th:text="${parcel.number}"></td>
-            <td th:text="${parcel.status}"></td>
-            <td th:text="${parcel.data}"></td>
-        </tr>
-        </tbody>
-    </table>
+    <div th:each="store : ${stores}" class="mb-4">
+        <h4 th:text="${store.name}"></h4>
+
+        <table class="table table-bordered table-striped">
+            <thead class="thead-dark">
+            <tr>
+                <th>Номер</th>
+                <th>Статус</th>
+                <th>Дата</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="parcel : ${storeParcels[store.id]}">
+                <td th:text="${parcel.number}"></td>
+                <td th:text="${parcel.status}"></td>
+                <td th:text="${parcel.data}"></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 </main>
 

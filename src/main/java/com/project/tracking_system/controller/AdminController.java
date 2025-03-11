@@ -1,9 +1,12 @@
 package com.project.tracking_system.controller;
 
+import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.dto.UserDetailsAdminInfoDTO;
 import com.project.tracking_system.dto.UserListAdminInfoDTO;
+import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.UserSubscription;
+import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
@@ -16,7 +19,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Административный контроллер
@@ -34,6 +39,7 @@ public class AdminController {
     private final UserService userService;
     private final TrackParcelService trackParcelService;
     private final SubscriptionService subscriptionService;
+    private final StoreRepository storeRepository;
 
     @GetMapping()
     public String adminDashboard(Model model) {
@@ -75,14 +81,22 @@ public class AdminController {
         return "admin/user-list";
     }
 
-    @GetMapping("/users/{usersId}")
-    public String getUserDetails(@PathVariable Long usersId, Model model) {
-        User user = userService.findUserById(usersId);
-        var parcels = trackParcelService.findAllByUserTracks(usersId);
+    @GetMapping("/users/{userId}")
+    public String getUserDetails(@PathVariable Long userId, Model model) {
+        User user = userService.findUserById(userId);
+
+        // Загружаем магазины пользователя
+        List<Store> stores = storeRepository.findByOwnerId(userId);
+        Map<Long, List<TrackParcelDTO>> storeParcels = new HashMap<>();
+
+        for (Store store : stores) {
+            Long storeId = store.getId();
+            List<TrackParcelDTO> parcels = trackParcelService.findAllByStoreTracks(storeId);
+            storeParcels.put(storeId, parcels);
+        }
 
         // Получаем подписку пользователя (если есть)
         UserSubscription subscription = user.getSubscription();
-
         String subscriptionName = (subscription != null)
                 ? subscription.getSubscriptionPlan().getName()
                 : "NONE"; // Если подписки нет, указываем "NONE" или "FREE"
@@ -102,9 +116,11 @@ public class AdminController {
         );
 
         model.addAttribute("user", adminInfoDTO);
-        model.addAttribute("parcels", parcels);
+        model.addAttribute("stores", stores); // Передаём магазины
+        model.addAttribute("storeParcels", storeParcels); // Передаём посылки по магазинам
         return "admin/user-details";
     }
+
 
     @PostMapping("/users/{usersId}/role-update")
     public String updateUserRole(@PathVariable Long usersId,

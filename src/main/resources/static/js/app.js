@@ -244,7 +244,7 @@ function connectWebSocket() {
 
     stompClient = new StompJs.Client({
         //'wss://belivery.by/ws', 'ws://localhost:8080/ws',
-        brokerURL: 'wss://belivery.by/ws',
+        brokerURL: 'ws://localhost:8080/ws',
         reconnectDelay: 1000,
         heartbeatIncoming: 2000,
         heartbeatOutgoing: 2000,
@@ -598,30 +598,56 @@ document.addEventListener("DOMContentLoaded", function () {
             });
     });
 
-    // === Статус ===
+    // Получаем элементы фильтров: статус и магазин
     const statusSelect = document.getElementById("status");
+    const storeSelect = document.getElementById("storeId");
 
-    // Восстанавливаем сохранённый статус при загрузке страницы
+    // Проверяем, существуют ли элементы на странице (если нет - выходим)
+    if (!statusSelect || !storeSelect) return;
+
+    // Восстанавливаем значения фильтров из URL (чтобы при обновлении страницы они оставались)
     const urlParams = new URLSearchParams(window.location.search);
-    const currentStatus = urlParams.get("status");
+    const currentStatus = urlParams.get("status"); // Получаем текущий статус из URL
+    const currentStore = urlParams.get("storeId"); // Получаем текущий магазин из URL
 
-    if (currentStatus) {
-        statusSelect.value = currentStatus; // Устанавливаем значение из URL
-    }
+    // Устанавливаем значения селекторов, если в URL были параметры
+    if (currentStatus) statusSelect.value = currentStatus;
+    if (currentStore) storeSelect.value = currentStore;
 
-    // === Фильтр по статусу ===
-    document.getElementById("filterActionBtn")?.addEventListener("click", function () {
-        const selectedStatus = statusSelect.value;
-        const currentUrl = new URL(window.location.href);
+    /**
+     * Функция применения фильтров.
+     * - Считывает текущие выбранные значения в селекторах.
+     * - Обновляет URL с новыми параметрами.
+     * - Перезагружает страницу с обновленными фильтрами.
+     */
+    function applyFilters() {
+        const selectedStatus = statusSelect.value; // Выбранный статус
+        const selectedStore = storeSelect.value; // Выбранный магазин
+        const currentUrl = new URL(window.location.href); // Текущий URL страницы
 
+        // Обновляем параметры URL (если пустые - удаляем)
         if (selectedStatus) {
             currentUrl.searchParams.set("status", selectedStatus);
         } else {
             currentUrl.searchParams.delete("status");
         }
 
+        if (selectedStore) {
+            currentUrl.searchParams.set("storeId", selectedStore);
+        } else {
+            currentUrl.searchParams.delete("storeId");
+        }
+
+        // Логирование текущих значений фильтров (для отладки)
+        console.log("✅ Применение фильтра: статус =", selectedStatus, "магазин =", selectedStore);
+
+        // Перенаправляем пользователя на обновленный URL
         window.location.href = currentUrl.toString();
-    });
+    }
+
+    // Автоматическое применение фильтра при изменении значений в селекторах
+    statusSelect.addEventListener("change", applyFilters);
+    storeSelect.addEventListener("change", applyFilters);
 
     document.body.addEventListener("change", function (event) {
         if (event.target.classList.contains("selectCheckbox")) {

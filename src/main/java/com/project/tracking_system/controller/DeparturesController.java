@@ -2,9 +2,13 @@ package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackParcelDTO;
+import com.project.tracking_system.entity.Store;
+import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.UpdateResult;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.model.GlobalStatus;
+import com.project.tracking_system.repository.StoreRepository;
+import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.StatusTrackService;
 import com.project.tracking_system.service.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.TrackParcelService;
@@ -42,22 +46,24 @@ public class DeparturesController {
     private final StatusTrackService statusTrackService;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final WebSocketController webSocketController;
+    private final StoreRepository storeRepository;
+    private final TrackParcelRepository trackParcelRepository;
 
     /**
-     * Метод для отображения списка отслеживаемых посылок пользователя с возможностью фильтрации по статусу.
-     * <p>
-     * Если статус посылки передан в запросе, выполняется фильтрация по этому статусу.
-     * </p>
+     * Метод для отображения списка отслеживаемых посылок пользователя с возможностью фильтрации по магазину и статусу.
      *
+     * @param storeId      (опционально) ID магазина, если нужно показать посылки только из одного магазина.
      * @param statusString строковое представление статуса для фильтрации.
-     * @param page номер страницы для пагинации.
-     * @param size размер страницы.
-     * @param model модель для передачи данных на представление.
+     * @param page         номер страницы для пагинации.
+     * @param size         размер страницы.
+     * @param model        модель для передачи данных на представление.
+     * @param authentication информация о пользователе.
      * @return имя представления для отображения истории.
      */
     @GetMapping()
     public String departures(
-            @RequestParam(value = "status", required = false) String statusString,
+            @RequestParam(required = false) Long storeId,  // Фильтр по магазину
+            @RequestParam(value = "status", required = false) String statusString, // Фильтр по статусу
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size,
             Model model,
@@ -69,7 +75,18 @@ public class DeparturesController {
         }
 
         Long userId = user.getId();
-        log.debug("Запрос на отображение отправлений для пользователя с ID: {}", userId);
+        List<Store> stores = storeRepository.findByOwnerId(userId); // Загружаем магазины с именами
+        List<Long> storeIds = storeRepository.findStoreIdsByOwnerId(userId); // Все магазины пользователя
+
+        // Если у пользователя **только 1 магазин**, но он явно выбрал "Все магазины", не заменяем storeId
+        if (storeIds.size() == 1 && storeId == null) {
+            storeId = storeIds.get(0);
+        }
+
+        // Если **фильтр магазина НЕ установлен**, загружаем все магазины пользователя
+        List<Long> filteredStoreIds = (storeId != null) ? List.of(storeId) : storeIds;
+
+        log.debug("📦 Запрос на отображение отправлений: userId={}, storeId={}, storeIds={}", userId, storeId, filteredStoreIds);
 
         // Определяем статус посылки (если передан)
         GlobalStatus status = null;
@@ -83,29 +100,42 @@ public class DeparturesController {
             }
         }
 
-        // Загружаем посылки с учетом статуса
+        // Определяем начальную страницу (избегаем выхода за границы)
         page = Math.max(page, 0);
-        Page<TrackParcelDTO> trackParcelPage = (status != null)
-                ? trackParcelService.findByUserTracksAndStatus(userId, status, page, size)
-                : trackParcelService.findByUserTracks(userId, page, size);
 
-        // Если текущая страница выходит за пределы, загружаем с первой страницы
+        // Загружаем посылки с учетом статуса и магазина
+        Page<TrackParcelDTO> trackParcelPage = (status != null)
+                ? trackParcelService.findByStoreTracksAndStatus(filteredStoreIds, status, page, size)
+                : trackParcelService.findByStoreTracks(filteredStoreIds, page, size);
+
+        // Если запрошенная страница больше допустимой, загружаем первую страницу
         if (page >= trackParcelPage.getTotalPages() && trackParcelPage.getTotalPages() > 0) {
-            log.warn("Выход за пределы страниц, сброс страницы на 0 для пользователя с ID: {}", userId);
+            log.warn("⚠ Выход за пределы страниц, сброс страницы на 0 для userId={} и storeId={}", userId, storeId);
+
+            // Повторный запрос только если нужно сбросить страницу
             page = 0;
             trackParcelPage = (status != null)
-                    ? trackParcelService.findByUserTracksAndStatus(userId, status, page, size)
-                    : trackParcelService.findByUserTracks(userId, page, size);
+                    ? trackParcelService.findByStoreTracksAndStatus(filteredStoreIds, status, page, size)
+                    : trackParcelService.findByStoreTracks(filteredStoreIds, page, size);
         }
 
+        // ✅ Добавляем иконки в DTO перед передачей в шаблон
+        trackParcelPage.forEach(dto -> {
+            GlobalStatus statusEnum = GlobalStatus.fromDescription(dto.getStatus()); // Конвертация строки в Enum
+            dto.setIconHtml(statusTrackService.getIcon(statusEnum)); // Передаем Enum в сервис для получения иконки
+        });
+
+        log.debug("Передача атрибутов в модель: stores={}, storeId={}, trackParcelDTO={}, currentPage={}, totalPages={}, size={}", stores, storeId, trackParcelPage.getContent(), trackParcelPage.getNumber(), trackParcelPage.getTotalPages(), size);
+
         // Добавляем атрибуты в модель
+        model.addAttribute("stores", stores);
+        model.addAttribute("storeId", storeId != null ? storeId : ""); // Если null, передаем пустую строку
         model.addAttribute("size", size);
         model.addAttribute("trackParcelDTO", trackParcelPage.getContent());
         model.addAttribute("statusString", statusString);
         model.addAttribute("currentPage", trackParcelPage.getNumber());
         model.addAttribute("totalPages", trackParcelPage.getTotalPages());
         model.addAttribute("trackParcelNotification", trackParcelPage.isEmpty() ? "Отслеживаемых посылок нет" : null);
-        model.addAttribute("statusTrackService", statusTrackService);
 
         return "departures";
     }
@@ -113,17 +143,32 @@ public class DeparturesController {
     /**
      * Метод для отображения подробной информации о посылке.
      *
-     * @param model модель для передачи данных на представление.
-     * @param itemNumber номер отслеживаемой посылки.
+     * @param model       модель для передачи данных на представление.
+     * @param itemNumber  номер отслеживаемой посылки.
+     * @param authentication информация о пользователе.
      * @return имя частичного представления с информацией о посылке.
      */
     @GetMapping("/{itemNumber}")
-    public String departures(Model model, @PathVariable("itemNumber") String itemNumber, Authentication authentication) {
+    public String departures(
+            Model model,
+            @PathVariable("itemNumber") String itemNumber,
+            Authentication authentication) {
+
         if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
             throw new RuntimeException("Пользователь не аутентифицирован.");
         }
 
         Long userId = user.getId();
+        log.info("🔍 Запрос информации о посылке {} для пользователя ID={}", itemNumber, userId);
+
+        // Проверяем, принадлежит ли посылка пользователю
+        boolean ownsParcel = trackParcelRepository.existsByNumberAndUserId(itemNumber, userId);
+        if (!ownsParcel) {
+            log.warn("❌ Пользователь ID={} попытался получить доступ к чужой посылке {}", userId, itemNumber);
+            throw new RuntimeException("Ошибка доступа: Посылка не принадлежит пользователю.");
+        }
+
+        // Получаем информацию о посылке
         TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(userId, itemNumber);
         log.info("🎯 Передача в шаблон: {} записей для трека {}", trackInfo.getList().size(), itemNumber);
 
@@ -136,7 +181,7 @@ public class DeparturesController {
     /**
      * Метод для обновления истории отслеживания посылок пользователя.
      *
-     * @return перенаправление на страницу истории.
+     * @return Перенаправление на страницу истории.
      */
     @PostMapping("/track-update")
     public ResponseEntity<UpdateResult> updateDepartures(
@@ -145,12 +190,12 @@ public class DeparturesController {
     ) {
         if (!(authentication instanceof UsernamePasswordAuthenticationToken auth)
                 || !(auth.getPrincipal() instanceof User user)) {
-            log.warn("Попытка обновления посылок без аутентификации.");
+            log.warn("❌ Попытка обновления посылок без аутентификации.");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         Long userId = user.getId();
-        log.info("Запрос на обновление посылок для пользователя с ID: {}", userId);
+        log.info("🔄 Запрос на обновление посылок: userId={}", userId);
 
         UpdateResult result;
         try {
@@ -160,17 +205,13 @@ public class DeparturesController {
                 result = trackParcelService.updateAllParcels(userId);
             }
 
-            // Отправляем обновление через WebSocket
+            // Отправляем WebSocket-уведомление
             webSocketController.sendDetailUpdateStatus(userId, result);
-
-            return ResponseEntity.ok().build();
+            return ResponseEntity.ok(result);
 
         } catch (Exception e) {
-            log.error(" Непредвиденная ошибка для пользователя {}: {}", userId, e.getMessage(), e);
-
-            // Отправляем уведомление через WebSocket
+            log.error("❌ Ошибка при обновлении посылок: userId={}, ошибка={}", userId, e.getMessage(), e);
             webSocketController.sendUpdateStatus(userId, "Произошла ошибка обновления.", false);
-
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

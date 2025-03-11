@@ -49,7 +49,7 @@ public class TrackingNumberServiceXLS {
      * @return список результатов добавления, включая номер отслеживания и статус или ошибку
      * @throws IOException если не удалось прочитать файл
      */
-    public TrackingResponse processTrackingNumber(MultipartFile file, Long userId) throws IOException {
+    public TrackingResponse processTrackingNumber(MultipartFile file, Long storeId, Long userId) throws IOException {
 
         List<TrackingResultAdd> trackingResult = new ArrayList<>();
         StringBuilder messageBuilder = new StringBuilder();
@@ -116,7 +116,7 @@ public class TrackingNumberServiceXLS {
                     }
 
                     CompletableFuture<TrackingResultAdd> future = CompletableFuture.supplyAsync(
-                            () -> processSingleTracking(trackingNumber, userId, canSaveThis),
+                            () -> processSingleTracking(trackingNumber, storeId, userId, canSaveThis),
                             executor
                     );
 
@@ -146,7 +146,7 @@ public class TrackingNumberServiceXLS {
         }
     }
 
-    private TrackingResultAdd processSingleTracking(String trackingNumber, Long userId, boolean canSave) {
+    private TrackingResultAdd processSingleTracking(String trackingNumber, Long storeId, Long userId, boolean canSave) {
         try {
             TrackInfoListDTO trackInfo;
 
@@ -164,7 +164,7 @@ public class TrackingNumberServiceXLS {
 
             // Если разрешено, сохраняем, иначе просто обрабатываем без сохранения
             if (userId != null && canSave) {
-                trackParcelService.save(trackingNumber, trackInfo, userId);
+                trackParcelService.save(trackingNumber, trackInfo, storeId, userId);
             } else {
                 log.warn("Трек {} обработан, но не сохранён (превышен лимит).", trackingNumber);
             }

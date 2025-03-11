@@ -123,7 +123,7 @@ public class TrackNumberOcrService {
      * @param authenticatedUser Пользователь, который выполнил запрос.
      * @return Список объектов TrackingResultAdd, содержащих результат обработки каждого трек-номера.
      */
-    public List<TrackingResultAdd> extractAndProcessTrackingNumbers(String text, Long userId) {
+    public List<TrackingResultAdd> extractAndProcessTrackingNumbers(String text, Long storeId, Long userId) {
         if (text == null || text.trim().isEmpty()) {
             return new ArrayList<>();
         }
@@ -147,7 +147,7 @@ public class TrackNumberOcrService {
                     TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(userId, trackNumber);
 
                     if (trackInfo != null) {
-                        trackParcelService.save(trackNumber, trackInfo, userId);
+                        trackParcelService.save(trackNumber, trackInfo, storeId, userId);
                     }
 
                     trackInfoResult.add(new TrackingResultAdd(trackNumber, "Добавлен"));

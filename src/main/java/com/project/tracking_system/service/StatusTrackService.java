@@ -55,28 +55,36 @@ public class StatusTrackService {
      * @param trackInfoDTOList Список объектов с информацией о трекинге.
      * @return Статус, который соответствует последнему трекинговому событию.
      */
-    public String setStatus(List<TrackInfoDTO> trackInfoDTOList) {
+    public GlobalStatus setStatus(List<TrackInfoDTO> trackInfoDTOList) {
+        if (trackInfoDTOList.isEmpty()) {
+            return GlobalStatus.UNKNOWN_STATUS; // Если список пустой, статус неизвестен
+        }
+
         // Получаем последний статус
         String lastStatus = trackInfoDTOList.get(0).getInfoTrack();
+
         // Проверяем последний статус
         for (Map.Entry<Pattern, GlobalStatus> entry : statusPatterns.entrySet()) {
+
             if (entry.getKey().matcher(lastStatus).find()) {
                 // Если последний статус соответствует определенному паттерну
                 Pattern returnPattern = Pattern.compile("^Почтовое отправление подготовлено в ОПС к доставке на сортировочный пункт$|" +
                         "^Почтовое отправление прибыло на сортировочный пункт$|" +
                         "^Почтовое отправление подготовлено в сортировочном пункте к доставке на ОПС отправителя$");
+
                 if (returnPattern.matcher(lastStatus).find()) {
                     // Проверяем историю на наличие статуса возврата
                     for (TrackInfoDTO trackInfoDTO : trackInfoDTOList) {
                         if (trackInfoDTO.getInfoTrack().equals("Почтовое отправление готово к возврату")) {
-                            return GlobalStatus.RETURN_IN_PROGRESS.getDescription();
+                            return GlobalStatus.RETURN_IN_PROGRESS;
                         }
                     }
                 }
-                return entry.getValue() != null ? entry.getValue().getDescription() : lastStatus;
+                return entry.getValue();
             }
         }
-        return lastStatus;
+        // Дефолтный статус, если не найдено (отладка новых статусов)
+        return GlobalStatus.UNKNOWN_STATUS;
     }
 
     /**
@@ -85,14 +93,13 @@ public class StatusTrackService {
      * @param status Статус, для которого необходимо получить иконку.
      * @return HTML-код иконки для статуса.
      */
-    public String getIcon(String status) {
-        for (GlobalStatus globalStatus : GlobalStatus.values()) {
-            if (globalStatus.getDescription().equals(status)) {
-                return globalStatus.getIconHtml();
-            }
+    public String getIcon(GlobalStatus status) {
+        if (status != null) {
+            return status.getIconHtml();
         }
-        // Статус не найден, возвращаем иконку по умолчанию (отладка новых статусов)
-        return "<i class='bi bi-tencent-qq status-icon custom-qq'></i>";
-
+        // Статус не найден, возвращаем иконку по умолчанию
+        return GlobalStatus.UNKNOWN_STATUS.getIconHtml();
     }
+
+
 }

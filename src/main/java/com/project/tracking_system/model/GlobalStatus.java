@@ -22,7 +22,8 @@ public enum GlobalStatus {
     RETURN_IN_PROGRESS("Возврат в пути", "<i class='bi bi-truck status-icon return-progress'></i>"),
     RETURN_PENDING_PICKUP("Возврат ожидает забора", "<i class='bi bi-box-arrow-in-down-right status-icon return-pending'></i>"),
     RETURNED_TO_SENDER("Возврат забран", "<i class='bi bi-check2-circle status-icon returned'></i>"),
-    REGISTERED("Заявка зарегистрирована", "<i class='bi bi-file-earmark-text status-icon registered'></i>");
+    REGISTERED("Заявка зарегистрирована", "<i class='bi bi-file-earmark-text status-icon registered'></i>"),
+    UNKNOWN_STATUS("Неизвестный статус", "<i class='bi bi-question-circle status-icon unknown'></i>");
 
     private final String description;
     private final String iconHtml;
@@ -31,4 +32,14 @@ public enum GlobalStatus {
         this.description = description;
         this.iconHtml = iconHtml;
     }
+
+    public static GlobalStatus fromDescription(String description) {
+        for (GlobalStatus status : values()) {
+            if (status.description.equals(description)) {
+                return status;
+            }
+        }
+        return UNKNOWN_STATUS; // Если не найдено, возвращаем UNKNOWN_STATUS
+    }
+
 }
