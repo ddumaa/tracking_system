@@ -2,7 +2,9 @@ package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.EvropostCredentialsDTO;
 import com.project.tracking_system.dto.UserSettingsDTO;
+import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -13,11 +15,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -37,6 +43,7 @@ import org.springframework.web.bind.annotation.*;
 public class ProfileController {
 
     private final UserService userService;
+    private final StoreService storeService;
     private final WebSocketController webSocketController;
 
     /**
@@ -59,8 +66,11 @@ public class ProfileController {
         Long userId = user.getId();
         log.info("Получен запрос на отображение профиля для пользователя с ID: {}", userId);
 
+        String storeLimit = userService.getUserStoreLimit(userId);
+
         // Добавляем данные профиля в модель
         model.addAttribute("username", user.getEmail());
+        model.addAttribute("storeLimit", storeLimit);
         log.debug("Данные профиля добавлены в модель для пользователя с ID: {}", userId);
 
         // Добавляем настройки и другие данные пользователя в модель
@@ -245,5 +255,93 @@ public class ProfileController {
 
         return "redirect:/";
     }
+
+    /**
+     * Получает список магазинов пользователя.
+     */
+    @GetMapping("/stores")
+    @ResponseBody
+    public List<Store> getUserStores(@AuthenticationPrincipal User user) {
+        return storeService.getUserStores(user.getId());
+    }
+
+    /**
+     * Создаёт новый магазин.
+     */
+    @PostMapping("/stores")
+    @ResponseBody
+    public ResponseEntity<?> createStore(@AuthenticationPrincipal User user,
+                                         @RequestBody Map<String, String> request) {
+        try {
+            Store store = storeService.createStore(user.getId(), request.get("name"));
+            return ResponseEntity.ok(store);
+        } catch (IllegalStateException e) {
+            webSocketController.sendUpdateStatus(user.getId(), "❌ Ошибка: " + e.getMessage(), false);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        }
+    }
+
+    /**
+     * Обновляет название магазина.
+     */
+    @PutMapping("/stores/{storeId}")
+    @ResponseBody
+    public ResponseEntity<?> updateStore(@AuthenticationPrincipal User user,
+                                         @PathVariable Long storeId,
+                                         @RequestBody Map<String, String> request) {
+        try {
+            Store updatedStore = storeService.updateStore(storeId, user.getId(), request.get("name"));
+            return ResponseEntity.ok(updatedStore);
+        } catch (SecurityException e) {
+            webSocketController.sendUpdateStatus(user.getId(), "❌ Ошибка: " + e.getMessage(), false);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        }
+    }
+
+    /**
+     * Удаляет магазин.
+     */
+    @DeleteMapping("/stores/{storeId}")
+    @ResponseBody
+    public ResponseEntity<?> deleteStore(@AuthenticationPrincipal User user,
+                                         @PathVariable Long storeId) {
+        try {
+            storeService.deleteStore(storeId, user.getId());
+            return ResponseEntity.ok().build();
+        } catch (SecurityException e) {
+            webSocketController.sendUpdateStatus(user.getId(), "❌ Ошибка: " + e.getMessage(), false);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        }
+    }
+
+    /**
+     * Получает текущий лимит магазинов пользователя.
+     *
+     * @param authentication Данные текущего пользователя.
+     * @return Текущий лимит магазинов (использовано/доступно).
+     */
+    @GetMapping("/stores/limit")
+    @ResponseBody
+    public String getStoreLimit(Authentication authentication) {
+        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
+            throw new SecurityException("Необходима аутентификация");
+        }
+
+        return userService.getUserStoreLimit(user.getId());
+    }
+
+    @PostMapping("/stores/default/{storeId}")
+    @ResponseBody
+    public ResponseEntity<String> setDefaultStore(@AuthenticationPrincipal User user,
+                                                  @PathVariable Long storeId) {
+        try {
+            storeService.setDefaultStore(user.getId(), storeId);
+            return ResponseEntity.ok("Магазин по умолчанию установлен.");
+        } catch (Exception e) {
+            log.error("Ошибка установки магазина по умолчанию: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
 
 }

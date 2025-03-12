@@ -4,14 +4,16 @@ import com.project.tracking_system.dto.PasswordResetDTO;
 import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
+import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.model.TrackingResponse;
-import com.project.tracking_system.service.TrackNumberOcrService;
-import com.project.tracking_system.service.TrackingNumberServiceXLS;
+import com.project.tracking_system.service.track.TrackNumberOcrService;
+import com.project.tracking_system.service.track.TrackingNumberServiceXLS;
+import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.LoginAttemptService;
 import com.project.tracking_system.service.TypeDefinitionTrackPostService;
-import com.project.tracking_system.service.TrackParcelService;
+import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.user.PasswordResetService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -59,6 +61,7 @@ public class HomeController {
     private final LoginAttemptService loginAttemptService;
     private final PasswordResetService passwordResetService;
     private final TrackingNumberServiceXLS trackingNumberServiceXLS;
+    private final StoreService storeService;
     private final TrackNumberOcrService trackNumberOcrService;
 
     /**
@@ -67,7 +70,17 @@ public class HomeController {
      * @return имя представления домашней страницы
      */
     @GetMapping
-    public String home() {
+    public String home(Model model) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated() &&
+                !(authentication instanceof AnonymousAuthenticationToken)) {
+            User user = (User) authentication.getPrincipal();
+            model.addAttribute("authenticatedUser", user.getEmail());
+
+            // Получаем магазины пользователя
+            List<Store> stores = storeService.getUserStores(user.getId());
+            model.addAttribute("stores", stores);
+        }
         return "home";
     }
 
@@ -81,7 +94,9 @@ public class HomeController {
      * @return имя представления домашней страницы
      */
     @PostMapping
-    public String home(@ModelAttribute("number") String number, Model model) {
+    public String home(@ModelAttribute("number") String number,
+                       @RequestParam(value = "storeId", required = false) Long storeId,
+                       Model model) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         Long userId = null; // По умолчанию NULL для неаутентифицированных пользователей
 
@@ -90,10 +105,27 @@ public class HomeController {
             User user = (User) authentication.getPrincipal();
             userId = user.getId();
             model.addAttribute("authenticatedUser", user.getEmail());
-            log.info("Получен запрос на обновление посылки для пользователя ID: {}", userId);
+
+            // Получаем магазины пользователя
+            List<Store> stores = storeService.getUserStores(userId);
+            log.debug("Магазины пользователя: {}", stores);
+            model.addAttribute("stores", stores);
+
+            // Если магазин не был выбран пользователем, выбираем дефолтный
+            if (storeId == null) {
+                if (stores.size() == 1) {
+                    storeId = stores.get(0).getId();
+                } else {
+                    storeId = stores.stream()
+                            .filter(Store::isDefault)
+                            .map(Store::getId)
+                            .findFirst()
+                            .orElse(null);
+                }
+            }
         } else {
-            // Гость
-            log.info("Гость запросил информацию по трек-номеру: {}", number);
+            // гость
+            log.info("👤 Гость запросил информацию по трек-номеру: {}", number);
         }
 
         model.addAttribute("number", number);
@@ -111,18 +143,19 @@ public class HomeController {
             // Добавляем данные в модель
             model.addAttribute("trackInfo", trackInfo);
 
-            // Сохраняем посылку только для авторизованных пользователей
-            if (userId != null) {
+            // Сохраняем посылку только для авторизованных пользователей, если у них **есть магазин**
+            if (userId != null && storeId != null) {
                 try {
-                    trackParcelService.save(number, trackInfo, userId);
-                    log.debug("Данные посылки сохранены для пользователя ID: {}", userId);
+                    trackParcelService.save(number, trackInfo, storeId, userId);
+                    log.debug("✅ Данные посылки сохранены для пользователя ID={}, storeId={}", userId, storeId);
                 } catch (IllegalArgumentException e) {
-                    // Ловим исключение и показываем пользователю сообщение о лимите
                     model.addAttribute("customError", "Вы не можете сохранить больше 10 посылок.");
-                    log.warn("Ошибка сохранения посылки для пользователя ID {}: {}", userId, e.getMessage());
+                    log.warn("❌ Ошибка сохранения посылки для пользователя ID={}, storeId={}: {}", userId, storeId, e.getMessage());
                 }
+            } else if (userId != null) {
+                log.info("⏳ Пользователь ID={} не сохранил посылку, так как у него несколько магазинов.", userId);
             } else {
-                log.info("Гость просмотрел данные посылки без сохранения.");
+                log.info("👤 Гость просмотрел данные посылки без сохранения.");
             }
 
         } catch (IllegalArgumentException e) {
@@ -353,7 +386,9 @@ public class HomeController {
      * @return имя представления домашней страницы
      */
     @PostMapping("/upload")
-    public String uploadFile(@RequestParam("file") MultipartFile file, Model model) {
+    public String uploadFile(@RequestParam("file") MultipartFile file,
+                             @RequestParam(value = "storeId", required = false) Long storeId,
+                             Model model) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Long userId = null;
 
@@ -377,7 +412,7 @@ public class HomeController {
 
         try {
             if (contentType.equals("application/vnd.ms-excel") || contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
-                TrackingResponse trackingResponse = trackingNumberServiceXLS.processTrackingNumber(file, userId);
+                TrackingResponse trackingResponse = trackingNumberServiceXLS.processTrackingNumber(file, storeId, userId);
 
                 log.info("Передаём в модель limitExceededMessage: {}", trackingResponse.getLimitExceededMessage());
 
@@ -385,7 +420,7 @@ public class HomeController {
                 model.addAttribute("limitExceededMessage", trackingResponse.getLimitExceededMessage());
             } else if (contentType.startsWith("image/")) {
                 String recognizedText = trackNumberOcrService.processImage(file);
-                List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, userId);
+                List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, storeId, userId);
                 model.addAttribute("trackingResults", trackingResults);
 
                 return "home";

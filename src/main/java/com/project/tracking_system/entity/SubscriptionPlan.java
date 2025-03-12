@@ -35,4 +35,6 @@ public class SubscriptionPlan {
     @Column(nullable = false)
     private boolean allowBulkUpdate;
 
+    @Column(nullable = false)
+    private Integer maxStores;
 }

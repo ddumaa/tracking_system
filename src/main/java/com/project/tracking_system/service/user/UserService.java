@@ -4,12 +4,11 @@ import com.project.tracking_system.dto.EvropostCredentialsDTO;
 import com.project.tracking_system.dto.ResolvedCredentialsDTO;
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.dto.UserSettingsDTO;
-import com.project.tracking_system.entity.ConfirmationToken;
-import com.project.tracking_system.entity.User;
+import com.project.tracking_system.entity.*;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
-import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.repository.ConfirmationTokenRepository;
 import com.project.tracking_system.repository.EvropostServiceCredentialRepository;
+import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.email.EmailService;
@@ -54,6 +53,7 @@ public class UserService {
     private final JwtTokenManager jwtTokenManager;
     private final UserCredentialsResolver userCredentialsResolver;
     private final SubscriptionService subscriptionService;
+    private final StoreRepository storeRepository;
 
     /**
      * Отправляет код подтверждения на email для регистрации нового пользователя.
@@ -144,8 +144,18 @@ public class UserService {
 
         userRepository.save(user);
 
+        // Создаём магазин для нового пользователя с общим названием и ставим его дефолтным
+        Store store = new Store();
+        store.setName("Мой магазин");
+        store.setOwner(user);
+        store.setDefault(true);
+
+        storeRepository.save(store);
+
+        // Настраиваем подписку пользователя
         subscriptionService.changeSubscription(user.getId(), "FREE", null);
 
+        // Удаляем токен подтверждения
         confirmationTokenRepository.deleteByEmail(userDTO.getEmail());
 
         log.info("Регистрация пользователя {} завершена. Код подтверждения удален.", userDTO.getEmail());
@@ -163,7 +173,6 @@ public class UserService {
                 log.info("Роль пользователя с ID {} уже установлена на {}", userId, newRole);
                 return;
             }
-
 
             user.setRole(role);
             userRepository.save(user);
@@ -307,6 +316,26 @@ public class UserService {
 
         userRepository.delete(user);
         log.info("Пользователь с ID {} был удален.", userId);
+    }
+
+    /**
+     * Получает лимит магазинов пользователя.
+     *
+     * @param userId ID пользователя.
+     * @return Количество использованных и доступных магазинов в виде строки "1/10".
+     */
+    @Transactional
+    public String getUserStoreLimit(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+
+        int storeCount = user.getStores().size(); // Получаем количество магазинов
+        int maxStores = Optional.ofNullable(user.getSubscription())
+                .map(UserSubscription::getSubscriptionPlan)
+                .map(SubscriptionPlan::getMaxStores)
+                .orElse(1); // По умолчанию 1
+
+        return storeCount + "/" + maxStores;
     }
 
 }

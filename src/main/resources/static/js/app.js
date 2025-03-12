@@ -140,14 +140,21 @@ function toggleFieldsVisibility(checkbox, fieldsContainer) {
 }
 
 let lastPage = window.location.pathname; // Запоминаем текущую страницу при загрузке
+let isInitialLoad = true;
 
 document.addEventListener("visibilitychange", function () {
+    if (isInitialLoad) {
+        isInitialLoad = false;
+        console.log("Страница только что загрузилась, состояние: " + document.visibilityState);
+        return;
+    }
+
     if (document.hidden) {
         console.log("🔴 Пользователь ушёл со страницы");
-        lastPage = window.location.pathname; // Фиксируем страницу
+        lastPage = window.location.pathname;
     } else {
         console.log("🟢 Пользователь вернулся на страницу");
-        lastPage = window.location.pathname; // Фиксируем новую страницу
+        lastPage = window.location.pathname;
     }
 });
 
@@ -158,13 +165,15 @@ function isModalOpen() {
 
 // Функция выбора уведомления
 function notifyUser(message, type = "info") {
-    if (document.hidden || window.location.pathname !== lastPage || isModalOpen()) {
-        console.log("📢 Показываем toast, так как пользователь сменил страницу или уже в модальном окне");
-        showToast(message, type);
-    } else {
-        console.log("✅ Показываем alert, так как пользователь остаётся на странице");
-        showAlert(message, type);
-    }
+    setTimeout(() => { // ⏳ Даем 100мс на закрытие модалки
+        if (document.hidden || window.location.pathname !== lastPage || isModalOpen()) {
+            console.log("📢 Показываем toast, так как пользователь сменил страницу или уже в модальном окне");
+            showToast(message, type);
+        } else {
+            console.log("✅ Показываем alert, так как пользователь остаётся на странице");
+            showAlert(message, type);
+        }
+    }, 100); // 🔥 100мс - небольшая задержка
 }
 
 // Уведомления
@@ -246,8 +255,8 @@ function connectWebSocket() {
         //'wss://belivery.by/ws', 'ws://localhost:8080/ws',
         brokerURL: 'wss://belivery.by/ws',
         reconnectDelay: 1000,
-        heartbeatIncoming: 2000,
-        heartbeatOutgoing: 2000,
+        heartbeatIncoming: 0,
+        heartbeatOutgoing: 0,
         debug: function (str) {
             console.log('STOMP Debug: ', str);
         }
@@ -330,20 +339,354 @@ function reloadParcelTable() {
         });
 }
 
-function enableTooltips() {
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    tooltipTriggerList.forEach(tooltipTriggerEl => {
-        new bootstrap.Tooltip(tooltipTriggerEl);
+let activeTooltip = null; // Храним текущий tooltip
+
+/**
+ * Функция для создания и управления tooltips
+ */
+function enableTooltips(root = document) {
+    root.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(tooltipTriggerEl => {
+        // Если tooltip уже инициализирован для элемента, пропускаем его
+        if (bootstrap.Tooltip.getInstance(tooltipTriggerEl)) return;
+
+        // Создаём новый tooltip
+        const newTooltip = new bootstrap.Tooltip(tooltipTriggerEl, {
+            trigger: 'manual', // Управляем вручную
+            placement: 'top',
+        });
+
+        // === Наведение мыши (ПК) ===
+        tooltipTriggerEl.addEventListener("mouseenter", function () {
+            if (activeTooltip && activeTooltip !== newTooltip) {
+                activeTooltip.hide();
+            }
+            newTooltip.show();
+            activeTooltip = newTooltip;
+        });
+
+        // === Уход курсора (ПК) ===
+        tooltipTriggerEl.addEventListener("mouseleave", function () {
+            newTooltip.hide();
+            if (activeTooltip === newTooltip) {
+                activeTooltip = null;
+            }
+        });
+
+        // === Клик (мобильные устройства) ===
+        tooltipTriggerEl.addEventListener("click", function (e) {
+            // Останавливаем всплытие, чтобы глобальный обработчик клика не сработал сразу
+            e.stopPropagation();
+            if (activeTooltip === newTooltip) {
+                newTooltip.hide();
+                activeTooltip = null;
+            } else {
+                if (activeTooltip) {
+                    activeTooltip.hide();
+                }
+                newTooltip.show();
+                activeTooltip = newTooltip;
+            }
+        });
     });
 }
 
-// Повторная инициализация Tooltips при динамическом изменении страницы
-document.addEventListener("mouseover", function (event) {
-    if (event.target.matches('[data-bs-toggle="tooltip"]')) {
-        enableTooltips();
+// Глобальный обработчик для клика вне tooltip (применяется один раз)
+document.addEventListener("click", function (event) {
+    if (activeTooltip) {
+        // Если клик произошёл вне активного элемента с tooltip
+        const tooltipEl = activeTooltip._element;
+        if (tooltipEl && !tooltipEl.contains(event.target)) {
+            activeTooltip.hide();
+            activeTooltip = null;
+        }
     }
-});
+}, true);
 
+let storeToDelete = null;
+
+/**
+ * Загружает магазины пользователя и обновляет таблицу
+ */
+async function loadStores() {
+    const response = await fetch('/profile/stores');
+    if (!response.ok) {
+        console.error("Ошибка загрузки магазинов:", await response.text());
+        return;
+    }
+
+    const stores = await response.json();
+    const tableBody = document.getElementById('storeTableBody');
+
+    if (!tableBody) {
+        console.warn("⚠️ Таблица 'storeTableBody' не найдена в DOM!");
+        return;
+    }
+
+    tableBody.innerHTML = "";
+    const isMultipleStores = stores.length > 1; // Проверяем, можно ли менять магазин по умолчанию
+
+    stores.forEach(store => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td class="d-flex align-items-center">
+                <input type="radio" name="defaultStore" 
+                       class="default-store-radio me-2" 
+                       data-store-id="${store.id}" 
+                       ${store.default ? "checked" : ""} 
+                       ${!isMultipleStores ? "disabled" : ""} 
+                       data-bs-toggle="tooltip" 
+                       title="Магазин по умолчанию">
+                <input type="text" class="form-control store-name-input" value="${store.name}" id="store-name-${store.id}" disabled>
+            </td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary edit-store-btn" data-store-id="${store.id}">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-success save-store-btn d-none" data-store-id="${store.id}">
+                    <i class="bi bi-check"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger delete-store-btn" data-store-id="${store.id}">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+
+    // Инициализируем tooltips после загрузки магазинов
+    enableTooltips();
+
+    console.info("✅ Магазины успешно загружены и отрисованы.");
+}
+
+/**
+ * Включает/выключает редактирование для магазина
+ */
+function toggleEditStore(storeId) {
+    const inputField = document.getElementById(`store-name-${storeId}`);
+    const editBtn = document.querySelector(`.edit-store-btn[data-store-id="${storeId}"]`);
+    const saveBtn = document.querySelector(`.save-store-btn[data-store-id="${storeId}"]`);
+    const deleteBtn = document.querySelector(`.delete-store-btn[data-store-id="${storeId}"], .cancel-edit-store-btn[data-store-id="${storeId}"]`);
+
+    if (inputField.disabled) {
+        // Включаем редактирование
+        inputField.disabled = false;
+        inputField.focus();
+
+        editBtn.classList.add('d-none');
+        saveBtn.classList.remove('d-none');
+
+        // Меняем "Удалить" на "Отменить"
+        deleteBtn.classList.remove("delete-store-btn");
+        deleteBtn.classList.add("cancel-edit-store-btn");
+        deleteBtn.innerHTML = `<i class="bi bi-x"></i>`;
+    } else {
+        // Выключаем редактирование
+        inputField.disabled = true;
+
+        editBtn.classList.remove('d-none');
+        saveBtn.classList.add('d-none');
+
+        // Возвращаем кнопку "Удалить"
+        deleteBtn.classList.remove("cancel-edit-store-btn");
+        deleteBtn.classList.add("delete-store-btn");
+        deleteBtn.innerHTML = `<i class="bi bi-trash"></i>`;
+    }
+}
+
+const baseUrl = "/profile/stores"; // Базовый URL для всех запросов
+
+/**
+ * Сохраняет обновленное название магазина
+ */
+async function saveStore(storeId) {
+    const inputField = document.getElementById(`store-name-${storeId}`);
+    const newName = inputField.value.trim();
+
+    if (!newName) {
+        alert("Название не может быть пустым!");
+        return;
+    }
+
+    const response = await fetch(`${baseUrl}/${storeId}`, { // ✅ Правильный путь
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+        },
+        body: JSON.stringify({ name: newName })
+    });
+
+    if (response.ok) {
+        loadStores();
+    } else {
+        alert("Ошибка обновления: " + await response.text());
+    }
+}
+
+/**
+ * Добавляет новую строку для магазина
+ */
+function addNewStore() {
+    const tableBody = document.getElementById("storeTableBody");
+    const tempId = `new-${Date.now()}`; // Уникальный ID для нового магазина
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+        <td>
+            <input type="text" class="form-control store-name-input" id="store-name-${tempId}" placeholder="Введите название">
+        </td>
+        <td>
+            <button type="button" class="btn btn-sm btn-outline-success save-new-store-btn" data-store-id="${tempId}">
+                <i class="bi bi-check"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-danger remove-new-store-btn" data-store-id="${tempId}">
+                <i class="bi bi-x"></i>
+            </button>
+        </td>
+    `;
+
+    tableBody.appendChild(row);
+
+    // Фокусируемся на поле ввода
+    document.getElementById(`store-name-${tempId}`).focus();
+}
+
+/**
+ * Удаляет строку, если пользователь передумал добавлять магазин
+ */
+function removeNewStoreRow(button) {
+    button.closest("tr").remove();
+}
+
+/**
+ * Сохраняет новый магазин
+ */
+async function saveNewStore(event) {
+    event.preventDefault(); // ❗ Предотвращаем стандартное поведение
+
+    const button = event.target.closest(".save-new-store-btn");
+    if (!button) return;
+
+    const storeId = button.dataset.storeId;
+    const inputField = document.getElementById(`store-name-${storeId}`);
+    const newStoreName = inputField?.value.trim();
+
+    if (!newStoreName) {
+        alert("Название не может быть пустым!");
+        return;
+    }
+
+    const response = await fetch("/profile/stores", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+        },
+        body: JSON.stringify({ name: newStoreName })
+    });
+
+    if (response.ok) {
+        loadStores(); // Обновляем список магазинов
+        updateStoreLimit();
+    } else {
+        console.warn("Ошибка при создании магазина: ", await response.text());
+        return;
+    }
+}
+
+/**
+ * Открывает модальное окно подтверждения удаления
+ */
+function confirmDeleteStore(storeId) {
+    storeToDelete = storeId;
+    new bootstrap.Modal(document.getElementById('deleteStoreModal')).show();
+}
+
+/**
+ * Удаляет магазин после подтверждения
+ */
+async function deleteStore() {
+    if (!storeToDelete) return;
+
+    const response = await fetch(`${baseUrl}/${storeToDelete}`, { // ✅ Правильный путь
+        method: "DELETE",
+        headers: {
+            [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+        }
+    });
+
+    if (response.ok) {
+        loadStores();
+        updateStoreLimit();
+    } else {
+        alert("Ошибка при удалении: " + await response.text());
+    }
+
+    storeToDelete = null;
+    bootstrap.Modal.getInstance(document.getElementById('deleteStoreModal')).hide();
+}
+
+/**
+ * Обновляет отображение лимита магазинов
+ */
+async function updateStoreLimit() {
+    try {
+        const response = await fetch('/profile/stores/limit');
+        if (!response.ok) {
+            console.error("Ошибка при получении лимита магазинов:", response.status);
+            return;
+        }
+
+        const newLimit = await response.text();
+        const storeLimitElement = document.getElementById("store-limit");
+
+        if (storeLimitElement) {
+            storeLimitElement.textContent = newLimit;
+        } else {
+            console.warn("Элемент #store-limit не найден, невозможно обновить лимит магазинов.");
+        }
+    } catch (error) {
+        console.error("Ошибка при обновлении лимита магазинов:", error);
+    }
+}
+
+/**
+ * Обработчик выбора магазина по умолчанию (с проверкой наличия элемента)
+ */
+const storeTableBody = document.getElementById("storeTableBody");
+if (storeTableBody) {
+    storeTableBody.addEventListener("change", async function (event) {
+        const radio = event.target.closest(".default-store-radio");
+        if (!radio) return;
+
+        const storeId = radio.dataset.storeId;
+
+        try {
+            const response = await fetch(`/profile/stores/default/${storeId}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+                }
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                notifyUser(`❌ Ошибка: ${errorText}`, "danger");
+                return;
+            }
+
+            //notifyUser(`Магазин по умолчанию обновлён!`, "success");
+
+            // Перезагружаем магазины, чтобы обновить состояние
+            loadStores();
+        } catch (error) {
+            console.error("❌ Ошибка при установке магазина по умолчанию:", error);
+            notifyUser("❌ Ошибка соединения с сервером", "danger");
+        }
+    });
+}
 
 document.addEventListener("DOMContentLoaded", function () {
 
@@ -421,10 +764,73 @@ document.addEventListener("DOMContentLoaded", function () {
         cookieModal.classList.add("show");
     }
 
+    // Выбор магазина при добавлении трека
+    const storeSelectDropdown = document.getElementById("storeSelect");
+    if (storeSelectDropdown) {
+        console.log('Найден селект с магазинами, количество опций:', storeSelectDropdown.options.length);
+        if (storeSelectDropdown.options.length > 1) {
+            storeSelectDropdown.classList.remove("d-none");
+        }
+    } else {
+        console.warn('Элемент storeSelect не найден.');
+    }
+    // Если нет фильтра по магазинам, выходим
+    //if (!storeFilterDropdown || !statusSelect) return;
+
     // Инициализация логики форм
     initPasswordFormHandler();
     initEvropostFormHandler();
     initializeCustomCredentialsCheckbox();
+
+    // Назначаем обработчик кнопки "Добавить магазин" - с проверкой на наличие
+    const addStoreBtn = document.getElementById("addStoreBtn");
+    if (addStoreBtn) {
+        addStoreBtn.addEventListener("click", addNewStore);
+    }
+    // Делегируем обработку кликов внутри таблицы
+    const storeTableBody = document.getElementById("storeTableBody");
+    if (storeTableBody) {
+
+        // Загружаем лимит магазинов
+        updateStoreLimit();
+
+        // Загружаем список магазинов
+        loadStores();
+
+        storeTableBody.addEventListener("click", function (event) {
+            event.preventDefault(); // ❗ ОТМЕНЯЕМ ПЕРЕЗАГРУЗКУ СТРАНИЦЫ
+
+            const button = event.target.closest("button");
+            if (!button) return;
+
+            const storeId = button.dataset.storeId;
+
+            if (button.classList.contains("edit-store-btn")) {
+                toggleEditStore(storeId);
+            }
+            if (button.classList.contains("save-store-btn")) {
+                saveStore(storeId);
+            }
+            if (button.classList.contains("delete-store-btn")) {
+                confirmDeleteStore(storeId);
+            }
+            if (button.classList.contains("cancel-edit-store-btn")) {
+                toggleEditStore(storeId);
+            }
+            if (button.classList.contains("save-new-store-btn")) {
+                saveNewStore(event);
+            }
+            if (button.classList.contains("remove-new-store-btn")) {
+                removeNewStoreRow(button);
+            }
+        });
+    }
+
+    // Проверяем наличие элемента перед добавлением обработчика - удаление магазина
+    const confirmDeleteBtn = document.getElementById("confirmDeleteStore");
+    if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener("click", deleteStore);
+    }
 
     document.body.addEventListener("click", function (event) {
         if (event.target.closest(".open-modal")) {
@@ -598,20 +1004,31 @@ document.addEventListener("DOMContentLoaded", function () {
             });
     });
 
-    // === Статус ===
-    const statusSelect = document.getElementById("status");
+    // Получаем элементы фильтров: статус и магазин
+    const statusFilterDropdown  = document.getElementById("status");
+    const storeFilterDropdown = document.getElementById("storeId");
 
-    // Восстанавливаем сохранённый статус при загрузке страницы
-    const urlParams = new URLSearchParams(window.location.search);
-    const currentStatus = urlParams.get("status");
+    // Проверяем, существуют ли элементы на странице (если нет - выходим)
+    if (!storeFilterDropdown || !statusFilterDropdown ) return;
 
-    if (currentStatus) {
-        statusSelect.value = currentStatus; // Устанавливаем значение из URL
-    }
+    // Восстанавливаем значения фильтров из URL (чтобы при обновлении страницы они оставались)
+    const currentUrl = new URL(window.location.href);
+    const currentStatus = currentUrl.searchParams.get("status");
+    const currentStore = currentUrl.searchParams.get("storeId");
 
-    // === Фильтр по статусу ===
-    document.getElementById("filterActionBtn")?.addEventListener("click", function () {
-        const selectedStatus = statusSelect.value;
+    // Устанавливаем значения селекторов, если в URL были параметры
+    if (currentStatus) statusFilterDropdown.value = currentStatus;
+    if (currentStore) storeFilterDropdown.value = currentStore;
+
+    /**
+     * Функция применения фильтров.
+     * - Считывает текущие выбранные значения в селекторах.
+     * - Обновляет URL с новыми параметрами.
+     * - Перезагружает страницу с обновленными фильтрами.
+     */
+    function applyFilters() {
+        const selectedStatus = statusFilterDropdown.value;
+        const selectedStore = storeFilterDropdown.value;
         const currentUrl = new URL(window.location.href);
 
         if (selectedStatus) {
@@ -620,8 +1037,20 @@ document.addEventListener("DOMContentLoaded", function () {
             currentUrl.searchParams.delete("status");
         }
 
+        if (selectedStore) {
+            currentUrl.searchParams.set("storeId", selectedStore);
+        } else {
+            currentUrl.searchParams.delete("storeId");
+        }
+
+        console.log("✅ Фильтр применён: статус =", selectedStatus, "магазин =", selectedStore);
+
         window.location.href = currentUrl.toString();
-    });
+    }
+
+    // Автоматическое применение фильтра при изменении значений в селекторах
+    statusFilterDropdown.addEventListener("change", applyFilters);
+    storeFilterDropdown.addEventListener("change", applyFilters);
 
     document.body.addEventListener("change", function (event) {
         if (event.target.classList.contains("selectCheckbox")) {

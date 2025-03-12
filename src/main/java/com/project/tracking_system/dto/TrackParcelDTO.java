@@ -1,7 +1,6 @@
 package com.project.tracking_system.dto;
 
 import com.project.tracking_system.entity.TrackParcel;
-import com.project.tracking_system.service.StatusTrackService;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -20,15 +19,8 @@ public class TrackParcelDTO {
 
     public TrackParcelDTO(TrackParcel trackParcel) {
         this.number = trackParcel.getNumber();
-        this.status = trackParcel.getStatus();
+        this.status = trackParcel.getStatus().getDescription();
         this.data = trackParcel.getData();
-    }
-
-    public TrackParcelDTO(TrackParcel trackParcel, StatusTrackService statusTrackService) {
-        this.number = trackParcel.getNumber();
-        this.status = trackParcel.getStatus();
-        this.data = trackParcel.getData();
-        this.iconHtml = statusTrackService.getIcon(trackParcel.getStatus());
     }
 
 }

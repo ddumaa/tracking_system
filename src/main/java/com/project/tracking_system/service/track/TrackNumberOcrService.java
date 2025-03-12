@@ -1,7 +1,8 @@
-package com.project.tracking_system.service;
+package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackingResultAdd;
+import com.project.tracking_system.service.TypeDefinitionTrackPostService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -123,7 +124,7 @@ public class TrackNumberOcrService {
      * @param authenticatedUser Пользователь, который выполнил запрос.
      * @return Список объектов TrackingResultAdd, содержащих результат обработки каждого трек-номера.
      */
-    public List<TrackingResultAdd> extractAndProcessTrackingNumbers(String text, Long userId) {
+    public List<TrackingResultAdd> extractAndProcessTrackingNumbers(String text, Long storeId, Long userId) {
         if (text == null || text.trim().isEmpty()) {
             return new ArrayList<>();
         }
@@ -147,7 +148,7 @@ public class TrackNumberOcrService {
                     TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(userId, trackNumber);
 
                     if (trackInfo != null) {
-                        trackParcelService.save(trackNumber, trackInfo, userId);
+                        trackParcelService.save(trackNumber, trackInfo, storeId, userId);
                     }
 
                     trackInfoResult.add(new TrackingResultAdd(trackNumber, "Добавлен"));

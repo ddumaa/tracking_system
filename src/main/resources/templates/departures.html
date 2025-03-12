@@ -36,7 +36,7 @@
                         <!-- Действие + кнопка "Применить" -->
                         <div class="filter-group d-flex align-items-center gap-2">
                             <div class="filter-item d-flex align-items-center">
-                                <label for="actionSelect" class="form-label m-0 me-2"></label>
+                                <label for="actionSelect" class="form-label m-0 me-2">Действие:</label>
                                 <select id="actionSelect" class="form-select w-auto">
                                     <option value="">Выберите действие</option>
                                     <option value="delete">Удалить</option>
@@ -46,27 +46,36 @@
                             <button type="button" id="applyActionBtn" class="btn btn-outline-primary">Применить</button>
                         </div>
 
+                        <!-- Фильтр по магазину -->
+                        <div class="filter-group d-flex align-items-center gap-2">
+                            <label for="storeId" class="form-label m-0 me-2">Магазин:</label>
+                            <select id="storeId" name="storeId" class="form-select w-auto">
+                                <option value="" th:selected="${storeId == null}">Все магазины</option>
+                                <option th:each="store : ${stores}"
+                                        th:value="${store.id}"
+                                        th:text="${store.name}"
+                                        th:selected="${store.id == storeId}">
+                                </option>
+                            </select>
+                        </div>
+
                         <!-- Фильтр по статусу -->
                         <div class="filter-group d-flex align-items-center gap-2">
-                            <div class="filter-item d-flex align-items-center">
-                                <label for="status" class="form-label m-0 me-2"></label>
-                                <select id="status" name="status" class="form-select w-auto">
-                                    <option value="" th:selected="${statusString == null}">Все статусы</option>
-                                    <option value="DELIVERED" th:selected="${statusString == 'DELIVERED'}">Вручена</option>
-                                    <option value="WAITING_FOR_CUSTOMER" th:selected="${statusString == 'WAITING_FOR_CUSTOMER'}">Ожидает клиента</option>
-                                    <option value="IN_TRANSIT" th:selected="${statusString == 'IN_TRANSIT'}">В пути</option>
-                                    <option value="CUSTOMER_NOT_PICKING_UP" th:selected="${statusString == 'CUSTOMER_NOT_PICKING_UP'}">Клиент не забирает</option>
-                                    <option value="RETURN_IN_PROGRESS" th:selected="${statusString == 'RETURN_IN_PROGRESS'}">Возврат в пути</option>
-                                    <option value="RETURNED_TO_SENDER" th:selected="${statusString == 'RETURNED_TO_SENDER'}">Возврат забран</option>
-                                    <option value="REGISTERED" th:selected="${statusString == 'REGISTERED'}">Зарегистрирована</option>
-                                </select>
-                            </div>
-                            <button type="button" id="filterActionBtn" class="btn btn-outline-primary">Фильтровать</button>
+                            <label for="status" class="form-label m-0 me-2">Статус:</label>
+                            <select id="status" name="status" class="form-select w-auto">
+                                <!-- Всегда выводим опцию "Все статусы" -->
+                                <option value="" th:selected="${statusString == null}">Все статусы</option>
+                                <!-- Динамически генерируем опции из enum GlobalStatus -->
+                                <option th:each="status : ${T(com.project.tracking_system.model.GlobalStatus).values()}"
+                                        th:value="${status.name()}"
+                                        th:text="${status.getDescription()}"
+                                        th:selected="${status.name() == statusString}">
+                                </option>
+                            </select>
                         </div>
 
                         <!-- Количество элементов на странице -->
                         <div class="filter-group size-controls d-flex align-items-center gap-2">
-                            <span class="form-label m-0"></span>
                             <button type="button" class="btn btn-outline-secondary size-btn" data-size="20"
                                     th:classappend="${size == 20} ? 'active'">20</button>
                             <button type="button" class="btn btn-outline-secondary size-btn" data-size="50"
@@ -100,7 +109,10 @@
                                         </td>
                                         <td>
                                             <div class="d-flex align-items-center">
-                                                <span th:utext="${statusTrackService.getIcon(item.status)}" class="status-icon"></span>
+                                                <!-- Изменено: выводим готовое значение iconHtml из DTO -->
+                                                <span th:if="${item.iconHtml != null}" th:utext="${item.iconHtml}" class="status-icon"></span>
+                                                <span th:unless="${item.iconHtml != null}" th:utext="${T(com.project.tracking_system.model.GlobalStatus).UNKNOWN_STATUS.getIconHtml()}" class="status-icon"></span>
+
                                                 <button type="button" class="btn btn-link parcel-number open-modal"
                                                         th:text="${item.number}"
                                                         th:data-itemnumber="${item.number}"
@@ -120,10 +132,9 @@
                     <!-- Пагинация -->
                     <div class="d-flex justify-content-center">
                         <ul class="pagination" th:if="${totalPages > 1}">
-
                             <!-- Кнопка "Назад" -->
                             <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled'">
-                                <a class="page-link" th:href="@{/history(status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size})}"
+                                <a class="page-link" th:href="@{/departures(storeId=${storeId}, status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size})}"
                                    aria-label="Предыдущая страница">
                                     <i class="bi bi-chevron-left"></i>
                                 </a>
@@ -132,12 +143,14 @@
                             <!-- Номера страниц -->
                             <li class="page-item" th:each="i : ${#numbers.sequence(0, totalPages - 1)}"
                                 th:classappend="${i == currentPage} ? 'active'">
-                                <a class="page-link" th:href="@{/history(status=${statusString}, page=${i}, size=${size})}" th:text="${i + 1}" aria-label="Страница ${i + 1}"></a>
+                                <a class="page-link" th:href="@{/departures(storeId=${storeId}, status=${statusString}, page=${i}, size=${size})}"
+                                   th:text="${i + 1}" aria-label="Страница ${i + 1}">
+                                </a>
                             </li>
 
                             <!-- Кнопка "Вперёд" -->
                             <li class="page-item" th:classappend="${currentPage == totalPages - 1} ? 'disabled'">
-                                <a class="page-link" th:href="@{/history(status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size})}"
+                                <a class="page-link" th:href="@{/departures(storeId=${storeId}, status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size})}"
                                    aria-label="Следующая страница">
                                     <i class="bi bi-chevron-right"></i>
                                 </a>

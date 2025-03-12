@@ -5,6 +5,7 @@ import com.project.tracking_system.maper.JsonEvroTrackingResponseMapper;
 import com.project.tracking_system.model.evropost.jsonResponseModel.JsonEvroTrackingResponse;
 import com.project.tracking_system.service.belpost.WebBelPost;
 import com.project.tracking_system.service.jsonEvropostService.JsonEvroTrackingService;
+import com.project.tracking_system.utils.UpperCaseString;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -31,6 +32,7 @@ public class TypeDefinitionTrackPostService {
     private final WebBelPost webBelPost;
     private final JsonEvroTrackingService jsonEvroTrackingService;
     private final JsonEvroTrackingResponseMapper jsonEvroTrackingResponseMapper;
+    private final UpperCaseString upperCaseString;
 
     /**
      * Асинхронный метод для получения информации о статусе посылки по номеру отслеживания.
@@ -44,9 +46,13 @@ public class TypeDefinitionTrackPostService {
      * @throws IllegalArgumentException если номер отслеживания имеет некорректный формат
      */
     @Async("Post")
-    public CompletableFuture<TrackInfoListDTO> getTypeDefinitionTrackPostServiceAsync(Long userId, String number) {
+    public CompletableFuture<TrackInfoListDTO> getTypeDefinitionTrackPostServiceAsync(Long userId, String rawNumber) {
         return CompletableFuture.supplyAsync(() -> {
+
+            String number = upperCaseString.normalizeTrackNumber(rawNumber);
+
             try {
+
                 if (number.matches("^PC\\d{9}BY$") || number.matches("^BV\\d{9}BY$") || number.matches("^BP\\d{9}BY$")) {
                     return webBelPost.webAutomationAsync(number).join();
                 }

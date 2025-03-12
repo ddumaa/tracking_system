@@ -1,15 +1,20 @@
-package com.project.tracking_system.service;
+package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
+import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.UpdateResult;
+import com.project.tracking_system.entity.User;
 import com.project.tracking_system.model.GlobalStatus;
+import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
+import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.service.TypeDefinitionTrackPostService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -50,11 +55,12 @@ public class TrackParcelService {
 
     private final WebSocketController webSocketController;
     private final TrackParcelRepository trackParcelRepository;
-    private final UserRepository userRepository;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final StatusTrackService statusTrackService;
     private final SubscriptionService subscriptionService;
     private final UserSubscriptionRepository userSubscriptionRepository;
+    private final StoreRepository storeRepository;
+    private final UserRepository userRepository;
 
     /**
      * Сохраняет или обновляет посылку пользователя.
@@ -68,30 +74,44 @@ public class TrackParcelService {
      * @param username имя пользователя
      */
     @Transactional
-    public void save(String number, TrackInfoListDTO trackInfoListDTO, Long userId) {
+    public void save(String number, TrackInfoListDTO trackInfoListDTO, Long storeId, Long userId) {
         if (number == null || trackInfoListDTO == null) {
             throw new IllegalArgumentException("Отсутствует посылка");
         }
 
-        // Проверяем, существует ли уже этот трек у пользователя
+        // Ищем трек по номеру и пользователю независимо от магазина
         TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(number, userId);
-
         boolean isNewTrack = (trackParcel == null);
-
-        int remainingTracks = subscriptionService.canSaveMoreTracks(userId, 1);
 
         // Если трек новый, проверяем лимиты
         if (isNewTrack) {
-
+            int remainingTracks = subscriptionService.canSaveMoreTracks(userId, 1);
             if (remainingTracks <= 0) {
                 throw new IllegalArgumentException("Вы не можете сохранить больше посылок, так как превышен лимит сохранённых посылок.");
             }
 
+            // Используем getReferenceById(), чтобы не делать лишний SELECT
+            Store store = storeRepository.getReferenceById(storeId);
+            User user = userRepository.getReferenceById(userId);
+
             // Создаём новый трек
             trackParcel = new TrackParcel();
             trackParcel.setNumber(number);
-            trackParcel.setUser(userRepository.getReferenceById(userId)); // Lazy загрузка пользователя
+            trackParcel.setStore(store);
+            trackParcel.setUser(user);
+
+        } else {
+        // Если трек уже существует, проверяем, соответствует ли магазин выбранному пользователем
+        if (!trackParcel.getStore().getId().equals(storeId)) {
+            // Загружаем новый магазин
+            Long oldStoreId = trackParcel.getStore().getId();
+            Store newStore = storeRepository.getReferenceById(storeId);
+
+            // Обновляем магазин у трека
+            trackParcel.setStore(newStore);
+            log.info("Обновление магазина для трека {}: с магазина {} на магазин {}", number, oldStoreId, storeId);
         }
+    }
 
         // Обновляем статус и дату трека на основе нового содержимого
         trackParcel.setStatus(statusTrackService.setStatus(trackInfoListDTO.getList()));
@@ -99,32 +119,32 @@ public class TrackParcelService {
 
         trackParcelRepository.save(trackParcel);
 
-        log.info("✅ Обновлено: userId={}, трек={}, новый статус={}", userId, trackParcel.getNumber(), trackParcel.getStatus());
-
+        log.info("✅ Обновлено: userId={}, storeId={}, трек={}, новый статус={}",
+                userId, storeId, trackParcel.getNumber(), trackParcel.getStatus());
     }
 
     /**
-     * Ищет посылки пользователя с поддержкой пагинации.
-     * <p>
-     * Этот метод возвращает страницу посылок пользователя по имени, используя пагинацию.
-     * </p>
+     * Проверяет, принадлежит ли посылка пользователю.
      *
-     * @param username имя пользователя
-     * @param page номер страницы
-     * @param size размер страницы
-     * @return страница с посылками пользователя
+     * @param itemNumber Номер посылки.
+     * @param userId     ID пользователя.
+     * @return true, если посылка принадлежит пользователю.
      */
+    public boolean userOwnsParcel(String itemNumber, Long userId) {
+        return trackParcelRepository.existsByNumberAndUserId(itemNumber, userId);
+    }
+
     @Transactional
-    public Page<TrackParcelDTO> findByUserTracks(Long userId, int page, int size) {
+    public Page<TrackParcelDTO> findByStoreTracks(List<Long> storeIds, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<TrackParcel> trackParcels = trackParcelRepository.findByUserId(userId, pageable);
+        Page<TrackParcel> trackParcels = trackParcelRepository.findByStoreIdIn(storeIds, pageable);
         return trackParcels.map(TrackParcelDTO::new);
     }
 
     /**
-     * Ищет посылки пользователя по статусу с поддержкой пагинации.
+     * Ищет посылки магазина по статусу с поддержкой пагинации.
      * <p>
-     * Этот метод возвращает страницу посылок пользователя по статусу и имени, с использованием пагинации.
+     * Этот метод возвращает страницу посылок магазина по статусу и имени, с использованием пагинации.
      * </p>
      *
      * @param username имя пользователя
@@ -134,26 +154,10 @@ public class TrackParcelService {
      * @return страница с посылками пользователя по статусу
      */
     @Transactional
-    public Page<TrackParcelDTO> findByUserTracksAndStatus(Long userId, GlobalStatus status, int page, int size) {
-        String statusString = (status != null) ? status.getDescription() : null;
+    public Page<TrackParcelDTO> findByStoreTracksAndStatus(List<Long> storeIds, GlobalStatus status, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<TrackParcel> trackParcels = trackParcelRepository.findByUserIdAndStatus(userId, statusString, pageable);
+        Page<TrackParcel> trackParcels = trackParcelRepository.findByStoreIdInAndStatus(storeIds, status, pageable);
         return trackParcels.map(TrackParcelDTO::new);
-    }
-
-    /**
-     * Ищет все посылки пользователя.
-     * <p>
-     * Этот метод возвращает список всех посылок пользователя по имени.
-     * </p>
-     *
-     * @param username имя пользователя
-     * @return список посылок пользователя
-     */
-    @Transactional
-    public List<TrackParcelDTO> findAllByUserTracks(Long userId) {
-        List<TrackParcel> trackParcels = trackParcelRepository.findByUserId(userId);
-        return convertToDTO(trackParcels);
     }
 
     @Transactional
@@ -161,16 +165,23 @@ public class TrackParcelService {
         return trackParcelRepository.count();
     }
 
+    /**
+     * Проверяет, является ли посылка новой для данного магазина.
+     *
+     * @param trackingNumber номер отслеживания
+     * @param storeId ID магазина
+     * @return true, если посылка отсутствует в магазине (новая), false, если уже существует
+     */
     @Transactional
-    public boolean isNewTrack(String trackingNumber, Long userId) {
-        // Если null, считаем "нет пользователя" => аноним
-        if (userId == null) {
-            return true; // анонимному пользователю не сохраняем, но условно считаем "новым"
+    public boolean isNewTrack(String trackingNumber, Long storeId) {
+        if (storeId == null) {
+            return true; // Если магазин не указан, считаем, что посылка новая
         }
 
-        TrackParcel existing = trackParcelRepository.findByNumberAndUserId(trackingNumber, userId);
+        TrackParcel existing = trackParcelRepository.findByNumberAndStoreId(trackingNumber, storeId);
         return (existing == null);
     }
+
 
     @Transactional
     public void incrementUpdateCount(Long userId, int count) {
@@ -178,29 +189,37 @@ public class TrackParcelService {
     }
 
     /**
-     * Вспомогательный метод для преобразования посылок в DTO.
-     * <p>
-     * Этот метод преобразует список сущностей {@link TrackParcel} в список DTO {@link TrackParcelDTO}.
-     * </p>
+     * Возвращает все посылки, принадлежащие конкретному магазину.
      *
-     * @param parcels список посылок
-     * @return список DTO посылок
+     * @param storeId ID магазина
+     * @return список всех посылок в магазине
      */
-    private List<TrackParcelDTO> convertToDTO(List<TrackParcel> parcels) {
-        List<TrackParcelDTO> dtoList = new ArrayList<>();
-        for (TrackParcel parcel : parcels) {
-            dtoList.add(new TrackParcelDTO(parcel));
-        }
-        return dtoList;
+    @Transactional
+    public List<TrackParcelDTO> findAllByStoreTracks(Long storeId) {
+        List<TrackParcel> trackParcels = trackParcelRepository.findByStoreId(storeId);
+        return trackParcels.stream()
+                .map(TrackParcelDTO::new)
+                .toList();
     }
 
     /**
-     * Обновляет историю отслеживания посылок пользователя асинхронно.
-     * <p>
-     * Этот метод обновляет статус и данные всех посылок пользователя, вызывая асинхронные запросы к сервису {@link TypeDefinitionTrackPostService}.
-     * </p>
+     * Возвращает все посылки, принадлежащие конкретному пользователю.
      *
-     * @param name имя пользователя
+     * @param userId ID пользователя
+     * @return список всех посылок пользователя
+     */
+    @Transactional
+    public List<TrackParcelDTO> findAllByUserTracks(Long userId) {
+        List<TrackParcel> trackParcels = trackParcelRepository.findByUserId(userId);
+        return trackParcels.stream()
+                .map(TrackParcelDTO::new)
+                .toList();
+    }
+
+    /**
+     * Обновляет историю отслеживания посылок для всех магазинов пользователя.
+     *
+     * @param userId   ID пользователя, владеющего магазинами.
      */
     @Transactional
     public UpdateResult updateAllParcels(Long userId) {
@@ -209,13 +228,20 @@ public class TrackParcelService {
             String msg = "Обновление всех треков доступно только в премиум-версии.";
             log.warn("Отказано в доступе для пользователя ID: {}", userId);
 
-            // Вместо исключения отправляем уведомление по WebSocket
             webSocketController.sendUpdateStatus(userId, msg, false);
-            log.debug("📡 WebSocket отправлено: Обновление всех треков доступно только в премиум-версии.");
+            log.debug("📡 WebSocket отправлено: {}", msg);
 
             return new UpdateResult(false, 0, 0, msg);
         }
 
+        // Получаем все магазины пользователя
+        List<Store> stores = storeRepository.findByOwnerId(userId);
+        if (stores.isEmpty()) {
+            log.warn("У пользователя ID={} нет магазинов для обновления треков.", userId);
+            return new UpdateResult(false, 0, 0, "У вас нет магазинов с посылками.");
+        }
+
+        // Получаем все треки пользователя
         List<TrackParcelDTO> allParcels = findAllByUserTracks(userId);
 
         // Фильтруем треки, исключая те, что уже в финальном статусе
@@ -224,7 +250,7 @@ public class TrackParcelService {
                         dto.getStatus().equals(GlobalStatus.RETURNED_TO_SENDER.getDescription())))
                 .toList();
 
-        log.info("Запущено обновление всех {} треков для userId={}", parcelsToUpdate.size(), userId);
+        log.info("📦 Запущено обновление всех {} треков для userId={}", parcelsToUpdate.size(), userId);
 
         // Отправляем уведомление о запуске
         webSocketController.sendUpdateStatus(userId, "Обновление всех треков запущено...", true);
@@ -258,7 +284,6 @@ public class TrackParcelService {
 
                                     // Увеличиваем счётчик успешных обновлений
                                     successfulUpdates.incrementAndGet();
-
                                 }
                             })
                             .exceptionally(ex -> {
@@ -297,20 +322,27 @@ public class TrackParcelService {
         }
     }
 
+    /**
+     * Обновляет выбранные посылки пользователя.
+     *
+     * @param userId          ID пользователя (для проверки подписки)
+     * @param selectedNumbers список номеров посылок
+     * @return результат обновления
+     */
     @Transactional
     public UpdateResult updateSelectedParcels(Long userId, List<String> selectedNumbers) {
-        // Загружаем посылки
+        // Загружаем посылки по номерам, игнорируя магазины
         List<TrackParcel> selectedParcels = trackParcelRepository.findByNumberInAndUserId(selectedNumbers, userId);
 
         // Считаем количество финальных и обновляемых треков
         int totalRequested = selectedParcels.size();
         List<TrackParcel> updatableParcels = selectedParcels.stream()
-                .filter(parcel -> !(parcel.getStatus().equals(GlobalStatus.DELIVERED.getDescription()) ||
-                        parcel.getStatus().equals(GlobalStatus.RETURNED_TO_SENDER.getDescription())))
+                .filter(parcel -> !(parcel.getStatus() == GlobalStatus.DELIVERED ||
+                        parcel.getStatus() == GlobalStatus.RETURNED_TO_SENDER))
                 .toList();
         int nonUpdatableCount = totalRequested - updatableParcels.size();
 
-        log.info("Фильтрация завершена: {} треков можно обновить из {}, {} уже в финальном статусе",
+        log.info("📦 Фильтрация завершена: {} треков можно обновить из {}, {} уже в финальном статусе",
                 updatableParcels.size(), totalRequested, nonUpdatableCount);
 
         if (updatableParcels.isEmpty()) {
@@ -320,12 +352,12 @@ public class TrackParcelService {
             return new UpdateResult(false, 0, selectedNumbers.size(), msg);
         }
 
-        // Проверяем лимит
+        // Проверяем лимит подписки
         int remainingUpdates = subscriptionService.canUpdateTracks(userId, updatableParcels.size());
 
         if (remainingUpdates <= 0) {
             String msg = "Ваш лимит обновлений на сегодня исчерпан.";
-            log.warn("Лимит обновлений исчерпан для пользователя ID: {}", userId);
+            log.info("Лимит обновлений исчерпан для пользователя ID: {}", userId);
             webSocketController.sendUpdateStatus(userId, msg, true);
             return new UpdateResult(false, 0, updatableParcels.size(), msg);
         }
@@ -335,10 +367,11 @@ public class TrackParcelService {
         // Преобразуем в список номеров для передачи в асинхронный процесс
         List<String> updatableNumbers = updatableParcels.stream().map(TrackParcel::getNumber).toList();
 
-        log.info("Запущено обновление {} треков для userId={}", updatesToProcess, userId);
+        log.info("🔄 Запущено обновление {} треков для пользователя ID={}", updatesToProcess, userId);
 
-        // Вызов асинхронного метода
+        // Вызов асинхронного метода с `userId`
         processTrackUpdatesAsync(userId, updatableNumbers.subList(0, updatesToProcess), totalRequested, nonUpdatableCount);
+
         return new UpdateResult(true, updatesToProcess, selectedNumbers.size(),
                 "Обновление запущено...");
     }
@@ -347,25 +380,28 @@ public class TrackParcelService {
     @Transactional
     public void processTrackUpdatesAsync(Long userId, List<String> selectedNumbers, int totalRequested, int nonUpdatableCount) {
         try {
+            // Загружаем посылки по `userId`, а не `storeId`
             List<TrackParcel> parcelsToUpdate = trackParcelRepository.findByNumberInAndUserId(selectedNumbers, userId);
 
             AtomicInteger successfulUpdates = new AtomicInteger(0);
 
-            log.info(" Начато обновление {} треков для userId={}", parcelsToUpdate.size(), userId);
+            log.info("🔄 Начато обновление {} треков для userId={}", parcelsToUpdate.size(), userId);
 
             List<CompletableFuture<Void>> futures = parcelsToUpdate.stream()
                     .map(parcel -> typeDefinitionTrackPostService
-                            .getTypeDefinitionTrackPostServiceAsync(userId, parcel.getNumber())
+                            .getTypeDefinitionTrackPostServiceAsync(userId, parcel.getNumber()) // Передаём `userId`, а не `storeId`
                             .thenAccept(trackInfoListDTO -> {
                                 List<TrackInfoDTO> list = trackInfoListDTO.getList();
                                 TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(parcel.getNumber(), userId);
+
                                 if (trackParcel != null && !list.isEmpty()) {
                                     trackParcel.setStatus(statusTrackService.setStatus(list));
                                     trackParcel.setData(list.get(0).getTimex());
                                     trackParcelRepository.save(trackParcel);
-                                    log.info(" Обновлено: userId={}, трек={}", userId, parcel.getNumber());
 
-                                    // Увеличиваем успешный счётчик
+                                    log.info("✅ Обновлено: userId={}, трек={}", userId, parcel.getNumber());
+
+                                    // Увеличиваем счётчик успешных обновлений
                                     successfulUpdates.incrementAndGet();
                                 }
                             })
@@ -378,6 +414,7 @@ public class TrackParcelService {
                 log.info("✅ Итог обновления для userId={}: {} обновлено, {} в финальном статусе",
                         userId, updatedCount, nonUpdatableCount);
 
+                // Если обновлено хотя бы 1 трек, обновляем лимит в подписке
                 if (updatedCount > 0) {
                     log.info("🔄 Финальное обновление updateCount для userId={}, добавляем={}", userId, updatedCount);
                     incrementUpdateCount(userId, updatedCount);
@@ -404,8 +441,8 @@ public class TrackParcelService {
             });
 
         } catch (Exception e) {
-            log.error("❌ Ошибка при обновлении посылок пользователя {}: {}", userId, e.getMessage());
-            webSocketController.sendUpdateStatus(userId,"Ошибка обновления: " + e.getMessage(), false);
+            log.error("❌ Ошибка при обновлении посылок для пользователя {}: {}", userId, e.getMessage());
+            webSocketController.sendUpdateStatus(userId, "Ошибка обновления: " + e.getMessage(), false);
         }
     }
 
@@ -416,13 +453,18 @@ public class TrackParcelService {
      * </p>
      *
      * @param numbers список номеров посылок
-     * @param userId идентификатор пользователя
+     * @param userId  идентификатор пользователя
      */
     public void deleteByNumbersAndUserId(List<String> numbers, Long userId) {
         List<TrackParcel> parcelsToDelete = trackParcelRepository.findByNumberInAndUserId(numbers, userId);
+
         if (parcelsToDelete.isEmpty()) {
+            log.warn("❌ Попытка удаления несуществующих посылок. userId={}, номера={}", userId, numbers);
             throw new RuntimeException("Нет посылок для удаления.");
         }
+
         trackParcelRepository.deleteAll(parcelsToDelete);
+        log.info("✅ Удалены {} посылок пользователя ID={}", parcelsToDelete.size(), userId);
     }
+
 }
