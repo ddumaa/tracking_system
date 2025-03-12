@@ -29,7 +29,24 @@
                 <div class="card shadow-sm p-4 rounded-4 mb-4">
                     <form th:action="@{/}" method="post" class="w-100 mb-4">
                         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                        <label for="number" class="form-label fw-semibold">Введите номер посылки:
+
+                        <!-- Блок выбора магазина, если их больше одного -->
+                        <div th:if="${stores != null and #lists.size(stores) > 1}" class="mb-3">
+                            <div class="d-flex align-items-center">
+                                <label for="storeSelect" class="me-2 mb-0">Магазин:</label>
+                                <select name="storeId" id="storeSelect" class="form-select" style="width: auto; min-width: 150px;">
+                                    <option th:each="store : ${stores}"
+                                            th:value="${store.id}"
+                                            th:text="${store.name}"
+                                            th:selected="${store.isDefault}">
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Поле ввода номера посылки -->
+                        <label for="number" class="form-label fw-semibold">
+                            Введите номер посылки:
                             <i class="bi bi-info-circle text-primary" data-bs-toggle="tooltip"
                                data-bs-placement="right" title="Белпочта, Европочта"></i>
                         </label>

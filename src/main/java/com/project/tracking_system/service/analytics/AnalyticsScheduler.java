@@ -1,4 +1,4 @@
-package com.project.tracking_system.service.statistics;
+package com.project.tracking_system.service.analytics;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,13 +12,13 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @RequiredArgsConstructor
 @Component
-public class StoreStatisticsScheduler {
+public class AnalyticsScheduler {
 
-    private final StoreStatisticsService statisticsService;
+    private final AnalyticsService statisticsService;
 
     @Scheduled(cron = "0 0 4 * * *") // Запускаем каждый день в 4:00 ночи
-    public void scheduleStatisticsUpdate() {
-        statisticsService.updateAllStoresStatistics();
+    public void scheduleAnalyticsUpdate() {
+        statisticsService.updateAllStoresAnalytics();
     }
 
 }

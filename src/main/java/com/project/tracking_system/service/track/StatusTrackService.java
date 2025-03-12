@@ -1,4 +1,4 @@
-package com.project.tracking_system.service;
+package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.model.GlobalStatus;

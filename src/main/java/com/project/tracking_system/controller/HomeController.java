@@ -8,12 +8,12 @@ import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.model.TrackingResponse;
-import com.project.tracking_system.repository.StoreRepository;
-import com.project.tracking_system.service.TrackNumberOcrService;
-import com.project.tracking_system.service.TrackingNumberServiceXLS;
+import com.project.tracking_system.service.track.TrackNumberOcrService;
+import com.project.tracking_system.service.track.TrackingNumberServiceXLS;
+import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.LoginAttemptService;
 import com.project.tracking_system.service.TypeDefinitionTrackPostService;
-import com.project.tracking_system.service.TrackParcelService;
+import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.user.PasswordResetService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -61,7 +61,7 @@ public class HomeController {
     private final LoginAttemptService loginAttemptService;
     private final PasswordResetService passwordResetService;
     private final TrackingNumberServiceXLS trackingNumberServiceXLS;
-    private final StoreRepository storeRepository;
+    private final StoreService storeService;
     private final TrackNumberOcrService trackNumberOcrService;
 
     /**
@@ -70,7 +70,17 @@ public class HomeController {
      * @return имя представления домашней страницы
      */
     @GetMapping
-    public String home() {
+    public String home(Model model) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated() &&
+                !(authentication instanceof AnonymousAuthenticationToken)) {
+            User user = (User) authentication.getPrincipal();
+            model.addAttribute("authenticatedUser", user.getEmail());
+
+            // Получаем магазины пользователя
+            List<Store> stores = storeService.getUserStores(user.getId());
+            model.addAttribute("stores", stores);
+        }
         return "home";
     }
 
@@ -84,10 +94,11 @@ public class HomeController {
      * @return имя представления домашней страницы
      */
     @PostMapping
-    public String home(@ModelAttribute("number") String number, Model model) {
+    public String home(@ModelAttribute("number") String number,
+                       @RequestParam(value = "storeId", required = false) Long storeId,
+                       Model model) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         Long userId = null; // По умолчанию NULL для неаутентифицированных пользователей
-        Long storeId = null; // По умолчанию NULL, определяем для авторизованных
 
         if (authentication != null && authentication.isAuthenticated() && !(authentication instanceof AnonymousAuthenticationToken)) {
             // Пользователь авторизован
@@ -96,12 +107,21 @@ public class HomeController {
             model.addAttribute("authenticatedUser", user.getEmail());
 
             // Получаем магазины пользователя
-            List<Store> stores = storeRepository.findByOwnerId(userId);
-            if (stores.size() == 1) {
-                storeId = stores.get(0).getId(); // Если у пользователя только 1 магазин
-            } else if (stores.size() > 1) {
+            List<Store> stores = storeService.getUserStores(userId);
+            log.debug("Магазины пользователя: {}", stores);
+            model.addAttribute("stores", stores);
 
-                model.addAttribute("customError", "У вас несколько магазинов, выберите, куда сохранить посылку.");
+            // Если магазин не был выбран пользователем, выбираем дефолтный
+            if (storeId == null) {
+                if (stores.size() == 1) {
+                    storeId = stores.get(0).getId();
+                } else {
+                    storeId = stores.stream()
+                            .filter(Store::isDefault)
+                            .map(Store::getId)
+                            .findFirst()
+                            .orElse(null);
+                }
             }
         } else {
             // гость
@@ -126,7 +146,7 @@ public class HomeController {
             // Сохраняем посылку только для авторизованных пользователей, если у них **есть магазин**
             if (userId != null && storeId != null) {
                 try {
-                    trackParcelService.save(number, trackInfo, storeId, userId); // Теперь передаём и `storeId`, и `userId`
+                    trackParcelService.save(number, trackInfo, storeId, userId);
                     log.debug("✅ Данные посылки сохранены для пользователя ID={}, storeId={}", userId, storeId);
                 } catch (IllegalArgumentException e) {
                     model.addAttribute("customError", "Вы не можете сохранить больше 10 посылок.");

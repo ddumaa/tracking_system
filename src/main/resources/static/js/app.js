@@ -253,7 +253,7 @@ function connectWebSocket() {
 
     stompClient = new StompJs.Client({
         //'wss://belivery.by/ws', 'ws://localhost:8080/ws',
-        brokerURL: 'ws://localhost:8080/ws',
+        brokerURL: 'wss://belivery.by/ws',
         reconnectDelay: 1000,
         heartbeatIncoming: 0,
         heartbeatOutgoing: 0,
@@ -764,6 +764,19 @@ document.addEventListener("DOMContentLoaded", function () {
         cookieModal.classList.add("show");
     }
 
+    // Выбор магазина при добавлении трека
+    const storeSelectDropdown = document.getElementById("storeSelect");
+    if (storeSelectDropdown) {
+        console.log('Найден селект с магазинами, количество опций:', storeSelectDropdown.options.length);
+        if (storeSelectDropdown.options.length > 1) {
+            storeSelectDropdown.classList.remove("d-none");
+        }
+    } else {
+        console.warn('Элемент storeSelect не найден.');
+    }
+    // Если нет фильтра по магазинам, выходим
+    //if (!storeFilterDropdown || !statusSelect) return;
+
     // Инициализация логики форм
     initPasswordFormHandler();
     initEvropostFormHandler();
@@ -992,20 +1005,20 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // Получаем элементы фильтров: статус и магазин
-    const statusSelect = document.getElementById("status");
-    const storeSelect = document.getElementById("storeId");
+    const statusFilterDropdown  = document.getElementById("status");
+    const storeFilterDropdown = document.getElementById("storeId");
 
     // Проверяем, существуют ли элементы на странице (если нет - выходим)
-    if (!statusSelect || !storeSelect) return;
+    if (!storeFilterDropdown || !statusFilterDropdown ) return;
 
     // Восстанавливаем значения фильтров из URL (чтобы при обновлении страницы они оставались)
-    const urlParams = new URLSearchParams(window.location.search);
-    const currentStatus = urlParams.get("status"); // Получаем текущий статус из URL
-    const currentStore = urlParams.get("storeId"); // Получаем текущий магазин из URL
+    const currentUrl = new URL(window.location.href);
+    const currentStatus = currentUrl.searchParams.get("status");
+    const currentStore = currentUrl.searchParams.get("storeId");
 
     // Устанавливаем значения селекторов, если в URL были параметры
-    if (currentStatus) statusSelect.value = currentStatus;
-    if (currentStore) storeSelect.value = currentStore;
+    if (currentStatus) statusFilterDropdown.value = currentStatus;
+    if (currentStore) storeFilterDropdown.value = currentStore;
 
     /**
      * Функция применения фильтров.
@@ -1014,11 +1027,10 @@ document.addEventListener("DOMContentLoaded", function () {
      * - Перезагружает страницу с обновленными фильтрами.
      */
     function applyFilters() {
-        const selectedStatus = statusSelect.value; // Выбранный статус
-        const selectedStore = storeSelect.value; // Выбранный магазин
-        const currentUrl = new URL(window.location.href); // Текущий URL страницы
+        const selectedStatus = statusFilterDropdown.value;
+        const selectedStore = storeFilterDropdown.value;
+        const currentUrl = new URL(window.location.href);
 
-        // Обновляем параметры URL (если пустые - удаляем)
         if (selectedStatus) {
             currentUrl.searchParams.set("status", selectedStatus);
         } else {
@@ -1031,16 +1043,14 @@ document.addEventListener("DOMContentLoaded", function () {
             currentUrl.searchParams.delete("storeId");
         }
 
-        // Логирование текущих значений фильтров (для отладки)
-        console.log("✅ Применение фильтра: статус =", selectedStatus, "магазин =", selectedStore);
+        console.log("✅ Фильтр применён: статус =", selectedStatus, "магазин =", selectedStore);
 
-        // Перенаправляем пользователя на обновленный URL
         window.location.href = currentUrl.toString();
     }
 
     // Автоматическое применение фильтра при изменении значений в селекторах
-    statusSelect.addEventListener("change", applyFilters);
-    storeSelect.addEventListener("change", applyFilters);
+    statusFilterDropdown.addEventListener("change", applyFilters);
+    storeFilterDropdown.addEventListener("change", applyFilters);
 
     document.body.addEventListener("change", function (event) {
         if (event.target.classList.contains("selectCheckbox")) {

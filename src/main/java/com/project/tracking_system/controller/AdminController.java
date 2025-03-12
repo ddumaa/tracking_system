@@ -8,7 +8,7 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.UserSubscription;
 import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.service.SubscriptionService;
-import com.project.tracking_system.service.TrackParcelService;
+import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

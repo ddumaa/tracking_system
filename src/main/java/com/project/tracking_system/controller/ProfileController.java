@@ -3,10 +3,8 @@ package com.project.tracking_system.controller;
 import com.project.tracking_system.dto.EvropostCredentialsDTO;
 import com.project.tracking_system.dto.UserSettingsDTO;
 import com.project.tracking_system.entity.Store;
-import com.project.tracking_system.entity.SubscriptionPlan;
 import com.project.tracking_system.entity.User;
-import com.project.tracking_system.entity.UserSubscription;
-import com.project.tracking_system.service.statistics.StoreService;
+import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -26,7 +24,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 
 /**

@@ -1,7 +1,8 @@
-package com.project.tracking_system.service;
+package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackingResultAdd;
+import com.project.tracking_system.service.TypeDefinitionTrackPostService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

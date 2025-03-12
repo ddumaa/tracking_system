@@ -1,4 +1,4 @@
-package com.project.tracking_system.service;
+package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.dto.TrackParcelDTO;
@@ -13,6 +13,8 @@ import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
+import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.service.TypeDefinitionTrackPostService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -77,30 +79,39 @@ public class TrackParcelService {
             throw new IllegalArgumentException("Отсутствует посылка");
         }
 
-        // Проверяем, существует ли уже этот трек у пользователя и магазина
-        TrackParcel trackParcel = trackParcelRepository.findByNumberAndStoreIdAndUserId(number, storeId, userId);
+        // Ищем трек по номеру и пользователю независимо от магазина
+        TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(number, userId);
         boolean isNewTrack = (trackParcel == null);
-
-        int remainingTracks = subscriptionService.canSaveMoreTracks(userId, 1);
 
         // Если трек новый, проверяем лимиты
         if (isNewTrack) {
+            int remainingTracks = subscriptionService.canSaveMoreTracks(userId, 1);
             if (remainingTracks <= 0) {
                 throw new IllegalArgumentException("Вы не можете сохранить больше посылок, так как превышен лимит сохранённых посылок.");
             }
 
-            Store store = storeRepository.findById(storeId)
-                    .orElseThrow(() -> new IllegalArgumentException("Магазин не найден"));
-
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+            // Используем getReferenceById(), чтобы не делать лишний SELECT
+            Store store = storeRepository.getReferenceById(storeId);
+            User user = userRepository.getReferenceById(userId);
 
             // Создаём новый трек
             trackParcel = new TrackParcel();
             trackParcel.setNumber(number);
             trackParcel.setStore(store);
             trackParcel.setUser(user);
+
+        } else {
+        // Если трек уже существует, проверяем, соответствует ли магазин выбранному пользователем
+        if (!trackParcel.getStore().getId().equals(storeId)) {
+            // Загружаем новый магазин
+            Long oldStoreId = trackParcel.getStore().getId();
+            Store newStore = storeRepository.getReferenceById(storeId);
+
+            // Обновляем магазин у трека
+            trackParcel.setStore(newStore);
+            log.info("Обновление магазина для трека {}: с магазина {} на магазин {}", number, oldStoreId, storeId);
         }
+    }
 
         // Обновляем статус и дату трека на основе нового содержимого
         trackParcel.setStatus(statusTrackService.setStatus(trackInfoListDTO.getList()));

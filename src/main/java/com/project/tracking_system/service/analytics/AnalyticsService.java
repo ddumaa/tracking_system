@@ -1,8 +1,8 @@
-package com.project.tracking_system.service.statistics;
+package com.project.tracking_system.service.analytics;
 
 import com.project.tracking_system.entity.StoreStatistics;
 import com.project.tracking_system.model.GlobalStatus;
-import com.project.tracking_system.repository.StoreStatisticsRepository;
+import com.project.tracking_system.repository.AnalyticsRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,10 +19,10 @@ import java.util.List;
 @Slf4j
 @RequiredArgsConstructor
 @Service
-public class StoreStatisticsService {
+public class AnalyticsService {
 
     private final TrackParcelRepository parcelRepository;
-    private final StoreStatisticsRepository storeStatisticsRepository;
+    private final AnalyticsRepository analyticsRepository;
 
 
     /**
@@ -31,13 +31,13 @@ public class StoreStatisticsService {
      * @param storeId ID магазина, для которого пересчитывается статистика.
      */
     @Transactional
-    public void updateStoreStatistics(Long storeId) {
+    public void updateStoreAnalytics(Long storeId) {
         int totalSent = parcelRepository.countByStoreId(storeId);
         int totalDelivered = parcelRepository.countByStoreIdAndStatus(storeId, GlobalStatus.DELIVERED);
         int totalReturned = parcelRepository.countByStoreIdAndStatus(storeId, GlobalStatus.RETURNED_TO_SENDER);
         Double avgDeliveryDays = parcelRepository.findAverageDeliveryTimeForStore(storeId);
 
-        StoreStatistics stats = storeStatisticsRepository.findByStoreId(storeId)
+        StoreStatistics stats = analyticsRepository.findByStoreId(storeId)
                 .orElse(new StoreStatistics());
 
         stats.setTotalSent(totalSent);
@@ -46,17 +46,17 @@ public class StoreStatisticsService {
         stats.setAverageDeliveryDays(avgDeliveryDays);
         stats.setUpdatedAt(ZonedDateTime.now());
 
-        storeStatisticsRepository.save(stats);
+        analyticsRepository.save(stats);
     }
 
     /**
      * Обновляет статистику для всех магазинов (используется в расписании).
      */
     @Transactional
-    public void updateAllStoresStatistics() {
-        List<Long> storeIds = storeStatisticsRepository.findAllStoreIds();
+    public void updateAllStoresAnalytics() {
+        List<Long> storeIds = analyticsRepository.findAllStoreIds();
         for (Long storeId : storeIds) {
-            updateStoreStatistics(storeId);
+            updateStoreAnalytics(storeId);
         }
     }
 

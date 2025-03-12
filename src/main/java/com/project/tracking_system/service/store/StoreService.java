@@ -1,4 +1,4 @@
-package com.project.tracking_system.service.statistics;
+package com.project.tracking_system.service.store;
 
 import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.entity.Store;
@@ -6,7 +6,7 @@ import com.project.tracking_system.entity.SubscriptionPlan;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.UserSubscription;
 import com.project.tracking_system.repository.StoreRepository;
-import com.project.tracking_system.repository.StoreStatisticsRepository;
+import com.project.tracking_system.repository.AnalyticsRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +28,7 @@ public class StoreService {
 
     private final StoreRepository storeRepository;
     private final UserRepository userRepository;
-    private final StoreStatisticsRepository storeStatisticsRepository;
+    private final AnalyticsRepository analyticsRepository;
     private final TrackParcelRepository trackParcelRepository;
     private final WebSocketController webSocketController;
 
@@ -74,7 +74,6 @@ public class StoreService {
         store.setOwner(user);
 
         Store savedStore = storeRepository.save(store);
-
         webSocketController.sendUpdateStatus(userId, "Магазин '" + storeName + "' добавлен!", true);
 
         return savedStore;
@@ -128,9 +127,9 @@ public class StoreService {
         log.info("Удалены все посылки магазина ID={}", storeId);
 
         // Удаляем статистику магазина
-        storeStatisticsRepository.findByStoreId(storeId)
+        analyticsRepository.findByStoreId(storeId)
                 .ifPresent(storeStatistics -> {
-                    storeStatisticsRepository.delete(storeStatistics);
+                    analyticsRepository.delete(storeStatistics);
                     log.info("Удалена статистика для магазина ID={}", storeId);
                 });
 

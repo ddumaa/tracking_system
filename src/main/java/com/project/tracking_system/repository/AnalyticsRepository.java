@@ -11,7 +11,7 @@ import java.util.Optional;
  * @author Dmitriy Anisimov
  * @date 11.03.2025
  */
-public interface StoreStatisticsRepository extends JpaRepository<StoreStatistics, Long> {
+public interface AnalyticsRepository extends JpaRepository<StoreStatistics, Long> {
 
     Optional<StoreStatistics> findByStoreId(Long storeId);
 
