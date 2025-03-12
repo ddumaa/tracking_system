@@ -112,6 +112,17 @@ public class TrackParcelService {
                 userId, storeId, trackParcel.getNumber(), trackParcel.getStatus());
     }
 
+    /**
+     * Проверяет, принадлежит ли посылка пользователю.
+     *
+     * @param itemNumber Номер посылки.
+     * @param userId     ID пользователя.
+     * @return true, если посылка принадлежит пользователю.
+     */
+    public boolean userOwnsParcel(String itemNumber, Long userId) {
+        return trackParcelRepository.existsByNumberAndUserId(itemNumber, userId);
+    }
+
     @Transactional
     public Page<TrackParcelDTO> findByStoreTracks(List<Long> storeIds, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);

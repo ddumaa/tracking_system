@@ -1,5 +1,6 @@
 package com.project.tracking_system.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -28,11 +29,16 @@ public class Store {
     @Column(name = "name", nullable = false)
     private String name;
 
+    @Column(name = "is_default", nullable = false)
+    private boolean isDefault;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore
     private User owner;
 
     @OneToMany(mappedBy = "store", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<TrackParcel> trackParcels = new ArrayList<>();
 
 }

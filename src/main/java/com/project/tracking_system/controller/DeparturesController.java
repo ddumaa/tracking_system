@@ -3,15 +3,13 @@ package com.project.tracking_system.controller;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.entity.Store;
-import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.UpdateResult;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.model.GlobalStatus;
-import com.project.tracking_system.repository.StoreRepository;
-import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.StatusTrackService;
 import com.project.tracking_system.service.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.TrackParcelService;
+import com.project.tracking_system.service.statistics.StoreService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -44,10 +42,9 @@ public class DeparturesController {
 
     private final TrackParcelService trackParcelService;
     private final StatusTrackService statusTrackService;
+    private final StoreService storeService;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final WebSocketController webSocketController;
-    private final StoreRepository storeRepository;
-    private final TrackParcelRepository trackParcelRepository;
 
     /**
      * Метод для отображения списка отслеживаемых посылок пользователя с возможностью фильтрации по магазину и статусу.
@@ -75,8 +72,8 @@ public class DeparturesController {
         }
 
         Long userId = user.getId();
-        List<Store> stores = storeRepository.findByOwnerId(userId); // Загружаем магазины с именами
-        List<Long> storeIds = storeRepository.findStoreIdsByOwnerId(userId); // Все магазины пользователя
+        List<Store> stores = storeService.getUserStores(userId); // Загружаем магазины с именами
+        List<Long> storeIds = storeService.getUserStoreIds(userId); // Все id магазины пользователя
 
         // Если у пользователя **только 1 магазин**, но он явно выбрал "Все магазины", не заменяем storeId
         if (storeIds.size() == 1 && storeId == null) {
@@ -162,7 +159,7 @@ public class DeparturesController {
         log.info("🔍 Запрос информации о посылке {} для пользователя ID={}", itemNumber, userId);
 
         // Проверяем, принадлежит ли посылка пользователю
-        boolean ownsParcel = trackParcelRepository.existsByNumberAndUserId(itemNumber, userId);
+        boolean ownsParcel = trackParcelService.userOwnsParcel(itemNumber, userId);
         if (!ownsParcel) {
             log.warn("❌ Пользователь ID={} попытался получить доступ к чужой посылке {}", userId, itemNumber);
             throw new RuntimeException("Ошибка доступа: Посылка не принадлежит пользователю.");

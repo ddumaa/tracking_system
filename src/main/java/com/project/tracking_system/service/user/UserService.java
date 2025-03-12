@@ -4,10 +4,8 @@ import com.project.tracking_system.dto.EvropostCredentialsDTO;
 import com.project.tracking_system.dto.ResolvedCredentialsDTO;
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.dto.UserSettingsDTO;
-import com.project.tracking_system.entity.ConfirmationToken;
-import com.project.tracking_system.entity.User;
+import com.project.tracking_system.entity.*;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
-import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.repository.ConfirmationTokenRepository;
 import com.project.tracking_system.repository.EvropostServiceCredentialRepository;
 import com.project.tracking_system.repository.UserRepository;
@@ -307,6 +305,26 @@ public class UserService {
 
         userRepository.delete(user);
         log.info("Пользователь с ID {} был удален.", userId);
+    }
+
+    /**
+     * Получает лимит магазинов пользователя.
+     *
+     * @param userId ID пользователя.
+     * @return Количество использованных и доступных магазинов в виде строки "1/10".
+     */
+    @Transactional
+    public String getUserStoreLimit(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+
+        int storeCount = user.getStores().size(); // Получаем количество магазинов
+        int maxStores = Optional.ofNullable(user.getSubscription())
+                .map(UserSubscription::getSubscriptionPlan)
+                .map(SubscriptionPlan::getMaxStores)
+                .orElse(1); // По умолчанию 1
+
+        return storeCount + "/" + maxStores;
     }
 
 }

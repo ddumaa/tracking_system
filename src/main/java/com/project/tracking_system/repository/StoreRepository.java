@@ -15,6 +15,8 @@ public interface StoreRepository extends JpaRepository<Store, Long> {
 
     List<Store> findByOwnerId(Long userId);
 
+    int countByOwnerId(Long ownerId);
+
     boolean existsByIdAndOwnerId(Long storeId, Long ownerId);
 
     // Получает список всех ID магазинов пользователя
