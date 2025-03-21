@@ -5,9 +5,9 @@ import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.UpdateResult;
 import com.project.tracking_system.entity.User;
-import com.project.tracking_system.model.GlobalStatus;
+import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.service.track.StatusTrackService;
-import com.project.tracking_system.service.TypeDefinitionTrackPostService;
+import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.store.StoreService;
 import lombok.RequiredArgsConstructor;
@@ -102,8 +102,8 @@ public class DeparturesController {
 
         // Загружаем посылки с учетом статуса и магазина
         Page<TrackParcelDTO> trackParcelPage = (status != null)
-                ? trackParcelService.findByStoreTracksAndStatus(filteredStoreIds, status, page, size)
-                : trackParcelService.findByStoreTracks(filteredStoreIds, page, size);
+                ? trackParcelService.findByStoreTracksAndStatus(filteredStoreIds, status, page, size, userId)
+                : trackParcelService.findByStoreTracks(filteredStoreIds, page, size, userId);
 
         // Если запрошенная страница больше допустимой, загружаем первую страницу
         if (page >= trackParcelPage.getTotalPages() && trackParcelPage.getTotalPages() > 0) {
@@ -112,8 +112,8 @@ public class DeparturesController {
             // Повторный запрос только если нужно сбросить страницу
             page = 0;
             trackParcelPage = (status != null)
-                    ? trackParcelService.findByStoreTracksAndStatus(filteredStoreIds, status, page, size)
-                    : trackParcelService.findByStoreTracks(filteredStoreIds, page, size);
+                    ? trackParcelService.findByStoreTracksAndStatus(filteredStoreIds, status, page, size, userId)
+                    : trackParcelService.findByStoreTracks(filteredStoreIds, page, size, userId);
         }
 
         // ✅ Добавляем иконки в DTO перед передачей в шаблон

@@ -8,11 +8,61 @@
     <title layout:fragment="title">Аналитика</title>
 </head>
 
-<body>
 <main layout:fragment="content">
-    <h1>Страница Аналитики</h1>
-    <p>Добро пожаловать в раздел аналитики!</p>
-    <p>В разработке!</p>
+    <div class="container mt-4">
+        <h1 class="mb-4">Страница аналитики</h1>
+
+        <!-- Проверяем, есть ли магазины у пользователя -->
+        <div th:if="${stores == null or #lists.isEmpty(stores)}">
+            <p class="text-muted">У вас пока нет магазинов. Добавьте магазин для просмотра аналитики.</p>
+            <a href="/stores/add" class="btn btn-primary">Добавить магазин</a>
+        </div>
+
+        <!-- Контейнер для уведомлений -->
+        <div id="notificationContainer"></div>
+
+        <div class="dashboard-container" th:if="${stores != null and not #lists.isEmpty(stores)}">
+            <!-- Фильтр магазинов -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div th:if="${isMultiStore}">
+                    <label for="analyticsStoreSelect" class="me-2">Выберите магазин:</label>
+                    <select id="analyticsStoreSelect" class="form-select">
+                        <option value="all" th:selected="${param.storeId == null}">Все магазины</option>
+                        <option th:each="store : ${stores}"
+                                th:value="${store.id}"
+                                th:text="${store.name}"
+                                th:selected="${param.storeId == store.id}">
+                        </option>
+                    </select>
+                </div>
+
+                <!-- Кнопка обновления аналитики -->
+                <button type="button" id="refreshAnalyticsBtn" class="btn btn-primary">
+                    <i class="bi bi-arrow-repeat"></i> Обновить аналитику
+                </button>
+
+            </div>
+
+            <!-- Блок статистики -->
+            <div class="right-panel">
+                <div class="row">
+                    <div class="col-md-4 mb-3" th:each="stat : ${statistics}">
+                        <div class="card stat-card shadow-sm">
+                            <div class="card-body">
+                                <h5 th:text="${stat.store.name}"></h5>
+                                <p>Отправлено: <span th:text="${stat.totalSent}">0</span></p>
+                                <p>Доставлено: <span th:text="${stat.totalDelivered}">0</span></p>
+                                <p>Возвращено: <span th:text="${stat.totalReturned}">0</span></p>
+                                <p>Среднее время доставки: <span th:text="${stat.averageDeliveryDays}">0</span> дней</p>
+                                <p>Процент успешных доставок: <span th:text="${stat.deliverySuccessRate}">0</span>%</p>
+                                <p>Процент возвратов: <span th:text="${stat.returnRate}">0</span>%</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </main>
-</body>
 </html>

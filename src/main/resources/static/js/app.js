@@ -253,7 +253,7 @@ function connectWebSocket() {
 
     stompClient = new StompJs.Client({
         //'wss://belivery.by/ws', 'ws://localhost:8080/ws',
-        brokerURL: 'wss://belivery.by/ws',
+        brokerURL: 'ws://localhost:8080/ws',
         reconnectDelay: 1000,
         heartbeatIncoming: 0,
         heartbeatOutgoing: 0,
@@ -689,6 +689,7 @@ if (storeTableBody) {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
+    console.log("DOM полностью загружен");
 
     // === Добавляем CSRF-токен ===
     const csrfToken = document.querySelector('meta[name="_csrf"]')?.content || "";
@@ -724,6 +725,9 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    /**
+     * КУКИ
+     */
     const cookieModal = document.getElementById("cookieConsentModal");
     const acceptButton = document.getElementById("acceptCookies");
 
@@ -764,6 +768,62 @@ document.addEventListener("DOMContentLoaded", function () {
         cookieModal.classList.add("show");
     }
 
+    /**
+     * АНАЛИТИКА
+     */
+    const refreshAnalyticsBtn = document.getElementById("refreshAnalyticsBtn");
+    if (!refreshAnalyticsBtn) {
+        console.warn("❌ Кнопка обновления аналитики не найдена в DOM!");
+    } else {
+        const storeSelectAnalytics = document.getElementById("analyticsStoreSelect");
+        const isMultiStore = storeSelectAnalytics !== null;
+
+        refreshAnalyticsBtn.addEventListener("click", function () {
+            console.log("🔥 Кнопка обновления аналитики нажата!");
+
+            refreshAnalyticsBtn.disabled = true;
+            refreshAnalyticsBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i>';
+
+            const formData = new FormData();
+            let selectedStoreId = isMultiStore ? storeSelectAnalytics.value : storeSelectAnalytics?.getAttribute("data-store-id");
+
+            if (selectedStoreId && selectedStoreId !== "all") {
+                formData.append("storeId", selectedStoreId);
+            }
+
+            fetch("/analytics/update", {
+                method: "POST",
+                body: formData,
+                headers: {
+                    [csrfHeader]: csrfToken
+                }
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.text().then(text => {
+                            throw new Error(text);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("✅ Аналитика обновлена:", data);
+                    notifyUser(data.message, "success");
+                })
+                .catch(error => {
+                    console.error("❌ Ошибка обновления:", error);
+                    notifyUser("Ошибка при обновлении аналитики!", "danger");
+                })
+                .finally(() => {
+                    refreshAnalyticsBtn.disabled = false;
+                    refreshAnalyticsBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Обновить аналитику';
+                });
+        });
+    }
+
+    /**
+     * Трекинг - Добавление трека - Выбор магазина для трека
+     */
     // Выбор магазина при добавлении трека
     const storeSelectDropdown = document.getElementById("storeSelect");
     if (storeSelectDropdown) {
@@ -774,9 +834,10 @@ document.addEventListener("DOMContentLoaded", function () {
     } else {
         console.warn('Элемент storeSelect не найден.');
     }
-    // Если нет фильтра по магазинам, выходим
-    //if (!storeFilterDropdown || !statusSelect) return;
 
+    /**
+     * Профиль - работа с магазинами (добавление, удаление) динамичные кнопки
+     */
     // Инициализация логики форм
     initPasswordFormHandler();
     initEvropostFormHandler();
@@ -832,6 +893,9 @@ document.addEventListener("DOMContentLoaded", function () {
         confirmDeleteBtn.addEventListener("click", deleteStore);
     }
 
+    /**
+     * Отправления - модальное окно каждого трека с информацией
+     */
     document.body.addEventListener("click", function (event) {
         if (event.target.closest(".open-modal")) {
             const button = event.target.closest(".open-modal");
@@ -1008,8 +1072,18 @@ document.addEventListener("DOMContentLoaded", function () {
     const statusFilterDropdown  = document.getElementById("status");
     const storeFilterDropdown = document.getElementById("storeId");
 
-    // Проверяем, существуют ли элементы на странице (если нет - выходим)
-    if (!storeFilterDropdown || !statusFilterDropdown ) return;
+    // Проверяем, существует ли фильтр по статусу (если нет - выходим)
+    if (!statusFilterDropdown) return;
+
+    // Если фильтра магазинов нет (потому что 1 магазин), отключаем работу с ним
+    if (!storeFilterDropdown) {
+        console.warn("ℹ️ Фильтр по магазинам скрыт, но фильтр по статусу работает.");
+    } else {
+        // Если магазин 1, скрываем фильтр
+        if (storeFilterDropdown.options.length <= 2) {
+            storeFilterDropdown.closest(".filter-group").classList.add("d-none");
+        }
+    }
 
     // Восстанавливаем значения фильтров из URL (чтобы при обновлении страницы они оставались)
     const currentUrl = new URL(window.location.href);
@@ -1018,7 +1092,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Устанавливаем значения селекторов, если в URL были параметры
     if (currentStatus) statusFilterDropdown.value = currentStatus;
-    if (currentStore) storeFilterDropdown.value = currentStore;
+    if (currentStore && storeFilterDropdown) storeFilterDropdown.value = currentStore;
 
     /**
      * Функция применения фильтров.
@@ -1028,7 +1102,7 @@ document.addEventListener("DOMContentLoaded", function () {
      */
     function applyFilters() {
         const selectedStatus = statusFilterDropdown.value;
-        const selectedStore = storeFilterDropdown.value;
+        const selectedStore = storeFilterDropdown ? storeFilterDropdown.value : null;
         const currentUrl = new URL(window.location.href);
 
         if (selectedStatus) {
@@ -1043,14 +1117,16 @@ document.addEventListener("DOMContentLoaded", function () {
             currentUrl.searchParams.delete("storeId");
         }
 
-        console.log("✅ Фильтр применён: статус =", selectedStatus, "магазин =", selectedStore);
+        console.log("✅ Фильтр применён: статус =", selectedStatus, "магазин =", selectedStore || "нет выбора");
 
         window.location.href = currentUrl.toString();
     }
 
     // Автоматическое применение фильтра при изменении значений в селекторах
     statusFilterDropdown.addEventListener("change", applyFilters);
-    storeFilterDropdown.addEventListener("change", applyFilters);
+    if (storeFilterDropdown) {
+        storeFilterDropdown.addEventListener("change", applyFilters);
+    }
 
     document.body.addEventListener("change", function (event) {
         if (event.target.classList.contains("selectCheckbox")) {

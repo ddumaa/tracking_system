@@ -12,9 +12,9 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @RequiredArgsConstructor
 @Component
-public class AnalyticsScheduler {
+public class StoreAnalyticsScheduler {
 
-    private final AnalyticsService statisticsService;
+    private final StoreAnalyticsService statisticsService;
 
     @Scheduled(cron = "0 0 4 * * *") // Запускаем каждый день в 4:00 ночи
     public void scheduleAnalyticsUpdate() {

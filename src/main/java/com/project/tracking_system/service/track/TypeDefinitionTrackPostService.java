@@ -1,11 +1,11 @@
-package com.project.tracking_system.service;
+package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
+import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.maper.JsonEvroTrackingResponseMapper;
 import com.project.tracking_system.model.evropost.jsonResponseModel.JsonEvroTrackingResponse;
 import com.project.tracking_system.service.belpost.WebBelPost;
 import com.project.tracking_system.service.jsonEvropostService.JsonEvroTrackingService;
-import com.project.tracking_system.utils.UpperCaseString;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -32,48 +32,55 @@ public class TypeDefinitionTrackPostService {
     private final WebBelPost webBelPost;
     private final JsonEvroTrackingService jsonEvroTrackingService;
     private final JsonEvroTrackingResponseMapper jsonEvroTrackingResponseMapper;
-    private final UpperCaseString upperCaseString;
+
+    /**
+     * Определяет тип почтовой службы по номеру посылки.
+     */
+    public PostalServiceType detectPostalService(String number) {
+        if (number.matches("^PC\\d{9}BY$") || number.matches("^BV\\d{9}BY$") || number.matches("^BP\\d{9}BY$")) {
+            return PostalServiceType.BELPOST;
+        }
+        if (number.matches("^BY\\d{12}$")) {
+            return PostalServiceType.EVROPOST;
+        }
+        return PostalServiceType.UNKNOWN;
+    }
 
     /**
      * Асинхронный метод для получения информации о статусе посылки по номеру отслеживания.
-     * <p>
-     * В зависимости от формата номера отслеживания, сервис обращается к разным источникам данных:
-     * WebBelPost для белорусских почтовых отправлений и EuroPost для международных.
-     * </p>
      *
      * @param number номер отслеживания посылки
      * @return объект {@link CompletableFuture} с результатом обработки запроса
      * @throws IllegalArgumentException если номер отслеживания имеет некорректный формат
      */
     @Async("Post")
-    public CompletableFuture<TrackInfoListDTO> getTypeDefinitionTrackPostServiceAsync(Long userId, String rawNumber) {
+    public CompletableFuture<TrackInfoListDTO> getTypeDefinitionTrackPostServiceAsync(Long userId, String number) {
         return CompletableFuture.supplyAsync(() -> {
 
-            String number = upperCaseString.normalizeTrackNumber(rawNumber);
+
+            PostalServiceType postalService = detectPostalService(number);
+
+            log.info("📦 Запрос информации по треку: {} (Пользователь ID={})", number, userId);
+            log.debug("🔎 Определяем почтовую службу: {} → {}", number, postalService);
 
             try {
+                switch (postalService) {
+                    case BELPOST:
+                        log.info("📨 Запрос к Белпочте для номера: {}", number);
+                        return webBelPost.webAutomationAsync(number).join();
 
-                if (number.matches("^PC\\d{9}BY$") || number.matches("^BV\\d{9}BY$") || number.matches("^BP\\d{9}BY$")) {
-                    return webBelPost.webAutomationAsync(number).join();
-                }
-
-                if (number.matches("^BY\\d{12}$")) {
-                    if (userId == null) {
-                        log.warn("Анонимный пользователь запрашивает данные по номеру: {}", number);
-                        // Используем альтернативный метод без userId
+                    case EVROPOST:
+                        log.info("📨 Запрос к Европочте для номера: {}", number);
                         JsonEvroTrackingResponse json = jsonEvroTrackingService.getJson(userId, number);
                         return jsonEvroTrackingResponseMapper.mapJsonEvroTrackingResponseToDTO(json);
-                    }
 
-                    JsonEvroTrackingResponse json = jsonEvroTrackingService.getJson(userId, number);
-                    return jsonEvroTrackingResponseMapper.mapJsonEvroTrackingResponseToDTO(json);
+                    default:
+                        log.warn("⚠️ Неизвестный формат трек-номера: {} (UNKNOWN)", number);
+                        throw new IllegalArgumentException("Указан некорректный код посылки: " + number);
                 }
-
-                log.warn("Некорректный код посылки: {}", number);
-                throw new IllegalArgumentException("Указан некорректный код посылки: " + number);
             } catch (Exception e) {
                 log.error("Ошибка при обработке трек-номера {} для пользователя с ID {}: {}", number, userId, e.getMessage(), e);
-                return new TrackInfoListDTO(); // Возвращаем пустой объект при ошибке
+                return new TrackInfoListDTO();
             }
         });
     }
@@ -91,6 +98,7 @@ public class TypeDefinitionTrackPostService {
      */
     public TrackInfoListDTO getTypeDefinitionTrackPostService(Long userId, String number) {
         try {
+            log.info("⏳ Запрос (синхронный) для трека: {} (Пользователь ID={})", number, userId);
             return getTypeDefinitionTrackPostServiceAsync(userId, number).get();
         } catch (ExecutionException | InterruptedException e) {
             log.error("Ошибка при получении данных по треку {} для пользователя с ID {}: {}", number, userId, e.getMessage(), e);

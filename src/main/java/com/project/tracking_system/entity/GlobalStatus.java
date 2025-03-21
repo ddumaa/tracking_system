@@ -1,4 +1,4 @@
-package com.project.tracking_system.model;
+package com.project.tracking_system.entity;
 
 import lombok.Getter;
 
@@ -21,7 +21,7 @@ public enum GlobalStatus {
     CUSTOMER_NOT_PICKING_UP("Клиент не забирает", "<i class='bi bi-clock-history status-icon not-picking'></i>"),
     RETURN_IN_PROGRESS("Возврат в пути", "<i class='bi bi-truck status-icon return-progress'></i>"),
     RETURN_PENDING_PICKUP("Возврат ожидает забора", "<i class='bi bi-box-arrow-in-down-right status-icon return-pending'></i>"),
-    RETURNED_TO_SENDER("Возврат забран", "<i class='bi bi-check2-circle status-icon returned'></i>"),
+    RETURNED("Возврат забран", "<i class='bi bi-check2-circle status-icon returned'></i>"),
     REGISTERED("Заявка зарегистрирована", "<i class='bi bi-file-earmark-text status-icon registered'></i>"),
     UNKNOWN_STATUS("Неизвестный статус", "<i class='bi bi-question-circle status-icon unknown'></i>");
 

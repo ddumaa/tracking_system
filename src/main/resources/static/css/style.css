@@ -121,6 +121,16 @@ h5 {
   color: #343a40;
 }
 
+.link-hover {
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s ease-in-out, text-decoration 0.3s ease-in-out;
+}
+.link-hover:hover {
+  color: #343a40;
+  text-decoration: underline;
+}
+
 header {
   background-color: #ffffff;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
