@@ -39,6 +39,9 @@ public class DeliveryHistory {
     @Column(name = "send_date")
     private ZonedDateTime sendDate;
 
+    @Column(name = "arrived_date")
+    private ZonedDateTime arrivedDate;
+
     @Column(name = "received_date")
     private ZonedDateTime receivedDate;
 

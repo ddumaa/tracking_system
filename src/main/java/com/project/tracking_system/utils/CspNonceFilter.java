@@ -31,6 +31,7 @@ public class CspNonceFilter extends OncePerRequestFilter {
         String nonce = Base64.getUrlEncoder().withoutPadding().encodeToString(nonceBytes);
 
         request.setAttribute("cspNonce", nonce);
+        request.setAttribute("nonce", nonce);
 
         // Формируем заголовок CSP
         String cspPolicy = "default-src 'self'; " +

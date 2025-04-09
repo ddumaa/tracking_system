@@ -253,7 +253,7 @@ function connectWebSocket() {
 
     stompClient = new StompJs.Client({
         //'wss://belivery.by/ws', 'ws://localhost:8080/ws',
-        brokerURL: 'ws://localhost:8080/ws',
+        brokerURL: 'wss://belivery.by/ws',
         reconnectDelay: 1000,
         heartbeatIncoming: 0,
         heartbeatOutgoing: 0,
@@ -766,59 +766,6 @@ document.addEventListener("DOMContentLoaded", function () {
     // Если кука нет - показываем окно
     if (!getCookie("cookie_consent")) {
         cookieModal.classList.add("show");
-    }
-
-    /**
-     * АНАЛИТИКА
-     */
-    const refreshAnalyticsBtn = document.getElementById("refreshAnalyticsBtn");
-    if (!refreshAnalyticsBtn) {
-        console.warn("❌ Кнопка обновления аналитики не найдена в DOM!");
-    } else {
-        const storeSelectAnalytics = document.getElementById("analyticsStoreSelect");
-        const isMultiStore = storeSelectAnalytics !== null;
-
-        refreshAnalyticsBtn.addEventListener("click", function () {
-            console.log("🔥 Кнопка обновления аналитики нажата!");
-
-            refreshAnalyticsBtn.disabled = true;
-            refreshAnalyticsBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i>';
-
-            const formData = new FormData();
-            let selectedStoreId = isMultiStore ? storeSelectAnalytics.value : storeSelectAnalytics?.getAttribute("data-store-id");
-
-            if (selectedStoreId && selectedStoreId !== "all") {
-                formData.append("storeId", selectedStoreId);
-            }
-
-            fetch("/analytics/update", {
-                method: "POST",
-                body: formData,
-                headers: {
-                    [csrfHeader]: csrfToken
-                }
-            })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.text().then(text => {
-                            throw new Error(text);
-                        });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log("✅ Аналитика обновлена:", data);
-                    notifyUser(data.message, "success");
-                })
-                .catch(error => {
-                    console.error("❌ Ошибка обновления:", error);
-                    notifyUser("Ошибка при обновлении аналитики!", "danger");
-                })
-                .finally(() => {
-                    refreshAnalyticsBtn.disabled = false;
-                    refreshAnalyticsBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Обновить аналитику';
-                });
-        });
     }
 
     /**

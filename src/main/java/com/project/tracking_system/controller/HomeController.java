@@ -1,16 +1,17 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.PasswordResetDTO;
+import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.model.TrackingResponse;
+import com.project.tracking_system.service.track.TrackNumberOcrService;
 import com.project.tracking_system.service.track.TrackingNumberServiceXLS;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.LoginAttemptService;
-import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.user.PasswordResetService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -59,7 +60,7 @@ public class HomeController {
     private final PasswordResetService passwordResetService;
     private final TrackingNumberServiceXLS trackingNumberServiceXLS;
     private final StoreService storeService;
-    //private final TrackNumberOcrService trackNumberOcrService;
+    private final TrackNumberOcrService trackNumberOcrService;
 
     /**
      * Обрабатывает запросы на главной странице. Отображает домашнюю страницу.
@@ -378,9 +379,9 @@ public class HomeController {
                 model.addAttribute("trackingResults", trackingResponse.getTrackingResults());
                 model.addAttribute("limitExceededMessage", trackingResponse.getLimitExceededMessage());
             } else if (contentType.startsWith("image/")) {
-//                String recognizedText = trackNumberOcrService.processImage(file);
-//                List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, storeId, userId);
-//                model.addAttribute("trackingResults", trackingResults);
+                String recognizedText = trackNumberOcrService.processImage(file);
+                List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, storeId, userId);
+                model.addAttribute("trackingResults", trackingResults);
 
                 return "home";
             } else {

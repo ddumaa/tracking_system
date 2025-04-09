@@ -3,7 +3,6 @@ package com.project.tracking_system.service.analytics;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.StoreStatistics;
 import com.project.tracking_system.entity.GlobalStatus;
-import com.project.tracking_system.repository.DeliveryHistoryRepository;
 import com.project.tracking_system.repository.StoreAnalyticsRepository;
 import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
@@ -15,7 +14,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -30,7 +31,6 @@ public class StoreAnalyticsService {
     private final StoreAnalyticsRepository storeAnalyticsRepository;
     private final StoreRepository storeRepository;
     private final TrackParcelRepository trackParcelRepository;
-    private final DeliveryHistoryRepository deliveryHistoryRepository;
 
     /**
      * Получает аналитику по всем магазинам пользователя.
@@ -109,6 +109,42 @@ public class StoreAnalyticsService {
     private BigDecimal calculateReturnRate(StoreStatistics statistics) {
         if (statistics.getTotalSent() == 0) return BigDecimal.ZERO;
         return BigDecimal.valueOf((statistics.getTotalReturned() * 100.0) / statistics.getTotalSent());
+    }
+
+    public StoreStatistics aggregateStatistics(List<StoreStatistics> stats) {
+        int totalSent = stats.stream().mapToInt(StoreStatistics::getTotalSent).sum();
+        int totalDelivered = stats.stream().mapToInt(StoreStatistics::getTotalDelivered).sum();
+        int totalReturned = stats.stream().mapToInt(StoreStatistics::getTotalReturned).sum();
+
+        double avgDeliveryDays = stats.stream()
+                .map(StoreStatistics::getAverageDeliveryDays)
+                .filter(Objects::nonNull)                  // ← защита от null
+                .filter(d -> d > 0)                        // ← фильтрация положительных
+                .mapToDouble(Double::doubleValue)
+                .average()
+                .orElse(0.0);
+
+        StoreStatistics summary = new StoreStatistics();
+        summary.setTotalSent(totalSent);
+        summary.setTotalDelivered(totalDelivered);
+        summary.setTotalReturned(totalReturned);
+        summary.setAverageDeliveryDays(avgDeliveryDays);
+
+        double successRate = totalSent > 0 ? ((double) totalDelivered / totalSent) * 100 : 0.0;
+        double returnRate = totalSent > 0 ? ((double) totalReturned / totalSent) * 100 : 0.0;
+
+        summary.setDeliverySuccessRate(
+                BigDecimal.valueOf(successRate).setScale(2, RoundingMode.HALF_UP)
+        );
+        summary.setReturnRate(
+                BigDecimal.valueOf(returnRate).setScale(2, RoundingMode.HALF_UP)
+        );
+
+        Store virtualStore = new Store();
+        virtualStore.setName("Все магазины");
+        summary.setStore(virtualStore);
+
+        return summary;
     }
 
 }

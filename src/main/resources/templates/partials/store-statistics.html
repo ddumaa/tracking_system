@@ -1,0 +1,45 @@
+<!-- partials/store-statistics.html -->
+<th:block th:fragment="statBlock(stat)">
+    <div class="col-md-2 col-6 mb-3">
+        <div class="bg-light p-3 rounded shadow-sm border-start border-4 border-primary">
+            <div class="text-muted small">Отправлено</div>
+            <div class="h5 fw-bold" th:text="${stat.totalSent}">0</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6 mb-3">
+        <div class="bg-light p-3 rounded shadow-sm border-start border-4 border-success">
+            <div class="text-muted small">Доставлено</div>
+            <div class="h5 fw-bold" th:text="${stat.totalDelivered}">0</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6 mb-3">
+        <div class="bg-light p-3 rounded shadow-sm border-start border-4 border-danger">
+            <div class="text-muted small">Возвращено</div>
+            <div class="h5 fw-bold" th:text="${stat.totalReturned}">0</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6 mb-3">
+        <div class="bg-light p-3 rounded shadow-sm border-start border-4 border-warning">
+            <div class="text-muted small">Ср.вр. доставки</div>
+            <div class="h5 fw-bold" th:text="${stat.averageDeliveryDays}">0</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6 mb-3">
+        <div class="bg-light p-3 rounded shadow-sm border-start border-4 border-dark">
+            <div class="text-muted small">Ср.вр. забора</div>
+            <div class="h5 fw-bold" th:text="${stat.averagePickupDays}">0</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6 mb-3">
+        <div class="bg-light p-3 rounded shadow-sm border-start border-4 border-info">
+            <div class="text-muted small">Доставлено %</div>
+            <div class="h5 fw-bold" th:text="${stat.deliverySuccessRate}">0</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6 mb-3">
+        <div class="bg-light p-3 rounded shadow-sm border-start border-4 border-secondary">
+            <div class="text-muted small">Возвраты %</div>
+            <div class="h5 fw-bold" th:text="${stat.returnRate}">0</div>
+        </div>
+    </div>
+</th:block>

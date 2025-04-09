@@ -17,4 +17,13 @@ public enum PostalServiceType {
 
     private final String displayName;
 
+    public static PostalServiceType fromCode(String code) {
+        for (PostalServiceType type : values()) {
+            if (type.name().equalsIgnoreCase(code)) {
+                return type;
+            }
+        }
+        return UNKNOWN;
+    }
+
 }

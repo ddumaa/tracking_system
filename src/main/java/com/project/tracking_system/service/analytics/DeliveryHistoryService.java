@@ -1,5 +1,7 @@
 package com.project.tracking_system.service.analytics;
 
+import com.project.tracking_system.dto.DeliveryDates;
+import com.project.tracking_system.dto.PostalServiceStatsDTO;
 import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.entity.*;
@@ -20,7 +22,6 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Consumer;
 
 /**
@@ -74,6 +75,12 @@ public class DeliveryHistoryService {
             setHistoryDate("Дата возврата", history.getReturnedDate(), deliveryDates.returnedDate(), history::setReturnedDate);
         }
 
+        if (newStatus == GlobalStatus.WAITING_FOR_CUSTOMER) {
+            setHistoryDate(
+                    "Дата прибытия на пункт выдачи", history.getArrivedDate(), deliveryDates.arrivedDate(), history::setArrivedDate
+            );
+        }
+
         // Считаем и обновляем среднее время доставки
         updateAverageDeliveryDays(trackParcel.getStore());
 
@@ -94,7 +101,7 @@ public class DeliveryHistoryService {
         }
 
         PostalServiceType serviceType = typeDefinitionTrackPostService.detectPostalService(trackParcel.getNumber());
-        ZonedDateTime sendDate = null, receivedDate = null, returnedDate = null;
+        ZonedDateTime sendDate = null, receivedDate = null, returnedDate = null, arrivedDate = null;
 
         //  Определяем дату отправки
         if (serviceType == PostalServiceType.BELPOST) {
@@ -115,7 +122,16 @@ public class DeliveryHistoryService {
             returnedDate = parseDate(latestStatus.getTimex());
         }
 
-        return new DeliveryDates(sendDate, receivedDate, returnedDate);
+        // Поиск статуса WAITING_FOR_CUSTOMER
+        for (TrackInfoDTO info : trackInfoList) {
+            GlobalStatus status = statusTrackService.setStatus(List.of(info));
+            if (status == GlobalStatus.WAITING_FOR_CUSTOMER) {
+                arrivedDate = parseDate(info.getTimex());
+                break;
+            }
+        }
+
+        return new DeliveryDates(sendDate, receivedDate, returnedDate, arrivedDate);
     }
 
     /**
@@ -123,12 +139,15 @@ public class DeliveryHistoryService {
      */
     @Transactional
     public void updateAverageDeliveryDays(Store store) {
-        Double avgDays = deliveryHistoryRepository.findAverageDeliveryTimeForStore(store.getId());
+        Double avgDays = deliveryHistoryRepository.findAverageDeliveryTimeToFinalPoint(store.getId());
+        Double avgPickup = deliveryHistoryRepository.findAvgPickupTimeForStore(store.getId());
 
         StoreStatistics statistics = storeAnalyticsRepository.findByStoreId(store.getId())
                 .orElseThrow(() -> new IllegalStateException("Статистика не найдена для магазина ID=" + store.getId()));
 
+        statistics.setAveragePickupDays(avgPickup);
         statistics.setAverageDeliveryDays(avgDays);
+
         storeAnalyticsRepository.save(statistics);
 
         log.info("📦 Среднее время доставки обновлено для {}: {} дней", store.getName(), avgDays);
@@ -164,16 +183,46 @@ public class DeliveryHistoryService {
         }
     }
 
-    /**
-     *  Получает историю доставки по ID посылки.
-     */
-    @Transactional(readOnly = true)
-    public Optional<DeliveryHistory> getHistoryByParcelId(Long parcelId) {
-        return deliveryHistoryRepository.findByTrackParcelId(parcelId);
+    public List<PostalServiceStatsDTO> getStatsByPostalService(Long storeId) {
+        List<Object[]> rawData = deliveryHistoryRepository.getRawStatsByPostalService(storeId);
+        return rawData.stream()
+                .map(this::mapToDto)
+                .toList();
+    }
+
+    public List<PostalServiceStatsDTO> getStatsByPostalServiceForStores(List<Long> storeIds) {
+        List<Object[]> rawData = deliveryHistoryRepository.getRawStatsByPostalServiceForStores(storeIds);
+        return rawData.stream()
+                .map(this::mapToDto)
+                .toList();
     }
 
     /**
-     *  Класс-обёртка для дат.
+     * Преобразует массив данных, полученных из запроса к БД,
+     * в объект {@link PostalServiceStatsDTO} c локализованным названием почтовой службы.
+     *
+     * @param row массив полей: [кодСлужбы, отправлено, доставлено, возвращено, средняяДоставка]
+     * @return заполненный DTO со строковым именем почтовой службы, числом отправленных, доставленных и возвращённых
      */
-    private record DeliveryDates(ZonedDateTime sendDate, ZonedDateTime receivedDate, ZonedDateTime returnedDate) {}
+    private PostalServiceStatsDTO mapToDto(Object[] row) {
+        String code = (String) row[0];
+        PostalServiceType type = PostalServiceType.fromCode(code);
+        String displayName = type.getDisplayName();
+
+        int sent = row[1] != null ? ((Number) row[1]).intValue() : 0;
+        int delivered = row[2] != null ? ((Number) row[2]).intValue() : 0;
+        int returned = row[3] != null ? ((Number) row[3]).intValue() : 0;
+        double avgDeliveryDays = row[4] != null ? ((Number) row[4]).doubleValue() : 0.0;
+        double avgPickupTimeDays = row[5] != null ? ((Number) row[5]).doubleValue() : 0.0;
+
+        return new PostalServiceStatsDTO(
+                displayName,
+                sent,
+                delivered,
+                returned,
+                avgDeliveryDays,
+                avgPickupTimeDays
+        );
+    }
+
 }

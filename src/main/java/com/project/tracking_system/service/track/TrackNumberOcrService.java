@@ -9,6 +9,7 @@ import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
 import org.opencv.core.*;
 import org.opencv.imgproc.Imgproc;
+import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
@@ -32,7 +33,7 @@ import java.util.regex.Pattern;
  */
 @Slf4j
 @RequiredArgsConstructor
-//@Service
+@Service
 public class TrackNumberOcrService {
 
     private final TrackParcelService trackParcelService;
