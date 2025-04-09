@@ -46,8 +46,9 @@
                             <button type="button" id="applyActionBtn" class="btn btn-outline-primary">Применить</button>
                         </div>
 
-                        <!-- Фильтр по магазину -->
-                        <div class="filter-group d-flex align-items-center gap-2">
+                        <!-- Фильтр по магазину (показываем только если магазинов больше 1) -->
+                        <div class="filter-group d-flex align-items-center gap-2"
+                             th:if="${stores != null and #lists.size(stores) > 1}">
                             <label for="storeId" class="form-label m-0 me-2">Магазин:</label>
                             <select id="storeId" name="storeId" class="form-select w-auto">
                                 <option value="" th:selected="${storeId == null}">Все магазины</option>
@@ -66,7 +67,7 @@
                                 <!-- Всегда выводим опцию "Все статусы" -->
                                 <option value="" th:selected="${statusString == null}">Все статусы</option>
                                 <!-- Динамически генерируем опции из enum GlobalStatus -->
-                                <option th:each="status : ${T(com.project.tracking_system.model.GlobalStatus).values()}"
+                                <option th:each="status : ${T(com.project.tracking_system.entity.GlobalStatus).values()}"
                                         th:value="${status.name()}"
                                         th:text="${status.getDescription()}"
                                         th:selected="${status.name() == statusString}">
@@ -111,7 +112,7 @@
                                             <div class="d-flex align-items-center">
                                                 <!-- Изменено: выводим готовое значение iconHtml из DTO -->
                                                 <span th:if="${item.iconHtml != null}" th:utext="${item.iconHtml}" class="status-icon"></span>
-                                                <span th:unless="${item.iconHtml != null}" th:utext="${T(com.project.tracking_system.model.GlobalStatus).UNKNOWN_STATUS.getIconHtml()}" class="status-icon"></span>
+                                                <span th:unless="${item.iconHtml != null}" th:utext="${T(com.project.tracking_system.entity.GlobalStatus).UNKNOWN_STATUS.getIconHtml()}" class="status-icon"></span>
 
                                                 <button type="button" class="btn btn-link parcel-number open-modal"
                                                         th:text="${item.number}"

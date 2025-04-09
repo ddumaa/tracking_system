@@ -91,7 +91,7 @@ public class AdminController {
 
         for (Store store : stores) {
             Long storeId = store.getId();
-            List<TrackParcelDTO> parcels = trackParcelService.findAllByStoreTracks(storeId);
+            List<TrackParcelDTO> parcels = trackParcelService.findAllByStoreTracks(storeId, userId);
             storeParcels.put(storeId, parcels);
         }
 

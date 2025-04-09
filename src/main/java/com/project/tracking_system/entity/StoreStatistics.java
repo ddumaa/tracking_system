@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 
 /**
@@ -39,6 +40,15 @@ public class StoreStatistics {
 
     @Column(name = "average_delivery_days")
     private Double averageDeliveryDays;
+
+    @Column(name = "avg_pickup_days")
+    private Double averagePickupDays;
+
+    @Column(name = "delivery_success_rate", precision = 5, scale = 2)
+    private BigDecimal deliverySuccessRate;
+
+    @Column(name = "return_rate", precision = 5, scale = 2)
+    private BigDecimal returnRate;
 
     @Column(name = "updated_at")
     private ZonedDateTime updatedAt;

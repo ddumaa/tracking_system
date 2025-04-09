@@ -1,7 +1,7 @@
 package com.project.tracking_system.repository;
 
 import com.project.tracking_system.entity.TrackParcel;
-import com.project.tracking_system.model.GlobalStatus;
+import com.project.tracking_system.entity.GlobalStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

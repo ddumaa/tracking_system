@@ -2,7 +2,6 @@ package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackingResultAdd;
-import com.project.tracking_system.service.TypeDefinitionTrackPostService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,7 +36,6 @@ import java.util.regex.Pattern;
 @Service
 public class TrackNumberOcrService {
 
-    private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final TrackParcelService trackParcelService;
 
     /**
@@ -135,6 +133,8 @@ public class TrackNumberOcrService {
         String[] lines = text.split("\\R");
         List<TrackingResultAdd> trackInfoResult = new ArrayList<>();
 
+        boolean canSave = userId != null;
+
         for (String line : lines) {
             line = line.trim();
             log.info("Обрабатываем строку: {}", line);
@@ -145,16 +145,20 @@ public class TrackNumberOcrService {
                 log.info("Найден трек-номер: {}", trackNumber);
 
                 try {
-                    TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(userId, trackNumber);
+                    // Используем processTrack для комплексной работы с треком.
+                    TrackInfoListDTO trackInfo = trackParcelService.processTrack(trackNumber, storeId, userId, canSave);
 
                     if (trackInfo != null) {
-                        trackParcelService.save(trackNumber, trackInfo, storeId, userId);
+                        trackInfoResult.add(new TrackingResultAdd(trackNumber, "Добавлен"));
+                    } else {
+                        trackInfoResult.add(new TrackingResultAdd(trackNumber, "Нет данных"));
                     }
-
-                    trackInfoResult.add(new TrackingResultAdd(trackNumber, "Добавлен"));
-                } catch (Exception e) {
+                } catch (IllegalArgumentException e) {
                     trackInfoResult.add(new TrackingResultAdd(trackNumber, "Ошибка: " + e.getMessage()));
-                    log.error("Ошибка обработки трек-номера {}: {}", trackNumber, e.getMessage(), e);
+                    log.warn("Ошибка обработки {}: {}", trackNumber, e.getMessage());
+                } catch (Exception e) {
+                    trackInfoResult.add(new TrackingResultAdd(trackNumber, "Ошибка обработки"));
+                    log.error("Ошибка обработки {}: {}", trackNumber, e.getMessage(), e);
                 }
             }
         }

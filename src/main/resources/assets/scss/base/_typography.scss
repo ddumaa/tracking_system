@@ -70,3 +70,14 @@ h5 {
     color: vars.$dark;
   }
 }
+
+.link-hover {
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s ease-in-out, text-decoration 0.3s ease-in-out;
+
+  &:hover {
+    color: vars.$dark;
+    text-decoration: underline;
+  }
+}

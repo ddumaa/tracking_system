@@ -12,6 +12,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.ZoneId;
 import java.util.*;
 
 @Setter
@@ -33,6 +34,9 @@ public class User implements UserDetails {
 
     @NotBlank(message = "Введите пароль")
     private String password;
+
+    @Column(name = "time_zone", nullable = false)
+    private String timeZone = "Europe/Minsk";
 
     @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore

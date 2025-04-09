@@ -1,7 +1,7 @@
 package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.dto.TrackInfoDTO;
-import com.project.tracking_system.model.GlobalStatus;
+import com.project.tracking_system.entity.GlobalStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -41,7 +41,7 @@ public class StatusTrackService {
                 GlobalStatus.RETURN_IN_PROGRESS);
         statusPatterns.put(Pattern.compile("^Почтовое отправление прибыло на Отделение №\\d+.*для возврата.*"),
                 GlobalStatus.RETURN_PENDING_PICKUP);
-        statusPatterns.put(Pattern.compile("^Почтовое отправление возвращено отправителю$"), GlobalStatus.RETURNED_TO_SENDER);
+        statusPatterns.put(Pattern.compile("^Почтовое отправление возвращено отправителю$"), GlobalStatus.RETURNED);
         statusPatterns.put(Pattern.compile("^Заявка на почтовое отправление зарегистрирована$"), GlobalStatus.REGISTERED);
         statusPatterns.put(Pattern.compile("^Добрый день\\. Отправление [A-Z0-9]+ не востребовано получателем.*|" +
                         "^Отправление с [0-9]{2}\\.[0-9]{2}\\.[0-9]{4} ожидает вручения в Отделение.*|" +

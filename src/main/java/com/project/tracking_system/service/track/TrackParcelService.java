@@ -2,19 +2,15 @@ package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.dto.TrackParcelDTO;
-import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
-import com.project.tracking_system.entity.Store;
-import com.project.tracking_system.entity.TrackParcel;
-import com.project.tracking_system.entity.UpdateResult;
-import com.project.tracking_system.entity.User;
-import com.project.tracking_system.model.GlobalStatus;
+import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
 import com.project.tracking_system.service.SubscriptionService;
-import com.project.tracking_system.service.TypeDefinitionTrackPostService;
+import com.project.tracking_system.service.analytics.DeliveryHistoryService;
+import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -24,8 +20,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.ZoneOffset;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -54,13 +50,40 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class TrackParcelService {
 
     private final WebSocketController webSocketController;
-    private final TrackParcelRepository trackParcelRepository;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final StatusTrackService statusTrackService;
     private final SubscriptionService subscriptionService;
+    private final DeliveryHistoryService deliveryHistoryService;
+    private final UserService userService;
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final StoreRepository storeRepository;
     private final UserRepository userRepository;
+    private final TrackParcelRepository trackParcelRepository;
+
+    @Transactional
+    public TrackInfoListDTO processTrack(String number, Long storeId, Long userId, boolean canSave) {
+        number = number.toUpperCase(); // Приводим к верхнему регистру
+
+        log.info("Обработка трека: {} (Пользователь ID={}, Магазин ID={})", number, userId, storeId);
+
+        // Получаем данные о треке
+        TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(userId, number);
+
+        if (trackInfo == null || trackInfo.getList().isEmpty()) {
+            log.warn("Данных по треку {} не найдено", number);
+            return trackInfo;
+        }
+
+        // Сохраняем трек, если пользователь авторизован и разрешено сохранять
+        if (userId != null && canSave) {
+            save(number, trackInfo, storeId, userId);
+            log.debug("✅ Посылка сохранена: {} (UserID={}, StoreID={})", number, userId, storeId);
+        } else {
+            log.info("⏳ Трек '{}' обработан, но не сохранён.", number);
+        }
+
+        return trackInfo;
+    }
 
     /**
      * Сохраняет или обновляет посылку пользователя.
@@ -81,16 +104,16 @@ public class TrackParcelService {
 
         // Ищем трек по номеру и пользователю независимо от магазина
         TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(number, userId);
-        boolean isNewTrack = (trackParcel == null);
+        GlobalStatus oldStatus = (trackParcel != null) ? trackParcel.getStatus() : null;
 
         // Если трек новый, проверяем лимиты
-        if (isNewTrack) {
+        if (trackParcel == null) {
             int remainingTracks = subscriptionService.canSaveMoreTracks(userId, 1);
             if (remainingTracks <= 0) {
                 throw new IllegalArgumentException("Вы не можете сохранить больше посылок, так как превышен лимит сохранённых посылок.");
             }
 
-            // Используем getReferenceById(), чтобы не делать лишний SELECT
+            // Используем getReferenceById()
             Store store = storeRepository.getReferenceById(storeId);
             User user = userRepository.getReferenceById(userId);
 
@@ -99,8 +122,9 @@ public class TrackParcelService {
             trackParcel.setNumber(number);
             trackParcel.setStore(store);
             trackParcel.setUser(user);
+            log.info("Создан новый трек {} для пользователя ID={}", number, userId);
 
-        } else {
+        }
         // Если трек уже существует, проверяем, соответствует ли магазин выбранному пользователем
         if (!trackParcel.getStore().getId().equals(storeId)) {
             // Загружаем новый магазин
@@ -111,16 +135,27 @@ public class TrackParcelService {
             trackParcel.setStore(newStore);
             log.info("Обновление магазина для трека {}: с магазина {} на магазин {}", number, oldStoreId, storeId);
         }
-    }
 
         // Обновляем статус и дату трека на основе нового содержимого
-        trackParcel.setStatus(statusTrackService.setStatus(trackInfoListDTO.getList()));
-        trackParcel.setData(trackInfoListDTO.getList().get(trackInfoListDTO.getList().size() - 1).getTimex());
+        GlobalStatus newStatus = statusTrackService.setStatus(trackInfoListDTO.getList());
+
+        trackParcel.setStatus(newStatus);
+
+        String lastDate = trackInfoListDTO.getList().get(0).getTimex();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss");
+        LocalDateTime localDateTime = LocalDateTime.parse(lastDate, formatter);
+        ZoneId userZone = ZoneId.of(userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден")).getTimeZone());
+        ZonedDateTime zonedDateTime = localDateTime.atZone(userZone).withZoneSameInstant(ZoneOffset.UTC);
+        trackParcel.setData(zonedDateTime);
 
         trackParcelRepository.save(trackParcel);
 
-        log.info("✅ Обновлено: userId={}, storeId={}, трек={}, новый статус={}",
-                userId, storeId, trackParcel.getNumber(), trackParcel.getStatus());
+        // Обновляем историю доставки
+        deliveryHistoryService.updateDeliveryHistory(trackParcel, oldStatus, newStatus, trackInfoListDTO);
+
+        log.info("Обновлено: userId={}, storeId={}, трек={}, новый статус={}",
+                userId, storeId, trackParcel.getNumber(), newStatus);
     }
 
     /**
@@ -135,10 +170,11 @@ public class TrackParcelService {
     }
 
     @Transactional
-    public Page<TrackParcelDTO> findByStoreTracks(List<Long> storeIds, int page, int size) {
+    public Page<TrackParcelDTO> findByStoreTracks(List<Long> storeIds, int page, int size, Long userId) {
         Pageable pageable = PageRequest.of(page, size);
         Page<TrackParcel> trackParcels = trackParcelRepository.findByStoreIdIn(storeIds, pageable);
-        return trackParcels.map(TrackParcelDTO::new);
+        ZoneId userZone = userService.getUserZone(userId);
+        return trackParcels.map(track -> new TrackParcelDTO(track, userZone));
     }
 
     /**
@@ -154,10 +190,11 @@ public class TrackParcelService {
      * @return страница с посылками пользователя по статусу
      */
     @Transactional
-    public Page<TrackParcelDTO> findByStoreTracksAndStatus(List<Long> storeIds, GlobalStatus status, int page, int size) {
+    public Page<TrackParcelDTO> findByStoreTracksAndStatus(List<Long> storeIds, GlobalStatus status, int page, int size, Long userId) {
         Pageable pageable = PageRequest.of(page, size);
         Page<TrackParcel> trackParcels = trackParcelRepository.findByStoreIdInAndStatus(storeIds, status, pageable);
-        return trackParcels.map(TrackParcelDTO::new);
+        ZoneId userZone = userService.getUserZone(userId);
+        return trackParcels.map(track -> new TrackParcelDTO(track, userZone));
     }
 
     @Transactional
@@ -195,10 +232,11 @@ public class TrackParcelService {
      * @return список всех посылок в магазине
      */
     @Transactional
-    public List<TrackParcelDTO> findAllByStoreTracks(Long storeId) {
+    public List<TrackParcelDTO> findAllByStoreTracks(Long storeId, Long userId) {
         List<TrackParcel> trackParcels = trackParcelRepository.findByStoreId(storeId);
+        ZoneId userZone = userService.getUserZone(userId);
         return trackParcels.stream()
-                .map(TrackParcelDTO::new)
+                .map(track -> new TrackParcelDTO(track, userZone))
                 .toList();
     }
 
@@ -211,8 +249,9 @@ public class TrackParcelService {
     @Transactional
     public List<TrackParcelDTO> findAllByUserTracks(Long userId) {
         List<TrackParcel> trackParcels = trackParcelRepository.findByUserId(userId);
+        ZoneId userZone = userService.getUserZone(userId);
         return trackParcels.stream()
-                .map(TrackParcelDTO::new)
+                .map(track -> new TrackParcelDTO(track, userZone))
                 .toList();
     }
 
@@ -247,7 +286,7 @@ public class TrackParcelService {
         // Фильтруем треки, исключая те, что уже в финальном статусе
         List<TrackParcelDTO> parcelsToUpdate = allParcels.stream()
                 .filter(dto -> !(dto.getStatus().equals(GlobalStatus.DELIVERED.getDescription()) ||
-                        dto.getStatus().equals(GlobalStatus.RETURNED_TO_SENDER.getDescription())))
+                        dto.getStatus().equals(GlobalStatus.RETURNED.getDescription())))
                 .toList();
 
         log.info("📦 Запущено обновление всех {} треков для userId={}", parcelsToUpdate.size(), userId);
@@ -269,28 +308,29 @@ public class TrackParcelService {
             AtomicInteger successfulUpdates = new AtomicInteger(0);
 
             List<CompletableFuture<Void>> futures = parcelsToUpdate.stream()
-                    .map(trackParcelDTO -> typeDefinitionTrackPostService
-                            .getTypeDefinitionTrackPostServiceAsync(userId, trackParcelDTO.getNumber())
-                            .thenAccept(trackInfoListDTO -> {
-                                List<TrackInfoDTO> list = trackInfoListDTO.getList();
-                                TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(trackParcelDTO.getNumber(), userId);
+                    .map(trackParcelDTO -> CompletableFuture.runAsync(() -> {
+                        try {
+                            // Используем `processTrack()`, он уже включает определение типа и обновление!
+                            TrackInfoListDTO trackInfo = processTrack(
+                                    trackParcelDTO.getNumber(),
+                                    trackParcelDTO.getStoreId(),
+                                    userId,
+                                    true // Позволяем обновление и сохранение
+                            );
 
-                                if (trackParcel != null && !list.isEmpty()) {
-                                    trackParcel.setStatus(statusTrackService.setStatus(list));
-                                    trackParcel.setData(list.get(0).getTimex());
-                                    trackParcelRepository.save(trackParcel);
+                            if (trackInfo != null && !trackInfo.getList().isEmpty()) {
+                                successfulUpdates.incrementAndGet();
+                                log.debug("Трек {} обновлён для пользователя ID={}", trackParcelDTO.getNumber(), userId);
+                            } else {
+                                log.warn("Нет данных по треку {} (userId={})", trackParcelDTO.getNumber(), userId);
+                            }
 
-                                    log.debug("✅ Обновлен статус посылки {} для пользователя ID: {}", trackParcelDTO.getNumber(), userId);
-
-                                    // Увеличиваем счётчик успешных обновлений
-                                    successfulUpdates.incrementAndGet();
-                                }
-                            })
-                            .exceptionally(ex -> {
-                                log.error("❌ Ошибка обновления трека {} для userId={}: {}", trackParcelDTO.getNumber(), userId, ex.getMessage());
-                                return null;
-                            })
-                    )
+                        } catch (IllegalArgumentException e) {
+                            log.warn("Ошибка обновления трека {}: {}", trackParcelDTO.getNumber(), e.getMessage());
+                        } catch (Exception e) {
+                            log.error("Ошибка обработки трека {}: {}", trackParcelDTO.getNumber(), e.getMessage(), e);
+                        }
+                    }))
                     .toList();
 
             // Ждём завершения всех обновлений
@@ -298,7 +338,7 @@ public class TrackParcelService {
                 int updatedCount = successfulUpdates.get();
                 int totalCount = parcelsToUpdate.size();
 
-                log.info("✅ Итог обновления всех треков для userId={}: {} обновлено, {} не изменено",
+                log.info("Итог обновления всех треков для userId={}: {} обновлено, {} не изменено",
                         userId, updatedCount, totalCount - updatedCount);
 
                 // Формируем сообщение
@@ -317,7 +357,7 @@ public class TrackParcelService {
             });
 
         } catch (Exception e) {
-            log.error("❌ Ошибка при обновлении всех треков для пользователя {}: {}", userId, e.getMessage());
+            log.error("Ошибка при обновлении всех треков для пользователя {}: {}", userId, e.getMessage());
             webSocketController.sendUpdateStatus(userId, "Ошибка при обновлении всех треков: " + e.getMessage(), false);
         }
     }
@@ -338,11 +378,11 @@ public class TrackParcelService {
         int totalRequested = selectedParcels.size();
         List<TrackParcel> updatableParcels = selectedParcels.stream()
                 .filter(parcel -> !(parcel.getStatus() == GlobalStatus.DELIVERED ||
-                        parcel.getStatus() == GlobalStatus.RETURNED_TO_SENDER))
+                        parcel.getStatus() == GlobalStatus.RETURNED))
                 .toList();
         int nonUpdatableCount = totalRequested - updatableParcels.size();
 
-        log.info("📦 Фильтрация завершена: {} треков можно обновить из {}, {} уже в финальном статусе",
+        log.info("Фильтрация завершена: {} треков можно обновить из {}, {} уже в финальном статусе",
                 updatableParcels.size(), totalRequested, nonUpdatableCount);
 
         if (updatableParcels.isEmpty()) {
@@ -363,14 +403,12 @@ public class TrackParcelService {
         }
 
         int updatesToProcess = Math.min(updatableParcels.size(), remainingUpdates);
+        List<TrackParcel> parcelsToUpdate = updatableParcels.subList(0, updatesToProcess);
 
-        // Преобразуем в список номеров для передачи в асинхронный процесс
-        List<String> updatableNumbers = updatableParcels.stream().map(TrackParcel::getNumber).toList();
-
-        log.info("🔄 Запущено обновление {} треков для пользователя ID={}", updatesToProcess, userId);
+        log.info("Запущено обновление {} треков для пользователя ID={}", updatesToProcess, userId);
 
         // Вызов асинхронного метода с `userId`
-        processTrackUpdatesAsync(userId, updatableNumbers.subList(0, updatesToProcess), totalRequested, nonUpdatableCount);
+        processTrackUpdatesAsync(userId, parcelsToUpdate, totalRequested, nonUpdatableCount);
 
         return new UpdateResult(true, updatesToProcess, selectedNumbers.size(),
                 "Обновление запущено...");
@@ -378,45 +416,33 @@ public class TrackParcelService {
 
     @Async
     @Transactional
-    public void processTrackUpdatesAsync(Long userId, List<String> selectedNumbers, int totalRequested, int nonUpdatableCount) {
+    public void processTrackUpdatesAsync(Long userId, List<TrackParcel> parcelsToUpdate, int totalRequested, int nonUpdatableCount) {
         try {
-            // Загружаем посылки по `userId`, а не `storeId`
-            List<TrackParcel> parcelsToUpdate = trackParcelRepository.findByNumberInAndUserId(selectedNumbers, userId);
-
             AtomicInteger successfulUpdates = new AtomicInteger(0);
 
-            log.info("🔄 Начато обновление {} треков для userId={}", parcelsToUpdate.size(), userId);
+            log.info("Начато обновление {} треков для userId={}", parcelsToUpdate.size(), userId);
 
             List<CompletableFuture<Void>> futures = parcelsToUpdate.stream()
-                    .map(parcel -> typeDefinitionTrackPostService
-                            .getTypeDefinitionTrackPostServiceAsync(userId, parcel.getNumber()) // Передаём `userId`, а не `storeId`
-                            .thenAccept(trackInfoListDTO -> {
-                                List<TrackInfoDTO> list = trackInfoListDTO.getList();
-                                TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(parcel.getNumber(), userId);
-
-                                if (trackParcel != null && !list.isEmpty()) {
-                                    trackParcel.setStatus(statusTrackService.setStatus(list));
-                                    trackParcel.setData(list.get(0).getTimex());
-                                    trackParcelRepository.save(trackParcel);
-
-                                    log.info("✅ Обновлено: userId={}, трек={}", userId, parcel.getNumber());
-
-                                    // Увеличиваем счётчик успешных обновлений
-                                    successfulUpdates.incrementAndGet();
-                                }
-                            })
-                    )
+                    .map(parcel -> CompletableFuture.runAsync(() -> {
+                        try {
+                            TrackInfoListDTO trackInfo = processTrack(parcel.getNumber(), parcel.getStore().getId(), userId, true);
+                            if (trackInfo != null && !trackInfo.getList().isEmpty()) {
+                                successfulUpdates.incrementAndGet();
+                            }
+                        } catch (Exception e) {
+                            log.error("Ошибка обновления трека {}: {}", parcel.getNumber(), e.getMessage());
+                        }
+                    }))
                     .toList();
 
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> {
                 int updatedCount = successfulUpdates.get();
-
-                log.info("✅ Итог обновления для userId={}: {} обновлено, {} в финальном статусе",
+                log.info("Итог обновления для userId={}: {} обновлено, {} в финальном статусе",
                         userId, updatedCount, nonUpdatableCount);
 
                 // Если обновлено хотя бы 1 трек, обновляем лимит в подписке
                 if (updatedCount > 0) {
-                    log.info("🔄 Финальное обновление updateCount для userId={}, добавляем={}", userId, updatedCount);
+                    log.info("Финальное обновление updateCount для userId={}, добавляем={}", userId, updatedCount);
                     incrementUpdateCount(userId, updatedCount);
                 }
 
@@ -441,7 +467,7 @@ public class TrackParcelService {
             });
 
         } catch (Exception e) {
-            log.error("❌ Ошибка при обновлении посылок для пользователя {}: {}", userId, e.getMessage());
+            log.error("Ошибка при обновлении посылок для пользователя {}: {}", userId, e.getMessage());
             webSocketController.sendUpdateStatus(userId, "Ошибка обновления: " + e.getMessage(), false);
         }
     }

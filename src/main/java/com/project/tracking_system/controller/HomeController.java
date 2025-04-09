@@ -12,7 +12,6 @@ import com.project.tracking_system.service.track.TrackNumberOcrService;
 import com.project.tracking_system.service.track.TrackingNumberServiceXLS;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.LoginAttemptService;
-import com.project.tracking_system.service.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.user.PasswordResetService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -57,7 +56,6 @@ public class HomeController {
 
     private final UserService userService;
     private final TrackParcelService trackParcelService;
-    private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final LoginAttemptService loginAttemptService;
     private final PasswordResetService passwordResetService;
     private final TrackingNumberServiceXLS trackingNumberServiceXLS;
@@ -90,7 +88,6 @@ public class HomeController {
      *
      * @param number номер посылки для отслеживания
      * @param model модель для добавления данных в представление
-     * @param request запрос для получения информации о сессии
      * @return имя представления домашней страницы
      */
     @PostMapping
@@ -98,72 +95,35 @@ public class HomeController {
                        @RequestParam(value = "storeId", required = false) Long storeId,
                        Model model) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        Long userId = null; // По умолчанию NULL для неаутентифицированных пользователей
+        Long userId = userService.extractUserId(authentication);
 
-        if (authentication != null && authentication.isAuthenticated() && !(authentication instanceof AnonymousAuthenticationToken)) {
-            // Пользователь авторизован
-            User user = (User) authentication.getPrincipal();
-            userId = user.getId();
-            model.addAttribute("authenticatedUser", user.getEmail());
-
-            // Получаем магазины пользователя
-            List<Store> stores = storeService.getUserStores(userId);
-            log.debug("Магазины пользователя: {}", stores);
-            model.addAttribute("stores", stores);
-
-            // Если магазин не был выбран пользователем, выбираем дефолтный
-            if (storeId == null) {
-                if (stores.size() == 1) {
-                    storeId = stores.get(0).getId();
-                } else {
-                    storeId = stores.stream()
-                            .filter(Store::isDefault)
-                            .map(Store::getId)
-                            .findFirst()
-                            .orElse(null);
-                }
-            }
-        } else {
-            // гость
-            log.info("👤 Гость запросил информацию по трек-номеру: {}", number);
-        }
+        boolean canSave = userId != null;
 
         model.addAttribute("number", number);
+        model.addAttribute("authenticatedUser", userId);
+
+        // Получаем магазины пользователя и определяем ID магазина
+        List<Store> stores = userId != null ? storeService.getUserStores(userId) : List.of();
+        storeId = storeService.resolveStoreId(storeId, stores);
+        model.addAttribute("stores", stores);
 
         try {
-            // Получаем данные посылки
-            TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(userId, number);
+            // trackParcelService реализует логику с посылкой!
+            TrackInfoListDTO trackInfo = trackParcelService.processTrack(number, storeId, userId, canSave);
 
-            if (trackInfo == null || trackInfo.getList() == null || trackInfo.getList().isEmpty()) {
+            if (trackInfo == null || trackInfo.getList().isEmpty()) {
                 model.addAttribute("customError", "Нет данных для указанного номера посылки.");
                 log.warn("Нет данных для номера: {}", number);
                 return "home";
             }
 
-            // Добавляем данные в модель
             model.addAttribute("trackInfo", trackInfo);
-
-            // Сохраняем посылку только для авторизованных пользователей, если у них **есть магазин**
-            if (userId != null && storeId != null) {
-                try {
-                    trackParcelService.save(number, trackInfo, storeId, userId);
-                    log.debug("✅ Данные посылки сохранены для пользователя ID={}, storeId={}", userId, storeId);
-                } catch (IllegalArgumentException e) {
-                    model.addAttribute("customError", "Вы не можете сохранить больше 10 посылок.");
-                    log.warn("❌ Ошибка сохранения посылки для пользователя ID={}, storeId={}: {}", userId, storeId, e.getMessage());
-                }
-            } else if (userId != null) {
-                log.info("⏳ Пользователь ID={} не сохранил посылку, так как у него несколько магазинов.", userId);
-            } else {
-                log.info("👤 Гость просмотрел данные посылки без сохранения.");
-            }
-
         } catch (IllegalArgumentException e) {
             model.addAttribute("customError", e.getMessage());
-            log.error("Ошибка при получении данных посылки: {}", e.getMessage(), e);
+            log.warn("Ошибка: {}", e.getMessage());
         } catch (Exception e) {
             model.addAttribute("generalError", "Произошла ошибка при обработке запроса.");
-            log.error("Общая ошибка при обработке запроса: {}", e.getMessage(), e);
+            log.error("Общая ошибка: {}", e.getMessage(), e);
         }
 
         return "home";
@@ -412,7 +372,7 @@ public class HomeController {
 
         try {
             if (contentType.equals("application/vnd.ms-excel") || contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
-                TrackingResponse trackingResponse = trackingNumberServiceXLS.processTrackingNumber(file, storeId, userId);
+                TrackingResponse trackingResponse = trackingNumberServiceXLS.processTrackingNumber(file, userId);
 
                 log.info("Передаём в модель limitExceededMessage: {}", trackingResponse.getLimitExceededMessage());
 

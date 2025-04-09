@@ -1,0 +1,52 @@
+@use "../abstracts/variables" as vars;
+@use "../abstracts/mixins" as mixins;
+@use "sass:color";
+
+body.loading {
+  cursor: wait;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.store-statistics-content {
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  overflow: hidden;
+
+  &.collapsed {
+    max-height: 0;
+    opacity: 0;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  &.expanded {
+    max-height: 1000px; // Достаточно большое значение
+    opacity: 1;
+  }
+}
+
+.chart-container {
+  position: relative;
+  height: 300px; // <--- фиксируем высоту!
+}
+
+.chart-wrapper {
+  background: #ffffff;
+  border: 1px solid #dee2e6;
+  border-radius: 10px;
+  padding: 20px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+
+  h5 {
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+  }
+
+  canvas {
+    flex-grow: 1;
+  }
+}
+

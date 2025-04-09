@@ -20,7 +20,7 @@
             <!-- Offcanvas боковая панель -->
             <div class="offcanvas offcanvas-start" tabindex="-1" id="settingsSidebar" aria-labelledby="settingsSidebarLabel">
                 <div class="offcanvas-header">
-                    <h5 class="offcanvas-title" id="settingsSidebarLabel">Настройки</h5>
+                    <h5 class="offcanvas-title" id="settingsSidebarLabel">Меню</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Закрыть"></button>
                 </div>
                 <div class="offcanvas-body">
@@ -50,7 +50,7 @@
             <!-- Боковое меню (для ПК и планшетов) -->
             <div class="col-lg-3 col-md-4 d-none d-md-block">
                 <div class="card shadow-sm p-3 rounded-4">
-                    <h5 class="mb-3 text-center">Настройки</h5>
+                    <h5 class="mb-3 text-center">Меню</h5>
                     <div class="nav flex-column nav-pills" id="v-pills-tab" role="tablist" aria-orientation="vertical">
                         <a class="nav-link active d-flex align-items-center" id="v-pills-home-tab" data-bs-toggle="pill" href="#v-pills-home" role="tab">
                             <i class="bi bi-person me-2"></i> Об аккаунте
@@ -222,8 +222,14 @@
                      role="tabpanel">
 
                     <h5 class="mb-3">Белпочта</h5>
-                    <p>Если у вас есть доступ к API Белпочты, напишите мне.</p>
+                    <p>Если у вас есть договор на API Белпочты, свяжитесь со мной для реализации интеграции.</p>
+
+                    <p class="fw-semibold">Контакт для связи:</p>
+                    <p>
+                        📧 <a href="mailto:info@belivery.by" class="text-decoration-none">info@belivery.by</a>
+                    </p>
                 </div>
+
                 <div class="tab-pane fade card p-4 shadow-sm rounded-4" id="v-pills-messages" role="tabpanel">
                     <h5 class="mb-3">Удаление аккаунта</h5>
                     <p class="fw-semibold">
@@ -303,7 +309,12 @@
                 </div>
                 <div class="modal-body">
                     <p class="text-danger fw-semibold text-center">
-                        Вы уверены, что хотите удалить этот магазин? Это действие <span class="fw-bold text-uppercase">невозможно</span> отменить.
+                        Вы уверены, что хотите <span class="fw-bold">удалить этот магазин</span>?
+                        Это действие <span class="fw-bold text-uppercase">невозможно</span> отменить.
+                    </p>
+                    <p class="text-muted text-center">
+                        ❗ Вместе с магазином будут удалены <br>
+                        <span class="fw-semibold">все его посылки и аналитика</span>.
                     </p>
                 </div>
                 <div class="modal-footer">
@@ -313,6 +324,7 @@
             </div>
         </div>
     </div>
+
 </div>
 
 </html>

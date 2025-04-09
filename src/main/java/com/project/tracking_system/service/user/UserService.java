@@ -18,10 +18,12 @@ import com.project.tracking_system.utils.UserCredentialsResolver;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -140,6 +142,7 @@ public class UserService {
         User user = new User();
         user.setEmail(userDTO.getEmail());
         user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
+        user.setTimeZone("Europe/Minsk");
         user.setRole(Role.ROLE_USER);
 
         userRepository.save(user);
@@ -280,6 +283,7 @@ public class UserService {
         return userRepository.countUsersBySubscriptionPlan(planName);
     }
 
+
     /**
      * Меняет пароль пользователя.
      * <p>
@@ -336,6 +340,21 @@ public class UserService {
                 .orElse(1); // По умолчанию 1
 
         return storeCount + "/" + maxStores;
+    }
+
+    /**
+     * Определяет ID текущего пользователя.
+     */
+    public Long extractUserId(Authentication authentication) {
+        if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof User user) {
+            return user.getId();
+        }
+        return null;
+    }
+
+    public ZoneId getUserZone(Long userId) {
+        return ZoneId.of(userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден")).getTimeZone());
     }
 
 }
