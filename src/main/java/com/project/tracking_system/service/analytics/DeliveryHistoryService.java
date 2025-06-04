@@ -254,46 +254,5 @@ public class DeliveryHistoryService {
         }
     }
 
-    public List<PostalServiceStatsDTO> getStatsByPostalService(Long storeId) {
-        List<Object[]> rawData = deliveryHistoryRepository.getRawStatsByPostalService(storeId);
-        return rawData.stream()
-                .map(this::mapToDto)
-                .toList();
-    }
-
-    public List<PostalServiceStatsDTO> getStatsByPostalServiceForStores(List<Long> storeIds) {
-        List<Object[]> rawData = deliveryHistoryRepository.getRawStatsByPostalServiceForStores(storeIds);
-        return rawData.stream()
-                .map(this::mapToDto)
-                .toList();
-    }
-
-    /**
-     * Преобразует массив данных, полученных из запроса к БД,
-     * в объект {@link PostalServiceStatsDTO} c локализованным названием почтовой службы.
-     *
-     * @param row массив полей: [кодСлужбы, отправлено, доставлено, возвращено, средняяДоставка]
-     * @return заполненный DTO со строковым именем почтовой службы, числом отправленных, доставленных и возвращённых
-     */
-    private PostalServiceStatsDTO mapToDto(Object[] row) {
-        String code = (String) row[0];
-        PostalServiceType type = PostalServiceType.fromCode(code);
-        String displayName = type.getDisplayName();
-
-        int sent = row[1] != null ? ((Number) row[1]).intValue() : 0;
-        int delivered = row[2] != null ? ((Number) row[2]).intValue() : 0;
-        int returned = row[3] != null ? ((Number) row[3]).intValue() : 0;
-        double avgDeliveryDays = row[4] != null ? ((Number) row[4]).doubleValue() : 0.0;
-        double avgPickupTimeDays = row[5] != null ? ((Number) row[5]).doubleValue() : 0.0;
-
-        return new PostalServiceStatsDTO(
-                displayName,
-                sent,
-                delivered,
-                returned,
-                avgDeliveryDays,
-                avgPickupTimeDays
-        );
-    }
 
 }
