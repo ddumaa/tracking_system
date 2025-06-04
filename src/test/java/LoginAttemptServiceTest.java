@@ -17,6 +17,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.atLeastOnce;
 
 /**
  * @author Dmitriy Anisimov
@@ -81,5 +82,37 @@ public class LoginAttemptServiceTest {
         when(userRepository.findByEmail(testEmail)).thenReturn(Optional.of(user));
 
         assertFalse(loginAttemptService.isEmailBlocked(testEmail));
+    }
+
+    @Test
+    void testIsIPBlocked_AfterFourFailedAttempts() {
+        User user = new User();
+        when(userRepository.findByEmail(testEmail)).thenReturn(Optional.of(user));
+
+        for (int i = 0; i < 4; i++) {
+            loginAttemptService.loginFailed(testEmail, testIP);
+        }
+
+        assertTrue(loginAttemptService.isIPBlocked(testIP));
+    }
+
+    @Test
+    void testLoginSucceeded_ShouldResetAttemptsAndUnblockIP() {
+        User user = new User();
+        LoginAttempt loginAttempt = new LoginAttempt();
+        user.setLoginAttempt(loginAttempt);
+        when(userRepository.findByEmail(testEmail)).thenReturn(Optional.of(user));
+
+        for (int i = 0; i < 4; i++) {
+            loginAttemptService.loginFailed(testEmail, testIP);
+        }
+
+        assertTrue(loginAttemptService.isIPBlocked(testIP));
+
+        loginAttemptService.loginSucceeded(testEmail, testIP);
+
+        assertEquals(0, user.getLoginAttempt().getAttempts());
+        assertFalse(loginAttemptService.isIPBlocked(testIP));
+        verify(loginAttemptRepository, atLeastOnce()).save(loginAttempt);
     }
 }
