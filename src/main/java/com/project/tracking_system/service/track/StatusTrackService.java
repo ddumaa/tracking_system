@@ -101,5 +101,4 @@ public class StatusTrackService {
         return GlobalStatus.UNKNOWN_STATUS.getIconHtml();
     }
 
-
 }

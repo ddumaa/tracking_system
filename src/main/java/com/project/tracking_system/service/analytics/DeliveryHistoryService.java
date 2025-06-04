@@ -7,6 +7,7 @@ import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.DeliveryHistoryRepository;
 import com.project.tracking_system.repository.StoreAnalyticsRepository;
+import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.track.StatusTrackService;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import lombok.RequiredArgsConstructor;
@@ -14,12 +15,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -37,6 +40,7 @@ public class DeliveryHistoryService {
     private final DeliveryHistoryRepository deliveryHistoryRepository;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final StatusTrackService statusTrackService;
+    private final TrackParcelRepository trackParcelRepository;
 
     /**
      * Обновляет данные в истории доставки при изменении статуса посылки.
@@ -82,7 +86,9 @@ public class DeliveryHistoryService {
         }
 
         // Считаем и обновляем среднее время доставки
-        updateAverageDeliveryDays(trackParcel.getStore());
+        if (newStatus == GlobalStatus.DELIVERED || newStatus == GlobalStatus.RETURNED) {
+            registerFinalStatus(history, newStatus);
+        }
 
         // Сохраняем историю, если что-то изменилось
         deliveryHistoryRepository.save(history);
@@ -135,22 +141,87 @@ public class DeliveryHistoryService {
     }
 
     /**
-     * Пересчитывает средний срок доставки для магазина и обновляет в StoreStatistics.
+     * Обрабатывает финальный статус доставки (DELIVERED или RETURNED) и обновляет накопительную статистику магазина.
+     *
+     * <p>Метод выполняет инкремент счётчиков доставленных или возвращённых посылок, а также
+     * рассчитывает и накапливает общее время доставки и забора. Выполняется только один раз
+     * для каждой посылки, после чего флаг {@code includedInStatistics} устанавливается в {@code true}.</p>
+     *
+     * Условия для учёта:
+     * - Статус должен быть финальным (DELIVERED или RETURNED)
+     * - Все необходимые даты (отправки, получения или возврата) должны быть заполнены
+     * - Посылка не должна быть уже учтена в статистике
+     *
+     * @param history история доставки, содержащая даты и связанные данные
+     * @param status  новый статус, достигнутый посылкой
      */
     @Transactional
-    public void updateAverageDeliveryDays(Store store) {
-        Double avgDays = deliveryHistoryRepository.findAverageDeliveryTimeToFinalPoint(store.getId());
-        Double avgPickup = deliveryHistoryRepository.findAvgPickupTimeForStore(store.getId());
+    public void registerFinalStatus(DeliveryHistory history, GlobalStatus status) {
+        TrackParcel trackParcel = history.getTrackParcel();
 
-        StoreStatistics statistics = storeAnalyticsRepository.findByStoreId(store.getId())
-                .orElseThrow(() -> new IllegalStateException("Статистика не найдена для магазина ID=" + store.getId()));
+        if(trackParcel.isIncludedInStatistics()){
+            log.debug("📦 Посылка {} уже учтена в статистике — пропускаем", trackParcel.getNumber());
+            return;
+        }
 
-        statistics.setAveragePickupDays(avgPickup);
-        statistics.setAverageDeliveryDays(avgDays);
+        Store store = history.getStore();
+        StoreStatistics stats = storeAnalyticsRepository.findByStoreId(store.getId())
+                .orElseThrow(() -> new IllegalStateException("Статистика не найдена"));
 
-        storeAnalyticsRepository.save(statistics);
+        if (status == GlobalStatus.DELIVERED && history.getSendDate() != null && history.getReceivedDate() != null) {
+            long deliveryDays = ChronoUnit.HOURS.between(history.getSendDate(), history.getReceivedDate()) / 24;
+            stats.setTotalDelivered(stats.getTotalDelivered() + 1);
+            stats.setSumDeliveryDays(stats.getSumDeliveryDays().add(BigDecimal.valueOf(deliveryDays)));
 
-        log.info("📦 Среднее время доставки обновлено для {}: {} дней", store.getName(), avgDays);
+            if (history.getArrivedDate() != null) {
+                long pickupDays = ChronoUnit.HOURS.between(history.getArrivedDate(), history.getReceivedDate()) / 24;
+                stats.setSumPickupDays(stats.getSumPickupDays().add(BigDecimal.valueOf(pickupDays)));
+            }
+
+        } else if (status == GlobalStatus.RETURNED && history.getArrivedDate() != null && history.getReturnedDate() != null) {
+            long pickupDays = ChronoUnit.HOURS.between(history.getArrivedDate(), history.getReturnedDate()) / 24;
+            stats.setTotalReturned(stats.getTotalReturned() + 1);
+            stats.setSumPickupDays(stats.getSumPickupDays().add(BigDecimal.valueOf(pickupDays)));
+        }
+
+        stats.setUpdatedAt(ZonedDateTime.now());
+        storeAnalyticsRepository.save(stats);
+
+        trackParcel.setIncludedInStatistics(true);
+        trackParcelRepository.save(trackParcel);
+
+        log.info("📊 Обновлена накопительная статистика по магазину: {}", store.getName());
+    }
+
+    /**
+     * Обрабатывает удаление посылки и корректирует статистику, если посылка ещё не была учтена.
+     *
+     * <p>Если посылка не имела финального статуса и ещё не была включена в расчёты,
+     * метод уменьшает значение {@code totalSent} в {@code StoreStatistics} на 1.</p>
+     *
+     * Это позволяет избежать искажения статистики при удалении черновиков и неактуальных треков.
+     *
+     * @param parcel объект удаляемой посылки
+     */
+    @Transactional
+    public void handleTrackParcelBeforeDelete(TrackParcel parcel) {
+        if (parcel.isIncludedInStatistics()) {
+            log.debug("Удаляется уже учтённая в статистике посылка {}, статистику не трогаем", parcel.getNumber());
+            return;
+        }
+
+        Store store = parcel.getStore();
+        StoreStatistics stats = storeAnalyticsRepository.findByStoreId(store.getId())
+                .orElseThrow(() -> new IllegalStateException("❌ Статистика для магазина не найдена"));
+
+        if (stats.getTotalSent() > 0) {
+            stats.setTotalSent(stats.getTotalSent() - 1);
+            stats.setUpdatedAt(ZonedDateTime.now());
+            storeAnalyticsRepository.save(stats);
+            log.info("➖ Уменьшили totalSent после удаления неучтённой посылки: {}", parcel.getNumber());
+        } else {
+            log.warn("Попытка уменьшить totalSent, но он уже 0. Посылка: {}", parcel.getNumber());
+        }
     }
 
     /**

@@ -73,7 +73,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // --- Функции рендера
     function renderPieChart(data) {
+        const placeholder = document.getElementById('pieNoData');
+        if (!pieCtx || !data || (data.delivered + data.returned + data.inTransit === 0)) {
+            placeholder?.classList.remove('d-none');
+            pieChart?.destroy(); // если вдруг был
+            return;
+        }
+
         if (!pieCtx || !data) return;
+        placeholder?.classList.add('d-none');
         if (pieChart) pieChart.destroy();
 
         pieChart = new Chart(pieCtx, {
@@ -117,7 +125,15 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function renderBarChart(stats) {
+        const placeholder = document.getElementById('barNoData');
+        if (!barCtx || !stats || !stats.labels || stats.labels.length === 0) {
+            placeholder?.classList.remove('d-none');
+            barChart?.destroy();
+            return;
+        }
+
         if (!barCtx || !stats) return;
+        placeholder?.classList.add('d-none');
         if (barChart) barChart.destroy();
 
         barChart = new Chart(barCtx, {

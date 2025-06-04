@@ -46,18 +46,28 @@ public class AnalyticsController {
      * иначе — аналитику по всем магазинам пользователя.
      */
     @GetMapping
-    public String getAnalyticsDashboard(@RequestParam(name = "storeId", required = false) String rawStoreId,
-                                        @RequestParam(defaultValue = "WEEKS") String interval,
-                                        Model model,
-                                        Authentication authentication,
-                                        HttpServletRequest request) {
+    public String getAnalyticsDashboard(
+            @RequestParam(name = "storeId", required = false) String rawStoreId,
+            @RequestParam(defaultValue = "WEEKS") String interval,
+            Model model,
+            Authentication authentication,
+            HttpServletRequest request) {
+
+        // 1) Проверяем аутентификацию
         if (!(authentication.getPrincipal() instanceof User user)) {
             log.debug("Попытка доступа к аналитике без аутентификации.");
             return "redirect:/login";
         }
 
+        Long userId = user.getId();
+        ZoneId userZone = ZoneId.of(user.getTimeZone());
+        List<Store> stores = storeService.getUserStores(userId);
+
+        // 2) Разбираем параметр rawStoreId
         Long storeId = null;
-        if (rawStoreId != null && !rawStoreId.isBlank() && !rawStoreId.equalsIgnoreCase("all")) {
+        if (rawStoreId != null
+                && !rawStoreId.isBlank()
+                && !rawStoreId.equalsIgnoreCase("all")) {
             try {
                 storeId = Long.parseLong(rawStoreId);
             } catch (NumberFormatException e) {
@@ -65,66 +75,74 @@ public class AnalyticsController {
             }
         }
 
-        Long userId = user.getId();
-        ZoneId userZone = ZoneId.of(user.getTimeZone());
+        // 3) Если магазин у пользователя один и storeId всё ещё null — выбираем его автоматически
+        if (storeId == null && stores.size() == 1) {
+            storeId = stores.get(0).getId();
+            log.info("Автовыбор магазина, т.к. он один у пользователя: ID={}", storeId);
+        }
 
-        List<Store> stores = storeService.getUserStores(userId);
-        model.addAttribute("stores", stores);
-        model.addAttribute("isMultiStore", stores.size() > 1);
-        model.addAttribute("selectedInterval", interval);
-
-        List<StoreStatistics> visibleStats;
-        List<Long> storeIds;
+        // 4) Собираем статистику в зависимости от выбранного storeId
+        List<StoreStatistics>  statistics;
+        StoreStatistics        storeStatistics;
+        List<PostalServiceStatsDTO> postalStats;
+        List<StoreStatistics>  visibleStats;
+        List<Long>             storeIds;
 
         if (storeId != null) {
             log.info("Запрос аналитики для магазина ID: {}", storeId);
 
-            StoreStatistics statistics = storeAnalyticsService.getStoreStatistics(storeId)
+            StoreStatistics stat = storeAnalyticsService
+                    .getStoreStatistics(storeId)
                     .orElseThrow(() -> new IllegalArgumentException("Статистика для магазина не найдена"));
 
-            List<PostalServiceStatsDTO> postalStats = deliveryHistoryService.getStatsByPostalService(storeId);
-            model.addAttribute("postalStats", postalStats);
-            model.addAttribute("statistics", List.of(statistics));
-            model.addAttribute("storeStatistics", statistics);
+            statistics     = List.of(stat);
+            storeStatistics = stat;
+            postalStats    = deliveryHistoryService.getStatsByPostalService(storeId);
+            visibleStats   = statistics;
+            storeIds       = List.of(storeId);
 
-            visibleStats = List.of(statistics);
-            storeIds = List.of(storeId);
         } else {
             log.info("Запрос аналитики по всем магазинам пользователя ID: {}", userId);
 
-            List<StoreStatistics> statistics = storeAnalyticsService.getUserStatistics(userId);
-            List<Long> storeIdList = stores.stream().map(Store::getId).toList();
-
-            List<PostalServiceStatsDTO> postalStats = deliveryHistoryService.getStatsByPostalServiceForStores(storeIdList);
-
-            StoreStatistics summary = storeAnalyticsService.aggregateStatistics(statistics);
-            model.addAttribute("storeStatistics", summary);
-
-            model.addAttribute("postalStats", postalStats);
-            model.addAttribute("statistics", statistics);
-
-            visibleStats = statistics;
-            storeIds = storeIdList;
+            statistics     = storeAnalyticsService.getUserStatistics(userId);
+            storeStatistics = storeAnalyticsService.aggregateStatistics(statistics);
+            postalStats    = deliveryHistoryService.getStatsByPostalServiceForStores(
+                    stores.stream().map(Store::getId).toList());
+            visibleStats   = statistics;
+            storeIds       = stores.stream().map(Store::getId).toList();
         }
 
         log.debug("selectedStoreId = {}", storeId);
-        model.addAttribute("selectedStoreId", storeId);
 
-        // Данные для pie-графика
-        Map<String, Object> pie = storeDashboardDataService.calculatePieData(visibleStats);
-        model.addAttribute("chartDelivered", pie.get("delivered"));
-        model.addAttribute("chartReturned", pie.get("returned"));
-        model.addAttribute("chartInTransit", pie.get("inTransit"));
+        // 5) Готовим данные для графиков
+        Map<String, Object> pieStats    = storeDashboardDataService.calculatePieData(visibleStats);
+        Map<String, Object> periodStats = storeDashboardDataService.getFullPeriodStatsChart(
+                storeIds,
+                ChronoUnit.valueOf(interval.toUpperCase()),
+                userZone
+        );
 
-        // Данные для bar-графика
-        ChronoUnit selectedInterval = ChronoUnit.valueOf(interval.toUpperCase());
-        Map<String, Object> periodStats = storeDashboardDataService.getFullPeriodStatsChart(storeIds, selectedInterval, userZone);
-        model.addAttribute("periodLabels", periodStats.get("labels"));
-        model.addAttribute("periodSent", periodStats.get("sent"));
-        model.addAttribute("periodDelivered", periodStats.get("delivered"));
-        model.addAttribute("periodReturned", periodStats.get("returned"));
+        // 6) Заполняем модель одним блоком
+        model.addAttribute("stores",            stores);
+        model.addAttribute("isMultiStore",      stores.size() > 1);
+        model.addAttribute("selectedInterval",  interval);
+        model.addAttribute("selectedStoreId",   storeId);
+
+        model.addAttribute("statistics",        statistics);
+        model.addAttribute("storeStatistics",   storeStatistics);
+        model.addAttribute("postalStats",       postalStats);
+
+        model.addAttribute("chartDelivered",    pieStats.get("delivered"));
+        model.addAttribute("chartReturned",     pieStats.get("returned"));
+        model.addAttribute("chartInTransit",    pieStats.get("inTransit"));
+
+        model.addAttribute("periodLabels",      periodStats.get("labels"));
+        model.addAttribute("periodSent",        periodStats.get("sent"));
+        model.addAttribute("periodDelivered",   periodStats.get("delivered"));
+        model.addAttribute("periodReturned",    periodStats.get("returned"));
 
         model.addAttribute("nonce", request.getAttribute("nonce"));
+
         return "analytics/dashboard";
     }
 
@@ -138,7 +156,7 @@ public class AnalyticsController {
         }
 
         Long userId = user.getId();
-        log.info("Запрос на обновление аналитики: userId={}, storeId={}", userId, storeId);
+        log.info("Обновление timestamp аналитики (данные считаются инкрементально): userId={}, storeId={}", userId, storeId);
 
         if (storeId == null) {
             List<Long> userStoreIds = storeService.getUserStoreIds(userId);

@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
  */
 @Slf4j
 @RequiredArgsConstructor
-@Service
+//@Service
 public class TrackNumberOcrService {
 
     private final TrackParcelService trackParcelService;

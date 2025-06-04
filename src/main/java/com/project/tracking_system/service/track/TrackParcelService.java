@@ -22,6 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -142,7 +144,12 @@ public class TrackParcelService {
         trackParcel.setStatus(newStatus);
 
         String lastDate = trackInfoListDTO.getList().get(0).getTimex();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss");
+        DateTimeFormatter formatter = new DateTimeFormatterBuilder()
+                .appendPattern("dd.MM.yyyy ")
+                .appendValue(ChronoField.HOUR_OF_DAY)  // Позволяет и 9, и 09
+                .appendLiteral(':')
+                .appendPattern("mm:ss")
+                .toFormatter();
         LocalDateTime localDateTime = LocalDateTime.parse(lastDate, formatter);
         ZoneId userZone = ZoneId.of(userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден")).getTimeZone());
@@ -481,6 +488,7 @@ public class TrackParcelService {
      * @param numbers список номеров посылок
      * @param userId  идентификатор пользователя
      */
+    @Transactional
     public void deleteByNumbersAndUserId(List<String> numbers, Long userId) {
         List<TrackParcel> parcelsToDelete = trackParcelRepository.findByNumberInAndUserId(numbers, userId);
 
@@ -489,6 +497,17 @@ public class TrackParcelService {
             throw new RuntimeException("Нет посылок для удаления.");
         }
 
+        // Обнуляем связь с DeliveryHistory, чтобы Hibernate не пытался сохранять зависимую сущность
+        for (TrackParcel parcel : parcelsToDelete) {
+            deliveryHistoryService.handleTrackParcelBeforeDelete(parcel);
+
+            if (parcel.getDeliveryHistory() != null) {
+                parcel.getDeliveryHistory().setTrackParcel(null); // Разрываем связь
+                parcel.setDeliveryHistory(null); // Обнуляем с двух сторон
+            }
+        }
+
+        // Удаляем все треки
         trackParcelRepository.deleteAll(parcelsToDelete);
         log.info("✅ Удалены {} посылок пользователя ID={}", parcelsToDelete.size(), userId);
     }
