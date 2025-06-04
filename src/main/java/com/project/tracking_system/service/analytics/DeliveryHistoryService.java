@@ -169,14 +169,7 @@ public class DeliveryHistoryService {
         Store store = history.getStore();
         StoreStatistics stats = storeAnalyticsRepository.findByStoreId(store.getId())
                 .orElseThrow(() -> new IllegalStateException("Статистика не найдена"));
-        PostalServiceStatistics psStats = postalServiceStatisticsRepository
-                .findByStoreIdAndPostalServiceType(store.getId(), history.getPostalService())
-                .orElseGet(() -> {
-                    PostalServiceStatistics s = new PostalServiceStatistics();
-                    s.setStore(store);
-                    s.setPostalServiceType(history.getPostalService());
-                    return s;
-                });
+        PostalServiceStatistics psStats = getOrCreateServiceStats(store, history.getPostalService());
 
         if (status == GlobalStatus.DELIVERED && history.getSendDate() != null && history.getReceivedDate() != null) {
             long deliveryDays = ChronoUnit.HOURS.between(history.getSendDate(), history.getReceivedDate()) / 24;
@@ -208,6 +201,17 @@ public class DeliveryHistoryService {
         trackParcelRepository.save(trackParcel);
 
         log.info("📊 Обновлена накопительная статистика по магазину: {}", store.getName());
+    }
+
+    private PostalServiceStatistics getOrCreateServiceStats(Store store, PostalServiceType serviceType) {
+        return postalServiceStatisticsRepository
+                .findByStoreIdAndPostalServiceType(store.getId(), serviceType)
+                .orElseGet(() -> {
+                    PostalServiceStatistics stats = new PostalServiceStatistics();
+                    stats.setStore(store);
+                    stats.setPostalServiceType(serviceType);
+                    return stats;
+                });
     }
 
     /**
