@@ -9,6 +9,7 @@ import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
 import com.project.tracking_system.repository.StoreAnalyticsRepository;
+import com.project.tracking_system.repository.PostalServiceStatisticsRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.analytics.DeliveryHistoryService;
 import com.project.tracking_system.service.user.UserService;
@@ -63,6 +64,7 @@ public class TrackParcelService {
     private final UserRepository userRepository;
     private final TrackParcelRepository trackParcelRepository;
     private final StoreAnalyticsRepository storeAnalyticsRepository;
+    private final PostalServiceStatisticsRepository postalServiceStatisticsRepository;
 
     @Transactional
     public TrackInfoListDTO processTrack(String number, Long storeId, Long userId, boolean canSave) {
@@ -167,6 +169,20 @@ public class TrackParcelService {
             statistics.setTotalSent(statistics.getTotalSent() + 1);
             statistics.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
             storeAnalyticsRepository.save(statistics);
+
+            // Обновляем статистику почтовой службы
+            PostalServiceType serviceType = typeDefinitionTrackPostService.detectPostalService(number);
+            PostalServiceStatistics psStats = postalServiceStatisticsRepository
+                    .findByStoreIdAndPostalServiceType(storeId, serviceType)
+                    .orElseGet(() -> {
+                        PostalServiceStatistics s = new PostalServiceStatistics();
+                        s.setStore(statistics.getStore());
+                        s.setPostalServiceType(serviceType);
+                        return s;
+                    });
+            psStats.setTotalSent(psStats.getTotalSent() + 1);
+            psStats.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+            postalServiceStatisticsRepository.save(psStats);
         }
 
         // Обновляем историю доставки

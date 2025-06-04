@@ -8,6 +8,7 @@ import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.DeliveryHistoryRepository;
 import com.project.tracking_system.repository.StoreAnalyticsRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
+import com.project.tracking_system.repository.PostalServiceStatisticsRepository;
 import com.project.tracking_system.service.track.StatusTrackService;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +42,7 @@ public class DeliveryHistoryService {
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final StatusTrackService statusTrackService;
     private final TrackParcelRepository trackParcelRepository;
+    private final PostalServiceStatisticsRepository postalServiceStatisticsRepository;
 
     /**
      * Обновляет данные в истории доставки при изменении статуса посылки.
@@ -167,25 +169,40 @@ public class DeliveryHistoryService {
         Store store = history.getStore();
         StoreStatistics stats = storeAnalyticsRepository.findByStoreId(store.getId())
                 .orElseThrow(() -> new IllegalStateException("Статистика не найдена"));
+        PostalServiceStatistics psStats = postalServiceStatisticsRepository
+                .findByStoreIdAndPostalServiceType(store.getId(), history.getPostalService())
+                .orElseGet(() -> {
+                    PostalServiceStatistics s = new PostalServiceStatistics();
+                    s.setStore(store);
+                    s.setPostalServiceType(history.getPostalService());
+                    return s;
+                });
 
         if (status == GlobalStatus.DELIVERED && history.getSendDate() != null && history.getReceivedDate() != null) {
             long deliveryDays = ChronoUnit.HOURS.between(history.getSendDate(), history.getReceivedDate()) / 24;
             stats.setTotalDelivered(stats.getTotalDelivered() + 1);
             stats.setSumDeliveryDays(stats.getSumDeliveryDays().add(BigDecimal.valueOf(deliveryDays)));
+            psStats.setTotalDelivered(psStats.getTotalDelivered() + 1);
+            psStats.setSumDeliveryDays(psStats.getSumDeliveryDays().add(BigDecimal.valueOf(deliveryDays)));
 
             if (history.getArrivedDate() != null) {
                 long pickupDays = ChronoUnit.HOURS.between(history.getArrivedDate(), history.getReceivedDate()) / 24;
                 stats.setSumPickupDays(stats.getSumPickupDays().add(BigDecimal.valueOf(pickupDays)));
+                psStats.setSumPickupDays(psStats.getSumPickupDays().add(BigDecimal.valueOf(pickupDays)));
             }
 
         } else if (status == GlobalStatus.RETURNED && history.getArrivedDate() != null && history.getReturnedDate() != null) {
             long pickupDays = ChronoUnit.HOURS.between(history.getArrivedDate(), history.getReturnedDate()) / 24;
             stats.setTotalReturned(stats.getTotalReturned() + 1);
             stats.setSumPickupDays(stats.getSumPickupDays().add(BigDecimal.valueOf(pickupDays)));
+            psStats.setTotalReturned(psStats.getTotalReturned() + 1);
+            psStats.setSumPickupDays(psStats.getSumPickupDays().add(BigDecimal.valueOf(pickupDays)));
         }
 
         stats.setUpdatedAt(ZonedDateTime.now());
+        psStats.setUpdatedAt(ZonedDateTime.now());
         storeAnalyticsRepository.save(stats);
+        postalServiceStatisticsRepository.save(psStats);
 
         trackParcel.setIncludedInStatistics(true);
         trackParcelRepository.save(trackParcel);
@@ -213,11 +230,22 @@ public class DeliveryHistoryService {
         Store store = parcel.getStore();
         StoreStatistics stats = storeAnalyticsRepository.findByStoreId(store.getId())
                 .orElseThrow(() -> new IllegalStateException("❌ Статистика для магазина не найдена"));
+        PostalServiceType serviceType = parcel.getDeliveryHistory() != null
+                ? parcel.getDeliveryHistory().getPostalService()
+                : typeDefinitionTrackPostService.detectPostalService(parcel.getNumber());
+        PostalServiceStatistics psStats = postalServiceStatisticsRepository
+                .findByStoreIdAndPostalServiceType(store.getId(), serviceType)
+                .orElse(null);
 
         if (stats.getTotalSent() > 0) {
             stats.setTotalSent(stats.getTotalSent() - 1);
             stats.setUpdatedAt(ZonedDateTime.now());
             storeAnalyticsRepository.save(stats);
+            if (psStats != null && psStats.getTotalSent() > 0) {
+                psStats.setTotalSent(psStats.getTotalSent() - 1);
+                psStats.setUpdatedAt(ZonedDateTime.now());
+                postalServiceStatisticsRepository.save(psStats);
+            }
             log.info("➖ Уменьшили totalSent после удаления неучтённой посылки: {}", parcel.getNumber());
         } else {
             log.warn("Попытка уменьшить totalSent, но он уже 0. Посылка: {}", parcel.getNumber());
