@@ -245,14 +245,15 @@ public class DeliveryHistoryService {
             stats.setTotalSent(stats.getTotalSent() - 1);
             stats.setUpdatedAt(ZonedDateTime.now());
             storeAnalyticsRepository.save(stats);
-            if (psStats != null && psStats.getTotalSent() > 0) {
-                psStats.setTotalSent(psStats.getTotalSent() - 1);
-                psStats.setUpdatedAt(ZonedDateTime.now());
-                postalServiceStatisticsRepository.save(psStats);
-            }
             log.info("➖ Уменьшили totalSent после удаления неучтённой посылки: {}", parcel.getNumber());
         } else {
             log.warn("Попытка уменьшить totalSent, но он уже 0. Посылка: {}", parcel.getNumber());
+        }
+
+        if (psStats != null && psStats.getTotalSent() > 0) {
+            psStats.setTotalSent(psStats.getTotalSent() - 1);
+            psStats.setUpdatedAt(ZonedDateTime.now());
+            postalServiceStatisticsRepository.save(psStats);
         }
     }
 
