@@ -8,6 +8,7 @@ import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
+import com.project.tracking_system.repository.StoreAnalyticsRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.analytics.DeliveryHistoryService;
 import com.project.tracking_system.service.user.UserService;
@@ -61,6 +62,7 @@ public class TrackParcelService {
     private final StoreRepository storeRepository;
     private final UserRepository userRepository;
     private final TrackParcelRepository trackParcelRepository;
+    private final StoreAnalyticsRepository storeAnalyticsRepository;
 
     @Transactional
     public TrackInfoListDTO processTrack(String number, Long storeId, Long userId, boolean canSave) {
@@ -106,10 +108,11 @@ public class TrackParcelService {
 
         // Ищем трек по номеру и пользователю независимо от магазина
         TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(number, userId);
-        GlobalStatus oldStatus = (trackParcel != null) ? trackParcel.getStatus() : null;
+        boolean isNewParcel = (trackParcel == null);
+        GlobalStatus oldStatus = (!isNewParcel) ? trackParcel.getStatus() : null;
 
         // Если трек новый, проверяем лимиты
-        if (trackParcel == null) {
+        if (isNewParcel) {
             int remainingTracks = subscriptionService.canSaveMoreTracks(userId, 1);
             if (remainingTracks <= 0) {
                 throw new IllegalArgumentException("Вы не можете сохранить больше посылок, так как превышен лимит сохранённых посылок.");
@@ -157,6 +160,14 @@ public class TrackParcelService {
         trackParcel.setData(zonedDateTime);
 
         trackParcelRepository.save(trackParcel);
+
+        if (isNewParcel) {
+            StoreStatistics statistics = storeAnalyticsRepository.findByStoreId(storeId)
+                    .orElseThrow(() -> new IllegalStateException("Статистика не найдена"));
+            statistics.setTotalSent(statistics.getTotalSent() + 1);
+            statistics.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+            storeAnalyticsRepository.save(statistics);
+        }
 
         // Обновляем историю доставки
         deliveryHistoryService.updateDeliveryHistory(trackParcel, oldStatus, newStatus, trackInfoListDTO);
