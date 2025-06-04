@@ -2,7 +2,7 @@ package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.entity.PostalServiceType;
-import com.project.tracking_system.maper.JsonEvroTrackingResponseMapper;
+import com.project.tracking_system.mapper.JsonEvroTrackingResponseMapper;
 import com.project.tracking_system.model.evropost.jsonResponseModel.JsonEvroTrackingResponse;
 import com.project.tracking_system.service.belpost.WebBelPost;
 import com.project.tracking_system.service.jsonEvropostService.JsonEvroTrackingService;
