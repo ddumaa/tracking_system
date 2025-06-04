@@ -20,7 +20,7 @@ public interface StoreAnalyticsRepository extends JpaRepository<StoreStatistics,
         SELECT s FROM StoreStatistics s
         WHERE s.store.owner.id = :userId
     """)
-    List<StoreStatistics> findAllByUserId(@Param("userId") Long userId);;
+    List<StoreStatistics> findAllByUserId(@Param("userId") Long userId);
 
 
 }
