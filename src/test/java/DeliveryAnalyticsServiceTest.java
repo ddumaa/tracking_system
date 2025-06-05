@@ -1,10 +1,8 @@
 import com.project.tracking_system.dto.DeliveryFullPeriodStatsDTO;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.StoreDailyStatistics;
-import com.project.tracking_system.repository.StoreAnalyticsRepository;
 import com.project.tracking_system.repository.StoreDailyStatisticsRepository;
 import com.project.tracking_system.service.analytics.DeliveryAnalyticsService;
-import com.project.tracking_system.service.analytics.StoreAnalyticsService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -16,7 +14,6 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
@@ -25,11 +22,7 @@ import static org.mockito.Mockito.when;
 public class DeliveryAnalyticsServiceTest {
 
     @Mock
-    private StoreAnalyticsRepository storeAnalyticsRepository;
-    @Mock
     private StoreDailyStatisticsRepository storeDailyStatisticsRepository;
-    @Mock
-    private StoreAnalyticsService storeAnalyticsService;
 
     @InjectMocks
     private DeliveryAnalyticsService deliveryAnalyticsService;
