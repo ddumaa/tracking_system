@@ -34,6 +34,14 @@ public class StoreDashboardDataService {
         );
     }
 
+    /**
+     * Builds chart data for the selected period.
+     *
+     * @param storeIds ids of stores to aggregate
+     * @param interval requested interval (days, weeks, months, years)
+     * @param userZone user time zone
+     * @return map with labels and series values
+     */
     public Map<String, Object> getFullPeriodStatsChart(List<Long> storeIds,
                                                        ChronoUnit interval,
                                                        ZoneId userZone) {
@@ -42,6 +50,7 @@ public class StoreDashboardDataService {
             case DAYS -> now.minusDays(7);
             case WEEKS -> now.minusWeeks(4);
             case MONTHS -> now.minusMonths(6);
+            case YEARS -> now.minusYears(5);
             default -> throw new IllegalArgumentException("Unsupported interval: " + interval);
         };
         ZonedDateTime to = now;
