@@ -400,10 +400,9 @@ public class TrackParcelService {
         // Получаем все треки пользователя
         List<TrackParcelDTO> allParcels = findAllByUserTracks(userId);
 
-        // Фильтруем треки, исключая те, что уже в финальном статусе
+        // Фильтруем треки, исключая финальные статусы
         List<TrackParcelDTO> parcelsToUpdate = allParcels.stream()
-                .filter(dto -> !(dto.getStatus().equals(GlobalStatus.DELIVERED.getDescription()) ||
-                        dto.getStatus().equals(GlobalStatus.RETURNED.getDescription())))
+                .filter(dto -> !GlobalStatus.fromDescription(dto.getStatus()).isFinal())
                 .toList();
 
         log.info("📦 Запущено обновление всех {} треков для userId={}", parcelsToUpdate.size(), userId);
@@ -494,8 +493,7 @@ public class TrackParcelService {
         // Считаем количество финальных и обновляемых треков
         int totalRequested = selectedParcels.size();
         List<TrackParcel> updatableParcels = selectedParcels.stream()
-                .filter(parcel -> !(parcel.getStatus() == GlobalStatus.DELIVERED ||
-                        parcel.getStatus() == GlobalStatus.RETURNED))
+                .filter(parcel -> !parcel.getStatus().isFinal())
                 .toList();
         int nonUpdatableCount = totalRequested - updatableParcels.size();
 
