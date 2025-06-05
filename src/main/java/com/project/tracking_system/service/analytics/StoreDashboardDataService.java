@@ -37,7 +37,7 @@ public class StoreDashboardDataService {
     public Map<String, Object> getFullPeriodStatsChart(List<Long> storeIds,
                                                        ChronoUnit interval,
                                                        ZoneId userZone) {
-        ZonedDateTime now = ZonedDateTime.now(userZone);
+        ZonedDateTime now = ZonedDateTime.now(userZone).truncatedTo(ChronoUnit.DAYS);
         ZonedDateTime from = switch (interval) {
             case DAYS -> now.minusDays(7);
             case WEEKS -> now.minusWeeks(4);
