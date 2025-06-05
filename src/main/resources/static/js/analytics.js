@@ -299,6 +299,9 @@ document.addEventListener("DOMContentLoaded", function () {
             case "MONTHS":
                 title = "Динамика отправлений по месяцам";
                 break;
+            case "YEARS":
+                title = "Динамика отправлений по годам";
+                break;
             default:
                 title = "Динамика отправлений";
         }
