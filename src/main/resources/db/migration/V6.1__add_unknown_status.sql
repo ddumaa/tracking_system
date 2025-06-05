@@ -10,7 +10,7 @@ ALTER TABLE tb_track_parcels
                                                 'CUSTOMER_NOT_PICKING_UP',
                                                 'RETURN_IN_PROGRESS',
                                                 'RETURN_PENDING_PICKUP',
-                                                'RETURNED_TO_SENDER',
+                                                'RETURNED',
                                                 'REGISTERED',
                                                 'UNKNOWN_STATUS' -- Добавленный статус
         ));
