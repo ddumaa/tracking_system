@@ -1,4 +1,4 @@
-package com.project.tracking_system.maper;
+package com.project.tracking_system.mapper;
 
 import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
