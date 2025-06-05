@@ -101,10 +101,8 @@ public class StoreService {
         statistics.setTotalSent(0);
         statistics.setTotalDelivered(0);
         statistics.setTotalReturned(0);
-        statistics.setAverageDeliveryDays(0.0);
-        statistics.setAveragePickupDays(0.0);
-        statistics.setDeliverySuccessRate(BigDecimal.ZERO);
-        statistics.setReturnRate(BigDecimal.ZERO);
+        statistics.setSumDeliveryDays(BigDecimal.ZERO);
+        statistics.setSumPickupDays(BigDecimal.ZERO);
         statistics.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
 
         storeAnalyticsRepository.save(statistics);
