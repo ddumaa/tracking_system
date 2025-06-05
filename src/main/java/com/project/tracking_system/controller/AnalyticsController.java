@@ -146,6 +146,15 @@ public class AnalyticsController {
         return "analytics/dashboard";
     }
 
+    /**
+     * Обновляет таймстемп и собирает новую аналитику для магазина или всех магазинов
+     * пользователя. Данные пересчитываются инкрементально.
+     *
+     * @param storeId        идентификатор магазина. Если не указан, обновляется
+     *                       аналитика по всем магазинам пользователя
+     * @param authentication текущая аутентификация пользователя
+     * @return JSON-ответ с сообщением о результате обновления
+     */
     @PostMapping("/update")
     public ResponseEntity<?> updateAnalytics(@RequestParam(required = false) Long storeId,
                                              Authentication authentication) {
@@ -173,6 +182,16 @@ public class AnalyticsController {
         return ResponseEntity.ok(Map.of("message", "Аналитика обновлена для магазина: " + store.getName()));
     }
 
+    /**
+     * Возвращает агрегированную аналитику в формате JSON. Используется для
+     * построения графиков на клиенте.
+     *
+     * @param storeId        идентификатор магазина. Если null, данные собираются
+     *                       по всем магазинам пользователя
+     * @param interval       интервал агрегации (DAYS/WEEKS/MONTHS/YEARS)
+     * @param authentication текущая аутентификация пользователя
+     * @return карта с данными для круговой диаграммы и статистикой по периодам
+     */
     @GetMapping("/json")
     @ResponseBody
     public Map<String, Object> getAnalyticsJson(@RequestParam(required = false) Long storeId,
