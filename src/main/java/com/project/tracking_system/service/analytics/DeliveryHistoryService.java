@@ -23,7 +23,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.time.temporal.ChronoUnit;
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -172,24 +172,27 @@ public class DeliveryHistoryService {
         PostalServiceStatistics psStats = getOrCreateServiceStats(store, history.getPostalService());
 
         if (status == GlobalStatus.DELIVERED && history.getSendDate() != null && history.getReceivedDate() != null) {
-            long deliveryDays = ChronoUnit.HOURS.between(history.getSendDate(), history.getReceivedDate()) / 24;
+            BigDecimal deliveryDays = BigDecimal.valueOf(
+                    Duration.between(history.getSendDate(), history.getReceivedDate()).toHours() / 24.0);
             stats.setTotalDelivered(stats.getTotalDelivered() + 1);
-            stats.setSumDeliveryDays(stats.getSumDeliveryDays().add(BigDecimal.valueOf(deliveryDays)));
+            stats.setSumDeliveryDays(stats.getSumDeliveryDays().add(deliveryDays));
             psStats.setTotalDelivered(psStats.getTotalDelivered() + 1);
-            psStats.setSumDeliveryDays(psStats.getSumDeliveryDays().add(BigDecimal.valueOf(deliveryDays)));
+            psStats.setSumDeliveryDays(psStats.getSumDeliveryDays().add(deliveryDays));
 
             if (history.getArrivedDate() != null) {
-                long pickupDays = ChronoUnit.HOURS.between(history.getArrivedDate(), history.getReceivedDate()) / 24;
-                stats.setSumPickupDays(stats.getSumPickupDays().add(BigDecimal.valueOf(pickupDays)));
-                psStats.setSumPickupDays(psStats.getSumPickupDays().add(BigDecimal.valueOf(pickupDays)));
+                BigDecimal pickupDays = BigDecimal.valueOf(
+                        Duration.between(history.getArrivedDate(), history.getReceivedDate()).toHours() / 24.0);
+                stats.setSumPickupDays(stats.getSumPickupDays().add(pickupDays));
+                psStats.setSumPickupDays(psStats.getSumPickupDays().add(pickupDays));
             }
 
         } else if (status == GlobalStatus.RETURNED && history.getArrivedDate() != null && history.getReturnedDate() != null) {
-            long pickupDays = ChronoUnit.HOURS.between(history.getArrivedDate(), history.getReturnedDate()) / 24;
+            BigDecimal pickupDays = BigDecimal.valueOf(
+                    Duration.between(history.getArrivedDate(), history.getReturnedDate()).toHours() / 24.0);
             stats.setTotalReturned(stats.getTotalReturned() + 1);
-            stats.setSumPickupDays(stats.getSumPickupDays().add(BigDecimal.valueOf(pickupDays)));
+            stats.setSumPickupDays(stats.getSumPickupDays().add(pickupDays));
             psStats.setTotalReturned(psStats.getTotalReturned() + 1);
-            psStats.setSumPickupDays(psStats.getSumPickupDays().add(BigDecimal.valueOf(pickupDays)));
+            psStats.setSumPickupDays(psStats.getSumPickupDays().add(pickupDays));
         }
 
         stats.setUpdatedAt(ZonedDateTime.now());
