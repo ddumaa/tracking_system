@@ -51,13 +51,6 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
     @Query("SELECT COUNT(p) FROM TrackParcel p WHERE p.store.id = :storeId AND p.status = :status")
     int countByStoreIdAndStatus(@Param("storeId") Long storeId, @Param("status") GlobalStatus status);
 
-    // Подсчёт среднего срока доставки (в днях)
-    @Query(value = """
-        SELECT AVG(EXTRACT(EPOCH FROM (received_date - send_date)) / 86400) 
-        FROM tb_track_parcels 
-        WHERE store_id = :storeId AND received_date IS NOT NULL
-        """, nativeQuery = true)
-    Double findAverageDeliveryTimeForStore(@Param("storeId") Long storeId);
 
 
     @Modifying
