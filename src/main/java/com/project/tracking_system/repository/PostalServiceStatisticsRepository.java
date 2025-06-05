@@ -10,4 +10,10 @@ public interface PostalServiceStatisticsRepository extends JpaRepository<PostalS
 
     Optional<PostalServiceStatistics> findByStoreIdAndPostalServiceType(Long storeId, PostalServiceType postalServiceType);
 
+    // Fetch statistics for all postal services of one store
+    List<PostalServiceStatistics> findByStoreId(Long storeId);
+
+    // Fetch statistics for multiple stores
+    List<PostalServiceStatistics> findByStoreIdIn(List<Long> storeIds);
+
 }
