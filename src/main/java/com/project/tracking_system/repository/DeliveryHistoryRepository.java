@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -24,5 +26,20 @@ public interface DeliveryHistoryRepository extends JpaRepository<DeliveryHistory
     AND arrived_date IS NOT NULL
     """, nativeQuery = true)
     Double findAvgPickupTimeForStore(@Param("storeId") Long storeId);
+
+    // Получить записи по дате отправки в указанном диапазоне
+    List<DeliveryHistory> findByStoreIdInAndSendDateBetween(List<Long> storeIds,
+                                                            ZonedDateTime from,
+                                                            ZonedDateTime to);
+
+    // Получить записи по дате получения в указанном диапазоне
+    List<DeliveryHistory> findByStoreIdInAndReceivedDateBetween(List<Long> storeIds,
+                                                                ZonedDateTime from,
+                                                                ZonedDateTime to);
+
+    // Получить записи по дате возврата в указанном диапазоне
+    List<DeliveryHistory> findByStoreIdInAndReturnedDateBetween(List<Long> storeIds,
+                                                                ZonedDateTime from,
+                                                                ZonedDateTime to);
 
 }
