@@ -152,6 +152,55 @@ public class DeliveryHistoryServiceTest {
     }
 
     @Test
+    void registerFinalStatus_CreatesDailyStatsIfAbsent() {
+        Store store = new Store();
+        store.setId(5L);
+        TrackParcel parcel = new TrackParcel();
+        parcel.setStore(store);
+        parcel.setIncludedInStatistics(false);
+        DeliveryHistory history = new DeliveryHistory();
+        history.setTrackParcel(parcel);
+        history.setStore(store);
+        history.setPostalService(PostalServiceType.BELPOST);
+        ZonedDateTime send = ZonedDateTime.of(2024, 1, 4, 0, 0, 0, 0, ZoneOffset.UTC);
+        ZonedDateTime arrived = send.plusDays(1);
+        ZonedDateTime received = send.plusDays(2);
+        history.setSendDate(send);
+        history.setArrivedDate(arrived);
+        history.setReceivedDate(received);
+
+        StoreStatistics storeStats = new StoreStatistics();
+        PostalServiceStatistics psStats = new PostalServiceStatistics();
+        psStats.setStore(store);
+        psStats.setPostalServiceType(PostalServiceType.BELPOST);
+
+        when(storeAnalyticsRepository.findByStoreId(store.getId())).thenReturn(Optional.of(storeStats));
+        when(postalServiceStatisticsRepository.findByStoreIdAndPostalServiceType(store.getId(), PostalServiceType.BELPOST))
+                .thenReturn(Optional.of(psStats));
+        when(storeDailyStatisticsRepository.findByStoreIdAndDate(store.getId(), received.toLocalDate()))
+                .thenReturn(Optional.empty());
+        when(postalServiceDailyStatisticsRepository.findByStoreIdAndPostalServiceTypeAndDate(store.getId(), PostalServiceType.BELPOST, received.toLocalDate()))
+                .thenReturn(Optional.empty());
+
+        ArgumentCaptor<StoreDailyStatistics> dailyCaptor = ArgumentCaptor.forClass(StoreDailyStatistics.class);
+        ArgumentCaptor<PostalServiceDailyStatistics> psDailyCaptor = ArgumentCaptor.forClass(PostalServiceDailyStatistics.class);
+
+        deliveryHistoryService.registerFinalStatus(history, GlobalStatus.DELIVERED);
+
+        assertTrue(parcel.isIncludedInStatistics());
+        verify(storeDailyStatisticsRepository).save(dailyCaptor.capture());
+        verify(postalServiceDailyStatisticsRepository).save(psDailyCaptor.capture());
+
+        StoreDailyStatistics savedDaily = dailyCaptor.getValue();
+        assertEquals(1, savedDaily.getDelivered());
+        assertEquals(received.toLocalDate(), savedDaily.getDate());
+
+        PostalServiceDailyStatistics savedPsDaily = psDailyCaptor.getValue();
+        assertEquals(1, savedPsDaily.getDelivered());
+        assertEquals(received.toLocalDate(), savedPsDaily.getDate());
+    }
+
+    @Test
     void handleTrackParcelBeforeDelete_DecrementsTotalSent() {
         Store store = new Store();
         store.setId(3L);
