@@ -1,10 +1,7 @@
 package com.project.tracking_system.service.analytics;
 
 import com.project.tracking_system.dto.DeliveryFullPeriodStatsDTO;
-import com.project.tracking_system.entity.StoreStatistics;
-import com.project.tracking_system.repository.StoreAnalyticsRepository;
 import com.project.tracking_system.repository.StoreDailyStatisticsRepository;
-import com.project.tracking_system.service.analytics.StoreAnalyticsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -12,7 +9,6 @@ import org.springframework.stereotype.Service;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -24,9 +20,7 @@ import java.util.List;
 @Slf4j
 public class DeliveryAnalyticsService {
 
-    private final StoreAnalyticsRepository storeAnalyticsRepository;
     private final StoreDailyStatisticsRepository storeDailyStatisticsRepository;
-    private final StoreAnalyticsService storeAnalyticsService;
 
     /**
      * Aggregates delivery statistics for the given stores within the specified period.
