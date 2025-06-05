@@ -34,12 +34,33 @@ public class DeliveryAnalyticsService {
         List<StoreStatistics> stats = storeAnalyticsRepository.findAllById(storeIds);
         StoreStatistics aggregate = storeAnalyticsService.aggregateStatistics(stats);
 
-        return List.of(new DeliveryFullPeriodStatsDTO(
-                "Всего",
-                aggregate.getTotalSent(),
-                aggregate.getTotalDelivered(),
-                aggregate.getTotalReturned()
-        ));
+        ZonedDateTime current = from;
+        List<DeliveryFullPeriodStatsDTO> list = new java.util.ArrayList<>();
+
+        while (!current.isAfter(to)) {
+            String label = switch (interval) {
+                case DAYS -> current.toLocalDate().toString();
+                case WEEKS -> "Week " + current.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR);
+                case MONTHS -> current.getMonth() + " " + current.getYear();
+                default -> current.toLocalDate().toString();
+            };
+
+            list.add(new DeliveryFullPeriodStatsDTO(
+                    label,
+                    aggregate.getTotalSent(),
+                    aggregate.getTotalDelivered(),
+                    aggregate.getTotalReturned()
+            ));
+
+            current = switch (interval) {
+                case DAYS -> current.plusDays(1);
+                case WEEKS -> current.plusWeeks(1);
+                case MONTHS -> current.plusMonths(1);
+                default -> current.plusDays(1);
+            };
+        }
+
+        return list;
     }
 
 }
