@@ -4,7 +4,7 @@ import com.project.tracking_system.dto.PostalServiceStatsDTO;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.StoreStatistics;
 import com.project.tracking_system.entity.User;
-import com.project.tracking_system.service.analytics.PostalServiceStatsService;
+import com.project.tracking_system.service.analytics.PostalServiceStatisticsService;
 import com.project.tracking_system.service.analytics.StoreAnalyticsService;
 import com.project.tracking_system.service.analytics.StoreDashboardDataService;
 import com.project.tracking_system.service.store.StoreService;
@@ -34,7 +34,7 @@ import java.util.Map;
 @RequestMapping("/analytics")
 public class AnalyticsController {
 
-    private final PostalServiceStatsService postalServiceStatsService;
+    private final PostalServiceStatisticsService postalStatisticsService;
     private final StoreAnalyticsService storeAnalyticsService;
     private final StoreService storeService;
     private final StoreDashboardDataService storeDashboardDataService;
@@ -97,7 +97,7 @@ public class AnalyticsController {
 
             statistics     = List.of(stat);
             storeStatistics = stat;
-            postalStats    = postalServiceStatsService.getStatsByStore(storeId);
+            postalStats    = postalStatisticsService.getStatsByStore(storeId);
             visibleStats   = statistics;
             storeIds       = List.of(storeId);
 
@@ -106,7 +106,7 @@ public class AnalyticsController {
 
             statistics     = storeAnalyticsService.getUserStatistics(userId);
             storeStatistics = storeAnalyticsService.aggregateStatistics(statistics);
-            postalStats    = postalServiceStatsService.getStatsForStores(
+            postalStats    = postalStatisticsService.getStatsForStores(
                     stores.stream().map(Store::getId).toList());
             visibleStats   = statistics;
             storeIds       = stores.stream().map(Store::getId).toList();
