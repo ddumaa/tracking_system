@@ -1,3 +1,6 @@
+const DEBUG_MODE = false;
+function debugLog(...args) { if (DEBUG_MODE) console.log(...args); }
+
 /** =====================
  *  ГЛОБАЛЬНЫЕ ФУНКЦИИ
  * ===================== */
@@ -145,15 +148,15 @@ let isInitialLoad = true;
 document.addEventListener("visibilitychange", function () {
     if (isInitialLoad) {
         isInitialLoad = false;
-        console.log("Страница только что загрузилась, состояние: " + document.visibilityState);
+        debugLog("Страница только что загрузилась, состояние: " + document.visibilityState);
         return;
     }
 
     if (document.hidden) {
-        console.log("🔴 Пользователь ушёл со страницы");
+        debugLog("🔴 Пользователь ушёл со страницы");
         lastPage = window.location.pathname;
     } else {
-        console.log("🟢 Пользователь вернулся на страницу");
+        debugLog("🟢 Пользователь вернулся на страницу");
         lastPage = window.location.pathname;
     }
 });
@@ -167,10 +170,10 @@ function isModalOpen() {
 function notifyUser(message, type = "info") {
     setTimeout(() => { // ⏳ Даем 100мс на закрытие модалки
         if (document.hidden || window.location.pathname !== lastPage || isModalOpen()) {
-            console.log("📢 Показываем toast, так как пользователь сменил страницу или уже в модальном окне");
+            debugLog("📢 Показываем toast, так как пользователь сменил страницу или уже в модальном окне");
             showToast(message, type);
         } else {
-            console.log("✅ Показываем alert, так как пользователь остаётся на странице");
+            debugLog("✅ Показываем alert, так как пользователь остаётся на странице");
             showAlert(message, type);
         }
     }, 100); // 🔥 100мс - небольшая задержка
@@ -182,7 +185,7 @@ function showAlert(message, type) {
 
     // ❌ Игнорируем "Обновление запущено...", так как оно временное
     if (message.includes("Обновление запущено")) {
-        console.log("⚠ Пропущено уведомление:", message);
+        debugLog("⚠ Пропущено уведомление:", message);
         return;
     }
 
@@ -190,7 +193,7 @@ function showAlert(message, type) {
     if (existingAlert) {
         let currentMessage = existingAlert.querySelector("span.alert-text")?.textContent || "";
         if (currentMessage === message) {
-            console.log("⚠ Повторное уведомление проигнорировано:", message);
+            debugLog("⚠ Повторное уведомление проигнорировано:", message);
             return;
         }
         existingAlert.remove(); // Удаляем старое уведомление перед добавлением нового
@@ -249,7 +252,7 @@ let stompClient = null;
 let userId = document.getElementById("userId")?.value || ""; // Получаем userId из скрытого поля
 
 function connectWebSocket() {
-    console.log("🚀 connectWebSocket() вызван!");
+    debugLog("🚀 connectWebSocket() вызван!");
 
     stompClient = new StompJs.Client({
         //'wss://belivery.by/ws', 'ws://localhost:8080/ws',
@@ -258,22 +261,22 @@ function connectWebSocket() {
         heartbeatIncoming: 0,
         heartbeatOutgoing: 0,
         debug: function (str) {
-            console.log('STOMP Debug: ', str);
+            debugLog('STOMP Debug: ', str);
         }
     });
 
     stompClient.onConnect = function (frame) {
-        console.log('✅ WebSocket подключен: ' + frame);
+        debugLog('✅ WebSocket подключен: ' + frame);
 
         let destination = '/topic/status/' + userId;
-        console.log("📡 Подписываемся на " + destination);
+        debugLog("📡 Подписываемся на " + destination);
 
         if (stompClient.connected) {
             stompClient.subscribe(destination, function (message) {
                 let response = JSON.parse(message.body);
-                console.log("📡 WebSocket сообщение: ", response);
+                debugLog("📡 WebSocket сообщение: ", response);
 
-                console.log("⚠️ DEBUG: success=", response.success, "message=", response.message);
+                debugLog("⚠️ DEBUG: success=", response.success, "message=", response.message);
 
                 notifyUser(response.message, response.success ? "success" : "warning");
 
@@ -307,12 +310,12 @@ function connectWebSocket() {
         notifyUser("Ошибка WebSocket: " + frame.headers['message'], "danger");
     };
 
-    console.log("🔄 WebSocket активация отправлена...");
+    debugLog("🔄 WebSocket активация отправлена...");
     stompClient.activate();
 }
 
 function reloadParcelTable() {
-    console.log("🔄 AJAX-запрос для обновления таблицы...");
+    debugLog("🔄 AJAX-запрос для обновления таблицы...");
 
     fetch("/departures", { method: "GET", cache: "no-store" })
         .then(response => {
@@ -330,7 +333,7 @@ function reloadParcelTable() {
                 let currentTbody = document.querySelector("tbody");
                 if (currentTbody) {
                     currentTbody.innerHTML = newTableBody;
-                    console.log("✅ Таблица обновлена!");
+                    debugLog("✅ Таблица обновлена!");
                 }
             }
         })
@@ -689,7 +692,7 @@ if (storeTableBody) {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-    console.log("DOM полностью загружен");
+    debugLog("DOM полностью загружен");
 
     // === Добавляем CSRF-токен ===
     const csrfToken = document.querySelector('meta[name="_csrf"]')?.content || "";
@@ -774,7 +777,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Выбор магазина при добавлении трека
     const storeSelectDropdown = document.getElementById("storeSelect");
     if (storeSelectDropdown) {
-        console.log('Найден селект с магазинами, количество опций:', storeSelectDropdown.options.length);
+        debugLog('Найден селект с магазинами, количество опций:', storeSelectDropdown.options.length);
         if (storeSelectDropdown.options.length > 1) {
             storeSelectDropdown.classList.remove("d-none");
         }
@@ -1006,7 +1009,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (!response.ok) {
                     return response.text().then(text => { throw new Error(text); });
                 }
-                console.log("✅ AJAX-запрос для обновления всех треков отправлен. Ждём WebSocket...");
+                debugLog("✅ AJAX-запрос для обновления всех треков отправлен. Ждём WebSocket...");
             })
             .catch(error => {
                 notifyUser("Ошибка при обновлении: " + error.message, "danger");
@@ -1064,7 +1067,7 @@ document.addEventListener("DOMContentLoaded", function () {
             currentUrl.searchParams.delete("storeId");
         }
 
-        console.log("✅ Фильтр применён: статус =", selectedStatus, "магазин =", selectedStore || "нет выбора");
+        debugLog("✅ Фильтр применён: статус =", selectedStatus, "магазин =", selectedStore || "нет выбора");
 
         window.location.href = currentUrl.toString();
     }
@@ -1143,7 +1146,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (!response.ok) {
                     return response.text().then(text => { throw new Error(text); });
                 }
-                console.log("✅ AJAX-запрос отправлен. Ждём уведомления через WebSocket...");
+                debugLog("✅ AJAX-запрос отправлен. Ждём уведомления через WebSocket...");
 
                 clearAllCheckboxes();
 

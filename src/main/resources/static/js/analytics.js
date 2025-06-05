@@ -1,5 +1,8 @@
+const DEBUG_MODE = false;
+function debugLog(...args) { if (DEBUG_MODE) console.log(...args); }
+
 document.addEventListener("DOMContentLoaded", function () {
-    console.log("analytics.js loaded!")
+    debugLog("analytics.js loaded!")
     // --- CSRF-токен
     const csrfToken = document.querySelector('meta[name="_csrf"]')?.content || "";
     const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || "";
@@ -201,7 +204,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // --- Загрузка аналитики
     function loadAnalyticsData() {
-        console.log("🔥 [Debug] loadAnalyticsData called");
+        debugLog("🔥 [Debug] loadAnalyticsData called");
         const storeId = storeSelect?.value;
         const interval = selectedPeriod;
 
@@ -211,15 +214,15 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         params.append("interval", interval);
 
-        console.log("loadAnalyticsData invoked!")
+        debugLog("loadAnalyticsData invoked!")
 
         fetch("/analytics/json?" + params.toString())
             .then(res => res.json())
             .then(freshData => {
-                console.log("🚀 [Debug] Fetched data:", freshData);
+                debugLog("🚀 [Debug] Fetched data:", freshData);
                 analyticsData = freshData;
                 renderPieChart(analyticsData.pieData);
-                console.log("🏁 [Debug] rendering bar chart");
+                debugLog("🏁 [Debug] rendering bar chart");
                 renderBarChart(analyticsData.periodStats);
             })
             .catch(err => console.error("Ошибка загрузки аналитики:", err));
@@ -280,7 +283,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (storeId !== '') params.append("storeId", storeId);
             params.append("interval", selectedPeriod);
 
-            console.log("Selected storeId =", storeId);
+            debugLog("Selected storeId =", storeId);
             document.body.classList.add("loading");
             window.location.href = "/analytics?" + params.toString();
         });
