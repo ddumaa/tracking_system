@@ -15,6 +15,12 @@ import java.util.Optional;
 public interface StoreRepository extends JpaRepository<Store, Long> {
 
 
+    /**
+     * Получить магазин по его идентификатору.
+     *
+     * @param storeId идентификатор магазина
+     * @return найденный магазин или {@code null}, если магазин не найден
+     */
     Store findStoreById(Long storeId);
 
     /**
@@ -27,18 +33,30 @@ public interface StoreRepository extends JpaRepository<Store, Long> {
      */
     List<Store> findByOwnerId(Long userId);
 
+    /**
+     * Подсчёт количества магазинов у пользователя.
+     *
+     * @param ownerId идентификатор владельца
+     * @return количество магазинов пользователя
+     */
     int countByOwnerId(Long ownerId);
 
+    /**
+     * Проверяет принадлежность магазина пользователю.
+     *
+     * @param storeId идентификатор магазина
+     * @param ownerId идентификатор владельца
+     * @return {@code true} если магазин принадлежит пользователю
+     */
     boolean existsByIdAndOwnerId(Long storeId, Long ownerId);
 
-    // Получает список всех ID магазинов пользователя
+    /**
+     * Получить список идентификаторов магазинов пользователя.
+     *
+     * @param ownerId идентификатор владельца
+     * @return список идентификаторов его магазинов
+     */
     @Query("SELECT s.id FROM Store s WHERE s.owner.id = :ownerId")
     List<Long> findStoreIdsByOwnerId(@Param("ownerId") Long ownerId);
-
-    /**
-     * Возвращает `storeId` единственного магазина пользователя, если он есть.
-     */
-    @Query("SELECT s.id FROM Store s WHERE s.owner.id = :userId")
-    Optional<Long> findStoreIdByOwnerId(@Param("userId") Long userId);
 
 }
