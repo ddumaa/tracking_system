@@ -93,7 +93,7 @@ public class DeliveryHistoryService {
         }
 
         // Считаем и обновляем среднее время доставки
-        if (newStatus == GlobalStatus.DELIVERED || newStatus == GlobalStatus.RETURNED) {
+        if (newStatus.isFinal()) {
             registerFinalStatus(history, newStatus);
         }
 

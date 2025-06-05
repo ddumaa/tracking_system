@@ -42,4 +42,13 @@ public enum GlobalStatus {
         return UNKNOWN_STATUS; // Если не найдено, возвращаем UNKNOWN_STATUS
     }
 
+    /**
+     * Проверяет, является ли статус финальным (DELIVERED или RETURNED).
+     *
+     * @return {@code true}, если статус DELIVERED или RETURNED
+     */
+    public boolean isFinal() {
+        return this == DELIVERED || this == RETURNED;
+    }
+
 }
