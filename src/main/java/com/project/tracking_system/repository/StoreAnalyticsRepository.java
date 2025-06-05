@@ -22,5 +22,10 @@ public interface StoreAnalyticsRepository extends JpaRepository<StoreStatistics,
     """)
     List<StoreStatistics> findAllByUserId(@Param("userId") Long userId);
 
+    /**
+     * Fetch statistics for multiple stores at once.
+     */
+    List<StoreStatistics> findByStoreIdIn(List<Long> storeIds);
+
 
 }
