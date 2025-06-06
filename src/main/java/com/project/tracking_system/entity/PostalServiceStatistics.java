@@ -48,6 +48,15 @@ public class PostalServiceStatistics {
     @Column(name = "updated_at")
     private ZonedDateTime updatedAt;
 
+    /**
+     * Возвращает среднее время доставки через эту службу в днях.
+     * <p>
+     * Поле {@code sumDeliveryDays} содержит суммарную длительность доставки в днях.
+     * Деление на количество доставленных отправлений производится лениво при вызове метода.
+     * </p>
+     *
+     * @return среднее время доставки в днях, округлённое до двух знаков
+     */
     @Transient
     public BigDecimal getAverageDeliveryDays() {
         return totalDelivered > 0
@@ -55,6 +64,15 @@ public class PostalServiceStatistics {
                 : BigDecimal.ZERO;
     }
 
+    /**
+     * Возвращает среднее время ожидания получения отправлений через эту службу в днях.
+     * <p>
+     * Поле {@code sumPickupDays} накапливает длительности ожидания в днях.
+     * Среднее вычисляется лениво исходя из количества доставленных и возвращённых посылок.
+     * </p>
+     *
+     * @return среднее время получения в днях, округлённое до двух знаков
+     */
     @Transient
     public BigDecimal getAveragePickupDays() {
         int totalPickedUp = totalDelivered + totalReturned;
