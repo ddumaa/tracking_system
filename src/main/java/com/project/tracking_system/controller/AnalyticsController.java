@@ -91,6 +91,14 @@ public class AnalyticsController {
         if (storeId != null) {
             log.info("Запрос аналитики для магазина ID: {}", storeId);
 
+            try {
+                // Проверяем, принадлежит ли магазин пользователю
+                storeService.getStore(storeId, userId);
+            } catch (SecurityException ex) {
+                // Возвращаем 403, если пользователь не владеет магазином
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+            }
+
             StoreStatistics stat = storeAnalyticsService
                     .getStoreStatistics(storeId)
                     .orElseThrow(() -> new IllegalArgumentException("Статистика для магазина не найдена"));
@@ -206,6 +214,14 @@ public class AnalyticsController {
         List<StoreStatistics> visibleStats;
         List<Long> storeIds;
         if (storeId != null) {
+            try {
+                // Проверяем права доступа к магазину
+                storeService.getStore(storeId, userId);
+            } catch (SecurityException ex) {
+                // Пользователь не владеет магазином
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+            }
+
             visibleStats = List.of(storeAnalyticsService.getStoreStatistics(storeId)
                     .orElseThrow(() -> new IllegalArgumentException("Нет статистики")));
             storeIds = List.of(storeId);

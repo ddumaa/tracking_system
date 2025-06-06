@@ -82,6 +82,7 @@ public class AnalyticsControllerTest {
         stat.setTotalReturned(1);
 
         when(storeService.getUserStores(user.getId())).thenReturn(List.of(store));
+        when(storeService.getStore(store.getId(), user.getId())).thenReturn(store);
         when(storeAnalyticsService.getStoreStatistics(store.getId())).thenReturn(Optional.of(stat));
         when(storeDashboardDataService.calculatePieData(List.of(stat)))
                 .thenReturn(Map.of("delivered",5,"returned",1,"inTransit",4));
@@ -97,6 +98,23 @@ public class AnalyticsControllerTest {
                 .andExpect(jsonPath("$.pieData.returned").value(1))
                 .andExpect(jsonPath("$.pieData.inTransit").value(4))
                 .andExpect(jsonPath("$.periodStats.labels[0]").value("w1"));
+    }
+
+    @Test
+    void getAnalyticsJson_StoreAccessDenied_Returns403() throws Exception {
+        User user = new User();
+        user.setId(1L);
+        user.setTimeZone("UTC");
+        user.setRole(Role.ROLE_USER);
+
+        // storeService.getStore будет выбрасывать SecurityException
+        when(storeService.getUserStores(user.getId())).thenReturn(List.of());
+        when(storeService.getStore(2L, user.getId())).thenThrow(new SecurityException());
+
+        mockMvc.perform(get("/analytics/json")
+                        .param("storeId", "2")
+                        .with(SecurityMockMvcRequestPostProcessors.authentication(auth(user))))
+                .andExpect(status().isForbidden());
     }
 
     @Test
