@@ -21,6 +21,19 @@ public class StoreDashboardDataService {
 
     private final DeliveryAnalyticsService deliveryAnalyticsService;
 
+    /**
+     * Агрегирует данные для круговой диаграммы по переданному списку статистик.
+     *
+     * @param stats список {@link StoreStatistics} по выбранным магазинам
+     * @return карта со следующими ключами:
+     * <ul>
+     *     <li>{@code delivered} – количество доставленных отправлений</li>
+     *     <li>{@code returned} – количество возвращённых отправлений</li>
+     *     <li>{@code inTransit} – отправления, находящиеся в пути,
+     *     вычисляется как {@code totalSent - delivered - returned}.
+     *     Значение не может быть отрицательным</li>
+     * </ul>
+     */
     public Map<String, Object> calculatePieData(List<StoreStatistics> stats) {
         int delivered = stats.stream().mapToInt(StoreStatistics::getTotalDelivered).sum();
         int returned = stats.stream().mapToInt(StoreStatistics::getTotalReturned).sum();
