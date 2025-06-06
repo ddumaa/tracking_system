@@ -48,6 +48,15 @@ public class StoreStatistics {
     @Column(name = "updated_at")
     private ZonedDateTime updatedAt;
 
+    /**
+     * Возвращает среднее время доставки заказа в днях.
+     * <p>
+     * Поле {@code sumDeliveryDays} содержит накопленную длительность доставки в днях.
+     * Деление на количество доставленных отправлений выполняется лениво в момент вызова метода.
+     * </p>
+     *
+     * @return среднее время доставки в днях, округлённое до двух знаков
+     */
     @Transient
     public BigDecimal getAverageDeliveryDays() {
         return totalDelivered > 0
@@ -55,6 +64,15 @@ public class StoreStatistics {
                 : BigDecimal.ZERO;
     }
 
+    /**
+     * Возвращает среднее время получения посылки клиентом в днях.
+     * <p>
+     * Поле {@code sumPickupDays} накапливает длительности ожидания получения в днях.
+     * Среднее вычисляется лениво на основе количества доставленных и возвращённых отправлений.
+     * </p>
+     *
+     * @return среднее время получения в днях, округлённое до двух знаков
+     */
     @Transient
     public BigDecimal getAveragePickupDays() {
         int totalPickedUp = totalDelivered + totalReturned;
