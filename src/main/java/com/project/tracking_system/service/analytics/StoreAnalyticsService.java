@@ -3,7 +3,6 @@ package com.project.tracking_system.service.analytics;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.StoreStatistics;
 import com.project.tracking_system.repository.StoreAnalyticsRepository;
-import com.project.tracking_system.repository.StoreRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +24,6 @@ import java.util.Optional;
 public class StoreAnalyticsService {
 
     private final StoreAnalyticsRepository storeAnalyticsRepository;
-    private final StoreRepository storeRepository;
 
     /**
      * Получает аналитику по всем магазинам пользователя.
@@ -57,21 +55,6 @@ public class StoreAnalyticsService {
         storeAnalyticsRepository.save(stats);
 
         log.info("✅ Обновление завершено для магазина: {}", stats.getStore().getName());
-    }
-
-    /**
-     * Обновляет updatedAt для всех магазинов (ночью).
-     */
-    @Transactional
-    public void updateAllStoresAnalytics() {
-        log.info("⏰ Обновление аналитики для всех магазинов");
-
-        List<Store> stores = storeRepository.findAll();
-        for (Store store : stores) {
-            updateStoreAnalytics(store.getId());
-        }
-
-        log.info("✅ Обновление завершено для всех магазинов");
     }
 
     /**
