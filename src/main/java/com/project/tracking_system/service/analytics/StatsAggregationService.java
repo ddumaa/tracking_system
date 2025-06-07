@@ -8,6 +8,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -67,6 +68,20 @@ public class StatsAggregationService {
         int year = date.getYear();
         Store store = d.getStore();
 
+        LocalDate weekStart = date.with(IsoFields.DAY_OF_WEEK, 1);
+        LocalDate weekEnd = date.with(IsoFields.DAY_OF_WEEK, 7);
+        LocalDate monthStart = date.withDayOfMonth(1);
+        LocalDate monthEnd = monthStart.plusMonths(1).minusDays(1);
+        LocalDate yearStart = date.withDayOfYear(1);
+        LocalDate yearEnd = yearStart.plusYears(1).minusDays(1);
+
+        List<StoreDailyStatistics> weekStats =
+                storeDailyRepo.findByStoreIdAndDateBetween(store.getId(), weekStart, weekEnd);
+        List<StoreDailyStatistics> monthStats =
+                storeDailyRepo.findByStoreIdAndDateBetween(store.getId(), monthStart, monthEnd);
+        List<StoreDailyStatistics> yearStats =
+                storeDailyRepo.findByStoreIdAndDateBetween(store.getId(), yearStart, yearEnd);
+
         StoreWeeklyStatistics weekly = storeWeeklyRepo
                 .findByStoreIdAndPeriodYearAndPeriodNumber(store.getId(), weekYear, week)
                 .orElseGet(() -> {
@@ -76,7 +91,7 @@ public class StatsAggregationService {
                     s.setPeriodNumber(week);
                     return s;
                 });
-        addStoreValues(weekly, d);
+        setStoreValues(weekly, weekStats);
         storeWeeklyRepo.save(weekly);
 
         StoreMonthlyStatistics monthly = storeMonthlyRepo
@@ -88,7 +103,7 @@ public class StatsAggregationService {
                     s.setPeriodNumber(month);
                     return s;
                 });
-        addStoreValues(monthly, d);
+        setStoreValues(monthly, monthStats);
         storeMonthlyRepo.save(monthly);
 
         StoreYearlyStatistics yearly = storeYearlyRepo
@@ -100,7 +115,7 @@ public class StatsAggregationService {
                     s.setPeriodNumber(1);
                     return s;
                 });
-        addStoreValues(yearly, d);
+        setStoreValues(yearly, yearStats);
         storeYearlyRepo.save(yearly);
     }
 
@@ -112,6 +127,20 @@ public class StatsAggregationService {
         Store store = d.getStore();
         PostalServiceType type = d.getPostalServiceType();
 
+        LocalDate weekStart = date.with(IsoFields.DAY_OF_WEEK, 1);
+        LocalDate weekEnd = date.with(IsoFields.DAY_OF_WEEK, 7);
+        LocalDate monthStart = date.withDayOfMonth(1);
+        LocalDate monthEnd = monthStart.plusMonths(1).minusDays(1);
+        LocalDate yearStart = date.withDayOfYear(1);
+        LocalDate yearEnd = yearStart.plusYears(1).minusDays(1);
+
+        List<PostalServiceDailyStatistics> weekStats = postalDailyRepo
+                .findByStoreIdAndPostalServiceTypeAndDateBetween(store.getId(), type, weekStart, weekEnd);
+        List<PostalServiceDailyStatistics> monthStats = postalDailyRepo
+                .findByStoreIdAndPostalServiceTypeAndDateBetween(store.getId(), type, monthStart, monthEnd);
+        List<PostalServiceDailyStatistics> yearStats = postalDailyRepo
+                .findByStoreIdAndPostalServiceTypeAndDateBetween(store.getId(), type, yearStart, yearEnd);
+
         PostalServiceWeeklyStatistics weekly = psWeeklyRepo
                 .findByStoreIdAndPostalServiceTypeAndPeriodYearAndPeriodNumber(store.getId(), type, weekYear, week)
                 .orElseGet(() -> {
@@ -122,7 +151,7 @@ public class StatsAggregationService {
                     s.setPeriodNumber(week);
                     return s;
                 });
-        addPsValues(weekly, d);
+        setPsValues(weekly, weekStats);
         psWeeklyRepo.save(weekly);
 
         PostalServiceMonthlyStatistics monthly = psMonthlyRepo
@@ -135,7 +164,7 @@ public class StatsAggregationService {
                     s.setPeriodNumber(month);
                     return s;
                 });
-        addPsValues(monthly, d);
+        setPsValues(monthly, monthStats);
         psMonthlyRepo.save(monthly);
 
         PostalServiceYearlyStatistics yearly = psYearlyRepo
@@ -148,61 +177,99 @@ public class StatsAggregationService {
                     s.setPeriodNumber(1);
                     return s;
                 });
-        addPsValues(yearly, d);
+        setPsValues(yearly, yearStats);
         psYearlyRepo.save(yearly);
     }
 
-    private void addStoreValues(StoreWeeklyStatistics target, StoreDailyStatistics d) {
-        target.setSent(target.getSent() + d.getSent());
-        target.setDelivered(target.getDelivered() + d.getDelivered());
-        target.setReturned(target.getReturned() + d.getReturned());
-        target.setSumDeliveryDays(target.getSumDeliveryDays().add(d.getSumDeliveryDays()));
-        target.setSumPickupDays(target.getSumPickupDays().add(d.getSumPickupDays()));
+    private void setStoreValues(StoreWeeklyStatistics target, List<StoreDailyStatistics> stats) {
+        Totals totals = sumStore(stats);
+        target.setSent(totals.sent);
+        target.setDelivered(totals.delivered);
+        target.setReturned(totals.returned);
+        target.setSumDeliveryDays(totals.sumDeliveryDays);
+        target.setSumPickupDays(totals.sumPickupDays);
         target.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
     }
 
-    private void addStoreValues(StoreMonthlyStatistics target, StoreDailyStatistics d) {
-        target.setSent(target.getSent() + d.getSent());
-        target.setDelivered(target.getDelivered() + d.getDelivered());
-        target.setReturned(target.getReturned() + d.getReturned());
-        target.setSumDeliveryDays(target.getSumDeliveryDays().add(d.getSumDeliveryDays()));
-        target.setSumPickupDays(target.getSumPickupDays().add(d.getSumPickupDays()));
+    private void setStoreValues(StoreMonthlyStatistics target, List<StoreDailyStatistics> stats) {
+        Totals totals = sumStore(stats);
+        target.setSent(totals.sent);
+        target.setDelivered(totals.delivered);
+        target.setReturned(totals.returned);
+        target.setSumDeliveryDays(totals.sumDeliveryDays);
+        target.setSumPickupDays(totals.sumPickupDays);
         target.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
     }
 
-    private void addStoreValues(StoreYearlyStatistics target, StoreDailyStatistics d) {
-        target.setSent(target.getSent() + d.getSent());
-        target.setDelivered(target.getDelivered() + d.getDelivered());
-        target.setReturned(target.getReturned() + d.getReturned());
-        target.setSumDeliveryDays(target.getSumDeliveryDays().add(d.getSumDeliveryDays()));
-        target.setSumPickupDays(target.getSumPickupDays().add(d.getSumPickupDays()));
+    private void setStoreValues(StoreYearlyStatistics target, List<StoreDailyStatistics> stats) {
+        Totals totals = sumStore(stats);
+        target.setSent(totals.sent);
+        target.setDelivered(totals.delivered);
+        target.setReturned(totals.returned);
+        target.setSumDeliveryDays(totals.sumDeliveryDays);
+        target.setSumPickupDays(totals.sumPickupDays);
         target.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
     }
 
-    private void addPsValues(PostalServiceWeeklyStatistics target, PostalServiceDailyStatistics d) {
-        target.setSent(target.getSent() + d.getSent());
-        target.setDelivered(target.getDelivered() + d.getDelivered());
-        target.setReturned(target.getReturned() + d.getReturned());
-        target.setSumDeliveryDays(target.getSumDeliveryDays().add(d.getSumDeliveryDays()));
-        target.setSumPickupDays(target.getSumPickupDays().add(d.getSumPickupDays()));
+    private void setPsValues(PostalServiceWeeklyStatistics target, List<PostalServiceDailyStatistics> stats) {
+        Totals totals = sumPostal(stats);
+        target.setSent(totals.sent);
+        target.setDelivered(totals.delivered);
+        target.setReturned(totals.returned);
+        target.setSumDeliveryDays(totals.sumDeliveryDays);
+        target.setSumPickupDays(totals.sumPickupDays);
         target.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
     }
 
-    private void addPsValues(PostalServiceMonthlyStatistics target, PostalServiceDailyStatistics d) {
-        target.setSent(target.getSent() + d.getSent());
-        target.setDelivered(target.getDelivered() + d.getDelivered());
-        target.setReturned(target.getReturned() + d.getReturned());
-        target.setSumDeliveryDays(target.getSumDeliveryDays().add(d.getSumDeliveryDays()));
-        target.setSumPickupDays(target.getSumPickupDays().add(d.getSumPickupDays()));
+    private void setPsValues(PostalServiceMonthlyStatistics target, List<PostalServiceDailyStatistics> stats) {
+        Totals totals = sumPostal(stats);
+        target.setSent(totals.sent);
+        target.setDelivered(totals.delivered);
+        target.setReturned(totals.returned);
+        target.setSumDeliveryDays(totals.sumDeliveryDays);
+        target.setSumPickupDays(totals.sumPickupDays);
         target.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
     }
 
-    private void addPsValues(PostalServiceYearlyStatistics target, PostalServiceDailyStatistics d) {
-        target.setSent(target.getSent() + d.getSent());
-        target.setDelivered(target.getDelivered() + d.getDelivered());
-        target.setReturned(target.getReturned() + d.getReturned());
-        target.setSumDeliveryDays(target.getSumDeliveryDays().add(d.getSumDeliveryDays()));
-        target.setSumPickupDays(target.getSumPickupDays().add(d.getSumPickupDays()));
+    private void setPsValues(PostalServiceYearlyStatistics target, List<PostalServiceDailyStatistics> stats) {
+        Totals totals = sumPostal(stats);
+        target.setSent(totals.sent);
+        target.setDelivered(totals.delivered);
+        target.setReturned(totals.returned);
+        target.setSumDeliveryDays(totals.sumDeliveryDays);
+        target.setSumPickupDays(totals.sumPickupDays);
         target.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+    }
+
+    private Totals sumStore(List<StoreDailyStatistics> stats) {
+        Totals t = new Totals();
+        for (StoreDailyStatistics s : stats) {
+            t.sent += s.getSent();
+            t.delivered += s.getDelivered();
+            t.returned += s.getReturned();
+            t.sumDeliveryDays = t.sumDeliveryDays.add(s.getSumDeliveryDays());
+            t.sumPickupDays = t.sumPickupDays.add(s.getSumPickupDays());
+        }
+        return t;
+    }
+
+    private Totals sumPostal(List<PostalServiceDailyStatistics> stats) {
+        Totals t = new Totals();
+        for (PostalServiceDailyStatistics s : stats) {
+            t.sent += s.getSent();
+            t.delivered += s.getDelivered();
+            t.returned += s.getReturned();
+            t.sumDeliveryDays = t.sumDeliveryDays.add(s.getSumDeliveryDays());
+            t.sumPickupDays = t.sumPickupDays.add(s.getSumPickupDays());
+        }
+        return t;
+    }
+
+    private static class Totals {
+        int sent;
+        int delivered;
+        int returned;
+        BigDecimal sumDeliveryDays = BigDecimal.ZERO;
+        BigDecimal sumPickupDays = BigDecimal.ZERO;
     }
 }
