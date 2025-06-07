@@ -8,6 +8,7 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.UserSubscription;
 import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.service.analytics.StatsAggregationService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,7 @@ public class AdminController {
     private final TrackParcelService trackParcelService;
     private final SubscriptionService subscriptionService;
     private final StoreRepository storeRepository;
+    private final StatsAggregationService statsAggregationService;
 
     @GetMapping()
     public String adminDashboard(Model model) {
@@ -143,6 +145,15 @@ public class AdminController {
             subscriptionService.changeSubscription(userId, subscriptionPlan, null);  // Смена подписки
         }
         return "redirect:/admin/users/" + userId;
+    }
+
+    /**
+     * Triggers aggregation of weekly, monthly and yearly statistics for yesterday.
+     */
+    @PostMapping("/aggregate-stats")
+    public String triggerAggregation() {
+        statsAggregationService.aggregateYesterday();
+        return "redirect:/admin";
     }
 
 }

@@ -40,4 +40,12 @@ public interface StoreDailyStatisticsRepository extends JpaRepository<StoreDaily
      * @return list of daily statistics
      */
     List<StoreDailyStatistics> findByStoreIdInAndDateBetween(List<Long> storeIds, LocalDate from, LocalDate to);
+
+    /**
+     * Find statistics for all stores on a specific date.
+     *
+     * @param date date of statistics
+     * @return list of daily statistics
+     */
+    List<StoreDailyStatistics> findByDate(LocalDate date);
 }

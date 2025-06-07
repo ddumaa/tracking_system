@@ -49,7 +49,15 @@ public interface PostalServiceDailyStatisticsRepository extends JpaRepository<Po
      * @return list of daily statistics
      */
     List<PostalServiceDailyStatistics> findByStoreIdInAndPostalServiceTypeAndDateBetween(List<Long> storeIds,
-                                                                                        PostalServiceType postalServiceType,
-                                                                                        LocalDate from,
-                                                                                        LocalDate to);
+        PostalServiceType postalServiceType,
+        LocalDate from,
+        LocalDate to);
+
+    /**
+     * Find statistics for all stores and services on a specific date.
+     *
+     * @param date date of statistics
+     * @return list of daily statistics
+     */
+    List<PostalServiceDailyStatistics> findByDate(LocalDate date);
 }
