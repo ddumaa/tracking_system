@@ -20,7 +20,6 @@ import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.IsoFields;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.*;
@@ -68,8 +67,8 @@ public class PeriodDataResolverTest {
 
         int week = from.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR);
         int year = from.get(IsoFields.WEEK_BASED_YEAR);
-        when(weeklyRepo.findByStoreIdAndPeriodYearAndPeriodNumber(1L, year, week))
-                .thenReturn(Optional.of(createWeekly(3)));
+        when(weeklyRepo.findByStoreIdInAndPeriodYearAndPeriodNumber(storeIds, year, week))
+                .thenReturn(List.of(createWeekly(3))); 
         // second week not available -> daily fallback
         LocalDate fromDaily = LocalDate.of(2024,1,8);
         LocalDate toDaily = LocalDate.of(2024,1,14);

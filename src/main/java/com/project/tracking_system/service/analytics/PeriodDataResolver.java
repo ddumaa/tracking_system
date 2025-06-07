@@ -98,21 +98,15 @@ public class PeriodDataResolver {
                                   ZoneId zone) {
         int week = start.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR);
         int year = start.get(IsoFields.WEEK_BASED_YEAR);
-        boolean complete = true;
-        long[] totals = new long[3];
-        for (Long id : storeIds) {
-            var opt = weeklyRepo.findByStoreIdAndPeriodYearAndPeriodNumber(id, year, week);
-            if (opt.isPresent()) {
-                StoreWeeklyStatistics s = opt.get();
+        List<StoreWeeklyStatistics> stats =
+                weeklyRepo.findByStoreIdInAndPeriodYearAndPeriodNumber(storeIds, year, week);
+        if (stats.size() == storeIds.size()) {
+            long[] totals = new long[3];
+            for (StoreWeeklyStatistics s : stats) {
                 totals[0] += s.getSent();
                 totals[1] += s.getDelivered();
                 totals[2] += s.getReturned();
-            } else {
-                complete = false;
-                break;
             }
-        }
-        if (complete) {
             return new PeriodStatsDTO(formatLabel(start, ChronoUnit.WEEKS),
                     totals[0], totals[1], totals[2], PeriodStatsSource.WEEKLY);
         }
@@ -125,21 +119,15 @@ public class PeriodDataResolver {
                                    ZoneId zone) {
         int month = start.getMonthValue();
         int year = start.getYear();
-        boolean complete = true;
-        long[] totals = new long[3];
-        for (Long id : storeIds) {
-            var opt = monthlyRepo.findByStoreIdAndPeriodYearAndPeriodNumber(id, year, month);
-            if (opt.isPresent()) {
-                StoreMonthlyStatistics s = opt.get();
+        List<StoreMonthlyStatistics> stats =
+                monthlyRepo.findByStoreIdInAndPeriodYearAndPeriodNumber(storeIds, year, month);
+        if (stats.size() == storeIds.size()) {
+            long[] totals = new long[3];
+            for (StoreMonthlyStatistics s : stats) {
                 totals[0] += s.getSent();
                 totals[1] += s.getDelivered();
                 totals[2] += s.getReturned();
-            } else {
-                complete = false;
-                break;
             }
-        }
-        if (complete) {
             return new PeriodStatsDTO(formatLabel(start, ChronoUnit.MONTHS),
                     totals[0], totals[1], totals[2], PeriodStatsSource.MONTHLY);
         }
@@ -151,21 +139,15 @@ public class PeriodDataResolver {
                                   ZonedDateTime start,
                                   ZoneId zone) {
         int year = start.getYear();
-        boolean complete = true;
-        long[] totals = new long[3];
-        for (Long id : storeIds) {
-            var opt = yearlyRepo.findByStoreIdAndPeriodYearAndPeriodNumber(id, year, 1);
-            if (opt.isPresent()) {
-                StoreYearlyStatistics s = opt.get();
+        List<StoreYearlyStatistics> stats =
+                yearlyRepo.findByStoreIdInAndPeriodYearAndPeriodNumber(storeIds, year, 1);
+        if (stats.size() == storeIds.size()) {
+            long[] totals = new long[3];
+            for (StoreYearlyStatistics s : stats) {
                 totals[0] += s.getSent();
                 totals[1] += s.getDelivered();
                 totals[2] += s.getReturned();
-            } else {
-                complete = false;
-                break;
             }
-        }
-        if (complete) {
             return new PeriodStatsDTO(formatLabel(start, ChronoUnit.YEARS),
                     totals[0], totals[1], totals[2], PeriodStatsSource.YEARLY);
         }
