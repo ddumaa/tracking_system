@@ -13,6 +13,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.temporal.IsoFields;
+import java.time.temporal.ChronoField;
 import java.util.List;
 
 /**
@@ -85,8 +86,8 @@ public class StatsAggregationService {
         int year = date.getYear();
         Store store = d.getStore();
 
-        LocalDate weekStart = date.with(IsoFields.DAY_OF_WEEK, 1);
-        LocalDate weekEnd = date.with(IsoFields.DAY_OF_WEEK, 7);
+        LocalDate weekStart = date.with(ChronoField.DAY_OF_WEEK, 1);
+        LocalDate weekEnd = date.with(ChronoField.DAY_OF_WEEK, 7);
         LocalDate monthStart = date.withDayOfMonth(1);
         LocalDate monthEnd = monthStart.plusMonths(1).minusDays(1);
         LocalDate yearStart = date.withDayOfYear(1);
@@ -144,8 +145,8 @@ public class StatsAggregationService {
         Store store = d.getStore();
         PostalServiceType type = d.getPostalServiceType();
 
-        LocalDate weekStart = date.with(IsoFields.DAY_OF_WEEK, 1);
-        LocalDate weekEnd = date.with(IsoFields.DAY_OF_WEEK, 7);
+        LocalDate weekStart = date.with(ChronoField.DAY_OF_WEEK, 1);
+        LocalDate weekEnd = date.with(ChronoField.DAY_OF_WEEK, 7);
         LocalDate monthStart = date.withDayOfMonth(1);
         LocalDate monthEnd = monthStart.plusMonths(1).minusDays(1);
         LocalDate yearStart = date.withDayOfYear(1);

@@ -13,6 +13,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.time.temporal.IsoFields;
+import java.time.temporal.ChronoField;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -54,8 +55,8 @@ public class StatsAggregationServiceTest {
         daily.setSumDeliveryDays(BigDecimal.valueOf(3));
         daily.setSumPickupDays(BigDecimal.valueOf(1));
 
-        LocalDate weekStart = daily.getDate().with(IsoFields.DAY_OF_WEEK, 1);
-        LocalDate weekEnd = daily.getDate().with(IsoFields.DAY_OF_WEEK, 7);
+        LocalDate weekStart = daily.getDate().with(ChronoField.DAY_OF_WEEK, 1);
+        LocalDate weekEnd = daily.getDate().with(ChronoField.DAY_OF_WEEK, 7);
         LocalDate monthStart = daily.getDate().withDayOfMonth(1);
         LocalDate monthEnd = monthStart.plusMonths(1).minusDays(1);
         LocalDate yearStart = daily.getDate().withDayOfYear(1);
@@ -106,8 +107,8 @@ public class StatsAggregationServiceTest {
         daily.setSumDeliveryDays(BigDecimal.valueOf(2));
         daily.setSumPickupDays(BigDecimal.valueOf(1));
 
-        LocalDate weekStartPs = daily.getDate().with(IsoFields.DAY_OF_WEEK, 1);
-        LocalDate weekEndPs = daily.getDate().with(IsoFields.DAY_OF_WEEK, 7);
+        LocalDate weekStartPs = daily.getDate().with(ChronoField.DAY_OF_WEEK, 1);
+        LocalDate weekEndPs = daily.getDate().with(ChronoField.DAY_OF_WEEK, 7);
         LocalDate monthStartPs = daily.getDate().withDayOfMonth(1);
         LocalDate monthEndPs = monthStartPs.plusMonths(1).minusDays(1);
         LocalDate yearStartPs = daily.getDate().withDayOfYear(1);
@@ -147,8 +148,8 @@ public class StatsAggregationServiceTest {
         daily.setDelivered(1);
         daily.setReturned(0);
 
-        LocalDate weekStart = daily.getDate().with(IsoFields.DAY_OF_WEEK, 1);
-        LocalDate weekEnd = daily.getDate().with(IsoFields.DAY_OF_WEEK, 7);
+        LocalDate weekStart = daily.getDate().with(ChronoField.DAY_OF_WEEK, 1);
+        LocalDate weekEnd = daily.getDate().with(ChronoField.DAY_OF_WEEK, 7);
         LocalDate monthStart = daily.getDate().withDayOfMonth(1);
         LocalDate monthEnd = monthStart.plusMonths(1).minusDays(1);
         LocalDate yearStart = daily.getDate().withDayOfYear(1);
