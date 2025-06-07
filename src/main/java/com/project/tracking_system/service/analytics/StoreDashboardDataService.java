@@ -48,12 +48,12 @@ public class StoreDashboardDataService {
     }
 
     /**
-     * Builds chart data for the selected period.
+     * Строит данные для графика за выбранный период.
      *
-     * @param storeIds ids of stores to aggregate
-     * @param interval requested interval (days, weeks, months, years)
-     * @param userZone user time zone
-     * @return map with labels and series values
+     * @param storeIds список идентификаторов магазинов для агрегации
+     * @param interval запрашиваемый интервал (дни, недели, месяцы, годы)
+     * @param userZone часовой пояс пользователя
+     * @return карта с метками и значениями рядов
      */
     public Map<String, Object> getFullPeriodStatsChart(List<Long> storeIds,
                                                        ChronoUnit interval,
@@ -64,7 +64,7 @@ public class StoreDashboardDataService {
             case WEEKS -> now.minusWeeks(4);
             case MONTHS -> now.minusMonths(6);
             case YEARS -> now.minusYears(5);
-            default -> throw new IllegalArgumentException("Unsupported interval: " + interval);
+            default -> throw new IllegalArgumentException("Неподдерживаемый интервал: " + interval);
         };
         ZonedDateTime to = now;
 

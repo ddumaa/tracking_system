@@ -16,7 +16,7 @@ import java.time.temporal.IsoFields;
 import java.util.List;
 
 /**
- * Aggregates daily statistics into weekly, monthly and yearly tables.
+ * Агрегирует ежедневную статистику в недельные, месячные и годовые таблицы.
  */
 @Slf4j
 @Service
@@ -35,7 +35,7 @@ public class StatsAggregationService {
     private final PostalServiceYearlyStatisticsRepository psYearlyRepo;
 
     /**
-     * Aggregates statistics for the previous day.
+     * Агрегирует статистику за предыдущий день.
      */
     @Scheduled(cron = "0 0 2 * * *", zone = "UTC")
     public void aggregateYesterday() {
@@ -44,11 +44,11 @@ public class StatsAggregationService {
     }
 
     /**
-     * Iterates over each day in the provided range and aggregates statistics.
-     * The operation is idempotent and can be safely re-run for the same period.
+     * Проходит по каждому дню в указанном диапазоне и агрегирует статистику.
+     * Операция идемпотентна и может безопасно выполняться повторно для одного и того же периода.
      *
-     * @param from start date (inclusive)
-     * @param to   end date (inclusive)
+     * @param from дата начала (включительно)
+     * @param to   дата окончания (включительно)
      */
     @Transactional
     public void aggregateForRange(LocalDate from, LocalDate to) {
@@ -61,13 +61,13 @@ public class StatsAggregationService {
     }
 
     /**
-     * Aggregates statistics for the given date.
+     * Агрегирует статистику за указанную дату.
      *
-     * @param date date to aggregate
+     * @param date дата для агрегации
      */
     @Transactional
     public void aggregateForDate(LocalDate date) {
-        log.info("\uD83D\uDCCA Aggregating statistics for {}", date);
+        log.info("\uD83D\uDCCA Агрегируем статистику за {}", date);
         List<StoreDailyStatistics> storeDaily = storeDailyRepo.findByDate(date);
         List<PostalServiceDailyStatistics> psDaily = postalDailyRepo.findByDate(date);
         for (StoreDailyStatistics d : storeDaily) {
