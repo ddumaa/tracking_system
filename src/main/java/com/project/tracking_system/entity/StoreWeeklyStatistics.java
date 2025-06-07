@@ -18,7 +18,8 @@ import java.time.ZonedDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "tb_store_statistics_weekly")
+@Table(name = "tb_store_statistics_weekly",
+       uniqueConstraints = @UniqueConstraint(columnNames = {"store_id", "period_year", "period_number"}))
 public class StoreWeeklyStatistics {
 
     @Id

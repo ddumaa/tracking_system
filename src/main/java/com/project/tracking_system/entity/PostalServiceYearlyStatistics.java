@@ -18,7 +18,8 @@ import java.time.ZonedDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "tb_postal_service_statistics_yearly")
+@Table(name = "tb_postal_service_statistics_yearly",
+       uniqueConstraints = @UniqueConstraint(columnNames = {"store_id", "postal_service_type", "period_year", "period_number"}))
 public class PostalServiceYearlyStatistics {
 
     @Id
