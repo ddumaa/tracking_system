@@ -1,6 +1,6 @@
 package com.project.tracking_system.service.analytics;
 
-import com.project.tracking_system.dto.DeliveryFullPeriodStatsDTO;
+import com.project.tracking_system.dto.PeriodStatsDTO;
 import com.project.tracking_system.entity.StoreStatistics;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -68,15 +68,15 @@ public class StoreDashboardDataService {
         };
         ZonedDateTime to = now;
 
-        List<DeliveryFullPeriodStatsDTO> list = deliveryAnalyticsService.getFullPeriodStats(
+        List<PeriodStatsDTO> list = deliveryAnalyticsService.getFullPeriodStats(
                 storeIds, interval, from, to, userZone
         );
 
         return Map.of(
-                "labels", list.stream().map(DeliveryFullPeriodStatsDTO::periodLabel).toList(),
-                "sent", list.stream().map(DeliveryFullPeriodStatsDTO::sent).toList(),
-                "delivered", list.stream().map(DeliveryFullPeriodStatsDTO::delivered).toList(),
-                "returned", list.stream().map(DeliveryFullPeriodStatsDTO::returned).toList()
+                "labels", list.stream().map(PeriodStatsDTO::periodLabel).toList(),
+                "sent", list.stream().map(PeriodStatsDTO::sent).toList(),
+                "delivered", list.stream().map(PeriodStatsDTO::delivered).toList(),
+                "returned", list.stream().map(PeriodStatsDTO::returned).toList()
         );
     }
 
