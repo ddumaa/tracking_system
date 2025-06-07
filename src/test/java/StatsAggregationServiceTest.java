@@ -175,4 +175,28 @@ public class StatsAggregationServiceTest {
         assertEquals(saved.get(0).getDelivered(), saved.get(1).getDelivered());
         assertEquals(saved.get(0).getReturned(), saved.get(1).getReturned());
     }
+
+    @Test
+    void aggregateForRange_CallsDailyAggregationForEachDay() {
+        StatsAggregationService spyService = spy(new StatsAggregationService(
+                storeDailyRepo,
+                postalDailyRepo,
+                storeWeeklyRepo,
+                storeMonthlyRepo,
+                storeYearlyRepo,
+                psWeeklyRepo,
+                psMonthlyRepo,
+                psYearlyRepo));
+
+        doNothing().when(spyService).aggregateForDate(any());
+
+        LocalDate from = LocalDate.of(2024, 1, 1);
+        LocalDate to = LocalDate.of(2024, 1, 3);
+
+        spyService.aggregateForRange(from, to);
+
+        verify(spyService).aggregateForDate(LocalDate.of(2024, 1, 1));
+        verify(spyService).aggregateForDate(LocalDate.of(2024, 1, 2));
+        verify(spyService).aggregateForDate(LocalDate.of(2024, 1, 3));
+    }
 }

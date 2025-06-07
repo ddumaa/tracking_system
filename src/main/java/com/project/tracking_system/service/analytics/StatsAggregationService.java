@@ -44,6 +44,23 @@ public class StatsAggregationService {
     }
 
     /**
+     * Iterates over each day in the provided range and aggregates statistics.
+     * The operation is idempotent and can be safely re-run for the same period.
+     *
+     * @param from start date (inclusive)
+     * @param to   end date (inclusive)
+     */
+    @Transactional
+    public void aggregateForRange(LocalDate from, LocalDate to) {
+        LocalDate current = from;
+        // Iterate over each date and invoke daily aggregation
+        while (!current.isAfter(to)) {
+            aggregateForDate(current);
+            current = current.plusDays(1);
+        }
+    }
+
+    /**
      * Aggregates statistics for the given date.
      *
      * @param date date to aggregate

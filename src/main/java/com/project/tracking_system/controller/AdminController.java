@@ -17,7 +17,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.format.annotation.DateTimeFormat;
 
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -153,6 +155,24 @@ public class AdminController {
     @PostMapping("/aggregate-stats")
     public String triggerAggregation() {
         statsAggregationService.aggregateYesterday();
+        return "redirect:/admin";
+    }
+
+    /**
+     * Triggers aggregation of statistics for the specified date range.
+     *
+     * @param from start date in ISO format (yyyy-MM-dd)
+     * @param to   end date in ISO format (yyyy-MM-dd)
+     * @return redirect to admin page
+     */
+    @PostMapping("/aggregate-stats/range")
+    public String triggerAggregationRange(@RequestParam("from")
+                                          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                                          LocalDate from,
+                                          @RequestParam("to")
+                                          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                                          LocalDate to) {
+        statsAggregationService.aggregateForRange(from, to);
         return "redirect:/admin";
     }
 
