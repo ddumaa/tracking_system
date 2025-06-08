@@ -203,6 +203,76 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    // Обновление сводных статистик магазинов
+    function updateStoreStats(stats) {
+        if (!stats) return;
+
+        // контейнеры с блоками статистики
+        const containers = document.querySelectorAll('.store-statistics-content, .row.text-center.mb-4');
+        containers.forEach(container => {
+            const values = container.querySelectorAll('.col-md-2 .h5, .col-md-2.col-6 .h5');
+            if (values.length < 5) return;
+
+            values[0].textContent = stats.totalSent;
+            values[1].textContent = stats.totalDelivered;
+            values[2].textContent = stats.totalReturned;
+            values[3].textContent = Number(stats.averageDeliveryDays).toFixed(1);
+            values[4].textContent = Number(stats.averagePickupDays).toFixed(1);
+
+            const total = stats.totalDelivered + stats.totalReturned;
+            if (values[5]) {
+                const successRate = total > 0 ? (stats.totalDelivered * 100 / total).toFixed(1) + ' %' : '0.0 %';
+                values[5].textContent = successRate;
+            }
+            if (values[6]) {
+                const returnRate = total > 0 ? (stats.totalReturned * 100 / total).toFixed(1) + ' %' : '0.0 %';
+                values[6].textContent = returnRate;
+            }
+        });
+    }
+
+    // Обновление таблицы почтовых служб
+    function updatePostalServiceStats(stats) {
+        if (!Array.isArray(stats)) return;
+        const rows = document.querySelectorAll('table.table-hover.align-middle tbody tr');
+        rows.forEach(row => {
+            const service = row.querySelector('td:first-child')?.textContent.trim();
+            const data = stats.find(s => s.postalService === service);
+            if (!data) return;
+
+            const cells = row.querySelectorAll('td');
+            if (cells.length < 6) return;
+
+            // Отправлено
+            const sentBar = cells[1].querySelector('.progress-bar');
+            if (sentBar) sentBar.textContent = data.sent;
+
+            // Доставлено
+            const deliveredBar = cells[2].querySelector('.progress-bar');
+            if (deliveredBar) {
+                deliveredBar.style.width = data.sent > 0 ? (data.delivered / data.sent * 100) + '%' : '0%';
+                const span = deliveredBar.querySelector('span');
+                if (span) span.textContent = data.delivered > 0 ? data.delivered : 0;
+            }
+
+            // Возвращено
+            const returnedBar = cells[3].querySelector('.progress-bar');
+            if (returnedBar) {
+                returnedBar.style.width = data.sent > 0 ? (data.returned / data.sent * 100) + '%' : '0%';
+                const span = returnedBar.querySelector('span');
+                if (span) span.textContent = data.returned > 0 ? data.returned : 0;
+            }
+
+            // Среднее время доставки
+            const deliverySpan = cells[4].querySelector('span');
+            if (deliverySpan) deliverySpan.textContent = Number(data.avgDeliveryDays).toFixed(1);
+
+            // Среднее время забора
+            const pickupSpan = cells[5].querySelector('span');
+            if (pickupSpan) pickupSpan.textContent = Number(data.avgPickupTimeDays).toFixed(1);
+        });
+    }
+
     // --- Загрузка аналитики
     function loadAnalyticsData() {
         debugLog("🔥 [Debug] loadAnalyticsData called");
@@ -225,6 +295,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 renderPieChart(analyticsData.pieData);
                 debugLog("🏁 [Debug] rendering bar chart");
                 renderBarChart(analyticsData.periodStats);
+                updateStoreStats(analyticsData.storeStatistics);
+                updatePostalServiceStats(analyticsData.postalStats);
             })
             .catch(err => console.error("Ошибка загрузки аналитики:", err));
     }
@@ -232,6 +304,8 @@ document.addEventListener("DOMContentLoaded", function () {
     if (analyticsData) {
         renderPieChart(analyticsData.pieData);
         renderBarChart(analyticsData.periodStats);
+        updateStoreStats(analyticsData.storeStatistics);
+        updatePostalServiceStats(analyticsData.postalStats);
     }
 
     // Кнопка обновления
