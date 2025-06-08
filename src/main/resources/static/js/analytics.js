@@ -17,6 +17,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const storeSelect = document.getElementById("analyticsStoreSelect");
     const periodSelect = document.getElementById("periodSelect");
     let selectedPeriod = periodSelect?.value || "WEEKS";
+    updateChartTitle(selectedPeriod); // установить заголовок при первой загрузке
 
     const pieCtx = document.getElementById('statusPieChart')?.getContext('2d');
     const barCtx = document.getElementById('periodBarChart')?.getContext('2d');
