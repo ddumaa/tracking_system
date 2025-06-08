@@ -14,6 +14,12 @@ import java.util.Optional;
  */
 public interface StoreAnalyticsRepository extends JpaRepository<StoreStatistics, Long> {
 
+    /**
+     * Найти статистику магазина по его идентификатору.
+     *
+     * @param storeId идентификатор магазина
+     * @return статистика магазина, если найдена
+     */
     Optional<StoreStatistics> findByStoreId(Long storeId);
 
     @Query("""
@@ -23,7 +29,7 @@ public interface StoreAnalyticsRepository extends JpaRepository<StoreStatistics,
     List<StoreStatistics> findAllByUserId(@Param("userId") Long userId);
 
     /**
-     * Fetch statistics for multiple stores at once.
+     * Получить статистику сразу по нескольким магазинам.
      */
     List<StoreStatistics> findByStoreIdIn(List<Long> storeIds);
 

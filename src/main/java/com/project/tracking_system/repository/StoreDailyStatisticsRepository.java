@@ -8,44 +8,44 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Repository for daily statistics of stores.
+ * Репозиторий для ежедневной статистики магазинов.
  */
 public interface StoreDailyStatisticsRepository extends JpaRepository<StoreDailyStatistics, Long> {
 
     /**
-     * Find statistics for a store on a particular date.
+     * Найти статистику для магазина на конкретную дату.
      *
-     * @param storeId store identifier
-     * @param date    date of statistics
-     * @return optional daily statistics
+     * @param storeId идентификатор магазина
+     * @param date    дата статистики
+     * @return ежедневная статистика, если найдена
      */
     Optional<StoreDailyStatistics> findByStoreIdAndDate(Long storeId, LocalDate date);
 
     /**
-     * Find statistics for a single store within a date range.
+     * Найти статистику для одного магазина за диапазон дат.
      *
-     * @param storeId identifier of the store
-     * @param from    start date (inclusive)
-     * @param to      end date (inclusive)
-     * @return list of daily statistics
+     * @param storeId идентификатор магазина
+     * @param from    дата начала (включительно)
+     * @param to      дата окончания (включительно)
+     * @return список ежедневной статистики
      */
     List<StoreDailyStatistics> findByStoreIdAndDateBetween(Long storeId, LocalDate from, LocalDate to);
 
     /**
-     * Find statistics for multiple stores within a date range.
+     * Найти статистику для нескольких магазинов за диапазон дат.
      *
-     * @param storeIds list of store identifiers
-     * @param from     start date (inclusive)
-     * @param to       end date (inclusive)
-     * @return list of daily statistics
+     * @param storeIds список идентификаторов магазинов
+     * @param from     дата начала (включительно)
+     * @param to       дата окончания (включительно)
+     * @return список ежедневной статистики
      */
     List<StoreDailyStatistics> findByStoreIdInAndDateBetween(List<Long> storeIds, LocalDate from, LocalDate to);
 
     /**
-     * Find statistics for all stores on a specific date.
+     * Найти статистику для всех магазинов на конкретную дату.
      *
-     * @param date date of statistics
-     * @return list of daily statistics
+     * @param date дата статистики
+     * @return список ежедневной статистики
      */
     List<StoreDailyStatistics> findByDate(LocalDate date);
 }

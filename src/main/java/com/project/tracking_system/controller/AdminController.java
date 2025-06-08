@@ -150,7 +150,7 @@ public class AdminController {
     }
 
     /**
-     * Triggers aggregation of weekly, monthly and yearly statistics for yesterday.
+     * Запускает агрегацию недельной, месячной и годовой статистики за вчерашний день.
      */
     @PostMapping("/aggregate-stats")
     public String triggerAggregation() {
@@ -159,11 +159,11 @@ public class AdminController {
     }
 
     /**
-     * Triggers aggregation of statistics for the specified date range.
+     * Запускает агрегацию статистики за указанный диапазон дат.
      *
-     * @param from start date in ISO format (yyyy-MM-dd)
-     * @param to   end date in ISO format (yyyy-MM-dd)
-     * @return redirect to admin page
+     * @param from дата начала в формате ISO (yyyy-MM-dd)
+     * @param to   дата окончания в формате ISO (yyyy-MM-dd)
+     * @return редирект на административную страницу
      */
     @PostMapping("/aggregate-stats/range")
     public String triggerAggregationRange(@RequestParam("from")

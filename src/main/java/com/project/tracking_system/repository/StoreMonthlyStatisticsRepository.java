@@ -7,19 +7,19 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Repository for monthly store statistics.
+ * Репозиторий для статистики магазинов по месяцам.
  */
 public interface StoreMonthlyStatisticsRepository extends JpaRepository<StoreMonthlyStatistics, Long> {
 
     Optional<StoreMonthlyStatistics> findByStoreIdAndPeriodYearAndPeriodNumber(Long storeId, int periodYear, int periodNumber);
 
     /**
-     * Find statistics for multiple stores for the given month of a year.
+     * Найти статистику для нескольких магазинов за указанный месяц года.
      *
-     * @param storeIds    list of store identifiers
-     * @param periodYear  year of the month
-     * @param periodNumber number of the month (1-12)
-     * @return list of monthly statistics, one per store if present
+     * @param storeIds    список идентификаторов магазинов
+     * @param periodYear  год месяца
+     * @param periodNumber номер месяца (1-12)
+     * @return список месячной статистики, по одному элементу на магазин
      */
     List<StoreMonthlyStatistics> findByStoreIdInAndPeriodYearAndPeriodNumber(List<Long> storeIds, int periodYear, int periodNumber);
 }

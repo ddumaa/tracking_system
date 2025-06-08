@@ -9,12 +9,23 @@ import java.util.Optional;
 
 public interface PostalServiceStatisticsRepository extends JpaRepository<PostalServiceStatistics, Long> {
 
+    /**
+     * Получить статистику конкретной почтовой службы магазина.
+     *
+     * @param storeId идентификатор магазина
+     * @param postalServiceType тип почтовой службы
+     * @return статистика почтовой службы, если найдена
+     */
     Optional<PostalServiceStatistics> findByStoreIdAndPostalServiceType(Long storeId, PostalServiceType postalServiceType);
 
-    // Fetch statistics for all postal services of one store
+    /**
+     * Получить статистику всех почтовых служб для магазина.
+     */
     List<PostalServiceStatistics> findByStoreId(Long storeId);
 
-    // Fetch statistics for multiple stores
+    /**
+     * Получить статистику для нескольких магазинов.
+     */
     List<PostalServiceStatistics> findByStoreIdIn(List<Long> storeIds);
 
 }

@@ -9,30 +9,30 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Repository for daily postal service statistics.
+ * Репозиторий для ежедневной статистики по почтовым службам.
  */
 public interface PostalServiceDailyStatisticsRepository extends JpaRepository<PostalServiceDailyStatistics, Long> {
 
     /**
-     * Find statistics for a postal service of a store for a particular date.
+     * Найти статистику почтовой службы магазина за конкретную дату.
      *
-     * @param storeId           store identifier
-     * @param postalServiceType type of postal service
-     * @param date              date of statistics
-     * @return optional daily statistics
+     * @param storeId           идентификатор магазина
+     * @param postalServiceType тип почтовой службы
+     * @param date              дата статистики
+     * @return ежедневная статистика, если найдена
      */
     Optional<PostalServiceDailyStatistics> findByStoreIdAndPostalServiceTypeAndDate(Long storeId,
                                                                                    PostalServiceType postalServiceType,
                                                                                    LocalDate date);
 
     /**
-     * Find statistics for a postal service of a store within a date range.
+     * Найти статистику почтовой службы магазина за диапазон дат.
      *
-     * @param storeId            store identifier
-     * @param postalServiceType  type of the postal service
-     * @param from               start date (inclusive)
-     * @param to                 end date (inclusive)
-     * @return list of daily statistics
+     * @param storeId            идентификатор магазина
+     * @param postalServiceType  тип почтовой службы
+     * @param from               дата начала (включительно)
+     * @param to                 дата окончания (включительно)
+     * @return список ежедневной статистики
      */
     List<PostalServiceDailyStatistics> findByStoreIdAndPostalServiceTypeAndDateBetween(Long storeId,
                                                                                        PostalServiceType postalServiceType,
@@ -40,13 +40,13 @@ public interface PostalServiceDailyStatisticsRepository extends JpaRepository<Po
                                                                                        LocalDate to);
 
     /**
-     * Find statistics for multiple stores for a postal service within a date range.
+     * Найти статистику почтовой службы сразу для нескольких магазинов за диапазон дат.
      *
-     * @param storeIds           store identifiers
-     * @param postalServiceType  type of the postal service
-     * @param from               start date (inclusive)
-     * @param to                 end date (inclusive)
-     * @return list of daily statistics
+     * @param storeIds           идентификаторы магазинов
+     * @param postalServiceType  тип почтовой службы
+     * @param from               дата начала (включительно)
+     * @param to                 дата окончания (включительно)
+     * @return список ежедневной статистики
      */
     List<PostalServiceDailyStatistics> findByStoreIdInAndPostalServiceTypeAndDateBetween(List<Long> storeIds,
         PostalServiceType postalServiceType,
@@ -54,10 +54,10 @@ public interface PostalServiceDailyStatisticsRepository extends JpaRepository<Po
         LocalDate to);
 
     /**
-     * Find statistics for all stores and services on a specific date.
+     * Найти статистику по всем магазинам и службам на конкретную дату.
      *
-     * @param date date of statistics
-     * @return list of daily statistics
+     * @param date дата статистики
+     * @return список ежедневной статистики
      */
     List<PostalServiceDailyStatistics> findByDate(LocalDate date);
 }
