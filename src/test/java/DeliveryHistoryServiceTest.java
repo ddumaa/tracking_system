@@ -331,4 +331,57 @@ public class DeliveryHistoryServiceTest {
         assertEquals(BigDecimal.valueOf(1.0), psStats.getSumDeliveryDays());
         assertEquals(BigDecimal.valueOf(2.0), psStats.getSumPickupDays());
     }
+
+    @Test
+    void deliveredWithoutArrived_SkipsDeliveryAndPickupDays() {
+        Store store = new Store();
+        store.setId(12L);
+        TrackParcel parcel = new TrackParcel();
+        parcel.setStore(store);
+        parcel.setIncludedInStatistics(false);
+
+        DeliveryHistory history = new DeliveryHistory();
+        history.setTrackParcel(parcel);
+        history.setStore(store);
+        history.setPostalService(PostalServiceType.BELPOST);
+
+        ZonedDateTime send = ZonedDateTime.of(2024,7,1,0,0,0,0, ZoneOffset.UTC);
+        ZonedDateTime received = send.plusDays(2);
+        history.setSendDate(send);
+        history.setReceivedDate(received);
+
+        StoreStatistics storeStats = new StoreStatistics();
+        PostalServiceStatistics psStats = new PostalServiceStatistics();
+        psStats.setStore(store);
+        psStats.setPostalServiceType(PostalServiceType.BELPOST);
+        StoreDailyStatistics dailyStats = new StoreDailyStatistics();
+        dailyStats.setStore(store);
+        dailyStats.setDate(received.toLocalDate());
+        PostalServiceDailyStatistics psDaily = new PostalServiceDailyStatistics();
+        psDaily.setStore(store);
+        psDaily.setPostalServiceType(PostalServiceType.BELPOST);
+        psDaily.setDate(received.toLocalDate());
+
+        when(storeAnalyticsRepository.findByStoreId(store.getId())).thenReturn(Optional.of(storeStats));
+        when(postalServiceStatisticsRepository.findByStoreIdAndPostalServiceType(store.getId(), PostalServiceType.BELPOST))
+                .thenReturn(Optional.of(psStats));
+        when(storeDailyStatisticsRepository.findByStoreIdAndDate(store.getId(), received.toLocalDate())).thenReturn(Optional.of(dailyStats));
+        when(postalServiceDailyStatisticsRepository.findByStoreIdAndPostalServiceTypeAndDate(store.getId(), PostalServiceType.BELPOST, received.toLocalDate()))
+                .thenReturn(Optional.of(psDaily));
+
+        deliveryHistoryService.registerFinalStatus(history, GlobalStatus.DELIVERED);
+
+        assertEquals(1, storeStats.getTotalDelivered());
+        assertEquals(BigDecimal.ZERO, storeStats.getSumDeliveryDays());
+        assertEquals(BigDecimal.ZERO, storeStats.getSumPickupDays());
+        assertEquals(1, psStats.getTotalDelivered());
+        assertEquals(BigDecimal.ZERO, psStats.getSumDeliveryDays());
+        assertEquals(BigDecimal.ZERO, psStats.getSumPickupDays());
+        assertEquals(1, dailyStats.getDelivered());
+        assertEquals(BigDecimal.ZERO, dailyStats.getSumDeliveryDays());
+        assertEquals(BigDecimal.ZERO, dailyStats.getSumPickupDays());
+        assertEquals(1, psDaily.getDelivered());
+        assertEquals(BigDecimal.ZERO, psDaily.getSumDeliveryDays());
+        assertEquals(BigDecimal.ZERO, psDaily.getSumPickupDays());
+    }
 }
