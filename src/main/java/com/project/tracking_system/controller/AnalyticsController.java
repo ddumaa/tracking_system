@@ -212,7 +212,9 @@ public class AnalyticsController {
         Long userId = user.getId();
         List<Store> stores = storeService.getUserStores(userId);
         List<StoreStatistics> visibleStats;
-        List<Long> storeIds;
+        List<Long>          storeIds;
+        StoreStatistics     storeStatistics;
+
         if (storeId != null) {
             try {
                 // Проверяем права доступа к магазину
@@ -222,22 +224,37 @@ public class AnalyticsController {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN);
             }
 
-            visibleStats = List.of(storeAnalyticsService.getStoreStatistics(storeId)
-                    .orElseThrow(() -> new IllegalArgumentException("Нет статистики")));
+            StoreStatistics stat = storeAnalyticsService.getStoreStatistics(storeId)
+                    .orElseThrow(() -> new IllegalArgumentException("Нет статистики"));
+
+            visibleStats    = List.of(stat);
+            storeStatistics = stat;
             storeIds = List.of(storeId);
         } else {
-            visibleStats = storeAnalyticsService.getUserStatistics(userId);
+            List<StoreStatistics> stats = storeAnalyticsService.getUserStatistics(userId);
+            visibleStats    = stats;
+            storeStatistics = storeAnalyticsService.aggregateStatistics(stats);
             storeIds = stores.stream().map(Store::getId).toList();
         }
 
         ZoneId userZone = ZoneId.of(user.getTimeZone());
         ChronoUnit chrono = ChronoUnit.valueOf(interval.toUpperCase());
 
-        Map<String, Object> periodStats = storeDashboardDataService.getFullPeriodStatsChart(storeIds, chrono, userZone);
+        Map<String, Object> periodStats = storeDashboardDataService
+                .getFullPeriodStatsChart(storeIds, chrono, userZone);
+
+        Map<String, Object> storeStats = Map.of(
+                "totalSent",          storeStatistics.getTotalSent(),
+                "totalDelivered",     storeStatistics.getTotalDelivered(),
+                "totalReturned",      storeStatistics.getTotalReturned(),
+                "averageDeliveryDays", storeStatistics.getAverageDeliveryDays(),
+                "averagePickupDays",  storeStatistics.getAveragePickupDays()
+        );
 
         return Map.of(
-                "pieData", storeDashboardDataService.calculatePieData(visibleStats),
-                "periodStats", periodStats
+                "pieData",       storeDashboardDataService.calculatePieData(visibleStats),
+                "periodStats",   periodStats,
+                "storeStatistics", storeStats
         );
     }
 
