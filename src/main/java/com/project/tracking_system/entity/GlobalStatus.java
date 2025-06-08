@@ -43,9 +43,14 @@ public enum GlobalStatus {
     }
 
     /**
-     * Проверяет, является ли статус финальным (DELIVERED или RETURNED).
+     * Проверяет, является ли статус финальным.
+     * <p>
+     * Финальными считаются только {@link #DELIVERED} и {@link #RETURNED}.
+     * Статус {@link #WAITING_FOR_CUSTOMER} не является финальным и
+     * используется лишь для фиксации даты прибытия на пункт выдачи.
+     * </p>
      *
-     * @return {@code true}, если статус DELIVERED или RETURNED
+     * @return {@code true}, если статус {@code DELIVERED} или {@code RETURNED}
      */
     public boolean isFinal() {
         return this == DELIVERED || this == RETURNED;

@@ -85,9 +85,13 @@ public class DeliveryHistoryService {
             setHistoryDate("Дата возврата", history.getReturnedDate(), deliveryDates.returnedDate(), history::setReturnedDate);
         }
 
-        if (newStatus == GlobalStatus.WAITING_FOR_CUSTOMER) {
+        if (newStatus == GlobalStatus.WAITING_FOR_CUSTOMER && history.getArrivedDate() == null) {
+            // Фиксируем дату прибытия на пункт выдачи, если ранее не была установлена
             setHistoryDate(
-                    "Дата прибытия на пункт выдачи", history.getArrivedDate(), deliveryDates.arrivedDate(), history::setArrivedDate
+                    "Дата прибытия на пункт выдачи",
+                    history.getArrivedDate(),
+                    deliveryDates.arrivedDate(),
+                    history::setArrivedDate
             );
         }
 
@@ -189,20 +193,18 @@ public class DeliveryHistoryService {
             psStats.setSumDeliveryDays(psStats.getSumDeliveryDays().add(deliveryDays));
 
             if (history.getArrivedDate() != null) {
+                // Вычисляем время ожидания клиента от прибытия до получения
                 pickupDays = BigDecimal.valueOf(
-                        Duration.between(history.getArrivedDate(), history.getReceivedDate()).toHours() / 24.0);
+                        Duration.between(history.getArrivedDate(), history.getReceivedDate()).toDays());
                 stats.setSumPickupDays(stats.getSumPickupDays().add(pickupDays));
                 psStats.setSumPickupDays(psStats.getSumPickupDays().add(pickupDays));
             }
 
-        } else if (status == GlobalStatus.RETURNED && history.getArrivedDate() != null && history.getReturnedDate() != null) {
-            pickupDays = BigDecimal.valueOf(
-                    Duration.between(history.getArrivedDate(), history.getReturnedDate()).toHours() / 24.0);
+        } else if (status == GlobalStatus.RETURNED && history.getReturnedDate() != null) {
+            // Возврат посылки клиентом
             eventDate = history.getReturnedDate().toLocalDate();
             stats.setTotalReturned(stats.getTotalReturned() + 1);
-            stats.setSumPickupDays(stats.getSumPickupDays().add(pickupDays));
             psStats.setTotalReturned(psStats.getTotalReturned() + 1);
-            psStats.setSumPickupDays(psStats.getSumPickupDays().add(pickupDays));
         }
 
         if (eventDate != null) {
@@ -272,10 +274,14 @@ public class DeliveryHistoryService {
             }
         } else if (status == GlobalStatus.RETURNED) {
             daily.setReturned(daily.getReturned() + 1);
-            daily.setSumPickupDays(daily.getSumPickupDays().add(pickupDays));
+            if (pickupDays != null) {
+                daily.setSumPickupDays(daily.getSumPickupDays().add(pickupDays));
+            }
 
             psDaily.setReturned(psDaily.getReturned() + 1);
-            psDaily.setSumPickupDays(psDaily.getSumPickupDays().add(pickupDays));
+            if (pickupDays != null) {
+                psDaily.setSumPickupDays(psDaily.getSumPickupDays().add(pickupDays));
+            }
         }
 
         daily.setUpdatedAt(ZonedDateTime.now());

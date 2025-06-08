@@ -68,16 +68,15 @@ public class StoreStatistics {
      * Возвращает среднее время получения посылки клиентом в днях.
      * <p>
      * Поле {@code sumPickupDays} накапливает длительности ожидания получения в днях.
-     * Среднее вычисляется лениво на основе количества доставленных и возвращённых отправлений.
+     * Среднее вычисляется лениво на основе количества доставленных отправлений.
      * </p>
      *
      * @return среднее время получения в днях, округлённое до двух знаков
      */
     @Transient
     public BigDecimal getAveragePickupDays() {
-        int totalPickedUp = totalDelivered + totalReturned;
-        return totalPickedUp > 0
-                ? sumPickupDays.divide(BigDecimal.valueOf(totalPickedUp), 2, RoundingMode.HALF_UP)
+        return totalDelivered > 0
+                ? sumPickupDays.divide(BigDecimal.valueOf(totalDelivered), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
     }
 
