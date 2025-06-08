@@ -200,8 +200,10 @@ public class DeliveryHistoryService {
                 psStats.setSumPickupDays(psStats.getSumPickupDays().add(pickupDays));
             }
 
-        } else if (status == GlobalStatus.RETURNED && history.getReturnedDate() != null) {
-            // Возврат посылки клиентом
+        } else if (status == GlobalStatus.RETURNED && history.getArrivedDate() != null && history.getReturnedDate() != null) {
+            // Возврат забран: считаем время от прибытия до возврата
+            pickupDays = BigDecimal.valueOf(
+                    Duration.between(history.getArrivedDate(), history.getReturnedDate()).toDays());
             eventDate = history.getReturnedDate().toLocalDate();
             stats.setTotalReturned(stats.getTotalReturned() + 1);
             psStats.setTotalReturned(psStats.getTotalReturned() + 1);
