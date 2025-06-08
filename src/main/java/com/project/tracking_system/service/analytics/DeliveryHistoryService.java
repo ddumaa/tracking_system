@@ -49,7 +49,18 @@ public class DeliveryHistoryService {
     private final PostalServiceDailyStatisticsRepository postalServiceDailyStatisticsRepository;
 
     /**
-     * Обновляет данные в истории доставки при изменении статуса посылки.
+     * Updates or creates a {@link DeliveryHistory} record when a parcel status changes.
+     * <p>
+     * The full tracking history from {@link TrackInfoListDTO} is analysed to extract
+     * all relevant dates. If the resulting status is final, this method delegates
+     * to {@link #registerFinalStatus(DeliveryHistory, GlobalStatus)} to update
+     * cumulative statistics.
+     * </p>
+     *
+     * @param trackParcel    parcel being updated
+     * @param oldStatus      previous status of the parcel
+     * @param newStatus      new status of the parcel
+     * @param trackInfoListDTO list of raw tracking events
      */
     @Transactional
     public void updateDeliveryHistory(TrackParcel trackParcel, GlobalStatus oldStatus, GlobalStatus newStatus, TrackInfoListDTO trackInfoListDTO) {
@@ -60,7 +71,9 @@ public class DeliveryHistoryService {
 
                     // Определяем почтовую службу
                     PostalServiceType serviceType = typeDefinitionTrackPostService.detectPostalService(trackParcel.getNumber());
-                    return new DeliveryHistory(trackParcel, trackParcel.getStore(), serviceType, null, null, null);
+                    DeliveryHistory newHistory = new DeliveryHistory(trackParcel, trackParcel.getStore(), serviceType, null, null, null);
+                    trackParcel.setDeliveryHistory(newHistory); // Связываем историю с посылкой
+                    return newHistory;
                 });
 
         //  Если статус НЕ изменился — ничего не делаем
