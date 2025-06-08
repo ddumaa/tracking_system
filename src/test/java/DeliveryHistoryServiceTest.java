@@ -447,4 +447,80 @@ public class DeliveryHistoryServiceTest {
         assertEquals(BigDecimal.ZERO, psDaily.getSumDeliveryDays());
         assertEquals(BigDecimal.ZERO, psDaily.getSumPickupDays());
     }
+
+    @Test
+    void finalStatusWithFullHistory_CalculatesMetrics() {
+        Store store = new Store();
+        store.setId(13L);
+        TrackParcel parcel = new TrackParcel();
+        parcel.setId(99L);
+        parcel.setNumber("PC999");
+        parcel.setStore(store);
+        parcel.setIncludedInStatistics(false);
+
+        TrackInfoDTO delivered = new TrackInfoDTO("03.06.2024 00:00:00", "d");
+        TrackInfoDTO waitRecent = new TrackInfoDTO("02.06.2024 12:00:00", "w");
+        TrackInfoDTO waitEarly = new TrackInfoDTO("02.06.2024 00:00:00", "w");
+        TrackInfoDTO sent = new TrackInfoDTO("01.06.2024 00:00:00", "s");
+        TrackInfoListDTO listDTO = new TrackInfoListDTO(List.of(delivered, waitRecent, waitEarly, sent));
+
+        when(deliveryHistoryRepository.findByTrackParcelId(parcel.getId())).thenReturn(Optional.empty());
+        when(typeDefinitionTrackPostService.detectPostalService(parcel.getNumber())).thenReturn(PostalServiceType.BELPOST);
+        when(statusTrackService.setStatus(List.of(delivered))).thenReturn(GlobalStatus.DELIVERED);
+        when(statusTrackService.setStatus(List.of(waitRecent))).thenReturn(GlobalStatus.WAITING_FOR_CUSTOMER);
+        when(statusTrackService.setStatus(List.of(waitEarly))).thenReturn(GlobalStatus.WAITING_FOR_CUSTOMER);
+        when(statusTrackService.setStatus(List.of(sent))).thenReturn(GlobalStatus.IN_TRANSIT);
+
+        StoreStatistics storeStats = new StoreStatistics();
+        PostalServiceStatistics psStats = new PostalServiceStatistics();
+        psStats.setStore(store);
+        psStats.setPostalServiceType(PostalServiceType.BELPOST);
+        StoreDailyStatistics dailyStats = new StoreDailyStatistics();
+        dailyStats.setStore(store);
+        dailyStats.setDate(LocalDate.of(2024, 6, 3));
+        PostalServiceDailyStatistics psDaily = new PostalServiceDailyStatistics();
+        psDaily.setStore(store);
+        psDaily.setPostalServiceType(PostalServiceType.BELPOST);
+        psDaily.setDate(LocalDate.of(2024, 6, 3));
+
+        when(storeAnalyticsRepository.findByStoreId(store.getId())).thenReturn(Optional.of(storeStats));
+        when(postalServiceStatisticsRepository.findByStoreIdAndPostalServiceType(store.getId(), PostalServiceType.BELPOST))
+                .thenReturn(Optional.of(psStats));
+        when(storeDailyStatisticsRepository.findByStoreIdAndDate(store.getId(), LocalDate.of(2024, 6, 3)))
+                .thenReturn(Optional.of(dailyStats));
+        when(postalServiceDailyStatisticsRepository.findByStoreIdAndPostalServiceTypeAndDate(store.getId(), PostalServiceType.BELPOST, LocalDate.of(2024, 6, 3)))
+                .thenReturn(Optional.of(psDaily));
+
+        ArgumentCaptor<DeliveryHistory> captor = ArgumentCaptor.forClass(DeliveryHistory.class);
+
+        deliveryHistoryService.updateDeliveryHistory(parcel, GlobalStatus.IN_TRANSIT, GlobalStatus.DELIVERED, listDTO);
+
+        verify(deliveryHistoryRepository).save(captor.capture());
+        DeliveryHistory saved = captor.getValue();
+
+        ZonedDateTime expectedSend = ZonedDateTime.of(2024, 6, 1, 0, 0, 0, 0, ZoneId.of("Europe/Minsk"))
+                .withZoneSameInstant(ZoneOffset.UTC);
+        ZonedDateTime expectedArrived = ZonedDateTime.of(2024, 6, 2, 0, 0, 0, 0, ZoneId.of("Europe/Minsk"))
+                .withZoneSameInstant(ZoneOffset.UTC);
+        ZonedDateTime expectedReceived = ZonedDateTime.of(2024, 6, 3, 0, 0, 0, 0, ZoneId.of("Europe/Minsk"))
+                .withZoneSameInstant(ZoneOffset.UTC);
+
+        assertEquals(expectedSend, saved.getSendDate());
+        assertEquals(expectedArrived, saved.getArrivedDate());
+        assertEquals(expectedReceived, saved.getReceivedDate());
+
+        assertTrue(parcel.isIncludedInStatistics());
+        assertEquals(1, storeStats.getTotalDelivered());
+        assertEquals(BigDecimal.valueOf(1.0), storeStats.getSumDeliveryDays());
+        assertEquals(BigDecimal.valueOf(1.0), storeStats.getSumPickupDays());
+        assertEquals(1, psStats.getTotalDelivered());
+        assertEquals(BigDecimal.valueOf(1.0), psStats.getSumDeliveryDays());
+        assertEquals(BigDecimal.valueOf(1.0), psStats.getSumPickupDays());
+        assertEquals(1, dailyStats.getDelivered());
+        assertEquals(BigDecimal.valueOf(1.0), dailyStats.getSumDeliveryDays());
+        assertEquals(BigDecimal.valueOf(1.0), dailyStats.getSumPickupDays());
+        assertEquals(1, psDaily.getDelivered());
+        assertEquals(BigDecimal.valueOf(1.0), psDaily.getSumDeliveryDays());
+        assertEquals(BigDecimal.valueOf(1.0), psDaily.getSumPickupDays());
+    }
 }
