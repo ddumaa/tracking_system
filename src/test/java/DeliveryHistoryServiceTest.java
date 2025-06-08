@@ -211,6 +211,69 @@ public class DeliveryHistoryServiceTest {
     }
 
     @Test
+    void registerFinalStatus_IgnoresSecondCallWhenIncluded() {
+        Store store = new Store();
+        store.setId(6L);
+        TrackParcel parcel = new TrackParcel();
+        parcel.setStore(store);
+        parcel.setIncludedInStatistics(false);
+
+        DeliveryHistory history = new DeliveryHistory();
+        history.setTrackParcel(parcel);
+        history.setStore(store);
+        history.setPostalService(PostalServiceType.BELPOST);
+
+        ZonedDateTime send = ZonedDateTime.of(2024, 2, 1, 0, 0, 0, 0, ZoneOffset.UTC);
+        ZonedDateTime arrived = send.plusDays(1);
+        ZonedDateTime received = send.plusDays(2);
+        history.setSendDate(send);
+        history.setArrivedDate(arrived);
+        history.setReceivedDate(received);
+
+        StoreStatistics storeStats = new StoreStatistics();
+        PostalServiceStatistics psStats = new PostalServiceStatistics();
+        psStats.setStore(store);
+        psStats.setPostalServiceType(PostalServiceType.BELPOST);
+        StoreDailyStatistics dailyStats = new StoreDailyStatistics();
+        dailyStats.setStore(store);
+        dailyStats.setDate(received.toLocalDate());
+        PostalServiceDailyStatistics psDaily = new PostalServiceDailyStatistics();
+        psDaily.setStore(store);
+        psDaily.setPostalServiceType(PostalServiceType.BELPOST);
+        psDaily.setDate(received.toLocalDate());
+
+        when(storeAnalyticsRepository.findByStoreId(store.getId())).thenReturn(Optional.of(storeStats));
+        when(postalServiceStatisticsRepository.findByStoreIdAndPostalServiceType(store.getId(), PostalServiceType.BELPOST))
+                .thenReturn(Optional.of(psStats));
+        when(storeDailyStatisticsRepository.findByStoreIdAndDate(store.getId(), received.toLocalDate())).thenReturn(Optional.of(dailyStats));
+        when(postalServiceDailyStatisticsRepository.findByStoreIdAndPostalServiceTypeAndDate(store.getId(), PostalServiceType.BELPOST, received.toLocalDate()))
+                .thenReturn(Optional.of(psDaily));
+
+        deliveryHistoryService.registerFinalStatus(history, GlobalStatus.DELIVERED);
+        deliveryHistoryService.registerFinalStatus(history, GlobalStatus.DELIVERED);
+
+        assertTrue(parcel.isIncludedInStatistics());
+        assertEquals(1, storeStats.getTotalDelivered());
+        assertEquals(BigDecimal.valueOf(1.0), storeStats.getSumDeliveryDays());
+        assertEquals(BigDecimal.valueOf(1.0), storeStats.getSumPickupDays());
+        assertEquals(1, psStats.getTotalDelivered());
+        assertEquals(BigDecimal.valueOf(1.0), psStats.getSumDeliveryDays());
+        assertEquals(BigDecimal.valueOf(1.0), psStats.getSumPickupDays());
+        assertEquals(1, dailyStats.getDelivered());
+        assertEquals(BigDecimal.valueOf(1.0), dailyStats.getSumDeliveryDays());
+        assertEquals(BigDecimal.valueOf(1.0), dailyStats.getSumPickupDays());
+        assertEquals(1, psDaily.getDelivered());
+        assertEquals(BigDecimal.valueOf(1.0), psDaily.getSumDeliveryDays());
+        assertEquals(BigDecimal.valueOf(1.0), psDaily.getSumPickupDays());
+
+        verify(storeAnalyticsRepository).save(storeStats);
+        verify(postalServiceStatisticsRepository).save(psStats);
+        verify(storeDailyStatisticsRepository).save(dailyStats);
+        verify(postalServiceDailyStatisticsRepository).save(psDaily);
+        verify(trackParcelRepository).save(parcel);
+    }
+
+    @Test
     void handleTrackParcelBeforeDelete_DecrementsTotalSent() {
         Store store = new Store();
         store.setId(3L);
