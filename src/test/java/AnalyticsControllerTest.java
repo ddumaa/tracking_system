@@ -65,7 +65,7 @@ public class AnalyticsControllerTest {
     }
 
     @Test
-    void getAnalyticsJson_ReturnsPieAndPeriodData() throws Exception {
+    void getAnalyticsJson_ReturnsPiePeriodAndStoreStats() throws Exception {
         User user = new User();
         user.setId(1L);
         user.setTimeZone("UTC");
@@ -86,8 +86,14 @@ public class AnalyticsControllerTest {
         when(storeAnalyticsService.getStoreStatistics(store.getId())).thenReturn(Optional.of(stat));
         when(storeDashboardDataService.calculatePieData(List.of(stat)))
                 .thenReturn(Map.of("delivered",5,"returned",1,"inTransit",4));
-        when(storeDashboardDataService.getFullPeriodStatsChart(eq(List.of(store.getId())), eq(ChronoUnit.WEEKS), any()))
-                .thenReturn(Map.of("labels", List.of("w1"), "sent", List.of(1), "delivered", List.of(1), "returned", List.of(0)));
+        when(storeDashboardDataService.getFullPeriodStatsChart(
+                eq(List.of(store.getId())), eq(ChronoUnit.WEEKS), any()))
+                .thenReturn(Map.of(
+                        "labels", List.of("w1"),
+                        "sent", List.of(1),
+                        "delivered", List.of(1),
+                        "returned", List.of(0)
+                ));
 
         mockMvc.perform(get("/analytics/json")
                         .param("storeId", "2")
@@ -97,7 +103,12 @@ public class AnalyticsControllerTest {
                 .andExpect(jsonPath("$.pieData.delivered").value(5))
                 .andExpect(jsonPath("$.pieData.returned").value(1))
                 .andExpect(jsonPath("$.pieData.inTransit").value(4))
-                .andExpect(jsonPath("$.periodStats.labels[0]").value("w1"));
+                .andExpect(jsonPath("$.periodStats.labels[0]").value("w1"))
+                .andExpect(jsonPath("$.storeStatistics.totalSent").value(10))
+                .andExpect(jsonPath("$.storeStatistics.totalDelivered").value(5))
+                .andExpect(jsonPath("$.storeStatistics.totalReturned").value(1))
+                .andExpect(jsonPath("$.storeStatistics.averageDeliveryDays").value(0))
+                .andExpect(jsonPath("$.storeStatistics.averagePickupDays").value(0));
     }
 
     @Test
