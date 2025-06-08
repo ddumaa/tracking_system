@@ -90,16 +90,16 @@ public class DeliveryHistoryServiceTest {
 
         assertTrue(parcel.isIncludedInStatistics());
         assertEquals(1, storeStats.getTotalDelivered());
-        assertEquals(BigDecimal.valueOf(2.0), storeStats.getSumDeliveryDays());
+        assertEquals(BigDecimal.valueOf(1.0), storeStats.getSumDeliveryDays());
         assertEquals(BigDecimal.valueOf(1.0), storeStats.getSumPickupDays());
         assertEquals(1, psStats.getTotalDelivered());
-        assertEquals(BigDecimal.valueOf(2.0), psStats.getSumDeliveryDays());
+        assertEquals(BigDecimal.valueOf(1.0), psStats.getSumDeliveryDays());
         assertEquals(BigDecimal.valueOf(1.0), psStats.getSumPickupDays());
         assertEquals(1, dailyStats.getDelivered());
-        assertEquals(BigDecimal.valueOf(2.0), dailyStats.getSumDeliveryDays());
+        assertEquals(BigDecimal.valueOf(1.0), dailyStats.getSumDeliveryDays());
         assertEquals(BigDecimal.valueOf(1.0), dailyStats.getSumPickupDays());
         assertEquals(1, psDaily.getDelivered());
-        assertEquals(BigDecimal.valueOf(2.0), psDaily.getSumDeliveryDays());
+        assertEquals(BigDecimal.valueOf(1.0), psDaily.getSumDeliveryDays());
         assertEquals(BigDecimal.valueOf(1.0), psDaily.getSumPickupDays());
         verify(storeAnalyticsRepository).save(storeStats);
         verify(postalServiceStatisticsRepository).save(psStats);
@@ -326,9 +326,9 @@ public class DeliveryHistoryServiceTest {
 
         deliveryHistoryService.registerFinalStatus(history, GlobalStatus.DELIVERED);
 
-        assertEquals(BigDecimal.valueOf(3.0), storeStats.getSumDeliveryDays());
+        assertEquals(BigDecimal.valueOf(1.0), storeStats.getSumDeliveryDays());
         assertEquals(BigDecimal.valueOf(2.0), storeStats.getSumPickupDays());
-        assertEquals(BigDecimal.valueOf(3.0), psStats.getSumDeliveryDays());
+        assertEquals(BigDecimal.valueOf(1.0), psStats.getSumDeliveryDays());
         assertEquals(BigDecimal.valueOf(2.0), psStats.getSumPickupDays());
     }
 }

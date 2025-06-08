@@ -183,30 +183,41 @@ public class DeliveryHistoryService {
         BigDecimal pickupDays = null;
         LocalDate eventDate = null;
 
-        if (status == GlobalStatus.DELIVERED && history.getSendDate() != null && history.getReceivedDate() != null) {
-            deliveryDays = BigDecimal.valueOf(
-                    Duration.between(history.getSendDate(), history.getReceivedDate()).toHours() / 24.0);
-            eventDate = history.getReceivedDate().toLocalDate();
+        if (status == GlobalStatus.DELIVERED) {
             stats.setTotalDelivered(stats.getTotalDelivered() + 1);
-            stats.setSumDeliveryDays(stats.getSumDeliveryDays().add(deliveryDays));
             psStats.setTotalDelivered(psStats.getTotalDelivered() + 1);
-            psStats.setSumDeliveryDays(psStats.getSumDeliveryDays().add(deliveryDays));
+            if (history.getReceivedDate() != null) {
+                eventDate = history.getReceivedDate().toLocalDate();
+            }
 
-            if (history.getArrivedDate() != null) {
-                // Вычисляем время ожидания клиента от прибытия до получения
+            if (history.getSendDate() != null && history.getArrivedDate() != null) {
+                // Считаем время доставки от отправки до прибытия
+                deliveryDays = BigDecimal.valueOf(
+                        Duration.between(history.getSendDate(), history.getArrivedDate()).toHours() / 24.0);
+                stats.setSumDeliveryDays(stats.getSumDeliveryDays().add(deliveryDays));
+                psStats.setSumDeliveryDays(psStats.getSumDeliveryDays().add(deliveryDays));
+            }
+
+            if (history.getArrivedDate() != null && history.getReceivedDate() != null) {
+                // Время ожидания клиента на пункте выдачи
                 pickupDays = BigDecimal.valueOf(
                         Duration.between(history.getArrivedDate(), history.getReceivedDate()).toDays());
                 stats.setSumPickupDays(stats.getSumPickupDays().add(pickupDays));
                 psStats.setSumPickupDays(psStats.getSumPickupDays().add(pickupDays));
             }
 
-        } else if (status == GlobalStatus.RETURNED && history.getArrivedDate() != null && history.getReturnedDate() != null) {
-            // Возврат забран: считаем время от прибытия до возврата
-            pickupDays = BigDecimal.valueOf(
-                    Duration.between(history.getArrivedDate(), history.getReturnedDate()).toDays());
-            eventDate = history.getReturnedDate().toLocalDate();
+        } else if (status == GlobalStatus.RETURNED) {
             stats.setTotalReturned(stats.getTotalReturned() + 1);
             psStats.setTotalReturned(psStats.getTotalReturned() + 1);
+            if (history.getReturnedDate() != null) {
+                eventDate = history.getReturnedDate().toLocalDate();
+            }
+
+            if (history.getArrivedDate() != null && history.getReturnedDate() != null) {
+                // Возврат забран: считаем время от прибытия до возврата
+                pickupDays = BigDecimal.valueOf(
+                        Duration.between(history.getArrivedDate(), history.getReturnedDate()).toDays());
+            }
         }
 
         if (eventDate != null) {
