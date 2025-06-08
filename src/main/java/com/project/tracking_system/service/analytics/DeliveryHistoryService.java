@@ -97,8 +97,8 @@ public class DeliveryHistoryService {
             setHistoryDate("Дата возврата", history.getReturnedDate(), deliveryDates.returnedDate(), history::setReturnedDate);
         }
 
-        if (newStatus == GlobalStatus.WAITING_FOR_CUSTOMER && history.getArrivedDate() == null) {
-            // Фиксируем дату прибытия на пункт выдачи, если ранее не была установлена
+        if (history.getArrivedDate() == null && deliveryDates.arrivedDate() != null) {
+            // Фиксируем дату прибытия на пункт выдачи, даже если текущий статус уже финальный
             setHistoryDate(
                     "Дата прибытия на пункт выдачи",
                     history.getArrivedDate(),
@@ -156,6 +156,7 @@ public class DeliveryHistoryService {
             GlobalStatus status = statusTrackService.setStatus(List.of(info));
             if (status == GlobalStatus.WAITING_FOR_CUSTOMER) {
                 arrivedDate = parseDate(info.getTimex());
+                log.info("Извлечена дата прибытия на пункт выдачи: {}", arrivedDate);
                 break;
             }
         }
