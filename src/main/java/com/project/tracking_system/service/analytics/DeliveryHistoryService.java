@@ -186,7 +186,9 @@ public class DeliveryHistoryService {
         if (status == GlobalStatus.DELIVERED) {
             stats.setTotalDelivered(stats.getTotalDelivered() + 1);
             psStats.setTotalDelivered(psStats.getTotalDelivered() + 1);
+
             if (history.getReceivedDate() != null) {
+                // День получения используется как ключ для ежедневной статистики
                 eventDate = history.getReceivedDate().toLocalDate();
             }
 
@@ -275,24 +277,26 @@ public class DeliveryHistoryService {
         // Обновляем значения в зависимости от финального статуса
         if (status == GlobalStatus.DELIVERED) {
             daily.setDelivered(daily.getDelivered() + 1);
-            daily.setSumDeliveryDays(daily.getSumDeliveryDays().add(deliveryDays));
-            if (pickupDays != null) {
-                daily.setSumPickupDays(daily.getSumPickupDays().add(pickupDays));
+            psDaily.setDelivered(psDaily.getDelivered() + 1);
+
+            // Добавляем время доставки, если оно рассчитано
+            if (deliveryDays != null) {
+                daily.setSumDeliveryDays(daily.getSumDeliveryDays().add(deliveryDays));
+                psDaily.setSumDeliveryDays(psDaily.getSumDeliveryDays().add(deliveryDays));
             }
 
-            psDaily.setDelivered(psDaily.getDelivered() + 1);
-            psDaily.setSumDeliveryDays(psDaily.getSumDeliveryDays().add(deliveryDays));
+            // Добавляем время ожидания на пункте, если оно известно
             if (pickupDays != null) {
+                daily.setSumPickupDays(daily.getSumPickupDays().add(pickupDays));
                 psDaily.setSumPickupDays(psDaily.getSumPickupDays().add(pickupDays));
             }
         } else if (status == GlobalStatus.RETURNED) {
             daily.setReturned(daily.getReturned() + 1);
+            psDaily.setReturned(psDaily.getReturned() + 1);
+
+            // Время нахождения посылки на пункте выдачи перед возвратом
             if (pickupDays != null) {
                 daily.setSumPickupDays(daily.getSumPickupDays().add(pickupDays));
-            }
-
-            psDaily.setReturned(psDaily.getReturned() + 1);
-            if (pickupDays != null) {
                 psDaily.setSumPickupDays(psDaily.getSumPickupDays().add(pickupDays));
             }
         }
