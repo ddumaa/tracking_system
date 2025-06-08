@@ -7,19 +7,19 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Repository for yearly store statistics.
+ * Репозиторий для статистики магазинов по годам.
  */
 public interface StoreYearlyStatisticsRepository extends JpaRepository<StoreYearlyStatistics, Long> {
 
     Optional<StoreYearlyStatistics> findByStoreIdAndPeriodYearAndPeriodNumber(Long storeId, int periodYear, int periodNumber);
 
     /**
-     * Find statistics for multiple stores for the given year.
+     * Найти статистику для нескольких магазинов за указанный год.
      *
-     * @param storeIds    list of store identifiers
-     * @param periodYear  year of the statistics
-     * @param periodNumber always 1 for yearly aggregation
-     * @return list of yearly statistics, one per store if present
+     * @param storeIds    список идентификаторов магазинов
+     * @param periodYear  год статистики
+     * @param periodNumber всегда 1 для годовой агрегации
+     * @return список годовой статистики, по одному элементу на магазин
      */
     List<StoreYearlyStatistics> findByStoreIdInAndPeriodYearAndPeriodNumber(List<Long> storeIds, int periodYear, int periodNumber);
 }

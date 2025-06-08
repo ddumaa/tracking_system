@@ -54,7 +54,7 @@ public class StatsAggregationService {
     @Transactional
     public void aggregateForRange(LocalDate from, LocalDate to) {
         LocalDate current = from;
-        // Iterate over each date and invoke daily aggregation
+        // Проходим по каждой дате и вызываем ежедневную агрегацию
         while (!current.isAfter(to)) {
             aggregateForDate(current);
             current = current.plusDays(1);

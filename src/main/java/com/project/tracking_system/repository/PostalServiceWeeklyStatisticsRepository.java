@@ -7,9 +7,18 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
 /**
- * Repository for weekly postal service statistics.
+ * Репозиторий для недельной статистики по почтовым службам.
  */
 public interface PostalServiceWeeklyStatisticsRepository extends JpaRepository<PostalServiceWeeklyStatistics, Long> {
 
+    /**
+     * Найти статистику почтовой службы за конкретную неделю.
+     *
+     * @param storeId          идентификатор магазина
+     * @param postalServiceType тип почтовой службы
+     * @param periodYear       год недели
+     * @param periodNumber     номер недели
+     * @return статистика почтовой службы за неделю, если найдена
+     */
     Optional<PostalServiceWeeklyStatistics> findByStoreIdAndPostalServiceTypeAndPeriodYearAndPeriodNumber(Long storeId, PostalServiceType postalServiceType, int periodYear, int periodNumber);
 }

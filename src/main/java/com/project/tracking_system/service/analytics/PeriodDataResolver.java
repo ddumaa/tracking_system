@@ -23,8 +23,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Resolves statistics for a date range by checking aggregated tables
- * and falling back to daily records when necessary.
+ * Сервис для получения статистики за период с использованием агрегированных таблиц
+ * и при необходимости с падением до ежедневных записей.
  */
 @Slf4j
 @Service
@@ -37,16 +37,16 @@ public class PeriodDataResolver {
     private final StoreYearlyStatisticsRepository yearlyRepo;
 
     /**
-     * Returns statistics for each period between {@code from} and {@code to}.
-     * The method uses aggregated tables when available and falls back to
-     * daily data when a period has no precomputed entry.
+     * Возвращает статистику за каждый период между {@code from} и {@code to}.
+     * При наличии агрегированных данных используется их таблица,
+     * в противном случае производится расчёт по ежедневным записям.
      *
-     * @param storeIds list of store identifiers
-     * @param interval requested interval
-     * @param from     start date-time in user's zone
-     * @param to       end date-time in user's zone
-     * @param zone     user's time zone
-     * @return list of statistics ordered by period
+     * @param storeIds список идентификаторов магазинов
+     * @param interval запрашиваемый интервал
+     * @param from     дата начала в часовом поясе пользователя
+     * @param to       дата окончания в часовом поясе пользователя
+     * @param zone     часовой пояс пользователя
+     * @return список статистик, отсортированный по периоду
      */
     public List<PeriodStatsDTO> resolve(List<Long> storeIds,
                                         ChronoUnit interval,

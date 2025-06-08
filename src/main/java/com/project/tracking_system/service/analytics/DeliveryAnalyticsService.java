@@ -22,18 +22,18 @@ public class DeliveryAnalyticsService {
     private final PeriodDataResolver periodDataResolver;
 
     /**
-     * Aggregates delivery statistics for the given stores within the specified period.
+     * Агрегирует статистику доставок для указанных магазинов за заданный период.
      * <p>
-     * Daily statistics are grouped by the provided {@link ChronoUnit} and summed.
-     * The method always returns a DTO for each interval between {@code from} and {@code to}.
+     * Ежедневная статистика группируется по переданному {@link ChronoUnit} и суммируется.
+     * Метод всегда возвращает DTO для каждого интервала между {@code from} и {@code to}.
      * </p>
      *
-     * @param storeIds list of store identifiers
-     * @param interval grouping interval (days, weeks, months, years)
-     * @param from     start date-time in user's zone
-     * @param to       end date-time in user's zone
-     * @param userZone user's time zone
-     * @return list of aggregated statistics ordered by period
+     * @param storeIds список идентификаторов магазинов
+     * @param interval интервал группировки (дни, недели, месяцы, годы)
+     * @param from     дата начала в часовом поясе пользователя
+     * @param to       дата окончания в часовом поясе пользователя
+     * @param userZone часовой пояс пользователя
+     * @return список агрегированной статистики, упорядоченный по периоду
      */
     public List<PeriodStatsDTO> getFullPeriodStats(List<Long> storeIds,
                                                    ChronoUnit interval,

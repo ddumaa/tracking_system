@@ -7,19 +7,19 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Repository for weekly store statistics.
+ * Репозиторий для статистики магазинов по неделям.
  */
 public interface StoreWeeklyStatisticsRepository extends JpaRepository<StoreWeeklyStatistics, Long> {
 
     Optional<StoreWeeklyStatistics> findByStoreIdAndPeriodYearAndPeriodNumber(Long storeId, int periodYear, int periodNumber);
 
     /**
-     * Find statistics for multiple stores for the given week of a year.
+     * Найти статистику для нескольких магазинов за указанную неделю года.
      *
-     * @param storeIds    list of store identifiers
-     * @param periodYear  year of the week
-     * @param periodNumber number of the week within the year
-     * @return list of weekly statistics, one per store if present
+     * @param storeIds    список идентификаторов магазинов
+     * @param periodYear  год недели
+     * @param periodNumber номер недели в году
+     * @return список недельной статистики, по одному элементу на магазин
      */
     List<StoreWeeklyStatistics> findByStoreIdInAndPeriodYearAndPeriodNumber(List<Long> storeIds, int periodYear, int periodNumber);
 }

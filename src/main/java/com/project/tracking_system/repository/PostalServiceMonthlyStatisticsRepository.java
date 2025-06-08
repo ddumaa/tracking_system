@@ -7,9 +7,18 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
 /**
- * Repository for monthly postal service statistics.
+ * Репозиторий для месячной статистики по почтовым службам.
  */
 public interface PostalServiceMonthlyStatisticsRepository extends JpaRepository<PostalServiceMonthlyStatistics, Long> {
 
+    /**
+     * Найти статистику почтовой службы за конкретный месяц.
+     *
+     * @param storeId          идентификатор магазина
+     * @param postalServiceType тип почтовой службы
+     * @param periodYear       год статистики
+     * @param periodNumber     номер месяца
+     * @return статистика почтовой службы за месяц, если найдена
+     */
     Optional<PostalServiceMonthlyStatistics> findByStoreIdAndPostalServiceTypeAndPeriodYearAndPeriodNumber(Long storeId, PostalServiceType postalServiceType, int periodYear, int periodNumber);
 }
