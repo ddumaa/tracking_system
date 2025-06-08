@@ -1,7 +1,13 @@
--- 1. Убираем старый CHECK, так как в PostgreSQL нельзя его просто обновить
-ALTER TABLE tb_track_parcels DROP CONSTRAINT chk_status;
+-- V8_3__replace_returned_to_sender.sql
 
--- 2. Добавляем новый CHECK с `UNKNOWN_STATUS`
+-- Обновляем старые записи: переименовываем статус 'RETURNED_TO_SENDER' в 'RETURNED'
+UPDATE tb_track_parcels
+SET status = 'RETURNED'
+WHERE status = 'RETURNED_TO_SENDER';
+
+-- Обновляем constraint
+ALTER TABLE tb_track_parcels DROP CONSTRAINT IF EXISTS chk_status;
+
 ALTER TABLE tb_track_parcels
     ADD CONSTRAINT chk_status CHECK (status IN (
                                                 'DELIVERED',
@@ -10,7 +16,7 @@ ALTER TABLE tb_track_parcels
                                                 'CUSTOMER_NOT_PICKING_UP',
                                                 'RETURN_IN_PROGRESS',
                                                 'RETURN_PENDING_PICKUP',
-                                                'RETURNED_TO_SENDER',
+                                                'RETURNED', -- ← новая версия
                                                 'REGISTERED',
-                                                'UNKNOWN_STATUS' -- Добавленный статус
+                                                'UNKNOWN_STATUS'
         ));

@@ -23,7 +23,7 @@ UPDATE tb_track_parcels SET status = 'IN_TRANSIT' WHERE status = 'В пути';
 UPDATE tb_track_parcels SET status = 'CUSTOMER_NOT_PICKING_UP' WHERE status = 'Клиент не забирает';
 UPDATE tb_track_parcels SET status = 'RETURN_IN_PROGRESS' WHERE status = 'Возврат в пути';
 UPDATE tb_track_parcels SET status = 'RETURN_PENDING_PICKUP' WHERE status = 'Возврат ожидает забора';
-UPDATE tb_track_parcels SET status = 'RETURNED' WHERE status = 'Возврат забран';
+UPDATE tb_track_parcels SET status = 'RETURNED_TO_SENDER' WHERE status = 'Возврат забран';
 UPDATE tb_track_parcels SET status = 'REGISTERED' WHERE status = 'Заявка зарегистрирована';
 
 -- 5. Обновляем статус, ограничивая его значениями GlobalStatus
@@ -31,7 +31,7 @@ ALTER TABLE tb_track_parcels
     ALTER COLUMN status TYPE VARCHAR(50) USING status::VARCHAR,
     ADD CONSTRAINT chk_status CHECK (status IN (
                                                 'DELIVERED', 'WAITING_FOR_CUSTOMER', 'IN_TRANSIT', 'CUSTOMER_NOT_PICKING_UP',
-                                                'RETURN_IN_PROGRESS', 'RETURN_PENDING_PICKUP', 'RETURNED', 'REGISTERED'
+                                                'RETURN_IN_PROGRESS', 'RETURN_PENDING_PICKUP', 'RETURNED_TO_SENDER', 'REGISTERED'
         ));
 
 -- 6. Создаём таблицу статистики магазинов, если её ещё нет
