@@ -66,13 +66,12 @@ public class PostalServiceDailyStatistics {
     }
 
     /**
-     * Average number of days until parcel pick up (delivery or return).
+     * Average number of days until parcel pick up (delivery only).
      */
     @Transient
     public BigDecimal getAveragePickupDays() {
-        int totalPickedUp = delivered + returned;
-        return totalPickedUp > 0
-                ? sumPickupDays.divide(BigDecimal.valueOf(totalPickedUp), 2, RoundingMode.HALF_UP)
+        return delivered > 0
+                ? sumPickupDays.divide(BigDecimal.valueOf(delivered), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
     }
 }

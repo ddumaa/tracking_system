@@ -147,13 +147,13 @@ public class DeliveryHistoryServiceTest {
 
         assertTrue(parcel.isIncludedInStatistics());
         assertEquals(1, storeStats.getTotalReturned());
-        assertEquals(BigDecimal.valueOf(1.0), storeStats.getSumPickupDays());
+        assertEquals(BigDecimal.ZERO, storeStats.getSumPickupDays());
         assertEquals(1, psStats.getTotalReturned());
-        assertEquals(BigDecimal.valueOf(1.0), psStats.getSumPickupDays());
+        assertEquals(BigDecimal.ZERO, psStats.getSumPickupDays());
         assertEquals(1, dailyStats.getReturned());
-        assertEquals(BigDecimal.valueOf(1.0), dailyStats.getSumPickupDays());
+        assertEquals(BigDecimal.ZERO, dailyStats.getSumPickupDays());
         assertEquals(1, psDaily.getReturned());
-        assertEquals(BigDecimal.valueOf(1.0), psDaily.getSumPickupDays());
+        assertEquals(BigDecimal.ZERO, psDaily.getSumPickupDays());
         verify(storeAnalyticsRepository).save(storeStats);
         verify(postalServiceStatisticsRepository).save(psStats);
         verify(storeDailyStatisticsRepository).save(dailyStats);
