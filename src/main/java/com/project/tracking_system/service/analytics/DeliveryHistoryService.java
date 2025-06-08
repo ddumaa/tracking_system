@@ -49,18 +49,19 @@ public class DeliveryHistoryService {
     private final PostalServiceDailyStatisticsRepository postalServiceDailyStatisticsRepository;
 
     /**
-     * Обновляет или создаёт запись {@link DeliveryHistory} при изменении статуса посылки.
+     * Обновляет или создаёт запись {@link DeliveryHistory}, когда меняется статус посылки.
      * <p>
      * Полная история отслеживания из {@link TrackInfoListDTO} анализируется для извлечения
-     * всех релевантных дат. Если новый статус является финальным, метод передаёт управление
-     * в {@link #registerFinalStatus(DeliveryHistory, GlobalStatus)} для обновления
-     * накопительной статистики.
+     * всех значимых дат (отправки, прибытия, получения, возврата).
+     * Если новый статус считается финальным, метод передаёт управление в
+     * {@link #registerFinalStatus(DeliveryHistory, GlobalStatus)}, чтобы обновить
+     * накопительную статистику.
      * </p>
      *
-     * @param trackParcel        посылка, для которой обновляется информация
-     * @param oldStatus          предыдущий статус посылки
-     * @param newStatus          новый статус посылки
-     * @param trackInfoListDTO   список событий трекинга
+     * @param trackParcel       посылка, у которой изменился статус
+     * @param oldStatus         предыдущий статус посылки
+     * @param newStatus         новый статус посылки
+     * @param trackInfoListDTO  список событий трекинга, полученных от службы отслеживания
      */
     @Transactional
     public void updateDeliveryHistory(TrackParcel trackParcel, GlobalStatus oldStatus, GlobalStatus newStatus, TrackInfoListDTO trackInfoListDTO) {
@@ -71,9 +72,7 @@ public class DeliveryHistoryService {
 
                     // Определяем почтовую службу
                     PostalServiceType serviceType = typeDefinitionTrackPostService.detectPostalService(trackParcel.getNumber());
-                    DeliveryHistory newHistory = new DeliveryHistory(trackParcel, trackParcel.getStore(), serviceType, null, null, null);
-                    trackParcel.setDeliveryHistory(newHistory); // Связываем историю с посылкой
-                    return newHistory;
+                    return new DeliveryHistory(trackParcel, trackParcel.getStore(), serviceType, null, null, null);
                 });
 
         //  Если статус НЕ изменился — ничего не делаем
@@ -262,7 +261,7 @@ public class DeliveryHistoryService {
     }
 
     /**
-     * Updates daily statistics for both store and postal service.
+     * Обновляет ежедневную статистику как для магазина, так и для почтовой службы.
      *
      * @param store        магазин, для которого ведётся статистика
      * @param serviceType  тип почтовой службы
