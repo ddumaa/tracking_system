@@ -49,18 +49,18 @@ public class DeliveryHistoryService {
     private final PostalServiceDailyStatisticsRepository postalServiceDailyStatisticsRepository;
 
     /**
-     * Updates or creates a {@link DeliveryHistory} record when a parcel status changes.
+     * Обновляет или создаёт запись {@link DeliveryHistory} при изменении статуса посылки.
      * <p>
-     * The full tracking history from {@link TrackInfoListDTO} is analysed to extract
-     * all relevant dates. If the resulting status is final, this method delegates
-     * to {@link #registerFinalStatus(DeliveryHistory, GlobalStatus)} to update
-     * cumulative statistics.
+     * Полная история отслеживания из {@link TrackInfoListDTO} анализируется для извлечения
+     * всех релевантных дат. Если новый статус является финальным, метод передаёт управление
+     * в {@link #registerFinalStatus(DeliveryHistory, GlobalStatus)} для обновления
+     * накопительной статистики.
      * </p>
      *
-     * @param trackParcel    parcel being updated
-     * @param oldStatus      previous status of the parcel
-     * @param newStatus      new status of the parcel
-     * @param trackInfoListDTO list of raw tracking events
+     * @param trackParcel        посылка, для которой обновляется информация
+     * @param oldStatus          предыдущий статус посылки
+     * @param newStatus          новый статус посылки
+     * @param trackInfoListDTO   список событий трекинга
      */
     @Transactional
     public void updateDeliveryHistory(TrackParcel trackParcel, GlobalStatus oldStatus, GlobalStatus newStatus, TrackInfoListDTO trackInfoListDTO) {
