@@ -138,8 +138,9 @@ public class DeliveryHistoryService {
             returnedDate = parseDate(latestStatus.getTimex());
         }
 
-        // Поиск статуса WAITING_FOR_CUSTOMER
-        for (TrackInfoDTO info : trackInfoList) {
+        // Поиск первого (по времени) статуса WAITING_FOR_CUSTOMER
+        for (int i = trackInfoList.size() - 1; i >= 0; i--) {
+            TrackInfoDTO info = trackInfoList.get(i);
             GlobalStatus status = statusTrackService.setStatus(List.of(info));
             if (status == GlobalStatus.WAITING_FOR_CUSTOMER) {
                 arrivedDate = parseDate(info.getTimex());
@@ -215,10 +216,20 @@ public class DeliveryHistoryService {
                 eventDate = history.getReturnedDate().toLocalDate();
             }
 
+            if (history.getSendDate() != null && history.getArrivedDate() != null) {
+                // Считаем время доставки от отправки до прибытия
+                deliveryDays = BigDecimal.valueOf(
+                        Duration.between(history.getSendDate(), history.getArrivedDate()).toHours() / 24.0);
+                stats.setSumDeliveryDays(stats.getSumDeliveryDays().add(deliveryDays));
+                psStats.setSumDeliveryDays(psStats.getSumDeliveryDays().add(deliveryDays));
+            }
+
             if (history.getArrivedDate() != null && history.getReturnedDate() != null) {
                 // Возврат забран: считаем время от прибытия до возврата
                 pickupDays = BigDecimal.valueOf(
                         Duration.between(history.getArrivedDate(), history.getReturnedDate()).toDays());
+                stats.setSumPickupDays(stats.getSumPickupDays().add(pickupDays));
+                psStats.setSumPickupDays(psStats.getSumPickupDays().add(pickupDays));
             }
         }
 
