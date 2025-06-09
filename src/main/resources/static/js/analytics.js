@@ -1,5 +1,7 @@
-const DEBUG_MODE = false;
-function debugLog(...args) { if (DEBUG_MODE) console.log(...args); }
+// Глобальный режим отладки. Используем глобальную переменную, если она уже
+// определена другим скриптом (например, app.js)
+window.DEBUG_MODE = window.DEBUG_MODE || false;
+function debugLog(...args) { if (window.DEBUG_MODE) console.log(...args); }
 
 document.addEventListener("DOMContentLoaded", function () {
     debugLog("analytics.js loaded!")
@@ -17,6 +19,9 @@ document.addEventListener("DOMContentLoaded", function () {
     const storeSelect = document.getElementById("analyticsStoreSelect");
     const periodSelect = document.getElementById("periodSelect");
     let selectedPeriod = periodSelect?.value || "WEEKS";
+
+    // Элемент заголовка графика должен быть известен до первого вызова функции
+    const chartTitle = document.getElementById("periodChartTitle");
     updateChartTitle(selectedPeriod); // установить заголовок при первой загрузке
 
     const pieCtx = document.getElementById('statusPieChart')?.getContext('2d');
@@ -306,6 +311,9 @@ document.addEventListener("DOMContentLoaded", function () {
         renderBarChart(analyticsData.periodStats);
         updateStoreStats(analyticsData.storeStatistics);
         updatePostalServiceStats(analyticsData.postalStats);
+    } else {
+        // Если данные не были переданы сервером напрямую, загружаем их
+        loadAnalyticsData();
     }
 
     // Кнопка обновления
@@ -364,7 +372,6 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    const chartTitle = document.getElementById("periodChartTitle");
     function updateChartTitle(period) {
         let title;
         switch (period) {

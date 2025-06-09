@@ -1,5 +1,7 @@
-const DEBUG_MODE = false;
-function debugLog(...args) { if (DEBUG_MODE) console.log(...args); }
+// Глобальный режим отладки. Если уже определён, используем существующее
+// значение, иначе по умолчанию false
+window.DEBUG_MODE = window.DEBUG_MODE || false;
+function debugLog(...args) { if (window.DEBUG_MODE) console.log(...args); }
 
 /** =====================
  *  ГЛОБАЛЬНЫЕ ФУНКЦИИ
