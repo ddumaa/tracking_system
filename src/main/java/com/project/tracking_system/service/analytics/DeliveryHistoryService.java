@@ -183,6 +183,12 @@ public class DeliveryHistoryService {
     public void registerFinalStatus(DeliveryHistory history, GlobalStatus status) {
         TrackParcel trackParcel = history.getTrackParcel();
 
+        // Skip analytics update for UNKNOWN postal service
+        if (history.getPostalService() == PostalServiceType.UNKNOWN) {
+            log.warn("⛔ Skipping analytics update for UNKNOWN service: {}", trackParcel.getNumber());
+            return;
+        }
+
         if(trackParcel.isIncludedInStatistics()){
             log.debug("📦 Посылка {} уже учтена в статистике — пропускаем", trackParcel.getNumber());
             return;
@@ -277,6 +283,11 @@ public class DeliveryHistoryService {
                                   GlobalStatus status,
                                   BigDecimal deliveryDays,
                                   BigDecimal pickupDays) {
+        // Skip updates for UNKNOWN postal service
+        if (serviceType == PostalServiceType.UNKNOWN) {
+            log.warn("⛔ Skipping daily stats update for UNKNOWN service: {}", store.getId());
+            return;
+        }
         // Поиск или создание ежедневной статистики по магазину
         StoreDailyStatistics daily = storeDailyStatisticsRepository
                 .findByStoreIdAndDate(store.getId(), eventDate)
@@ -365,9 +376,13 @@ public class DeliveryHistoryService {
         PostalServiceType serviceType = parcel.getDeliveryHistory() != null
                 ? parcel.getDeliveryHistory().getPostalService()
                 : typeDefinitionTrackPostService.detectPostalService(parcel.getNumber());
-        PostalServiceStatistics psStats = postalServiceStatisticsRepository
-                .findByStoreIdAndPostalServiceType(store.getId(), serviceType)
-                .orElse(null);
+        PostalServiceStatistics psStats = null;
+        boolean updatePostalStats = serviceType != PostalServiceType.UNKNOWN;
+        if (updatePostalStats) {
+            psStats = postalServiceStatisticsRepository
+                    .findByStoreIdAndPostalServiceType(store.getId(), serviceType)
+                    .orElse(null);
+        }
 
         if (stats.getTotalSent() > 0) {
             stats.setTotalSent(stats.getTotalSent() - 1);
@@ -378,7 +393,7 @@ public class DeliveryHistoryService {
             log.warn("Попытка уменьшить totalSent, но он уже 0. Посылка: {}", parcel.getNumber());
         }
 
-        if (psStats != null && psStats.getTotalSent() > 0) {
+        if (updatePostalStats && psStats != null && psStats.getTotalSent() > 0) {
             psStats.setTotalSent(psStats.getTotalSent() - 1);
             psStats.setUpdatedAt(ZonedDateTime.now());
             postalServiceStatisticsRepository.save(psStats);
@@ -395,13 +410,15 @@ public class DeliveryHistoryService {
                 storeDailyStatisticsRepository.save(daily);
             }
 
-            PostalServiceDailyStatistics psDaily = postalServiceDailyStatisticsRepository
-                    .findByStoreIdAndPostalServiceTypeAndDate(store.getId(), serviceType, day)
-                    .orElse(null);
-            if (psDaily != null && psDaily.getSent() > 0) {
-                psDaily.setSent(psDaily.getSent() - 1);
-                psDaily.setUpdatedAt(ZonedDateTime.now());
-                postalServiceDailyStatisticsRepository.save(psDaily);
+            if (updatePostalStats) {
+                PostalServiceDailyStatistics psDaily = postalServiceDailyStatisticsRepository
+                        .findByStoreIdAndPostalServiceTypeAndDate(store.getId(), serviceType, day)
+                        .orElse(null);
+                if (psDaily != null && psDaily.getSent() > 0) {
+                    psDaily.setSent(psDaily.getSent() - 1);
+                    psDaily.setUpdatedAt(ZonedDateTime.now());
+                    postalServiceDailyStatisticsRepository.save(psDaily);
+                }
             }
         }
     }
