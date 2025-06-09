@@ -306,6 +306,9 @@ document.addEventListener("DOMContentLoaded", function () {
         renderBarChart(analyticsData.periodStats);
         updateStoreStats(analyticsData.storeStatistics);
         updatePostalServiceStats(analyticsData.postalStats);
+    } else {
+        // Если данные не были переданы сервером напрямую, загружаем их
+        loadAnalyticsData();
     }
 
     // Кнопка обновления
