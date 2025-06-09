@@ -185,18 +185,22 @@ public class TrackParcelService {
             statistics.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
             storeAnalyticsRepository.save(statistics);
 
-            // Статистика почтовой службы
-            PostalServiceStatistics psStats = postalServiceStatisticsRepository
-                    .findByStoreIdAndPostalServiceType(storeId, serviceType)
-                    .orElseGet(() -> {
-                        PostalServiceStatistics s = new PostalServiceStatistics();
-                        s.setStore(statistics.getStore());
-                        s.setPostalServiceType(serviceType);
-                        return s;
-                    });
-            psStats.setTotalSent(psStats.getTotalSent() + 1);
-            psStats.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
-            postalServiceStatisticsRepository.save(psStats);
+            // Postal service statistics (skip UNKNOWN)
+            if (serviceType != PostalServiceType.UNKNOWN) {
+                PostalServiceStatistics psStats = postalServiceStatisticsRepository
+                        .findByStoreIdAndPostalServiceType(storeId, serviceType)
+                        .orElseGet(() -> {
+                            PostalServiceStatistics s = new PostalServiceStatistics();
+                            s.setStore(statistics.getStore());
+                            s.setPostalServiceType(serviceType);
+                            return s;
+                        });
+                psStats.setTotalSent(psStats.getTotalSent() + 1);
+                psStats.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                postalServiceStatisticsRepository.save(psStats);
+            } else {
+                log.warn("⛔ Skipping analytics update for UNKNOWN service: {}", number);
+            }
 
             // Ежедневная статистика магазина
             LocalDate day = zonedDateTime.toLocalDate();
@@ -212,19 +216,21 @@ public class TrackParcelService {
             daily.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
             storeDailyStatisticsRepository.save(daily);
 
-            // Ежедневная статистика почтовой службы
-            PostalServiceDailyStatistics psDaily = postalServiceDailyStatisticsRepository
-                    .findByStoreIdAndPostalServiceTypeAndDate(storeId, serviceType, day)
-                    .orElseGet(() -> {
-                        PostalServiceDailyStatistics d = new PostalServiceDailyStatistics();
-                        d.setStore(statistics.getStore());
-                        d.setPostalServiceType(serviceType);
-                        d.setDate(day);
-                        return d;
-                    });
-            psDaily.setSent(psDaily.getSent() + 1);
-            psDaily.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
-            postalServiceDailyStatisticsRepository.save(psDaily);
+            // Daily postal service statistics
+            if (serviceType != PostalServiceType.UNKNOWN) {
+                PostalServiceDailyStatistics psDaily = postalServiceDailyStatisticsRepository
+                        .findByStoreIdAndPostalServiceTypeAndDate(storeId, serviceType, day)
+                        .orElseGet(() -> {
+                            PostalServiceDailyStatistics d = new PostalServiceDailyStatistics();
+                            d.setStore(statistics.getStore());
+                            d.setPostalServiceType(serviceType);
+                            d.setDate(day);
+                            return d;
+                        });
+                psDaily.setSent(psDaily.getSent() + 1);
+                psDaily.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                postalServiceDailyStatisticsRepository.save(psDaily);
+            }
         }
 
         // Декрементируем статистику старого магазина, если посылка перенесена
@@ -237,13 +243,15 @@ public class TrackParcelService {
                 storeAnalyticsRepository.save(oldStats);
             }
 
-            PostalServiceStatistics oldPs = postalServiceStatisticsRepository
-                    .findByStoreIdAndPostalServiceType(previousStoreId, serviceType)
-                    .orElse(null);
-            if (oldPs != null && oldPs.getTotalSent() > 0) {
-                oldPs.setTotalSent(oldPs.getTotalSent() - 1);
-                oldPs.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
-                postalServiceStatisticsRepository.save(oldPs);
+            if (serviceType != PostalServiceType.UNKNOWN) {
+                PostalServiceStatistics oldPs = postalServiceStatisticsRepository
+                        .findByStoreIdAndPostalServiceType(previousStoreId, serviceType)
+                        .orElse(null);
+                if (oldPs != null && oldPs.getTotalSent() > 0) {
+                    oldPs.setTotalSent(oldPs.getTotalSent() - 1);
+                    oldPs.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                    postalServiceStatisticsRepository.save(oldPs);
+                }
             }
 
             if (previousDate != null) {
@@ -257,13 +265,15 @@ public class TrackParcelService {
                     storeDailyStatisticsRepository.save(oldDaily);
                 }
 
-                PostalServiceDailyStatistics oldPsDaily = postalServiceDailyStatisticsRepository
-                        .findByStoreIdAndPostalServiceTypeAndDate(previousStoreId, serviceType, prevDay)
-                        .orElse(null);
-                if (oldPsDaily != null && oldPsDaily.getSent() > 0) {
-                    oldPsDaily.setSent(oldPsDaily.getSent() - 1);
-                    oldPsDaily.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
-                    postalServiceDailyStatisticsRepository.save(oldPsDaily);
+                if (serviceType != PostalServiceType.UNKNOWN) {
+                    PostalServiceDailyStatistics oldPsDaily = postalServiceDailyStatisticsRepository
+                            .findByStoreIdAndPostalServiceTypeAndDate(previousStoreId, serviceType, prevDay)
+                            .orElse(null);
+                    if (oldPsDaily != null && oldPsDaily.getSent() > 0) {
+                        oldPsDaily.setSent(oldPsDaily.getSent() - 1);
+                        oldPsDaily.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                        postalServiceDailyStatisticsRepository.save(oldPsDaily);
+                    }
                 }
             }
         }

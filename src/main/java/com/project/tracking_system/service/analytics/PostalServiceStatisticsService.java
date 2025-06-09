@@ -32,6 +32,7 @@ public class PostalServiceStatisticsService {
     public List<PostalServiceStatsDTO> getStatsByStore(Long storeId) {
         return repository.findByStoreId(storeId)
                 .stream()
+                .filter(stat -> stat.getPostalServiceType() != PostalServiceType.UNKNOWN)
                 .map(this::mapToDto)
                 .toList();
     }
@@ -53,6 +54,9 @@ public class PostalServiceStatisticsService {
         List<PostalServiceStatistics> stats = repository.findByStoreIdIn(storeIds);
         Map<PostalServiceType, PostalServiceStatistics> aggregated = new EnumMap<>(PostalServiceType.class);
         for (PostalServiceStatistics stat : stats) {
+            if (stat.getPostalServiceType() == PostalServiceType.UNKNOWN) {
+                continue;
+            }
             aggregated.merge(stat.getPostalServiceType(), stat, this::mergeStats);
         }
         return aggregated.values().stream()
