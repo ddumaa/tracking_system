@@ -1300,6 +1300,15 @@ body.loading {
   flex-grow: 1;
 }
 
+.no-data-placeholder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  opacity: 0.6;
+}
+
 .status-icon {
   font-size: 2rem;
 }

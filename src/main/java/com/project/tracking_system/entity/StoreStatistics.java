@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.ZonedDateTime;
 
 /**
@@ -38,19 +39,61 @@ public class StoreStatistics {
     @Column(name = "total_returned", nullable = false)
     private int totalReturned;
 
-    @Column(name = "average_delivery_days")
-    private Double averageDeliveryDays;
+    @Column(name = "sum_delivery_days", nullable = false)
+    private BigDecimal sumDeliveryDays = BigDecimal.ZERO;
 
-    @Column(name = "avg_pickup_days")
-    private Double averagePickupDays;
-
-    @Column(name = "delivery_success_rate", precision = 5, scale = 2)
-    private BigDecimal deliverySuccessRate;
-
-    @Column(name = "return_rate", precision = 5, scale = 2)
-    private BigDecimal returnRate;
+    @Column(name = "sum_pickup_days", nullable = false)
+    private BigDecimal sumPickupDays = BigDecimal.ZERO;
 
     @Column(name = "updated_at")
     private ZonedDateTime updatedAt;
+
+    /**
+     * Возвращает среднее время доставки заказа в днях.
+     * <p>
+     * Поле {@code sumDeliveryDays} содержит накопленную длительность доставки в днях.
+     * Деление на количество доставленных отправлений выполняется лениво в момент вызова метода.
+     * </p>
+     *
+     * @return среднее время доставки в днях, округлённое до двух знаков
+     */
+    @Transient
+    public BigDecimal getAverageDeliveryDays() {
+        return totalDelivered > 0
+                ? sumDeliveryDays.divide(BigDecimal.valueOf(totalDelivered), 2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+    }
+
+    /**
+     * Возвращает среднее время получения посылки клиентом в днях.
+     * <p>
+     * Поле {@code sumPickupDays} накапливает длительности ожидания получения в днях.
+     * Среднее вычисляется лениво на основе количества доставленных отправлений.
+     * </p>
+     *
+     * @return среднее время получения в днях, округлённое до двух знаков
+     */
+    @Transient
+    public BigDecimal getAveragePickupDays() {
+        return totalDelivered > 0
+                ? sumPickupDays.divide(BigDecimal.valueOf(totalDelivered), 2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+    }
+
+    @Transient
+    public BigDecimal getDeliverySuccessRate() {
+        int total = totalDelivered + totalReturned;
+        return total > 0
+                ? BigDecimal.valueOf(totalDelivered * 100.0 / total).setScale(2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+    }
+
+    @Transient
+    public BigDecimal getReturnRate() {
+        int total = totalDelivered + totalReturned;
+        return total > 0
+                ? BigDecimal.valueOf(totalReturned * 100.0 / total).setScale(2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+    }
 
 }

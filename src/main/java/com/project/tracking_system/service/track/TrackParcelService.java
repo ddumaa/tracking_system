@@ -8,6 +8,10 @@ import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
+import com.project.tracking_system.repository.StoreAnalyticsRepository;
+import com.project.tracking_system.repository.PostalServiceStatisticsRepository;
+import com.project.tracking_system.repository.StoreDailyStatisticsRepository;
+import com.project.tracking_system.repository.PostalServiceDailyStatisticsRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.analytics.DeliveryHistoryService;
 import com.project.tracking_system.service.user.UserService;
@@ -22,6 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -59,6 +65,10 @@ public class TrackParcelService {
     private final StoreRepository storeRepository;
     private final UserRepository userRepository;
     private final TrackParcelRepository trackParcelRepository;
+    private final StoreAnalyticsRepository storeAnalyticsRepository;
+    private final PostalServiceStatisticsRepository postalServiceStatisticsRepository;
+    private final StoreDailyStatisticsRepository storeDailyStatisticsRepository;
+    private final PostalServiceDailyStatisticsRepository postalServiceDailyStatisticsRepository;
 
     @Transactional
     public TrackInfoListDTO processTrack(String number, Long storeId, Long userId, boolean canSave) {
@@ -104,10 +114,13 @@ public class TrackParcelService {
 
         // Ищем трек по номеру и пользователю независимо от магазина
         TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(number, userId);
-        GlobalStatus oldStatus = (trackParcel != null) ? trackParcel.getStatus() : null;
+        boolean isNewParcel = (trackParcel == null);
+        GlobalStatus oldStatus = (!isNewParcel) ? trackParcel.getStatus() : null;
+        ZonedDateTime previousDate = null; // дата отправления старого трека
+        Long previousStoreId = null;       // магазин, в котором хранился трек ранее
 
         // Если трек новый, проверяем лимиты
-        if (trackParcel == null) {
+        if (isNewParcel) {
             int remainingTracks = subscriptionService.canSaveMoreTracks(userId, 1);
             if (remainingTracks <= 0) {
                 throw new IllegalArgumentException("Вы не можете сохранить больше посылок, так как превышен лимит сохранённых посылок.");
@@ -124,6 +137,10 @@ public class TrackParcelService {
             trackParcel.setUser(user);
             log.info("Создан новый трек {} для пользователя ID={}", number, userId);
 
+        } else {
+            // Запоминаем предыдущие значения для корректировки статистики
+            previousStoreId = trackParcel.getStore().getId();
+            previousDate = trackParcel.getData();
         }
         // Если трек уже существует, проверяем, соответствует ли магазин выбранному пользователем
         if (!trackParcel.getStore().getId().equals(storeId)) {
@@ -142,7 +159,12 @@ public class TrackParcelService {
         trackParcel.setStatus(newStatus);
 
         String lastDate = trackInfoListDTO.getList().get(0).getTimex();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss");
+        DateTimeFormatter formatter = new DateTimeFormatterBuilder()
+                .appendPattern("dd.MM.yyyy ")
+                .appendValue(ChronoField.HOUR_OF_DAY)  // Позволяет и 9, и 09
+                .appendLiteral(':')
+                .appendPattern("mm:ss")
+                .toFormatter();
         LocalDateTime localDateTime = LocalDateTime.parse(lastDate, formatter);
         ZoneId userZone = ZoneId.of(userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден")).getTimeZone());
@@ -150,6 +172,111 @@ public class TrackParcelService {
         trackParcel.setData(zonedDateTime);
 
         trackParcelRepository.save(trackParcel);
+
+        boolean storeChanged = !isNewParcel && previousStoreId != null && !previousStoreId.equals(storeId);
+
+        PostalServiceType serviceType = typeDefinitionTrackPostService.detectPostalService(number);
+
+        // Инкрементируем статистику нового магазина при добавлении новой посылки или смене магазина
+        if (isNewParcel || storeChanged) {
+            StoreStatistics statistics = storeAnalyticsRepository.findByStoreId(storeId)
+                    .orElseThrow(() -> new IllegalStateException("Статистика не найдена"));
+            statistics.setTotalSent(statistics.getTotalSent() + 1);
+            statistics.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+            storeAnalyticsRepository.save(statistics);
+
+            // Postal service statistics (skip UNKNOWN)
+            if (serviceType != PostalServiceType.UNKNOWN) {
+                PostalServiceStatistics psStats = postalServiceStatisticsRepository
+                        .findByStoreIdAndPostalServiceType(storeId, serviceType)
+                        .orElseGet(() -> {
+                            PostalServiceStatistics s = new PostalServiceStatistics();
+                            s.setStore(statistics.getStore());
+                            s.setPostalServiceType(serviceType);
+                            return s;
+                        });
+                psStats.setTotalSent(psStats.getTotalSent() + 1);
+                psStats.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                postalServiceStatisticsRepository.save(psStats);
+            } else {
+                log.warn("⛔ Skipping analytics update for UNKNOWN service: {}", number);
+            }
+
+            // Ежедневная статистика магазина
+            LocalDate day = zonedDateTime.toLocalDate();
+            StoreDailyStatistics daily = storeDailyStatisticsRepository
+                    .findByStoreIdAndDate(storeId, day)
+                    .orElseGet(() -> {
+                        StoreDailyStatistics d = new StoreDailyStatistics();
+                        d.setStore(statistics.getStore());
+                        d.setDate(day);
+                        return d;
+                    });
+            daily.setSent(daily.getSent() + 1);
+            daily.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+            storeDailyStatisticsRepository.save(daily);
+
+            // Daily postal service statistics
+            if (serviceType != PostalServiceType.UNKNOWN) {
+                PostalServiceDailyStatistics psDaily = postalServiceDailyStatisticsRepository
+                        .findByStoreIdAndPostalServiceTypeAndDate(storeId, serviceType, day)
+                        .orElseGet(() -> {
+                            PostalServiceDailyStatistics d = new PostalServiceDailyStatistics();
+                            d.setStore(statistics.getStore());
+                            d.setPostalServiceType(serviceType);
+                            d.setDate(day);
+                            return d;
+                        });
+                psDaily.setSent(psDaily.getSent() + 1);
+                psDaily.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                postalServiceDailyStatisticsRepository.save(psDaily);
+            }
+        }
+
+        // Декрементируем статистику старого магазина, если посылка перенесена
+        if (storeChanged) {
+            StoreStatistics oldStats = storeAnalyticsRepository.findByStoreId(previousStoreId)
+                    .orElseThrow(() -> new IllegalStateException("Статистика не найдена"));
+            if (oldStats.getTotalSent() > 0) {
+                oldStats.setTotalSent(oldStats.getTotalSent() - 1);
+                oldStats.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                storeAnalyticsRepository.save(oldStats);
+            }
+
+            if (serviceType != PostalServiceType.UNKNOWN) {
+                PostalServiceStatistics oldPs = postalServiceStatisticsRepository
+                        .findByStoreIdAndPostalServiceType(previousStoreId, serviceType)
+                        .orElse(null);
+                if (oldPs != null && oldPs.getTotalSent() > 0) {
+                    oldPs.setTotalSent(oldPs.getTotalSent() - 1);
+                    oldPs.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                    postalServiceStatisticsRepository.save(oldPs);
+                }
+            }
+
+            if (previousDate != null) {
+                LocalDate prevDay = previousDate.toLocalDate();
+                StoreDailyStatistics oldDaily = storeDailyStatisticsRepository
+                        .findByStoreIdAndDate(previousStoreId, prevDay)
+                        .orElse(null);
+                if (oldDaily != null && oldDaily.getSent() > 0) {
+                    oldDaily.setSent(oldDaily.getSent() - 1);
+                    oldDaily.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                    storeDailyStatisticsRepository.save(oldDaily);
+                }
+
+                if (serviceType != PostalServiceType.UNKNOWN) {
+                    PostalServiceDailyStatistics oldPsDaily = postalServiceDailyStatisticsRepository
+                            .findByStoreIdAndPostalServiceTypeAndDate(previousStoreId, serviceType, prevDay)
+                            .orElse(null);
+                    if (oldPsDaily != null && oldPsDaily.getSent() > 0) {
+                        oldPsDaily.setSent(oldPsDaily.getSent() - 1);
+                        oldPsDaily.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                        postalServiceDailyStatisticsRepository.save(oldPsDaily);
+                    }
+                }
+            }
+        }
 
         // Обновляем историю доставки
         deliveryHistoryService.updateDeliveryHistory(trackParcel, oldStatus, newStatus, trackInfoListDTO);
@@ -283,10 +410,9 @@ public class TrackParcelService {
         // Получаем все треки пользователя
         List<TrackParcelDTO> allParcels = findAllByUserTracks(userId);
 
-        // Фильтруем треки, исключая те, что уже в финальном статусе
+        // Фильтруем треки, исключая финальные статусы
         List<TrackParcelDTO> parcelsToUpdate = allParcels.stream()
-                .filter(dto -> !(dto.getStatus().equals(GlobalStatus.DELIVERED.getDescription()) ||
-                        dto.getStatus().equals(GlobalStatus.RETURNED.getDescription())))
+                .filter(dto -> !GlobalStatus.fromDescription(dto.getStatus()).isFinal())
                 .toList();
 
         log.info("📦 Запущено обновление всех {} треков для userId={}", parcelsToUpdate.size(), userId);
@@ -377,8 +503,7 @@ public class TrackParcelService {
         // Считаем количество финальных и обновляемых треков
         int totalRequested = selectedParcels.size();
         List<TrackParcel> updatableParcels = selectedParcels.stream()
-                .filter(parcel -> !(parcel.getStatus() == GlobalStatus.DELIVERED ||
-                        parcel.getStatus() == GlobalStatus.RETURNED))
+                .filter(parcel -> !parcel.getStatus().isFinal())
                 .toList();
         int nonUpdatableCount = totalRequested - updatableParcels.size();
 
@@ -481,6 +606,7 @@ public class TrackParcelService {
      * @param numbers список номеров посылок
      * @param userId  идентификатор пользователя
      */
+    @Transactional
     public void deleteByNumbersAndUserId(List<String> numbers, Long userId) {
         List<TrackParcel> parcelsToDelete = trackParcelRepository.findByNumberInAndUserId(numbers, userId);
 
@@ -489,6 +615,17 @@ public class TrackParcelService {
             throw new RuntimeException("Нет посылок для удаления.");
         }
 
+        // Обнуляем связь с DeliveryHistory, чтобы Hibernate не пытался сохранять зависимую сущность
+        for (TrackParcel parcel : parcelsToDelete) {
+            deliveryHistoryService.handleTrackParcelBeforeDelete(parcel);
+
+            if (parcel.getDeliveryHistory() != null) {
+                parcel.getDeliveryHistory().setTrackParcel(null); // Разрываем связь
+                parcel.setDeliveryHistory(null); // Обнуляем с двух сторон
+            }
+        }
+
+        // Удаляем все треки
         trackParcelRepository.deleteAll(parcelsToDelete);
         log.info("✅ Удалены {} посылок пользователя ID={}", parcelsToDelete.size(), userId);
     }

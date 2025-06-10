@@ -1,18 +1,14 @@
 package com.project.tracking_system.service.analytics;
 
-import com.project.tracking_system.dto.DeliveryFullPeriodStatsDTO;
-import com.project.tracking_system.repository.DeliveryHistoryRepository;
+import com.project.tracking_system.dto.PeriodStatsDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.sql.Timestamp;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * @author Dmitriy Anisimov
@@ -23,51 +19,29 @@ import java.util.Locale;
 @Slf4j
 public class DeliveryAnalyticsService {
 
-    private final DeliveryHistoryRepository deliveryHistoryRepository;
+    private final PeriodDataResolver periodDataResolver;
 
-    public List<DeliveryFullPeriodStatsDTO> getFullPeriodStats(List<Long> storeIds,
-                                                               ChronoUnit interval,
-                                                               ZonedDateTime from,
-                                                               ZonedDateTime to,
-                                                               ZoneId userZone) {
-
-        String intervalStr = switch (interval) {
-            case DAYS -> "day";
-            case WEEKS -> "week";
-            case MONTHS -> "month";
-            default -> throw new IllegalArgumentException("Unsupported interval: " + interval);
-        };
-
-        Timestamp fromTs = Timestamp.from(from.toInstant());
-        Timestamp toTs = Timestamp.from(to.toInstant());
-
-        List<Object[]> rows = deliveryHistoryRepository.getSentDeliveredReturnedGroupedByPeriod(
-                storeIds, intervalStr, fromTs, toTs
-        );
-
-        DateTimeFormatter formatter = switch (interval) {
-            case DAYS -> DateTimeFormatter.ofPattern("dd.MM");
-            case WEEKS -> DateTimeFormatter.ofPattern("'Неделя' w");
-            case MONTHS -> DateTimeFormatter.ofPattern("LLLL yyyy", new Locale("ru"));
-            default -> DateTimeFormatter.ISO_DATE;
-        };
-
-        return rows.stream()
-                .map(row -> {
-                    Timestamp ts = (Timestamp) row[0];
-                    ZonedDateTime period = ts.toInstant().atZone(userZone);
-                    long sent = ((Number) row[1]).longValue();
-                    long delivered = ((Number) row[2]).longValue();
-                    long returned = ((Number) row[3]).longValue();
-
-                    return new DeliveryFullPeriodStatsDTO(
-                            formatter.format(period),
-                            sent,
-                            delivered,
-                            returned
-                    );
-                })
-                .toList();
+    /**
+     * Агрегирует статистику доставок для указанных магазинов за заданный период.
+     * <p>
+     * Ежедневная статистика группируется по переданному {@link ChronoUnit} и суммируется.
+     * Метод всегда возвращает DTO для каждого интервала между {@code from} и {@code to}.
+     * </p>
+     *
+     * @param storeIds список идентификаторов магазинов
+     * @param interval интервал группировки (дни, недели, месяцы, годы)
+     * @param from     дата начала в часовом поясе пользователя
+     * @param to       дата окончания в часовом поясе пользователя
+     * @param userZone часовой пояс пользователя
+     * @return список агрегированной статистики, упорядоченный по периоду
+     */
+    public List<PeriodStatsDTO> getFullPeriodStats(List<Long> storeIds,
+                                                   ChronoUnit interval,
+                                                   ZonedDateTime from,
+                                                   ZonedDateTime to,
+                                                   ZoneId userZone) {
+        // Delegate to resolver which chooses optimal data source
+        return periodDataResolver.resolve(storeIds, interval, from, to, userZone);
     }
 
 }
