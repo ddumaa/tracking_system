@@ -480,15 +480,15 @@ async function loadAnalyticsButtons() {
     stores.forEach(store => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'btn btn-outline-warning btn-sm me-2 reset-store-analytics-btn';
+        btn.className = 'btn btn-outline-secondary w-100 reset-store-analytics-btn mb-2 d-flex align-items-center';
         btn.dataset.storeId = store.id;
         btn.dataset.storeName = store.name;
-        btn.innerHTML = `🧹 Очистить аналитику — ${store.name}`;
-        const wrap = document.createElement('div');
-        wrap.className = 'mb-2';
-        wrap.appendChild(btn);
-        container.appendChild(wrap);
+        btn.setAttribute('data-bs-toggle', 'tooltip');
+        btn.title = `Очистить аналитику магазина «${store.name}»`;
+        btn.innerHTML = `<i class="bi bi-brush me-2"></i> Очистить аналитику — ${store.name}`;
+        container.appendChild(btn);
     });
+    enableTooltips(container);
 }
 
 /**
