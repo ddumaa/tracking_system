@@ -25,7 +25,7 @@ public class DeliveryHistory {
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "track_parcel_id", nullable = false)
+    @JoinColumn(name = "track_parcel_id", nullable = true)
     private TrackParcel trackParcel;
 
     @ManyToOne(fetch = FetchType.LAZY)

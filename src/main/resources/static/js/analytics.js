@@ -1,5 +1,10 @@
+// Глобальный режим отладки. Используем глобальную переменную, если она уже
+// определена другим скриптом (например, app.js)
+window.DEBUG_MODE = window.DEBUG_MODE || false;
+function debugLog(...args) { if (window.DEBUG_MODE) console.log(...args); }
+
 document.addEventListener("DOMContentLoaded", function () {
-    console.log("analytics.js loaded!")
+    debugLog("analytics.js loaded!")
     // --- CSRF-токен
     const csrfToken = document.querySelector('meta[name="_csrf"]')?.content || "";
     const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || "";
@@ -14,6 +19,10 @@ document.addEventListener("DOMContentLoaded", function () {
     const storeSelect = document.getElementById("analyticsStoreSelect");
     const periodSelect = document.getElementById("periodSelect");
     let selectedPeriod = periodSelect?.value || "WEEKS";
+
+    // Элемент заголовка графика должен быть известен до первого вызова функции
+    const chartTitle = document.getElementById("periodChartTitle");
+    updateChartTitle(selectedPeriod); // установить заголовок при первой загрузке
 
     const pieCtx = document.getElementById('statusPieChart')?.getContext('2d');
     const barCtx = document.getElementById('periodBarChart')?.getContext('2d');
@@ -73,7 +82,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // --- Функции рендера
     function renderPieChart(data) {
+        const placeholder = document.getElementById('pieNoData');
+        if (!pieCtx || !data || (data.delivered + data.returned + data.inTransit === 0)) {
+            placeholder?.classList.remove('d-none');
+            pieChart?.destroy(); // если вдруг был
+            return;
+        }
+
         if (!pieCtx || !data) return;
+        placeholder?.classList.add('d-none');
         if (pieChart) pieChart.destroy();
 
         pieChart = new Chart(pieCtx, {
@@ -117,7 +134,15 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function renderBarChart(stats) {
+        const placeholder = document.getElementById('barNoData');
+        if (!barCtx || !stats || !stats.labels || stats.labels.length === 0) {
+            placeholder?.classList.remove('d-none');
+            barChart?.destroy();
+            return;
+        }
+
         if (!barCtx || !stats) return;
+        placeholder?.classList.add('d-none');
         if (barChart) barChart.destroy();
 
         barChart = new Chart(barCtx, {
@@ -183,9 +208,79 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    // Обновление сводных статистик магазинов
+    function updateStoreStats(stats) {
+        if (!stats) return;
+
+        // контейнеры с блоками статистики
+        const containers = document.querySelectorAll('.store-statistics-content, .row.text-center.mb-4');
+        containers.forEach(container => {
+            const values = container.querySelectorAll('.col-md-2 .h5, .col-md-2.col-6 .h5');
+            if (values.length < 5) return;
+
+            values[0].textContent = stats.totalSent;
+            values[1].textContent = stats.totalDelivered;
+            values[2].textContent = stats.totalReturned;
+            values[3].textContent = Number(stats.averageDeliveryDays).toFixed(1);
+            values[4].textContent = Number(stats.averagePickupDays).toFixed(1);
+
+            const total = stats.totalDelivered + stats.totalReturned;
+            if (values[5]) {
+                const successRate = total > 0 ? (stats.totalDelivered * 100 / total).toFixed(1) + ' %' : '0.0 %';
+                values[5].textContent = successRate;
+            }
+            if (values[6]) {
+                const returnRate = total > 0 ? (stats.totalReturned * 100 / total).toFixed(1) + ' %' : '0.0 %';
+                values[6].textContent = returnRate;
+            }
+        });
+    }
+
+    // Обновление таблицы почтовых служб
+    function updatePostalServiceStats(stats) {
+        if (!Array.isArray(stats)) return;
+        const rows = document.querySelectorAll('table.table-hover.align-middle tbody tr');
+        rows.forEach(row => {
+            const service = row.querySelector('td:first-child')?.textContent.trim();
+            const data = stats.find(s => s.postalService === service);
+            if (!data) return;
+
+            const cells = row.querySelectorAll('td');
+            if (cells.length < 6) return;
+
+            // Отправлено
+            const sentBar = cells[1].querySelector('.progress-bar');
+            if (sentBar) sentBar.textContent = data.sent;
+
+            // Доставлено
+            const deliveredBar = cells[2].querySelector('.progress-bar');
+            if (deliveredBar) {
+                deliveredBar.style.width = data.sent > 0 ? (data.delivered / data.sent * 100) + '%' : '0%';
+                const span = deliveredBar.querySelector('span');
+                if (span) span.textContent = data.delivered > 0 ? data.delivered : 0;
+            }
+
+            // Возвращено
+            const returnedBar = cells[3].querySelector('.progress-bar');
+            if (returnedBar) {
+                returnedBar.style.width = data.sent > 0 ? (data.returned / data.sent * 100) + '%' : '0%';
+                const span = returnedBar.querySelector('span');
+                if (span) span.textContent = data.returned > 0 ? data.returned : 0;
+            }
+
+            // Среднее время доставки
+            const deliverySpan = cells[4].querySelector('span');
+            if (deliverySpan) deliverySpan.textContent = Number(data.avgDeliveryDays).toFixed(1);
+
+            // Среднее время забора
+            const pickupSpan = cells[5].querySelector('span');
+            if (pickupSpan) pickupSpan.textContent = Number(data.avgPickupTimeDays).toFixed(1);
+        });
+    }
+
     // --- Загрузка аналитики
     function loadAnalyticsData() {
-        console.log("🔥 [Debug] loadAnalyticsData called");
+        debugLog("🔥 [Debug] loadAnalyticsData called");
         const storeId = storeSelect?.value;
         const interval = selectedPeriod;
 
@@ -195,16 +290,18 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         params.append("interval", interval);
 
-        console.log("loadAnalyticsData invoked!")
+        debugLog("loadAnalyticsData invoked!")
 
         fetch("/analytics/json?" + params.toString())
             .then(res => res.json())
             .then(freshData => {
-                console.log("🚀 [Debug] Fetched data:", freshData);
+                debugLog("🚀 [Debug] Fetched data:", freshData);
                 analyticsData = freshData;
                 renderPieChart(analyticsData.pieData);
-                console.log("🏁 [Debug] rendering bar chart");
+                debugLog("🏁 [Debug] rendering bar chart");
                 renderBarChart(analyticsData.periodStats);
+                updateStoreStats(analyticsData.storeStatistics);
+                updatePostalServiceStats(analyticsData.postalStats);
             })
             .catch(err => console.error("Ошибка загрузки аналитики:", err));
     }
@@ -212,6 +309,11 @@ document.addEventListener("DOMContentLoaded", function () {
     if (analyticsData) {
         renderPieChart(analyticsData.pieData);
         renderBarChart(analyticsData.periodStats);
+        updateStoreStats(analyticsData.storeStatistics);
+        updatePostalServiceStats(analyticsData.postalStats);
+    } else {
+        // Если данные не были переданы сервером напрямую, загружаем их
+        loadAnalyticsData();
     }
 
     // Кнопка обновления
@@ -264,13 +366,12 @@ document.addEventListener("DOMContentLoaded", function () {
             if (storeId !== '') params.append("storeId", storeId);
             params.append("interval", selectedPeriod);
 
-            console.log("Selected storeId =", storeId);
+            debugLog("Selected storeId =", storeId);
             document.body.classList.add("loading");
             window.location.href = "/analytics?" + params.toString();
         });
     }
 
-    const chartTitle = document.getElementById("periodChartTitle");
     function updateChartTitle(period) {
         let title;
         switch (period) {
@@ -282,6 +383,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 break;
             case "MONTHS":
                 title = "Динамика отправлений по месяцам";
+                break;
+            case "YEARS":
+                title = "Динамика отправлений по годам";
                 break;
             default:
                 title = "Динамика отправлений";

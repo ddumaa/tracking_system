@@ -37,6 +37,10 @@ public class TrackParcel {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @OneToOne(mappedBy = "trackParcel", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToOne(mappedBy = "trackParcel", cascade = {}, orphanRemoval = false)
     private DeliveryHistory deliveryHistory;
+
+    @Column(name = "included_in_statistics", nullable = false)
+    private boolean includedInStatistics = false;
+
 }

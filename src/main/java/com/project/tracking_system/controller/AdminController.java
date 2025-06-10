@@ -8,6 +8,7 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.UserSubscription;
 import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.service.analytics.StatsAggregationService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +17,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.format.annotation.DateTimeFormat;
 
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -40,6 +43,7 @@ public class AdminController {
     private final TrackParcelService trackParcelService;
     private final SubscriptionService subscriptionService;
     private final StoreRepository storeRepository;
+    private final StatsAggregationService statsAggregationService;
 
     @GetMapping()
     public String adminDashboard(Model model) {
@@ -143,6 +147,33 @@ public class AdminController {
             subscriptionService.changeSubscription(userId, subscriptionPlan, null);  // Смена подписки
         }
         return "redirect:/admin/users/" + userId;
+    }
+
+    /**
+     * Запускает агрегацию недельной, месячной и годовой статистики за вчерашний день.
+     */
+    @PostMapping("/aggregate-stats")
+    public String triggerAggregation() {
+        statsAggregationService.aggregateYesterday();
+        return "redirect:/admin";
+    }
+
+    /**
+     * Запускает агрегацию статистики за указанный диапазон дат.
+     *
+     * @param from дата начала в формате ISO (yyyy-MM-dd)
+     * @param to   дата окончания в формате ISO (yyyy-MM-dd)
+     * @return редирект на административную страницу
+     */
+    @PostMapping("/aggregate-stats/range")
+    public String triggerAggregationRange(@RequestParam("from")
+                                          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                                          LocalDate from,
+                                          @RequestParam("to")
+                                          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                                          LocalDate to) {
+        statsAggregationService.aggregateForRange(from, to);
+        return "redirect:/admin";
     }
 
 }

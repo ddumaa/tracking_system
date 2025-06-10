@@ -108,6 +108,14 @@
 
                         <button type="button" class="btn btn-primary mt-3" id="addStoreBtn">Добавить магазин</button>
                     </form>
+
+                    <div class="mt-4" id="analytics-management">
+                        <h5 class="mb-3">Управление аналитикой</h5>
+                        <div id="storeAnalyticsButtons" class="d-flex flex-column w-100 mb-3"><!-- JS --></div>
+                        <button type="button" class="btn btn-danger w-100 d-flex align-items-center" id="resetAllAnalyticsBtn">
+                            <i class="bi bi-trash me-2"></i> Удалить всю аналитику
+                        </button>
+                    </div>
                 </div>
 
                 <div class="tab-pane fade card p-4 shadow-sm rounded-4"
@@ -320,6 +328,23 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
                     <button class="btn btn-danger" id="confirmDeleteStore">Да, удалить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно подтверждения очистки аналитики -->
+    <div class="modal fade" id="resetAnalyticsModal" tabindex="-1" aria-labelledby="resetAnalyticsModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content border-danger">
+                <div class="modal-header">
+                    <h5 class="modal-title text-danger" id="resetAnalyticsModalLabel">Подтверждение действия</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="resetAnalyticsMessage"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button class="btn btn-danger" id="confirmResetAnalytics">Да, удалить</button>
                 </div>
             </div>
         </div>

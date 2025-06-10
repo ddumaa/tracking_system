@@ -6,6 +6,7 @@ import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.repository.StoreAnalyticsRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
+import com.project.tracking_system.repository.PostalServiceStatisticsRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ public class StoreService {
     private final StoreRepository storeRepository;
     private final UserRepository userRepository;
     private final StoreAnalyticsRepository storeAnalyticsRepository;
+    private final PostalServiceStatisticsRepository postalServiceStatisticsRepository;
     private final TrackParcelRepository trackParcelRepository;
     private final WebSocketController webSocketController;
 
@@ -99,14 +101,21 @@ public class StoreService {
         statistics.setTotalSent(0);
         statistics.setTotalDelivered(0);
         statistics.setTotalReturned(0);
-        statistics.setAverageDeliveryDays(0.0);
-        statistics.setAveragePickupDays(0.0);
-        statistics.setDeliverySuccessRate(BigDecimal.ZERO);
-        statistics.setReturnRate(BigDecimal.ZERO);
+        statistics.setSumDeliveryDays(BigDecimal.ZERO);
+        statistics.setSumPickupDays(BigDecimal.ZERO);
         statistics.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
 
         storeAnalyticsRepository.save(statistics);
         log.info("Создана пустая статистика для магазина ID={}", savedStore.getId());
+
+        // Создаём пустую статистику для каждой почтовой службы
+        for (PostalServiceType type : PostalServiceType.values()) {
+            PostalServiceStatistics psStats = new PostalServiceStatistics();
+            psStats.setStore(savedStore);
+            psStats.setPostalServiceType(type);
+            psStats.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+            postalServiceStatisticsRepository.save(psStats);
+        }
 
         webSocketController.sendUpdateStatus(userId, "Магазин '" + storeName + "' добавлен!", true);
 

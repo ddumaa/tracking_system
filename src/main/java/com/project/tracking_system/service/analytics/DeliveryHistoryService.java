@@ -1,12 +1,15 @@
 package com.project.tracking_system.service.analytics;
 
 import com.project.tracking_system.dto.DeliveryDates;
-import com.project.tracking_system.dto.PostalServiceStatsDTO;
 import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.DeliveryHistoryRepository;
 import com.project.tracking_system.repository.StoreAnalyticsRepository;
+import com.project.tracking_system.repository.TrackParcelRepository;
+import com.project.tracking_system.repository.PostalServiceStatisticsRepository;
+import com.project.tracking_system.repository.StoreDailyStatisticsRepository;
+import com.project.tracking_system.repository.PostalServiceDailyStatisticsRepository;
 import com.project.tracking_system.service.track.StatusTrackService;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import lombok.RequiredArgsConstructor;
@@ -14,12 +17,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -37,9 +43,25 @@ public class DeliveryHistoryService {
     private final DeliveryHistoryRepository deliveryHistoryRepository;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final StatusTrackService statusTrackService;
+    private final TrackParcelRepository trackParcelRepository;
+    private final PostalServiceStatisticsRepository postalServiceStatisticsRepository;
+    private final StoreDailyStatisticsRepository storeDailyStatisticsRepository;
+    private final PostalServiceDailyStatisticsRepository postalServiceDailyStatisticsRepository;
 
     /**
-     * Обновляет данные в истории доставки при изменении статуса посылки.
+     * Обновляет или создаёт запись {@link DeliveryHistory}, когда меняется статус посылки.
+     * <p>
+     * Полная история отслеживания из {@link TrackInfoListDTO} анализируется для извлечения
+     * всех значимых дат (отправки, прибытия, получения, возврата).
+     * Если новый статус считается финальным, метод передаёт управление в
+     * {@link #registerFinalStatus(DeliveryHistory, GlobalStatus)}, чтобы обновить
+     * накопительную статистику.
+     * </p>
+     *
+     * @param trackParcel       посылка, у которой изменился статус
+     * @param oldStatus         предыдущий статус посылки
+     * @param newStatus         новый статус посылки
+     * @param trackInfoListDTO  список событий трекинга, полученных от службы отслеживания
      */
     @Transactional
     public void updateDeliveryHistory(TrackParcel trackParcel, GlobalStatus oldStatus, GlobalStatus newStatus, TrackInfoListDTO trackInfoListDTO) {
@@ -75,14 +97,20 @@ public class DeliveryHistoryService {
             setHistoryDate("Дата возврата", history.getReturnedDate(), deliveryDates.returnedDate(), history::setReturnedDate);
         }
 
-        if (newStatus == GlobalStatus.WAITING_FOR_CUSTOMER) {
+        if (history.getArrivedDate() == null && deliveryDates.arrivedDate() != null) {
+            // Фиксируем дату прибытия на пункт выдачи, даже если текущий статус уже финальный
             setHistoryDate(
-                    "Дата прибытия на пункт выдачи", history.getArrivedDate(), deliveryDates.arrivedDate(), history::setArrivedDate
+                    "Дата прибытия на пункт выдачи",
+                    history.getArrivedDate(),
+                    deliveryDates.arrivedDate(),
+                    history::setArrivedDate
             );
         }
 
         // Считаем и обновляем среднее время доставки
-        updateAverageDeliveryDays(trackParcel.getStore());
+        if (newStatus.isFinal()) {
+            registerFinalStatus(history, newStatus);
+        }
 
         // Сохраняем историю, если что-то изменилось
         deliveryHistoryRepository.save(history);
@@ -122,11 +150,13 @@ public class DeliveryHistoryService {
             returnedDate = parseDate(latestStatus.getTimex());
         }
 
-        // Поиск статуса WAITING_FOR_CUSTOMER
-        for (TrackInfoDTO info : trackInfoList) {
+        // Поиск первого (по времени) статуса WAITING_FOR_CUSTOMER
+        for (int i = trackInfoList.size() - 1; i >= 0; i--) {
+            TrackInfoDTO info = trackInfoList.get(i);
             GlobalStatus status = statusTrackService.setStatus(List.of(info));
             if (status == GlobalStatus.WAITING_FOR_CUSTOMER) {
                 arrivedDate = parseDate(info.getTimex());
+                log.info("Извлечена дата прибытия на пункт выдачи: {}", arrivedDate);
                 break;
             }
         }
@@ -135,22 +165,262 @@ public class DeliveryHistoryService {
     }
 
     /**
-     * Пересчитывает средний срок доставки для магазина и обновляет в StoreStatistics.
+     * Обрабатывает финальный статус доставки (DELIVERED или RETURNED) и обновляет накопительную статистику магазина.
+     *
+     * <p>Метод выполняет инкремент счётчиков доставленных или возвращённых посылок, а также
+     * рассчитывает и накапливает общее время доставки и забора. Выполняется только один раз
+     * для каждой посылки, после чего флаг {@code includedInStatistics} устанавливается в {@code true}.</p>
+     *
+     * Условия для учёта:
+     * - Статус должен быть финальным (DELIVERED или RETURNED)
+     * - Все необходимые даты (отправки, получения или возврата) должны быть заполнены
+     * - Посылка не должна быть уже учтена в статистике
+     *
+     * @param history история доставки, содержащая даты и связанные данные
+     * @param status  новый статус, достигнутый посылкой
      */
     @Transactional
-    public void updateAverageDeliveryDays(Store store) {
-        Double avgDays = deliveryHistoryRepository.findAverageDeliveryTimeToFinalPoint(store.getId());
-        Double avgPickup = deliveryHistoryRepository.findAvgPickupTimeForStore(store.getId());
+    public void registerFinalStatus(DeliveryHistory history, GlobalStatus status) {
+        TrackParcel trackParcel = history.getTrackParcel();
 
-        StoreStatistics statistics = storeAnalyticsRepository.findByStoreId(store.getId())
-                .orElseThrow(() -> new IllegalStateException("Статистика не найдена для магазина ID=" + store.getId()));
+        // Skip analytics update for UNKNOWN postal service
+        if (history.getPostalService() == PostalServiceType.UNKNOWN) {
+            log.warn("⛔ Skipping analytics update for UNKNOWN service: {}", trackParcel.getNumber());
+            return;
+        }
 
-        statistics.setAveragePickupDays(avgPickup);
-        statistics.setAverageDeliveryDays(avgDays);
+        if(trackParcel.isIncludedInStatistics()){
+            log.debug("📦 Посылка {} уже учтена в статистике — пропускаем", trackParcel.getNumber());
+            return;
+        }
 
-        storeAnalyticsRepository.save(statistics);
+        Store store = history.getStore();
+        StoreStatistics stats = storeAnalyticsRepository.findByStoreId(store.getId())
+                .orElseThrow(() -> new IllegalStateException("Статистика не найдена"));
+        PostalServiceStatistics psStats = getOrCreateServiceStats(store, history.getPostalService());
 
-        log.info("📦 Среднее время доставки обновлено для {}: {} дней", store.getName(), avgDays);
+        BigDecimal deliveryDays = null;
+        BigDecimal pickupDays = null;
+        LocalDate eventDate = null;
+
+        if (status == GlobalStatus.DELIVERED) {
+            stats.setTotalDelivered(stats.getTotalDelivered() + 1);
+            psStats.setTotalDelivered(psStats.getTotalDelivered() + 1);
+
+            if (history.getReceivedDate() != null) {
+                // День получения используется как ключ для ежедневной статистики
+                eventDate = history.getReceivedDate().toLocalDate();
+            }
+
+            if (history.getSendDate() != null && history.getArrivedDate() != null) {
+                // Считаем время доставки от отправки до прибытия
+                deliveryDays = BigDecimal.valueOf(
+                        Duration.between(history.getSendDate(), history.getArrivedDate()).toHours() / 24.0);
+                stats.setSumDeliveryDays(stats.getSumDeliveryDays().add(deliveryDays));
+                psStats.setSumDeliveryDays(psStats.getSumDeliveryDays().add(deliveryDays));
+            }
+
+            if (history.getArrivedDate() != null && history.getReceivedDate() != null) {
+                // Время ожидания клиента на пункте выдачи
+                pickupDays = BigDecimal.valueOf(
+                        Duration.between(history.getArrivedDate(), history.getReceivedDate()).toDays());
+                stats.setSumPickupDays(stats.getSumPickupDays().add(pickupDays));
+                psStats.setSumPickupDays(psStats.getSumPickupDays().add(pickupDays));
+            }
+
+        } else if (status == GlobalStatus.RETURNED) {
+            stats.setTotalReturned(stats.getTotalReturned() + 1);
+            psStats.setTotalReturned(psStats.getTotalReturned() + 1);
+            if (history.getReturnedDate() != null) {
+                eventDate = history.getReturnedDate().toLocalDate();
+            }
+
+            if (history.getSendDate() != null && history.getArrivedDate() != null) {
+                // Считаем время доставки от отправки до прибытия
+                deliveryDays = BigDecimal.valueOf(
+                        Duration.between(history.getSendDate(), history.getArrivedDate()).toHours() / 24.0);
+                stats.setSumDeliveryDays(stats.getSumDeliveryDays().add(deliveryDays));
+                psStats.setSumDeliveryDays(psStats.getSumDeliveryDays().add(deliveryDays));
+            }
+
+            if (history.getArrivedDate() != null && history.getReturnedDate() != null) {
+                // Возврат забран: считаем время от прибытия до возврата
+                pickupDays = BigDecimal.valueOf(
+                        Duration.between(history.getArrivedDate(), history.getReturnedDate()).toDays());
+                stats.setSumPickupDays(stats.getSumPickupDays().add(pickupDays));
+                psStats.setSumPickupDays(psStats.getSumPickupDays().add(pickupDays));
+            }
+        }
+
+        if (eventDate != null) {
+            updateDailyStats(store, history.getPostalService(), eventDate, status, deliveryDays, pickupDays);
+        }
+
+        stats.setUpdatedAt(ZonedDateTime.now());
+        psStats.setUpdatedAt(ZonedDateTime.now());
+        storeAnalyticsRepository.save(stats);
+        postalServiceStatisticsRepository.save(psStats);
+
+        trackParcel.setIncludedInStatistics(true);
+        trackParcelRepository.save(trackParcel);
+
+        log.info("📊 Обновлена накопительная статистика по магазину: {}", store.getName());
+    }
+
+    /**
+     * Обновляет ежедневную статистику как для магазина, так и для почтовой службы.
+     *
+     * @param store        магазин, для которого ведётся статистика
+     * @param serviceType  тип почтовой службы
+     * @param eventDate    дата события доставки
+     * @param status       финальный статус посылки
+     * @param deliveryDays время доставки в днях
+     * @param pickupDays   время выдачи посылки в днях
+     */
+    private void updateDailyStats(Store store,
+                                  PostalServiceType serviceType,
+                                  LocalDate eventDate,
+                                  GlobalStatus status,
+                                  BigDecimal deliveryDays,
+                                  BigDecimal pickupDays) {
+        // Skip updates for UNKNOWN postal service
+        if (serviceType == PostalServiceType.UNKNOWN) {
+            log.warn("⛔ Skipping daily stats update for UNKNOWN service: {}", store.getId());
+            return;
+        }
+        // Поиск или создание ежедневной статистики по магазину
+        StoreDailyStatistics daily = storeDailyStatisticsRepository
+                .findByStoreIdAndDate(store.getId(), eventDate)
+                .orElseGet(() -> {
+                    StoreDailyStatistics d = new StoreDailyStatistics();
+                    d.setStore(store);
+                    d.setDate(eventDate);
+                    return d;
+                });
+
+        // Поиск или создание ежедневной статистики почтовой службы
+        PostalServiceDailyStatistics psDaily = postalServiceDailyStatisticsRepository
+                .findByStoreIdAndPostalServiceTypeAndDate(store.getId(), serviceType, eventDate)
+                .orElseGet(() -> {
+                    PostalServiceDailyStatistics d = new PostalServiceDailyStatistics();
+                    d.setStore(store);
+                    d.setPostalServiceType(serviceType);
+                    d.setDate(eventDate);
+                    return d;
+                });
+
+        // Обновляем значения в зависимости от финального статуса
+        if (status == GlobalStatus.DELIVERED) {
+            daily.setDelivered(daily.getDelivered() + 1);
+            psDaily.setDelivered(psDaily.getDelivered() + 1);
+
+            // Добавляем время доставки, если оно рассчитано
+            if (deliveryDays != null) {
+                daily.setSumDeliveryDays(daily.getSumDeliveryDays().add(deliveryDays));
+                psDaily.setSumDeliveryDays(psDaily.getSumDeliveryDays().add(deliveryDays));
+            }
+
+            // Добавляем время ожидания на пункте, если оно известно
+            if (pickupDays != null) {
+                daily.setSumPickupDays(daily.getSumPickupDays().add(pickupDays));
+                psDaily.setSumPickupDays(psDaily.getSumPickupDays().add(pickupDays));
+            }
+        } else if (status == GlobalStatus.RETURNED) {
+            daily.setReturned(daily.getReturned() + 1);
+            psDaily.setReturned(psDaily.getReturned() + 1);
+
+            // Время нахождения посылки на пункте выдачи перед возвратом
+            if (pickupDays != null) {
+                daily.setSumPickupDays(daily.getSumPickupDays().add(pickupDays));
+                psDaily.setSumPickupDays(psDaily.getSumPickupDays().add(pickupDays));
+            }
+        }
+
+        daily.setUpdatedAt(ZonedDateTime.now());
+        psDaily.setUpdatedAt(ZonedDateTime.now());
+        storeDailyStatisticsRepository.save(daily);
+        postalServiceDailyStatisticsRepository.save(psDaily);
+    }
+
+    private PostalServiceStatistics getOrCreateServiceStats(Store store, PostalServiceType serviceType) {
+        return postalServiceStatisticsRepository
+                .findByStoreIdAndPostalServiceType(store.getId(), serviceType)
+                .orElseGet(() -> {
+                    PostalServiceStatistics stats = new PostalServiceStatistics();
+                    stats.setStore(store);
+                    stats.setPostalServiceType(serviceType);
+                    return stats;
+                });
+    }
+
+    /**
+     * Обрабатывает удаление посылки и корректирует статистику, если посылка ещё не была учтена.
+     *
+     * <p>Если посылка не имела финального статуса и ещё не была включена в расчёты,
+     * метод уменьшает значение {@code totalSent} в {@code StoreStatistics} на 1.</p>
+     *
+     * Это позволяет избежать искажения статистики при удалении черновиков и неактуальных треков.
+     *
+     * @param parcel объект удаляемой посылки
+     */
+    @Transactional
+    public void handleTrackParcelBeforeDelete(TrackParcel parcel) {
+        if (parcel.isIncludedInStatistics()) {
+            log.debug("Удаляется уже учтённая в статистике посылка {}, статистику не трогаем", parcel.getNumber());
+            return;
+        }
+
+        Store store = parcel.getStore();
+        StoreStatistics stats = storeAnalyticsRepository.findByStoreId(store.getId())
+                .orElseThrow(() -> new IllegalStateException("❌ Статистика для магазина не найдена"));
+        PostalServiceType serviceType = parcel.getDeliveryHistory() != null
+                ? parcel.getDeliveryHistory().getPostalService()
+                : typeDefinitionTrackPostService.detectPostalService(parcel.getNumber());
+        PostalServiceStatistics psStats = null;
+        boolean updatePostalStats = serviceType != PostalServiceType.UNKNOWN;
+        if (updatePostalStats) {
+            psStats = postalServiceStatisticsRepository
+                    .findByStoreIdAndPostalServiceType(store.getId(), serviceType)
+                    .orElse(null);
+        }
+
+        if (stats.getTotalSent() > 0) {
+            stats.setTotalSent(stats.getTotalSent() - 1);
+            stats.setUpdatedAt(ZonedDateTime.now());
+            storeAnalyticsRepository.save(stats);
+            log.info("➖ Уменьшили totalSent после удаления неучтённой посылки: {}", parcel.getNumber());
+        } else {
+            log.warn("Попытка уменьшить totalSent, но он уже 0. Посылка: {}", parcel.getNumber());
+        }
+
+        if (updatePostalStats && psStats != null && psStats.getTotalSent() > 0) {
+            psStats.setTotalSent(psStats.getTotalSent() - 1);
+            psStats.setUpdatedAt(ZonedDateTime.now());
+            postalServiceStatisticsRepository.save(psStats);
+        }
+
+        LocalDate day = parcel.getData() != null ? parcel.getData().toLocalDate() : null;
+        if (day != null) {
+            StoreDailyStatistics daily = storeDailyStatisticsRepository
+                    .findByStoreIdAndDate(store.getId(), day)
+                    .orElse(null);
+            if (daily != null && daily.getSent() > 0) {
+                daily.setSent(daily.getSent() - 1);
+                daily.setUpdatedAt(ZonedDateTime.now());
+                storeDailyStatisticsRepository.save(daily);
+            }
+
+            if (updatePostalStats) {
+                PostalServiceDailyStatistics psDaily = postalServiceDailyStatisticsRepository
+                        .findByStoreIdAndPostalServiceTypeAndDate(store.getId(), serviceType, day)
+                        .orElse(null);
+                if (psDaily != null && psDaily.getSent() > 0) {
+                    psDaily.setSent(psDaily.getSent() - 1);
+                    psDaily.setUpdatedAt(ZonedDateTime.now());
+                    postalServiceDailyStatisticsRepository.save(psDaily);
+                }
+            }
+        }
     }
 
     /**
@@ -183,46 +453,5 @@ public class DeliveryHistoryService {
         }
     }
 
-    public List<PostalServiceStatsDTO> getStatsByPostalService(Long storeId) {
-        List<Object[]> rawData = deliveryHistoryRepository.getRawStatsByPostalService(storeId);
-        return rawData.stream()
-                .map(this::mapToDto)
-                .toList();
-    }
-
-    public List<PostalServiceStatsDTO> getStatsByPostalServiceForStores(List<Long> storeIds) {
-        List<Object[]> rawData = deliveryHistoryRepository.getRawStatsByPostalServiceForStores(storeIds);
-        return rawData.stream()
-                .map(this::mapToDto)
-                .toList();
-    }
-
-    /**
-     * Преобразует массив данных, полученных из запроса к БД,
-     * в объект {@link PostalServiceStatsDTO} c локализованным названием почтовой службы.
-     *
-     * @param row массив полей: [кодСлужбы, отправлено, доставлено, возвращено, средняяДоставка]
-     * @return заполненный DTO со строковым именем почтовой службы, числом отправленных, доставленных и возвращённых
-     */
-    private PostalServiceStatsDTO mapToDto(Object[] row) {
-        String code = (String) row[0];
-        PostalServiceType type = PostalServiceType.fromCode(code);
-        String displayName = type.getDisplayName();
-
-        int sent = row[1] != null ? ((Number) row[1]).intValue() : 0;
-        int delivered = row[2] != null ? ((Number) row[2]).intValue() : 0;
-        int returned = row[3] != null ? ((Number) row[3]).intValue() : 0;
-        double avgDeliveryDays = row[4] != null ? ((Number) row[4]).doubleValue() : 0.0;
-        double avgPickupTimeDays = row[5] != null ? ((Number) row[5]).doubleValue() : 0.0;
-
-        return new PostalServiceStatsDTO(
-                displayName,
-                sent,
-                delivered,
-                returned,
-                avgDeliveryDays,
-                avgPickupTimeDays
-        );
-    }
 
 }
