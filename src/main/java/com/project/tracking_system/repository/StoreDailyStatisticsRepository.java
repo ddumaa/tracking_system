@@ -54,7 +54,7 @@ public interface StoreDailyStatisticsRepository extends JpaRepository<StoreDaily
     List<StoreDailyStatistics> findByDate(LocalDate date);
 
     /**
-     * Delete all daily statistics of a single store.
+     * Удалить всю ежедневную статистику конкретного магазина.
      */
     @Modifying
     @Transactional
@@ -62,7 +62,7 @@ public interface StoreDailyStatisticsRepository extends JpaRepository<StoreDaily
     void deleteByStoreId(@Param("storeId") Long storeId);
 
     /**
-     * Delete all daily statistics of all stores of a user.
+     * Удалить ежедневную статистику всех магазинов пользователя.
      */
     @Modifying
     @Transactional

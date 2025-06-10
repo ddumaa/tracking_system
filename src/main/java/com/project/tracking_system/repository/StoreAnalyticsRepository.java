@@ -56,9 +56,9 @@ public interface StoreAnalyticsRepository extends JpaRepository<StoreStatistics,
     void deleteByUserId(@Param("userId") Long userId);
 
     /**
-     * Reset counters for all stores of a user.
+     * Обнулить счётчики для всех магазинов пользователя.
      *
-     * @param userId user identifier
+     * @param userId идентификатор пользователя
      */
     @Modifying
     @Transactional
@@ -75,9 +75,9 @@ public interface StoreAnalyticsRepository extends JpaRepository<StoreStatistics,
     void resetByUserId(@Param("userId") Long userId);
 
     /**
-     * Reset counters for a single store.
+     * Обнулить счётчики конкретного магазина.
      *
-     * @param storeId store identifier
+     * @param storeId идентификатор магазина
      */
     @Modifying
     @Transactional

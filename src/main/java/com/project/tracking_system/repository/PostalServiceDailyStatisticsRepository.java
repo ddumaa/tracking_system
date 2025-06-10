@@ -66,7 +66,7 @@ public interface PostalServiceDailyStatisticsRepository extends JpaRepository<Po
     List<PostalServiceDailyStatistics> findByDate(LocalDate date);
 
     /**
-     * Delete daily statistics for a store.
+     * Удалить ежедневную статистику конкретного магазина.
      */
     @Modifying
     @Transactional
@@ -74,7 +74,7 @@ public interface PostalServiceDailyStatisticsRepository extends JpaRepository<Po
     void deleteByStoreId(@Param("storeId") Long storeId);
 
     /**
-     * Delete daily statistics for all stores of a user.
+     * Удалить ежедневную статистику всех магазинов пользователя.
      */
     @Modifying
     @Transactional

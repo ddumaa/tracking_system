@@ -28,7 +28,7 @@ public interface StoreWeeklyStatisticsRepository extends JpaRepository<StoreWeek
     List<StoreWeeklyStatistics> findByStoreIdInAndPeriodYearAndPeriodNumber(List<Long> storeIds, int periodYear, int periodNumber);
 
     /**
-     * Delete weekly statistics for a specific store.
+     * Удалить недельную статистику конкретного магазина.
      */
     @Modifying
     @Transactional
@@ -36,7 +36,7 @@ public interface StoreWeeklyStatisticsRepository extends JpaRepository<StoreWeek
     void deleteByStoreId(@Param("storeId") Long storeId);
 
     /**
-     * Delete weekly statistics for all stores of a user.
+     * Удалить недельную статистику всех магазинов пользователя.
      */
     @Modifying
     @Transactional

@@ -53,9 +53,9 @@ public interface PostalServiceStatisticsRepository extends JpaRepository<PostalS
     void deleteByUserId(@Param("userId") Long userId);
 
     /**
-     * Reset statistics counters for all postal services of the user's stores.
+     * Обнулить счётчики для всех служб доставки магазинов пользователя.
      *
-     * @param userId user identifier
+     * @param userId идентификатор пользователя
      */
     @Modifying
     @Transactional
@@ -72,9 +72,9 @@ public interface PostalServiceStatisticsRepository extends JpaRepository<PostalS
     void resetByUserId(@Param("userId") Long userId);
 
     /**
-     * Reset statistics counters for a single store.
+     * Обнулить счётчики служб доставки конкретного магазина.
      *
-     * @param storeId store identifier
+     * @param storeId идентификатор магазина
      */
     @Modifying
     @Transactional

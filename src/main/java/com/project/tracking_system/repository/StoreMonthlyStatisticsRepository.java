@@ -28,7 +28,7 @@ public interface StoreMonthlyStatisticsRepository extends JpaRepository<StoreMon
     List<StoreMonthlyStatistics> findByStoreIdInAndPeriodYearAndPeriodNumber(List<Long> storeIds, int periodYear, int periodNumber);
 
     /**
-     * Delete monthly statistics for a store.
+     * Удалить месячную статистику конкретного магазина.
      */
     @Modifying
     @Transactional
@@ -36,7 +36,7 @@ public interface StoreMonthlyStatisticsRepository extends JpaRepository<StoreMon
     void deleteByStoreId(@Param("storeId") Long storeId);
 
     /**
-     * Delete monthly statistics for all stores of a user.
+     * Удалить месячную статистику всех магазинов пользователя.
      */
     @Modifying
     @Transactional

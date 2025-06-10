@@ -28,7 +28,7 @@ public interface StoreYearlyStatisticsRepository extends JpaRepository<StoreYear
     List<StoreYearlyStatistics> findByStoreIdInAndPeriodYearAndPeriodNumber(List<Long> storeIds, int periodYear, int periodNumber);
 
     /**
-     * Delete yearly statistics for a store.
+     * Удалить годовую статистику конкретного магазина.
      */
     @Modifying
     @Transactional
@@ -36,7 +36,7 @@ public interface StoreYearlyStatisticsRepository extends JpaRepository<StoreYear
     void deleteByStoreId(@Param("storeId") Long storeId);
 
     /**
-     * Delete yearly statistics for all stores of a user.
+     * Удалить годовую статистику всех магазинов пользователя.
      */
     @Modifying
     @Transactional

@@ -27,7 +27,7 @@ public interface PostalServiceMonthlyStatisticsRepository extends JpaRepository<
     Optional<PostalServiceMonthlyStatistics> findByStoreIdAndPostalServiceTypeAndPeriodYearAndPeriodNumber(Long storeId, PostalServiceType postalServiceType, int periodYear, int periodNumber);
 
     /**
-     * Delete monthly statistics for a store.
+     * Удалить месячную статистику конкретного магазина.
      */
     @Modifying
     @Transactional
@@ -35,7 +35,7 @@ public interface PostalServiceMonthlyStatisticsRepository extends JpaRepository<
     void deleteByStoreId(@Param("storeId") Long storeId);
 
     /**
-     * Delete monthly statistics for all stores of a user.
+     * Удалить месячную статистику всех магазинов пользователя.
      */
     @Modifying
     @Transactional
