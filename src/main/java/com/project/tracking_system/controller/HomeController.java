@@ -60,7 +60,7 @@ public class HomeController {
     private final PasswordResetService passwordResetService;
     private final TrackingNumberServiceXLS trackingNumberServiceXLS;
     private final StoreService storeService;
-    //private final TrackNumberOcrService trackNumberOcrService;
+    private final TrackNumberOcrService trackNumberOcrService;
 
     /**
      * Обрабатывает запросы на главной странице. Отображает домашнюю страницу.
@@ -379,9 +379,9 @@ public class HomeController {
                 model.addAttribute("trackingResults", trackingResponse.getTrackingResults());
                 model.addAttribute("limitExceededMessage", trackingResponse.getLimitExceededMessage());
             } else if (contentType.startsWith("image/")) {
-//                String recognizedText = trackNumberOcrService.processImage(file);
-//                List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, storeId, userId);
-//                model.addAttribute("trackingResults", trackingResults);
+                String recognizedText = trackNumberOcrService.processImage(file);
+                List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, storeId, userId);
+                model.addAttribute("trackingResults", trackingResults);
 
                 return "home";
             } else {
