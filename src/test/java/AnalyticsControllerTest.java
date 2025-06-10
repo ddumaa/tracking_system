@@ -7,6 +7,7 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.analytics.PostalServiceStatisticsService;
 import com.project.tracking_system.service.analytics.StoreAnalyticsService;
 import com.project.tracking_system.service.analytics.StoreDashboardDataService;
+import com.project.tracking_system.service.analytics.AnalyticsResetService;
 import com.project.tracking_system.service.store.StoreService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +48,8 @@ public class AnalyticsControllerTest {
     private StoreDashboardDataService storeDashboardDataService;
     @MockBean
     private WebSocketController webSocketController;
+    @MockBean
+    private AnalyticsResetService analyticsResetService;
 
     private Authentication auth(User user) {
         return new UsernamePasswordAuthenticationToken(user, user.getPassword(), user.getAuthorities());
@@ -147,5 +150,31 @@ public class AnalyticsControllerTest {
                 .andExpect(status().isOk());
 
         verify(storeAnalyticsService).updateStoreAnalytics(2L);
+    }
+
+    @Test
+    void resetAllAnalytics_CallsService() throws Exception {
+        User user = new User();
+        user.setId(1L);
+        user.setRole(Role.ROLE_USER);
+
+        mockMvc.perform(post("/analytics/reset/all")
+                        .with(SecurityMockMvcRequestPostProcessors.authentication(auth(user))))
+                .andExpect(status().isOk());
+
+        verify(analyticsResetService).resetAllAnalytics(1L);
+    }
+
+    @Test
+    void resetAnalyticsForStore_CallsService() throws Exception {
+        User user = new User();
+        user.setId(1L);
+        user.setRole(Role.ROLE_USER);
+
+        mockMvc.perform(post("/analytics/reset/store/5")
+                        .with(SecurityMockMvcRequestPostProcessors.authentication(auth(user))))
+                .andExpect(status().isOk());
+
+        verify(analyticsResetService).resetStoreAnalytics(1L, 5L);
     }
 }

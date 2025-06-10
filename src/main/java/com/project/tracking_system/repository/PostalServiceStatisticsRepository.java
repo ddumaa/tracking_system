@@ -3,6 +3,10 @@ package com.project.tracking_system.repository;
 import com.project.tracking_system.entity.PostalServiceStatistics;
 import com.project.tracking_system.entity.PostalServiceType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,5 +31,25 @@ public interface PostalServiceStatisticsRepository extends JpaRepository<PostalS
      * Получить статистику для нескольких магазинов.
      */
     List<PostalServiceStatistics> findByStoreIdIn(List<Long> storeIds);
+
+    /**
+     * Удалить статистику почтовых служб конкретного магазина.
+     *
+     * @param storeId идентификатор магазина
+     */
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM PostalServiceStatistics p WHERE p.store.id = :storeId")
+    void deleteByStoreId(@Param("storeId") Long storeId);
+
+    /**
+     * Удалить всю статистику почтовых служб пользователя.
+     *
+     * @param userId идентификатор пользователя
+     */
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM PostalServiceStatistics p WHERE p.store.owner.id = :userId")
+    void deleteByUserId(@Param("userId") Long userId);
 
 }

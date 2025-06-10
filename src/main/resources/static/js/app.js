@@ -408,6 +408,7 @@ document.addEventListener("click", function (event) {
 }, true);
 
 let storeToDelete = null;
+let analyticsActionUrl = null;
 
 /**
  * Загружает магазины пользователя и обновляет таблицу
@@ -462,6 +463,32 @@ async function loadStores() {
     enableTooltips();
 
     console.info("✅ Магазины успешно загружены и отрисованы.");
+}
+
+/**
+ * Загружает магазины и формирует кнопки для очистки аналитики.
+ */
+async function loadAnalyticsButtons() {
+    const response = await fetch('/profile/stores');
+    if (!response.ok) return;
+
+    const stores = await response.json();
+    const container = document.getElementById('storeAnalyticsButtons');
+    if (!container) return;
+
+    container.innerHTML = '';
+    stores.forEach(store => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-outline-warning btn-sm me-2 reset-store-analytics-btn';
+        btn.dataset.storeId = store.id;
+        btn.dataset.storeName = store.name;
+        btn.innerHTML = `🧹 Очистить аналитику — ${store.name}`;
+        const wrap = document.createElement('div');
+        wrap.className = 'mb-2';
+        wrap.appendChild(btn);
+        container.appendChild(wrap);
+    });
 }
 
 /**
@@ -656,6 +683,32 @@ async function updateStoreLimit() {
     }
 }
 
+function showResetModal(message) {
+    const modalEl = document.getElementById('resetAnalyticsModal');
+    const msgEl = document.getElementById('resetAnalyticsMessage');
+    const confirmBtn = document.getElementById('confirmResetAnalytics');
+    if (!modalEl || !msgEl || !confirmBtn) return;
+    msgEl.textContent = message;
+    const modal = new bootstrap.Modal(modalEl);
+    confirmBtn.onclick = async function () {
+        if (!analyticsActionUrl) return;
+        try {
+            const response = await fetch(analyticsActionUrl, { method: 'POST', headers: { [window.csrfHeader]: window.csrfToken } });
+            if (response.ok) {
+                notifyUser('Аналитика успешно удалена.', 'success');
+                loadAnalyticsButtons();
+            } else {
+                notifyUser('Ошибка при удалении аналитики', 'danger');
+            }
+        } catch (e) {
+            notifyUser('Ошибка сети', 'danger');
+        }
+        analyticsActionUrl = null;
+        modal.hide();
+    };
+    modal.show();
+}
+
 /**
  * Обработчик выбора магазина по умолчанию (с проверкой наличия элемента)
  */
@@ -699,6 +752,8 @@ document.addEventListener("DOMContentLoaded", function () {
     // === Добавляем CSRF-токен ===
     const csrfToken = document.querySelector('meta[name="_csrf"]')?.content || "";
     const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || "";
+    window.csrfToken = csrfToken;
+    window.csrfHeader = csrfHeader;
 
     // === WebSocket ===
     connectWebSocket();
@@ -809,6 +864,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Загружаем список магазинов
         loadStores();
+        loadAnalyticsButtons();
 
         storeTableBody.addEventListener("click", function (event) {
             event.preventDefault(); // ❗ ОТМЕНЯЕМ ПЕРЕЗАГРУЗКУ СТРАНИЦЫ
@@ -844,6 +900,19 @@ document.addEventListener("DOMContentLoaded", function () {
     if (confirmDeleteBtn) {
         confirmDeleteBtn.addEventListener("click", deleteStore);
     }
+
+    // === Управление аналитикой ===
+    document.getElementById("resetAllAnalyticsBtn")?.addEventListener("click", () => {
+        analyticsActionUrl = "/analytics/reset/all";
+        showResetModal("Вы уверены, что хотите удалить всю аналитику?");
+    });
+
+    document.body.addEventListener("click", function (event) {
+        const btn = event.target.closest(".reset-store-analytics-btn");
+        if (!btn) return;
+        analyticsActionUrl = `/analytics/reset/store/${btn.dataset.storeId}`;
+        showResetModal(`Очистить аналитику магазина \u00AB${btn.dataset.storeName}\u00BB?`);
+    });
 
     /**
      * Отправления - модальное окно каждого трека с информацией

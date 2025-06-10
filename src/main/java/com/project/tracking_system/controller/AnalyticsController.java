@@ -7,6 +7,7 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.analytics.PostalServiceStatisticsService;
 import com.project.tracking_system.service.analytics.StoreAnalyticsService;
 import com.project.tracking_system.service.analytics.StoreDashboardDataService;
+import com.project.tracking_system.service.analytics.AnalyticsResetService;
 import com.project.tracking_system.service.store.StoreService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,7 @@ public class AnalyticsController {
     private final StoreAnalyticsService storeAnalyticsService;
     private final StoreService storeService;
     private final StoreDashboardDataService storeDashboardDataService;
+    private final AnalyticsResetService analyticsResetService;
     private final WebSocketController webSocketController;
 
     /**
@@ -256,6 +258,27 @@ public class AnalyticsController {
                 "periodStats",   periodStats,
                 "storeStatistics", storeStats
         );
+    }
+
+    /**
+     * Удаляет всю аналитику пользователя.
+     */
+    @PostMapping("/reset/all")
+    public ResponseEntity<Void> resetAllAnalyticsForUser(@AuthenticationPrincipal User user) {
+        analyticsResetService.resetAllAnalytics(user.getId());
+        webSocketController.sendUpdateStatus(user.getId(), "Аналитика удалена", true);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Удаляет аналитику конкретного магазина пользователя.
+     */
+    @PostMapping("/reset/store/{storeId}")
+    public ResponseEntity<Void> resetAnalyticsForStore(@PathVariable Long storeId,
+                                                       @AuthenticationPrincipal User user) {
+        analyticsResetService.resetStoreAnalytics(user.getId(), storeId);
+        webSocketController.sendUpdateStatus(user.getId(), "Аналитика магазина удалена", true);
+        return ResponseEntity.ok().build();
     }
 
 }
