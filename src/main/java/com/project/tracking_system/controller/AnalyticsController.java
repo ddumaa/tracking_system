@@ -26,6 +26,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 
+import com.project.tracking_system.util.AuthUtils;
+import com.project.tracking_system.exception.UserNotAuthenticatedException;
+
 /**
  * @author Dmitriy Anisimov
  * @date 13.03.2025
@@ -57,7 +60,10 @@ public class AnalyticsController {
             HttpServletRequest request) {
 
         // 1) Проверяем аутентификацию
-        if (!(authentication.getPrincipal() instanceof User user)) {
+        User user;
+        try {
+            user = AuthUtils.getCurrentUser(authentication);
+        } catch (UserNotAuthenticatedException ex) {
             log.debug("Попытка доступа к аналитике без аутентификации.");
             return "redirect:/login";
         }
@@ -169,7 +175,10 @@ public class AnalyticsController {
     @PostMapping("/update")
     public ResponseEntity<?> updateAnalytics(@RequestParam(required = false) Long storeId,
                                              Authentication authentication) {
-        if (!(authentication.getPrincipal() instanceof User user)) {
+        User user;
+        try {
+            user = AuthUtils.getCurrentUser(authentication);
+        } catch (UserNotAuthenticatedException ex) {
             log.warn("Попытка обновления аналитики без аутентификации.");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("message", "Вы не авторизованы"));
@@ -208,9 +217,7 @@ public class AnalyticsController {
     public Map<String, Object> getAnalyticsJson(@RequestParam(required = false) Long storeId,
                                                 @RequestParam(defaultValue = "WEEKS") String interval,
                                                 Authentication authentication) {
-        if (!(authentication.getPrincipal() instanceof User user)) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-        }
+        User user = AuthUtils.getCurrentUser(authentication);
 
         Long userId = user.getId();
         List<Store> stores = storeService.getUserStores(userId);
