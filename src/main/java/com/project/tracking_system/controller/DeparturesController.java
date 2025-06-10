@@ -16,8 +16,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import com.project.tracking_system.util.AuthUtils;
+import com.project.tracking_system.exception.UserNotAuthenticatedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -66,7 +67,10 @@ public class DeparturesController {
             Model model,
             Authentication authentication) {
 
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
+        User user;
+        try {
+            user = AuthUtils.getCurrentUser(authentication);
+        } catch (UserNotAuthenticatedException ex) {
             log.debug("Попытка доступа к странице 'Отправления' без аутентификации.");
             return "redirect:/login";
         }
@@ -151,9 +155,7 @@ public class DeparturesController {
             @PathVariable("itemNumber") String itemNumber,
             Authentication authentication) {
 
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
-            throw new RuntimeException("Пользователь не аутентифицирован.");
-        }
+        User user = AuthUtils.getCurrentUser(authentication);
 
         Long userId = user.getId();
         log.info("🔍 Запрос информации о посылке {} для пользователя ID={}", itemNumber, userId);
@@ -185,8 +187,10 @@ public class DeparturesController {
             @RequestParam(required = false) List<String> selectedNumbers,
             Authentication authentication
     ) {
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth)
-                || !(auth.getPrincipal() instanceof User user)) {
+        User user;
+        try {
+            user = AuthUtils.getCurrentUser(authentication);
+        } catch (UserNotAuthenticatedException ex) {
             log.warn("❌ Попытка обновления посылок без аутентификации.");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
@@ -228,7 +232,10 @@ public class DeparturesController {
             @RequestParam List<String> selectedNumbers,
             Authentication authentication) {
 
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
+        User user;
+        try {
+            user = AuthUtils.getCurrentUser(authentication);
+        } catch (UserNotAuthenticatedException ex) {
             log.warn("Попытка удаления посылок без аутентификации.");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Ошибка: Необходимо войти в систему.");
         }

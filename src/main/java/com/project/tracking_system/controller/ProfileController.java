@@ -6,6 +6,8 @@ import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.UserService;
+import com.project.tracking_system.util.AuthUtils;
+import com.project.tracking_system.exception.UserNotAuthenticatedException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -13,7 +15,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
@@ -58,7 +59,10 @@ public class ProfileController {
      */
     @GetMapping
     public String profile(Model model, Authentication authentication) {
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
+        User user;
+        try {
+            user = AuthUtils.getCurrentUser(authentication);
+        } catch (UserNotAuthenticatedException ex) {
             log.warn("Попытка доступа к профилю неаутентифицированного пользователя.");
             return "redirect:/login"; // Перенаправляем на страницу входа
         }
@@ -95,7 +99,10 @@ public class ProfileController {
             Model model,
             Authentication authentication) {
 
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
+        User user;
+        try {
+            user = AuthUtils.getCurrentUser(authentication);
+        } catch (UserNotAuthenticatedException ex) {
             log.warn("Попытка доступа к настройкам без аутентификации.");
             return "redirect:/login"; // Перенаправление, если пользователь не аутентифицирован
         }
@@ -118,7 +125,10 @@ public class ProfileController {
             @Valid @ModelAttribute("evropostCredentialsDTO") EvropostCredentialsDTO evropostCredentialsDTO,
             BindingResult bindingResult, Model model, Authentication authentication) {
 
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
+        User user;
+        try {
+            user = AuthUtils.getCurrentUser(authentication);
+        } catch (UserNotAuthenticatedException ex) {
             log.warn("Попытка обновления данных Европочты без аутентификации.");
             return "redirect:/login"; // Защита от неаутентифицированных пользователей
         }
@@ -159,7 +169,10 @@ public class ProfileController {
             @RequestParam(value = "useCustomCredentials", required = false) Boolean useCustomCredentials,
             Authentication authentication) {
 
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
+        User user;
+        try {
+            user = AuthUtils.getCurrentUser(authentication);
+        } catch (UserNotAuthenticatedException ex) {
             log.warn("Попытка обновления настроек без аутентификации.");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Необходима аутентификация");
         }
@@ -200,7 +213,10 @@ public class ProfileController {
                                  @Valid @ModelAttribute("userSettingsDTO") UserSettingsDTO userSettingsDTO,
                                  BindingResult result,
                                  Authentication authentication) {
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
+        User user;
+        try {
+            user = AuthUtils.getCurrentUser(authentication);
+        } catch (UserNotAuthenticatedException ex) {
             log.warn("Попытка смены пароля без аутентификации.");
             return "redirect:/login"; // Защита от неаутентифицированных пользователей
         }
@@ -240,7 +256,10 @@ public class ProfileController {
      */
     @PostMapping("/settings/delete")
     public String delete(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
-        if (authentication == null || !(authentication.getPrincipal() instanceof User user)) {
+        User user;
+        try {
+            user = AuthUtils.getCurrentUser(authentication);
+        } catch (UserNotAuthenticatedException ex) {
             log.warn("Попытка удаления учетной записи без аутентификации.");
             return "redirect:/login"; // Отправляем на логин, если пользователь не аутентифицирован
         }
@@ -323,10 +342,7 @@ public class ProfileController {
     @GetMapping("/stores/limit")
     @ResponseBody
     public String getStoreLimit(Authentication authentication) {
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
-            throw new SecurityException("Необходима аутентификация");
-        }
-
+        User user = AuthUtils.getCurrentUser(authentication);
         return userService.getUserStoreLimit(user.getId());
     }
 
