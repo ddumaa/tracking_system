@@ -3,6 +3,10 @@ package com.project.tracking_system.repository;
 import com.project.tracking_system.entity.PostalServiceDailyStatistics;
 import com.project.tracking_system.entity.PostalServiceType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -60,4 +64,20 @@ public interface PostalServiceDailyStatisticsRepository extends JpaRepository<Po
      * @return список ежедневной статистики
      */
     List<PostalServiceDailyStatistics> findByDate(LocalDate date);
+
+    /**
+     * Удалить ежедневную статистику конкретного магазина.
+     */
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM PostalServiceDailyStatistics s WHERE s.store.id = :storeId")
+    void deleteByStoreId(@Param("storeId") Long storeId);
+
+    /**
+     * Удалить ежедневную статистику всех магазинов пользователя.
+     */
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM PostalServiceDailyStatistics s WHERE s.store.owner.id = :userId")
+    void deleteByUserId(@Param("userId") Long userId);
 }

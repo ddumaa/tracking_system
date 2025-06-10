@@ -52,4 +52,42 @@ public interface PostalServiceStatisticsRepository extends JpaRepository<PostalS
     @Query("DELETE FROM PostalServiceStatistics p WHERE p.store.owner.id = :userId")
     void deleteByUserId(@Param("userId") Long userId);
 
+    /**
+     * Обнулить счётчики для всех служб доставки магазинов пользователя.
+     *
+     * @param userId идентификатор пользователя
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE PostalServiceStatistics p
+        SET p.totalSent = 0,
+            p.totalDelivered = 0,
+            p.totalReturned = 0,
+            p.sumDeliveryDays = 0,
+            p.sumPickupDays = 0,
+            p.updatedAt = NULL
+        WHERE p.store.owner.id = :userId
+        """)
+    void resetByUserId(@Param("userId") Long userId);
+
+    /**
+     * Обнулить счётчики служб доставки конкретного магазина.
+     *
+     * @param storeId идентификатор магазина
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE PostalServiceStatistics p
+        SET p.totalSent = 0,
+            p.totalDelivered = 0,
+            p.totalReturned = 0,
+            p.sumDeliveryDays = 0,
+            p.sumPickupDays = 0,
+            p.updatedAt = NULL
+        WHERE p.store.id = :storeId
+        """)
+    void resetByStoreId(@Param("storeId") Long storeId);
+
 }

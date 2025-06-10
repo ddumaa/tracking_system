@@ -2,6 +2,14 @@ package com.project.tracking_system.service.analytics;
 
 import com.project.tracking_system.repository.PostalServiceStatisticsRepository;
 import com.project.tracking_system.repository.StoreAnalyticsRepository;
+import com.project.tracking_system.repository.StoreDailyStatisticsRepository;
+import com.project.tracking_system.repository.StoreWeeklyStatisticsRepository;
+import com.project.tracking_system.repository.StoreMonthlyStatisticsRepository;
+import com.project.tracking_system.repository.StoreYearlyStatisticsRepository;
+import com.project.tracking_system.repository.PostalServiceDailyStatisticsRepository;
+import com.project.tracking_system.repository.PostalServiceWeeklyStatisticsRepository;
+import com.project.tracking_system.repository.PostalServiceMonthlyStatisticsRepository;
+import com.project.tracking_system.repository.PostalServiceYearlyStatisticsRepository;
 import com.project.tracking_system.service.store.StoreService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +26,14 @@ public class AnalyticsResetService {
 
     private final StoreAnalyticsRepository storeAnalyticsRepository;
     private final PostalServiceStatisticsRepository postalStatisticsRepository;
+    private final StoreDailyStatisticsRepository storeDailyRepo;
+    private final StoreWeeklyStatisticsRepository storeWeeklyRepo;
+    private final StoreMonthlyStatisticsRepository storeMonthlyRepo;
+    private final StoreYearlyStatisticsRepository storeYearlyRepo;
+    private final PostalServiceDailyStatisticsRepository psDailyRepo;
+    private final PostalServiceWeeklyStatisticsRepository psWeeklyRepo;
+    private final PostalServiceMonthlyStatisticsRepository psMonthlyRepo;
+    private final PostalServiceYearlyStatisticsRepository psYearlyRepo;
     private final StoreService storeService;
 
     /**
@@ -27,9 +43,22 @@ public class AnalyticsResetService {
      */
     @Transactional
     public void resetAllAnalytics(Long userId) {
-        log.info("\uD83D\uDD04 Удаляем всю аналитику пользователя ID={}", userId);
-        storeAnalyticsRepository.deleteByUserId(userId);
-        postalStatisticsRepository.deleteByUserId(userId);
+        log.info("\uD83D\uDD04 Сбрасываем аналитику пользователя ID={}", userId);
+
+        // Обнуляем суммарные счётчики
+        storeAnalyticsRepository.resetByUserId(userId);
+        postalStatisticsRepository.resetByUserId(userId);
+
+        // Удаляем агрегированные данные по периодам
+        storeDailyRepo.deleteByUserId(userId);
+        storeWeeklyRepo.deleteByUserId(userId);
+        storeMonthlyRepo.deleteByUserId(userId);
+        storeYearlyRepo.deleteByUserId(userId);
+
+        psDailyRepo.deleteByUserId(userId);
+        psWeeklyRepo.deleteByUserId(userId);
+        psMonthlyRepo.deleteByUserId(userId);
+        psYearlyRepo.deleteByUserId(userId);
     }
 
     /**
@@ -42,8 +71,23 @@ public class AnalyticsResetService {
     @Transactional
     public void resetStoreAnalytics(Long userId, Long storeId) {
         storeService.checkStoreOwnership(storeId, userId);
-        log.info("\uD83D\uDD04 Удаляем аналитику магазина ID={} пользователя ID={}", storeId, userId);
-        storeAnalyticsRepository.deleteByStoreId(storeId);
-        postalStatisticsRepository.deleteByStoreId(storeId);
+        log.info("\uD83D\uDD04 Сбрасываем аналитику магазина ID={} пользователя ID={}", storeId, userId);
+
+        // Обнуляем суммарные счётчики магазина
+        storeAnalyticsRepository.resetByStoreId(storeId);
+        postalStatisticsRepository.resetByStoreId(storeId);
+
+        // Удаляем периодическую статистику
+        storeDailyRepo.deleteByStoreId(storeId);
+        storeWeeklyRepo.deleteByStoreId(storeId);
+        storeMonthlyRepo.deleteByStoreId(storeId);
+        storeYearlyRepo.deleteByStoreId(storeId);
+
+        psDailyRepo.deleteByStoreId(storeId);
+        psWeeklyRepo.deleteByStoreId(storeId);
+        psMonthlyRepo.deleteByStoreId(storeId);
+        psYearlyRepo.deleteByStoreId(storeId);
+
+        log.info("Analytics reset for store {} by user {}", storeId, userId);
     }
 }
