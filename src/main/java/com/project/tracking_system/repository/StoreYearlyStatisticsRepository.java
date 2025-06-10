@@ -2,6 +2,10 @@ package com.project.tracking_system.repository;
 
 import com.project.tracking_system.entity.StoreYearlyStatistics;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -22,4 +26,20 @@ public interface StoreYearlyStatisticsRepository extends JpaRepository<StoreYear
      * @return список годовой статистики, по одному элементу на магазин
      */
     List<StoreYearlyStatistics> findByStoreIdInAndPeriodYearAndPeriodNumber(List<Long> storeIds, int periodYear, int periodNumber);
+
+    /**
+     * Delete yearly statistics for a store.
+     */
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM StoreYearlyStatistics s WHERE s.store.id = :storeId")
+    void deleteByStoreId(@Param("storeId") Long storeId);
+
+    /**
+     * Delete yearly statistics for all stores of a user.
+     */
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM StoreYearlyStatistics s WHERE s.store.owner.id = :userId")
+    void deleteByUserId(@Param("userId") Long userId);
 }

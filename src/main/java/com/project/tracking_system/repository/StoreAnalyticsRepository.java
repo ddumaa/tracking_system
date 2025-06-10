@@ -55,5 +55,43 @@ public interface StoreAnalyticsRepository extends JpaRepository<StoreStatistics,
     @Query("DELETE FROM StoreStatistics s WHERE s.store.owner.id = :userId")
     void deleteByUserId(@Param("userId") Long userId);
 
+    /**
+     * Reset counters for all stores of a user.
+     *
+     * @param userId user identifier
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE StoreStatistics s
+        SET s.totalSent = 0,
+            s.totalDelivered = 0,
+            s.totalReturned = 0,
+            s.sumDeliveryDays = 0,
+            s.sumPickupDays = 0,
+            s.updatedAt = NULL
+        WHERE s.store.owner.id = :userId
+        """)
+    void resetByUserId(@Param("userId") Long userId);
+
+    /**
+     * Reset counters for a single store.
+     *
+     * @param storeId store identifier
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE StoreStatistics s
+        SET s.totalSent = 0,
+            s.totalDelivered = 0,
+            s.totalReturned = 0,
+            s.sumDeliveryDays = 0,
+            s.sumPickupDays = 0,
+            s.updatedAt = NULL
+        WHERE s.store.id = :storeId
+        """)
+    void resetByStoreId(@Param("storeId") Long storeId);
+
 
 }
