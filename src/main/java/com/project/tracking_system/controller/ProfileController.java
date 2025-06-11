@@ -7,6 +7,7 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.util.AuthUtils;
+import com.project.tracking_system.util.ResponseBuilder;
 import com.project.tracking_system.exception.UserNotAuthenticatedException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -174,7 +175,7 @@ public class ProfileController {
             user = AuthUtils.getCurrentUser(authentication);
         } catch (UserNotAuthenticatedException ex) {
             log.warn("Попытка обновления настроек без аутентификации.");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Необходима аутентификация");
+            return ResponseBuilder.error(HttpStatus.UNAUTHORIZED, "Необходима аутентификация");
         }
 
         Long userId = user.getId();
@@ -182,17 +183,16 @@ public class ProfileController {
 
         if (useCustomCredentials == null) {
             log.warn("Не указан параметр 'useCustomCredentials' для пользователя с ID: {}", userId);
-            return ResponseEntity.badRequest().body("Не указан параметр useCustomCredentials");
+            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Не указан параметр useCustomCredentials");
         }
 
         try {
             userService.updateUseCustomCredentials(userId, useCustomCredentials);
             log.info("Флаг 'useCustomCredentials' успешно обновлён для пользователя с ID: {}", userId);
-            return ResponseEntity.ok("Настройки успешно обновлены.");
+            return ResponseBuilder.ok("Настройки успешно обновлены.");
         } catch (Exception e) {
             log.error("Ошибка при обновлении настройки для пользователя с ID {}: {}", userId, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Ошибка при обновлении настроек.");
+            return ResponseBuilder.error(HttpStatus.INTERNAL_SERVER_ERROR, "Ошибка при обновлении настроек.");
         }
     }
 
@@ -293,10 +293,10 @@ public class ProfileController {
                                          @RequestBody Map<String, String> request) {
         try {
             Store store = storeService.createStore(user.getId(), request.get("name"));
-            return ResponseEntity.ok(store);
+            return ResponseBuilder.ok(store);
         } catch (IllegalStateException e) {
             webSocketController.sendUpdateStatus(user.getId(), "❌ Ошибка: " + e.getMessage(), false);
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+            return ResponseBuilder.error(HttpStatus.FORBIDDEN, e.getMessage());
         }
     }
 
@@ -310,10 +310,10 @@ public class ProfileController {
                                          @RequestBody Map<String, String> request) {
         try {
             Store updatedStore = storeService.updateStore(storeId, user.getId(), request.get("name"));
-            return ResponseEntity.ok(updatedStore);
+            return ResponseBuilder.ok(updatedStore);
         } catch (SecurityException e) {
             webSocketController.sendUpdateStatus(user.getId(), "❌ Ошибка: " + e.getMessage(), false);
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+            return ResponseBuilder.error(HttpStatus.FORBIDDEN, e.getMessage());
         }
     }
 
@@ -326,10 +326,10 @@ public class ProfileController {
                                          @PathVariable Long storeId) {
         try {
             storeService.deleteStore(storeId, user.getId());
-            return ResponseEntity.ok().build();
+            return ResponseBuilder.ok();
         } catch (SecurityException e) {
             webSocketController.sendUpdateStatus(user.getId(), "❌ Ошибка: " + e.getMessage(), false);
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+            return ResponseBuilder.error(HttpStatus.FORBIDDEN, e.getMessage());
         }
     }
 
@@ -352,10 +352,10 @@ public class ProfileController {
                                                   @PathVariable Long storeId) {
         try {
             storeService.setDefaultStore(user.getId(), storeId);
-            return ResponseEntity.ok("Магазин по умолчанию установлен.");
+            return ResponseBuilder.ok("Магазин по умолчанию установлен.");
         } catch (Exception e) {
             log.error("Ошибка установки магазина по умолчанию: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, e.getMessage());
         }
     }
 
