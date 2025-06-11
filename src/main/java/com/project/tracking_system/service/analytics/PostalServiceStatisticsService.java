@@ -25,7 +25,7 @@ public class PostalServiceStatisticsService {
      * Репозиторий выдаёт отдельную запись {@link PostalServiceStatistics}
      * для каждой службы доставки. В этих записях уже содержатся накопленные
      * счётчики, которые копируются в {@link PostalServiceStatsDTO} через
-     * {@link #mapToDto(PostalServiceStatistics)}.
+     * {@link PostalServiceStatisticsMapper}.
      * </p>
      *
      * @param storeId идентификатор магазина
