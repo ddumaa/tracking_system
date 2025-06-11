@@ -24,9 +24,10 @@ public interface TrackParcelMapper {
      * @param userZone часовой пояс пользователя
      * @return DTO с информацией о посылке
      */
-    @Mapping(target = "status", expression = "java(parcel.getStatus().getDescription())")
+    @Mapping(target = "status", source = "status.description")
+    @Mapping(target = "iconHtml", source = "status.iconHtml")
     @Mapping(target = "data", source = "data", qualifiedByName = "formatDate")
-    @Mapping(target = "storeId", expression = "java(parcel.getStore().getId())")
+    @Mapping(target = "storeId", source = "store.id")
     TrackParcelDTO toDto(TrackParcel parcel, @Context ZoneId userZone);
 
     /**

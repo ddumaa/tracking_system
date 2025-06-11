@@ -17,7 +17,7 @@ public interface PostalServiceStatisticsMapper {
      * @param stats сущность статистики
      * @return объект DTO
      */
-    @Mapping(target = "postalService", expression = "java(stats.getPostalServiceType().getDisplayName())")
+    @Mapping(target = "postalService", source = "postalServiceType.displayName")
     @Mapping(target = "sent", source = "totalSent")
     @Mapping(target = "delivered", source = "totalDelivered")
     @Mapping(target = "returned", source = "totalReturned")
