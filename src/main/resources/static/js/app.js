@@ -258,7 +258,7 @@ function connectWebSocket() {
 
     stompClient = new StompJs.Client({
         //'wss://belivery.by/ws', 'ws://localhost:8080/ws',
-        brokerURL: 'wss://belivery.by/ws',
+        brokerURL: 'ws://localhost:8080/ws',
         reconnectDelay: 1000,
         heartbeatIncoming: 0,
         heartbeatOutgoing: 0,
@@ -477,6 +477,7 @@ async function loadAnalyticsButtons() {
     if (!container) return;
 
     container.innerHTML = '';
+
     stores.forEach(store => {
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -486,8 +487,17 @@ async function loadAnalyticsButtons() {
         btn.setAttribute('data-bs-toggle', 'tooltip');
         btn.title = `Очистить аналитику магазина «${store.name}»`;
         btn.innerHTML = `<i class="bi bi-brush me-2"></i> Очистить аналитику — ${store.name}`;
+
+        // ✅ обработчик клика на кнопку
+        btn.addEventListener('click', () => {
+            analyticsActionUrl = `/analytics/reset/store/${store.id}`;
+            showResetModal(`Вы действительно хотите очистить аналитику магазина «${store.name}»?`);
+        });
+
         container.appendChild(btn);
     });
+
+    // повторно инициализируем Bootstrap tooltip (если используется)
     enableTooltips(container);
 }
 

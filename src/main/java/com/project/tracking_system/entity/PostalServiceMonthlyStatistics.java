@@ -20,7 +20,7 @@ import java.time.ZonedDateTime;
 @Entity
 @Table(name = "tb_postal_service_statistics_monthly",
        uniqueConstraints = @UniqueConstraint(columnNames = {"store_id", "postal_service_type", "period_year", "period_number"}))
-public class PostalServiceMonthlyStatistics {
+public class PostalServiceMonthlyStatistics implements Aggregatable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
