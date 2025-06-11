@@ -9,7 +9,7 @@ import org.springframework.http.ResponseEntity;
  */
 @UtilityClass
 public class ResponseBuilder {
-
+  
     /**
      * Возвращает успешный ответ с телом.
      *
@@ -36,18 +36,19 @@ public class ResponseBuilder {
      * @param status HTTP-статус ошибки
      * @return ResponseEntity с указанным статусом
      */
-    public static ResponseEntity<Void> error(HttpStatus status) {
+    public static <T> ResponseEntity<T> error(HttpStatus status) {
         return ResponseEntity.status(status).build();
     }
 
     /**
      * Возвращает ответ с ошибкой и сообщением.
      *
-     * @param status  HTTP-статус ошибки
-     * @param message текст сообщения
-     * @return ResponseEntity с указанным статусом и сообщением
+     * @param status HTTP-статус ошибки
+     * @param message тело ответа
+     * @param <T>     тип тела
+     * @return ResponseEntity с указанным статусом и телом
      */
-    public static ResponseEntity<String> error(HttpStatus status, String message) {
+    public static <T> ResponseEntity<T> error(HttpStatus status, T message) {
         return ResponseEntity.status(status).body(message);
     }
 }
