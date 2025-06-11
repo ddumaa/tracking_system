@@ -13,7 +13,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import com.project.tracking_system.utils.ResponseBuilder;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.Authentication;
 import com.project.tracking_system.utils.AuthUtils;
@@ -154,16 +153,17 @@ public class ProfileController {
 
         if (useCustomCredentials == null) {
             log.warn("Не указан параметр 'useCustomCredentials' для пользователя с ID: {}", userId);
-            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Не указан параметр useCustomCredentials");
+            return ResponseEntity.badRequest().body("Не указан параметр useCustomCredentials");
         }
 
         try {
             userService.updateUseCustomCredentials(userId, useCustomCredentials);
             log.info("Флаг 'useCustomCredentials' успешно обновлён для пользователя с ID: {}", userId);
-            return ResponseBuilder.ok("Настройки успешно обновлены.");
+            return ResponseEntity.ok("Настройки успешно обновлены.");
         } catch (Exception e) {
             log.error("Ошибка при обновлении настройки для пользователя с ID {}: {}", userId, e.getMessage(), e);
-            return ResponseBuilder.error(HttpStatus.INTERNAL_SERVER_ERROR, "Ошибка при обновлении настроек.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Ошибка при обновлении настроек.");
         }
     }
 
@@ -250,10 +250,10 @@ public class ProfileController {
                                          @RequestBody Map<String, String> request) {
         try {
             Store store = storeService.createStore(user.getId(), request.get("name"));
-            return ResponseBuilder.ok(store);
+            return ResponseEntity.ok(store);
         } catch (IllegalStateException e) {
             webSocketController.sendUpdateStatus(user.getId(), "❌ Ошибка: " + e.getMessage(), false);
-            return ResponseBuilder.error(HttpStatus.FORBIDDEN, e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         }
     }
 
@@ -267,10 +267,10 @@ public class ProfileController {
                                          @RequestBody Map<String, String> request) {
         try {
             Store updatedStore = storeService.updateStore(storeId, user.getId(), request.get("name"));
-            return ResponseBuilder.ok(updatedStore);
+            return ResponseEntity.ok(updatedStore);
         } catch (SecurityException e) {
             webSocketController.sendUpdateStatus(user.getId(), "❌ Ошибка: " + e.getMessage(), false);
-            return ResponseBuilder.error(HttpStatus.FORBIDDEN, e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         }
     }
 
@@ -283,10 +283,10 @@ public class ProfileController {
                                          @PathVariable Long storeId) {
         try {
             storeService.deleteStore(storeId, user.getId());
-            return ResponseBuilder.ok(null);
+            return ResponseEntity.ok().build();
         } catch (SecurityException e) {
             webSocketController.sendUpdateStatus(user.getId(), "❌ Ошибка: " + e.getMessage(), false);
-            return ResponseBuilder.error(HttpStatus.FORBIDDEN, e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         }
     }
 
@@ -309,10 +309,10 @@ public class ProfileController {
                                                   @PathVariable Long storeId) {
         try {
             storeService.setDefaultStore(user.getId(), storeId);
-            return ResponseBuilder.ok("Магазин по умолчанию установлен.");
+            return ResponseEntity.ok("Магазин по умолчанию установлен.");
         } catch (Exception e) {
             log.error("Ошибка установки магазина по умолчанию: {}", e.getMessage());
-            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 

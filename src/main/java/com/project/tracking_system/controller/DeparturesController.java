@@ -15,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import com.project.tracking_system.utils.ResponseBuilder;
 
 import org.springframework.security.core.Authentication;
 import com.project.tracking_system.utils.AuthUtils;
@@ -193,12 +192,12 @@ public class DeparturesController {
 
             // Отправляем WebSocket-уведомление
             webSocketController.sendDetailUpdateStatus(userId, result);
-            return ResponseBuilder.ok(result);
+            return ResponseEntity.ok(result);
 
         } catch (Exception e) {
             log.error("❌ Ошибка при обновлении посылок: userId={}, ошибка={}", userId, e.getMessage(), e);
             webSocketController.sendUpdateStatus(userId, "Произошла ошибка обновления.", false);
-            return ResponseBuilder.error(HttpStatus.INTERNAL_SERVER_ERROR, "Ошибка обновления посылок");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
@@ -222,18 +221,18 @@ public class DeparturesController {
 
         if (selectedNumbers == null || selectedNumbers.isEmpty()) {
             log.warn("Попытка удаления без выбранных посылок пользователем с ID: {}", userId);
-            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Ошибка: Не выбраны посылки для удаления.");
+            return ResponseEntity.badRequest().body("Ошибка: Не выбраны посылки для удаления.");
         }
 
         try {
             trackParcelService.deleteByNumbersAndUserId(selectedNumbers, userId);
             log.info("Выбранные посылки {} удалены пользователем с ID: {}", selectedNumbers, userId);
             webSocketController.sendUpdateStatus(userId, "Выбранные посылки успешно удалены.", true);
-            return ResponseBuilder.ok("Выбранные посылки успешно удалены.");
+            return ResponseEntity.ok("Выбранные посылки успешно удалены.");
         } catch (Exception e) {
             log.error("Ошибка при удалении посылок {} пользователем с ID: {}: {}", selectedNumbers, userId, e.getMessage(), e);
             webSocketController.sendUpdateStatus(userId, "Ошибка при удалении посылок.", false);
-            return ResponseBuilder.error(HttpStatus.INTERNAL_SERVER_ERROR, "Ошибка при удалении посылок.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Ошибка при удалении посылок.");
         }
     }
 
