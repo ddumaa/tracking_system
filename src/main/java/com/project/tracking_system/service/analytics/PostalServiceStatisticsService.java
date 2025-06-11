@@ -4,6 +4,7 @@ import com.project.tracking_system.dto.PostalServiceStatsDTO;
 import com.project.tracking_system.entity.PostalServiceStatistics;
 import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.repository.PostalServiceStatisticsRepository;
+import com.project.tracking_system.mapper.PostalServiceStatisticsMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +17,7 @@ import java.util.Map;
 public class PostalServiceStatisticsService {
 
     private final PostalServiceStatisticsRepository repository;
+    private final PostalServiceStatisticsMapper mapper;
 
     /**
      * Возвращает статистику по всем службам доставки одного магазина.
@@ -33,7 +35,7 @@ public class PostalServiceStatisticsService {
         return repository.findByStoreId(storeId)
                 .stream()
                 .filter(stat -> stat.getPostalServiceType() != PostalServiceType.UNKNOWN)
-                .map(this::mapToDto)
+                .map(mapper::toDto)
                 .toList();
     }
 
@@ -60,7 +62,7 @@ public class PostalServiceStatisticsService {
             aggregated.merge(stat.getPostalServiceType(), stat, this::mergeStats);
         }
         return aggregated.values().stream()
-                .map(this::mapToDto)
+                .map(mapper::toDto)
                 .toList();
     }
 
@@ -73,14 +75,5 @@ public class PostalServiceStatisticsService {
         return a;
     }
 
-    private PostalServiceStatsDTO mapToDto(PostalServiceStatistics stats) {
-        PostalServiceStatsDTO dto = new PostalServiceStatsDTO();
-        dto.setPostalService(stats.getPostalServiceType().getDisplayName());
-        dto.setSent(stats.getTotalSent());
-        dto.setDelivered(stats.getTotalDelivered());
-        dto.setReturned(stats.getTotalReturned());
-        dto.setSumDeliveryDays(stats.getSumDeliveryDays().doubleValue());
-        dto.setSumPickupTimeDays(stats.getSumPickupDays().doubleValue());
-        return dto;
-    }
+    // Маппинг в DTO выполняется через {@link PostalServiceStatisticsMapper}
 }

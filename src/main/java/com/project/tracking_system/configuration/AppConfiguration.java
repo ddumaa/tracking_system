@@ -1,7 +1,6 @@
 package com.project.tracking_system.configuration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.modelmapper.ModelMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -13,7 +12,7 @@ import org.springframework.web.client.RestTemplate;
  * Конфигурационный класс для приложения.
  * <p>
  * Этот класс содержит бин-конфигурации, которые необходимы для работы приложения,
- * включая создание экземпляров {@link RestTemplate}, {@link ObjectMapper} и {@link ModelMapper}.
+ * включая создание экземпляров {@link RestTemplate} и {@link ObjectMapper}.
  * </p>
  *
  * @author Dmitriy Anisimov
@@ -49,18 +48,6 @@ public class AppConfiguration {
         return new ObjectMapper();
     }
 
-    /**
-     * Создает бин {@link ModelMapper} для преобразования объектов между различными слоями приложения.
-     * <p>
-     * {@link ModelMapper} используется для маппинга данных между объектами, например, между моделями и DTO.
-     * </p>
-     *
-     * @return Экземпляр {@link ModelMapper}.
-     */
-    @Bean
-    public ModelMapper getMapper() {
-        return new ModelMapper();
-    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
