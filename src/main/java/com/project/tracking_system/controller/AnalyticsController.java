@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.project.tracking_system.util.AuthUtils;
+import com.project.tracking_system.util.ResponseBuilder;
 import com.project.tracking_system.exception.UserNotAuthenticatedException;
 
 /**
@@ -180,8 +181,7 @@ public class AnalyticsController {
             user = AuthUtils.getCurrentUser(authentication);
         } catch (UserNotAuthenticatedException ex) {
             log.warn("Попытка обновления аналитики без аутентификации.");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("message", "Вы не авторизованы"));
+            return ResponseBuilder.error(HttpStatus.UNAUTHORIZED, "Вы не авторизованы");
         }
 
         Long userId = user.getId();
@@ -192,14 +192,14 @@ public class AnalyticsController {
             userStoreIds.forEach(storeAnalyticsService::updateStoreAnalytics);
 
             webSocketController.sendUpdateStatus(userId, "Обновлена аналитика по всем вашим магазинам!", true);
-            return ResponseEntity.ok(Map.of("message", "Аналитика обновлена по всем магазинам!"));
+            return ResponseBuilder.ok(Map.of("message", "Аналитика обновлена по всем магазинам!"));
         }
 
         Store store = storeService.getStore(storeId, userId);
         storeAnalyticsService.updateStoreAnalytics(storeId);
         webSocketController.sendUpdateStatus(userId, "Аналитика обновлена для магазина: " + store.getName(), true);
 
-        return ResponseEntity.ok(Map.of("message", "Аналитика обновлена для магазина: " + store.getName()));
+        return ResponseBuilder.ok(Map.of("message", "Аналитика обновлена для магазина: " + store.getName()));
     }
 
     /**
@@ -275,7 +275,7 @@ public class AnalyticsController {
     public ResponseEntity<Void> resetAllAnalyticsForUser(@AuthenticationPrincipal User user) {
         analyticsResetService.resetAllAnalytics(user.getId());
         webSocketController.sendUpdateStatus(user.getId(), "Аналитика удалена", true);
-        return ResponseEntity.ok().build();
+        return ResponseBuilder.ok();
     }
 
     /**
@@ -286,7 +286,7 @@ public class AnalyticsController {
                                                        @AuthenticationPrincipal User user) {
         analyticsResetService.resetStoreAnalytics(user.getId(), storeId);
         webSocketController.sendUpdateStatus(user.getId(), "Аналитика магазина удалена", true);
-        return ResponseEntity.ok().build();
+        return ResponseBuilder.ok();
     }
 
 }

@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 
 import org.springframework.security.core.Authentication;
 import com.project.tracking_system.util.AuthUtils;
+import com.project.tracking_system.util.ResponseBuilder;
 import com.project.tracking_system.exception.UserNotAuthenticatedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -192,7 +193,7 @@ public class DeparturesController {
             user = AuthUtils.getCurrentUser(authentication);
         } catch (UserNotAuthenticatedException ex) {
             log.warn("❌ Попытка обновления посылок без аутентификации.");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return ResponseBuilder.error(HttpStatus.UNAUTHORIZED);
         }
 
         Long userId = user.getId();
@@ -208,12 +209,12 @@ public class DeparturesController {
 
             // Отправляем WebSocket-уведомление
             webSocketController.sendDetailUpdateStatus(userId, result);
-            return ResponseEntity.ok(result);
+            return ResponseBuilder.ok(result);
 
         } catch (Exception e) {
             log.error("❌ Ошибка при обновлении посылок: userId={}, ошибка={}", userId, e.getMessage(), e);
             webSocketController.sendUpdateStatus(userId, "Произошла ошибка обновления.", false);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseBuilder.error(HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -237,7 +238,7 @@ public class DeparturesController {
             user = AuthUtils.getCurrentUser(authentication);
         } catch (UserNotAuthenticatedException ex) {
             log.warn("Попытка удаления посылок без аутентификации.");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Ошибка: Необходимо войти в систему.");
+            return ResponseBuilder.error(HttpStatus.UNAUTHORIZED, "Ошибка: Необходимо войти в систему.");
         }
 
         Long userId = user.getId();
@@ -245,18 +246,18 @@ public class DeparturesController {
 
         if (selectedNumbers == null || selectedNumbers.isEmpty()) {
             log.warn("Попытка удаления без выбранных посылок пользователем с ID: {}", userId);
-            return ResponseEntity.badRequest().body("Ошибка: Не выбраны посылки для удаления.");
+            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Ошибка: Не выбраны посылки для удаления.");
         }
 
         try {
             trackParcelService.deleteByNumbersAndUserId(selectedNumbers, userId);
             log.info("Выбранные посылки {} удалены пользователем с ID: {}", selectedNumbers, userId);
             webSocketController.sendUpdateStatus(userId, "Выбранные посылки успешно удалены.", true);
-            return ResponseEntity.ok("Выбранные посылки успешно удалены.");
+            return ResponseBuilder.ok("Выбранные посылки успешно удалены.");
         } catch (Exception e) {
             log.error("Ошибка при удалении посылок {} пользователем с ID: {}: {}", selectedNumbers, userId, e.getMessage(), e);
             webSocketController.sendUpdateStatus(userId, "Ошибка при удалении посылок.", false);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Ошибка при удалении посылок.");
+            return ResponseBuilder.error(HttpStatus.INTERNAL_SERVER_ERROR, "Ошибка при удалении посылок.");
         }
     }
 
