@@ -199,58 +199,17 @@ public class StatsAggregationService {
         psYearlyRepo.save(yearly);
     }
 
-    private void setStoreValues(StoreWeeklyStatistics target, List<StoreDailyStatistics> stats) {
+    private void setStoreValues(Aggregatable target, List<StoreDailyStatistics> stats) {
         Totals totals = sumStore(stats);
-        target.setSent(totals.sent);
-        target.setDelivered(totals.delivered);
-        target.setReturned(totals.returned);
-        target.setSumDeliveryDays(totals.sumDeliveryDays);
-        target.setSumPickupDays(totals.sumPickupDays);
-        target.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+        applyStats(target, totals);
     }
 
-    private void setStoreValues(StoreMonthlyStatistics target, List<StoreDailyStatistics> stats) {
-        Totals totals = sumStore(stats);
-        target.setSent(totals.sent);
-        target.setDelivered(totals.delivered);
-        target.setReturned(totals.returned);
-        target.setSumDeliveryDays(totals.sumDeliveryDays);
-        target.setSumPickupDays(totals.sumPickupDays);
-        target.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
-    }
-
-    private void setStoreValues(StoreYearlyStatistics target, List<StoreDailyStatistics> stats) {
-        Totals totals = sumStore(stats);
-        target.setSent(totals.sent);
-        target.setDelivered(totals.delivered);
-        target.setReturned(totals.returned);
-        target.setSumDeliveryDays(totals.sumDeliveryDays);
-        target.setSumPickupDays(totals.sumPickupDays);
-        target.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
-    }
-
-    private void setPsValues(PostalServiceWeeklyStatistics target, List<PostalServiceDailyStatistics> stats) {
+    private void setPsValues(Aggregatable target, List<PostalServiceDailyStatistics> stats) {
         Totals totals = sumPostal(stats);
-        target.setSent(totals.sent);
-        target.setDelivered(totals.delivered);
-        target.setReturned(totals.returned);
-        target.setSumDeliveryDays(totals.sumDeliveryDays);
-        target.setSumPickupDays(totals.sumPickupDays);
-        target.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+        applyStats(target, totals);
     }
 
-    private void setPsValues(PostalServiceMonthlyStatistics target, List<PostalServiceDailyStatistics> stats) {
-        Totals totals = sumPostal(stats);
-        target.setSent(totals.sent);
-        target.setDelivered(totals.delivered);
-        target.setReturned(totals.returned);
-        target.setSumDeliveryDays(totals.sumDeliveryDays);
-        target.setSumPickupDays(totals.sumPickupDays);
-        target.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
-    }
-
-    private void setPsValues(PostalServiceYearlyStatistics target, List<PostalServiceDailyStatistics> stats) {
-        Totals totals = sumPostal(stats);
+    private void applyStats(Aggregatable target, Totals totals) {
         target.setSent(totals.sent);
         target.setDelivered(totals.delivered);
         target.setReturned(totals.returned);

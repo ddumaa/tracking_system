@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.ZonedDateTime;
@@ -20,7 +21,7 @@ import java.time.ZonedDateTime;
 @Entity
 @Table(name = "tb_store_statistics_weekly",
        uniqueConstraints = @UniqueConstraint(columnNames = {"store_id", "period_year", "period_number"}))
-public class StoreWeeklyStatistics {
+public class StoreWeeklyStatistics implements Aggregatable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
