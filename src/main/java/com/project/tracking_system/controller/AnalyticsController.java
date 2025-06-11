@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.Authentication;
 import com.project.tracking_system.utils.AuthUtils;
+import com.project.tracking_system.utils.ResponseBuilder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -176,14 +177,14 @@ public class AnalyticsController {
             userStoreIds.forEach(storeAnalyticsService::updateStoreAnalytics);
 
             webSocketController.sendUpdateStatus(userId, "Обновлена аналитика по всем вашим магазинам!", true);
-            return ResponseEntity.ok(Map.of("message", "Аналитика обновлена по всем магазинам!"));
+            return ResponseBuilder.ok(Map.of("message", "Аналитика обновлена по всем магазинам!"));
         }
 
         Store store = storeService.getStore(storeId, userId);
         storeAnalyticsService.updateStoreAnalytics(storeId);
         webSocketController.sendUpdateStatus(userId, "Аналитика обновлена для магазина: " + store.getName(), true);
 
-        return ResponseEntity.ok(Map.of("message", "Аналитика обновлена для магазина: " + store.getName()));
+        return ResponseBuilder.ok(Map.of("message", "Аналитика обновлена для магазина: " + store.getName()));
     }
 
     /**
@@ -258,7 +259,7 @@ public class AnalyticsController {
     public ResponseEntity<Void> resetAllAnalyticsForUser(@AuthenticationPrincipal User user) {
         analyticsResetService.resetAllAnalytics(user.getId());
         webSocketController.sendUpdateStatus(user.getId(), "Аналитика удалена", true);
-        return ResponseEntity.ok().build();
+        return ResponseBuilder.ok(null);
     }
 
     /**
@@ -269,7 +270,7 @@ public class AnalyticsController {
                                                        @AuthenticationPrincipal User user) {
         analyticsResetService.resetStoreAnalytics(user.getId(), storeId);
         webSocketController.sendUpdateStatus(user.getId(), "Аналитика магазина удалена", true);
-        return ResponseEntity.ok().build();
+        return ResponseBuilder.ok(null);
     }
 
 }

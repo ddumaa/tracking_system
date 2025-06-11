@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import com.project.tracking_system.utils.ResponseBuilder;
 
 import org.springframework.security.core.Authentication;
 import com.project.tracking_system.utils.AuthUtils;
@@ -174,7 +175,7 @@ public class DeparturesController {
      * @return Перенаправление на страницу истории.
      */
     @PostMapping("/track-update")
-    public ResponseEntity<UpdateResult> updateDepartures(
+    public ResponseEntity<?> updateDepartures(
             @RequestParam(required = false) List<String> selectedNumbers,
             Authentication authentication
     ) {
@@ -192,12 +193,12 @@ public class DeparturesController {
 
             // Отправляем WebSocket-уведомление
             webSocketController.sendDetailUpdateStatus(userId, result);
-            return ResponseEntity.ok(result);
+            return ResponseBuilder.ok(result);
 
         } catch (Exception e) {
             log.error("❌ Ошибка при обновлении посылок: userId={}, ошибка={}", userId, e.getMessage(), e);
             webSocketController.sendUpdateStatus(userId, "Произошла ошибка обновления.", false);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseBuilder.error(HttpStatus.INTERNAL_SERVER_ERROR, "Ошибка обновления посылок");
         }
     }
 
@@ -212,7 +213,7 @@ public class DeparturesController {
      * @return перенаправление на страницу истории.
      */
     @PostMapping("/delete-selected")
-    public ResponseEntity<String> deleteSelected(
+    public ResponseEntity<?> deleteSelected(
             @RequestParam List<String> selectedNumbers,
             Authentication authentication) {
         User user = AuthUtils.getCurrentUser(authentication);
@@ -221,18 +222,18 @@ public class DeparturesController {
 
         if (selectedNumbers == null || selectedNumbers.isEmpty()) {
             log.warn("Попытка удаления без выбранных посылок пользователем с ID: {}", userId);
-            return ResponseEntity.badRequest().body("Ошибка: Не выбраны посылки для удаления.");
+            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Ошибка: Не выбраны посылки для удаления.");
         }
 
         try {
             trackParcelService.deleteByNumbersAndUserId(selectedNumbers, userId);
             log.info("Выбранные посылки {} удалены пользователем с ID: {}", selectedNumbers, userId);
             webSocketController.sendUpdateStatus(userId, "Выбранные посылки успешно удалены.", true);
-            return ResponseEntity.ok("Выбранные посылки успешно удалены.");
+            return ResponseBuilder.ok("Выбранные посылки успешно удалены.");
         } catch (Exception e) {
             log.error("Ошибка при удалении посылок {} пользователем с ID: {}: {}", selectedNumbers, userId, e.getMessage(), e);
             webSocketController.sendUpdateStatus(userId, "Ошибка при удалении посылок.", false);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Ошибка при удалении посылок.");
+            return ResponseBuilder.error(HttpStatus.INTERNAL_SERVER_ERROR, "Ошибка при удалении посылок.");
         }
     }
 
