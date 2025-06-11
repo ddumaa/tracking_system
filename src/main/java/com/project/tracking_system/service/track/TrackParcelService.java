@@ -15,6 +15,7 @@ import com.project.tracking_system.repository.PostalServiceDailyStatisticsReposi
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.analytics.DeliveryHistoryService;
 import com.project.tracking_system.service.user.UserService;
+import com.project.tracking_system.mapper.TrackParcelMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -69,6 +70,7 @@ public class TrackParcelService {
     private final PostalServiceStatisticsRepository postalServiceStatisticsRepository;
     private final StoreDailyStatisticsRepository storeDailyStatisticsRepository;
     private final PostalServiceDailyStatisticsRepository postalServiceDailyStatisticsRepository;
+    private final TrackParcelMapper trackParcelMapper;
 
     @Transactional
     public TrackInfoListDTO processTrack(String number, Long storeId, Long userId, boolean canSave) {
@@ -301,7 +303,7 @@ public class TrackParcelService {
         Pageable pageable = PageRequest.of(page, size);
         Page<TrackParcel> trackParcels = trackParcelRepository.findByStoreIdIn(storeIds, pageable);
         ZoneId userZone = userService.getUserZone(userId);
-        return trackParcels.map(track -> new TrackParcelDTO(track, userZone));
+        return trackParcels.map(track -> trackParcelMapper.toDto(track, userZone));
     }
 
     /**
@@ -321,7 +323,7 @@ public class TrackParcelService {
         Pageable pageable = PageRequest.of(page, size);
         Page<TrackParcel> trackParcels = trackParcelRepository.findByStoreIdInAndStatus(storeIds, status, pageable);
         ZoneId userZone = userService.getUserZone(userId);
-        return trackParcels.map(track -> new TrackParcelDTO(track, userZone));
+        return trackParcels.map(track -> trackParcelMapper.toDto(track, userZone));
     }
 
     @Transactional
@@ -363,7 +365,7 @@ public class TrackParcelService {
         List<TrackParcel> trackParcels = trackParcelRepository.findByStoreId(storeId);
         ZoneId userZone = userService.getUserZone(userId);
         return trackParcels.stream()
-                .map(track -> new TrackParcelDTO(track, userZone))
+                .map(track -> trackParcelMapper.toDto(track, userZone))
                 .toList();
     }
 
@@ -378,7 +380,7 @@ public class TrackParcelService {
         List<TrackParcel> trackParcels = trackParcelRepository.findByUserId(userId);
         ZoneId userZone = userService.getUserZone(userId);
         return trackParcels.stream()
-                .map(track -> new TrackParcelDTO(track, userZone))
+                .map(track -> trackParcelMapper.toDto(track, userZone))
                 .toList();
     }
 
