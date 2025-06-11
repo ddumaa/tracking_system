@@ -37,6 +37,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
+import com.project.tracking_system.util.AuthUtils;
+
 /**
  * Контроллер для обработки запросов на главной странице, регистрации, входа, сброса пароля и загрузки файлов.
  * <p>
@@ -72,7 +74,7 @@ public class HomeController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.isAuthenticated() &&
                 !(authentication instanceof AnonymousAuthenticationToken)) {
-            User user = (User) authentication.getPrincipal();
+            User user = AuthUtils.getCurrentUser(authentication);
             model.addAttribute("authenticatedUser", user.getEmail());
 
             // Получаем магазины пользователя
@@ -353,8 +355,9 @@ public class HomeController {
         Long userId = null;
 
         if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
-            userId = ((User) auth.getPrincipal()).getId();
-            model.addAttribute("authenticatedUser", ((User) auth.getPrincipal()).getEmail());
+            User user = AuthUtils.getCurrentUser(auth);
+            userId = user.getId();
+            model.addAttribute("authenticatedUser", user.getEmail());
         } else {
             model.addAttribute("authenticatedUser", null);
         }
