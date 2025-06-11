@@ -6,6 +6,8 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import com.project.tracking_system.utils.ResponseBuilder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -24,14 +26,14 @@ public class FileDownloadController {
      * @return ResponseEntity с файлом для скачивания
      */
     @GetMapping("/download-sample")
-    public ResponseEntity<Resource> downloadSample() {
+    public ResponseEntity<?> downloadSample() {
         // Имя файла, которое должно использоваться при скачивании
         String filename = "Пример заполнения.XLSX";
         // Загружаем ресурс из папки sample в classpath
         Resource resource = new ClassPathResource("sample/" + filename);
 
         if (!resource.exists()) {
-            return ResponseEntity.notFound().build();
+            return ResponseBuilder.error(HttpStatus.NOT_FOUND, "Файл не найден");
         }
 
         // Используем ContentDisposition builder для корректного формирования заголовка
