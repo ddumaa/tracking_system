@@ -9,7 +9,7 @@ import org.springframework.http.ResponseEntity;
  */
 @UtilityClass
 public class ResponseBuilder {
-
+  
     /**
      * Возвращает успешный ответ с телом.
      *
