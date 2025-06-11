@@ -20,9 +20,7 @@ import jakarta.validation.Valid;
 import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -68,11 +66,8 @@ public class HomeController {
      * @return имя представления домашней страницы
      */
     @GetMapping
-    public String home(Model model) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated() &&
-                !(authentication instanceof AnonymousAuthenticationToken)) {
-            User user = (User) authentication.getPrincipal();
+    public String home(@AuthenticationPrincipal User user, Model model) {
+        if (user != null) {
             model.addAttribute("authenticatedUser", user.getEmail());
 
             // Получаем магазины пользователя
@@ -93,9 +88,9 @@ public class HomeController {
     @PostMapping
     public String home(@ModelAttribute("number") String number,
                        @RequestParam(value = "storeId", required = false) Long storeId,
-                       Model model) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        Long userId = userService.extractUserId(authentication);
+                       Model model,
+                       @AuthenticationPrincipal User user) {
+        Long userId = user != null ? user.getId() : null;
 
         boolean canSave = userId != null;
 
@@ -348,13 +343,13 @@ public class HomeController {
     @PostMapping("/upload")
     public String uploadFile(@RequestParam("file") MultipartFile file,
                              @RequestParam(value = "storeId", required = false) Long storeId,
-                             Model model) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                             Model model,
+                             @AuthenticationPrincipal User user) {
         Long userId = null;
 
-        if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
-            userId = ((User) auth.getPrincipal()).getId();
-            model.addAttribute("authenticatedUser", ((User) auth.getPrincipal()).getEmail());
+        if (user != null) {
+            userId = user.getId();
+            model.addAttribute("authenticatedUser", user.getEmail());
         } else {
             model.addAttribute("authenticatedUser", null);
         }

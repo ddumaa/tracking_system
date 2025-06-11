@@ -16,8 +16,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import com.project.tracking_system.utils.AuthUtils;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -66,11 +66,7 @@ public class DeparturesController {
             Model model,
             Authentication authentication) {
 
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
-            log.debug("Попытка доступа к странице 'Отправления' без аутентификации.");
-            return "redirect:/login";
-        }
-
+        User user = AuthUtils.getCurrentUser(authentication);
         Long userId = user.getId();
         List<Store> stores = storeService.getUserStores(userId); // Загружаем магазины с именами
         List<Long> storeIds = storeService.getUserStoreIds(userId); // Все id магазины пользователя
@@ -151,10 +147,7 @@ public class DeparturesController {
             @PathVariable("itemNumber") String itemNumber,
             Authentication authentication) {
 
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
-            throw new RuntimeException("Пользователь не аутентифицирован.");
-        }
-
+        User user = AuthUtils.getCurrentUser(authentication);
         Long userId = user.getId();
         log.info("🔍 Запрос информации о посылке {} для пользователя ID={}", itemNumber, userId);
 
@@ -185,12 +178,7 @@ public class DeparturesController {
             @RequestParam(required = false) List<String> selectedNumbers,
             Authentication authentication
     ) {
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth)
-                || !(auth.getPrincipal() instanceof User user)) {
-            log.warn("❌ Попытка обновления посылок без аутентификации.");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
+        User user = AuthUtils.getCurrentUser(authentication);
         Long userId = user.getId();
         log.info("🔄 Запрос на обновление посылок: userId={}", userId);
 
@@ -227,12 +215,7 @@ public class DeparturesController {
     public ResponseEntity<String> deleteSelected(
             @RequestParam List<String> selectedNumbers,
             Authentication authentication) {
-
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
-            log.warn("Попытка удаления посылок без аутентификации.");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Ошибка: Необходимо войти в систему.");
-        }
-
+        User user = AuthUtils.getCurrentUser(authentication);
         Long userId = user.getId();
         log.info("Запрос на удаление посылок {} для пользователя с ID: {}", selectedNumbers, userId);
 
