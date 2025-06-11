@@ -242,7 +242,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const rows = document.querySelectorAll('table.table-hover.align-middle tbody tr');
         rows.forEach(row => {
             const service = row.querySelector('td:first-child')?.textContent.trim();
-            const data = stats.find(s => s.postalService === service);
+            const data = stats.find(s => s.serviceName === service);
             if (!data) return;
 
             const cells = row.querySelectorAll('td');
