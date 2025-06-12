@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Сервис для обработки номеров отслеживания из XLS-файлов.
@@ -249,6 +250,16 @@ public class TrackingNumberServiceXLS {
     @PreDestroy
     public void shutdownExecutor() {
         executor.shutdown();
+        try {
+            if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+                log.warn("⏳ Executor завершался принудительно.");
+            }
+        } catch (InterruptedException e) {
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
+            log.error("❌ Ожидание завершения executor было прервано", e);
+        }
     }
 
 }
