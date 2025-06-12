@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+
 // Интерфейс для удалений
 import com.project.tracking_system.repository.DeletableByStoreOrUser;
 
@@ -39,6 +41,71 @@ public interface StoreAnalyticsRepository
      * Получить статистику сразу по нескольким магазинам.
      */
     List<StoreStatistics> findByStoreIdIn(List<Long> storeIds);
+
+    /**
+     * Атомарно увеличивает счётчик отправленных посылок магазина.
+     *
+     * @param storeId идентификатор магазина
+     * @param delta   величина увеличения
+     * @return количество обновлённых записей
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE StoreStatistics s
+        SET s.totalSent = s.totalSent + :delta,
+            s.updatedAt = CURRENT_TIMESTAMP
+        WHERE s.store.id = :storeId
+        """)
+    int incrementTotalSent(@Param("storeId") Long storeId, @Param("delta") int delta);
+
+    /**
+     * Атомарно увеличивает счётчик доставленных посылок магазина и суммируемые значения.
+     *
+     * @param storeId      идентификатор магазина
+     * @param delta        величина увеличения доставленных посылок
+     * @param deliveryDays добавляемые дни доставки
+     * @param pickupDays   добавляемые дни получения
+     * @return количество обновлённых записей
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE StoreStatistics s
+        SET s.totalDelivered = s.totalDelivered + :delta,
+            s.sumDeliveryDays = s.sumDeliveryDays + :deliveryDays,
+            s.sumPickupDays = s.sumPickupDays + :pickupDays,
+            s.updatedAt = CURRENT_TIMESTAMP
+        WHERE s.store.id = :storeId
+        """)
+    int incrementDelivered(@Param("storeId") Long storeId,
+                           @Param("delta") int delta,
+                           @Param("deliveryDays") java.math.BigDecimal deliveryDays,
+                           @Param("pickupDays") java.math.BigDecimal pickupDays);
+
+    /**
+     * Атомарно увеличивает счётчик возвращённых посылок магазина и связанные суммы.
+     *
+     * @param storeId      идентификатор магазина
+     * @param delta        величина увеличения возвращённых посылок
+     * @param deliveryDays добавляемые дни доставки
+     * @param pickupDays   добавляемые дни нахождения на пункте
+     * @return количество обновлённых записей
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE StoreStatistics s
+        SET s.totalReturned = s.totalReturned + :delta,
+            s.sumDeliveryDays = s.sumDeliveryDays + :deliveryDays,
+            s.sumPickupDays = s.sumPickupDays + :pickupDays,
+            s.updatedAt = CURRENT_TIMESTAMP
+        WHERE s.store.id = :storeId
+        """)
+    int incrementReturned(@Param("storeId") Long storeId,
+                          @Param("delta") int delta,
+                          @Param("deliveryDays") java.math.BigDecimal deliveryDays,
+                          @Param("pickupDays") java.math.BigDecimal pickupDays);
 
 
     /**
