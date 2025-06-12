@@ -159,8 +159,8 @@ public class TrackingNumberServiceXLS {
 
                 log.info("Трек={}, магазин={} (userId={})", trackingNumber, storeId, userId);
 
-                // Для авторизованных пользователей проверяем, является ли трек новым, и определяем возможность сохранения
-                boolean isNewTrack = isUserAuthorized && trackParcelService.isNewTrack(trackingNumber, userId);
+                // Для авторизованных пользователей проверяем, является ли трек новым в рамках выбранного магазина
+                boolean isNewTrack = isUserAuthorized && trackParcelService.isNewTrack(trackingNumber, storeId);
                 boolean canSaveThis;
                 if (isNewTrack) {
                     if (savedNewCount < availableSaveSlots) {

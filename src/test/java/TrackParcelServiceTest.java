@@ -209,4 +209,32 @@ public class TrackParcelServiceTest {
         verify(postalServiceDailyStatisticsRepository).save(oldPsDaily);
         verify(postalServiceDailyStatisticsRepository).save(newPsDaily);
     }
+
+    @Test
+    void isNewTrack_NoExisting_ReturnsTrue() {
+        String number = "RR123";
+        Long storeId = 10L;
+
+        when(trackParcelRepository.findByNumberAndStoreId(number, storeId)).thenReturn(null);
+
+        assertTrue(trackParcelService.isNewTrack(number, storeId));
+    }
+
+    @Test
+    void isNewTrack_Existing_ReturnsFalse() {
+        String number = "RR124";
+        Long storeId = 11L;
+        TrackParcel parcel = new TrackParcel();
+
+        when(trackParcelRepository.findByNumberAndStoreId(number, storeId)).thenReturn(parcel);
+
+        assertFalse(trackParcelService.isNewTrack(number, storeId));
+    }
+
+    @Test
+    void isNewTrack_NullStoreId_ReturnsTrue() {
+        String number = "RR125";
+
+        assertTrue(trackParcelService.isNewTrack(number, null));
+    }
 }
