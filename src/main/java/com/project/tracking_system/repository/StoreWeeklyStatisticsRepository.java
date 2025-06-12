@@ -1,6 +1,7 @@
 package com.project.tracking_system.repository;
 
 import com.project.tracking_system.entity.StoreWeeklyStatistics;
+import org.springframework.data.jpa.repository.JpaRepository;
 import com.project.tracking_system.repository.DeletableByStoreOrUser;
 import java.util.List;
 import java.util.Optional;
@@ -9,7 +10,8 @@ import java.util.Optional;
  * Репозиторий для статистики магазинов по неделям.
  */
 public interface StoreWeeklyStatisticsRepository
-        extends DeletableByStoreOrUser<StoreWeeklyStatistics, Long> {
+        extends JpaRepository<StoreWeeklyStatistics, Long>,
+        DeletableByStoreOrUser<StoreWeeklyStatistics, Long> {
 
     Optional<StoreWeeklyStatistics> findByStoreIdAndPeriodYearAndPeriodNumber(Long storeId, int periodYear, int periodNumber);
 

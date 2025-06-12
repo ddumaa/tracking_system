@@ -1,6 +1,5 @@
 package com.project.tracking_system.repository;
 
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.NoRepositoryBean;
@@ -14,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @param <ID> тип идентификатора
  */
 @NoRepositoryBean
-public interface DeletableByStoreOrUser<T, ID> extends JpaRepository<T, ID> {
+public interface DeletableByStoreOrUser<T, ID> {
 
     /**
      * Удалить все записи конкретного магазина.
