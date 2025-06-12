@@ -4,7 +4,7 @@ import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.store.StoreService;
-import com.project.tracking_system.service.track.TrackUpdateService;
+import com.project.tracking_system.service.track.TrackParcelService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -30,7 +30,7 @@ import java.util.List;
 @RequestMapping("/")
 public class HomeController {
 
-    private final TrackUpdateService trackUpdateService;
+    private final TrackParcelService trackParcelService;
     private final StoreService storeService;
 
     /**
@@ -77,7 +77,7 @@ public class HomeController {
 
         try {
             // trackParcelService реализует логику с посылкой!
-            TrackInfoListDTO trackInfo = trackUpdateService.processTrack(number, storeId, userId, canSave);
+            TrackInfoListDTO trackInfo = trackParcelService.processTrack(number, storeId, userId, canSave);
 
             if (trackInfo == null || trackInfo.getList().isEmpty()) {
                 model.addAttribute("customError", "Нет данных для указанного номера посылки.");
