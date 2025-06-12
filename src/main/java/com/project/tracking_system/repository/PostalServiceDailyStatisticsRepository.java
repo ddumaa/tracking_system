@@ -69,4 +69,26 @@ public interface PostalServiceDailyStatisticsRepository
      */
     List<PostalServiceDailyStatistics> findByDate(LocalDate date);
 
+    /**
+     * Атомарно увеличивает ежедневный счётчик отправлений для почтовой службы.
+     *
+     * @param storeId идентификатор магазина
+     * @param postalServiceType тип почтовой службы
+     * @param date дата статистики
+     * @param delta величина увеличения
+     * @return количество обновлённых записей
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE PostalServiceDailyStatistics p
+        SET p.sent = p.sent + :delta,
+            p.updatedAt = CURRENT_TIMESTAMP
+        WHERE p.store.id = :storeId AND p.postalServiceType = :postalServiceType AND p.date = :date
+        """)
+    int incrementSent(@Param("storeId") Long storeId,
+                      @Param("postalServiceType") PostalServiceType postalServiceType,
+                      @Param("date") LocalDate date,
+                      @Param("delta") int delta);
+
 }

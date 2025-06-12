@@ -37,6 +37,26 @@ public interface PostalServiceStatisticsRepository
      */
     List<PostalServiceStatistics> findByStoreIdIn(List<Long> storeIds);
 
+    /**
+     * Атомарно увеличивает счётчик отправленных посылок по почтовой службе.
+     *
+     * @param storeId идентификатор магазина
+     * @param postalServiceType тип почтовой службы
+     * @param delta величина увеличения
+     * @return количество обновлённых записей
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE PostalServiceStatistics p
+        SET p.totalSent = p.totalSent + :delta,
+            p.updatedAt = CURRENT_TIMESTAMP
+        WHERE p.store.id = :storeId AND p.postalServiceType = :postalServiceType
+        """)
+    int incrementTotalSent(@Param("storeId") Long storeId,
+                           @Param("postalServiceType") PostalServiceType postalServiceType,
+                           @Param("delta") int delta);
+
 
     /**
      * Обнулить счётчики для всех служб доставки магазинов пользователя.
