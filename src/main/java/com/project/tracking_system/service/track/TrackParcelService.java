@@ -25,9 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.*;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatterBuilder;
-import java.time.temporal.ChronoField;
+import com.project.tracking_system.utils.DateParserUtils;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -159,16 +157,8 @@ public class TrackParcelService {
         trackParcel.setStatus(newStatus);
 
         String lastDate = trackInfoListDTO.getList().get(0).getTimex();
-        DateTimeFormatter formatter = new DateTimeFormatterBuilder()
-                .appendPattern("dd.MM.yyyy ")
-                .appendValue(ChronoField.HOUR_OF_DAY)  // Позволяет и 9, и 09
-                .appendLiteral(':')
-                .appendPattern("mm:ss")
-                .toFormatter();
-        LocalDateTime localDateTime = LocalDateTime.parse(lastDate, formatter);
-        ZoneId userZone = ZoneId.of(userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден")).getTimeZone());
-        ZonedDateTime zonedDateTime = localDateTime.atZone(userZone).withZoneSameInstant(ZoneOffset.UTC);
+        ZoneId userZone = userService.getUserZone(userId);
+        ZonedDateTime zonedDateTime = DateParserUtils.parse(lastDate, userZone);
         trackParcel.setData(zonedDateTime);
 
         trackParcelRepository.save(trackParcel);

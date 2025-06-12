@@ -11,7 +11,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -32,6 +34,8 @@ public class TypeDefinitionTrackPostService {
     private final WebBelPost webBelPost;
     private final JsonEvroTrackingService jsonEvroTrackingService;
     private final JsonEvroTrackingResponseMapper jsonEvroTrackingResponseMapper;
+
+    private final Map<String, Object> trackLocks = new ConcurrentHashMap<>();
 
     /**
      * Определяет тип почтовой службы по номеру посылки.
@@ -97,13 +101,19 @@ public class TypeDefinitionTrackPostService {
      * @throws IllegalArgumentException если номер отслеживания имеет некорректный формат
      */
     public TrackInfoListDTO getTypeDefinitionTrackPostService(Long userId, String number) {
-        try {
-            log.info("⏳ Запрос (синхронный) для трека: {} (Пользователь ID={})", number, userId);
-            return getTypeDefinitionTrackPostServiceAsync(userId, number).get();
-        } catch (ExecutionException | InterruptedException e) {
-            log.error("Ошибка при получении данных по треку {} для пользователя с ID {}: {}", number, userId, e.getMessage(), e);
-            Thread.currentThread().interrupt(); // Восстанавливаем статус прерывания потока
-            return new TrackInfoListDTO(); // Возвращаем пустой объект, если произошла ошибка
+        Object lock = trackLocks.computeIfAbsent(number, key -> new Object());
+
+        synchronized (lock) {
+            try {
+                log.info("⏳ [LOCKED] Запрос (синхронный) для трека: {} (Пользователь ID={})", number, userId);
+                return getTypeDefinitionTrackPostServiceAsync(userId, number).get();
+            } catch (ExecutionException | InterruptedException e) {
+                log.error("Ошибка при получении данных по треку {} для пользователя с ID {}: {}", number, userId, e.getMessage(), e);
+                Thread.currentThread().interrupt();
+                return new TrackInfoListDTO();
+            } finally {
+                trackLocks.remove(number); // очищаем мапу
+            }
         }
     }
 
