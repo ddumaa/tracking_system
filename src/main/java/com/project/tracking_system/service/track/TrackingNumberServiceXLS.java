@@ -8,6 +8,7 @@ import com.project.tracking_system.service.store.StoreService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
+import jakarta.annotation.PreDestroy;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Сервис для обработки номеров отслеживания из XLS-файлов.
@@ -155,12 +157,17 @@ public class TrackingNumberServiceXLS {
                             log.warn("⚠ Неподдерживаемый тип ячейки для магазина в строке {}", rowIndex + 1);
                         }
                     }
+                    // Проверяем, принадлежит ли указанный магазин пользователю
+                    if (storeId != null && !storeService.userOwnsStore(storeId, userId)) {
+                        log.warn("⚠ Магазин ID={} не принадлежит пользователю ID={}, используем дефолтный.", storeId, userId);
+                        storeId = defaultStoreId;
+                    }
                 }
 
                 log.info("Трек={}, магазин={} (userId={})", trackingNumber, storeId, userId);
 
-                // Для авторизованных пользователей проверяем, является ли трек новым, и определяем возможность сохранения
-                boolean isNewTrack = isUserAuthorized && trackParcelService.isNewTrack(trackingNumber, userId);
+                // Для авторизованных пользователей проверяем, является ли трек новым в рамках выбранного магазина
+                boolean isNewTrack = isUserAuthorized && trackParcelService.isNewTrack(trackingNumber, storeId);
                 boolean canSaveThis;
                 if (isNewTrack) {
                     if (savedNewCount < availableSaveSlots) {
@@ -230,6 +237,28 @@ public class TrackingNumberServiceXLS {
         } catch (Exception e) {
             log.error("Ошибка обработки {}: {}", trackingNumber, e.getMessage(), e);
             return new TrackingResultAdd(trackingNumber, "Ошибка обработки");
+        }
+    }
+
+    /**
+     * Завершает пул потоков при остановке приложения.
+     * <p>
+     * Метод вызывается контейнером Spring перед уничтожением бина
+     * для корректного завершения всех задач в очереди.
+     * </p>
+     */
+    @PreDestroy
+    public void shutdownExecutor() {
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+                log.warn("⏳ Executor завершался принудительно.");
+            }
+        } catch (InterruptedException e) {
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
+            log.error("❌ Ожидание завершения executor было прервано", e);
         }
     }
 
