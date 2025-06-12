@@ -40,23 +40,6 @@ public interface StoreAnalyticsRepository
      */
     List<StoreStatistics> findByStoreIdIn(List<Long> storeIds);
 
-    /**
-     * Атомарно увеличивает счётчик отправленных посылок магазина.
-     *
-     * @param storeId идентификатор магазина
-     * @param delta   величина увеличения
-     * @return количество обновлённых записей
-     */
-    @Modifying
-    @Transactional
-    @Query("""
-        UPDATE StoreStatistics s
-        SET s.totalSent = s.totalSent + :delta,
-            s.updatedAt = CURRENT_TIMESTAMP
-        WHERE s.store.id = :storeId
-        """)
-    int incrementTotalSent(@Param("storeId") Long storeId, @Param("delta") int delta);
-
 
     /**
      * Обнулить счётчики для всех магазинов пользователя.
