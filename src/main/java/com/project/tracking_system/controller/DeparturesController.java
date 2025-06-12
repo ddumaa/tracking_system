@@ -8,9 +8,7 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.service.track.StatusTrackService;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
-import com.project.tracking_system.service.track.TrackPersistenceService;
-import com.project.tracking_system.service.track.TrackUpdateService;
-import com.project.tracking_system.service.track.TrackNotificationService;
+import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.store.StoreService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,12 +41,12 @@ import java.util.List;
 @RequestMapping("/departures")
 public class DeparturesController {
 
-    private final TrackPersistenceService trackPersistenceService;
-    private final TrackUpdateService trackUpdateService;
-    private final TrackNotificationService trackNotificationService;
+    private final TrackParcelService trackParcelService;
     private final StatusTrackService statusTrackService;
     private final StoreService storeService;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
+    private final WebSocketController webSocketController;
+
     /**
      * Метод для отображения списка отслеживаемых посылок пользователя с возможностью фильтрации по магазину и статусу.
      *
@@ -101,8 +99,8 @@ public class DeparturesController {
 
         // Загружаем посылки с учетом статуса и магазина
         Page<TrackParcelDTO> trackParcelPage = (status != null)
-                ? trackPersistenceService.findByStoreTracksAndStatus(filteredStoreIds, status, page, size, userId)
-                : trackPersistenceService.findByStoreTracks(filteredStoreIds, page, size, userId);
+                ? trackParcelService.findByStoreTracksAndStatus(filteredStoreIds, status, page, size, userId)
+                : trackParcelService.findByStoreTracks(filteredStoreIds, page, size, userId);
 
         // Если запрошенная страница больше допустимой, загружаем первую страницу
         if (page >= trackParcelPage.getTotalPages() && trackParcelPage.getTotalPages() > 0) {
@@ -111,8 +109,8 @@ public class DeparturesController {
             // Повторный запрос только если нужно сбросить страницу
             page = 0;
             trackParcelPage = (status != null)
-                    ? trackPersistenceService.findByStoreTracksAndStatus(filteredStoreIds, status, page, size, userId)
-                    : trackPersistenceService.findByStoreTracks(filteredStoreIds, page, size, userId);
+                    ? trackParcelService.findByStoreTracksAndStatus(filteredStoreIds, status, page, size, userId)
+                    : trackParcelService.findByStoreTracks(filteredStoreIds, page, size, userId);
         }
 
         // ✅ Добавляем иконки в DTO перед передачей в шаблон
@@ -155,7 +153,7 @@ public class DeparturesController {
         log.info("🔍 Запрос информации о посылке {} для пользователя ID={}", itemNumber, userId);
 
         // Проверяем, принадлежит ли посылка пользователю
-        boolean ownsParcel = trackPersistenceService.userOwnsParcel(itemNumber, userId);
+        boolean ownsParcel = trackParcelService.userOwnsParcel(itemNumber, userId);
         if (!ownsParcel) {
             log.warn("❌ Пользователь ID={} попытался получить доступ к чужой посылке {}", userId, itemNumber);
             throw new RuntimeException("Ошибка доступа: Посылка не принадлежит пользователю.");
@@ -188,18 +186,18 @@ public class DeparturesController {
         UpdateResult result;
         try {
             if (selectedNumbers != null && !selectedNumbers.isEmpty()) {
-                result = trackUpdateService.updateSelectedParcels(userId, selectedNumbers);
+                result = trackParcelService.updateSelectedParcels(userId, selectedNumbers);
             } else {
-                result = trackUpdateService.updateAllParcels(userId);
+                result = trackParcelService.updateAllParcels(userId);
             }
 
             // Отправляем WebSocket-уведомление
-            trackNotificationService.notifyDetailed(userId, result);
+            webSocketController.sendDetailUpdateStatus(userId, result);
             return ResponseBuilder.ok(result);
 
         } catch (Exception e) {
             log.error("❌ Ошибка при обновлении посылок: userId={}, ошибка={}", userId, e.getMessage(), e);
-            trackNotificationService.notifyStatus(userId, "Произошла ошибка обновления.", false);
+            webSocketController.sendUpdateStatus(userId, "Произошла ошибка обновления.", false);
             return ResponseBuilder.error(HttpStatus.INTERNAL_SERVER_ERROR, "Ошибка обновления посылок");
         }
     }
@@ -228,13 +226,13 @@ public class DeparturesController {
         }
 
         try {
-            trackPersistenceService.deleteByNumbersAndUserId(selectedNumbers, userId);
+            trackParcelService.deleteByNumbersAndUserId(selectedNumbers, userId);
             log.info("Выбранные посылки {} удалены пользователем с ID: {}", selectedNumbers, userId);
-            trackNotificationService.notifyStatus(userId, "Выбранные посылки успешно удалены.", true);
+            webSocketController.sendUpdateStatus(userId, "Выбранные посылки успешно удалены.", true);
             return ResponseBuilder.ok("Выбранные посылки успешно удалены.");
         } catch (Exception e) {
             log.error("Ошибка при удалении посылок {} пользователем с ID: {}: {}", selectedNumbers, userId, e.getMessage(), e);
-            trackNotificationService.notifyStatus(userId, "Ошибка при удалении посылок.", false);
+            webSocketController.sendUpdateStatus(userId, "Ошибка при удалении посылок.", false);
             return ResponseBuilder.error(HttpStatus.INTERNAL_SERVER_ERROR, "Ошибка при удалении посылок.");
         }
     }
