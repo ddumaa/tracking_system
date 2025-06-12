@@ -171,55 +171,69 @@ public class TrackParcelService {
         if (isNewParcel || storeChanged) {
             StoreStatistics statistics = storeAnalyticsRepository.findByStoreId(storeId)
                     .orElseThrow(() -> new IllegalStateException("Статистика не найдена"));
-            statistics.setTotalSent(statistics.getTotalSent() + 1);
-            statistics.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
-            storeAnalyticsRepository.save(statistics);
+
+            // Атомарное обновление счётчика отправлений
+            int updated = storeAnalyticsRepository.incrementTotalSent(storeId, 1);
+            if (updated == 0) {
+                statistics.setTotalSent(statistics.getTotalSent() + 1);
+                statistics.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                storeAnalyticsRepository.save(statistics);
+            }
 
             // Postal service statistics (skip UNKNOWN)
             if (serviceType != PostalServiceType.UNKNOWN) {
-                PostalServiceStatistics psStats = postalServiceStatisticsRepository
-                        .findByStoreIdAndPostalServiceType(storeId, serviceType)
-                        .orElseGet(() -> {
-                            PostalServiceStatistics s = new PostalServiceStatistics();
-                            s.setStore(statistics.getStore());
-                            s.setPostalServiceType(serviceType);
-                            return s;
-                        });
-                psStats.setTotalSent(psStats.getTotalSent() + 1);
-                psStats.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
-                postalServiceStatisticsRepository.save(psStats);
+                int psUpdated = postalServiceStatisticsRepository.incrementTotalSent(storeId, serviceType, 1);
+                if (psUpdated == 0) {
+                    PostalServiceStatistics psStats = postalServiceStatisticsRepository
+                            .findByStoreIdAndPostalServiceType(storeId, serviceType)
+                            .orElseGet(() -> {
+                                PostalServiceStatistics s = new PostalServiceStatistics();
+                                s.setStore(statistics.getStore());
+                                s.setPostalServiceType(serviceType);
+                                return s;
+                            });
+                    psStats.setTotalSent(psStats.getTotalSent() + 1);
+                    psStats.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                    postalServiceStatisticsRepository.save(psStats);
+                }
             } else {
                 log.warn("⛔ Skipping analytics update for UNKNOWN service: {}", number);
             }
 
             // Ежедневная статистика магазина
             LocalDate day = zonedDateTime.toLocalDate();
-            StoreDailyStatistics daily = storeDailyStatisticsRepository
-                    .findByStoreIdAndDate(storeId, day)
-                    .orElseGet(() -> {
-                        StoreDailyStatistics d = new StoreDailyStatistics();
-                        d.setStore(statistics.getStore());
-                        d.setDate(day);
-                        return d;
-                    });
-            daily.setSent(daily.getSent() + 1);
-            daily.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
-            storeDailyStatisticsRepository.save(daily);
-
-            // Daily postal service statistics
-            if (serviceType != PostalServiceType.UNKNOWN) {
-                PostalServiceDailyStatistics psDaily = postalServiceDailyStatisticsRepository
-                        .findByStoreIdAndPostalServiceTypeAndDate(storeId, serviceType, day)
+            int dailyUpdated = storeDailyStatisticsRepository.incrementSent(storeId, day, 1);
+            if (dailyUpdated == 0) {
+                StoreDailyStatistics daily = storeDailyStatisticsRepository
+                        .findByStoreIdAndDate(storeId, day)
                         .orElseGet(() -> {
-                            PostalServiceDailyStatistics d = new PostalServiceDailyStatistics();
+                            StoreDailyStatistics d = new StoreDailyStatistics();
                             d.setStore(statistics.getStore());
-                            d.setPostalServiceType(serviceType);
                             d.setDate(day);
                             return d;
                         });
-                psDaily.setSent(psDaily.getSent() + 1);
-                psDaily.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
-                postalServiceDailyStatisticsRepository.save(psDaily);
+                daily.setSent(daily.getSent() + 1);
+                daily.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                storeDailyStatisticsRepository.save(daily);
+            }
+
+            // Daily postal service statistics
+            if (serviceType != PostalServiceType.UNKNOWN) {
+                int psdUpdated = postalServiceDailyStatisticsRepository.incrementSent(storeId, serviceType, day, 1);
+                if (psdUpdated == 0) {
+                    PostalServiceDailyStatistics psDaily = postalServiceDailyStatisticsRepository
+                            .findByStoreIdAndPostalServiceTypeAndDate(storeId, serviceType, day)
+                            .orElseGet(() -> {
+                                PostalServiceDailyStatistics d = new PostalServiceDailyStatistics();
+                                d.setStore(statistics.getStore());
+                                d.setPostalServiceType(serviceType);
+                                d.setDate(day);
+                                return d;
+                            });
+                    psDaily.setSent(psDaily.getSent() + 1);
+                    psDaily.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                    postalServiceDailyStatisticsRepository.save(psDaily);
+                }
             }
         }
 
