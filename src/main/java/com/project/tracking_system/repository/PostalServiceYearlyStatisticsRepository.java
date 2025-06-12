@@ -2,6 +2,7 @@ package com.project.tracking_system.repository;
 
 import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.entity.PostalServiceYearlyStatistics;
+import org.springframework.data.jpa.repository.JpaRepository;
 import com.project.tracking_system.repository.DeletableByStoreOrUser;
 import java.util.Optional;
 
@@ -9,7 +10,8 @@ import java.util.Optional;
  * Репозиторий для годовой статистики по почтовым службам.
  */
 public interface PostalServiceYearlyStatisticsRepository
-        extends DeletableByStoreOrUser<PostalServiceYearlyStatistics, Long> {
+        extends JpaRepository<PostalServiceYearlyStatistics, Long>,
+        DeletableByStoreOrUser<PostalServiceYearlyStatistics, Long> {
 
     /**
      * Найти статистику почтовой службы за конкретный год.

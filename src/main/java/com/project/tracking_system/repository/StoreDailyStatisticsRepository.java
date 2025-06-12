@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.project.tracking_system.repository.DeletableByStoreOrUser;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -14,7 +16,9 @@ import java.util.Optional;
 /**
  * Репозиторий для ежедневной статистики магазинов.
  */
-public interface StoreDailyStatisticsRepository extends JpaRepository<StoreDailyStatistics, Long> {
+public interface StoreDailyStatisticsRepository
+        extends JpaRepository<StoreDailyStatistics, Long>,
+        DeletableByStoreOrUser<StoreDailyStatistics, Long> {
 
     /**
      * Найти статистику для магазина на конкретную дату.
@@ -53,19 +57,4 @@ public interface StoreDailyStatisticsRepository extends JpaRepository<StoreDaily
      */
     List<StoreDailyStatistics> findByDate(LocalDate date);
 
-    /**
-     * Удалить всю ежедневную статистику конкретного магазина.
-     */
-    @Modifying
-    @Transactional
-    @Query("DELETE FROM StoreDailyStatistics s WHERE s.store.id = :storeId")
-    void deleteByStoreId(@Param("storeId") Long storeId);
-
-    /**
-     * Удалить ежедневную статистику всех магазинов пользователя.
-     */
-    @Modifying
-    @Transactional
-    @Query("DELETE FROM StoreDailyStatistics s WHERE s.store.owner.id = :userId")
-    void deleteByUserId(@Param("userId") Long userId);
 }
