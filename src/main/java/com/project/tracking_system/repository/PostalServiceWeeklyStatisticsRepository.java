@@ -2,6 +2,7 @@ package com.project.tracking_system.repository;
 
 import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.entity.PostalServiceWeeklyStatistics;
+import org.springframework.data.jpa.repository.JpaRepository;
 import com.project.tracking_system.repository.DeletableByStoreOrUser;
 import java.util.Optional;
 
@@ -9,7 +10,8 @@ import java.util.Optional;
  * Репозиторий для недельной статистики по почтовым службам.
  */
 public interface PostalServiceWeeklyStatisticsRepository
-        extends DeletableByStoreOrUser<PostalServiceWeeklyStatistics, Long> {
+        extends JpaRepository<PostalServiceWeeklyStatistics, Long>,
+        DeletableByStoreOrUser<PostalServiceWeeklyStatistics, Long> {
 
     /**
      * Найти статистику почтовой службы за конкретную неделю.
