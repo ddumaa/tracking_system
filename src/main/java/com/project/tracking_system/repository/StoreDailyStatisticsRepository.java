@@ -57,4 +57,24 @@ public interface StoreDailyStatisticsRepository
      */
     List<StoreDailyStatistics> findByDate(LocalDate date);
 
+    /**
+     * Атомарно увеличивает ежедневный счётчик отправлений магазина.
+     *
+     * @param storeId идентификатор магазина
+     * @param date дата статистики
+     * @param delta величина увеличения
+     * @return количество обновлённых записей
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE StoreDailyStatistics s
+        SET s.sent = s.sent + :delta,
+            s.updatedAt = CURRENT_TIMESTAMP
+        WHERE s.store.id = :storeId AND s.date = :date
+        """)
+    int incrementSent(@Param("storeId") Long storeId,
+                      @Param("date") LocalDate date,
+                      @Param("delta") int delta);
+
 }
