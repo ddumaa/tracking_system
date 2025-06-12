@@ -208,9 +208,6 @@ public class DeliveryHistoryService {
         LocalDate eventDate = null;
 
         if (status == GlobalStatus.DELIVERED) {
-            stats.setTotalDelivered(stats.getTotalDelivered() + 1);
-            psStats.setTotalDelivered(psStats.getTotalDelivered() + 1);
-
             if (history.getReceivedDate() != null) {
                 // День получения используется как ключ для ежедневной статистики
                 eventDate = history.getReceivedDate().toLocalDate();
@@ -220,21 +217,50 @@ public class DeliveryHistoryService {
                 // Считаем время доставки от отправки до прибытия
                 deliveryDays = BigDecimal.valueOf(
                         Duration.between(history.getSendDate(), history.getArrivedDate()).toHours() / 24.0);
-                stats.setSumDeliveryDays(stats.getSumDeliveryDays().add(deliveryDays));
-                psStats.setSumDeliveryDays(psStats.getSumDeliveryDays().add(deliveryDays));
             }
 
             if (history.getArrivedDate() != null && history.getReceivedDate() != null) {
                 // Время ожидания клиента на пункте выдачи
                 pickupDays = BigDecimal.valueOf(
                         Duration.between(history.getArrivedDate(), history.getReceivedDate()).toDays());
-                stats.setSumPickupDays(stats.getSumPickupDays().add(pickupDays));
-                psStats.setSumPickupDays(psStats.getSumPickupDays().add(pickupDays));
+            }
+
+            int stUpd = storeAnalyticsRepository.incrementDelivered(
+                    store.getId(),
+                    1,
+                    deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
+                    pickupDays != null ? pickupDays : BigDecimal.ZERO);
+            if (stUpd == 0) {
+                stats.setTotalDelivered(stats.getTotalDelivered() + 1);
+                if (deliveryDays != null) {
+                    stats.setSumDeliveryDays(stats.getSumDeliveryDays().add(deliveryDays));
+                }
+                if (pickupDays != null) {
+                    stats.setSumPickupDays(stats.getSumPickupDays().add(pickupDays));
+                }
+                stats.setUpdatedAt(ZonedDateTime.now());
+                storeAnalyticsRepository.save(stats);
+            }
+
+            int psUpd = postalServiceStatisticsRepository.incrementDelivered(
+                    store.getId(),
+                    history.getPostalService(),
+                    1,
+                    deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
+                    pickupDays != null ? pickupDays : BigDecimal.ZERO);
+            if (psUpd == 0) {
+                psStats.setTotalDelivered(psStats.getTotalDelivered() + 1);
+                if (deliveryDays != null) {
+                    psStats.setSumDeliveryDays(psStats.getSumDeliveryDays().add(deliveryDays));
+                }
+                if (pickupDays != null) {
+                    psStats.setSumPickupDays(psStats.getSumPickupDays().add(pickupDays));
+                }
+                psStats.setUpdatedAt(ZonedDateTime.now());
+                postalServiceStatisticsRepository.save(psStats);
             }
 
         } else if (status == GlobalStatus.RETURNED) {
-            stats.setTotalReturned(stats.getTotalReturned() + 1);
-            psStats.setTotalReturned(psStats.getTotalReturned() + 1);
             if (history.getReturnedDate() != null) {
                 eventDate = history.getReturnedDate().toLocalDate();
             }
@@ -243,16 +269,47 @@ public class DeliveryHistoryService {
                 // Считаем время доставки от отправки до прибытия
                 deliveryDays = BigDecimal.valueOf(
                         Duration.between(history.getSendDate(), history.getArrivedDate()).toHours() / 24.0);
-                stats.setSumDeliveryDays(stats.getSumDeliveryDays().add(deliveryDays));
-                psStats.setSumDeliveryDays(psStats.getSumDeliveryDays().add(deliveryDays));
             }
 
             if (history.getArrivedDate() != null && history.getReturnedDate() != null) {
                 // Возврат забран: считаем время от прибытия до возврата
                 pickupDays = BigDecimal.valueOf(
                         Duration.between(history.getArrivedDate(), history.getReturnedDate()).toDays());
-                stats.setSumPickupDays(stats.getSumPickupDays().add(pickupDays));
-                psStats.setSumPickupDays(psStats.getSumPickupDays().add(pickupDays));
+            }
+
+            int stUpd = storeAnalyticsRepository.incrementReturned(
+                    store.getId(),
+                    1,
+                    deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
+                    pickupDays != null ? pickupDays : BigDecimal.ZERO);
+            if (stUpd == 0) {
+                stats.setTotalReturned(stats.getTotalReturned() + 1);
+                if (deliveryDays != null) {
+                    stats.setSumDeliveryDays(stats.getSumDeliveryDays().add(deliveryDays));
+                }
+                if (pickupDays != null) {
+                    stats.setSumPickupDays(stats.getSumPickupDays().add(pickupDays));
+                }
+                stats.setUpdatedAt(ZonedDateTime.now());
+                storeAnalyticsRepository.save(stats);
+            }
+
+            int psUpd = postalServiceStatisticsRepository.incrementReturned(
+                    store.getId(),
+                    history.getPostalService(),
+                    1,
+                    deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
+                    pickupDays != null ? pickupDays : BigDecimal.ZERO);
+            if (psUpd == 0) {
+                psStats.setTotalReturned(psStats.getTotalReturned() + 1);
+                if (deliveryDays != null) {
+                    psStats.setSumDeliveryDays(psStats.getSumDeliveryDays().add(deliveryDays));
+                }
+                if (pickupDays != null) {
+                    psStats.setSumPickupDays(psStats.getSumPickupDays().add(pickupDays));
+                }
+                psStats.setUpdatedAt(ZonedDateTime.now());
+                postalServiceStatisticsRepository.save(psStats);
             }
         }
 
@@ -260,10 +317,7 @@ public class DeliveryHistoryService {
             updateDailyStats(store, history.getPostalService(), eventDate, status, deliveryDays, pickupDays);
         }
 
-        stats.setUpdatedAt(ZonedDateTime.now());
-        psStats.setUpdatedAt(ZonedDateTime.now());
-        storeAnalyticsRepository.save(stats);
-        postalServiceStatisticsRepository.save(psStats);
+        // флаг включён, дальнейшее обновление записей не требуется
 
         trackParcel.setIncludedInStatistics(true);
         trackParcelRepository.save(trackParcel);
@@ -292,58 +346,117 @@ public class DeliveryHistoryService {
             log.warn("⛔ Skipping daily stats update for UNKNOWN service: {}", store.getId());
             return;
         }
-        // Поиск или создание ежедневной статистики по магазину
-        StoreDailyStatistics daily = storeDailyStatisticsRepository
-                .findByStoreIdAndDate(store.getId(), eventDate)
-                .orElseGet(() -> {
-                    StoreDailyStatistics d = new StoreDailyStatistics();
-                    d.setStore(store);
-                    d.setDate(eventDate);
-                    return d;
-                });
-
-        // Поиск или создание ежедневной статистики почтовой службы
-        PostalServiceDailyStatistics psDaily = postalServiceDailyStatisticsRepository
-                .findByStoreIdAndPostalServiceTypeAndDate(store.getId(), serviceType, eventDate)
-                .orElseGet(() -> {
-                    PostalServiceDailyStatistics d = new PostalServiceDailyStatistics();
-                    d.setStore(store);
-                    d.setPostalServiceType(serviceType);
-                    d.setDate(eventDate);
-                    return d;
-                });
-
-        // Обновляем значения в зависимости от финального статуса
+        // Сначала пытаемся атомарно увеличить счётчики
         if (status == GlobalStatus.DELIVERED) {
-            daily.setDelivered(daily.getDelivered() + 1);
-            psDaily.setDelivered(psDaily.getDelivered() + 1);
-
-            // Добавляем время доставки, если оно рассчитано
-            if (deliveryDays != null) {
-                daily.setSumDeliveryDays(daily.getSumDeliveryDays().add(deliveryDays));
-                psDaily.setSumDeliveryDays(psDaily.getSumDeliveryDays().add(deliveryDays));
+            int sdUpdated = storeDailyStatisticsRepository.incrementDelivered(
+                    store.getId(),
+                    eventDate,
+                    1,
+                    deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
+                    pickupDays != null ? pickupDays : BigDecimal.ZERO);
+            if (sdUpdated == 0) {
+                StoreDailyStatistics daily = storeDailyStatisticsRepository
+                        .findByStoreIdAndDate(store.getId(), eventDate)
+                        .orElseGet(() -> {
+                            StoreDailyStatistics d = new StoreDailyStatistics();
+                            d.setStore(store);
+                            d.setDate(eventDate);
+                            return d;
+                        });
+                daily.setDelivered(daily.getDelivered() + 1);
+                if (deliveryDays != null) {
+                    daily.setSumDeliveryDays(daily.getSumDeliveryDays().add(deliveryDays));
+                }
+                if (pickupDays != null) {
+                    daily.setSumPickupDays(daily.getSumPickupDays().add(pickupDays));
+                }
+                daily.setUpdatedAt(ZonedDateTime.now());
+                storeDailyStatisticsRepository.save(daily);
             }
 
-            // Добавляем время ожидания на пункте, если оно известно
-            if (pickupDays != null) {
-                daily.setSumPickupDays(daily.getSumPickupDays().add(pickupDays));
-                psDaily.setSumPickupDays(psDaily.getSumPickupDays().add(pickupDays));
+            int psdUpdated = postalServiceDailyStatisticsRepository.incrementDelivered(
+                    store.getId(),
+                    serviceType,
+                    eventDate,
+                    1,
+                    deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
+                    pickupDays != null ? pickupDays : BigDecimal.ZERO);
+            if (psdUpdated == 0) {
+                PostalServiceDailyStatistics psDaily = postalServiceDailyStatisticsRepository
+                        .findByStoreIdAndPostalServiceTypeAndDate(store.getId(), serviceType, eventDate)
+                        .orElseGet(() -> {
+                            PostalServiceDailyStatistics d = new PostalServiceDailyStatistics();
+                            d.setStore(store);
+                            d.setPostalServiceType(serviceType);
+                            d.setDate(eventDate);
+                            return d;
+                        });
+                psDaily.setDelivered(psDaily.getDelivered() + 1);
+                if (deliveryDays != null) {
+                    psDaily.setSumDeliveryDays(psDaily.getSumDeliveryDays().add(deliveryDays));
+                }
+                if (pickupDays != null) {
+                    psDaily.setSumPickupDays(psDaily.getSumPickupDays().add(pickupDays));
+                }
+                psDaily.setUpdatedAt(ZonedDateTime.now());
+                postalServiceDailyStatisticsRepository.save(psDaily);
             }
+
         } else if (status == GlobalStatus.RETURNED) {
-            daily.setReturned(daily.getReturned() + 1);
-            psDaily.setReturned(psDaily.getReturned() + 1);
+            int sdUpdated = storeDailyStatisticsRepository.incrementReturned(
+                    store.getId(),
+                    eventDate,
+                    1,
+                    deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
+                    pickupDays != null ? pickupDays : BigDecimal.ZERO);
+            if (sdUpdated == 0) {
+                StoreDailyStatistics daily = storeDailyStatisticsRepository
+                        .findByStoreIdAndDate(store.getId(), eventDate)
+                        .orElseGet(() -> {
+                            StoreDailyStatistics d = new StoreDailyStatistics();
+                            d.setStore(store);
+                            d.setDate(eventDate);
+                            return d;
+                        });
+                daily.setReturned(daily.getReturned() + 1);
+                if (deliveryDays != null) {
+                    daily.setSumDeliveryDays(daily.getSumDeliveryDays().add(deliveryDays));
+                }
+                if (pickupDays != null) {
+                    daily.setSumPickupDays(daily.getSumPickupDays().add(pickupDays));
+                }
+                daily.setUpdatedAt(ZonedDateTime.now());
+                storeDailyStatisticsRepository.save(daily);
+            }
 
-            // Время нахождения посылки на пункте выдачи перед возвратом
-            if (pickupDays != null) {
-                daily.setSumPickupDays(daily.getSumPickupDays().add(pickupDays));
-                psDaily.setSumPickupDays(psDaily.getSumPickupDays().add(pickupDays));
+            int psdUpdated = postalServiceDailyStatisticsRepository.incrementReturned(
+                    store.getId(),
+                    serviceType,
+                    eventDate,
+                    1,
+                    deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
+                    pickupDays != null ? pickupDays : BigDecimal.ZERO);
+            if (psdUpdated == 0) {
+                PostalServiceDailyStatistics psDaily = postalServiceDailyStatisticsRepository
+                        .findByStoreIdAndPostalServiceTypeAndDate(store.getId(), serviceType, eventDate)
+                        .orElseGet(() -> {
+                            PostalServiceDailyStatistics d = new PostalServiceDailyStatistics();
+                            d.setStore(store);
+                            d.setPostalServiceType(serviceType);
+                            d.setDate(eventDate);
+                            return d;
+                        });
+                psDaily.setReturned(psDaily.getReturned() + 1);
+                if (deliveryDays != null) {
+                    psDaily.setSumDeliveryDays(psDaily.getSumDeliveryDays().add(deliveryDays));
+                }
+                if (pickupDays != null) {
+                    psDaily.setSumPickupDays(psDaily.getSumPickupDays().add(pickupDays));
+                }
+                psDaily.setUpdatedAt(ZonedDateTime.now());
+                postalServiceDailyStatisticsRepository.save(psDaily);
             }
         }
-
-        daily.setUpdatedAt(ZonedDateTime.now());
-        psDaily.setUpdatedAt(ZonedDateTime.now());
-        storeDailyStatisticsRepository.save(daily);
-        postalServiceDailyStatisticsRepository.save(psDaily);
     }
 
     private PostalServiceStatistics getOrCreateServiceStats(Store store, PostalServiceType serviceType) {

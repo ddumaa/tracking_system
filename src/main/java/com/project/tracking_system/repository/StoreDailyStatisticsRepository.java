@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.project.tracking_system.repository.DeletableByStoreOrUser;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -76,5 +77,57 @@ public interface StoreDailyStatisticsRepository
     int incrementSent(@Param("storeId") Long storeId,
                       @Param("date") LocalDate date,
                       @Param("delta") int delta);
+
+    /**
+     * Атомарно увеличивает счётчик доставленных посылок за день.
+     *
+     * @param storeId      идентификатор магазина
+     * @param date         дата статистики
+     * @param delta        величина увеличения доставленных посылок
+     * @param deliveryDays добавляемые дни доставки
+     * @param pickupDays   добавляемые дни ожидания
+     * @return количество обновлённых записей
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE StoreDailyStatistics s
+        SET s.delivered = s.delivered + :delta,
+            s.sumDeliveryDays = s.sumDeliveryDays + :deliveryDays,
+            s.sumPickupDays = s.sumPickupDays + :pickupDays,
+            s.updatedAt = CURRENT_TIMESTAMP
+        WHERE s.store.id = :storeId AND s.date = :date
+        """)
+    int incrementDelivered(@Param("storeId") Long storeId,
+                           @Param("date") LocalDate date,
+                           @Param("delta") int delta,
+                           @Param("deliveryDays") java.math.BigDecimal deliveryDays,
+                           @Param("pickupDays") java.math.BigDecimal pickupDays);
+
+    /**
+     * Атомарно увеличивает счётчик возвращённых посылок за день.
+     *
+     * @param storeId      идентификатор магазина
+     * @param date         дата статистики
+     * @param delta        величина увеличения возвратов
+     * @param deliveryDays добавляемые дни доставки
+     * @param pickupDays   добавляемые дни нахождения на пункте
+     * @return количество обновлённых записей
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE StoreDailyStatistics s
+        SET s.returned = s.returned + :delta,
+            s.sumDeliveryDays = s.sumDeliveryDays + :deliveryDays,
+            s.sumPickupDays = s.sumPickupDays + :pickupDays,
+            s.updatedAt = CURRENT_TIMESTAMP
+        WHERE s.store.id = :storeId AND s.date = :date
+        """)
+    int incrementReturned(@Param("storeId") Long storeId,
+                          @Param("date") LocalDate date,
+                          @Param("delta") int delta,
+                          @Param("deliveryDays") java.math.BigDecimal deliveryDays,
+                          @Param("pickupDays") java.math.BigDecimal pickupDays);
 
 }
