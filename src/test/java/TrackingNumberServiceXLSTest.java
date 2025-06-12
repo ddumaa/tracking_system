@@ -13,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.io.ByteArrayOutputStream;
 
@@ -99,5 +100,17 @@ public class TrackingNumberServiceXLSTest {
         ArgumentCaptor<Long> captor = ArgumentCaptor.forClass(Long.class);
         verify(trackParcelService).processTrack(eq("RR123"), captor.capture(), eq(userId), eq(true));
         assertEquals(defaultStore, captor.getValue());
+    }
+
+    @Test
+    void shutdownExecutor_CalledOnContextClose() {
+        TrackingNumberServiceXLS spyService = Mockito.spy(new TrackingNumberServiceXLS(trackParcelService, subscriptionService, storeService));
+
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.registerBean(TrackingNumberServiceXLS.class, () -> spyService);
+            context.refresh();
+        }
+
+        Mockito.verify(spyService).shutdownExecutor();
     }
 }
