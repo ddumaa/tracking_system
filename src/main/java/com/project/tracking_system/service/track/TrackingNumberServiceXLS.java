@@ -8,6 +8,7 @@ import com.project.tracking_system.service.store.StoreService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
+import jakarta.annotation.PreDestroy;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -236,6 +237,18 @@ public class TrackingNumberServiceXLS {
             log.error("Ошибка обработки {}: {}", trackingNumber, e.getMessage(), e);
             return new TrackingResultAdd(trackingNumber, "Ошибка обработки");
         }
+    }
+
+    /**
+     * Завершает пул потоков при остановке приложения.
+     * <p>
+     * Метод вызывается контейнером Spring перед уничтожением бина
+     * для корректного завершения всех задач в очереди.
+     * </p>
+     */
+    @PreDestroy
+    public void shutdownExecutor() {
+        executor.shutdown();
     }
 
 }
