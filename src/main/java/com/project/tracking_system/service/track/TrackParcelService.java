@@ -136,19 +136,16 @@ public class TrackParcelService {
             log.info("Создан новый трек {} для пользователя ID={}", number, userId);
 
         } else {
-            // Запоминаем предыдущие значения для корректировки статистики
+            // Запоминаем значения для корректировки статистики
             previousStoreId = trackParcel.getStore().getId();
             previousDate = trackParcel.getData();
-        }
-        // Если трек уже существует, проверяем, соответствует ли магазин выбранному пользователем
-        if (!trackParcel.getStore().getId().equals(storeId)) {
-            // Загружаем новый магазин
-            Long oldStoreId = trackParcel.getStore().getId();
-            Store newStore = storeRepository.getReferenceById(storeId);
 
-            // Обновляем магазин у трека
-            trackParcel.setStore(newStore);
-            log.info("Обновление магазина для трека {}: с магазина {} на магазин {}", number, oldStoreId, storeId);
+            // Предотвращаем смену магазина для уже сохранённого трека
+            if (!previousStoreId.equals(storeId)) {
+                log.warn("Попытка сменить магазин у трека {}: {} -> {}. Смена запрещена.",
+                        number, previousStoreId, storeId);
+                storeId = previousStoreId; // Продолжаем работу со старым магазином
+            }
         }
 
         // Обновляем статус и дату трека на основе нового содержимого
@@ -169,11 +166,12 @@ public class TrackParcelService {
 
         // Инкрементируем статистику нового магазина при добавлении новой посылки или смене магазина
         if (isNewParcel || storeChanged) {
-            StoreStatistics statistics = storeAnalyticsRepository.findByStoreId(storeId)
-                    .orElseThrow(() -> new IllegalStateException("Статистика не найдена"));
+            StoreStatistics statistics = getOrCreateStoreStats(storeId);
             statistics.setTotalSent(statistics.getTotalSent() + 1);
             statistics.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
             storeAnalyticsRepository.save(statistics);
+            log.info("Статистика магазина ID={}, запись={}, totalSent={}",
+                    storeId, statistics.getId(), statistics.getTotalSent());
 
             // Postal service statistics (skip UNKNOWN)
             if (serviceType != PostalServiceType.UNKNOWN) {
@@ -340,6 +338,22 @@ public class TrackParcelService {
     @Transactional
     public void incrementUpdateCount(Long userId, int count) {
         userSubscriptionRepository.incrementUpdateCount(userId, count, LocalDate.now(ZoneOffset.UTC));
+    }
+
+    /**
+     * Возвращает статистику магазина, создавая запись при отсутствии.
+     *
+     * @param storeId идентификатор магазина
+     * @return существующая или новая статистика магазина
+     */
+    private StoreStatistics getOrCreateStoreStats(Long storeId) {
+        return storeAnalyticsRepository.findByStoreId(storeId)
+                .orElseGet(() -> {
+                    StoreStatistics stats = new StoreStatistics();
+                    stats.setStore(storeRepository.getReferenceById(storeId));
+                    stats.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                    return storeAnalyticsRepository.save(stats);
+                });
     }
 
     /**
