@@ -19,13 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.time.Duration;
+import com.project.tracking_system.utils.DateParserUtils;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -83,8 +81,9 @@ public class DeliveryHistoryService {
             return;
         }
 
-        //  Извлекаем даты из трека
-        DeliveryDates deliveryDates = extractDatesFromTrackInfo(trackParcel, trackInfoListDTO);
+        //  Определяем часовой пояс пользователя и извлекаем даты из трека
+        ZoneId userZone = ZoneId.of(trackParcel.getUser().getTimeZone());
+        DeliveryDates deliveryDates = extractDatesFromTrackInfo(trackParcel, trackInfoListDTO, userZone);
 
         // Устанавливаем дату отправки, если она доступна
         setHistoryDate("Дата отправки", history.getSendDate(), deliveryDates.sendDate(), history::setSendDate);
@@ -118,9 +117,14 @@ public class DeliveryHistoryService {
     }
 
     /**
-     * Извлекает даты отправки и получения из списка статусов.
+     * Извлекает ключевые даты из списка статусов трекинга.
+     *
+     * @param trackParcel    посылка, для которой анализируем историю
+     * @param trackInfoListDTO список событий трекинга
+     * @param userZone       часовой пояс пользователя
+     * @return набор извлечённых дат
      */
-    private DeliveryDates extractDatesFromTrackInfo(TrackParcel trackParcel, TrackInfoListDTO trackInfoListDTO) {
+    private DeliveryDates extractDatesFromTrackInfo(TrackParcel trackParcel, TrackInfoListDTO trackInfoListDTO, ZoneId userZone) {
         List<TrackInfoDTO> trackInfoList = trackInfoListDTO.getList();
 
         if (trackInfoList.isEmpty()) {
@@ -133,9 +137,9 @@ public class DeliveryHistoryService {
 
         //  Определяем дату отправки
         if (serviceType == PostalServiceType.BELPOST) {
-            sendDate = parseDate(trackInfoList.get(trackInfoList.size() - 1).getTimex()); // Последний статус
+            sendDate = DateParserUtils.parse(trackInfoList.get(trackInfoList.size() - 1).getTimex(), userZone); // Последний статус
         } else if (serviceType == PostalServiceType.EVROPOST && trackInfoList.size() > 1) {
-            sendDate = parseDate(trackInfoList.get(trackInfoList.size() - 2).getTimex()); // Предпоследний статус
+            sendDate = DateParserUtils.parse(trackInfoList.get(trackInfoList.size() - 2).getTimex(), userZone); // Предпоследний статус
         } else {
             log.info("Европочта: Недостаточно данных для даты отправки. Трек: {}", trackParcel.getNumber());
         }
@@ -145,9 +149,9 @@ public class DeliveryHistoryService {
         GlobalStatus finalStatus = statusTrackService.setStatus(List.of(latestStatus));
 
         if (finalStatus == GlobalStatus.DELIVERED) {
-            receivedDate = parseDate(latestStatus.getTimex());
+            receivedDate = DateParserUtils.parse(latestStatus.getTimex(), userZone);
         } else if (finalStatus == GlobalStatus.RETURNED) {
-            returnedDate = parseDate(latestStatus.getTimex());
+            returnedDate = DateParserUtils.parse(latestStatus.getTimex(), userZone);
         }
 
         // Поиск первого (по времени) статуса WAITING_FOR_CUSTOMER
@@ -155,7 +159,7 @@ public class DeliveryHistoryService {
             TrackInfoDTO info = trackInfoList.get(i);
             GlobalStatus status = statusTrackService.setStatus(List.of(info));
             if (status == GlobalStatus.WAITING_FOR_CUSTOMER) {
-                arrivedDate = parseDate(info.getTimex());
+                arrivedDate = DateParserUtils.parse(info.getTimex(), userZone);
                 log.info("Извлечена дата прибытия на пункт выдачи: {}", arrivedDate);
                 break;
             }
@@ -423,25 +427,6 @@ public class DeliveryHistoryService {
         }
     }
 
-    /**
-     * Парсит строковую дату в `ZonedDateTime`
-     */
-    private ZonedDateTime parseDate(String dateString) {
-        if (dateString == null || dateString.isEmpty()) {
-            return null;
-        }
-        try {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss");
-            LocalDateTime localDateTime = LocalDateTime.parse(dateString, formatter);
-
-            // Заменить Europe/Minsk на userZone, когда будет передаваться из контекста - в будущем
-            ZoneId inputZone = ZoneId.of("Europe/Minsk");
-            return localDateTime.atZone(inputZone).withZoneSameInstant(ZoneOffset.UTC);
-        } catch (DateTimeParseException e) {
-            log.error("Ошибка парсинга даты: {}", dateString, e);
-            return null;
-        }
-    }
 
     /**
      * Устанавливает дату в истории, если она изменилась.
