@@ -155,6 +155,11 @@ public class TrackingNumberServiceXLS {
                             log.warn("⚠ Неподдерживаемый тип ячейки для магазина в строке {}", rowIndex + 1);
                         }
                     }
+                    // Проверяем, принадлежит ли указанный магазин пользователю
+                    if (storeId != null && !storeService.userOwnsStore(storeId, userId)) {
+                        log.warn("⚠ Магазин ID={} не принадлежит пользователю ID={}, используем дефолтный.", storeId, userId);
+                        storeId = defaultStoreId;
+                    }
                 }
 
                 log.info("Трек={}, магазин={} (userId={})", trackingNumber, storeId, userId);
