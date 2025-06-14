@@ -95,36 +95,26 @@ public class StoreService {
         Store savedStore = storeRepository.save(store);
         log.info("Магазин '{}' создан с ID={}", savedStore.getName(), savedStore.getId());
 
-        // Создаём пустую статистику для нового магазина если её ещё нет
-        if (storeAnalyticsRepository.findByStoreId(savedStore.getId()).isEmpty()) {
-            StoreStatistics statistics = new StoreStatistics();
-            statistics.setStore(savedStore);
-            statistics.setTotalSent(0);
-            statistics.setTotalDelivered(0);
-            statistics.setTotalReturned(0);
-            statistics.setSumDeliveryDays(BigDecimal.ZERO);
-            statistics.setSumPickupDays(BigDecimal.ZERO);
-            statistics.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+        // Создаём пустую статистику для нового магазина
+        StoreStatistics statistics = new StoreStatistics();
+        statistics.setStore(savedStore);
+        statistics.setTotalSent(0);
+        statistics.setTotalDelivered(0);
+        statistics.setTotalReturned(0);
+        statistics.setSumDeliveryDays(BigDecimal.ZERO);
+        statistics.setSumPickupDays(BigDecimal.ZERO);
+        statistics.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
 
-            storeAnalyticsRepository.save(statistics);
-            log.info("Создана пустая статистика для магазина ID={}", savedStore.getId());
-        } else {
-            log.warn("Статистика для магазина ID={} уже существует", savedStore.getId());
-        }
+        storeAnalyticsRepository.save(statistics);
+        log.info("Создана пустая статистика для магазина ID={}", savedStore.getId());
 
         // Создаём пустую статистику для каждой почтовой службы
         for (PostalServiceType type : PostalServiceType.values()) {
-            if (postalServiceStatisticsRepository
-                    .findByStoreIdAndPostalServiceType(savedStore.getId(), type)
-                    .isEmpty()) {
-                PostalServiceStatistics psStats = new PostalServiceStatistics();
-                psStats.setStore(savedStore);
-                psStats.setPostalServiceType(type);
-                psStats.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
-                postalServiceStatisticsRepository.save(psStats);
-            } else {
-                log.warn("Статистика {} уже существует для магазина ID={}", type, savedStore.getId());
-            }
+            PostalServiceStatistics psStats = new PostalServiceStatistics();
+            psStats.setStore(savedStore);
+            psStats.setPostalServiceType(type);
+            psStats.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+            postalServiceStatisticsRepository.save(psStats);
         }
 
         webSocketController.sendUpdateStatus(userId, "Магазин '" + storeName + "' добавлен!", true);
