@@ -438,9 +438,9 @@ public class TrackParcelService {
             return new UpdateResult(false, 0, 0, msg);
         }
 
-        // Получаем все магазины пользователя
-        List<Store> stores = storeRepository.findByOwnerId(userId);
-        if (stores.isEmpty()) {
+        // Получаем количество магазинов пользователя
+        int count = storeRepository.countByOwnerId(userId);
+        if (count == 0) {
             log.warn("У пользователя ID={} нет магазинов для обновления треков.", userId);
             return new UpdateResult(false, 0, 0, "У вас нет магазинов с посылками.");
         }
