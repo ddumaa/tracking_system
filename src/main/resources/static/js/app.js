@@ -1186,24 +1186,27 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
                 notifyUser("Выбранные посылки успешно удалены.", "success");
 
-                clearAllCheckboxes();
+                const checkedCheckboxes = Array.from(document.querySelectorAll(".selectCheckbox:checked"));
+                const rowsToRemove = checkedCheckboxes
+                    .map(cb => cb.closest("tr"))
+                    .filter(row => row);
 
                 // Анимация исчезновения удалённых строк
-                document.querySelectorAll(".selectCheckbox:checked").forEach(checkbox => {
-                    const row = checkbox.closest("tr");
-                    if (row) {
-                        row.style.transition = "opacity 0.5s";
-                        row.style.opacity = "0";
-                        setTimeout(() => row.remove(), 500);
-                    }
+                rowsToRemove.forEach(row => {
+                    row.style.transition = "opacity 0.5s";
+                    row.style.opacity = "0";
                 });
 
-                // ✅ Возвращаем кнопку в нормальное состояние
-                applyBtn.disabled = false;
-                applyBtn.innerHTML = "Применить";
+                // Удаляем строки и очищаем чекбоксы после завершения анимации
+                setTimeout(() => {
+                    rowsToRemove.forEach(row => row.remove());
+                    clearAllCheckboxes();
+                }, 500);
             })
             .catch(error => {
                 notifyUser("Ошибка при удалении: " + error.message, "danger");
+            })
+            .finally(() => {
                 applyBtn.disabled = false;
                 applyBtn.innerHTML = "Применить";
             });
