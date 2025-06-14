@@ -431,6 +431,18 @@ public class TrackParcelService {
                 "Запущено обновление " + parcelsToUpdate.size() + " треков из " + allParcels.size());
     }
 
+    /**
+     * Асинхронно обновляет все треки пользователя.
+     * <p>
+     * Метод выполняется в отдельном потоке благодаря {@link Async} и
+     * обернут в транзакцию с помощью {@link Transactional}. После запуска
+     * каждый трек обрабатывается параллельно, а по завершению формируется
+     * итоговое сообщение с количеством успешно обновлённых треков.
+     * </p>
+     *
+     * @param userId        идентификатор пользователя
+     * @param parcelsToUpdate список DTO посылок для обновления
+     */
     @Async
     @Transactional
     public void processAllTrackUpdatesAsync(Long userId, List<TrackParcelDTO> parcelsToUpdate) {
@@ -543,6 +555,20 @@ public class TrackParcelService {
                 "Обновление запущено...");
     }
 
+    /**
+     * Асинхронно обновляет выбранный список посылок пользователя.
+     * <p>
+     * Выполнение метода происходит в отдельном потоке благодаря аннотации
+     * {@link Async}. Транзакция гарантирует целостность всех операций
+     * обновления. После обработки формируется уведомление о количестве
+     * обновлённых треков и учитывается лимит подписки.
+     * </p>
+     *
+     * @param userId            идентификатор пользователя
+     * @param parcelsToUpdate   список посылок для обновления
+     * @param totalRequested    общее количество запрошенных треков
+     * @param nonUpdatableCount количество треков в финальном статусе
+     */
     @Async
     @Transactional
     public void processTrackUpdatesAsync(Long userId, List<TrackParcel> parcelsToUpdate, int totalRequested, int nonUpdatableCount) {
