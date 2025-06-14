@@ -1,6 +1,7 @@
 package com.project.tracking_system.entity;
 
 import jakarta.persistence.*;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -14,6 +15,7 @@ import java.util.Objects;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
+@Table(name = "login_attempt")
 public class LoginAttempt {
 
     @Id

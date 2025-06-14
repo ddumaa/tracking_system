@@ -68,8 +68,20 @@ public class TrackParcelService {
     private final StoreDailyStatisticsRepository storeDailyStatisticsRepository;
     private final PostalServiceDailyStatisticsRepository postalServiceDailyStatisticsRepository;
 
+    /**
+     * Обрабатывает номер посылки: получает информацию и при необходимости сохраняет её.
+     *
+     * @param number  номер посылки
+     * @param storeId идентификатор магазина
+     * @param userId  идентификатор пользователя
+     * @param canSave признак возможности сохранения
+     * @return данные о посылке
+     */
     @Transactional
     public TrackInfoListDTO processTrack(String number, Long storeId, Long userId, boolean canSave) {
+        if (number == null) {
+            throw new IllegalArgumentException("Номер посылки не может быть null");
+        }
         number = number.toUpperCase(); // Приводим к верхнему регистру
 
         log.info("Обработка трека: {} (Пользователь ID={}, Магазин ID={})", number, userId, storeId);
@@ -102,7 +114,8 @@ public class TrackParcelService {
      *
      * @param number номер посылки
      * @param trackInfoListDTO информация о посылке
-     * @param username имя пользователя
+     * @param storeId идентификатор магазина
+     * @param userId  идентификатор пользователя
      */
     @Transactional
     public void save(String number, TrackInfoListDTO trackInfoListDTO, Long storeId, Long userId) {
@@ -300,6 +313,15 @@ public class TrackParcelService {
         return trackParcelRepository.existsByNumberAndUserId(itemNumber, userId);
     }
 
+    /**
+     * Находит посылки по магазинам с учётом пагинации.
+     *
+     * @param storeIds список идентификаторов магазинов
+     * @param page     номер страницы
+     * @param size     размер страницы
+     * @param userId   идентификатор пользователя для определения часового пояса
+     * @return страница с найденными посылками
+     */
     @Transactional
     public Page<TrackParcelDTO> findByStoreTracks(List<Long> storeIds, int page, int size, Long userId) {
         Pageable pageable = PageRequest.of(page, size);
@@ -309,15 +331,16 @@ public class TrackParcelService {
     }
 
     /**
-     * Ищет посылки магазина по статусу с поддержкой пагинации.
+     * Ищет посылки магазинов по статусу с поддержкой пагинации.
      * <p>
-     * Этот метод возвращает страницу посылок магазина по статусу и имени, с использованием пагинации.
+     * Возвращает страницу посылок выбранных магазинов по указанному статусу.
      * </p>
      *
-     * @param username имя пользователя
-     * @param status статус посылки
-     * @param page номер страницы
-     * @param size размер страницы
+     * @param storeIds список идентификаторов магазинов
+     * @param status   статус посылки
+     * @param page     номер страницы
+     * @param size     размер страницы
+     * @param userId   идентификатор пользователя для определения часового пояса
      * @return страница с посылками пользователя по статусу
      */
     @Transactional
@@ -328,6 +351,11 @@ public class TrackParcelService {
         return trackParcels.map(track -> new TrackParcelDTO(track, userZone));
     }
 
+    /**
+     * Подсчитывает общее количество посылок в системе.
+     *
+     * @return количество всех сохранённых посылок
+     */
     @Transactional
     public long countAllParcels() {
         return trackParcelRepository.count();
@@ -351,6 +379,12 @@ public class TrackParcelService {
     }
 
 
+    /**
+     * Увеличивает счётчик обновлений треков для пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @param count  величина увеличения
+     */
     @Transactional
     public void incrementUpdateCount(Long userId, int count) {
         userSubscriptionRepository.incrementUpdateCount(userId, count, LocalDate.now(ZoneOffset.UTC));
@@ -404,9 +438,9 @@ public class TrackParcelService {
             return new UpdateResult(false, 0, 0, msg);
         }
 
-        // Получаем все магазины пользователя
-        List<Store> stores = storeRepository.findByOwnerId(userId);
-        if (stores.isEmpty()) {
+        // Получаем количество магазинов пользователя
+        int count = storeRepository.countByOwnerId(userId);
+        if (count == 0) {
             log.warn("У пользователя ID={} нет магазинов для обновления треков.", userId);
             return new UpdateResult(false, 0, 0, "У вас нет магазинов с посылками.");
         }
@@ -443,7 +477,7 @@ public class TrackParcelService {
      * @param userId        идентификатор пользователя
      * @param parcelsToUpdate список DTO посылок для обновления
      */
-    @Async
+    @Async("Post")
     @Transactional
     public void processAllTrackUpdatesAsync(Long userId, List<TrackParcelDTO> parcelsToUpdate) {
         try {
@@ -569,7 +603,7 @@ public class TrackParcelService {
      * @param totalRequested    общее количество запрошенных треков
      * @param nonUpdatableCount количество треков в финальном статусе
      */
-    @Async
+    @Async("Post")
     @Transactional
     public void processTrackUpdatesAsync(Long userId, List<TrackParcel> parcelsToUpdate, int totalRequested, int nonUpdatableCount) {
         try {

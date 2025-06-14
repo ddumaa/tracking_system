@@ -199,8 +199,14 @@ public class DeliveryHistoryService {
         }
 
         Store store = history.getStore();
+        // Получаем статистику магазина или создаём новую запись
         StoreStatistics stats = storeAnalyticsRepository.findByStoreId(store.getId())
-                .orElseThrow(() -> new IllegalStateException("Статистика не найдена"));
+                .orElseGet(() -> {
+                    StoreStatistics s = new StoreStatistics();
+                    s.setStore(store);
+                    // Сохраняем запись, чтобы атомарные инкременты прошли успешно
+                    return storeAnalyticsRepository.save(s);
+                });
         PostalServiceStatistics psStats = getOrCreateServiceStats(store, history.getPostalService());
 
         BigDecimal deliveryDays = null;

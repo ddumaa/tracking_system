@@ -9,7 +9,7 @@ import java.util.Optional;
  * @author Dmitriy Anisimov
  * @date 15.03.2025
  */
-public interface DeliveryHistoryRepository extends JpaRepository<DeliveryHistory, Integer> {
+public interface DeliveryHistoryRepository extends JpaRepository<DeliveryHistory, Long> {
 
     Optional<DeliveryHistory> findByTrackParcelId(Long trackParcelId);
 }

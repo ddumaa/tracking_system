@@ -1,6 +1,7 @@
 package com.project.tracking_system.entity;
 
 import jakarta.persistence.*;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,6 +10,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 
 @Entity
+@Table(name = "password_reset_token")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor

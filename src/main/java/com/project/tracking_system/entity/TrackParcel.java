@@ -43,4 +43,8 @@ public class TrackParcel {
     @Column(name = "included_in_statistics", nullable = false)
     private boolean includedInStatistics = false;
 
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
+
 }
