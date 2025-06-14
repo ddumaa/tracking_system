@@ -233,11 +233,19 @@ public class ProfileController {
     }
 
     /**
-     * Получает список магазинов пользователя.
+     * Возвращает список магазинов пользователя.
+     * <p>
+     * Перед отправкой данных вызывается сервис {@link StoreService#getDefaultStoreId(Long)},
+     * чтобы установить магазин по умолчанию, если у пользователя только один магазин.
+     * </p>
+     *
+     * @param user текущий пользователь
+     * @return список магазинов пользователя
      */
     @GetMapping("/stores")
     @ResponseBody
     public List<Store> getUserStores(@AuthenticationPrincipal User user) {
+        storeService.getDefaultStoreId(user.getId());
         return storeService.getUserStores(user.getId());
     }
 
