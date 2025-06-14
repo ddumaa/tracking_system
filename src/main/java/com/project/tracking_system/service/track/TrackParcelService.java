@@ -114,7 +114,8 @@ public class TrackParcelService {
      *
      * @param number номер посылки
      * @param trackInfoListDTO информация о посылке
-     * @param username имя пользователя
+     * @param storeId идентификатор магазина
+     * @param userId  идентификатор пользователя
      */
     @Transactional
     public void save(String number, TrackInfoListDTO trackInfoListDTO, Long storeId, Long userId) {
@@ -330,15 +331,16 @@ public class TrackParcelService {
     }
 
     /**
-     * Ищет посылки магазина по статусу с поддержкой пагинации.
+     * Ищет посылки магазинов по статусу с поддержкой пагинации.
      * <p>
-     * Этот метод возвращает страницу посылок магазина по статусу и имени, с использованием пагинации.
+     * Возвращает страницу посылок выбранных магазинов по указанному статусу.
      * </p>
      *
-     * @param username имя пользователя
-     * @param status статус посылки
-     * @param page номер страницы
-     * @param size размер страницы
+     * @param storeIds список идентификаторов магазинов
+     * @param status   статус посылки
+     * @param page     номер страницы
+     * @param size     размер страницы
+     * @param userId   идентификатор пользователя для определения часового пояса
      * @return страница с посылками пользователя по статусу
      */
     @Transactional
