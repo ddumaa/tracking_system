@@ -68,8 +68,20 @@ public class TrackParcelService {
     private final StoreDailyStatisticsRepository storeDailyStatisticsRepository;
     private final PostalServiceDailyStatisticsRepository postalServiceDailyStatisticsRepository;
 
+    /**
+     * Обрабатывает номер посылки: получает информацию и при необходимости сохраняет её.
+     *
+     * @param number  номер посылки
+     * @param storeId идентификатор магазина
+     * @param userId  идентификатор пользователя
+     * @param canSave признак возможности сохранения
+     * @return данные о посылке
+     */
     @Transactional
     public TrackInfoListDTO processTrack(String number, Long storeId, Long userId, boolean canSave) {
+        if (number == null) {
+            throw new IllegalArgumentException("Номер посылки не может быть null");
+        }
         number = number.toUpperCase(); // Приводим к верхнему регистру
 
         log.info("Обработка трека: {} (Пользователь ID={}, Магазин ID={})", number, userId, storeId);
