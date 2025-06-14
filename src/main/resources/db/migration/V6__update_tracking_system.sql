@@ -44,8 +44,6 @@ CREATE TABLE IF NOT EXISTS tb_store_statistics (
                                                    average_delivery_days DECIMAL(5,2) NULL,
                                                    updated_at           TIMESTAMP DEFAULT now()
 );
-ALTER TABLE tb_store_statistics
-    ADD CONSTRAINT uk_store_statistics_store UNIQUE (store_id);
 
 -- 7. Индексы для ускорения работы с БД
 CREATE INDEX IF NOT EXISTS idx_users_email ON tb_users(email);
