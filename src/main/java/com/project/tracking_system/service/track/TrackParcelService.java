@@ -312,6 +312,15 @@ public class TrackParcelService {
         return trackParcelRepository.existsByNumberAndUserId(itemNumber, userId);
     }
 
+    /**
+     * Находит посылки по магазинам с учётом пагинации.
+     *
+     * @param storeIds список идентификаторов магазинов
+     * @param page     номер страницы
+     * @param size     размер страницы
+     * @param userId   идентификатор пользователя для определения часового пояса
+     * @return страница с найденными посылками
+     */
     @Transactional
     public Page<TrackParcelDTO> findByStoreTracks(List<Long> storeIds, int page, int size, Long userId) {
         Pageable pageable = PageRequest.of(page, size);
@@ -340,6 +349,11 @@ public class TrackParcelService {
         return trackParcels.map(track -> new TrackParcelDTO(track, userZone));
     }
 
+    /**
+     * Подсчитывает общее количество посылок в системе.
+     *
+     * @return количество всех сохранённых посылок
+     */
     @Transactional
     public long countAllParcels() {
         return trackParcelRepository.count();
@@ -363,6 +377,12 @@ public class TrackParcelService {
     }
 
 
+    /**
+     * Увеличивает счётчик обновлений треков для пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @param count  величина увеличения
+     */
     @Transactional
     public void incrementUpdateCount(Long userId, int count) {
         userSubscriptionRepository.incrementUpdateCount(userId, count, LocalDate.now(ZoneOffset.UTC));
