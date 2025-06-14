@@ -429,18 +429,16 @@ async function loadStores() {
     }
 
     tableBody.innerHTML = "";
-    const isMultipleStores = stores.length > 1; // Проверяем, можно ли менять магазин по умолчанию
 
     stores.forEach(store => {
         const row = document.createElement("tr");
         row.innerHTML = `
             <td class="d-flex align-items-center">
-                <input type="radio" name="defaultStore" 
-                       class="default-store-radio me-2" 
-                       data-store-id="${store.id}" 
-                       ${store.default ? "checked" : ""} 
-                       ${!isMultipleStores ? "disabled" : ""} 
-                       data-bs-toggle="tooltip" 
+                <input type="radio" name="defaultStore"
+                       class="default-store-radio me-2"
+                       data-store-id="${store.id}"
+                       ${store.default ? "checked" : ""}
+                       data-bs-toggle="tooltip"
                        title="Магазин по умолчанию">
                 <input type="text" class="form-control store-name-input" value="${store.name}" id="store-name-${store.id}" disabled>
             </td>
