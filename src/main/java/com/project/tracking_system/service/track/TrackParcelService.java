@@ -477,7 +477,7 @@ public class TrackParcelService {
      * @param userId        идентификатор пользователя
      * @param parcelsToUpdate список DTO посылок для обновления
      */
-    @Async
+    @Async("Post")
     @Transactional
     public void processAllTrackUpdatesAsync(Long userId, List<TrackParcelDTO> parcelsToUpdate) {
         try {
@@ -603,7 +603,7 @@ public class TrackParcelService {
      * @param totalRequested    общее количество запрошенных треков
      * @param nonUpdatableCount количество треков в финальном статусе
      */
-    @Async
+    @Async("Post")
     @Transactional
     public void processTrackUpdatesAsync(Long userId, List<TrackParcel> parcelsToUpdate, int totalRequested, int nonUpdatableCount) {
         try {
