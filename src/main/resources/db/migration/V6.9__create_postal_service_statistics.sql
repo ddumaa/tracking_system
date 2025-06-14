@@ -9,5 +9,7 @@ CREATE TABLE IF NOT EXISTS tb_postal_service_statistics (
     sum_pickup_days NUMERIC(12,2) NOT NULL DEFAULT 0.0,
     updated_at TIMESTAMP
 );
+ALTER TABLE tb_postal_service_statistics
+    ADD CONSTRAINT uk_postal_stats_store_service UNIQUE (store_id, postal_service_type);
 
 CREATE INDEX IF NOT EXISTS idx_postal_stats_store ON tb_postal_service_statistics(store_id);
