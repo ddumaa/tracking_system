@@ -28,11 +28,13 @@ public class PostalServiceStatisticsService {
      *
      * @param storeId идентификатор магазина
      * @return список статистик по службам доставки магазина
+     *         (службы без отправлений исключаются)
      */
     public List<PostalServiceStatsDTO> getStatsByStore(Long storeId) {
         return repository.findByStoreId(storeId)
                 .stream()
                 .filter(stat -> stat.getPostalServiceType() != PostalServiceType.UNKNOWN)
+                .filter(stat -> stat.getTotalSent() > 0)
                 .map(this::mapToDto)
                 .toList();
     }
@@ -49,6 +51,7 @@ public class PostalServiceStatisticsService {
      *
      * @param storeIds список идентификаторов магазинов
      * @return агрегированная статистика по службам доставки
+     *         (службы без отправлений исключаются)
      */
     public List<PostalServiceStatsDTO> getStatsForStores(List<Long> storeIds) {
         List<PostalServiceStatistics> stats = repository.findByStoreIdIn(storeIds);
@@ -60,6 +63,7 @@ public class PostalServiceStatisticsService {
             aggregated.merge(stat.getPostalServiceType(), stat, this::mergeStats);
         }
         return aggregated.values().stream()
+                .filter(stat -> stat.getTotalSent() > 0)
                 .map(this::mapToDto)
                 .toList();
     }
