@@ -2,6 +2,7 @@ package com.project.tracking_system.service.user;
 
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
+import com.project.tracking_system.utils.EmailUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,7 +30,7 @@ public class RegistrationService {
     public boolean isInitialStep(UserRegistrationDTO userDTO) {
         boolean initial = userDTO.getConfirmCodRegistration() == null
                 || userDTO.getConfirmCodRegistration().isEmpty();
-        log.debug("Проверка первого шага регистрации для {}: {}", userDTO.getEmail(), initial);
+        log.debug("Проверка первого шага регистрации для {}: {}", EmailUtils.maskEmail(userDTO.getEmail()), initial);
         return initial;
     }
 
@@ -43,21 +44,21 @@ public class RegistrationService {
      */
     public boolean handleInitialStep(UserRegistrationDTO userDTO, BindingResult result)
             throws UserAlreadyExistsException {
-        log.info("Старт первичной регистрации пользователя: {}", userDTO.getEmail());
+        log.info("Старт первичной регистрации пользователя: {}", EmailUtils.maskEmail(userDTO.getEmail()));
 
         if (result.hasFieldErrors("email") || result.hasFieldErrors("password")
                 || result.hasFieldErrors("confirmPassword") || result.hasFieldErrors("agreeToTerms")) {
-            log.debug("Ошибки валидации формы регистрации для {}", userDTO.getEmail());
+            log.debug("Ошибки валидации формы регистрации для {}", EmailUtils.maskEmail(userDTO.getEmail()));
             return false;
         }
         if (!userDTO.getPassword().equals(userDTO.getConfirmPassword())) {
-            log.warn("Пароли не совпадают для {}", userDTO.getEmail());
+            log.warn("Пароли не совпадают для {}", EmailUtils.maskEmail(userDTO.getEmail()));
             result.rejectValue("confirmPassword", "password.mismatch", "Пароли не совпадают");
             return false;
         }
 
         userService.sendConfirmationCode(userDTO);
-        log.info("Код подтверждения отправлен пользователю {}", userDTO.getEmail());
+        log.info("Код подтверждения отправлен пользователю {}", EmailUtils.maskEmail(userDTO.getEmail()));
         return true;
     }
 
@@ -67,7 +68,7 @@ public class RegistrationService {
      * @param userDTO данные пользователя с кодом подтверждения
      */
     public void confirm(UserRegistrationDTO userDTO) {
-        log.info("Подтверждение регистрации для {}", userDTO.getEmail());
+        log.info("Подтверждение регистрации для {}", EmailUtils.maskEmail(userDTO.getEmail()));
         userService.confirmRegistration(userDTO);
     }
 }
