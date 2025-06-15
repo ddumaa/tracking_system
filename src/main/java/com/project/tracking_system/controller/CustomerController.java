@@ -8,7 +8,9 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 /**
  * Контроллер для получения информации о покупателях.
@@ -33,6 +35,26 @@ public class CustomerController {
         CustomerInfoDTO dto = customerService.getCustomerInfoByParcelId(parcelId);
         model.addAttribute("customerInfo", dto);
         model.addAttribute("notFound", dto == null);
+        model.addAttribute("trackId", parcelId);
+        return "partials/customer-info";
+    }
+
+    /**
+     * Привязывает покупателя к посылке по номеру телефона.
+     *
+     * @param trackId идентификатор посылки
+     * @param phone   номер телефона покупателя
+     * @param model   модель для передачи данных во фрагмент
+     * @return HTML-фрагмент с обновлённой информацией о покупателе
+     */
+    @PostMapping("/assign")
+    public String assignCustomer(@RequestParam Long trackId,
+                                 @RequestParam String phone,
+                                 Model model) {
+        CustomerInfoDTO dto = customerService.assignCustomerToParcel(trackId, phone);
+        model.addAttribute("customerInfo", dto);
+        model.addAttribute("notFound", dto == null);
+        model.addAttribute("trackId", trackId);
         return "partials/customer-info";
     }
 }
