@@ -191,6 +191,8 @@ public class SubscriptionService {
 
     @Transactional
     public void changeSubscription(Long userId, String newPlanName, Integer months) {
+        log.info("Начало смены подписки пользователя ID={} на {}", userId, newPlanName);
+
         UserSubscription subscription = userSubscriptionRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Подписка пользователя не найдена"));
 

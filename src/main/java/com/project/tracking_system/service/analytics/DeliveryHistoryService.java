@@ -63,6 +63,8 @@ public class DeliveryHistoryService {
      */
     @Transactional
     public void updateDeliveryHistory(TrackParcel trackParcel, GlobalStatus oldStatus, GlobalStatus newStatus, TrackInfoListDTO trackInfoListDTO) {
+        log.info("Начало обновления истории доставки для трека {}", trackParcel.getNumber());
+
         // Получаем историю или создаём новую
         DeliveryHistory history = deliveryHistoryRepository.findByTrackParcelId(trackParcel.getId())
                 .orElseGet(() -> {
@@ -488,6 +490,8 @@ public class DeliveryHistoryService {
      */
     @Transactional
     public void handleTrackParcelBeforeDelete(TrackParcel parcel) {
+        log.info("Начало обработки удаления трека {}", parcel.getNumber());
+
         if (parcel.isIncludedInStatistics()) {
             log.debug("Удаляется уже учтённая в статистике посылка {}, статистику не трогаем", parcel.getNumber());
             return;
@@ -544,6 +548,8 @@ public class DeliveryHistoryService {
                 }
             }
         }
+
+        log.info("Удаление трека {} из статистики завершено", parcel.getNumber());
     }
 
 
