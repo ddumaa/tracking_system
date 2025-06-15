@@ -17,4 +17,22 @@ public class CustomerInfoDTO {
     private int pickedUpCount;
     private double pickupPercentage;
     private BuyerReputation reputation;
+
+    /**
+     * Получить отображаемое название репутации покупателя.
+     *
+     * @return строковое представление репутации
+     */
+    public String getReputationDisplayName() {
+        return reputation.getDisplayName();
+    }
+
+    /**
+     * Получить CSS-класс для отображения репутации.
+     *
+     * @return название класса для разметки
+     */
+    public String getColorClass() {
+        return reputation.getColorClass();
+    }
 }
