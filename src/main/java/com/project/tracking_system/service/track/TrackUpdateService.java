@@ -22,6 +22,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Сервис обновления треков пользователей.
+ * <p>
+ * Для асинхронной обработки используется отдельный пул {@code trackExecutor},
+ * что разгружает общий исполнитель задач и повышает масштабируемость.
+ * </p>
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -35,7 +39,8 @@ public class TrackUpdateService {
     private final TrackParcelRepository trackParcelRepository;
     private final TrackParcelService trackParcelService;
     private final UserService userService;
-    @Qualifier("Post")
+    /** Исполнитель задач для обновления треков */
+    @Qualifier("trackExecutor")
     private final TaskExecutor taskExecutor;
 
     /**
@@ -81,7 +86,7 @@ public class TrackUpdateService {
     /**
      * Асинхронно обновляет все треки пользователя.
      */
-    @Async("Post")
+    @Async("trackExecutor")
     @Transactional
     public void processAllTrackUpdatesAsync(Long userId, List<TrackParcelDTO> parcelsToUpdate) {
         try {
@@ -184,7 +189,7 @@ public class TrackUpdateService {
     /**
      * Асинхронно обновляет выбранный список посылок пользователя.
      */
-    @Async("Post")
+    @Async("trackExecutor")
     @Transactional
     public void processTrackUpdatesAsync(Long userId, List<TrackParcel> parcelsToUpdate, int totalRequested, int nonUpdatableCount) {
         try {
