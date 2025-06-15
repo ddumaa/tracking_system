@@ -152,12 +152,31 @@ function initializeCustomCredentialsCheckbox() {
     }
 }
 
+// Инициализация переключателя для ввода телефона
+function initializePhoneToggle() {
+    const toggle = document.getElementById("togglePhone");
+    const phoneField = document.getElementById("phoneField");
+
+    if (toggle && phoneField) {
+        // Первичное состояние
+        toggleFieldsVisibility(toggle, phoneField);
+
+        toggle.addEventListener('change', function () {
+            toggleFieldsVisibility(toggle, phoneField);
+        });
+    }
+}
+
 // Показать или скрыть поля
 function toggleFieldsVisibility(checkbox, fieldsContainer) {
     if (checkbox.checked) {
-        fieldsContainer.classList.remove('hidden');
+        $(fieldsContainer).stop(true, true).slideDown(200, function () {
+            fieldsContainer.classList.remove('hidden');
+        });
     } else {
-        fieldsContainer.classList.add('hidden');
+        $(fieldsContainer).stop(true, true).slideUp(200, function () {
+            fieldsContainer.classList.add('hidden');
+        });
     }
 }
 
@@ -877,6 +896,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initPasswordFormHandler();
     initEvropostFormHandler();
     initializeCustomCredentialsCheckbox();
+    initializePhoneToggle();
 
     // Назначаем обработчик кнопки "Добавить магазин" - с проверкой на наличие
     const addStoreBtn = document.getElementById("addStoreBtn");
