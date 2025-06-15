@@ -17,6 +17,8 @@ import com.project.tracking_system.service.analytics.DeliveryHistoryService;
 import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -67,6 +69,8 @@ public class TrackParcelService {
     private final PostalServiceStatisticsRepository postalServiceStatisticsRepository;
     private final StoreDailyStatisticsRepository storeDailyStatisticsRepository;
     private final PostalServiceDailyStatisticsRepository postalServiceDailyStatisticsRepository;
+    @Qualifier("Post")
+    private final TaskExecutor taskExecutor;
 
     /**
      * Обрабатывает номер посылки: получает информацию и при необходимости сохраняет её.
@@ -506,7 +510,7 @@ public class TrackParcelService {
                         } catch (Exception e) {
                             log.error("Ошибка обработки трека {}: {}", trackParcelDTO.getNumber(), e.getMessage(), e);
                         }
-                    }))
+                    }, taskExecutor))
                     .toList();
 
             // Ждём завершения всех обновлений
@@ -621,7 +625,7 @@ public class TrackParcelService {
                         } catch (Exception e) {
                             log.error("Ошибка обновления трека {}: {}", parcel.getNumber(), e.getMessage());
                         }
-                    }))
+                    }, taskExecutor))
                     .toList();
 
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> {
