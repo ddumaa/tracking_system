@@ -142,7 +142,7 @@ public class PasswordResetService {
             ZonedDateTime expiration = tokenEntity.getExpirationDate();
             return expiration.isAfter(now);
         }
-        System.out.println("Токен не найден");
+        log.warn("Токен не найден в базе данных");
         return false;
     }
 }
