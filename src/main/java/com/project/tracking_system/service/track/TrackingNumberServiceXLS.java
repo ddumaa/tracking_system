@@ -5,6 +5,7 @@ import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.model.TrackingResponse;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.store.StoreService;
+import com.project.tracking_system.service.track.TrackFacade;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
@@ -37,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 public class TrackingNumberServiceXLS {
 
     private final TrackParcelService trackParcelService;
+    private final TrackFacade trackFacade;
     private final SubscriptionService subscriptionService;
     private final StoreService storeService;
     private final ExecutorService executor = Executors.newFixedThreadPool(5);
@@ -225,7 +227,7 @@ public class TrackingNumberServiceXLS {
     private TrackingResultAdd processSingleTracking(String trackingNumber, Long storeId, Long userId, boolean canSave) {
         try {
             // Используем processTrack для получения данных и сохранения, если необходимо
-            TrackInfoListDTO trackInfo = trackParcelService.processTrack(trackingNumber, storeId, userId, canSave);
+            TrackInfoListDTO trackInfo = trackFacade.processTrack(trackingNumber, storeId, userId, canSave);
 
             String lastStatus = trackInfo.getList().get(0).getInfoTrack();
             log.debug("Трек-номер: {}, последний статус: {}", trackingNumber, lastStatus);

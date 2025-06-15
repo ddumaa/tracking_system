@@ -70,6 +70,8 @@ public class StoreService {
      */
     @Transactional
     public Store createStore(Long userId, String storeName) {
+        log.info("Начало создания магазина '{}' для пользователя ID={}", storeName, userId);
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
 
@@ -129,6 +131,7 @@ public class StoreService {
 
         webSocketController.sendUpdateStatus(userId, "Магазин '" + storeName + "' добавлен!", true);
 
+        log.info("Создание магазина '{}' для пользователя ID={} успешно завершено", savedStore.getName(), userId);
         return savedStore;
     }
 
@@ -140,6 +143,8 @@ public class StoreService {
      */
     @Transactional
     public Store updateStore(Long storeId, Long userId, String newName) {
+        log.info("Начало обновления магазина ID={} пользователем ID={}", storeId, userId);
+
         // Проверяем, что магазин принадлежит пользователю
         checkStoreOwnership(storeId, userId);
 
@@ -155,6 +160,7 @@ public class StoreService {
 
         webSocketController.sendUpdateStatus(userId, "Название магазина обновлено на '" + newName + "'", true);
 
+        log.info("Магазин ID={} успешно переименован в '{}'", storeId, newName);
         return updatedStore;
     }
 
@@ -166,6 +172,8 @@ public class StoreService {
      */
     @Transactional
     public void deleteStore(Long storeId, Long userId) {
+        log.info("Начало удаления магазина ID={} пользователем ID={}", storeId, userId);
+
         // Проверяем, что магазин принадлежит пользователю
         checkStoreOwnership(storeId, userId);
 
@@ -196,10 +204,11 @@ public class StoreService {
 
         // Удаляем магазин
         storeRepository.deleteById(storeId);
-        log.info("Магазин ID={} удалён пользователем ID={}", storeId, userId);
 
         // 🔥 Отправляем WebSocket-уведомление
         webSocketController.sendUpdateStatus(userId, "Магазин '" + store.getName() + "' удалён!", true);
+
+        log.info("Магазин ID={} успешно удалён пользователем ID={}", storeId, userId);
     }
 
     /**
@@ -223,6 +232,8 @@ public class StoreService {
      */
     @Transactional
     public void setDefaultStore(Long userId, Long storeId) {
+        log.info("Начало установки магазина ID={} по умолчанию для пользователя ID={}", storeId, userId);
+
         List<Store> userStores = storeRepository.findByOwnerId(userId);
 
         if (userStores.size() == 1) {
@@ -243,6 +254,8 @@ public class StoreService {
 
         // 🔥 Отправляем WebSocket-уведомление
         webSocketController.sendUpdateStatus(userId, "Магазин по умолчанию: " + selectedStore.getName(), true);
+
+        log.info("Установка магазина ID={} по умолчанию для пользователя ID={} завершена", storeId, userId);
     }
 
     /**

@@ -5,12 +5,14 @@ import com.project.tracking_system.dto.TrackingResultAdd;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
 import org.opencv.core.*;
 import org.opencv.imgproc.Imgproc;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import com.project.tracking_system.service.track.TrackFacade;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -36,14 +38,20 @@ import java.util.regex.Pattern;
 @Service
 public class TrackNumberOcrService {
 
-    private final TrackParcelService trackParcelService;
+    private final TrackFacade trackFacade;
+
+    @Value("${opencv.lib.path}")
+    private String opencvLibPath;
+
+    @Value("${tesseract.datapath}")
+    private String tesseractDataPath;
 
     /**
      * Инициализация библиотеки OpenCV.
      */
     @PostConstruct
     public void init() {
-        System.load("/usr/lib/jni/libopencv_java4100.so");
+        System.load(opencvLibPath);
     }
 
     /**
@@ -104,7 +112,7 @@ public class TrackNumberOcrService {
      */
     public String recognizeText(BufferedImage image) throws TesseractException {
         Tesseract tesseract = new Tesseract();
-        tesseract.setDatapath("/usr/local/share/tessdata");
+        tesseract.setDatapath(tesseractDataPath);
         tesseract.setLanguage("rus+eng");
         tesseract.setVariable("user_defined_dpi", "300");
         tesseract.setPageSegMode(3);
@@ -146,7 +154,7 @@ public class TrackNumberOcrService {
 
                 try {
                     // Используем processTrack для комплексной работы с треком.
-                    TrackInfoListDTO trackInfo = trackParcelService.processTrack(trackNumber, storeId, userId, canSave);
+                    TrackInfoListDTO trackInfo = trackFacade.processTrack(trackNumber, storeId, userId, canSave);
 
                     if (trackInfo != null) {
                         trackInfoResult.add(new TrackingResultAdd(trackNumber, "Добавлен"));

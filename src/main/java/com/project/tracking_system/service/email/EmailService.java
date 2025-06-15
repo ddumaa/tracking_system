@@ -10,6 +10,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import com.project.tracking_system.utils.EmailUtils;
 
 import java.util.Map;
 
@@ -41,10 +42,11 @@ public class EmailService {
      * @param confirmationCode Код подтверждения.
      */
     public void sendConfirmationEmail(String to, String confirmationCode) {
-        log.info("📨 Генерация email для: {} с кодом {}", to, confirmationCode);
+        // Логируем только email без кода подтверждения
+        log.info("📨 Генерация email для: {}", EmailUtils.maskEmail(to));
 
         if (!isValidEmail(to)) {
-            log.warn("⚠ Неверный формат email: {}", to);
+            log.warn("⚠ Неверный формат email: {}", EmailUtils.maskEmail(to));
             return;
         }
 
@@ -67,7 +69,7 @@ public class EmailService {
      */
     public void sendPasswordResetEmail(String to, String resetLink) {
         if (!isValidEmail(to)) {
-            log.warn("⚠ Неверный формат email: {}", to);
+            log.warn("⚠ Неверный формат email: {}", EmailUtils.maskEmail(to));
             return;
         }
 
@@ -90,12 +92,12 @@ public class EmailService {
      */
     @Async
     public void sendHtmlEmailAsync(String to, String subject, String content) {
-        log.info("📧 Начинаем отправку email на {}", to);
+        log.info("📧 Начинаем отправку email на {}", EmailUtils.maskEmail(to));
 
         try {
             MimeMessage message = createMimeMessage(to, subject, content);
             emailSender.send(message);
-            log.info("✅ Email успешно отправлен на {}", to);
+            log.info("✅ Email успешно отправлен на {}", EmailUtils.maskEmail(to));
         } catch (MessagingException e) {
             log.error("❌ Ошибка при отправке email: {}", e.getMessage(), e);
         }

@@ -429,18 +429,16 @@ async function loadStores() {
     }
 
     tableBody.innerHTML = "";
-    const isMultipleStores = stores.length > 1; // Проверяем, можно ли менять магазин по умолчанию
 
     stores.forEach(store => {
         const row = document.createElement("tr");
         row.innerHTML = `
             <td class="d-flex align-items-center">
-                <input type="radio" name="defaultStore" 
-                       class="default-store-radio me-2" 
-                       data-store-id="${store.id}" 
-                       ${store.default ? "checked" : ""} 
-                       ${!isMultipleStores ? "disabled" : ""} 
-                       data-bs-toggle="tooltip" 
+                <input type="radio" name="defaultStore"
+                       class="default-store-radio me-2"
+                       data-store-id="${store.id}"
+                       ${store.default ? "checked" : ""}
+                       data-bs-toggle="tooltip"
                        title="Магазин по умолчанию">
                 <input type="text" class="form-control store-name-input" value="${store.name}" id="store-name-${store.id}" disabled>
             </td>
@@ -561,6 +559,7 @@ async function saveStore(storeId) {
 
     if (response.ok) {
         loadStores();
+        loadAnalyticsButtons();
     } else {
         alert("Ошибка обновления: " + await response.text());
     }
@@ -631,6 +630,7 @@ async function saveNewStore(event) {
     if (response.ok) {
         loadStores(); // Обновляем список магазинов
         updateStoreLimit();
+        loadAnalyticsButtons();
     } else {
         console.warn("Ошибка при создании магазина: ", await response.text());
         return;
@@ -661,6 +661,7 @@ async function deleteStore() {
     if (response.ok) {
         loadStores();
         updateStoreLimit();
+        loadAnalyticsButtons();
     } else {
         alert("Ошибка при удалении: " + await response.text());
     }
@@ -1186,24 +1187,27 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
                 notifyUser("Выбранные посылки успешно удалены.", "success");
 
-                clearAllCheckboxes();
+                const checkedCheckboxes = Array.from(document.querySelectorAll(".selectCheckbox:checked"));
+                const rowsToRemove = checkedCheckboxes
+                    .map(cb => cb.closest("tr"))
+                    .filter(row => row);
 
                 // Анимация исчезновения удалённых строк
-                document.querySelectorAll(".selectCheckbox:checked").forEach(checkbox => {
-                    const row = checkbox.closest("tr");
-                    if (row) {
-                        row.style.transition = "opacity 0.5s";
-                        row.style.opacity = "0";
-                        setTimeout(() => row.remove(), 500);
-                    }
+                rowsToRemove.forEach(row => {
+                    row.style.transition = "opacity 0.5s";
+                    row.style.opacity = "0";
                 });
 
-                // ✅ Возвращаем кнопку в нормальное состояние
-                applyBtn.disabled = false;
-                applyBtn.innerHTML = "Применить";
+                // Удаляем строки и очищаем чекбоксы после завершения анимации
+                setTimeout(() => {
+                    rowsToRemove.forEach(row => row.remove());
+                    clearAllCheckboxes();
+                }, 500);
             })
             .catch(error => {
                 notifyUser("Ошибка при удалении: " + error.message, "danger");
+            })
+            .finally(() => {
                 applyBtn.disabled = false;
                 applyBtn.innerHTML = "Применить";
             });

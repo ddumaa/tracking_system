@@ -14,6 +14,7 @@ import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.email.EmailService;
 import com.project.tracking_system.service.jsonEvropostService.JwtTokenManager;
 import com.project.tracking_system.utils.EncryptionUtils;
+import com.project.tracking_system.utils.EmailUtils;
 import com.project.tracking_system.utils.UserCredentialsResolver;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -70,6 +71,7 @@ public class UserService {
     @Transactional
     public void sendConfirmationCode(UserRegistrationDTO userDTO) {
         String email = userDTO.getEmail();
+        log.info("Начало отправки кода подтверждения для {}", EmailUtils.maskEmail(email));
 
         if (isEmailAlreadyRegistered(email)) {
             throw new UserAlreadyExistsException("Пользователь с таким email уже существует.");
@@ -79,10 +81,9 @@ public class UserService {
         saveOrUpdateConfirmationToken(email, confirmationCode);
 
         // Отправка email в фоне (не блокируем основной поток)
-        log.info("Отправка email с кодом подтверждения на: {}", email);
         emailService.sendConfirmationEmail(email, confirmationCode);
 
-        log.info("Код подтверждения отправлен на email: {}", email);
+        log.info("Отправка кода подтверждения для {} успешно завершена", EmailUtils.maskEmail(email));
     }
 
     /**
@@ -102,12 +103,12 @@ public class UserService {
                             token.setConfirmationCode(confirmationCode);
                             token.setCreatedAt(ZonedDateTime.now(UTC));
                             confirmationTokenRepository.save(token);
-                            log.info("Обновлен код подтверждения для email: {}", email);
+                            log.info("Обновлен код подтверждения для email: {}", EmailUtils.maskEmail(email));
                         },
                         () -> {
                             ConfirmationToken newToken = new ConfirmationToken(email, confirmationCode);
                             confirmationTokenRepository.save(newToken);
-                            log.info("Создан новый код подтверждения для email: {}", email);
+                            log.info("Создан новый код подтверждения для email: {}", EmailUtils.maskEmail(email));
                         }
                 );
     }
@@ -123,6 +124,8 @@ public class UserService {
      */
     @Transactional
     public void confirmRegistration(UserRegistrationDTO userDTO) {
+        log.info("Начало подтверждения регистрации для {}", EmailUtils.maskEmail(userDTO.getEmail()));
+
         ConfirmationToken token = confirmationTokenRepository.findByEmail(userDTO.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Код подтверждения не найден"));
 
@@ -130,12 +133,12 @@ public class UserService {
         ZonedDateTime oneHourAgoUtc = ZonedDateTime.now(UTC).minusHours(1);
 
         if (tokenCreatedAt.isBefore(oneHourAgoUtc)) {
-            log.warn("Код подтверждения для email {} истек", userDTO.getEmail());
+            log.warn("Код подтверждения для email {} истек", EmailUtils.maskEmail(userDTO.getEmail()));
             throw new IllegalArgumentException("Срок действия кода подтверждения истек");
         }
 
         if (!token.getConfirmationCode().equals(userDTO.getConfirmCodRegistration())) {
-            log.warn("Неверный код подтверждения для email {}", userDTO.getEmail());
+            log.warn("Неверный код подтверждения для email {}", EmailUtils.maskEmail(userDTO.getEmail()));
             throw new IllegalArgumentException("Неверный код подтверждения");
         }
 
@@ -161,10 +164,17 @@ public class UserService {
         // Удаляем токен подтверждения
         confirmationTokenRepository.deleteByEmail(userDTO.getEmail());
 
-        log.info("Регистрация пользователя {} завершена. Код подтверждения удален.", userDTO.getEmail());
+        log.info("Пользователь {} успешно создан, код подтверждения удалён", EmailUtils.maskEmail(userDTO.getEmail()));
     }
 
+    /**
+     * Обновляет роль пользователя.
+     *
+     * @param userId  идентификатор пользователя
+     * @param newRole новая роль
+     */
     public void updateUserRole(Long userId, String newRole) {
+        log.info("Начало смены роли пользователя ID={} на {}", userId, newRole);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
 
@@ -187,7 +197,15 @@ public class UserService {
         }
     }
 
+    /**
+     * Обновляет настройки и учётные данные Evropost пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @param dto    новые учётные данные
+     */
     public void updateEvropostCredentialsAndSettings(Long userId, EvropostCredentialsDTO dto) {
+        log.info("Начало обновления данных Evropost для пользователя ID={}", userId);
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
 
@@ -196,8 +214,7 @@ public class UserService {
             String encryptedPassword = encryptionUtils.encrypt(dto.getEvropostPassword());
             String encryptedServiceNumber = encryptionUtils.encrypt(dto.getServiceNumber());
 
-            // Логируем обновление данных перед сохранением
-            log.info("Обновление учетных данных Evropost для пользователя с ID: {}", userId);
+
 
             // Обновление всех данных
             user.getEvropostServiceCredential().setUsername(dto.getEvropostUsername());
@@ -223,7 +240,15 @@ public class UserService {
         log.info("Новый JWT токен успешно создан для пользователя с ID: {}", userId);
     }
 
+    /**
+     * Обновляет флаг использования собственных учётных данных Evropost.
+     *
+     * @param userId              идентификатор пользователя
+     * @param useCustomCredentials новое значение флага
+     */
     public void updateUseCustomCredentials(Long userId, Boolean useCustomCredentials) {
+        log.info("Начало обновления флага useCustomCredentials для пользователя ID={}", userId);
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
 
@@ -233,6 +258,12 @@ public class UserService {
         log.info("Флаг 'useCustomCredentials' обновлён для пользователя с ID {}: {}", userId, useCustomCredentials);
     }
 
+    /**
+     * Получает сохранённые учётные данные Evropost пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @return DTO с именем пользователя и флагом использования своих данных
+     */
     public EvropostCredentialsDTO getEvropostCredentials(long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
@@ -295,6 +326,8 @@ public class UserService {
      * @throws IllegalArgumentException Если текущий пароль неверен или пользователь не найден.
      */
     public void changePassword(Long userId, UserSettingsDTO userSettingsDTO) {
+        log.info("Начало смены пароля пользователя ID={}", userId);
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
 
@@ -315,6 +348,8 @@ public class UserService {
      * </p>
      */
     public void deleteUser(Long userId) {
+        log.info("Начало удаления пользователя ID={}", userId);
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
 
