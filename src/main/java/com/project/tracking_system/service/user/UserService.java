@@ -14,6 +14,7 @@ import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.email.EmailService;
 import com.project.tracking_system.service.jsonEvropostService.JwtTokenManager;
 import com.project.tracking_system.utils.EncryptionUtils;
+import com.project.tracking_system.utils.EmailUtils;
 import com.project.tracking_system.utils.UserCredentialsResolver;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -70,7 +71,7 @@ public class UserService {
     @Transactional
     public void sendConfirmationCode(UserRegistrationDTO userDTO) {
         String email = userDTO.getEmail();
-        log.info("Начало отправки кода подтверждения для {}", email);
+        log.info("Начало отправки кода подтверждения для {}", EmailUtils.maskEmail(email));
 
         if (isEmailAlreadyRegistered(email)) {
             throw new UserAlreadyExistsException("Пользователь с таким email уже существует.");
@@ -82,7 +83,7 @@ public class UserService {
         // Отправка email в фоне (не блокируем основной поток)
         emailService.sendConfirmationEmail(email, confirmationCode);
 
-        log.info("Отправка кода подтверждения для {} успешно завершена", email);
+        log.info("Отправка кода подтверждения для {} успешно завершена", EmailUtils.maskEmail(email));
     }
 
     /**
@@ -102,12 +103,12 @@ public class UserService {
                             token.setConfirmationCode(confirmationCode);
                             token.setCreatedAt(ZonedDateTime.now(UTC));
                             confirmationTokenRepository.save(token);
-                            log.info("Обновлен код подтверждения для email: {}", email);
+                            log.info("Обновлен код подтверждения для email: {}", EmailUtils.maskEmail(email));
                         },
                         () -> {
                             ConfirmationToken newToken = new ConfirmationToken(email, confirmationCode);
                             confirmationTokenRepository.save(newToken);
-                            log.info("Создан новый код подтверждения для email: {}", email);
+                            log.info("Создан новый код подтверждения для email: {}", EmailUtils.maskEmail(email));
                         }
                 );
     }
@@ -123,7 +124,7 @@ public class UserService {
      */
     @Transactional
     public void confirmRegistration(UserRegistrationDTO userDTO) {
-        log.info("Начало подтверждения регистрации для {}", userDTO.getEmail());
+        log.info("Начало подтверждения регистрации для {}", EmailUtils.maskEmail(userDTO.getEmail()));
 
         ConfirmationToken token = confirmationTokenRepository.findByEmail(userDTO.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Код подтверждения не найден"));
@@ -132,12 +133,12 @@ public class UserService {
         ZonedDateTime oneHourAgoUtc = ZonedDateTime.now(UTC).minusHours(1);
 
         if (tokenCreatedAt.isBefore(oneHourAgoUtc)) {
-            log.warn("Код подтверждения для email {} истек", userDTO.getEmail());
+            log.warn("Код подтверждения для email {} истек", EmailUtils.maskEmail(userDTO.getEmail()));
             throw new IllegalArgumentException("Срок действия кода подтверждения истек");
         }
 
         if (!token.getConfirmationCode().equals(userDTO.getConfirmCodRegistration())) {
-            log.warn("Неверный код подтверждения для email {}", userDTO.getEmail());
+            log.warn("Неверный код подтверждения для email {}", EmailUtils.maskEmail(userDTO.getEmail()));
             throw new IllegalArgumentException("Неверный код подтверждения");
         }
 
@@ -163,7 +164,7 @@ public class UserService {
         // Удаляем токен подтверждения
         confirmationTokenRepository.deleteByEmail(userDTO.getEmail());
 
-        log.info("Пользователь {} успешно создан, код подтверждения удалён", userDTO.getEmail());
+        log.info("Пользователь {} успешно создан, код подтверждения удалён", EmailUtils.maskEmail(userDTO.getEmail()));
     }
 
     /**

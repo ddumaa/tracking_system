@@ -96,7 +96,7 @@ public class SecurityConfiguration {
                             if (loginAttemptService.checkAndRedirect(request, response, email, ip)) return;
 
                             loginAttemptService.loginFailed(email, ip);
-                            log.info("Неудачная попытка входа: email={}, IP={}", email, ip);
+                            log.info("Неудачная попытка входа: email={}, IP={}", com.project.tracking_system.utils.EmailUtils.maskEmail(email), ip);
                             response.sendRedirect("/login?error=true");
                         })
                 )

@@ -5,6 +5,7 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.repository.PasswordResetTokenRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.service.email.EmailService;
+import com.project.tracking_system.utils.EmailUtils;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,26 +51,26 @@ public class PasswordResetService {
      */
     @Transactional
     public void createPasswordResetToken(String email) {
-        log.info("Начало процесса генерации токена сброса пароля для {}", email);
+        log.info("Начало процесса генерации токена сброса пароля для {}", EmailUtils.maskEmail(email));
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> {
-                    log.warn("❌ Пользователь с email {} не найден", email);
+                    log.warn("❌ Пользователь с email {} не найден", EmailUtils.maskEmail(email));
                     return new UsernameNotFoundException("Пользователь с email " + email + " не найден");
                 });
 
-        log.info("✅ Пользователь {} найден. Генерируем токен...", user.getEmail());
+        log.info("✅ Пользователь {} найден. Генерируем токен...", EmailUtils.maskEmail(user.getEmail()));
 
         String token = randomStringGenerator.generateConfirmCodRegistration();
         String resetLink = LINK + token;
 
-        log.debug("🔑 Сгенерирован токен: {} для email {}", token, email);
+        log.debug("🔑 Сгенерирован токен: {} для email {}", token, EmailUtils.maskEmail(email));
 
         saveOrUpdatePasswordResetToken(email, token);
 
-        log.info("📧 Отправка email для сброса пароля пользователю {}", email);
+        log.info("📧 Отправка email для сброса пароля пользователю {}", EmailUtils.maskEmail(email));
         emailService.sendPasswordResetEmail(email, resetLink);
-        log.info("Процесс генерации токена для {} успешно завершён", email);
+        log.info("Процесс генерации токена для {} успешно завершён", EmailUtils.maskEmail(email));
     }
 
     /**
@@ -79,13 +80,13 @@ public class PasswordResetService {
         tokenRepository.findByEmail(email)
                 .ifPresentOrElse(
                         existingToken -> {
-                            log.info("♻️ Обновление существующего токена для email {}", email);
+                            log.info("♻️ Обновление существующего токена для email {}", EmailUtils.maskEmail(email));
                             existingToken.setToken(token);
                             existingToken.setExpirationDate(ZonedDateTime.now(ZoneOffset.UTC).plusHours(1));
                             tokenRepository.save(existingToken);
                         },
                         () -> {
-                            log.info("🆕 Создание нового токена для email {}", email);
+                            log.info("🆕 Создание нового токена для email {}", EmailUtils.maskEmail(email));
                             PasswordResetToken newToken = new PasswordResetToken(email, token);
                             tokenRepository.save(newToken);
                         }
@@ -122,7 +123,7 @@ public class PasswordResetService {
         userRepository.save(user);
         tokenRepository.deleteByToken(token);
 
-        log.info("Пароль для пользователя {} успешно сброшен", email);
+        log.info("Пароль для пользователя {} успешно сброшен", EmailUtils.maskEmail(email));
     }
 
     /**

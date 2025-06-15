@@ -4,6 +4,7 @@ import com.project.tracking_system.entity.LoginAttempt;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.repository.LoginAttemptRepository;
 import com.project.tracking_system.repository.UserRepository;
+import com.project.tracking_system.utils.EmailUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -65,7 +66,7 @@ public class LoginAttemptService {
         ipAttempts.remove(ip);
         blockedIPs.remove(ip);
 
-        log.info("Пользователь {} успешно вошел. IP {} разблокирован.", email, ip);
+        log.info("Пользователь {} успешно вошел. IP {} разблокирован.", EmailUtils.maskEmail(email), ip);
     }
 
     public boolean isIPBlocked(String ip) {
@@ -209,7 +210,7 @@ public class LoginAttemptService {
         }
 
         if (email != null && isEmailBlocked(email)) {
-            log.warn("Блокировка по email: {} (Попытка входа заблокирована)", email);
+            log.warn("Блокировка по email: {} (Попытка входа заблокирована)", EmailUtils.maskEmail(email));
             response.sendRedirect("/login?blocked=true");
             return true;
         }
