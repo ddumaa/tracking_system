@@ -42,7 +42,8 @@ public class EmailService {
      * @param confirmationCode Код подтверждения.
      */
     public void sendConfirmationEmail(String to, String confirmationCode) {
-        log.info("📨 Генерация email для: {} с кодом {}", EmailUtils.maskEmail(to), confirmationCode);
+        // Логируем только email без кода подтверждения
+        log.info("📨 Генерация email для: {}", EmailUtils.maskEmail(to));
 
         if (!isValidEmail(to)) {
             log.warn("⚠ Неверный формат email: {}", EmailUtils.maskEmail(to));
