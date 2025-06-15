@@ -111,31 +111,18 @@ public class ProfileController {
             @Valid @ModelAttribute("evropostCredentialsDTO") EvropostCredentialsDTO evropostCredentialsDTO,
             BindingResult bindingResult, Model model, Authentication authentication) {
 
-        User user = AuthUtils.getCurrentUser(authentication);
-        Long userId = user.getId();
-        log.info("Запрос на обновление данных Европочты для пользователя с ID: {}", userId);
+        Long userId = AuthUtils.getCurrentUser(authentication).getId();
 
-        // Проверяем ошибки валидации
         if (bindingResult.hasErrors()) {
-            log.warn("Обнаружены ошибки валидации для данных Европочты пользователя с ID: {}", userId);
             model.addAttribute("evropostCredentialsDTO", evropostCredentialsDTO);
         } else {
             try {
                 userService.updateEvropostCredentialsAndSettings(userId, evropostCredentialsDTO);
-                log.info("Данные Европочты успешно обновлены для пользователя с ID: {}", userId);
-
-                EvropostCredentialsDTO updatedDto = userService.getEvropostCredentials(userId);
-                model.addAttribute("evropostCredentialsDTO", updatedDto);
-
-                // ✅ Отправляем WebSocket-уведомление
-                String successMessage = "Данные API Европочты успешно обновлены!";
-                webSocketController.sendUpdateStatus(userId, successMessage, true);
-
+                model.addAttribute("evropostCredentialsDTO", userService.getEvropostCredentials(userId));
+                webSocketController.sendUpdateStatus(userId, "Данные API Европочты успешно обновлены!", true);
             } catch (Exception e) {
                 log.error("Ошибка при обновлении данных Европочты для пользователя с ID {}: {}", userId, e.getMessage(), e);
                 model.addAttribute("error", "Ошибка при обновлении данных: " + e.getMessage());
-
-                // ❌ Отправляем WebSocket-уведомление об ошибке
                 webSocketController.sendUpdateStatus(userId, "Ошибка обновления Европочты!", false);
             }
         }
@@ -148,18 +135,14 @@ public class ProfileController {
             @RequestParam(value = "useCustomCredentials", required = false) Boolean useCustomCredentials,
             Authentication authentication) {
 
-        User user = AuthUtils.getCurrentUser(authentication);
-        Long userId = user.getId();
-        log.info("Запрос на обновление флага 'useCustomCredentials' для пользователя с ID: {}", userId);
+        Long userId = AuthUtils.getCurrentUser(authentication).getId();
 
         if (useCustomCredentials == null) {
-            log.warn("Не указан параметр 'useCustomCredentials' для пользователя с ID: {}", userId);
             return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Не указан параметр useCustomCredentials");
         }
 
         try {
             userService.updateUseCustomCredentials(userId, useCustomCredentials);
-            log.info("Флаг 'useCustomCredentials' успешно обновлён для пользователя с ID: {}", userId);
             return ResponseBuilder.ok("Настройки успешно обновлены.");
         } catch (Exception e) {
             log.error("Ошибка при обновлении настройки для пользователя с ID {}: {}", userId, e.getMessage(), e);
@@ -184,24 +167,20 @@ public class ProfileController {
                                  @Valid @ModelAttribute("userSettingsDTO") UserSettingsDTO userSettingsDTO,
                                  BindingResult result,
                                  Authentication authentication) {
-        User user = AuthUtils.getCurrentUser(authentication);
-        Long userId = user.getId();
-        log.info("Запрос на смену пароля для пользователя с ID: {}", userId);
+        Long userId = AuthUtils.getCurrentUser(authentication).getId();
 
         if (result.hasErrors()) {
-            log.warn("Обнаружены ошибки валидации при смене пароля для пользователя с ID: {}", userId);
-        } else if (!userSettingsDTO.getNewPassword().equals(userSettingsDTO.getConfirmPassword())) {
-            log.warn("Пароли не совпадают для пользователя с ID: {}", userId);
+            return "profile :: passwordFragment";
+        }
+        if (!userSettingsDTO.getNewPassword().equals(userSettingsDTO.getConfirmPassword())) {
             result.rejectValue("confirmPassword", "password.mismatch", "Пароли не совпадают");
-        } else {
-            try {
-                userService.changePassword(userId, userSettingsDTO);
-                log.info("Пароль успешно изменен для пользователя с ID: {}", userId);
-                model.addAttribute("notification", "Пароль успешно изменен");
-            } catch (IllegalArgumentException e) {
-                log.error("Ошибка при смене пароля для пользователя с ID {}: {}", userId, e.getMessage());
-                result.rejectValue("currentPassword", "password.incorrect", e.getMessage());
-            }
+            return "profile :: passwordFragment";
+        }
+        try {
+            userService.changePassword(userId, userSettingsDTO);
+            model.addAttribute("notification", "Пароль успешно изменен");
+        } catch (IllegalArgumentException e) {
+            result.rejectValue("currentPassword", "password.incorrect", e.getMessage());
         }
 
         return "profile :: passwordFragment";
