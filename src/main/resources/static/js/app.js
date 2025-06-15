@@ -559,6 +559,7 @@ async function saveStore(storeId) {
 
     if (response.ok) {
         loadStores();
+        loadAnalyticsButtons();
     } else {
         alert("Ошибка обновления: " + await response.text());
     }
@@ -629,6 +630,7 @@ async function saveNewStore(event) {
     if (response.ok) {
         loadStores(); // Обновляем список магазинов
         updateStoreLimit();
+        loadAnalyticsButtons();
     } else {
         console.warn("Ошибка при создании магазина: ", await response.text());
         return;
@@ -659,6 +661,7 @@ async function deleteStore() {
     if (response.ok) {
         loadStores();
         updateStoreLimit();
+        loadAnalyticsButtons();
     } else {
         alert("Ошибка при удалении: " + await response.text());
     }
