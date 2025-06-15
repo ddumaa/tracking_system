@@ -50,7 +50,7 @@ public class PasswordResetService {
      */
     @Transactional
     public void createPasswordResetToken(String email) {
-        log.info("🔍 Поиск пользователя с email: {}", email);
+        log.info("Начало процесса генерации токена сброса пароля для {}", email);
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> {
@@ -69,7 +69,7 @@ public class PasswordResetService {
 
         log.info("📧 Отправка email для сброса пароля пользователю {}", email);
         emailService.sendPasswordResetEmail(email, resetLink);
-        log.info("✅ Email для сброса пароля отправлен пользователю {}", email);
+        log.info("Процесс генерации токена для {} успешно завершён", email);
     }
 
     /**
@@ -105,6 +105,7 @@ public class PasswordResetService {
      */
     @Transactional
     public void resetPassword(String token, String newPassword) {
+        log.info("Начало сброса пароля по токену {}", token);
         if (!isTokenValid(token)) {
             throw new IllegalArgumentException("Срок действия токена истек");
         }
@@ -120,6 +121,8 @@ public class PasswordResetService {
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
         tokenRepository.deleteByToken(token);
+
+        log.info("Пароль для пользователя {} успешно сброшен", email);
     }
 
     /**

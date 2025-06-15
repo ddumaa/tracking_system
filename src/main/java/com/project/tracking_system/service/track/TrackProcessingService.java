@@ -86,6 +86,7 @@ public class TrackProcessingService {
      */
     @Transactional
     public void save(String number, TrackInfoListDTO trackInfoListDTO, Long storeId, Long userId) {
+        log.info("Начало сохранения трека {} для пользователя ID={}", number, userId);
         if (number == null || trackInfoListDTO == null) {
             throw new IllegalArgumentException("Отсутствует посылка");
         }

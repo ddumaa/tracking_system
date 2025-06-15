@@ -29,6 +29,8 @@ public class TrackDeletionService {
      */
     @Transactional
     public void deleteByNumbersAndUserId(List<String> numbers, Long userId) {
+        log.info("Начало удаления посылок {} пользователя ID={}", numbers, userId);
+
         List<TrackParcel> parcelsToDelete = trackParcelRepository.findByNumberInAndUserId(numbers, userId);
 
         if (parcelsToDelete.isEmpty()) {
