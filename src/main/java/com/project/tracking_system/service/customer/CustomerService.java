@@ -8,6 +8,7 @@ import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,9 +40,14 @@ public class CustomerService {
         }
         Customer customer = new Customer();
         customer.setPhone(phone);
-        Customer saved = customerRepository.save(customer);
-        log.info("Создан новый покупатель с номером {}", phone);
-        return saved;
+        try {
+            Customer saved = customerRepository.save(customer);
+            log.info("Создан новый покупатель с номером {}", phone);
+            return saved;
+        } catch (DataIntegrityViolationException e) {
+            log.info("Покупатель с номером {} уже существует, выполняем повторный поиск", phone);
+            return customerRepository.findByPhone(phone).orElseThrow(() -> e);
+        }
     }
 
     /**
