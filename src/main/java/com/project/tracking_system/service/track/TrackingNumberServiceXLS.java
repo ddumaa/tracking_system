@@ -6,6 +6,7 @@ import com.project.tracking_system.model.TrackingResponse;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.track.TrackFacade;
+import com.project.tracking_system.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
@@ -46,10 +47,11 @@ public class TrackingNumberServiceXLS {
     /**
      * Обрабатывает номера отслеживания, загруженные в формате XLS.
      * <p>
-     * Файл должен содержать два столбца:
+     * Файл должен содержать три столбца:
      * - Первый столбец (A): номер трека (обязателен)
      * - Второй столбец (B): название магазина ИЛИ его ID (не обязательно)
      *   Если второй столбец пуст, для авторизованного пользователя используется магазин по умолчанию.
+     * - Третий столбец (C): телефон получателя (необязателен)
      * <p>
      * Первая строка файла (заголовок) не обрабатывается.
      * Если пользователь не авторизован, применяется гостевой лимит,
@@ -125,7 +127,8 @@ public class TrackingNumberServiceXLS {
                 Cell trackCell = row.getCell(0);
                 // Второй столбец: магазин (название или ID) – обрабатывается только для авторизованных
                 Cell storeCell = row.getCell(1);
-
+                // Третий столбец: телефон получателя (необязательный)
+                Cell phoneCell = row.getCell(2);
                 if (trackCell == null) continue; // Если ячейка с треком отсутствует, пропускаем
 
                 String trackingNumber = trackCell.getStringCellValue().trim();
@@ -166,6 +169,24 @@ public class TrackingNumberServiceXLS {
                     }
                 }
 
+                // Читаем телефон, если указан
+                String phone = null;
+                if (phoneCell != null) {
+                    if (phoneCell.getCellType() == CellType.STRING) {
+                        phone = phoneCell.getStringCellValue().trim();
+                    } else if (phoneCell.getCellType() == CellType.NUMERIC) {
+                        phone = String.valueOf((long) phoneCell.getNumericCellValue());
+                    }
+                }
+                if (phone != null && !phone.isBlank()) {
+                    try {
+                        phone = PhoneUtils.normalizePhone(phone);
+                    } catch (Exception e) {
+                        log.warn("Некорректный телефон '{}' в строке {}", phone, rowIndex + 1);
+                        phone = null;
+                    }
+                }
+
                 log.info("Трек={}, магазин={} (userId={})", trackingNumber, storeId, userId);
 
                 // Для авторизованных пользователей проверяем, является ли трек новым в рамках выбранного магазина
@@ -184,14 +205,14 @@ public class TrackingNumberServiceXLS {
                     canSaveThis = true;
                 }
 
-                // Создаем финальную копию storeId для использования в лямбда-выражении
+                // Создаем финальные копии для использования в лямбда-выражении
                 final Long finalStoreId = storeId;
+                final String finalPhone = phone;
 
                 // Асинхронно обрабатываем трек с обработкой исключений
                 CompletableFuture<TrackingResultAdd> future = CompletableFuture.supplyAsync(() -> {
                     try {
-                        return processSingleTracking(trackingNumber, finalStoreId, userId, canSaveThis);
-                    } catch (Exception e) {
+                        return processSingleTracking(trackingNumber, finalStoreId, userId, canSaveThis, finalPhone);                    } catch (Exception e) {
                         log.error("Ошибка обработки трека {}: {}", trackingNumber, e.getMessage());
                         // Возвращаем объект с сообщением об ошибке, передавая статус как строку
                         return new TrackingResultAdd(trackingNumber, "ERROR: " + e.getMessage());
@@ -224,10 +245,14 @@ public class TrackingNumberServiceXLS {
     }
 
 
-    private TrackingResultAdd processSingleTracking(String trackingNumber, Long storeId, Long userId, boolean canSave) {
+    private TrackingResultAdd processSingleTracking(String trackingNumber,
+                                                    Long storeId,
+                                                    Long userId,
+                                                    boolean canSave,
+                                                    String phone) {
         try {
             // Используем processTrack для получения данных и сохранения, если необходимо
-            TrackInfoListDTO trackInfo = trackFacade.processTrack(trackingNumber, storeId, userId, canSave);
+            TrackInfoListDTO trackInfo = trackFacade.processTrack(trackingNumber, storeId, userId, canSave, phone);
 
             String lastStatus = trackInfo.getList().get(0).getInfoTrack();
             log.debug("Трек-номер: {}, последний статус: {}", trackingNumber, lastStatus);
