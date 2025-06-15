@@ -11,3 +11,7 @@ Belpost and Evropost
 ## Конфигурация OpenCV
 
 В файле `application.properties` добавлено свойство `opencv.lib.path`, которое определяет путь к нативной библиотеке OpenCV. По умолчанию используется `/usr/lib/jni/libopencv_java4100.so`.
+
+## Конфигурация Tesseract
+
+Для работы OCR-сервиса в `application.properties` необходимо указать путь к каталогу с данными Tesseract через свойство `tesseract.datapath`. По умолчанию используется `/usr/local/share/tessdata`.
