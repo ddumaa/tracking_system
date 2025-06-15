@@ -6,9 +6,6 @@ import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.*;
 import com.project.tracking_system.service.SubscriptionService;
-import com.project.tracking_system.service.user.UserService;
-import lombok.RequiredArgsConstructor;
-import com.project.tracking_system.service.track.TrackParcelService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
@@ -28,7 +25,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  * </p>
  */
 @Slf4j
-@RequiredArgsConstructor
 @Service
 public class TrackUpdateService {
 
@@ -38,10 +34,23 @@ public class TrackUpdateService {
     private final StoreRepository storeRepository;
     private final TrackParcelRepository trackParcelRepository;
     private final TrackParcelService trackParcelService;
-    private final UserService userService;
-    /** Исполнитель задач для обновления треков */
-    @Qualifier("trackExecutor")
     private final TaskExecutor taskExecutor;
+
+    public TrackUpdateService(WebSocketController webSocketController,
+                              TrackProcessingService trackProcessingService,
+                              SubscriptionService subscriptionService,
+                              StoreRepository storeRepository,
+                              TrackParcelRepository trackParcelRepository,
+                              TrackParcelService trackParcelService,
+                              @Qualifier("trackExecutor") TaskExecutor taskExecutor) {
+        this.webSocketController = webSocketController;
+        this.trackProcessingService = trackProcessingService;
+        this.subscriptionService = subscriptionService;
+        this.storeRepository = storeRepository;
+        this.trackParcelRepository = trackParcelRepository;
+        this.trackParcelService = trackParcelService;
+        this.taskExecutor = taskExecutor;
+    }
 
     /**
      * Обновляет историю всех посылок пользователя.
@@ -244,3 +253,4 @@ public class TrackUpdateService {
         }
     }
 
+}

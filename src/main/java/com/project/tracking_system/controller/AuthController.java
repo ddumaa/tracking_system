@@ -3,7 +3,6 @@ package com.project.tracking_system.controller;
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.service.user.LoginAttemptService;
-import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.user.RegistrationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -32,7 +31,6 @@ import java.time.format.DateTimeFormatter;
 @RequestMapping("/")
 public class AuthController {
 
-    private final UserService userService;
     private final LoginAttemptService loginAttemptService;
     private final RegistrationService registrationService;
 
