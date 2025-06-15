@@ -43,6 +43,9 @@ public class TrackNumberOcrService {
     @Value("${opencv.lib.path}")
     private String opencvLibPath;
 
+    @Value("${tesseract.datapath}")
+    private String tesseractDataPath;
+
     /**
      * Инициализация библиотеки OpenCV.
      */
@@ -109,7 +112,7 @@ public class TrackNumberOcrService {
      */
     public String recognizeText(BufferedImage image) throws TesseractException {
         Tesseract tesseract = new Tesseract();
-        tesseract.setDatapath("/usr/local/share/tessdata");
+        tesseract.setDatapath(tesseractDataPath);
         tesseract.setLanguage("rus+eng");
         tesseract.setVariable("user_defined_dpi", "300");
         tesseract.setPageSegMode(3);
