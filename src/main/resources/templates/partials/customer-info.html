@@ -18,8 +18,8 @@
             <li class="list-group-item"><strong>Процент выкупа:</strong> <span th:text="${customerInfo.pickupPercentage}"></span>%</li>
             <li class="list-group-item">
                 <strong>Репутация:</strong>
-                <span th:text="${customerInfo.reputation}"
-                      th:class="${customerInfo.reputation == T(com.project.tracking_system.entity.BuyerReputation).RELIABLE ? 'reputation-reliable' : (customerInfo.reputation == T(com.project.tracking_system.entity.BuyerReputation).UNRELIABLE ? 'reputation-unreliable' : 'reputation-neutral')}"></span>
+                <span th:text="${customerInfo.reputationDisplayName}"
+                      th:class="${customerInfo.colorClass}"></span>
             </li>
         </ul>
     </div>
