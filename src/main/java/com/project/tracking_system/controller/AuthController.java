@@ -4,6 +4,7 @@ import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.service.user.LoginAttemptService;
 import com.project.tracking_system.service.user.UserService;
+import com.project.tracking_system.service.user.RegistrationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
@@ -33,6 +34,7 @@ public class AuthController {
 
     private final UserService userService;
     private final LoginAttemptService loginAttemptService;
+    private final RegistrationService registrationService;
 
     /**
      * Отображает страницу регистрации нового пользователя.
@@ -59,53 +61,33 @@ public class AuthController {
     @PostMapping("/registration")
     public String registration(@Valid @ModelAttribute("userDTO") UserRegistrationDTO userDTO,
                                BindingResult result, Model model) {
-        boolean isInitialRegistration = userDTO.getConfirmCodRegistration() == null
-                || userDTO.getConfirmCodRegistration().isEmpty();
-
-        if (isInitialRegistration) {
-            if (result.hasFieldErrors("email") || result.hasFieldErrors("password")
-                    || result.hasFieldErrors("confirmPassword") || result.hasFieldErrors("agreeToTerms")) {
-                return "registration";
-            }
-
-            if (!userDTO.getPassword().equals(userDTO.getConfirmPassword())) {
-                result.rejectValue("confirmPassword", "password.mismatch", "Пароли не совпадают");
-                return "registration";
-            }
-
+        if (registrationService.isInitialStep(userDTO)) {
             try {
-                userService.sendConfirmationCode(userDTO);
-                model.addAttribute("confirmCodRegistration", true);
-                model.addAttribute("message", "Код подтверждения отправлен на вашу почту.");
-                return "registration";
+                if (registrationService.handleInitialStep(userDTO, result)) {
+                    model.addAttribute("confirmCodRegistration", true);
+                    model.addAttribute("message", "Код подтверждения отправлен на вашу почту.");
+                }
             } catch (UserAlreadyExistsException e) {
                 model.addAttribute("errorMessage", "Данная почта уже используется, авторизуйтесь или используйте другую почту");
-                return "registration";
             } catch (Exception e) {
                 model.addAttribute("errorMessage", "Ошибка регистрации пользователя: " + e.getMessage());
-                return "registration";
             }
-        } else {
-            if (result.hasFieldErrors("confirmCodRegistration")) {
-                model.addAttribute("confirmCodRegistration", true);
-                return "registration";
-            }
-
-            try {
-                userService.confirmRegistration(userDTO);
-                return "redirect:/login";
-            } catch (IllegalArgumentException e) {
-                model.addAttribute("confirmCodRegistration", true);
-                model.addAttribute("errorMessage", e.getMessage());
-                return "registration";
-            } catch (UserAlreadyExistsException e) {
-                model.addAttribute("errorMessage", "Данная почта уже используется, авторизуйтесь или используйте другую почту");
-                return "registration";
-            } catch (Exception e) {
-                model.addAttribute("errorMessage", "Ошибка регистрации пользователя: " + e.getMessage());
-                return "registration";
-            }
+            return "registration";
         }
+
+        if (result.hasFieldErrors("confirmCodRegistration")) {
+            model.addAttribute("confirmCodRegistration", true);
+            return "registration";
+        }
+
+        try {
+            registrationService.confirm(userDTO);
+            return "redirect:/login";
+        } catch (IllegalArgumentException e) {
+            model.addAttribute("confirmCodRegistration", true);
+            model.addAttribute("errorMessage", e.getMessage());
+        }
+        return "registration";
     }
 
     /**

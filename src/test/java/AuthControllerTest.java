@@ -1,6 +1,7 @@
 import com.project.tracking_system.controller.AuthController;
 import com.project.tracking_system.service.user.LoginAttemptService;
 import com.project.tracking_system.service.user.UserService;
+import com.project.tracking_system.service.user.RegistrationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -22,6 +23,8 @@ public class AuthControllerTest {
 
     @MockBean
     private UserService userService;
+    @MockBean
+    private RegistrationService registrationService;
     @MockBean
     private LoginAttemptService loginAttemptService;
 
@@ -45,6 +48,6 @@ public class AuthControllerTest {
                         .param("confirmPassword", "pass123")
                         .param("agreeToTerms", "true"))
                 .andExpect(status().isOk());
-        verify(userService).sendConfirmationCode(org.mockito.ArgumentMatchers.any());
+        verify(registrationService).handleInitialStep(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 }
