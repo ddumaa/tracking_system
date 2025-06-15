@@ -12,6 +12,7 @@ import org.opencv.core.*;
 import org.opencv.imgproc.Imgproc;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import com.project.tracking_system.service.track.TrackFacade;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -37,7 +38,7 @@ import java.util.regex.Pattern;
 @Service
 public class TrackNumberOcrService {
 
-    private final TrackParcelService trackParcelService;
+    private final TrackFacade trackFacade;
 
     @Value("${opencv.lib.path}")
     private String opencvLibPath;
@@ -150,7 +151,7 @@ public class TrackNumberOcrService {
 
                 try {
                     // Используем processTrack для комплексной работы с треком.
-                    TrackInfoListDTO trackInfo = trackParcelService.processTrack(trackNumber, storeId, userId, canSave);
+                    TrackInfoListDTO trackInfo = trackFacade.processTrack(trackNumber, storeId, userId, canSave);
 
                     if (trackInfo != null) {
                         trackInfoResult.add(new TrackingResultAdd(trackNumber, "Добавлен"));

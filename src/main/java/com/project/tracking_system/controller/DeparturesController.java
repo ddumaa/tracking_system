@@ -9,6 +9,7 @@ import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.service.track.StatusTrackService;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.track.TrackParcelService;
+import com.project.tracking_system.service.track.TrackFacade;
 import com.project.tracking_system.service.store.StoreService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +43,7 @@ import java.util.List;
 public class DeparturesController {
 
     private final TrackParcelService trackParcelService;
+    private final TrackFacade trackFacade;
     private final StatusTrackService statusTrackService;
     private final StoreService storeService;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
@@ -186,9 +188,9 @@ public class DeparturesController {
         UpdateResult result;
         try {
             if (selectedNumbers != null && !selectedNumbers.isEmpty()) {
-                result = trackParcelService.updateSelectedParcels(userId, selectedNumbers);
+                result = trackFacade.updateSelectedParcels(userId, selectedNumbers);
             } else {
-                result = trackParcelService.updateAllParcels(userId);
+                result = trackFacade.updateAllParcels(userId);
             }
 
             // Отправляем WebSocket-уведомление
@@ -226,7 +228,7 @@ public class DeparturesController {
         }
 
         try {
-            trackParcelService.deleteByNumbersAndUserId(selectedNumbers, userId);
+            trackFacade.deleteByNumbersAndUserId(selectedNumbers, userId);
             log.info("Выбранные посылки {} удалены пользователем с ID: {}", selectedNumbers, userId);
             webSocketController.sendUpdateStatus(userId, "Выбранные посылки успешно удалены.", true);
             return ResponseBuilder.ok("Выбранные посылки успешно удалены.");
