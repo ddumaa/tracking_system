@@ -5,6 +5,7 @@ import com.project.tracking_system.dto.TrackingResultAdd;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
 import org.opencv.core.*;
@@ -38,12 +39,15 @@ public class TrackNumberOcrService {
 
     private final TrackParcelService trackParcelService;
 
+    @Value("${opencv.lib.path}")
+    private String opencvLibPath;
+
     /**
      * Инициализация библиотеки OpenCV.
      */
     @PostConstruct
     public void init() {
-        System.load("/usr/lib/jni/libopencv_java4100.so");
+        System.load(opencvLibPath);
     }
 
     /**
