@@ -12,6 +12,7 @@ import com.project.tracking_system.repository.StoreDailyStatisticsRepository;
 import com.project.tracking_system.repository.PostalServiceDailyStatisticsRepository;
 import com.project.tracking_system.service.track.StatusTrackService;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
+import com.project.tracking_system.service.customer.CustomerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -45,6 +46,7 @@ public class DeliveryHistoryService {
     private final PostalServiceStatisticsRepository postalServiceStatisticsRepository;
     private final StoreDailyStatisticsRepository storeDailyStatisticsRepository;
     private final PostalServiceDailyStatisticsRepository postalServiceDailyStatisticsRepository;
+    private final CustomerService customerService;
 
     /**
      * Обновляет или создаёт запись {@link DeliveryHistory}, когда меняется статус посылки.
@@ -325,6 +327,8 @@ public class DeliveryHistoryService {
             updateDailyStats(store, history.getPostalService(), eventDate, status, deliveryDays, pickupDays);
         }
 
+        customerService.updateStatsOnTrackDelivered(trackParcel);
+
         // флаг включён, дальнейшее обновление записей не требуется
 
         trackParcel.setIncludedInStatistics(true);
@@ -491,6 +495,10 @@ public class DeliveryHistoryService {
     @Transactional
     public void handleTrackParcelBeforeDelete(TrackParcel parcel) {
         log.info("Начало обработки удаления трека {}", parcel.getNumber());
+
+        if (!parcel.getStatus().isFinal()) {
+            customerService.rollbackStatsOnTrackDelete(parcel);
+        }
 
         if (parcel.isIncludedInStatistics()) {
             log.debug("Удаляется уже учтённая в статистике посылка {}, статистику не трогаем", parcel.getNumber());

@@ -38,6 +38,24 @@ public class TrackFacade {
     }
 
     /**
+     * Обрабатывает трек-номер с привязкой покупателя.
+     *
+     * @param number  номер трека
+     * @param storeId идентификатор магазина
+     * @param userId  идентификатор пользователя
+     * @param canSave признак возможности сохранения
+     * @param phone   телефон покупателя
+     * @return информация о треке
+     */
+    public TrackInfoListDTO processTrack(String number,
+                                         Long storeId,
+                                         Long userId,
+                                         boolean canSave,
+                                         String phone) {
+        return trackProcessingService.processTrack(number, storeId, userId, canSave, phone);
+    }
+
+    /**
      * Запускает обновление всех треков пользователя.
      *
      * @param userId идентификатор пользователя

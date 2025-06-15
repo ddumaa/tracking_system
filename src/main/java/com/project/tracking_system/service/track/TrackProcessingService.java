@@ -5,6 +5,7 @@ import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.*;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.analytics.DeliveryHistoryService;
+import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.utils.DateParserUtils;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ public class TrackProcessingService {
     private final StatusTrackService statusTrackService;
     private final SubscriptionService subscriptionService;
     private final DeliveryHistoryService deliveryHistoryService;
+    private final CustomerService customerService;
     private final UserService userService;
     private final StoreRepository storeRepository;
     private final UserRepository userRepository;
@@ -49,7 +51,29 @@ public class TrackProcessingService {
      * @return данные о посылке
      */
     @Transactional
-    public TrackInfoListDTO processTrack(String number, Long storeId, Long userId, boolean canSave) {
+    public TrackInfoListDTO processTrack(String number,
+                                         Long storeId,
+                                         Long userId,
+                                         boolean canSave) {
+        return processTrack(number, storeId, userId, canSave, null);
+    }
+
+    /**
+     * Обрабатывает номер посылки и связывает его с покупателем при наличии телефона.
+     *
+     * @param number  номер посылки
+     * @param storeId идентификатор магазина
+     * @param userId  идентификатор пользователя
+     * @param canSave признак возможности сохранения
+     * @param phone   номер телефона покупателя (может быть null)
+     * @return данные о посылке
+     */
+    @Transactional
+    public TrackInfoListDTO processTrack(String number,
+                                         Long storeId,
+                                         Long userId,
+                                         boolean canSave,
+                                         String phone) {
         if (number == null) {
             throw new IllegalArgumentException("Номер посылки не может быть null");
         }
@@ -67,7 +91,7 @@ public class TrackProcessingService {
 
         // Сохраняем трек, если пользователь авторизован и разрешено сохранять
         if (userId != null && canSave) {
-            save(number, trackInfo, storeId, userId);
+            save(number, trackInfo, storeId, userId, phone);
             log.debug("✅ Посылка сохранена: {} (UserID={}, StoreID={})", number, userId, storeId);
         } else {
             log.info("⏳ Трек '{}' обработан, но не сохранён.", number);
@@ -86,6 +110,24 @@ public class TrackProcessingService {
      */
     @Transactional
     public void save(String number, TrackInfoListDTO trackInfoListDTO, Long storeId, Long userId) {
+        save(number, trackInfoListDTO, storeId, userId, null);
+    }
+
+    /**
+     * Сохраняет или обновляет посылку пользователя и привязывает её к покупателю.
+     *
+     * @param number номер посылки
+     * @param trackInfoListDTO информация о посылке
+     * @param storeId идентификатор магазина
+     * @param userId идентификатор пользователя
+     * @param phone телефон покупателя (может быть null)
+     */
+    @Transactional
+    public void save(String number,
+                     TrackInfoListDTO trackInfoListDTO,
+                     Long storeId,
+                     Long userId,
+                     String phone) {
         log.info("Начало сохранения трека {} для пользователя ID={}", number, userId);
         if (number == null || trackInfoListDTO == null) {
             throw new IllegalArgumentException("Отсутствует посылка");
@@ -143,7 +185,18 @@ public class TrackProcessingService {
         ZonedDateTime zonedDateTime = DateParserUtils.parse(lastDate, userZone);
         trackParcel.setData(zonedDateTime);
 
+        // Привязываем покупателя, если указан телефон
+        Customer customer = null;
+        if (phone != null && !phone.isBlank()) {
+            customer = customerService.registerOrGetByPhone(phone);
+            trackParcel.setCustomer(customer);
+        }
+
         trackParcelRepository.save(trackParcel);
+
+        if (isNewParcel) {
+            customerService.updateStatsOnTrackAdd(trackParcel);
+        }
 
         boolean storeChanged = !isNewParcel && previousStoreId != null && !previousStoreId.equals(storeId);
 
