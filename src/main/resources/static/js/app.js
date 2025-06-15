@@ -57,6 +57,23 @@ function loadModal(itemNumber) {
         .catch(() => notifyUser('Ошибка при загрузке данных', "danger"));
 }
 
+function loadCustomerInfo(trackId) {
+    if (!trackId) return;
+    fetch(`/customers/parcel/${trackId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Ошибка при загрузке данных');
+            }
+            return response.text();
+        })
+        .then(data => {
+            document.querySelector('#customerModal .modal-body').innerHTML = data;
+            let modal = new bootstrap.Modal(document.getElementById('customerModal'));
+            modal.show();
+        })
+        .catch(() => notifyUser('Ошибка при загрузке данных', 'danger'));
+}
+
 // Общая функция для отправки формы через AJAX
 function ajaxSubmitForm(formId, containerId, afterLoadCallbacks = []) {
     const form = document.getElementById(formId);
@@ -937,6 +954,14 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     document.body.addEventListener("click", function (event) {
+        if (event.target.closest(".customer-icon")) {
+            const icon = event.target.closest(".customer-icon");
+            const trackId = icon.getAttribute("data-trackid");
+            loadCustomerInfo(trackId);
+        }
+    });
+
+    document.body.addEventListener("click", function (event) {
         if (event.target.closest(".btn-link")) {
             const button = event.target.closest(".btn-link");
             const itemNumber = button.getAttribute("data-itemnumber");
@@ -954,6 +979,18 @@ document.addEventListener("DOMContentLoaded", function () {
             }
             document.body.classList.remove('modal-open'); // Убираем класс, если остался
             document.body.style.overflow = ''; // Восстанавливаем прокрутку
+        });
+    }
+
+    let customerModalElement = document.getElementById('customerModal');
+    if (customerModalElement) {
+        customerModalElement.addEventListener('hidden.bs.modal', function () {
+            let backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                backdrop.remove();
+            }
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
         });
     }
 

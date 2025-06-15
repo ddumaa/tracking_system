@@ -2,7 +2,9 @@ package com.project.tracking_system.service.customer;
 
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.dto.CustomerInfoDTO;
 import com.project.tracking_system.repository.CustomerRepository;
+import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +22,7 @@ import java.util.Optional;
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
+    private final TrackParcelRepository trackParcelRepository;
 
     /**
      * Зарегистрировать нового покупателя или получить существующего по телефону.
@@ -92,5 +95,35 @@ public class CustomerService {
         }
         customer.recalculateReputation();
         customerRepository.save(customer);
+    }
+
+    /**
+     * Получить информацию о покупателе по идентификатору посылки.
+     *
+     * @param parcelId идентификатор посылки
+     * @return DTO с информацией о покупателе или {@code null}, если покупатель не найден
+     */
+    @Transactional(readOnly = true)
+    public CustomerInfoDTO getCustomerInfoByParcelId(Long parcelId) {
+        return trackParcelRepository.findById(parcelId)
+                .map(TrackParcel::getCustomer)
+                .map(this::toInfoDto)
+                .orElse(null);
+    }
+
+    private CustomerInfoDTO toInfoDto(Customer customer) {
+        if (customer == null) {
+            return null;
+        }
+        double percentage = customer.getSentCount() > 0
+                ? (double) customer.getPickedUpCount() / customer.getSentCount() * 100
+                : 0.0;
+        return new CustomerInfoDTO(
+                customer.getPhone(),
+                customer.getSentCount(),
+                customer.getPickedUpCount(),
+                Math.round(percentage * 100.0) / 100.0,
+                customer.getReputation()
+        );
     }
 }
