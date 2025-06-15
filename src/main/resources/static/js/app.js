@@ -167,6 +167,11 @@ function initializePhoneToggle() {
     }
 }
 
+// Инициализация формы привязки покупателя к посылке
+function initAssignCustomerFormHandler() {
+    ajaxSubmitForm('assign-customer-form', 'customerInfoContainer', [initAssignCustomerFormHandler]);
+}
+
 // Показать или скрыть поля
 function toggleFieldsVisibility(checkbox, fieldsContainer) {
     if (checkbox.checked) {
@@ -897,6 +902,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initEvropostFormHandler();
     initializeCustomCredentialsCheckbox();
     initializePhoneToggle();
+    initAssignCustomerFormHandler();
 
     // Назначаем обработчик кнопки "Добавить магазин" - с проверкой на наличие
     const addStoreBtn = document.getElementById("addStoreBtn");

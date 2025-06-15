@@ -111,6 +111,24 @@ public class CustomerService {
                 .orElse(null);
     }
 
+    /**
+     * Привязать покупателя к посылке по телефону.
+     *
+     * @param parcelId идентификатор посылки
+     * @param rawPhone телефон покупателя
+     * @return обновлённая информация о покупателе
+     */
+    @Transactional
+    public CustomerInfoDTO assignCustomerToParcel(Long parcelId, String rawPhone) {
+        Customer customer = registerOrGetByPhone(rawPhone);
+        TrackParcel parcel = trackParcelRepository.findById(parcelId)
+                .orElseThrow(() -> new IllegalArgumentException("Посылка не найдена"));
+        parcel.setCustomer(customer);
+        trackParcelRepository.save(parcel);
+        updateStatsOnTrackAdd(parcel);
+        return toInfoDto(customer);
+    }
+
     private CustomerInfoDTO toInfoDto(Customer customer) {
         if (customer == null) {
             return null;
