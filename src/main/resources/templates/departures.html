@@ -104,7 +104,7 @@
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    <tr th:each="item : ${trackParcelDTO}" th:attr="data-track-number=${item.number}">
+                                    <tr th:each="item : ${trackParcelDTO}" th:attr="data-track-number=${item.number},data-track-id=${item.id}">
                                     <td class="checkbox-column">
                                             <input type="checkbox" class="selectCheckbox" th:value="${item.number}" name="selectedNumbers">
                                         </td>
@@ -119,6 +119,10 @@
                                                         th:data-itemnumber="${item.number}"
                                                         aria-label="Открыть детали посылки">
                                                 </button>
+                                                <span class="customer-icon" role="button"
+                                                      th:data-trackid="${item.id}" aria-label="Информация о покупателе">
+                                                    <i class="bi bi-person-circle"></i>
+                                                </span>
                                             </div>
                                         </td>
                                         <td th:text="${item.status}" class="status-text"></td>
@@ -171,6 +175,21 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="infoModalLabel">Детали посылки</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Данные загружаются через AJAX -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно покупателя -->
+    <div class="modal fade" id="customerModal" tabindex="-1" aria-labelledby="customerModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="customerModalLabel">Информация о покупателе</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
                 </div>
                 <div class="modal-body">
