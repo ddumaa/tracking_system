@@ -12,6 +12,7 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
 import java.util.List;
@@ -29,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
  */
 @RequiredArgsConstructor
 @Service
+@Slf4j
 public class WebBelPost {
 
     private final WebDriverFactory webDriverFactory;
@@ -100,7 +102,7 @@ public class WebBelPost {
                 trackInfoListDTO.addTrackInfo(trackInfoDTO);
             }
         } catch (Exception e) {
-            System.err.println("Error: " + e.getMessage());
+            log.error("Ошибка веб-автоматизации BelPost: {}", e.getMessage(), e);
         } finally {
             if (driver != null) {
                 driver.quit();
