@@ -117,39 +117,38 @@
                         </button>
                     </div>
 
-                    <div th:each="store : ${stores}" class="mt-3" th:id="'store-' + ${store.id}">
-                        <h6 th:text="${store.name}" class="mb-2"></h6>
-                        <div class="mt-3 border p-3 rounded bg-light-subtle">
-                            <h6>Настройки Telegram-уведомлений</h6>
+                    <div th:each="store : ${stores}" class="card shadow-sm rounded-4 p-3 mb-4" th:id="'store-' + ${store.id}">
+                        <h6 th:text="${store.name}" class="mb-3"></h6>
+                        <h6 class="mb-3">Настройки Telegram-уведомлений</h6>
 
-                            <form th:action="@{/stores/{id}/telegram-settings(id=${store.id})}" method="post">
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" name="enabled"
-                                           th:checked="${store.telegramSettings != null and store.telegramSettings.enabled}">
-                                    <label class="form-check-label">Включить уведомления</label>
-                                </div>
+                        <form th:action="@{/stores/{id}/telegram-settings(id=${store.id})}" method="post">
+                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" th:id="'tg-enable-' + ${store.id}" name="enabled"
+                                       th:checked="${store.telegramSettings != null and store.telegramSettings.enabled}">
+                                <label class="form-check-label" th:for="'tg-enable-' + ${store.id}">Включить уведомления</label>
+                            </div>
 
-                                <div class="mb-2">
-                                    <label class="form-label">Первое напоминание (через дней)</label>
-                                    <input type="number" class="form-control form-control-sm" name="reminderStartAfterDays"
-                                           th:value="${store.telegramSettings?.reminderStartAfterDays ?: 3}" min="1" max="14">
-                                </div>
+                            <div class="form-floating mb-3">
+                                <input type="number" class="form-control" th:id="'tg-start-' + ${store.id}" name="reminderStartAfterDays"
+                                       th:value="${store.telegramSettings?.reminderStartAfterDays ?: 3}" min="1" max="14" placeholder="Напоминание">
+                                <label th:for="'tg-start-' + ${store.id}">Первое напоминание (через дней)</label>
+                            </div>
 
-                                <div class="mb-2">
-                                    <label class="form-label">Интервал повторных напоминаний (в днях)</label>
-                                    <input type="number" class="form-control form-control-sm" name="reminderRepeatIntervalDays"
-                                           th:value="${store.telegramSettings?.reminderRepeatIntervalDays ?: 2}" min="1" max="14">
-                                </div>
+                            <div class="form-floating mb-3">
+                                <input type="number" class="form-control" th:id="'tg-repeat-' + ${store.id}" name="reminderRepeatIntervalDays"
+                                       th:value="${store.telegramSettings?.reminderRepeatIntervalDays ?: 2}" min="1" max="14" placeholder="Интервал">
+                                <label th:for="'tg-repeat-' + ${store.id}">Интервал повторных напоминаний (в днях)</label>
+                            </div>
 
-                                <div class="mb-2">
-                                    <label class="form-label">Подпись к уведомлению (необязательно)</label>
-                                    <input type="text" class="form-control form-control-sm" name="customSignature"
-                                           th:value="${store.telegramSettings?.customSignature}">
-                                </div>
+                            <div class="form-floating mb-3">
+                                <input type="text" class="form-control" th:id="'tg-sign-' + ${store.id}" name="customSignature"
+                                       th:value="${store.telegramSettings?.customSignature}" maxlength="200" placeholder="Подпись">
+                                <label th:for="'tg-sign-' + ${store.id}">Подпись к уведомлению (необязательно)</label>
+                            </div>
 
-                                <button type="submit" class="btn btn-sm btn-primary">Сохранить</button>
-                            </form>
-                        </div>
+                            <button type="submit" class="btn btn-primary btn-equal">Сохранить</button>
+                        </form>
                     </div>
                 </div>
 
