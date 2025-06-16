@@ -3,9 +3,17 @@ package com.project.tracking_system.customer;
 import com.project.tracking_system.entity.BuyerReputation;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.GlobalStatus;
+import com.project.tracking_system.dto.CustomerInfoDTO;
 import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.entity.Store;
+import com.project.tracking_system.entity.User;
+import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.repository.CustomerRepository;
+import com.project.tracking_system.repository.TrackParcelRepository;
+import com.project.tracking_system.repository.StoreRepository;
+import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.service.customer.CustomerService;
+import java.time.ZonedDateTime;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -25,6 +33,15 @@ class CustomerServiceTest {
 
     @Autowired
     private CustomerRepository customerRepository;
+
+    @Autowired
+    private TrackParcelRepository trackParcelRepository;
+
+    @Autowired
+    private StoreRepository storeRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Test
     void registerOrGetByPhoneCreatesCustomer() {
@@ -62,5 +79,59 @@ class CustomerServiceTest {
         assertEquals(0, afterDelete.getSentCount());
         assertEquals(0, afterDelete.getPickedUpCount());
         assertEquals(BuyerReputation.NEUTRAL, afterDelete.getReputation());
+    }
+
+    private TrackParcel prepareParcel() {
+        User user = new User();
+        user.setEmail("user@example.com");
+        user.setPassword("pass");
+        user.setRole(Role.ROLE_USER);
+        userRepository.save(user);
+
+        Store store = new Store();
+        store.setName("test");
+        store.setDefault(false);
+        store.setOwner(user);
+        storeRepository.save(store);
+
+        TrackParcel parcel = new TrackParcel();
+        parcel.setNumber("TR" + System.nanoTime());
+        parcel.setStatus(GlobalStatus.IN_TRANSIT);
+        parcel.setData(ZonedDateTime.now());
+        parcel.setStore(store);
+        parcel.setUser(user);
+        return trackParcelRepository.save(parcel);
+    }
+
+    @Test
+    void assignCustomerAddsStats() {
+        TrackParcel parcel = prepareParcel();
+
+        CustomerInfoDTO dto = customerService.assignCustomerToParcel(parcel.getId(), "291234567");
+
+        TrackParcel updated = trackParcelRepository.findById(parcel.getId()).orElseThrow();
+        assertNotNull(updated.getCustomer());
+        assertEquals("375291234567", updated.getCustomer().getPhone());
+        assertEquals(1, updated.getCustomer().getSentCount());
+        assertEquals("375291234567", dto.phone());
+    }
+
+    @Test
+    void reassignCustomerAdjustsStats() {
+        TrackParcel parcel = prepareParcel();
+
+        customerService.assignCustomerToParcel(parcel.getId(), "291234567");
+        Customer first = customerRepository.findByPhone("375291234567").orElseThrow();
+        assertEquals(1, first.getSentCount());
+
+        customerService.assignCustomerToParcel(parcel.getId(), "298765432");
+
+        TrackParcel updated = trackParcelRepository.findById(parcel.getId()).orElseThrow();
+        Customer second = customerRepository.findByPhone("375298765432").orElseThrow();
+        Customer firstAfter = customerRepository.findByPhone("375291234567").orElseThrow();
+
+        assertEquals("375298765432", updated.getCustomer().getPhone());
+        assertEquals(1, second.getSentCount());
+        assertEquals(0, firstAfter.getSentCount());
     }
 }

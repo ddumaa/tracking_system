@@ -133,13 +133,29 @@ public class CustomerService {
      */
     @Transactional
     public CustomerInfoDTO assignCustomerToParcel(Long parcelId, String rawPhone) {
-        Customer customer = registerOrGetByPhone(rawPhone);
+        // Загружаем посылку и нового покупателя
         TrackParcel parcel = trackParcelRepository.findById(parcelId)
                 .orElseThrow(() -> new IllegalArgumentException("Посылка не найдена"));
-        parcel.setCustomer(customer);
+        Customer newCustomer = registerOrGetByPhone(rawPhone);
+
+        Customer current = parcel.getCustomer();
+        // Если посылка уже привязана к этому же покупателю, ничего не меняем
+        if (current != null && current.getId().equals(newCustomer.getId())) {
+            return toInfoDto(current);
+        }
+
+        // Если посылка была связана с другим покупателем, корректируем статистику старого
+        if (current != null) {
+            rollbackStatsOnTrackDelete(parcel);
+        }
+
+        // Привязываем нового покупателя
+        parcel.setCustomer(newCustomer);
         trackParcelRepository.save(parcel);
+
+        // Статистику увеличиваем только при фактическом добавлении нового покупателя
         updateStatsOnTrackAdd(parcel);
-        return toInfoDto(customer);
+        return toInfoDto(newCustomer);
     }
 
     private CustomerInfoDTO toInfoDto(Customer customer) {
