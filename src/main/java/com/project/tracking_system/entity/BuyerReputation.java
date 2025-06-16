@@ -5,7 +5,7 @@ package com.project.tracking_system.entity;
  */
 public enum BuyerReputation {
     /** Репутация формируется. Недостаточно завершённых заказов. */
-    NEW("Формируется репутация", "reputation-new"),
+    NEW("Формируется", "reputation-new"),
     /** Надёжный покупатель. */
     RELIABLE("Надёжный", "reputation-reliable"),
     /** Нейтральный покупатель. */
