@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.security.Principal;
 
 
 /**
@@ -305,6 +306,21 @@ public class ProfileController {
             log.error("Ошибка установки магазина по умолчанию: {}", e.getMessage());
             return ResponseBuilder.error(HttpStatus.BAD_REQUEST, e.getMessage());
         }
+    }
+
+    /**
+     * Возвращает HTML-фрагмент блока магазина с Telegram-настройками.
+     *
+     * @param id        идентификатор магазина
+     * @param model     модель представления
+     * @param principal текущий пользователь
+     * @return фрагмент HTML магазина
+     */
+    @GetMapping("/stores/fragment/{id}")
+    public String getStoreFragment(@PathVariable Long id, Model model, Principal principal) {
+        Store store = storeService.findOwnedByUser(id, principal);
+        model.addAttribute("store", store);
+        return "fragments/store :: storeBlock";
     }
 
 
