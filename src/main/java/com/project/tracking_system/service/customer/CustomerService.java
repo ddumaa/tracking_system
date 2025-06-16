@@ -10,7 +10,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.EntityManager;
 
 import java.util.Optional;
 
@@ -24,14 +26,16 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final TrackParcelRepository trackParcelRepository;
+    private final EntityManager entityManager;
 
     /**
      * Зарегистрировать нового покупателя или получить существующего по телефону.
+     * Метод выполняется в новой транзакции для избежания гонок при одновременной регистрации.
      *
      * @param rawPhone телефон в произвольном формате
      * @return сущность покупателя
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Customer registerOrGetByPhone(String rawPhone) {
         String phone = PhoneUtils.normalizePhone(rawPhone);
         Optional<Customer> existing = customerRepository.findByPhone(phone);
@@ -46,7 +50,10 @@ public class CustomerService {
             return saved;
         } catch (DataIntegrityViolationException e) {
             log.info("Покупатель с номером {} уже существует, выполняем повторный поиск", phone);
-            return customerRepository.findByPhone(phone).orElseThrow(() -> e);
+            // Отвязываем транзиентную сущность, чтобы избежать повторных попыток её сохранения
+            entityManager.detach(customer);
+            return customerRepository.findByPhone(phone)
+                    .orElseThrow(() -> new IllegalStateException("Покупатель не найден после ошибки сохранения"));
         }
     }
 
