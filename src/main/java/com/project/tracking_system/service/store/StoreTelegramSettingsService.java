@@ -24,7 +24,6 @@ public class StoreTelegramSettingsService {
      *
      * @param store магазин, к которому относятся настройки
      * @param dto   данные настроек
-     * @return ничего не возвращает
      */
     @Transactional
     public void update(Store store, StoreTelegramSettingsDTO dto) {
