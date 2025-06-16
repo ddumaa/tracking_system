@@ -33,6 +33,9 @@ public class Customer {
     @Column(name = "returned_count", nullable = false)
     private int returnedCount = 0;
 
+    @Column(name = "telegram_chat_id")
+    private Long telegramChatId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "reputation", nullable = false)
     private BuyerReputation reputation = BuyerReputation.NEW;
