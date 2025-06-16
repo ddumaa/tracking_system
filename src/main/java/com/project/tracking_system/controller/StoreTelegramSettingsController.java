@@ -69,7 +69,13 @@ public class StoreTelegramSettingsController {
     }
 
     /**
-     * Обновить настройки через форму профиля.
+     * Обновляет настройки через форму профиля.
+     *
+     * @param storeId            идентификатор магазина
+     * @param dto                заполненные настройки Telegram
+     * @param principal          текущий аутентифицированный пользователь
+     * @param redirectAttributes атрибуты для передачи уведомления об успехе
+     * @return редирект на страницу профиля пользователя
      */
     @PostMapping(consumes = org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED_VALUE)
     public String updateSettingsForm(@PathVariable("storeId") Long storeId,
@@ -79,6 +85,6 @@ public class StoreTelegramSettingsController {
         Store store = storeService.findOwnedByUser(storeId, principal);
         telegramSettingsService.update(store, dto);
         redirectAttributes.addFlashAttribute("successMessage", "Настройки Telegram сохранены.");
-        return "redirect:/profile#store-" + storeId;
+        return "redirect:/profile#v-pills-stores";
     }
 }
