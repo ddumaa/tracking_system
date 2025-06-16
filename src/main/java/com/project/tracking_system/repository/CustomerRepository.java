@@ -22,6 +22,14 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     Optional<Customer> findByPhone(String phone);
 
     /**
+     * Найти покупателя по идентификатору чата Telegram.
+     *
+     * @param chatId идентификатор чата
+     * @return найденный покупатель или {@link java.util.Optional#empty()}
+     */
+    Optional<Customer> findByTelegramChatId(Long chatId);
+
+    /**
      * Атомарно увеличить счётчик отправленных посылок.
      *
      * @param id идентификатор покупателя
