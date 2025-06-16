@@ -9,6 +9,7 @@ import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.repository.PostalServiceStatisticsRepository;
 import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
 import com.project.tracking_system.dto.StoreTelegramSettingsDTO;
+import java.security.Principal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -55,6 +56,21 @@ public class StoreService {
     }
 
     /**
+     * Найти магазин по Id и проверить принадлежность текущему пользователю.
+     *
+     * @param storeId   идентификатор магазина
+     * @param principal текущий пользователь
+     * @return найденный магазин
+     */
+    public Store findOwnedByUser(Long storeId, Principal principal) {
+        String email = principal.getName();
+        Long userId = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"))
+                .getId();
+        return getStore(storeId, userId);
+    }
+
+    /**
      * Возвращает список магазинов, принадлежащих пользователю.
      *
      * @param userId идентификатор пользователя
@@ -62,6 +78,16 @@ public class StoreService {
      */
     public List<Store> getUserStores(Long userId) {
         return storeRepository.findByOwnerId(userId);
+    }
+
+    /**
+     * Возвращает магазины пользователя вместе с Telegram-настройками.
+     *
+     * @param userId идентификатор пользователя
+     * @return список магазинов с настройками
+     */
+    public List<Store> getUserStoresWithSettings(Long userId) {
+        return storeRepository.findByOwnerIdFetchSettings(userId);
     }
 
     /**
