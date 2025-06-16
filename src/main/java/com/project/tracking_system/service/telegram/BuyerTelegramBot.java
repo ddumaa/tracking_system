@@ -26,19 +26,8 @@ import java.util.List;
 public class BuyerTelegramBot extends TelegramLongPollingBot {
 
     private final CustomerRegistrationService registrationService;
-    private final String botToken;
-
-    /**
-     * Создать экземпляр бота.
-     *
-     * @param registrationService сервис регистрации покупателей
-     * @param botToken            токен бота
-     */
-    public BuyerTelegramBot(CustomerRegistrationService registrationService,
-                            @Value("${telegram.bot.token}") String botToken) {
-        this.registrationService = registrationService;
-        this.botToken = botToken;
-    }
+    @Value("${telegram.bot.token}")
+    private String botToken;
 
     /**
      * Возвращает имя бота в Telegram.
@@ -47,7 +36,7 @@ public class BuyerTelegramBot extends TelegramLongPollingBot {
      */
     @Override
     public String getBotUsername() {
-        return "BuyerAssistantBot";
+        return "Belivery_bot";
     }
 
     /**
