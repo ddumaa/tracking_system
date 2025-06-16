@@ -69,13 +69,7 @@ public class StoreTelegramSettingsController {
     }
 
     /**
-     * Обновляет настройки через форму профиля.
-     *
-     * @param storeId            идентификатор магазина
-     * @param dto                заполненные настройки Telegram
-     * @param principal          текущий аутентифицированный пользователь
-     * @param redirectAttributes атрибуты для передачи уведомления об успехе
-     * @return редирект на страницу профиля пользователя
+     * Обновить настройки через форму профиля.
      */
     @PostMapping(consumes = org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED_VALUE)
     public String updateSettingsForm(@PathVariable("storeId") Long storeId,
