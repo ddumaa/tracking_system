@@ -194,6 +194,7 @@ public class CustomerService {
                 customer.getPhone(),
                 customer.getSentCount(),
                 customer.getPickedUpCount(),
+                customer.getReturnedCount(),
                 Math.round(percentage * 100.0) / 100.0,
                 customer.getReputation()
         );

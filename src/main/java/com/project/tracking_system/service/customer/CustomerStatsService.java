@@ -83,4 +83,34 @@ public class CustomerStatsService {
             customerRepository.save(customer);
         }
     }
+
+    /**
+     * Увеличить счётчик возвращённых посылок покупателя.
+     *
+     * @param customer покупатель
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void incrementReturned(Customer customer) {
+        if (customer == null) {
+            return;
+        }
+        log.debug("🔄 Попытка атомарного увеличения возвратов для customerId={}", customer.getId());
+        int updated = customerRepository.incrementReturnedCount(customer.getId());
+        if (updated == 0) {
+            log.warn("⚠️ Не удалось атомарно обновить возвраты для customerId={}, переключаемся на ручной режим", customer.getId());
+            Customer fresh = customerRepository.findById(customer.getId())
+                    .orElseThrow(() -> new IllegalStateException("Покупатель не найден"));
+            fresh.setReturnedCount(fresh.getReturnedCount() + 1);
+            fresh.recalculateReputation();
+            customerRepository.save(fresh);
+            customer.setReturnedCount(fresh.getReturnedCount());
+            customer.setReputation(fresh.getReputation());
+            log.debug("✅ Счётчик возвратов вручную увеличен для customerId={}", customer.getId());
+        } else {
+            log.debug("✅ Атомарное увеличение возвратов успешно для customerId={}", customer.getId());
+            customer.setReturnedCount(customer.getReturnedCount() + 1);
+            customer.recalculateReputation();
+            customerRepository.save(customer);
+        }
+    }
 }

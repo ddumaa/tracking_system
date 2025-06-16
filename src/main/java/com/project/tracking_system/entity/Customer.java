@@ -30,26 +30,34 @@ public class Customer {
     @Column(name = "picked_up_count", nullable = false)
     private int pickedUpCount = 0;
 
+    @Column(name = "returned_count", nullable = false)
+    private int returnedCount = 0;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "reputation", nullable = false)
-    private BuyerReputation reputation = BuyerReputation.NEUTRAL;
+    private BuyerReputation reputation = BuyerReputation.NEW;
 
     /**
-     * Пересчитать репутацию покупателя на основе количества отправленных
-     * и забранных им посылок.
+     * Пересчитать репутацию покупателя на основе завершённых заказов.
+     * <p>
+     * Репутация "Формируется" присваивается, если суммарно обработано
+     * меньше трёх посылок. Далее оценивается доля забранных заказов
+     * относительно всех завершённых (забранных + возвращённых).
+     * </p>
      */
     public void recalculateReputation() {
-        if (sentCount == 0) {
-            reputation = BuyerReputation.NEUTRAL;
+        int finished = pickedUpCount + returnedCount;
+        if (finished < 3) {
+            this.reputation = BuyerReputation.NEW;
             return;
         }
-        double rate = (double) pickedUpCount / sentCount;
-        if (rate >= 0.8) {
-            reputation = BuyerReputation.RELIABLE;
-        } else if (rate <= 0.3) {
-            reputation = BuyerReputation.UNRELIABLE;
+        double ratio = (double) pickedUpCount / finished;
+        if (ratio >= 0.8) {
+            this.reputation = BuyerReputation.RELIABLE;
+        } else if (ratio >= 0.5) {
+            this.reputation = BuyerReputation.NEUTRAL;
         } else {
-            reputation = BuyerReputation.NEUTRAL;
+            this.reputation = BuyerReputation.UNRELIABLE;
         }
     }
 }

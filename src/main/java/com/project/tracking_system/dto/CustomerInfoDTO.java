@@ -15,6 +15,7 @@ public class CustomerInfoDTO {
     private String phone;
     private int sentCount;
     private int pickedUpCount;
+    private int returnedCount;
     private double pickupPercentage;
     private BuyerReputation reputation;
 

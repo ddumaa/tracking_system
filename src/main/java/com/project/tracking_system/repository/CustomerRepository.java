@@ -50,4 +50,19 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
         WHERE c.id = :id
         """)
     int incrementPickedUpCount(@Param("id") Long id);
+
+    /**
+     * Атомарно увеличить счётчик возвращённых посылок.
+     *
+     * @param id идентификатор покупателя
+     * @return количество обновлённых записей
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE Customer c
+        SET c.returnedCount = c.returnedCount + 1
+        WHERE c.id = :id
+        """)
+    int incrementReturnedCount(@Param("id") Long id);
 }
