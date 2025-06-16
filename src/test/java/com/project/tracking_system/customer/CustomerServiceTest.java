@@ -13,6 +13,8 @@ import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.service.customer.CustomerService;
+import com.project.tracking_system.service.customer.CustomerStatsService;
+import com.project.tracking_system.service.customer.CustomerTransactionalService;
 import java.time.ZonedDateTime;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Интеграционные тесты для {@link CustomerService}.
  */
 @DataJpaTest
-@Import(CustomerService.class)
+@Import({CustomerService.class, CustomerStatsService.class, CustomerTransactionalService.class})
 class CustomerServiceTest {
 
     @Autowired
