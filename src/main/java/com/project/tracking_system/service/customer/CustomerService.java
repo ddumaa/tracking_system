@@ -50,8 +50,8 @@ public class CustomerService {
             return saved;
         } catch (DataIntegrityViolationException e) {
             log.info("Покупатель с номером {} уже существует, выполняем повторный поиск", phone);
-            // Отвязываем транзиентную сущность, чтобы избежать повторных попыток её сохранения
-            entityManager.detach(customer);
+            // Очищаем контекст, чтобы транзиентный объект не мешал дальнейшей работе
+            entityManager.clear();
             return customerRepository.findByPhone(phone)
                     .orElseThrow(() -> new IllegalStateException("Покупатель не найден после ошибки сохранения"));
         }
