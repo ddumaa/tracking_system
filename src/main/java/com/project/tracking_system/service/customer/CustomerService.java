@@ -26,6 +26,7 @@ public class CustomerService {
     private final CustomerRepository customerRepository;
     private final TrackParcelRepository trackParcelRepository;
     private final CustomerTransactionalService transactionalService;
+    private final CustomerStatsService customerStatsService;
 
     /**
      * Зарегистрировать нового покупателя или получить существующего по телефону.
@@ -68,10 +69,7 @@ public class CustomerService {
         if (track == null || track.getCustomer() == null) {
             return;
         }
-        Customer customer = track.getCustomer();
-        customer.setSentCount(customer.getSentCount() + 1);
-        customer.recalculateReputation();
-        customerRepository.save(customer);
+        customerStatsService.incrementSent(track.getCustomer());
     }
 
     /**
@@ -84,10 +82,7 @@ public class CustomerService {
         if (track == null || track.getCustomer() == null) {
             return;
         }
-        Customer customer = track.getCustomer();
-        customer.setPickedUpCount(customer.getPickedUpCount() + 1);
-        customer.recalculateReputation();
-        customerRepository.save(customer);
+        customerStatsService.incrementPickedUp(track.getCustomer());
     }
 
     /**
@@ -155,7 +150,7 @@ public class CustomerService {
         trackParcelRepository.save(parcel);
 
         // Статистику увеличиваем только при фактическом добавлении нового покупателя
-        updateStatsOnTrackAdd(parcel);
+        customerStatsService.incrementSent(newCustomer);
         return toInfoDto(newCustomer);
     }
 

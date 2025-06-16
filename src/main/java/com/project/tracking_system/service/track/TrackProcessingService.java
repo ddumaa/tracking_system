@@ -6,6 +6,7 @@ import com.project.tracking_system.repository.*;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.analytics.DeliveryHistoryService;
 import com.project.tracking_system.service.customer.CustomerService;
+import com.project.tracking_system.service.customer.CustomerStatsService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.utils.DateParserUtils;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ public class TrackProcessingService {
     private final SubscriptionService subscriptionService;
     private final DeliveryHistoryService deliveryHistoryService;
     private final CustomerService customerService;
+    private final CustomerStatsService customerStatsService;
     private final UserService userService;
     private final StoreRepository storeRepository;
     private final UserRepository userRepository;
@@ -194,8 +196,8 @@ public class TrackProcessingService {
 
         trackParcelRepository.save(trackParcel);
 
-        if (isNewParcel) {
-            customerService.updateStatsOnTrackAdd(trackParcel);
+        if (isNewParcel && customer != null) {
+            customerStatsService.incrementSent(customer);
         }
 
         boolean storeChanged = !isNewParcel && previousStoreId != null && !previousStoreId.equals(storeId);

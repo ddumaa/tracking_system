@@ -13,6 +13,7 @@ import com.project.tracking_system.repository.PostalServiceDailyStatisticsReposi
 import com.project.tracking_system.service.track.StatusTrackService;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.customer.CustomerService;
+import com.project.tracking_system.service.customer.CustomerStatsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -47,6 +48,7 @@ public class DeliveryHistoryService {
     private final StoreDailyStatisticsRepository storeDailyStatisticsRepository;
     private final PostalServiceDailyStatisticsRepository postalServiceDailyStatisticsRepository;
     private final CustomerService customerService;
+    private final CustomerStatsService customerStatsService;
 
     /**
      * Обновляет или создаёт запись {@link DeliveryHistory}, когда меняется статус посылки.
@@ -327,7 +329,9 @@ public class DeliveryHistoryService {
             updateDailyStats(store, history.getPostalService(), eventDate, status, deliveryDays, pickupDays);
         }
 
-        customerService.updateStatsOnTrackDelivered(trackParcel);
+        if (status == GlobalStatus.DELIVERED && trackParcel.getCustomer() != null) {
+            customerStatsService.incrementPickedUp(trackParcel.getCustomer());
+        }
 
         // флаг включён, дальнейшее обновление записей не требуется
 
