@@ -5,6 +5,7 @@ import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.StoreTelegramSettings;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
+import com.project.tracking_system.service.store.StoreTelegramSettingsService;
 import com.project.tracking_system.utils.ResponseBuilder;
 import com.project.tracking_system.utils.AuthUtils;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import java.security.Principal;
 
 /**
  * Управление Telegram-настройками магазина.
@@ -26,6 +29,7 @@ public class StoreTelegramSettingsController {
 
     private final StoreService storeService;
     private final StoreTelegramSettingsRepository settingsRepository;
+    private final StoreTelegramSettingsService telegramSettingsService;
 
     /**
      * Получить текущие настройки магазина.
@@ -42,7 +46,7 @@ public class StoreTelegramSettingsController {
     /**
      * Обновить настройки магазина.
      */
-    @PostMapping
+    @PostMapping(consumes = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public ResponseEntity<?> updateSettings(@PathVariable Long storeId,
                                             @RequestBody StoreTelegramSettingsDTO dto,
@@ -62,5 +66,25 @@ public class StoreTelegramSettingsController {
             log.error("Ошибка обновления настроек Telegram", e);
             return ResponseBuilder.error(HttpStatus.BAD_REQUEST, e.getMessage());
         }
+    }
+
+    /**
+     * Обновляет настройки через форму профиля.
+     *
+     * @param storeId            идентификатор магазина
+     * @param dto                заполненные настройки Telegram
+     * @param principal          текущий аутентифицированный пользователь
+     * @param redirectAttributes атрибуты для передачи уведомления об успехе
+     * @return редирект на страницу профиля пользователя
+     */
+    @PostMapping(consumes = org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    public String updateSettingsForm(@PathVariable("storeId") Long storeId,
+                                     @ModelAttribute StoreTelegramSettingsDTO dto,
+                                     Principal principal,
+                                     RedirectAttributes redirectAttributes) {
+        Store store = storeService.findOwnedByUser(storeId, principal);
+        telegramSettingsService.update(store, dto);
+        redirectAttributes.addFlashAttribute("successMessage", "Настройки Telegram сохранены.");
+        return "redirect:/profile#store-" + storeId;
     }
 }
