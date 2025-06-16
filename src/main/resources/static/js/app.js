@@ -493,9 +493,6 @@ async function loadStores() {
                 <button class="btn btn-sm btn-outline-danger delete-store-btn" data-store-id="${store.id}">
                     <i class="bi bi-trash"></i>
                 </button>
-                <button class="btn btn-sm btn-outline-secondary telegram-settings-btn" data-store-id="${store.id}">
-                    <i class="bi bi-telegram"></i>
-                </button>
             </td>
         `;
         tableBody.appendChild(row);
@@ -992,9 +989,6 @@ document.addEventListener("DOMContentLoaded", function () {
             }
             if (button.classList.contains("remove-new-store-btn")) {
                 removeNewStoreRow(button);
-            }
-            if (button.classList.contains("telegram-settings-btn")) {
-                openTelegramSettings(storeId);
             }
         });
     }
