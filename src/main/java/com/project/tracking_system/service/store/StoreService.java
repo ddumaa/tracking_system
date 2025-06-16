@@ -52,14 +52,20 @@ public class StoreService {
     }
 
     /**
-     * Получить список магазинов пользователя.
+     * Возвращает список магазинов, принадлежащих пользователю.
+     *
+     * @param userId идентификатор пользователя
+     * @return список магазинов владельца
      */
     public List<Store> getUserStores(Long userId) {
         return storeRepository.findByOwnerId(userId);
     }
 
     /**
-     * Получить список ID магазинов пользователя.
+     * Возвращает список идентификаторов магазинов пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @return список ID магазинов
      */
     public List<Long> getUserStoreIds(Long userId) {
         return storeRepository.findStoreIdsByOwnerId(userId);
@@ -212,7 +218,10 @@ public class StoreService {
     }
 
     /**
-     * Проверяет, принадлежит ли магазин пользователю, и выбрасывает исключение, если нет.
+     * Проверяет принадлежность магазина пользователю и выбрасывает исключение при отсутствии прав.
+     *
+     * @param storeId идентификатор магазина
+     * @param userId  идентификатор пользователя
      */
     public void checkStoreOwnership(Long storeId, Long userId) {
         if (!userOwnsStore(storeId, userId)) {
@@ -221,7 +230,11 @@ public class StoreService {
     }
 
     /**
-     * Проверяет, принадлежит ли магазин пользователю.
+     * Проверяет принадлежность магазина пользователю.
+     *
+     * @param storeId идентификатор магазина
+     * @param userId  идентификатор пользователя
+     * @return {@code true}, если магазин принадлежит пользователю
      */
     public boolean userOwnsStore(Long storeId, Long userId) {
         return storeRepository.existsByIdAndOwnerId(storeId, userId);
@@ -316,6 +329,13 @@ public class StoreService {
                 .orElse(null);
     }
 
+    /**
+     * Определяет корректный ID магазина исходя из списка доступных магазинов и переданного значения.
+     *
+     * @param storeId переданный ID магазина (может быть {@code null})
+     * @param stores  список магазинов пользователя
+     * @return выбранный ID магазина или {@code null}, если определить невозможно
+     */
     public Long resolveStoreId(Long storeId, List<Store> stores) {
         if (storeId != null) return storeId;
 

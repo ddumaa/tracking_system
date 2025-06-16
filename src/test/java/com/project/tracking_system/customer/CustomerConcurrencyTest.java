@@ -53,4 +53,27 @@ class CustomerConcurrencyTest {
         assertEquals(c1.getId(), c2.getId());
         assertEquals(1, customerRepository.count());
     }
+
+    @Test
+    void concurrentRegisterWithFormattedPhone() throws Exception {
+        String phone = "8033 123-12-12";
+        CountDownLatch latch = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        Callable<Customer> task = () -> {
+            latch.await();
+            return customerService.registerOrGetByPhone(phone);
+        };
+
+        Future<Customer> first = executor.submit(task);
+        Future<Customer> second = executor.submit(task);
+        latch.countDown();
+
+        Customer c1 = first.get(5, TimeUnit.SECONDS);
+        Customer c2 = second.get(5, TimeUnit.SECONDS);
+        executor.shutdown();
+
+        assertEquals(c1.getId(), c2.getId());
+        assertEquals(1, customerRepository.count());
+    }
 }
