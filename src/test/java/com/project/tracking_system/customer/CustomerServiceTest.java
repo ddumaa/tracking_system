@@ -12,6 +12,10 @@ import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.repository.UserRepository;
+import com.project.tracking_system.repository.SubscriptionPlanRepository;
+import com.project.tracking_system.repository.UserSubscriptionRepository;
+import com.project.tracking_system.entity.SubscriptionPlan;
+import com.project.tracking_system.entity.UserSubscription;
 import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.service.customer.CustomerStatsService;
 import com.project.tracking_system.service.customer.CustomerTransactionalService;
@@ -44,6 +48,12 @@ class CustomerServiceTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private SubscriptionPlanRepository subscriptionPlanRepository;
+
+    @Autowired
+    private UserSubscriptionRepository userSubscriptionRepository;
 
     @Test
     void registerOrGetByPhoneCreatesCustomer() {
@@ -135,5 +145,79 @@ class CustomerServiceTest {
         assertEquals("375298765432", updated.getCustomer().getPhone());
         assertEquals(1, second.getSentCount());
         assertEquals(0, firstAfter.getSentCount());
+    }
+
+    @Test
+    void notifiableReturnsTrueWhenChatAndPremium() {
+        SubscriptionPlan plan = new SubscriptionPlan();
+        plan.setName("PREMIUM");
+        plan.setMaxTracksPerFile(1);
+        plan.setMaxSavedTracks(1);
+        plan.setMaxTrackUpdates(1);
+        plan.setAllowBulkUpdate(true);
+        plan.setMaxStores(1);
+        subscriptionPlanRepository.save(plan);
+
+        User user = new User();
+        user.setEmail("premium@example.com");
+        user.setPassword("pass");
+        user.setRole(Role.ROLE_USER);
+        userRepository.save(user);
+
+        UserSubscription sub = new UserSubscription();
+        sub.setUser(user);
+        sub.setSubscriptionPlan(plan);
+        userSubscriptionRepository.save(sub);
+        user.setSubscription(sub);
+
+        Store store = new Store();
+        store.setName("s");
+        store.setDefault(false);
+        store.setOwner(user);
+        storeRepository.save(store);
+
+        Customer customer = new Customer();
+        customer.setPhone("375291000000");
+        customer.setTelegramChatId(5L);
+        customerRepository.save(customer);
+
+        assertTrue(customerService.isNotifiable(customer, store));
+    }
+
+    @Test
+    void notifiableReturnsFalseWhenNoPremium() {
+        SubscriptionPlan plan = new SubscriptionPlan();
+        plan.setName("FREE");
+        plan.setMaxTracksPerFile(1);
+        plan.setMaxSavedTracks(1);
+        plan.setMaxTrackUpdates(1);
+        plan.setAllowBulkUpdate(true);
+        plan.setMaxStores(1);
+        subscriptionPlanRepository.save(plan);
+
+        User user = new User();
+        user.setEmail("free@example.com");
+        user.setPassword("pass");
+        user.setRole(Role.ROLE_USER);
+        userRepository.save(user);
+
+        UserSubscription sub = new UserSubscription();
+        sub.setUser(user);
+        sub.setSubscriptionPlan(plan);
+        userSubscriptionRepository.save(sub);
+        user.setSubscription(sub);
+
+        Store store = new Store();
+        store.setName("s");
+        store.setDefault(false);
+        store.setOwner(user);
+        storeRepository.save(store);
+
+        Customer customer = new Customer();
+        customer.setPhone("375292000000");
+        customer.setTelegramChatId(6L);
+        customerRepository.save(customer);
+
+        assertFalse(customerService.isNotifiable(customer, store));
     }
 }
