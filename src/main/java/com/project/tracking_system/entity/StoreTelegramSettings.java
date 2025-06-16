@@ -23,6 +23,7 @@ public class StoreTelegramSettings {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "store_id", nullable = false, unique = true)
+    @JsonIgnore
     private Store store;
 
     @Column(name = "enabled", nullable = false)
