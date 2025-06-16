@@ -89,13 +89,20 @@ public class BuyerTelegramBot extends TelegramLongPollingBot {
         String rawPhone = update.getMessage().getContact().getPhoneNumber();
         String phone = PhoneUtils.normalizePhone(rawPhone);
         Long chatId = update.getMessage().getChatId();
-        registrationService.linkTelegramToCustomer(chatId, phone);
-
-        SendMessage confirm = new SendMessage(chatId.toString(), "Номер сохранён. Спасибо!");
         try {
-            execute(confirm);
-        } catch (TelegramApiException e) {
-            log.error("Не удалось отправить подтверждение", e);
+            // Пытаемся привязать чат к покупателю
+            registrationService.linkTelegramToCustomer(chatId, phone);
+
+            // Отправляем подтверждение только при успешной привязке
+            SendMessage confirm = new SendMessage(chatId.toString(), "Номер сохранён. Спасибо!");
+            try {
+                execute(confirm);
+            } catch (TelegramApiException e) {
+                log.error("Не удалось отправить подтверждение", e);
+            }
+        } catch (Exception e) {
+            // Если регистрация не удалась, сообщение не отправляем
+            log.error("Ошибка привязки телефона {} к чату {}", phone, chatId, e);
         }
     }
 }
