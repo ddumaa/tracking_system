@@ -40,6 +40,7 @@ public class CustomerService {
      */
     public Customer registerOrGetByPhone(String rawPhone) {
         String phone = PhoneUtils.normalizePhone(rawPhone);
+        log.info("🔍 Начало поиска/регистрации покупателя по телефону {}", phone);
         // Первый поиск выполняем отдельно, чтобы не создавать дубликаты
         Optional<Customer> existing = transactionalService.findByPhone(phone);
         if (existing.isPresent()) {
@@ -53,7 +54,7 @@ public class CustomerService {
             log.info("Создан новый покупатель с номером {}", phone);
             return saved;
         } catch (DataIntegrityViolationException e) {
-            log.info("Покупатель с номером {} уже существует, выполняем повторный поиск", phone);
+            log.warn("Покупатель с номером {} уже существует, выполняем повторный поиск", phone);
             try {
                 Thread.sleep(100); // Ждём 100мс пока транзакция коммитится
             } catch (InterruptedException ignored) {
@@ -75,6 +76,8 @@ public class CustomerService {
         if (track == null || track.getCustomer() == null) {
             return;
         }
+        log.debug("📈 [updateStatsOnTrackAdd] Покупатель ID={} посылка ID={}",
+                track.getCustomer().getId(), track.getId());
         customerStatsService.incrementSent(track.getCustomer());
     }
 
@@ -88,6 +91,8 @@ public class CustomerService {
         if (track == null || track.getCustomer() == null) {
             return;
         }
+        log.debug("📦 [updateStatsOnTrackDelivered] Покупатель ID={} посылка ID={}",
+                track.getCustomer().getId(), track.getId());
         customerStatsService.incrementPickedUp(track.getCustomer());
     }
 
@@ -102,6 +107,8 @@ public class CustomerService {
             return;
         }
         Customer customer = track.getCustomer();
+        int beforeSent = customer.getSentCount();
+        int beforePicked = customer.getPickedUpCount();
         if (customer.getSentCount() > 0) {
             customer.setSentCount(customer.getSentCount() - 1);
         }
@@ -110,6 +117,8 @@ public class CustomerService {
         }
         customer.recalculateReputation();
         customerRepository.save(customer);
+        log.debug("↩️ [rollbackStatsOnTrackDelete] ID={} sent: {} -> {}, picked: {} -> {}",
+                customer.getId(), beforeSent, customer.getSentCount(), beforePicked, customer.getPickedUpCount());
     }
 
     /**
@@ -121,9 +130,17 @@ public class CustomerService {
     @Transactional(readOnly = true)
     public CustomerInfoDTO getCustomerInfoByParcelId(Long parcelId) {
         return trackParcelRepository.findById(parcelId)
-                .map(TrackParcel::getCustomer)
+                .map(track -> {
+                    log.debug("🔍 Найден покупатель ID={} для посылки ID={}",
+                            track.getCustomer() != null ? track.getCustomer().getId() : null,
+                            parcelId);
+                    return track.getCustomer();
+                })
                 .map(this::toInfoDto)
-                .orElse(null);
+                .orElseGet(() -> {
+                    log.debug("ℹ️ Покупатель для посылки ID={} не найден", parcelId);
+                    return null;
+                });
     }
 
     /**
@@ -135,19 +152,22 @@ public class CustomerService {
      */
     @Transactional
     public CustomerInfoDTO assignCustomerToParcel(Long parcelId, String rawPhone) {
-        // Загружаем посылку и нового покупателя
+        log.debug("🔍 Поиск посылки ID={} для привязки покупателя", parcelId);
         TrackParcel parcel = trackParcelRepository.findById(parcelId)
                 .orElseThrow(() -> new IllegalArgumentException("Посылка не найдена"));
+        log.debug("📞 Привязываем телефон {} к посылке ID={}", rawPhone, parcelId);
         Customer newCustomer = registerOrGetByPhone(rawPhone);
 
         Customer current = parcel.getCustomer();
         // Если посылка уже привязана к этому же покупателю, ничего не меняем
         if (current != null && current.getId().equals(newCustomer.getId())) {
+            log.debug("ℹ️ Посылка ID={} уже связана с покупателем ID={}", parcelId, newCustomer.getId());
             return toInfoDto(current);
         }
 
         // Если посылка была связана с другим покупателем, корректируем статистику старого
         if (current != null) {
+            log.debug("🔄 Посылка ID={} была связана с другим покупателем ID={}. Корректируем статистику", parcelId, current.getId());
             rollbackStatsOnTrackDelete(parcel);
         }
 
@@ -155,8 +175,11 @@ public class CustomerService {
         parcel.setCustomer(newCustomer);
         trackParcelRepository.save(parcel);
 
+        log.debug("📦 Посылка ID={} привязана к покупателю ID={}", parcelId, newCustomer.getId());
+
         // Статистику увеличиваем только при фактическом добавлении нового покупателя
         customerStatsService.incrementSent(newCustomer);
+        log.debug("📈 Статистика покупателя ID={} обновлена после привязки посылки ID={}", newCustomer.getId(), parcelId);
         return toInfoDto(newCustomer);
     }
 

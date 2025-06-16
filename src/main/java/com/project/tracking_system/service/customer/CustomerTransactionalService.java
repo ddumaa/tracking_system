@@ -28,6 +28,7 @@ public class CustomerTransactionalService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Customer saveCustomer(Customer customer) {
+        log.debug("💾 Сохранение покупателя с телефоном {}", customer.getPhone());
         return customerRepository.save(customer);
     }
 
@@ -39,6 +40,7 @@ public class CustomerTransactionalService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
     public Optional<Customer> findByPhone(String phone) {
+        log.debug("🔍 Поиск покупателя по телефону {}", phone);
         return customerRepository.findByPhone(phone);
     }
 }

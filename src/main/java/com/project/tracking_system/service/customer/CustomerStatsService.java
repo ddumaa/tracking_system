@@ -28,9 +28,10 @@ public class CustomerStatsService {
         if (customer == null) {
             return;
         }
-        // Пытаемся атомарно увеличить счётчик
+        log.debug("🔄 Попытка атомарного увеличения отправленных для customerId={}", customer.getId());
         int updated = customerRepository.incrementSentCount(customer.getId());
         if (updated == 0) {
+            log.warn("⚠️ Не удалось атомарно обновить отправленные для customerId={}, переключаемся на ручной режим", customer.getId());
             // При неудаче загружаем сущность и обновляем вручную
             Customer fresh = customerRepository.findById(customer.getId())
                     .orElseThrow(() -> new IllegalStateException("Покупатель не найден"));
@@ -40,7 +41,9 @@ public class CustomerStatsService {
             // Синхронизируем переданный объект
             customer.setSentCount(fresh.getSentCount());
             customer.setReputation(fresh.getReputation());
+            log.debug("✅ Счётчик отправленных вручную увеличен для customerId={}", customer.getId());
         } else {
+            log.debug("✅ Атомарное увеличение отправленных успешно для customerId={}", customer.getId());
             customer.setSentCount(customer.getSentCount() + 1);
             customer.recalculateReputation();
             // Сохраняем репутацию для согласованности с БД
@@ -58,9 +61,10 @@ public class CustomerStatsService {
         if (customer == null) {
             return;
         }
-        // Атомарное обновление счётчика
+        log.debug("🔄 Попытка атомарного увеличения забранных для customerId={}", customer.getId());
         int updated = customerRepository.incrementPickedUpCount(customer.getId());
         if (updated == 0) {
+            log.warn("⚠️ Не удалось атомарно обновить забранные для customerId={}, переключаемся на ручной режим", customer.getId());
             // При неудаче читаем и обновляем вручную
             Customer fresh = customerRepository.findById(customer.getId())
                     .orElseThrow(() -> new IllegalStateException("Покупатель не найден"));
@@ -70,7 +74,9 @@ public class CustomerStatsService {
             // Обновляем переданный экземпляр
             customer.setPickedUpCount(fresh.getPickedUpCount());
             customer.setReputation(fresh.getReputation());
+            log.debug("✅ Счётчик забранных вручную увеличен для customerId={}", customer.getId());
         } else {
+            log.debug("✅ Атомарное увеличение забранных успешно для customerId={}", customer.getId());
             customer.setPickedUpCount(customer.getPickedUpCount() + 1);
             customer.recalculateReputation();
             // Сохраняем репутацию для согласованности с БД
