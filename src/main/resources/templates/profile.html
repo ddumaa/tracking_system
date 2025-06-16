@@ -116,6 +116,41 @@
                             <i class="bi bi-trash me-2"></i> Удалить всю аналитику
                         </button>
                     </div>
+
+                    <div id="telegram-management" class="mt-4">
+                        <h5 class="mb-3">Настройки Telegram</h5>
+                        <div th:each="store : ${stores}" class="mt-3 border p-3 rounded bg-light-subtle" th:id="'store-' + ${store.id}">
+                            <h6 th:text="${store.name}" class="mb-2"></h6>
+                            <form th:action="@{/stores/{id}/telegram-settings(id=${store.id})}" method="post">
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" th:id="'tg-enable-' + ${store.id}" name="enabled"
+                                           th:checked="${store.telegramSettings != null and store.telegramSettings.enabled}">
+                                    <label class="form-check-label" th:for="'tg-enable-' + ${store.id}">Включить уведомления</label>
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="form-label" th:for="'tg-start-' + ${store.id}">Первое напоминание (через дней)</label>
+                                    <input type="number" class="form-control form-control-sm" th:id="'tg-start-' + ${store.id}" name="reminderStartAfterDays"
+                                           th:value="${store.telegramSettings?.reminderStartAfterDays ?: 3}" min="1" max="14">
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="form-label" th:for="'tg-repeat-' + ${store.id}">Интервал повторных напоминаний (в днях)</label>
+                                    <input type="number" class="form-control form-control-sm" th:id="'tg-repeat-' + ${store.id}" name="reminderRepeatIntervalDays"
+                                           th:value="${store.telegramSettings?.reminderRepeatIntervalDays ?: 2}" min="1" max="14">
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="form-label" th:for="'tg-sign-' + ${store.id}">Подпись к уведомлению (необязательно)</label>
+                                    <input type="text" class="form-control form-control-sm" th:id="'tg-sign-' + ${store.id}" name="customSignature"
+                                           th:value="${store.telegramSettings?.customSignature}" maxlength="200">
+                                </div>
+
+                                <button type="submit" class="btn btn-sm btn-primary">Сохранить</button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="tab-pane fade card p-4 shadow-sm rounded-4"
@@ -350,41 +385,6 @@
         </div>
     </div>
 
-    <!-- Настройки Telegram -->
-    <div class="modal fade" id="telegramSettingsModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form id="telegramSettingsForm">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Telegram</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" type="checkbox" id="telegramEnabled">
-                            <label class="form-check-label" for="telegramEnabled">Включить уведомления</label>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label" for="reminderStartAfterDays">Начать через (дней)</label>
-                            <input type="number" min="1" max="14" class="form-control" id="reminderStartAfterDays">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label" for="reminderRepeatIntervalDays">Повторять каждые (дней)</label>
-                            <input type="number" min="1" max="14" class="form-control" id="reminderRepeatIntervalDays">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label" for="customSignature">Подпись</label>
-                            <textarea class="form-control" id="customSignature" maxlength="200"></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
-                        <button type="submit" class="btn btn-primary">Сохранить</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
 
 </div>
 
