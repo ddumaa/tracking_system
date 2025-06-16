@@ -57,7 +57,7 @@ public class CustomerTelegramService {
         newCustomer.setTelegramChatId(chatId);
         newCustomer.setSentCount(0);
         newCustomer.setPickedUpCount(0);
-        newCustomer.setReputation(BuyerReputation.NEUTRAL);
+        newCustomer.setReputation(BuyerReputation.NEW);
 
         Customer saved = customerRepository.save(newCustomer);
         log.info("🆕 Создан покупатель {} и привязан чат {}", saved.getId(), chatId);
