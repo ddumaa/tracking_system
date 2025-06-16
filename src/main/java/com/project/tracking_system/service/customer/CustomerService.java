@@ -8,11 +8,10 @@ import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.project.tracking_system.service.customer.CustomerTransactionalService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import jakarta.persistence.EntityManager;
 
 import java.util.Optional;
 
@@ -26,33 +25,35 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final TrackParcelRepository trackParcelRepository;
-    private final EntityManager entityManager;
+    private final CustomerTransactionalService transactionalService;
 
     /**
      * Зарегистрировать нового покупателя или получить существующего по телефону.
-     * Метод выполняется в новой транзакции для избежания гонок при одновременной регистрации.
+     * <p>
+     * Все операции поиска и сохранения выполняются в отдельных транзакциях,
+     * что исключает ошибку "current transaction is aborted" при конкурентной записи.
+     * </p>
      *
      * @param rawPhone телефон в произвольном формате
      * @return сущность покупателя
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Customer registerOrGetByPhone(String rawPhone) {
         String phone = PhoneUtils.normalizePhone(rawPhone);
-        Optional<Customer> existing = customerRepository.findByPhone(phone);
+        // Первый поиск выполняем отдельно, чтобы не создавать дубликаты
+        Optional<Customer> existing = transactionalService.findByPhone(phone);
         if (existing.isPresent()) {
             return existing.get();
         }
+
         Customer customer = new Customer();
         customer.setPhone(phone);
         try {
-            Customer saved = customerRepository.save(customer);
+            Customer saved = transactionalService.saveCustomer(customer);
             log.info("Создан новый покупатель с номером {}", phone);
             return saved;
         } catch (DataIntegrityViolationException e) {
             log.info("Покупатель с номером {} уже существует, выполняем повторный поиск", phone);
-            // Очищаем контекст, чтобы транзиентный объект не мешал дальнейшей работе
-            entityManager.clear();
-            return customerRepository.findByPhone(phone)
+            return transactionalService.findByPhone(phone)
                     .orElseThrow(() -> new IllegalStateException("Покупатель не найден после ошибки сохранения"));
         }
     }
