@@ -669,9 +669,11 @@ async function saveNewStore(event) {
     });
 
     if (response.ok) {
+        const newStore = await response.json();
         loadStores(); // Обновляем список магазинов
         updateStoreLimit();
         loadAnalyticsButtons();
+        appendTelegramBlock(newStore.id);
     } else {
         console.warn("Ошибка при создании магазина: ", await response.text());
         return;
@@ -703,6 +705,10 @@ async function deleteStore() {
         loadStores();
         updateStoreLimit();
         loadAnalyticsButtons();
+        const storeElement = document.querySelector(`#store-block-${storeToDelete}`);
+        if (storeElement) {
+            storeElement.remove();
+        }
     } else {
         alert("Ошибка при удалении: " + await response.text());
     }
@@ -733,6 +739,26 @@ async function updateStoreLimit() {
         }
     } catch (error) {
         console.error("Ошибка при обновлении лимита магазинов:", error);
+    }
+}
+
+async function appendTelegramBlock(storeId) {
+    try {
+        const response = await fetch(`/profile/stores/fragment/${storeId}`);
+        if (!response.ok) {
+            console.error('Ошибка загрузки блока магазина:', await response.text());
+            return;
+        }
+        const html = await response.text();
+        const container = document.getElementById('telegram-management');
+        if (container) {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = html.trim();
+            const element = wrapper.firstElementChild;
+            if (element) container.appendChild(element);
+        }
+    } catch (e) {
+        console.error('Ошибка при получении фрагмента магазина:', e);
     }
 }
 
