@@ -215,7 +215,7 @@ public class TrackProcessingService {
                 storeAnalyticsRepository.save(statistics);
             }
 
-            // Postal service statistics (skip UNKNOWN)
+            // Статистика почтовой службы (пропустить UNKNOWN)
             if (serviceType != PostalServiceType.UNKNOWN) {
                 int psUpdated = postalServiceStatisticsRepository.incrementTotalSent(storeId, serviceType, 1);
                 if (psUpdated == 0) {
@@ -232,7 +232,7 @@ public class TrackProcessingService {
                     postalServiceStatisticsRepository.save(psStats);
                 }
             } else {
-                log.warn("⛔ Skipping analytics update for UNKNOWN service: {}", number);
+                log.warn("⛔ Пропуск обновления аналитики для UNKNOWN службы: {}", number);
             }
 
             // Ежедневная статистика магазина
@@ -252,7 +252,7 @@ public class TrackProcessingService {
                 storeDailyStatisticsRepository.save(daily);
             }
 
-            // Daily postal service statistics
+            // Ежедневная статистика почтовой службы
             if (serviceType != PostalServiceType.UNKNOWN) {
                 int psdUpdated = postalServiceDailyStatisticsRepository.incrementSent(storeId, serviceType, day, 1);
                 if (psdUpdated == 0) {
