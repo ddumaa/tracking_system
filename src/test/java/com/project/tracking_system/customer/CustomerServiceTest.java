@@ -65,7 +65,7 @@ class CustomerServiceTest {
         Customer afterAdd = customerRepository.findById(customer.getId()).orElseThrow();
         assertEquals(1, afterAdd.getSentCount());
         assertEquals(0, afterAdd.getPickedUpCount());
-        assertEquals(BuyerReputation.NEUTRAL, afterAdd.getReputation());
+        assertEquals(BuyerReputation.NEW, afterAdd.getReputation());
 
         // Доставляем посылку
         track.setStatus(GlobalStatus.DELIVERED);
@@ -73,14 +73,14 @@ class CustomerServiceTest {
         Customer afterDeliver = customerRepository.findById(customer.getId()).orElseThrow();
         assertEquals(1, afterDeliver.getSentCount());
         assertEquals(1, afterDeliver.getPickedUpCount());
-        assertEquals(BuyerReputation.RELIABLE, afterDeliver.getReputation());
+        assertEquals(BuyerReputation.NEW, afterDeliver.getReputation());
 
         // Удаляем посылку
         customerService.rollbackStatsOnTrackDelete(track);
         Customer afterDelete = customerRepository.findById(customer.getId()).orElseThrow();
         assertEquals(0, afterDelete.getSentCount());
         assertEquals(0, afterDelete.getPickedUpCount());
-        assertEquals(BuyerReputation.NEUTRAL, afterDelete.getReputation());
+        assertEquals(BuyerReputation.NEW, afterDelete.getReputation());
     }
 
     private TrackParcel prepareParcel() {

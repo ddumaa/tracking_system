@@ -331,6 +331,8 @@ public class DeliveryHistoryService {
 
         if (status == GlobalStatus.DELIVERED && trackParcel.getCustomer() != null) {
             customerStatsService.incrementPickedUp(trackParcel.getCustomer());
+        } else if (status == GlobalStatus.RETURNED && trackParcel.getCustomer() != null) {
+            customerStatsService.incrementReturned(trackParcel.getCustomer());
         }
 
         // флаг включён, дальнейшее обновление записей не требуется
