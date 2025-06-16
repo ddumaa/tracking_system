@@ -2,6 +2,7 @@ package com.project.tracking_system.service.telegram;
 
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.entity.StoreTelegramSettings;
 import com.project.tracking_system.service.customer.CustomerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +33,12 @@ public class TelegramNotificationService {
             return;
         }
 
+        StoreTelegramSettings settings = parcel.getStore().getTelegramSettings();
+        if (settings != null && !settings.isEnabled()) {
+            log.debug("Уведомления Telegram отключены для магазина {}", parcel.getStore().getId());
+            return;
+        }
+
         Long chatId = getChatId(parcel);
 
         String text = buildStatusText(parcel, status);
@@ -56,6 +63,12 @@ public class TelegramNotificationService {
             return;
         }
 
+        StoreTelegramSettings settings = parcel.getStore().getTelegramSettings();
+        if (settings != null && !settings.isEnabled()) {
+            log.debug("Напоминания отключены для магазина {}", parcel.getStore().getId());
+            return;
+        }
+
         Long chatId = getChatId(parcel);
 
         String text = String.format(
@@ -63,6 +76,9 @@ public class TelegramNotificationService {
                 parcel.getNumber(),
                 parcel.getStore().getName()
         );
+        if (settings != null && settings.getCustomSignature() != null && !settings.getCustomSignature().isBlank()) {
+            text += "\n" + settings.getCustomSignature();
+        }
         SendMessage message = new SendMessage(chatId.toString(), text);
 
         try {

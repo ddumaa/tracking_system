@@ -4,6 +4,7 @@ import com.project.tracking_system.entity.CustomerNotificationLog;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.NotificationType;
 import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.entity.StoreTelegramSettings;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import lombok.RequiredArgsConstructor;
@@ -39,19 +40,25 @@ public class TelegramReminderScheduler {
     @Scheduled(cron = "0 0 8 * * *", zone = "UTC")
     @Transactional
     public void sendReminders() {
-        ZonedDateTime threshold = ZonedDateTime.now(ZoneOffset.UTC).minusDays(3);
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        ZonedDateTime threshold = now.minusDays(1);
         List<TrackParcel> parcels = trackParcelRepository
                 .findWaitingForPickupBefore(GlobalStatus.WAITING_FOR_CUSTOMER, threshold);
 
         for (TrackParcel parcel : parcels) {
-            boolean exists = customerNotificationLogRepository
-                    .existsByParcelIdAndStatusAndNotificationType(
-                            parcel.getId(),
-                            GlobalStatus.WAITING_FOR_CUSTOMER,
-                            NotificationType.REMINDER
-                    );
-            if (exists) {
-                log.debug("⏭ Напоминание уже отправлено для трека {}", parcel.getNumber());
+            StoreTelegramSettings settings = parcel.getStore().getTelegramSettings();
+            if (settings == null || !settings.isEnabled()) {
+                continue;
+            }
+
+            ZonedDateTime arrived = parcel.getDeliveryHistory() != null ? parcel.getDeliveryHistory().getArrivedDate() : null;
+            if (arrived == null || arrived.plusDays(settings.getReminderStartAfterDays()).isAfter(now)) {
+                continue;
+            }
+
+            CustomerNotificationLog last = customerNotificationLogRepository
+                    .findTopByParcelIdAndNotificationTypeOrderBySentAtDesc(parcel.getId(), NotificationType.REMINDER);
+            if (last != null && last.getSentAt().plusDays(settings.getReminderRepeatIntervalDays()).isAfter(now)) {
                 continue;
             }
 
@@ -63,7 +70,7 @@ public class TelegramReminderScheduler {
             logEntry.setParcel(parcel);
             logEntry.setStatus(GlobalStatus.WAITING_FOR_CUSTOMER);
             logEntry.setNotificationType(NotificationType.REMINDER);
-            logEntry.setSentAt(ZonedDateTime.now(ZoneOffset.UTC));
+            logEntry.setSentAt(now);
             customerNotificationLogRepository.save(logEntry);
         }
     }

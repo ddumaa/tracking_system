@@ -493,6 +493,9 @@ async function loadStores() {
                 <button class="btn btn-sm btn-outline-danger delete-store-btn" data-store-id="${store.id}">
                     <i class="bi bi-trash"></i>
                 </button>
+                <button class="btn btn-sm btn-outline-secondary telegram-settings-btn" data-store-id="${store.id}">
+                    <i class="bi bi-telegram"></i>
+                </button>
             </td>
         `;
         tableBody.appendChild(row);
@@ -711,6 +714,49 @@ async function deleteStore() {
     bootstrap.Modal.getInstance(document.getElementById('deleteStoreModal')).hide();
 }
 
+async function openTelegramSettings(storeId) {
+    const response = await fetch(`/stores/${storeId}/telegram-settings`);
+    if (!response.ok) {
+        alert('Ошибка загрузки настроек');
+        return;
+    }
+    const data = await response.json();
+    const form = document.getElementById('telegramSettingsForm');
+    form.dataset.storeId = storeId;
+    document.getElementById('telegramEnabled').checked = data.enabled;
+    document.getElementById('reminderStartAfterDays').value = data.reminderStartAfterDays;
+    document.getElementById('reminderRepeatIntervalDays').value = data.reminderRepeatIntervalDays;
+    document.getElementById('customSignature').value = data.customSignature || '';
+    new bootstrap.Modal(document.getElementById('telegramSettingsModal')).show();
+}
+
+async function saveTelegramSettings(event) {
+    event.preventDefault();
+    const form = event.target;
+    const storeId = form.dataset.storeId;
+    const payload = {
+        enabled: document.getElementById('telegramEnabled').checked,
+        reminderStartAfterDays: parseInt(document.getElementById('reminderStartAfterDays').value),
+        reminderRepeatIntervalDays: parseInt(document.getElementById('reminderRepeatIntervalDays').value),
+        customSignature: document.getElementById('customSignature').value
+    };
+
+    const resp = await fetch(`/stores/${storeId}/telegram-settings`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+        },
+        body: JSON.stringify(payload)
+    });
+    if (resp.ok) {
+        notifyUser('Настройки обновлены', 'success');
+        bootstrap.Modal.getInstance(document.getElementById('telegramSettingsModal')).hide();
+    } else {
+        notifyUser('Ошибка сохранения', 'danger');
+    }
+}
+
 /**
  * Обновляет отображение лимита магазинов
  */
@@ -903,6 +949,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initializeCustomCredentialsCheckbox();
     initializePhoneToggle();
     initAssignCustomerFormHandler();
+    document.getElementById('telegramSettingsForm')?.addEventListener('submit', saveTelegramSettings);
 
     // Назначаем обработчик кнопки "Добавить магазин" - с проверкой на наличие
     const addStoreBtn = document.getElementById("addStoreBtn");
@@ -945,6 +992,9 @@ document.addEventListener("DOMContentLoaded", function () {
             }
             if (button.classList.contains("remove-new-store-btn")) {
                 removeNewStoreRow(button);
+            }
+            if (button.classList.contains("telegram-settings-btn")) {
+                openTelegramSettings(storeId);
             }
         });
     }
