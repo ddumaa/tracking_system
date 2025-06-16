@@ -116,6 +116,41 @@
                             <i class="bi bi-trash me-2"></i> Удалить всю аналитику
                         </button>
                     </div>
+
+                    <div th:each="store : ${stores}" class="mt-3" th:id="'store-' + ${store.id}">
+                        <h6 th:text="${store.name}" class="mb-2"></h6>
+                        <div class="mt-3 border p-3 rounded bg-light-subtle">
+                            <h6>Настройки Telegram-уведомлений</h6>
+
+                            <form th:action="@{/stores/{id}/telegram-settings(id=${store.id})}" method="post">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" name="enabled"
+                                           th:checked="${store.telegramSettings != null and store.telegramSettings.enabled}">
+                                    <label class="form-check-label">Включить уведомления</label>
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="form-label">Первое напоминание (через дней)</label>
+                                    <input type="number" class="form-control form-control-sm" name="reminderStartAfterDays"
+                                           th:value="${store.telegramSettings?.reminderStartAfterDays ?: 3}" min="1" max="14">
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="form-label">Интервал повторных напоминаний (в днях)</label>
+                                    <input type="number" class="form-control form-control-sm" name="reminderRepeatIntervalDays"
+                                           th:value="${store.telegramSettings?.reminderRepeatIntervalDays ?: 2}" min="1" max="14">
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="form-label">Подпись к уведомлению (необязательно)</label>
+                                    <input type="text" class="form-control form-control-sm" name="customSignature"
+                                           th:value="${store.telegramSettings?.customSignature}">
+                                </div>
+
+                                <button type="submit" class="btn btn-sm btn-primary">Сохранить</button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="tab-pane fade card p-4 shadow-sm rounded-4"
