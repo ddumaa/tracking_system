@@ -2,6 +2,7 @@ package com.project.tracking_system.service.telegram;
 
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.service.customer.CustomerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 public class TelegramNotificationService {
 
     private final BuyerTelegramBot telegramBot;
+    private final CustomerService customerService;
 
     /**
      * Отправить уведомление о смене статуса посылки.
@@ -25,11 +27,12 @@ public class TelegramNotificationService {
      * @param status новый статус
      */
     public void sendStatusUpdate(TrackParcel parcel, GlobalStatus status) {
-        Long chatId = getChatId(parcel);
-        if (chatId == null) {
-            log.warn("⛔ Невозможно отправить уведомление: отсутствует чат для трека {}", parcel.getNumber());
+        if (!customerService.isNotifiable(parcel.getCustomer(), parcel.getStore())) {
+            log.warn("⛔ Уведомление не отправлено: условия не выполнены для трека {}", parcel.getNumber());
             return;
         }
+
+        Long chatId = getChatId(parcel);
 
         String text = buildStatusText(parcel, status);
         SendMessage message = new SendMessage(chatId.toString(), text);
@@ -48,11 +51,12 @@ public class TelegramNotificationService {
      * @param parcel посылка
      */
     public void sendReminder(TrackParcel parcel) {
-        Long chatId = getChatId(parcel);
-        if (chatId == null) {
-            log.warn("⛔ Невозможно отправить напоминание: отсутствует чат для трека {}", parcel.getNumber());
+        if (!customerService.isNotifiable(parcel.getCustomer(), parcel.getStore())) {
+            log.warn("⛔ Напоминание не отправлено: условия не выполнены для трека {}", parcel.getNumber());
             return;
         }
+
+        Long chatId = getChatId(parcel);
 
         String text = String.format(
                 "Напоминание: заберите заказ %s из магазина %s.",

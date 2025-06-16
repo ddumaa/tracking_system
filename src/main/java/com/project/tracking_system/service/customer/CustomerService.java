@@ -2,6 +2,10 @@ package com.project.tracking_system.service.customer;
 
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.entity.Store;
+import com.project.tracking_system.entity.User;
+import com.project.tracking_system.entity.UserSubscription;
+import com.project.tracking_system.entity.SubscriptionPlan;
 import com.project.tracking_system.dto.CustomerInfoDTO;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
@@ -181,6 +185,37 @@ public class CustomerService {
         customerStatsService.incrementSent(newCustomer);
         log.debug("📈 Статистика покупателя ID={} обновлена после привязки посылки ID={}", newCustomer.getId(), parcelId);
         return toInfoDto(newCustomer);
+    }
+
+    /**
+     * Проверяет, можно ли отправлять уведомления покупателю.
+     * <p>
+     * Уведомления разрешены, если у покупателя указан идентификатор Telegram-чатa
+     * и владелец магазина обладает подпиской PREMIUM.
+     * </p>
+     *
+     * @param customer покупатель
+     * @param store    магазин
+     * @return {@code true}, если уведомления разрешены
+     */
+    public boolean isNotifiable(Customer customer, Store store) {
+        if (customer == null || store == null) {
+            return false;
+        }
+
+        // Проверяем наличие привязанного чата
+        if (customer.getTelegramChatId() == null) {
+            return false;
+        }
+
+        // Определяем активную подписку владельца магазина
+        String planName = Optional.ofNullable(store.getOwner())
+                .map(User::getSubscription)
+                .map(UserSubscription::getSubscriptionPlan)
+                .map(SubscriptionPlan::getName)
+                .orElse(null);
+
+        return "PREMIUM".equals(planName);
     }
 
     private CustomerInfoDTO toInfoDto(Customer customer) {
