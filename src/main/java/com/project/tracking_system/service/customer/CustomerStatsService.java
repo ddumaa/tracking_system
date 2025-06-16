@@ -43,6 +43,8 @@ public class CustomerStatsService {
         } else {
             customer.setSentCount(customer.getSentCount() + 1);
             customer.recalculateReputation();
+            // Сохраняем репутацию для согласованности с БД
+            customerRepository.save(customer);
         }
     }
 
@@ -71,6 +73,8 @@ public class CustomerStatsService {
         } else {
             customer.setPickedUpCount(customer.getPickedUpCount() + 1);
             customer.recalculateReputation();
+            // Сохраняем репутацию для согласованности с БД
+            customerRepository.save(customer);
         }
     }
 }
