@@ -54,9 +54,15 @@ public class CustomerService {
             return saved;
         } catch (DataIntegrityViolationException e) {
             log.info("Покупатель с номером {} уже существует, выполняем повторный поиск", phone);
+            try {
+                Thread.sleep(100); // Ждём 100мс пока транзакция коммитится
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
             return transactionalService.findByPhone(phone)
                     .orElseThrow(() -> new IllegalStateException("Покупатель не найден после ошибки сохранения"));
         }
+
     }
 
     /**
