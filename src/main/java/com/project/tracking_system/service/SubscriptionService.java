@@ -137,6 +137,17 @@ public class SubscriptionService {
         return hasAccess;
     }
 
+    /**
+     * Проверяет наличие подписки PREMIUM у пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @return {@code true}, если у пользователя PREMIUM-подписка
+     */
+    public boolean isUserPremium(Long userId) {
+        String planName = userSubscriptionRepository.getSubscriptionPlanName(userId);
+        return PREMIUM_PLAN.equals(planName);
+    }
+
     @Transactional
     public void upgradeOrExtendSubscription(Long userId, int months) {
         log.info("🔄 Попытка обновления подписки для пользователя с ID: {}", userId);
