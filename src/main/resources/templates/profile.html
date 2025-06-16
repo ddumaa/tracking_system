@@ -119,7 +119,7 @@
 
                     <div id="telegram-management" class="mt-4">
                         <h5 class="mb-3">Настройки Telegram</h5>
-                        <div th:each="store : ${stores}" th:replace="~{fragments/store :: storeBlock}"></div>
+                        <div th:each="store : ${stores}" th:replace="~{partials/store-tg-push :: storeBlock}"></div>
                     </div>
                 </div>
 
