@@ -7,6 +7,8 @@ import com.project.tracking_system.repository.StoreAnalyticsRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.repository.PostalServiceStatisticsRepository;
+import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
+import com.project.tracking_system.dto.StoreTelegramSettingsDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,6 +34,7 @@ public class StoreService {
     private final StoreAnalyticsRepository storeAnalyticsRepository;
     private final PostalServiceStatisticsRepository postalServiceStatisticsRepository;
     private final TrackParcelRepository trackParcelRepository;
+    private final StoreTelegramSettingsRepository storeTelegramSettingsRepository;
     private final WebSocketController webSocketController;
 
     /**
@@ -136,6 +139,12 @@ public class StoreService {
         }
 
         webSocketController.sendUpdateStatus(userId, "Магазин '" + storeName + "' добавлен!", true);
+
+        // Создаём настройки Telegram по умолчанию
+        StoreTelegramSettings telegramSettings = new StoreTelegramSettings();
+        telegramSettings.setStore(savedStore);
+        storeTelegramSettingsRepository.save(telegramSettings);
+        savedStore.setTelegramSettings(telegramSettings);
 
         log.info("Создание магазина '{}' для пользователя ID={} успешно завершено", savedStore.getName(), userId);
         return savedStore;
@@ -348,6 +357,29 @@ public class StoreService {
                 .map(Store::getId)
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * Преобразовать сущность настроек в DTO.
+     */
+    public StoreTelegramSettingsDTO toDto(StoreTelegramSettings settings) {
+        if (settings == null) return null;
+        StoreTelegramSettingsDTO dto = new StoreTelegramSettingsDTO();
+        dto.setEnabled(settings.isEnabled());
+        dto.setReminderStartAfterDays(settings.getReminderStartAfterDays());
+        dto.setReminderRepeatIntervalDays(settings.getReminderRepeatIntervalDays());
+        dto.setCustomSignature(settings.getCustomSignature());
+        return dto;
+    }
+
+    /**
+     * Обновить сущность настроек на основе DTO.
+     */
+    public void updateFromDto(StoreTelegramSettings settings, StoreTelegramSettingsDTO dto) {
+        settings.setEnabled(dto.isEnabled());
+        settings.setReminderStartAfterDays(dto.getReminderStartAfterDays());
+        settings.setReminderRepeatIntervalDays(dto.getReminderRepeatIntervalDays());
+        settings.setCustomSignature(dto.getCustomSignature());
     }
 
 

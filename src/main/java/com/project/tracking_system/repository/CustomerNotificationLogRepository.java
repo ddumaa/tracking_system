@@ -21,4 +21,10 @@ public interface CustomerNotificationLogRepository extends JpaRepository<Custome
     boolean existsByParcelIdAndStatusAndNotificationType(Long parcelId,
                                                          GlobalStatus status,
                                                          NotificationType type);
+
+    /**
+     * Найти последнее напоминание для посылки.
+     */
+    CustomerNotificationLog findTopByParcelIdAndNotificationTypeOrderBySentAtDesc(Long parcelId,
+                                                                                   NotificationType type);
 }
