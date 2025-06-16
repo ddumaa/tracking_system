@@ -2,7 +2,6 @@ package com.project.tracking_system.service.telegram;
 
 import com.project.tracking_system.service.customer.CustomerRegistrationService;
 import com.project.tracking_system.utils.PhoneUtils;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -21,13 +20,23 @@ import java.util.List;
  * Telegram-бот для покупателей.
  */
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class BuyerTelegramBot extends TelegramLongPollingBot {
 
     private final CustomerRegistrationService registrationService;
-    @Value("${telegram.bot.token}")
-    private String botToken;
+    private final String botToken;
+
+    /**
+     * Создаёт телеграм-бота для покупателей.
+     *
+     * @param botToken            токен бота
+     * @param registrationService сервис регистрации покупателей
+     */
+    public BuyerTelegramBot(@Value("${telegram.bot.token}") String botToken,
+                            CustomerRegistrationService registrationService) {
+        this.botToken = botToken;
+        this.registrationService = registrationService;
+    }
 
     /**
      * Возвращает имя бота в Telegram.
