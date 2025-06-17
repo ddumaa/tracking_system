@@ -320,7 +320,7 @@ public class ProfileController {
     public String getStoreFragment(@PathVariable Long id, Model model, Principal principal) {
         Store store = storeService.findOwnedByUser(id, principal);
         model.addAttribute("store", store);
-        return "partials/tg_bot_store :: storeBlock(store=${store})";
+        return "partials/tg_bot_store :: storeBlock";
     }
 
 
