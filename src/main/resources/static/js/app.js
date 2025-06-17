@@ -744,7 +744,7 @@ async function updateStoreLimit() {
 
 async function appendTelegramBlock(storeId) {
     try {
-        const response = await fetch(`/profile/stores/fragment/${storeId}`);
+        const response = await fetch(`/profile/stores/partials/${storeId}`);
         if (!response.ok) {
             console.error('Ошибка загрузки блока магазина:', await response.text());
             return;
