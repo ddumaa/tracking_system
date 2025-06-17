@@ -51,7 +51,7 @@ public class ProfileController {
     /**
      * Отображает страницу профиля пользователя.
      * <p>
-     * Этот метод извлекает информацию о текущем пользователе (по имени пользователя из контекста аутентификации)
+     * Этот метод извлекает информацию о текущем пользователе через объект {@link Principal}
      * и передает её в модель для отображения на странице.
      * </p>
      *
@@ -59,15 +59,17 @@ public class ProfileController {
      * @return имя представления страницы профиля
      */
     @GetMapping
-    public String profile(Model model, Authentication authentication) {
-        User user = AuthUtils.getCurrentUser(authentication);
+    public String profile(Model model, Principal principal) {
+        // Получаем пользователя по текущему Principal
+        User user = userService.findByUserEmail(principal.getName())
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
         Long userId = user.getId();
         log.info("Получен запрос на отображение профиля для пользователя с ID: {}", userId);
 
         String storeLimit = userService.getUserStoreLimit(userId);
 
         // Загружаем магазины с настройками Telegram
-        List<Store> stores = storeService.getUserStoresWithSettings(userId);
+        List<Store> stores = storeService.findAllOwnedByUser(principal);
 
         // Добавляем данные профиля в модель
         model.addAttribute("username", user.getEmail());
