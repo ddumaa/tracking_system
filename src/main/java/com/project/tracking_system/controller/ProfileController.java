@@ -316,11 +316,11 @@ public class ProfileController {
      * @param principal текущий пользователь
      * @return фрагмент HTML магазина
      */
-    @GetMapping("/stores/fragment/{id}")
+    @GetMapping("/stores/partials/{id}")
     public String getStoreFragment(@PathVariable Long id, Model model, Principal principal) {
         Store store = storeService.findOwnedByUser(id, principal);
         model.addAttribute("store", store);
-        return "fragments/store :: storeBlock";
+        return "partials/tg_bot_store :: storeBlock";
     }
 
 
