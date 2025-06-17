@@ -1,4 +1,4 @@
-<th:block th:fragment="storeBlock">
+<th:block th:fragment="storeBlock(store)">
     <div th:id="'store-block-' + ${store.id}" class="mt-3 border p-3 rounded bg-light-subtle">
         <h6 th:text="${store.name}" class="mb-2"></h6>
         <form th:action="@{/stores/{id}/telegram-settings(id=${store.id})}" method="post">
