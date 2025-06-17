@@ -71,20 +71,6 @@ public class StoreService {
     }
 
     /**
-     * Возвращает список магазинов текущего пользователя вместе с Telegram-настройками.
-     *
-     * @param principal текущий пользователь
-     * @return список магазинов владельца
-     */
-    public List<Store> findAllOwnedByUser(Principal principal) {
-        String email = principal.getName();
-        Long userId = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"))
-                .getId();
-        return getUserStoresWithSettings(userId);
-    }
-
-    /**
      * Возвращает список магазинов, принадлежащих пользователю.
      *
      * @param userId идентификатор пользователя
