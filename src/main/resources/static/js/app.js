@@ -742,26 +742,6 @@ async function updateStoreLimit() {
     }
 }
 
-async function appendTelegramBlock(storeId) {
-    try {
-        const response = await fetch(`/profile/stores/partials/${storeId}`);
-        if (!response.ok) {
-            console.error('Ошибка загрузки блока магазина:', await response.text());
-            return;
-        }
-        const html = await response.text();
-        const container = document.getElementById('telegram-management');
-        if (container) {
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = html.trim();
-            const element = wrapper.firstElementChild;
-            if (element) container.appendChild(element);
-        }
-    } catch (e) {
-        console.error('Ошибка при получении фрагмента магазина:', e);
-    }
-}
-
 function showResetModal(message) {
     const modalEl = document.getElementById('resetAnalyticsModal');
     const msgEl = document.getElementById('resetAnalyticsMessage');

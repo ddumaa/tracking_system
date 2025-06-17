@@ -308,20 +308,4 @@ public class ProfileController {
         }
     }
 
-    /**
-     * Возвращает HTML-фрагмент блока магазина с Telegram-настройками.
-     *
-     * @param id        идентификатор магазина
-     * @param model     модель представления
-     * @param principal текущий пользователь
-     * @return фрагмент HTML магазина
-     */
-    @GetMapping("/stores/partials/{id}")
-    public String getStoreFragment(@PathVariable Long id, Model model, Principal principal) {
-        Store store = storeService.findOwnedByUser(id, principal);
-        model.addAttribute("store", store);
-        return "partials/tg_bot_store :: storeBlock";
-    }
-
-
 }
