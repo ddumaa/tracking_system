@@ -576,6 +576,62 @@ async function loadAnalyticsButtons() {
 }
 
 /**
+ * Формирует DOM-блок настроек Telegram для магазина
+ */
+function renderTelegramBlock(store, settings) {
+    const enabled = settings?.enabled ? 'checked' : '';
+    const start = settings?.reminderStartAfterDays ?? 3;
+    const repeat = settings?.reminderRepeatIntervalDays ?? 2;
+    const signature = settings?.customSignature ?? '';
+
+    const block = document.createElement('div');
+    block.id = `store-block-${store.id}`;
+    block.className = 'mt-3 border p-3 rounded bg-light-subtle';
+    block.innerHTML = `
+        <h6>${store.name}</h6>
+        <form class="telegram-settings-form" action="/stores/${store.id}/telegram-settings" method="post">
+            <input type="hidden" name="_csrf" value="${window.csrfToken}">
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" id="tg-enable-${store.id}" name="enabled" ${enabled}>
+                <label class="form-check-label" for="tg-enable-${store.id}">Включить уведомления</label>
+            </div>
+            <div class="mb-2">
+                <label class="form-label" for="tg-start-${store.id}">Первое напоминание (через дней)</label>
+                <input type="number" class="form-control form-control-sm" id="tg-start-${store.id}" name="reminderStartAfterDays" value="${start}" min="1" max="14">
+            </div>
+            <div class="mb-2">
+                <label class="form-label" for="tg-repeat-${store.id}">Интервал повторных напоминаний (в днях)</label>
+                <input type="number" class="form-control form-control-sm" id="tg-repeat-${store.id}" name="reminderRepeatIntervalDays" value="${repeat}" min="1" max="14">
+            </div>
+            <div class="mb-2">
+                <label class="form-label" for="tg-sign-${store.id}">Подпись к уведомлению (необязательно)</label>
+                <input type="text" class="form-control form-control-sm" id="tg-sign-${store.id}" name="customSignature" value="${signature}" maxlength="200">
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary">Сохранить</button>
+        </form>`;
+
+    return block;
+}
+
+/**
+ * Загружает настройки Telegram и добавляет блок на страницу
+ */
+async function appendTelegramBlock(store) {
+    const storeId = typeof store === 'object' ? store.id : store;
+    const storeName = typeof store === 'object' ? store.name : null;
+
+    const response = await fetch(`/stores/${storeId}/telegram-settings`);
+    if (!response.ok) return;
+
+    const settings = await response.json();
+
+    const block = renderTelegramBlock({ id: storeId, name: storeName || `Магазин ${storeId}` }, settings);
+    document.getElementById('telegram-management').appendChild(block);
+
+    initTelegramForms();
+}
+
+/**
  * Включает/выключает редактирование для магазина
  */
 function toggleEditStore(storeId) {
@@ -708,8 +764,7 @@ async function saveNewStore(event) {
         loadStores(); // Обновляем список магазинов
         updateStoreLimit();
         loadAnalyticsButtons();
-        appendTelegramBlock(newStore.id);
-        initTelegramForms();
+        appendTelegramBlock(newStore);
     } else {
         console.warn("Ошибка при создании магазина: ", await response.text());
         return;
