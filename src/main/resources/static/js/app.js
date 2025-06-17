@@ -172,6 +172,41 @@ function initAssignCustomerFormHandler() {
     ajaxSubmitForm('assign-customer-form', 'customerInfoContainer', [initAssignCustomerFormHandler]);
 }
 
+// Инициализация форм настроек Telegram
+function initTelegramForms() {
+    document.querySelectorAll('.telegram-settings-form').forEach(form => {
+        if (form.dataset.initialized) return;
+        form.dataset.initialized = 'true';
+
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const formData = new FormData(form);
+            const payload = Object.fromEntries(formData.entries());
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        [window.csrfHeader]: window.csrfToken
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    notifyUser('Настройки Telegram сохранены.', 'success');
+                } else {
+                    const errorText = await response.text();
+                    notifyUser(errorText || 'Ошибка при сохранении.', 'danger');
+                }
+            } catch (e) {
+                notifyUser('Ошибка сети при сохранении.', 'danger');
+            }
+        });
+    });
+}
+
 // Показать или скрыть поля
 function toggleFieldsVisibility(checkbox, fieldsContainer) {
     if (checkbox.checked) {
@@ -674,6 +709,7 @@ async function saveNewStore(event) {
         updateStoreLimit();
         loadAnalyticsButtons();
         appendTelegramBlock(newStore.id);
+        initTelegramForms();
     } else {
         console.warn("Ошибка при создании магазина: ", await response.text());
         return;
@@ -910,6 +946,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initializeCustomCredentialsCheckbox();
     initializePhoneToggle();
     initAssignCustomerFormHandler();
+    initTelegramForms();
 
     // Назначаем обработчик кнопки "Добавить магазин" - с проверкой на наличие
     const addStoreBtn = document.getElementById("addStoreBtn");

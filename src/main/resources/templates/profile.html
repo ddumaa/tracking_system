@@ -122,7 +122,7 @@
                         <th:block th:each="store : ${stores}">
                             <div th:id="'store-block-' + ${store.id}" class="mt-3 border p-3 rounded bg-light-subtle">
                                 <h6 th:text="${store.name}" class="mb-2"></h6>
-                                <form th:action="@{/stores/{id}/telegram-settings(id=${store.id})}" method="post">
+                                <form class="telegram-settings-form" th:action="@{/stores/{id}/telegram-settings(id=${store.id})}" method="post">
                                     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                                     <div class="form-check form-switch mb-2">
                                         <input class="form-check-input" type="checkbox" th:id="'tg-enable-' + ${store.id}" name="enabled"
