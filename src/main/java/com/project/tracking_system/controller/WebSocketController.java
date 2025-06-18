@@ -17,14 +17,31 @@ public class WebSocketController {
 
     private final SimpMessagingTemplate messagingTemplate;
 
-    // Отправить только текстовое уведомление
+    /**
+     * Отправляет текстовое уведомление пользователю через WebSocket.
+     *
+     * @param userId   идентификатор пользователя
+     * @param message  текст сообщения
+     * @param completed признак успешности операции
+     *                 <p>
+     *                 Создаётся {@link UpdateResult} и отправляется на канал
+     *                 <code>/topic/status/{userId}</code>.
+     */
     public void sendUpdateStatus(Long userId, String message, boolean completed) {
         UpdateResult updateResult = new UpdateResult(completed, message);
         getDebug(userId, updateResult);
         messagingTemplate.convertAndSend("/topic/status/" + userId, updateResult);
     }
 
-    // Отправить детализированное уведомление с обновлёнными данными
+    /**
+     * Отправляет детализированное уведомление пользователю.
+     *
+     * @param userId       идентификатор пользователя
+     * @param updateResult данные об обновлении
+     *                     <p>
+     *                     Сообщение сразу публикуется в канал
+     *                     <code>/topic/status/{userId}</code>.
+     */
     public void sendDetailUpdateStatus(Long userId, UpdateResult updateResult) {
         getDebug(userId, updateResult);
         messagingTemplate.convertAndSend("/topic/status/" + userId, updateResult);
