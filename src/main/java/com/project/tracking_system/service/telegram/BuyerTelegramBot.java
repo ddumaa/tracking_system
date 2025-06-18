@@ -1,6 +1,6 @@
 package com.project.tracking_system.service.telegram;
 
-import com.project.tracking_system.service.customer.CustomerRegistrationService;
+import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,7 +27,7 @@ import java.util.List;
 public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
 
     private final TelegramClient telegramClient;
-    private final CustomerRegistrationService registrationService;
+    private final CustomerTelegramService telegramService;
     private final String botToken;
 
     /**
@@ -35,14 +35,14 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      *
      * @param telegramClient       клиент Telegram, предоставляемый Spring
      * @param token                токен бота (может отсутствовать)
-     * @param registrationService  сервис регистрации покупателей
+     * @param telegramService      сервис привязки покупателей к Telegram
      */
     public BuyerTelegramBot(TelegramClient telegramClient,
                             @Value("${telegram.bot.token:}") String token,
-                            CustomerRegistrationService registrationService) {
+                            CustomerTelegramService telegramService) {
         this.telegramClient = telegramClient;
         this.botToken = token;
-        this.registrationService = registrationService;
+        this.telegramService = telegramService;
     }
 
     /**
@@ -104,7 +104,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         String phone = PhoneUtils.normalizePhone(rawPhone);
 
         try {
-            registrationService.linkTelegramToCustomer(chatId, phone);
+            telegramService.linkTelegramToCustomer(phone, chatId);
             SendMessage confirm = new SendMessage(chatId.toString(), "✅ Номер сохранён. Спасибо!");
 
             telegramClient.execute(confirm);
