@@ -64,6 +64,14 @@ public class AppConfiguration {
         return new ModelMapper();
     }
 
+    /**
+     * Создает бин {@link PasswordEncoder} для хеширования паролей пользователей.
+     * <p>
+     * {@link PasswordEncoder} необходим для безопасного хранения и проверки паролей в системе.
+     * </p>
+     *
+     * @return Экземпляр {@link PasswordEncoder} с алгоритмом BCrypt.
+     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
