@@ -52,4 +52,23 @@ public class CustomerTelegramService {
         log.info("✅ Чат {} привязан к покупателю {}", chatId, saved.getId());
         return saved;
     }
+
+    /**
+     * Подтвердить получение уведомления о привязке Telegram.
+     *
+     * @param customer покупатель
+     * @return обновлённый покупатель
+     */
+    @Transactional
+    public Customer confirmTelegram(Customer customer) {
+        if (customer == null) {
+            throw new IllegalArgumentException("Покупатель не задан");
+        }
+        if (!customer.isTelegramConfirmed()) {
+            customer.setTelegramConfirmed(true);
+            customer = customerRepository.save(customer);
+            log.info("✅ Покупатель {} подтвердил Telegram", customer.getId());
+        }
+        return customer;
+    }
 }
