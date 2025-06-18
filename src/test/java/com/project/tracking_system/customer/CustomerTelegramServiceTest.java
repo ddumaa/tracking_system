@@ -62,4 +62,15 @@ class CustomerTelegramServiceTest {
         Customer fromDb = customerRepository.findById(existing.getId()).orElseThrow();
         assertEquals(333L, fromDb.getTelegramChatId());
     }
+
+    @Test
+    void confirmTelegramSetsFlag() {
+        Customer customer = telegramService.linkTelegramToCustomer("29 123-45-67", 555L);
+        assertFalse(customer.isTelegramConfirmed());
+
+        telegramService.confirmTelegram(customer);
+
+        Customer fromDb = customerRepository.findById(customer.getId()).orElseThrow();
+        assertTrue(fromDb.isTelegramConfirmed());
+    }
 }
