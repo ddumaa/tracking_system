@@ -32,6 +32,7 @@
 
     <h4>Сменить роль</h4>
     <form th:action="@{/admin/users/{userId}/role-update(userId=${user.id})}" method="post" class="mb-4">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
         <div class="d-flex">
             <div class="mb-3 me-2">
                 <label for="role" class="form-label">Новая роль:</label>
@@ -46,6 +47,7 @@
 
     <h4>Изменить план подписки</h4>
     <form th:action="@{/admin/users/{userId}/change-subscription(userId=${user.id})}" method="post" class="mb-4">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
         <div class="d-flex">
             <div class="mb-3 me-2">
                 <label for="subscriptionPlan" class="form-label">Новый план:</label>
