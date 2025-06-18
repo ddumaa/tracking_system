@@ -16,6 +16,14 @@ public class TelegramConfig {
     @Value("${telegram.bot.token}")
     private String botToken;
 
+    /**
+     * Создает клиента Telegram для взаимодействия с ботом.
+     * <p>
+     * Возвращает настроенный {@link TelegramClient}, использующий токен бота.
+     * </p>
+     *
+     * @return экземпляр {@link TelegramClient}
+     */
     @Bean
     public TelegramClient telegramClient() {
         return new OkHttpTelegramClient(botToken);
