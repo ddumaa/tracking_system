@@ -37,6 +37,7 @@ public class StoreTelegramSettingsService {
         settings.setReminderStartAfterDays(dto.getReminderStartAfterDays());
         settings.setReminderRepeatIntervalDays(dto.getReminderRepeatIntervalDays());
         settings.setCustomSignature(dto.getCustomSignature());
+        settings.setRemindersEnabled(dto.isRemindersEnabled());
         settingsRepository.save(settings);
         store.setTelegramSettings(settings);
         log.info("Настройки Telegram для магазина ID={} обновлены", store.getId());
