@@ -220,6 +220,17 @@ function toggleFieldsVisibility(checkbox, fieldsContainer) {
     }
 }
 
+// --- Работа с состоянием блоков настроек Telegram
+const TG_COLLAPSED_KEY = "collapsedTgStores";
+
+function getCollapsedTgStores() {
+    return JSON.parse(localStorage.getItem(TG_COLLAPSED_KEY)) || [];
+}
+
+function saveCollapsedTgStores(ids) {
+    localStorage.setItem(TG_COLLAPSED_KEY, JSON.stringify(ids));
+}
+
 let lastPage = window.location.pathname; // Запоминаем текущую страницу при загрузке
 let isInitialLoad = true;
 
@@ -536,6 +547,45 @@ async function loadStores() {
     // Инициализируем tooltips после загрузки магазинов
     enableTooltips();
 
+    // --- Восстанавливаем состояние блоков настроек Telegram
+    const tgCollapsed = getCollapsedTgStores();
+    tgCollapsed.forEach(id => {
+        const content = document.querySelector(`.tg-settings-content[data-store-id="${id}"]`);
+        const toggleBtn = document.querySelector(`.toggle-tg-btn[data-store-id="${id}"] i`);
+        if (content) {
+            content.classList.remove('expanded');
+            content.classList.add('collapsed');
+        }
+        if (toggleBtn) {
+            toggleBtn.classList.remove('bi-chevron-up');
+            toggleBtn.classList.add('bi-chevron-down');
+        }
+    });
+
+    document.querySelectorAll('.toggle-tg-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const storeId = this.getAttribute('data-store-id');
+            const content = document.querySelector(`.tg-settings-content[data-store-id="${storeId}"]`);
+            const icon = this.querySelector('i');
+            if (!content) return;
+
+            const collapsed = content.classList.toggle('collapsed');
+            content.classList.toggle('expanded', !collapsed);
+
+            icon?.classList.toggle('bi-chevron-down', collapsed);
+            icon?.classList.toggle('bi-chevron-up', !collapsed);
+
+            let current = getCollapsedTgStores();
+            if (collapsed) {
+                if (!current.includes(storeId)) current.push(storeId);
+            } else {
+                current = current.filter(id => id !== storeId);
+            }
+            saveCollapsedTgStores(current);
+        });
+    });
+
+
     console.info("✅ Магазины успешно загружены и отрисованы.");
 }
 
@@ -588,27 +638,34 @@ function renderTelegramBlock(store, settings) {
     block.id = `store-block-${store.id}`;
     block.className = 'mt-3 border p-3 rounded bg-light-subtle';
     block.innerHTML = `
-        <h6>${store.name}</h6>
-        <form class="telegram-settings-form" action="/stores/${store.id}/telegram-settings" method="post">
-            <input type="hidden" name="_csrf" value="${window.csrfToken}">
-            <div class="form-check form-switch mb-2">
-                <input class="form-check-input" type="checkbox" id="tg-enable-${store.id}" name="enabled" ${enabled}>
-                <label class="form-check-label" for="tg-enable-${store.id}">Включить уведомления</label>
-            </div>
-            <div class="mb-2">
-                <label class="form-label" for="tg-start-${store.id}">Первое напоминание (через дней)</label>
-                <input type="number" class="form-control form-control-sm" id="tg-start-${store.id}" name="reminderStartAfterDays" value="${start}" min="1" max="14">
-            </div>
-            <div class="mb-2">
-                <label class="form-label" for="tg-repeat-${store.id}">Интервал повторных напоминаний (в днях)</label>
-                <input type="number" class="form-control form-control-sm" id="tg-repeat-${store.id}" name="reminderRepeatIntervalDays" value="${repeat}" min="1" max="14">
-            </div>
-            <div class="mb-2">
-                <label class="form-label" for="tg-sign-${store.id}">Подпись к уведомлению (необязательно)</label>
-                <input type="text" class="form-control form-control-sm" id="tg-sign-${store.id}" name="customSignature" value="${signature}" maxlength="200">
-            </div>
-            <button type="submit" class="btn btn-sm btn-primary">Сохранить</button>
-        </form>`;
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-2">${store.name}</h5>
+            <button type="button" class="btn btn-sm btn-outline-secondary toggle-tg-btn" data-store-id="${store.id}">
+                <i class="bi bi-chevron-up"></i>
+            </button>
+        </div>
+        <div class="tg-settings-content expanded" data-store-id="${store.id}">
+            <form class="telegram-settings-form" action="/stores/${store.id}/telegram-settings" method="post">
+                <input type="hidden" name="_csrf" value="${window.csrfToken}">
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="tg-enable-${store.id}" name="enabled" ${enabled}>
+                    <label class="form-check-label" for="tg-enable-${store.id}">Включить уведомления</label>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label" for="tg-start-${store.id}">Первое напоминание (через дней)</label>
+                    <input type="number" class="form-control form-control-sm" id="tg-start-${store.id}" name="reminderStartAfterDays" value="${start}" min="1" max="14">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label" for="tg-repeat-${store.id}">Интервал повторных напоминаний (в днях)</label>
+                    <input type="number" class="form-control form-control-sm" id="tg-repeat-${store.id}" name="reminderRepeatIntervalDays" value="${repeat}" min="1" max="14">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label" for="tg-sign-${store.id}">Подпись к уведомлению (необязательно)</label>
+                    <input type="text" class="form-control form-control-sm" id="tg-sign-${store.id}" name="customSignature" value="${signature}" maxlength="200">
+                </div>
+                <button type="submit" class="btn btn-sm btn-primary">Сохранить</button>
+            </form>
+        </div>`;
 
     return block;
 }
@@ -627,6 +684,35 @@ async function appendTelegramBlock(store) {
 
     const block = renderTelegramBlock({ id: storeId, name: storeName || `Магазин ${storeId}` }, settings);
     document.getElementById('telegram-management').appendChild(block);
+
+    // --- Инициализируем кнопку сворачивания и восстанавливаем состояние
+    const toggleBtn = block.querySelector('.toggle-tg-btn');
+    const content = block.querySelector('.tg-settings-content');
+    const icon = toggleBtn.querySelector('i');
+    const collapsedIds = getCollapsedTgStores();
+
+    if (collapsedIds.includes(String(storeId))) {
+        content.classList.remove('expanded');
+        content.classList.add('collapsed');
+        icon.classList.remove('bi-chevron-up');
+        icon.classList.add('bi-chevron-down');
+    }
+
+    toggleBtn.addEventListener('click', function () {
+        const collapsed = content.classList.toggle('collapsed');
+        content.classList.toggle('expanded', !collapsed);
+
+        icon.classList.toggle('bi-chevron-down', collapsed);
+        icon.classList.toggle('bi-chevron-up', !collapsed);
+
+        let current = getCollapsedTgStores();
+        if (collapsed) {
+            if (!current.includes(String(storeId))) current.push(String(storeId));
+        } else {
+            current = current.filter(id => id !== String(storeId));
+        }
+        saveCollapsedTgStores(current);
+    });
 
     initTelegramForms();
 }
