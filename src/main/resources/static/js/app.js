@@ -230,31 +230,43 @@ function saveCollapsedTgStores(ids) {
 
 function initTelegramToggle() {
     const container = document.getElementById('telegram-management');
-    if (!container || container.dataset.toggleInit) return;
-    container.dataset.toggleInit = 'true';
+    if (!container) return;
 
-    container.addEventListener('click', function (event) {
-        const btn = event.target.closest('.toggle-tg-btn');
-        if (!btn) return;
+    const collapsedStored = getCollapsedTgStores();
 
-        const storeId = btn.getAttribute('data-store-id');
-        const content = document.querySelector(`.tg-settings-content[data-store-id="${storeId}"]`);
-        const icon = btn.querySelector('i');
-        if (!content) return;
+    container.querySelectorAll('.tg-settings-content').forEach(content => {
+        if (content.dataset.collapseInit) return;
+        content.dataset.collapseInit = 'true';
 
-        const collapsed = content.classList.toggle('collapsed');
-        content.classList.toggle('expanded', !collapsed);
+        const storeId = content.getAttribute('data-store-id');
+        const btn = container.querySelector(`.toggle-tg-btn[data-store-id="${storeId}"]`);
+        const icon = btn?.querySelector('i');
+        const bsCollapse = bootstrap.Collapse.getOrCreateInstance(content, { toggle: false });
 
-        icon?.classList.toggle('bi-chevron-down', collapsed);
-        icon?.classList.toggle('bi-chevron-up', !collapsed);
-
-        let current = getCollapsedTgStores();
-        if (collapsed) {
-            if (!current.includes(storeId)) current.push(storeId);
+        if (collapsedStored.includes(storeId)) {
+            bsCollapse.hide();
+            icon?.classList.remove('bi-chevron-up');
+            icon?.classList.add('bi-chevron-down');
         } else {
-            current = current.filter(id => id !== storeId);
+            bsCollapse.show();
+            icon?.classList.remove('bi-chevron-down');
+            icon?.classList.add('bi-chevron-up');
         }
-        saveCollapsedTgStores(current);
+
+        content.addEventListener('shown.bs.collapse', () => {
+            icon?.classList.remove('bi-chevron-down');
+            icon?.classList.add('bi-chevron-up');
+            let ids = getCollapsedTgStores().filter(id => id !== storeId);
+            saveCollapsedTgStores(ids);
+        });
+
+        content.addEventListener('hidden.bs.collapse', () => {
+            icon?.classList.remove('bi-chevron-up');
+            icon?.classList.add('bi-chevron-down');
+            const ids = getCollapsedTgStores();
+            if (!ids.includes(storeId)) ids.push(storeId);
+            saveCollapsedTgStores(ids);
+        });
     });
 }
 
@@ -585,20 +597,7 @@ async function loadStores() {
     // Инициализируем tooltips после загрузки магазинов
     enableTooltips();
 
-    // --- Восстанавливаем состояние блоков настроек Telegram
-    const tgCollapsed = getCollapsedTgStores();
-    tgCollapsed.forEach(id => {
-        const content = document.querySelector(`.tg-settings-content[data-store-id="${id}"]`);
-        const toggleBtn = document.querySelector(`.toggle-tg-btn[data-store-id="${id}"] i`);
-        if (content) {
-            content.classList.remove('expanded');
-            content.classList.add('collapsed');
-        }
-        if (toggleBtn) {
-            toggleBtn.classList.remove('bi-chevron-up');
-            toggleBtn.classList.add('bi-chevron-down');
-        }
-    });
+    // --- Инициализируем состояние блоков Telegram
     initTelegramToggle();
 
 
@@ -666,19 +665,7 @@ async function appendTelegramBlock(store) {
     if (!block) return;
     document.getElementById('telegram-management').appendChild(block);
 
-    // --- Инициализируем кнопку сворачивания и восстанавливаем состояние
-    const toggleBtn = block.querySelector('.toggle-tg-btn');
-    const content = block.querySelector('.tg-settings-content');
-    const icon = toggleBtn.querySelector('i');
-    const collapsedIds = getCollapsedTgStores();
-
-    if (collapsedIds.includes(String(storeId))) {
-        content.classList.remove('expanded');
-        content.classList.add('collapsed');
-        icon.classList.remove('bi-chevron-up');
-        icon.classList.add('bi-chevron-down');
-    }
-
+    // --- Инициализируем формы и collapse
     initTelegramForms();
     initTelegramToggle();
 }
