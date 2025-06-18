@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/layout}">
+<head>
+    <title layout:fragment="title">Подписки</title>
+</head>
+<main layout:fragment="content">
+    <a href="/admin" class="btn btn-primary mb-4">Админ Панель</a>
+    <table class="table table-bordered table-striped">
+        <thead>
+        <tr>
+            <th>Email</th>
+            <th>План</th>
+            <th>Окончание</th>
+            <th>Изменить</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="s : ${subscriptions}">
+            <td th:text="${s.user.email}"></td>
+            <td th:text="${s.subscriptionPlan.name}"></td>
+            <td th:text="${s.subscriptionEndDate}"></td>
+            <td>
+                <form th:action="@{/admin/users/{id}/change-subscription(id=${s.user.id})}" method="post" class="d-flex">
+                    <select name="subscriptionPlan" class="form-select form-select-sm me-2">
+                        <option th:each="p : ${plans}" th:value="${p.name}" th:text="${p.name}" th:selected="${p.name == s.subscriptionPlan.name}"></option>
+                    </select>
+                    <input type="number" name="months" value="1" min="1" class="form-control form-control-sm me-2" />
+                    <button type="submit" class="btn btn-success btn-sm">Сохранить</button>
+                </form>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</main>
+</html>

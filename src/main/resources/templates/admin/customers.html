@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/layout}">
+<head>
+    <title layout:fragment="title">Покупатели</title>
+</head>
+<main layout:fragment="content">
+    <a href="/admin" class="btn btn-primary mb-4">Админ Панель</a>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm custom-card">
+                <div class="card-body">
+                    <h5 class="card-title text-center">Всего покупателей</h5>
+                    <p class="card-text text-center" th:text="${totalCustomers}"></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm custom-card">
+                <div class="card-body">
+                    <h5 class="card-title text-center">Процент ненадёжных</h5>
+                    <p class="card-text text-center" th:text="${unreliablePercent} + '%'"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <a href="/admin/customers/export" class="btn btn-success mb-3">Экспорт CSV</a>
+
+    <table class="table table-bordered table-striped">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Телефон</th>
+            <th>Отправлено</th>
+            <th>Забрано</th>
+            <th>Возвраты</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="c : ${riskCustomers}">
+            <td th:text="${c.id}"></td>
+            <td th:text="${c.phone}"></td>
+            <td th:text="${c.sentCount}"></td>
+            <td th:text="${c.pickedUpCount}"></td>
+            <td th:text="${c.returnedCount}"></td>
+        </tr>
+        </tbody>
+    </table>
+</main>
+</html>

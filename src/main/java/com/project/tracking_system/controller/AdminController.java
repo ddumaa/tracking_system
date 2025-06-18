@@ -11,6 +11,7 @@ import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.analytics.StatsAggregationService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
+import com.project.tracking_system.service.admin.AdminService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -44,6 +45,7 @@ public class AdminController {
     private final SubscriptionService subscriptionService;
     private final StoreRepository storeRepository;
     private final StatsAggregationService statsAggregationService;
+    private final AdminService adminService;
 
     /**
      * Отображает дашборд администратора.
@@ -60,11 +62,17 @@ public class AdminController {
         long totalUsers = userService.countUsers();
         long paidUsers = userService.countUsersBySubscriptionPlan("PREMIUM");
         long totalParcels = trackParcelService.countAllParcels();
+        long totalCustomers = adminService.countCustomers();
+        long telegramBound = adminService.countTelegramBoundCustomers();
+        long storesCount = adminService.countStores();
 
         // Добавляем статистику в модель
         model.addAttribute("totalUsers", totalUsers);
         model.addAttribute("paidUsers", paidUsers);
         model.addAttribute("totalParcels", totalParcels);
+        model.addAttribute("totalCustomers", totalCustomers);
+        model.addAttribute("telegramBound", telegramBound);
+        model.addAttribute("storesCount", storesCount);
 
         return "admin/dashboard";
     }
@@ -219,6 +227,59 @@ public class AdminController {
                                           LocalDate to) {
         statsAggregationService.aggregateForRange(from, to);
         return "redirect:/admin";
+    }
+
+    /**
+     * Статистика по покупателям.
+     */
+    @GetMapping("/customers")
+    public String customerStats(Model model) {
+        long total = adminService.countCustomers();
+        long unreliable = adminService.countUnreliableCustomers();
+        double percent = total > 0 ? (double) unreliable / total * 100 : 0;
+        model.addAttribute("totalCustomers", total);
+        model.addAttribute("unreliablePercent", String.format("%.2f", percent));
+        model.addAttribute("riskCustomers", adminService.getUnreliableCustomers());
+        return "admin/customers";
+    }
+
+    /**
+     * Экспорт списка ненадёжных покупателей.
+     */
+    @GetMapping(value = "/customers/export", produces = "text/csv")
+    @ResponseBody
+    public String exportCustomersCsv() {
+        return adminService.toCsv(adminService.getUnreliableCustomers());
+    }
+
+    /**
+     * Активность Telegram.
+     */
+    @GetMapping("/telegram")
+    public String telegramStats(Model model) {
+        model.addAttribute("boundCustomers", adminService.countTelegramBoundCustomers());
+        model.addAttribute("remindersEnabled", adminService.countStoresWithReminders());
+        model.addAttribute("logs", adminService.getRecentLogs());
+        return "admin/telegram";
+    }
+
+    /**
+     * Список магазинов с настройками Telegram и подпиской владельца.
+     */
+    @GetMapping("/stores")
+    public String stores(Model model) {
+        model.addAttribute("stores", adminService.getStoresInfo());
+        return "admin/stores";
+    }
+
+    /**
+     * Управление подписками пользователей.
+     */
+    @GetMapping("/subscriptions")
+    public String subscriptions(Model model) {
+        model.addAttribute("subscriptions", adminService.getAllUserSubscriptions());
+        model.addAttribute("plans", adminService.getPlans());
+        return "admin/subscriptions";
     }
 
 }

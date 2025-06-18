@@ -1,6 +1,8 @@
 package com.project.tracking_system.repository;
 
 import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.entity.BuyerReputation;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -73,4 +75,27 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
         WHERE c.id = :id
         """)
     int incrementReturnedCount(@Param("id") Long id);
+
+    /**
+     * Подсчитать количество покупателей с указанной репутацией.
+     *
+     * @param reputation репутация покупателя
+     * @return число покупателей
+     */
+    long countByReputation(BuyerReputation reputation);
+
+    /**
+     * Получить покупателей по репутации.
+     *
+     * @param reputation уровень доверия покупателя
+     * @return список покупателей
+     */
+    List<Customer> findByReputation(BuyerReputation reputation);
+
+    /**
+     * Подсчитать количество покупателей, привязавших Telegram.
+     *
+     * @return число покупателей с Telegram
+     */
+    long countByTelegramChatIdNotNull();
 }
