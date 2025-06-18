@@ -110,6 +110,46 @@ public class AdminController {
     }
 
     /**
+     * Отображает форму создания нового пользователя.
+     *
+     * Загружает список доступных тарифов в модель.
+     *
+     * @param model модель для передачи тарифных планов
+     * @return имя шаблона формы
+     */
+    @GetMapping("/users/new")
+    public String newUserForm(Model model) {
+        model.addAttribute("plans", adminService.getPlans());
+        return "admin/user-new";
+    }
+
+    /**
+     * Создаёт нового пользователя по введённым данным.
+     *
+     * @param email    адрес почты
+     * @param password пароль пользователя
+     * @param role     роль пользователя
+     * @param subscriptionPlan начальный тариф
+     * @param model    модель для передачи сообщений
+     * @return редирект на список пользователей или форма с ошибкой
+     */
+    @PostMapping("/users/new")
+    public String createUser(@RequestParam String email,
+                             @RequestParam String password,
+                             @RequestParam String role,
+                             @RequestParam("subscriptionPlan") String subscriptionPlan,
+                             Model model) {
+        try {
+            userService.createUserByAdmin(email, password, role, subscriptionPlan);
+            return "redirect:/admin/users";
+        } catch (Exception e) {
+            model.addAttribute("errorMessage", e.getMessage());
+            model.addAttribute("plans", adminService.getPlans());
+            return "admin/user-new";
+        }
+    }
+
+    /**
      * Отображает детальную информацию о выбранном пользователе.
      *
      * Загружает в модель список магазинов пользователя и связанные посылки.
