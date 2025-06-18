@@ -4,6 +4,9 @@ import com.project.tracking_system.entity.BuyerReputation;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
+import com.project.tracking_system.service.customer.CustomerService;
+import com.project.tracking_system.service.customer.CustomerTransactionalService;
+import com.project.tracking_system.service.customer.CustomerStatsService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -15,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Интеграционные тесты для {@link CustomerTelegramService}.
  */
 @DataJpaTest
-@Import(CustomerTelegramService.class)
+@Import({CustomerTelegramService.class, CustomerService.class, CustomerTransactionalService.class, CustomerStatsService.class})
 class CustomerTelegramServiceTest {
 
     @Autowired
@@ -31,7 +34,7 @@ class CustomerTelegramServiceTest {
         assertEquals("375291234567", customer.getPhone());
         assertEquals(0, customer.getSentCount());
         assertEquals(0, customer.getPickedUpCount());
-        assertEquals(BuyerReputation.NEUTRAL, customer.getReputation());
+        assertEquals(BuyerReputation.NEW, customer.getReputation());
         Customer fromDb = customerRepository.findById(customer.getId()).orElseThrow();
         assertEquals(111L, fromDb.getTelegramChatId());
     }

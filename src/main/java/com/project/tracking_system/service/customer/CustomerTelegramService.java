@@ -1,8 +1,8 @@
 package com.project.tracking_system.service.customer;
 
-import com.project.tracking_system.entity.BuyerReputation;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.repository.CustomerRepository;
+import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CustomerTelegramService {
 
     private final CustomerRepository customerRepository;
+    private final CustomerService customerService;
 
     /**
      * Привязать чат Telegram к покупателю по номеру телефона.
@@ -37,30 +38,18 @@ public class CustomerTelegramService {
         String normalized = PhoneUtils.normalizePhone(phone);
         log.info("🔗 Попытка привязки телефона {} к чату {}", normalized, chatId);
 
-        Customer customer = customerRepository.findByPhone(normalized).orElse(null);
+        // Регистрируем покупателя при необходимости
+        Customer customer = customerService.registerOrGetByPhone(normalized);
 
-        if (customer != null) {
-            // Проверяем, не привязан ли уже чат к покупателю
-            if (customer.getTelegramChatId() != null) {
-                log.warn("⚠️ Покупатель {} уже привязан к чату {}", customer.getId(), customer.getTelegramChatId());
-                return customer;
-            }
-            customer.setTelegramChatId(chatId);
-            Customer saved = customerRepository.save(customer);
-            log.info("✅ Чат {} привязан к покупателю {}", chatId, saved.getId());
-            return saved;
+        // Если чат уже привязан, повторная привязка игнорируется
+        if (customer.getTelegramChatId() != null) {
+            log.warn("⚠️ Покупатель {} уже привязан к чату {}", customer.getId(), customer.getTelegramChatId());
+            return customer;
         }
 
-        // Создаём нового покупателя с начальными значениями
-        Customer newCustomer = new Customer();
-        newCustomer.setPhone(normalized);
-        newCustomer.setTelegramChatId(chatId);
-        newCustomer.setSentCount(0);
-        newCustomer.setPickedUpCount(0);
-        newCustomer.setReputation(BuyerReputation.NEW);
-
-        Customer saved = customerRepository.save(newCustomer);
-        log.info("🆕 Создан покупатель {} и привязан чат {}", saved.getId(), chatId);
+        customer.setTelegramChatId(chatId);
+        Customer saved = customerRepository.save(customer);
+        log.info("✅ Чат {} привязан к покупателю {}", chatId, saved.getId());
         return saved;
     }
 }
