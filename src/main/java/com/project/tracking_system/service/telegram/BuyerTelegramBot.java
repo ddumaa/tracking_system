@@ -2,11 +2,9 @@ package com.project.tracking_system.service.telegram;
 
 import com.project.tracking_system.service.customer.CustomerRegistrationService;
 import com.project.tracking_system.utils.PhoneUtils;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsumer;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
@@ -32,17 +30,19 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private final CustomerRegistrationService registrationService;
     private final String botToken;
 
-
     /**
      * Создаёт телеграм-бота для покупателей.
      *
-     * @param registrationService сервис регистрации покупателей
+     * @param telegramClient       клиент Telegram, предоставляемый Spring
+     * @param token                токен бота (может отсутствовать)
+     * @param registrationService  сервис регистрации покупателей
      */
-    public BuyerTelegramBot(@Value("${telegram.bot.token}") String token,
+    public BuyerTelegramBot(TelegramClient telegramClient,
+                            @Value("${telegram.bot.token:}") String token,
                             CustomerRegistrationService registrationService) {
+        this.telegramClient = telegramClient;
         this.botToken = token;
         this.registrationService = registrationService;
-        this.telegramClient = new OkHttpTelegramClient(token);
     }
 
     /**
