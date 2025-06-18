@@ -628,54 +628,14 @@ async function loadAnalyticsButtons() {
 /**
  * Формирует DOM-блок настроек Telegram для магазина
  */
-function renderTelegramBlock(store, settings) {
-    const enabled = settings?.enabled ? 'checked' : '';
-    const start = settings?.reminderStartAfterDays ?? 3;
-    const repeat = settings?.reminderRepeatIntervalDays ?? 2;
-    const signature = settings?.customSignature ?? '';
+async function renderTelegramBlock(storeId) {
+    const response = await fetch(`/profile/stores/${storeId}/telegram-block`);
+    if (!response.ok) return null;
 
-    const block = document.createElement('div');
-    block.id = `store-block-${store.id}`;
-    block.className = 'mt-3 border p-3 rounded bg-light-subtle';
-    block.innerHTML = `
-        <div class="d-flex justify-content-between align-items-center">
-            <h5 class="mb-2">${store.name}</h5>
-            <button type="button" class="btn btn-sm btn-outline-secondary toggle-tg-btn" data-store-id="${store.id}">
-                <i class="bi bi-chevron-up"></i>
-            </button>
-        </div>
-        <div class="tg-settings-content expanded" data-store-id="${store.id}">
-            <form class="telegram-settings-form" action="/stores/${store.id}/telegram-settings" method="post">
-                <input type="hidden" name="_csrf" value="${window.csrfToken}">
-                <div class="form-check form-switch mb-2">
-                    <input class="form-check-input" type="checkbox" id="tg-enable-${store.id}" name="enabled" ${enabled}>
-                    <label class="form-check-label" for="tg-enable-${store.id}">
-                    Отправлять уведомления покупателям этого магазина
-                    </label>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label" for="tg-start-${store.id}">
-                    Через сколько дней после прибытия посылки отправить первое напоминание
-                    </label>
-                    <input type="number" class="form-control form-control-sm" id="tg-start-${store.id}" name="reminderStartAfterDays" value="${start}" min="1" max="14">
-                </div>
-                <div class="mb-2">
-                    <label class="form-label" for="tg-repeat-${store.id}">
-                    Как часто повторять напоминания, если посылка не забрана (в днях)
-                    </label>
-                    <input type="number" class="form-control form-control-sm" id="tg-repeat-${store.id}" name="reminderRepeatIntervalDays" value="${repeat}" min="1" max="14">
-                </div>
-                <div class="mb-2">
-                    <label class="form-label" for="tg-sign-${store.id}">
-                    Подпись к уведомлениям (отображается во всех сообщениях)
-                    </label>
-                    <input type="text" class="form-control form-control-sm" id="tg-sign-${store.id}" name="customSignature" value="${signature}" maxlength="200">
-                </div>
-                <button type="submit" class="btn btn-sm btn-primary">Сохранить</button>
-            </form>
-        </div>`;
-
-    return block;
+    const html = await response.text();
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html.trim();
+    return wrapper.firstElementChild;
 }
 
 /**
@@ -683,14 +643,9 @@ function renderTelegramBlock(store, settings) {
  */
 async function appendTelegramBlock(store) {
     const storeId = typeof store === 'object' ? store.id : store;
-    const storeName = typeof store === 'object' ? store.name : null;
 
-    const response = await fetch(`/stores/${storeId}/telegram-settings`);
-    if (!response.ok) return;
-
-    const settings = await response.json();
-
-    const block = renderTelegramBlock({ id: storeId, name: storeName || `Магазин ${storeId}` }, settings);
+    const block = await renderTelegramBlock(storeId);
+    if (!block) return;
     document.getElementById('telegram-management').appendChild(block);
 
     // --- Инициализируем кнопку сворачивания и восстанавливаем состояние

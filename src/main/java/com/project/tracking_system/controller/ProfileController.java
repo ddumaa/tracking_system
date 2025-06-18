@@ -308,4 +308,22 @@ public class ProfileController {
         }
     }
 
+    /**
+     * Возвращает HTML-фрагмент блока настроек Telegram для магазина.
+     *
+     * @param storeId        идентификатор магазина
+     * @param authentication текущая аутентификация
+     * @param model          модель для передачи данных во фрагмент
+     * @return HTML-фрагмент блока магазина
+     */
+    @GetMapping("/stores/{storeId}/telegram-block")
+    public String getTelegramBlock(@PathVariable Long storeId,
+                                   Authentication authentication,
+                                   Model model) {
+        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+        Store store = storeService.getStore(storeId, userId);
+        model.addAttribute("store", store);
+        return "profile :: telegramStoreBlock";
+    }
+
 }
