@@ -45,6 +45,16 @@ public class AdminController {
     private final StoreRepository storeRepository;
     private final StatsAggregationService statsAggregationService;
 
+    /**
+     * Отображает дашборд администратора.
+     * <p>
+     * Метод подготавливает общую статистику по пользователям и отслеживаниям
+     * и передает её в модель.
+     * </p>
+     *
+     * @param model модель для передачи статистики во представление
+     * @return имя шаблона панели администратора
+     */
     @GetMapping()
     public String adminDashboard(Model model) {
         long totalUsers = userService.countUsers();
@@ -59,6 +69,12 @@ public class AdminController {
         return "admin/dashboard";
     }
 
+    /**
+     * Отображает список всех пользователей системы.
+     *
+     * @param model модель для передачи данных о пользователях
+     * @return имя шаблона со списком пользователей
+     */
     @GetMapping("/users")
     public String getAllUsers(Model model) {
         List<User> users = userService.findAll();
@@ -85,6 +101,15 @@ public class AdminController {
         return "admin/user-list";
     }
 
+    /**
+     * Отображает детальную информацию о выбранном пользователе.
+     *
+     * Загружает в модель список магазинов пользователя и связанные посылки.
+     *
+     * @param userId идентификатор пользователя
+     * @param model  модель для передачи деталей пользователя
+     * @return имя шаблона с деталями пользователя
+     */
     @GetMapping("/users/{userId}")
     public String getUserDetails(@PathVariable Long userId, Model model) {
         User user = userService.findUserById(userId);
@@ -126,6 +151,13 @@ public class AdminController {
     }
 
 
+    /**
+     * Обновляет роль пользователя.
+     *
+     * @param usersId идентификатор пользователя
+     * @param role    новая роль
+     * @return редирект на страницу деталей пользователя
+     */
     @PostMapping("/users/{usersId}/role-update")
     public String updateUserRole(@PathVariable Long usersId,
                                  @RequestParam("role") String role) {
@@ -133,6 +165,17 @@ public class AdminController {
         return "redirect:/admin/users/" + usersId;
     }
 
+    /**
+     * Изменяет подписку пользователя.
+     * <p>
+     * При выборе премиум-плана возможно продление подписки на указанное количество месяцев.
+     * </p>
+     *
+     * @param userId           идентификатор пользователя
+     * @param subscriptionPlan название плана подписки
+     * @param months           количество месяцев продления (необязательно)
+     * @return редирект на страницу деталей пользователя
+     */
     @PostMapping("/users/{userId}/change-subscription")
     public String changeUserSubscription(@PathVariable Long userId,
                                          @RequestParam("subscriptionPlan") String subscriptionPlan,
@@ -151,6 +194,8 @@ public class AdminController {
 
     /**
      * Запускает агрегацию недельной, месячной и годовой статистики за вчерашний день.
+     *
+     * @return редирект на административную страницу
      */
     @PostMapping("/aggregate-stats")
     public String triggerAggregation() {
