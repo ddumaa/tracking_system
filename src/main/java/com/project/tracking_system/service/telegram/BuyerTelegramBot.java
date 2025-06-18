@@ -5,7 +5,6 @@ import com.project.tracking_system.utils.PhoneUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Contact;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -21,20 +20,22 @@ import java.util.List;
  */
 @Component
 @Slf4j
-public class BuyerTelegramBot extends TelegramLongPollingBot {
+public class BuyerTelegramBot {
 
     private final CustomerRegistrationService registrationService;
-    private final String botToken;
+
+    @Value("${telegrambots.bots[0].botUsername}")
+    private String botUsername;
+
+    @Value("${telegrambots.bots[0].botToken}")
+    private String botToken;
 
     /**
      * Создаёт телеграм-бота для покупателей.
      *
-     * @param botToken            токен бота
      * @param registrationService сервис регистрации покупателей
      */
-    public BuyerTelegramBot(@Value("${telegram.bot.token}") String botToken,
-                            CustomerRegistrationService registrationService) {
-        this.botToken = botToken;
+    public BuyerTelegramBot(CustomerRegistrationService registrationService) {
         this.registrationService = registrationService;
     }
 
@@ -45,7 +46,7 @@ public class BuyerTelegramBot extends TelegramLongPollingBot {
      */
     @Override
     public String getBotUsername() {
-        return "Belivery_bot";
+        return botUsername;
     }
 
     /**
@@ -65,13 +66,20 @@ public class BuyerTelegramBot extends TelegramLongPollingBot {
      */
     @Override
     public void onUpdateReceived(Update update) {
+
+        log.info("🔁 Обработка обновления: {}", update);
+
         if (update.hasMessage()) {
-            if (update.getMessage().hasText() && "/start".equals(update.getMessage().getText())) {
+            String text = update.getMessage().getText();
+            if (text != null && text.startsWith("/start")) {
+                log.info("✅ Команда /start получена, отправляем клавиатуру.");
                 sendSharePhoneKeyboard(update.getMessage().getChatId());
                 return;
             }
 
             Contact contact = update.getMessage().getContact();
+            log.info("📥 Получена команда: {}", update.getMessage().getText());
+
             if (contact != null) {
                 handleContact(update);
             }
@@ -82,11 +90,16 @@ public class BuyerTelegramBot extends TelegramLongPollingBot {
         KeyboardButton button = new KeyboardButton("\uD83D\uDCF1 Поделиться номером");
         button.setRequestContact(true);
         KeyboardRow row = new KeyboardRow(List.of(button));
+
         ReplyKeyboardMarkup markup = new ReplyKeyboardMarkup(List.of(row));
         markup.setResizeKeyboard(true);
+        markup.setOneTimeKeyboard(true);
 
-        SendMessage message = new SendMessage(chatId.toString(), "Поделитесь номером телефона");
+        SendMessage message = new SendMessage(chatId.toString(), "👋 Чтобы получать уведомления о посылках, поделитесь номером телефона.");
         message.setReplyMarkup(markup);
+
+        log.info("📨 Отправляем клавиатуру с запросом номера в чат {}", chatId);
+
         try {
             execute(message);
         } catch (TelegramApiException e) {
