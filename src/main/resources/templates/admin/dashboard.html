@@ -38,6 +38,30 @@
                 </div>
             </div>
         </div>
+        <div class="col-md-4 mt-3">
+            <div class="card shadow-sm custom-card">
+                <div class="card-body">
+                    <h5 class="card-title text-center">Всего покупателей</h5>
+                    <p class="card-text text-center" th:text="${totalCustomers}"></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mt-3">
+            <div class="card shadow-sm custom-card">
+                <div class="card-body">
+                    <h5 class="card-title text-center">Telegram привязок</h5>
+                    <p class="card-text text-center" th:text="${telegramBound}"></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mt-3">
+            <div class="card shadow-sm custom-card">
+                <div class="card-body">
+                    <h5 class="card-title text-center">Всего магазинов</h5>
+                    <p class="card-text text-center" th:text="${storesCount}"></p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="list-group mt-4">
@@ -49,6 +73,18 @@
         </a>
         <a href="/admin/settings" class="list-group-item list-group-item-action custom-list-item">
             <i class="bi bi-gear-fill"></i> Настройки
+        </a>
+        <a href="/admin/customers" class="list-group-item list-group-item-action custom-list-item">
+            <i class="bi bi-people-fill"></i> Покупатели
+        </a>
+        <a href="/admin/telegram" class="list-group-item list-group-item-action custom-list-item">
+            <i class="bi bi-telegram"></i> Telegram
+        </a>
+        <a href="/admin/stores" class="list-group-item list-group-item-action custom-list-item">
+            <i class="bi bi-shop"></i> Магазины
+        </a>
+        <a href="/admin/subscriptions" class="list-group-item list-group-item-action custom-list-item">
+            <i class="bi bi-bookmark-check"></i> Подписки
         </a>
     </div>
 </main>

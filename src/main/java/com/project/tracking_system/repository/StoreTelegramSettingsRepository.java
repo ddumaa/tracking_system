@@ -15,4 +15,11 @@ public interface StoreTelegramSettingsRepository extends JpaRepository<StoreTele
      * @return настройки или {@code null}, если не найдены
      */
     StoreTelegramSettings findByStoreId(Long storeId);
+
+    /**
+     * Подсчитать количество магазинов с включёнными напоминаниями.
+     *
+     * @return число магазинов
+     */
+    long countByRemindersEnabledTrue();
 }

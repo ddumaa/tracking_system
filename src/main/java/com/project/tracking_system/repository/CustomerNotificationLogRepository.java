@@ -4,6 +4,7 @@ import com.project.tracking_system.entity.CustomerNotificationLog;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.NotificationType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
 
 /**
  * Репозиторий для работы с логом уведомлений покупателей.
@@ -26,5 +27,12 @@ public interface CustomerNotificationLogRepository extends JpaRepository<Custome
      * Найти последнее напоминание для посылки.
      */
     CustomerNotificationLog findTopByParcelIdAndNotificationTypeOrderBySentAtDesc(Long parcelId,
-                                                                                   NotificationType type);
+                                           NotificationType type);
+
+    /**
+     * Получить последние десять записей журнала уведомлений.
+     *
+     * @return список из десяти последних уведомлений
+     */
+    List<CustomerNotificationLog> findTop10ByOrderBySentAtDesc();
 }
