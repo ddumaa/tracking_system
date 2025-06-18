@@ -294,4 +294,14 @@ public class AdminController {
         return "admin/subscriptions";
     }
 
+    /**
+     * Отображает страницу настроек администратора.
+     *
+     * @return имя шаблона настроек
+     */
+    @GetMapping("/settings")
+    public String settings() {
+        return "admin/settings";
+    }
+
 }
