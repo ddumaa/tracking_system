@@ -43,6 +43,7 @@ public class TelegramNotificationService {
         Long chatId = getChatId(parcel);
         String text = buildStatusText(parcel, status);
 
+
         SendMessage message = new SendMessage(chatId.toString(), text);
 
         try {
@@ -66,7 +67,7 @@ public class TelegramNotificationService {
         }
 
         StoreTelegramSettings settings = parcel.getStore().getTelegramSettings();
-        if (settings != null && !settings.isEnabled()) {
+        if (settings != null && (!settings.isEnabled() || !settings.isRemindersEnabled())) {
             log.debug("Напоминания отключены для магазина {}", parcel.getStore().getId());
             return;
         }
@@ -82,6 +83,7 @@ public class TelegramNotificationService {
         if (settings != null && settings.getCustomSignature() != null && !settings.getCustomSignature().isBlank()) {
             text += "\n\n" + settings.getCustomSignature();
         }
+
 
         SendMessage message = new SendMessage(chatId.toString(), text);
 

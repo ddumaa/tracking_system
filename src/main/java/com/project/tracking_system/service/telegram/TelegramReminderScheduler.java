@@ -47,7 +47,7 @@ public class TelegramReminderScheduler {
 
         for (TrackParcel parcel : parcels) {
             StoreTelegramSettings settings = parcel.getStore().getTelegramSettings();
-            if (settings == null || !settings.isEnabled()) {
+            if (settings == null || !settings.isEnabled() || !settings.isRemindersEnabled()) {
                 continue;
             }
 
