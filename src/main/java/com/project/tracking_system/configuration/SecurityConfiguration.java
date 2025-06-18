@@ -44,6 +44,17 @@ public class SecurityConfiguration {
     private final AuthenticationProviderConfig authenticationProviderConfig;
     private final LoginAttemptService loginAttemptService;
 
+    /**
+     * Формирует настройки безопасности приложения.
+     * <p>
+     * Метод конфигурирует фильтры и основные параметры Spring Security.
+     * </p>
+     *
+     * @param http           объект {@link HttpSecurity} для настройки безопасности
+     * @param cspNonceFilter фильтр добавления nonce для CSP
+     * @return цепочка фильтров {@link SecurityFilterChain}
+     * @throws Exception при ошибках конфигурации
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, CspNonceFilter cspNonceFilter) throws Exception {
         http
