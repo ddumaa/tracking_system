@@ -273,6 +273,18 @@ public class AdminController {
     }
 
     /**
+     * Отображает список всех посылок в системе.
+     *
+     * @param model модель для передачи данных о посылках
+     * @return имя шаблона со списком посылок
+     */
+    @GetMapping("/parcels")
+    public String parcels(Model model) {
+        model.addAttribute("parcels", adminService.getAllParcels());
+        return "admin/parcels";
+    }
+
+    /**
      * Управление подписками пользователей.
      */
     @GetMapping("/subscriptions")
