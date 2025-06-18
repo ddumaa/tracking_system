@@ -110,6 +110,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 SendMessage confirm = new SendMessage(chatId.toString(), "✅ Номер сохранён. Спасибо!");
                 telegramClient.execute(confirm);
                 telegramService.confirmTelegram(customer);
+                telegramService.notifyActualStatuses(customer);
             }
         } catch (Exception e) {
             log.error("❌ Ошибка регистрации телефона {} для чата {}", phone, chatId, e);
