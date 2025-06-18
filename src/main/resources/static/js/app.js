@@ -231,6 +231,36 @@ function saveCollapsedTgStores(ids) {
     localStorage.setItem(TG_COLLAPSED_KEY, JSON.stringify(ids));
 }
 
+function initTelegramToggle() {
+    const container = document.getElementById('telegram-management');
+    if (!container || container.dataset.toggleInit) return;
+    container.dataset.toggleInit = 'true';
+
+    container.addEventListener('click', function (event) {
+        const btn = event.target.closest('.toggle-tg-btn');
+        if (!btn) return;
+
+        const storeId = btn.getAttribute('data-store-id');
+        const content = document.querySelector(`.tg-settings-content[data-store-id="${storeId}"]`);
+        const icon = btn.querySelector('i');
+        if (!content) return;
+
+        const collapsed = content.classList.toggle('collapsed');
+        content.classList.toggle('expanded', !collapsed);
+
+        icon?.classList.toggle('bi-chevron-down', collapsed);
+        icon?.classList.toggle('bi-chevron-up', !collapsed);
+
+        let current = getCollapsedTgStores();
+        if (collapsed) {
+            if (!current.includes(storeId)) current.push(storeId);
+        } else {
+            current = current.filter(id => id !== storeId);
+        }
+        saveCollapsedTgStores(current);
+    });
+}
+
 let lastPage = window.location.pathname; // Запоминаем текущую страницу при загрузке
 let isInitialLoad = true;
 
@@ -343,9 +373,10 @@ let userId = document.getElementById("userId")?.value || ""; // Получаем
 function connectWebSocket() {
     debugLog("🚀 connectWebSocket() вызван!");
 
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
     stompClient = new StompJs.Client({
-        //'wss://belivery.by/ws', 'ws://localhost:8080/ws',
-        brokerURL: 'ws://localhost:8080/ws',
+        brokerURL: `${protocol}//${host}/ws`,
         reconnectDelay: 1000,
         heartbeatIncoming: 0,
         heartbeatOutgoing: 0,
@@ -561,29 +592,9 @@ async function loadStores() {
             toggleBtn.classList.add('bi-chevron-down');
         }
     });
+    initTelegramToggle();
 
-    document.querySelectorAll('.toggle-tg-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            const storeId = this.getAttribute('data-store-id');
-            const content = document.querySelector(`.tg-settings-content[data-store-id="${storeId}"]`);
-            const icon = this.querySelector('i');
-            if (!content) return;
 
-            const collapsed = content.classList.toggle('collapsed');
-            content.classList.toggle('expanded', !collapsed);
-
-            icon?.classList.toggle('bi-chevron-down', collapsed);
-            icon?.classList.toggle('bi-chevron-up', !collapsed);
-
-            let current = getCollapsedTgStores();
-            if (collapsed) {
-                if (!current.includes(storeId)) current.push(storeId);
-            } else {
-                current = current.filter(id => id !== storeId);
-            }
-            saveCollapsedTgStores(current);
-        });
-    });
 
 
     console.info("✅ Магазины успешно загружены и отрисованы.");
@@ -661,23 +672,8 @@ async function appendTelegramBlock(store) {
         icon.classList.add('bi-chevron-down');
     }
 
-    toggleBtn.addEventListener('click', function () {
-        const collapsed = content.classList.toggle('collapsed');
-        content.classList.toggle('expanded', !collapsed);
-
-        icon.classList.toggle('bi-chevron-down', collapsed);
-        icon.classList.toggle('bi-chevron-up', !collapsed);
-
-        let current = getCollapsedTgStores();
-        if (collapsed) {
-            if (!current.includes(String(storeId))) current.push(String(storeId));
-        } else {
-            current = current.filter(id => id !== String(storeId));
-        }
-        saveCollapsedTgStores(current);
-    });
-
     initTelegramForms();
+    initTelegramToggle();
 }
 
 /**
@@ -849,6 +845,11 @@ async function deleteStore() {
         if (storeElement) {
             storeElement.remove();
         }
+
+        // Очищаем сохранённый ID из localStorage
+        let collapsed = getCollapsedTgStores();
+        collapsed = collapsed.filter(id => id !== String(storeToDelete));
+        saveCollapsedTgStores(collapsed);
     } else {
         alert("Ошибка при удалении: " + await response.text());
     }
@@ -1051,6 +1052,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initializePhoneToggle();
     initAssignCustomerFormHandler();
     initTelegramForms();
+    initTelegramToggle();
 
     // Назначаем обработчик кнопки "Добавить магазин" - с проверкой на наличие
     const addStoreBtn = document.getElementById("addStoreBtn");
