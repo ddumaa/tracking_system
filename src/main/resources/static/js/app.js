@@ -649,18 +649,26 @@ function renderTelegramBlock(store, settings) {
                 <input type="hidden" name="_csrf" value="${window.csrfToken}">
                 <div class="form-check form-switch mb-2">
                     <input class="form-check-input" type="checkbox" id="tg-enable-${store.id}" name="enabled" ${enabled}>
-                    <label class="form-check-label" for="tg-enable-${store.id}">Включить уведомления</label>
+                    <label class="form-check-label" for="tg-enable-${store.id}">
+                    Отправлять уведомления покупателям этого магазина
+                    </label>
                 </div>
                 <div class="mb-2">
-                    <label class="form-label" for="tg-start-${store.id}">Первое напоминание (через дней)</label>
+                    <label class="form-label" for="tg-start-${store.id}">
+                    Через сколько дней после прибытия посылки отправить первое напоминание
+                    </label>
                     <input type="number" class="form-control form-control-sm" id="tg-start-${store.id}" name="reminderStartAfterDays" value="${start}" min="1" max="14">
                 </div>
                 <div class="mb-2">
-                    <label class="form-label" for="tg-repeat-${store.id}">Интервал повторных напоминаний (в днях)</label>
+                    <label class="form-label" for="tg-repeat-${store.id}">
+                    Как часто повторять напоминания, если посылка не забрана (в днях)
+                    </label>
                     <input type="number" class="form-control form-control-sm" id="tg-repeat-${store.id}" name="reminderRepeatIntervalDays" value="${repeat}" min="1" max="14">
                 </div>
                 <div class="mb-2">
-                    <label class="form-label" for="tg-sign-${store.id}">Подпись к уведомлению (необязательно)</label>
+                    <label class="form-label" for="tg-sign-${store.id}">
+                    Подпись к уведомлениям (отображается во всех сообщениях)
+                    </label>
                     <input type="text" class="form-control form-control-sm" id="tg-sign-${store.id}" name="customSignature" value="${signature}" maxlength="200">
                 </div>
                 <button type="submit" class="btn btn-sm btn-primary">Сохранить</button>
