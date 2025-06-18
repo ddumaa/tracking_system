@@ -94,4 +94,14 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
     @Query("SELECT t FROM TrackParcel t JOIN FETCH t.store JOIN FETCH t.user")
     List<TrackParcel> findAllWithStoreAndUser();
 
+    /**
+     * Получить все посылки постранично с подгруженными магазином и пользователем.
+     *
+     * @param pageable настройки пагинации
+     * @return страница посылок
+     */
+    @Query(value = "SELECT t FROM TrackParcel t JOIN FETCH t.store JOIN FETCH t.user",
+           countQuery = "SELECT count(t) FROM TrackParcel t")
+    Page<TrackParcel> findAllWithStoreAndUser(Pageable pageable);
+
 }

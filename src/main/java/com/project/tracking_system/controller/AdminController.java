@@ -1,6 +1,7 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.TrackParcelDTO;
+import com.project.tracking_system.dto.TrackParcelAdminInfoDTO;
 import com.project.tracking_system.dto.UserDetailsAdminInfoDTO;
 import com.project.tracking_system.dto.UserListAdminInfoDTO;
 import com.project.tracking_system.entity.Store;
@@ -319,8 +320,17 @@ public class AdminController {
      * @return имя шаблона со списком посылок
      */
     @GetMapping("/parcels")
-    public String parcels(Model model) {
-        model.addAttribute("parcels", adminService.getAllParcels());
+    public String parcels(@RequestParam(value = "page", defaultValue = "0") int page,
+                          @RequestParam(value = "size", defaultValue = "20") int size,
+                          Model model) {
+        // Загружаем посылки постранично
+        org.springframework.data.domain.Page<TrackParcelAdminInfoDTO> parcelPage = adminService.getAllParcels(page, size);
+
+        model.addAttribute("parcels", parcelPage.getContent());
+        model.addAttribute("currentPage", parcelPage.getNumber());
+        model.addAttribute("totalPages", parcelPage.getTotalPages());
+        model.addAttribute("size", size);
+
         return "admin/parcels";
     }
 

@@ -130,20 +130,28 @@ public class AdminService {
     /**
      * Получить список всех посылок системы с информацией о владельце и магазине.
      *
-     * @return список посылок для отображения в админ-панели
+     * @param page номер страницы
+     * @param size размер страницы
+     * @return страница посылок для отображения в админ-панели
      */
-    public List<TrackParcelAdminInfoDTO> getAllParcels() {
-        return trackParcelRepository.findAllWithStoreAndUser().stream()
-                .map(p -> new TrackParcelAdminInfoDTO(
-                        p.getId(),
-                        p.getNumber(),
-                        p.getStatus().getDescription(),
-                        p.getStore().getName(),
-                        p.getUser().getEmail(),
-                        java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss")
-                                .withZone(java.time.ZoneId.systemDefault())
-                                .format(p.getData())
-                ))
-                .collect(java.util.stream.Collectors.toList());
+    public org.springframework.data.domain.Page<TrackParcelAdminInfoDTO> getAllParcels(int page, int size) {
+        // Создаём объект пагинации
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+
+        // Загружаем посылки с подгруженными магазином и пользователем
+        org.springframework.data.domain.Page<TrackParcel> parcels = trackParcelRepository.findAllWithStoreAndUser(pageable);
+
+        // Преобразуем в DTO с форматированной датой
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss")
+                .withZone(java.time.ZoneId.systemDefault());
+
+        return parcels.map(p -> new TrackParcelAdminInfoDTO(
+                p.getId(),
+                p.getNumber(),
+                p.getStatus().getDescription(),
+                p.getStore().getName(),
+                p.getUser().getEmail(),
+                formatter.format(p.getData())
+        ));
     }
 }
