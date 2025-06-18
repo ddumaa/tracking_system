@@ -2,6 +2,7 @@ package com.project.tracking_system.service.admin;
 
 import com.project.tracking_system.dto.StoreAdminInfoDTO;
 import com.project.tracking_system.dto.TrackParcelAdminInfoDTO;
+import com.project.tracking_system.dto.UserListAdminInfoDTO;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class AdminService {
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final TrackParcelRepository trackParcelRepository;
+    private final UserRepository userRepository;
 
     /**
      * Подсчитать общее количество покупателей.
@@ -153,5 +155,40 @@ public class AdminService {
                 p.getUser().getEmail(),
                 formatter.format(p.getData())
         ));
+    }
+
+    /**
+     * Получить список пользователей с фильтрами по email, роли и подписке.
+     *
+     * @param search       часть email
+     * @param role         строковое представление роли
+     * @param subscription название плана подписки
+     * @return список DTO с информацией о пользователях
+     */
+    public java.util.List<UserListAdminInfoDTO> getUsers(String search, String role, String subscription) {
+        Role roleEnum = null;
+        if (role != null && !role.isBlank()) {
+            try {
+                roleEnum = Role.valueOf(role);
+            } catch (IllegalArgumentException e) {
+                log.warn("Некорректная роль '{}', фильтр проигнорирован", role);
+            }
+        }
+
+        List<User> users = userRepository.findByFilters(search, roleEnum, subscription);
+        List<UserListAdminInfoDTO> result = new java.util.ArrayList<>();
+        for (User u : users) {
+            String planName = Optional.ofNullable(u.getSubscription())
+                    .map(UserSubscription::getSubscriptionPlan)
+                    .map(SubscriptionPlan::getName)
+                    .orElse("NONE");
+            result.add(new UserListAdminInfoDTO(
+                    u.getId(),
+                    u.getEmail(),
+                    u.getRole(),
+                    planName
+            ));
+        }
+        return result;
     }
 }
