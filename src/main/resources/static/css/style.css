@@ -1163,6 +1163,7 @@ button:hover {
   opacity: 0;
   padding: 0 !important;
   margin: 0 !important;
+  display: none;
 }
 .tg-settings-content.expanded {
   max-height: 1000px;

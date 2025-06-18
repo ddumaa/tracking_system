@@ -11,6 +11,7 @@
     opacity: 0;
     padding: 0 !important;
     margin: 0 !important;
+    display: none; // Полностью скрываем блок при сворачивании
   }
 
   &.expanded {
