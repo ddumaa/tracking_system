@@ -1,15 +1,11 @@
 package com.project.tracking_system.service.customer;
 
-import com.project.tracking_system.entity.Customer;
-import com.project.tracking_system.entity.CustomerNotificationLog;
-import com.project.tracking_system.entity.GlobalStatus;
-import com.project.tracking_system.entity.NotificationType;
-import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.entity.*;
+import com.project.tracking_system.mapper.BuyerStatusMapper;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
-import com.project.tracking_system.service.customer.CustomerService;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -101,33 +97,34 @@ public class CustomerTelegramService {
             return;
         }
 
-        List<GlobalStatus> statuses = List.of(
-                GlobalStatus.WAITING_FOR_CUSTOMER,
-                GlobalStatus.IN_TRANSIT,
-                GlobalStatus.CUSTOMER_NOT_PICKING_UP,
-                GlobalStatus.RETURN_IN_PROGRESS,
-                GlobalStatus.RETURN_PENDING_PICKUP,
-                GlobalStatus.REGISTERED
+        List<TrackParcel> parcels = trackParcelRepository.findActiveByCustomerId(
+                customer.getId(),
+                List.of(GlobalStatus.DELIVERED, GlobalStatus.RETURNED)
         );
 
-        List<TrackParcel> parcels = trackParcelRepository
-                .findByCustomerIdAndStatusIn(customer.getId(), statuses);
-
         for (TrackParcel parcel : parcels) {
+            GlobalStatus status = parcel.getStatus();
+
             if (notificationLogRepository.existsByParcelIdAndStatusAndNotificationType(
-                    parcel.getId(), parcel.getStatus(), NotificationType.INSTANT)) {
+                    parcel.getId(), status, NotificationType.INSTANT)) {
                 continue;
             }
 
-            telegramNotificationService.sendStatusUpdate(parcel, parcel.getStatus());
+            BuyerStatus buyerStatus = BuyerStatusMapper.map(status);
+            if (buyerStatus == null) {
+                continue; // статус не подлежит уведомлению
+            }
+
+            telegramNotificationService.sendStatusUpdate(parcel, status);
 
             CustomerNotificationLog logEntry = new CustomerNotificationLog();
             logEntry.setCustomer(customer);
             logEntry.setParcel(parcel);
-            logEntry.setStatus(parcel.getStatus());
+            logEntry.setStatus(status);
             logEntry.setNotificationType(NotificationType.INSTANT);
             logEntry.setSentAt(ZonedDateTime.now(ZoneOffset.UTC));
             notificationLogRepository.save(logEntry);
         }
     }
+
 }

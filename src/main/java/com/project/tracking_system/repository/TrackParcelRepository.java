@@ -51,8 +51,6 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
     @Query("SELECT COUNT(p) FROM TrackParcel p WHERE p.store.id = :storeId AND p.status = :status")
     int countByStoreIdAndStatus(@Param("storeId") Long storeId, @Param("status") GlobalStatus status);
 
-
-
     @Modifying
     @Transactional
     @Query("DELETE FROM TrackParcel t WHERE t.store.id = :storeId")
@@ -82,4 +80,10 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
      * @return список подходящих посылок
      */
     List<TrackParcel> findByCustomerIdAndStatusIn(Long customerId, List<GlobalStatus> statuses);
+
+
+    @Query("SELECT t FROM TrackParcel t WHERE t.customer.id = :customerId AND t.status NOT IN (:finalStatuses)")
+    List<TrackParcel> findActiveByCustomerId(@Param("customerId") Long customerId,
+                                             @Param("finalStatuses") List<GlobalStatus> finalStatuses);
+
 }
