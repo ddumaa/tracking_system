@@ -17,23 +17,27 @@ import java.security.SecureRandom;
 @Service
 public class RandomlyGeneratedString {
 
-    String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    int length = 10;
+    /** Доступные символы для генерации случайной строки */
+    private static final String CHARACTERS =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+    /** Длина случайной строки */
+    private static final int LENGTH = 10;
 
     /**
-     * Генерирует случайную строку для подтверждения регистрации.
+     * Генерирует код подтверждения.
      * <p>
-     * Строка состоит из случайных символов (буквы и цифры) длиной {@link #length}.
+     * Строка состоит из случайных символов (буквы и цифры) длиной {@link #LENGTH}.
      * </p>
      *
      * @return случайно сгенерированная строка
      */
-    public String generateConfirmCodRegistration() {
+    public String generateConfirmationCode() {
         SecureRandom secureRandom = new SecureRandom();
-        StringBuilder sb = new StringBuilder(length);
-        for (int i = 0; i < length; i++) {
-            int index = secureRandom.nextInt(characters.length());
-            sb.append(characters.charAt(index));
+        StringBuilder sb = new StringBuilder(LENGTH);
+        for (int i = 0; i < LENGTH; i++) {
+            int index = secureRandom.nextInt(CHARACTERS.length());
+            sb.append(CHARACTERS.charAt(index));
         }
         return sb.toString();
     }

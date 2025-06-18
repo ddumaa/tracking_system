@@ -61,7 +61,7 @@ public class PasswordResetService {
 
         log.info("✅ Пользователь {} найден. Генерируем токен...", EmailUtils.maskEmail(user.getEmail()));
 
-        String token = randomStringGenerator.generateConfirmCodRegistration();
+        String token = randomStringGenerator.generateConfirmationCode();
         String resetLink = LINK + token;
 
         // Не выводим значение токена в лог по соображениям безопасности
