@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 /**
  * Сервис отправки уведомлений в Telegram-покупателям.
@@ -18,7 +19,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 @Slf4j
 public class TelegramNotificationService {
 
-    private final BuyerTelegramBot telegramBot;
+    private final TelegramClient telegramClient;
     private final CustomerService customerService;
 
     /**
@@ -40,17 +41,18 @@ public class TelegramNotificationService {
         }
 
         Long chatId = getChatId(parcel);
-
         String text = buildStatusText(parcel, status);
+
         SendMessage message = new SendMessage(chatId.toString(), text);
 
         try {
-            telegramBot.execute(message);
+            telegramClient.execute(message);
             log.info("📨 Статус {} отправлен в чат {} для трека {}", status, chatId, parcel.getNumber());
         } catch (TelegramApiException e) {
             log.error("❌ Ошибка отправки уведомления в чат {}: {}", chatId, e.getMessage(), e);
         }
     }
+
 
     /**
      * Отправить напоминание о необходимости забрать посылку.
@@ -72,17 +74,19 @@ public class TelegramNotificationService {
         Long chatId = getChatId(parcel);
 
         String text = String.format(
-                "Напоминание: заберите заказ %s из магазина %s.",
+                "🔔 Напоминание: заберите заказ %s из магазина %s.",
                 parcel.getNumber(),
                 parcel.getStore().getName()
         );
+
         if (settings != null && settings.getCustomSignature() != null && !settings.getCustomSignature().isBlank()) {
-            text += "\n" + settings.getCustomSignature();
+            text += "\n\n" + settings.getCustomSignature();
         }
+
         SendMessage message = new SendMessage(chatId.toString(), text);
 
         try {
-            telegramBot.execute(message);
+            telegramClient.execute(message);
             log.info("✅ Напоминание отправлено в чат {} о треке {}", chatId, parcel.getNumber());
         } catch (TelegramApiException e) {
             log.error("❌ Ошибка отправки напоминания в чат {}: {}", chatId, e.getMessage(), e);

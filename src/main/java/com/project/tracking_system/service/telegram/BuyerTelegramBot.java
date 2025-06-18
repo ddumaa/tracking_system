@@ -2,9 +2,12 @@ package com.project.tracking_system.service.telegram;
 
 import com.project.tracking_system.service.customer.CustomerRegistrationService;
 import com.project.tracking_system.utils.PhoneUtils;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
+import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsumer;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -26,32 +29,20 @@ import java.util.List;
 public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
 
     private final TelegramClient telegramClient;
-
     private final CustomerRegistrationService registrationService;
+    private final String botToken;
 
-    @Value("${telegrambots.bots[0].botUsername}")
-    private String botUsername;
-
-    @Value("${telegrambots.bots[0].botToken}")
-    private String botToken;
 
     /**
      * Создаёт телеграм-бота для покупателей.
      *
      * @param registrationService сервис регистрации покупателей
      */
-    public BuyerTelegramBot(CustomerRegistrationService registrationService) {
+    public BuyerTelegramBot(@Value("${telegram.bot.token}") String token,
+                            CustomerRegistrationService registrationService) {
+        this.botToken = token;
         this.registrationService = registrationService;
-    }
-
-    /**
-     * Возвращает имя бота в Telegram.
-     *
-     * @return имя бота
-     */
-    @Override
-    public String getBotUsername() {
-        return botUsername;
+        this.telegramClient = new OkHttpTelegramClient(token);
     }
 
     /**
@@ -64,38 +55,36 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         return botToken;
     }
 
+    @Override
+    public LongPollingUpdateConsumer getUpdatesConsumer() {
+        return this;
+    }
+
     /**
-     * Обрабатывает входящие обновления от Telegram.
-     *
-     * @param update объект обновления
+     * Новый метод, который вызывает TelegramBots v9
      */
     @Override
-    public void onUpdateReceived(Update update) {
-
-        log.info("🔁 Обработка обновления: {}", update);
+    public void consume(Update update) {
+        log.info("📩 Обновление: {}", update);
 
         if (update.hasMessage()) {
-            String text = update.getMessage().getText();
-            if (text != null && text.startsWith("/start")) {
-                log.info("✅ Команда /start получена, отправляем клавиатуру.");
-                sendSharePhoneKeyboard(update.getMessage().getChatId());
-                return;
+            var message = update.getMessage();
+
+            if (message.hasText() && "/start".equals(message.getText())) {
+                log.info("✅ Команда /start получена от {}", message.getChatId());
+                sendSharePhoneKeyboard(message.getChatId());
             }
 
-            Contact contact = update.getMessage().getContact();
-            log.info("📥 Получена команда: {}", update.getMessage().getText());
-
-            if (contact != null) {
-                handleContact(update);
+            if (message.hasContact()) {
+                handleContact(message.getChatId(), message.getContact());
             }
         }
     }
 
     private void sendSharePhoneKeyboard(Long chatId) {
-        KeyboardButton button = new KeyboardButton("\uD83D\uDCF1 Поделиться номером");
+        KeyboardButton button = new KeyboardButton("📱 Поделиться номером");
         button.setRequestContact(true);
         KeyboardRow row = new KeyboardRow(List.of(button));
-
         ReplyKeyboardMarkup markup = new ReplyKeyboardMarkup(List.of(row));
         markup.setResizeKeyboard(true);
         markup.setOneTimeKeyboard(true);
@@ -103,33 +92,24 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         SendMessage message = new SendMessage(chatId.toString(), "👋 Чтобы получать уведомления о посылках, поделитесь номером телефона.");
         message.setReplyMarkup(markup);
 
-        log.info("📨 Отправляем клавиатуру с запросом номера в чат {}", chatId);
-
         try {
-            execute(message);
+            telegramClient.execute(message);
         } catch (TelegramApiException e) {
-            log.error("Не удалось отправить сообщение", e);
+            log.error("❌ Ошибка отправки клавиатуры", e);
         }
     }
 
-    private void handleContact(Update update) {
-        String rawPhone = update.getMessage().getContact().getPhoneNumber();
+    private void handleContact(Long chatId, Contact contact) {
+        String rawPhone = contact.getPhoneNumber();
         String phone = PhoneUtils.normalizePhone(rawPhone);
-        Long chatId = update.getMessage().getChatId();
-        try {
-            // Пытаемся привязать чат к покупателю
-            registrationService.linkTelegramToCustomer(chatId, phone);
 
-            // Отправляем подтверждение только при успешной привязке
-            SendMessage confirm = new SendMessage(chatId.toString(), "Номер сохранён. Спасибо!");
-            try {
-                execute(confirm);
-            } catch (TelegramApiException e) {
-                log.error("Не удалось отправить подтверждение", e);
-            }
+        try {
+            registrationService.linkTelegramToCustomer(chatId, phone);
+            SendMessage confirm = new SendMessage(chatId.toString(), "✅ Номер сохранён. Спасибо!");
+
+            telegramClient.execute(confirm);
         } catch (Exception e) {
-            // Если регистрация не удалась, сообщение не отправляем
-            log.error("Ошибка привязки телефона {} к чату {}", phone, chatId, e);
+            log.error("❌ Ошибка регистрации телефона {} для чата {}", phone, chatId, e);
         }
     }
 }
