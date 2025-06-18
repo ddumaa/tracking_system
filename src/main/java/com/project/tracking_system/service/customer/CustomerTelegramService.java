@@ -1,8 +1,18 @@
 package com.project.tracking_system.service.customer;
 
 import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.entity.CustomerNotificationLog;
+import com.project.tracking_system.entity.GlobalStatus;
+import com.project.tracking_system.entity.NotificationType;
+import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.repository.CustomerRepository;
+import com.project.tracking_system.repository.TrackParcelRepository;
+import com.project.tracking_system.service.telegram.TelegramNotificationService;
 import com.project.tracking_system.service.customer.CustomerService;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.util.List;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +29,9 @@ public class CustomerTelegramService {
 
     private final CustomerRepository customerRepository;
     private final CustomerService customerService;
+    private final TrackParcelRepository trackParcelRepository;
+    private final CustomerNotificationLogRepository notificationLogRepository;
+    private final TelegramNotificationService telegramNotificationService;
 
     /**
      * Привязать чат Telegram к покупателю по номеру телефона.
@@ -70,5 +83,51 @@ public class CustomerTelegramService {
             log.info("✅ Покупатель {} подтвердил Telegram", customer.getId());
         }
         return customer;
+    }
+
+    /**
+     * Отправить текущие статусы всех активных посылок покупателю после привязки Telegram.
+     * <p>
+     * Метод ищет все посылки покупателя в не финальных статусах и отправляет
+     * соответствующие уведомления через Telegram, если такие уведомления ещё не
+     * были отправлены ранее.
+     * </p>
+     *
+     * @param customer покупатель, подтвердивший Telegram
+     */
+    @Transactional
+    public void notifyActualStatuses(Customer customer) {
+        if (customer == null || customer.getTelegramChatId() == null) {
+            return;
+        }
+
+        List<GlobalStatus> statuses = List.of(
+                GlobalStatus.WAITING_FOR_CUSTOMER,
+                GlobalStatus.IN_TRANSIT,
+                GlobalStatus.CUSTOMER_NOT_PICKING_UP,
+                GlobalStatus.RETURN_IN_PROGRESS,
+                GlobalStatus.RETURN_PENDING_PICKUP,
+                GlobalStatus.REGISTERED
+        );
+
+        List<TrackParcel> parcels = trackParcelRepository
+                .findByCustomerIdAndStatusIn(customer.getId(), statuses);
+
+        for (TrackParcel parcel : parcels) {
+            if (notificationLogRepository.existsByParcelIdAndStatusAndNotificationType(
+                    parcel.getId(), parcel.getStatus(), NotificationType.INSTANT)) {
+                continue;
+            }
+
+            telegramNotificationService.sendStatusUpdate(parcel, parcel.getStatus());
+
+            CustomerNotificationLog logEntry = new CustomerNotificationLog();
+            logEntry.setCustomer(customer);
+            logEntry.setParcel(parcel);
+            logEntry.setStatus(parcel.getStatus());
+            logEntry.setNotificationType(NotificationType.INSTANT);
+            logEntry.setSentAt(ZonedDateTime.now(ZoneOffset.UTC));
+            notificationLogRepository.save(logEntry);
+        }
     }
 }

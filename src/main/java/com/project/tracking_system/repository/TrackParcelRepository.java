@@ -73,4 +73,13 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
         """)
     List<TrackParcel> findWaitingForPickupBefore(@Param("status") GlobalStatus status,
                                                  @Param("threshold") java.time.ZonedDateTime threshold);
+
+    /**
+     * Найти все активные посылки покупателя в указанных статусах.
+     *
+     * @param customerId идентификатор покупателя
+     * @param statuses    список статусов
+     * @return список подходящих посылок
+     */
+    List<TrackParcel> findByCustomerIdAndStatusIn(Long customerId, List<GlobalStatus> statuses);
 }
