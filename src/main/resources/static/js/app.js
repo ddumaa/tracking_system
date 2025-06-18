@@ -300,6 +300,16 @@ function notifyUser(message, type = "info") {
 
 // Уведомления
 function showAlert(message, type) {
+    // Находим контейнер уведомлений на странице
+    const notificationContainer = document.querySelector('#storeNotificationContainer')
+        || document.querySelector('#evropostNotificationContainer')
+        || document.querySelector('#notificationContainer');
+
+    if (!notificationContainer) {
+        console.warn("❌ Не найден контейнер для уведомлений!");
+        return;
+    }
+
     let existingAlert = document.querySelector(".notification"); // Берём только первый найденный alert
 
     // ❌ Игнорируем "Обновление запущено...", так как оно временное
