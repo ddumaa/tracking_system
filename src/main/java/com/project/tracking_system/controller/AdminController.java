@@ -12,7 +12,6 @@ import com.project.tracking_system.service.analytics.StatsAggregationService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.admin.AdminService;
-import com.project.tracking_system.mapper.UserAdminMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,6 +22,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,7 +46,6 @@ public class AdminController {
     private final StoreRepository storeRepository;
     private final StatsAggregationService statsAggregationService;
     private final AdminService adminService;
-    private final UserAdminMapper userAdminMapper;
 
     /**
      * Отображает дашборд администратора.
@@ -87,9 +86,23 @@ public class AdminController {
     @GetMapping("/users")
     public String getAllUsers(Model model) {
         List<User> users = userService.findAll();
-        List<UserListAdminInfoDTO> userListAdminInfoDTOS = users.stream()
-                .map(userAdminMapper::toAdminListDto)
-                .toList();
+        List<UserListAdminInfoDTO> userListAdminInfoDTOS = new ArrayList<>();
+
+        for (User user : users) {
+            // Получаем подписку пользователя (если есть)
+            String subscriptionName = user.getSubscription() != null
+                    ? user.getSubscription().getSubscriptionPlan().getName()
+                    : "NONE"; // Если подписки нет, ставим "NONE" или "FREE"
+
+            UserListAdminInfoDTO userListAdminInfoDTO = new UserListAdminInfoDTO(
+                    user.getId(),
+                    user.getEmail(),
+                    user.getRole(),
+                    subscriptionName
+            );
+
+            userListAdminInfoDTOS.add(userListAdminInfoDTO);
+        }
 
         model.addAttribute("users", userListAdminInfoDTOS);
 
