@@ -182,20 +182,17 @@ function initTelegramForms() {
             event.preventDefault();
 
             const formData = new FormData(form);
-            const payload = Object.fromEntries(formData.entries());
+            const csrfToken = form.querySelector('input[name="_csrf"]')?.value || '';
 
             try {
                 const response = await fetch(form.action, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        [window.csrfHeader]: window.csrfToken
-                    },
-                    body: JSON.stringify(payload)
+                    headers: { 'X-CSRF-TOKEN': csrfToken },
+                    body: formData
                 });
 
                 if (response.ok) {
-                    notifyUser('Настройки Telegram сохранены.', 'success');
+                    // Уведомление придёт через WebSocket
                 } else {
                     const errorText = await response.text();
                     notifyUser(errorText || 'Ошибка при сохранении.', 'danger');
