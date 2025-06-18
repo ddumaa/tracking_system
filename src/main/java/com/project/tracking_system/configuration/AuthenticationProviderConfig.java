@@ -50,7 +50,7 @@ public class AuthenticationProviderConfig {
             public Authentication authenticate(Authentication authentication) throws AuthenticationException {
                 String email = authentication.getName();
                 if (loginAttemptService.isEmailBlocked(email)){
-                    throw new LockedException("Аккант временно заблокирован");
+                    throw new LockedException("Аккаунт временно заблокирован");
                 }
                 return super.authenticate(authentication);
             }
