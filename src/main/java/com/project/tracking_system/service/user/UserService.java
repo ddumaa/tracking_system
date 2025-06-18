@@ -415,7 +415,10 @@ public class UserService {
     }
 
     /**
-     * Определяет ID текущего пользователя.
+     * Определяет ID текущего пользователя из объекта аутентификации.
+     *
+     * @param authentication текущая аутентификация Spring Security
+     * @return идентификатор пользователя или {@code null}, если пользователь не определён
      */
     public Long extractUserId(Authentication authentication) {
         if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof User user) {
@@ -424,6 +427,13 @@ public class UserService {
         return null;
     }
 
+    /**
+     * Получает часовой пояс пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @return объект {@link ZoneId} с часовым поясом пользователя
+     * @throws IllegalArgumentException если пользователь не найден
+     */
     public ZoneId getUserZone(Long userId) {
         return ZoneId.of(userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден")).getTimeZone());

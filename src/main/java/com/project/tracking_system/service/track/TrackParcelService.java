@@ -44,6 +44,12 @@ public class TrackParcelService {
 
     /**
      * Находит посылки по магазинам с учётом пагинации.
+     *
+     * @param storeIds список идентификаторов магазинов
+     * @param page     номер страницы
+     * @param size     размер страницы
+     * @param userId   идентификатор пользователя
+     * @return страница посылок указанного пользователя
      */
     @Transactional
     public Page<TrackParcelDTO> findByStoreTracks(List<Long> storeIds, int page, int size, Long userId) {
@@ -55,6 +61,13 @@ public class TrackParcelService {
 
     /**
      * Ищет посылки магазинов по статусу с поддержкой пагинации.
+     *
+     * @param storeIds список идентификаторов магазинов
+     * @param status   статус посылки
+     * @param page     номер страницы
+     * @param size     размер страницы
+     * @param userId   идентификатор пользователя
+     * @return страница посылок
      */
     @Transactional
     public Page<TrackParcelDTO> findByStoreTracksAndStatus(List<Long> storeIds, GlobalStatus status, int page, int size, Long userId) {
@@ -66,6 +79,8 @@ public class TrackParcelService {
 
     /**
      * Подсчитывает общее количество посылок в системе.
+     *
+     * @return количество всех посылок
      */
     @Transactional
     public long countAllParcels() {
@@ -73,7 +88,11 @@ public class TrackParcelService {
     }
 
     /**
-     * Проверяет, является ли посылка новой для данного магазина.
+     * Проверяет, является ли посылка новой для указанного магазина.
+     *
+     * @param trackingNumber номер отслеживания
+     * @param storeId        идентификатор магазина (может быть {@code null})
+     * @return {@code true}, если такой посылки ещё нет в магазине
      */
     @Transactional
     public boolean isNewTrack(String trackingNumber, Long storeId) {
@@ -86,6 +105,9 @@ public class TrackParcelService {
 
     /**
      * Увеличивает счётчик обновлений треков для пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @param count  величина увеличения счётчика
      */
     @Transactional
     public void incrementUpdateCount(Long userId, int count) {
@@ -93,7 +115,11 @@ public class TrackParcelService {
     }
 
     /**
-     * Возвращает все посылки магазина.
+     * Возвращает все посылки указанного магазина.
+     *
+     * @param storeId идентификатор магазина
+     * @param userId  идентификатор пользователя
+     * @return список посылок магазина
      */
     @Transactional
     public List<TrackParcelDTO> findAllByStoreTracks(Long storeId, Long userId) {
@@ -106,6 +132,9 @@ public class TrackParcelService {
 
     /**
      * Возвращает все посылки пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @return список всех его посылок
      */
     @Transactional
     public List<TrackParcelDTO> findAllByUserTracks(Long userId) {

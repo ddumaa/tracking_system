@@ -271,7 +271,10 @@ public class AdminController {
     }
 
     /**
-     * Статистика по покупателям.
+     * Отображает статистику по покупателям.
+     *
+     * @param model модель, в которую передаётся информация о количестве покупателей
+     * @return имя шаблона со статистикой по покупателям
      */
     @GetMapping("/customers")
     public String customerStats(Model model) {
@@ -285,7 +288,9 @@ public class AdminController {
     }
 
     /**
-     * Экспорт списка ненадёжных покупателей.
+     * Экспорт списка ненадёжных покупателей в формате CSV.
+     *
+     * @return CSV-строка со списком покупателей
      */
     @GetMapping(value = "/customers/export", produces = "text/csv")
     @ResponseBody
@@ -294,7 +299,10 @@ public class AdminController {
     }
 
     /**
-     * Активность Telegram.
+     * Отображает статистику активности Telegram-бота.
+     *
+     * @param model модель, в которую передаются данные об активности
+     * @return имя шаблона со статистикой Telegram
      */
     @GetMapping("/telegram")
     public String telegramStats(Model model) {
@@ -305,7 +313,10 @@ public class AdminController {
     }
 
     /**
-     * Список магазинов с настройками Telegram и подпиской владельца.
+     * Отображает список магазинов с Telegram-настройками и подпиской владельца.
+     *
+     * @param model модель, в которую передаётся информация о магазинах
+     * @return имя шаблона со списком магазинов
      */
     @GetMapping("/stores")
     public String stores(Model model) {
@@ -335,7 +346,10 @@ public class AdminController {
     }
 
     /**
-     * Управление подписками пользователей.
+     * Отображает список подписок пользователей и доступных тарифов.
+     *
+     * @param model модель, в которую передаются сведения о подписках
+     * @return имя шаблона с информацией о подписках
      */
     @GetMapping("/subscriptions")
     public String subscriptions(Model model) {
