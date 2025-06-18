@@ -198,6 +198,43 @@ public class UserService {
     }
 
     /**
+     * Создаёт пользователя по заданным данным без подтверждения email.
+     *
+     * @param email       адрес электронной почты
+     * @param rawPassword пароль в открытом виде
+     * @param roleName    наименование роли
+     * @param planName    стартовый тариф
+     * @throws UserAlreadyExistsException если пользователь уже существует
+     */
+    @Transactional
+    public void createUserByAdmin(String email, String rawPassword, String roleName,
+                                 String planName) {
+        log.info("Администратор создаёт пользователя {}", EmailUtils.maskEmail(email));
+
+        if (userRepository.findByEmail(email).isPresent()) {
+            throw new UserAlreadyExistsException("Пользователь с таким email уже существует.");
+        }
+
+        Role role;
+        try {
+            role = Role.valueOf(roleName);
+        } catch (IllegalArgumentException e) {
+            log.error("Некорректная роль '{}' при создании пользователя", roleName, e);
+            throw new IllegalArgumentException("Некорректная роль: " + roleName);
+        }
+
+        User user = new User();
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode(rawPassword));
+        user.setTimeZone("Europe/Minsk");
+        user.setRole(role);
+
+        userRepository.save(user);
+        subscriptionService.changeSubscription(user.getId(), planName, null);
+        log.info("Пользователь {} создан администратором", EmailUtils.maskEmail(email));
+    }
+
+    /**
      * Обновляет настройки и учётные данные Evropost пользователя.
      *
      * @param userId идентификатор пользователя
