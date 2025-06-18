@@ -160,6 +160,11 @@ header .logo svg {
   height: auto;
   max-width: 100%;
 }
+header .logo img {
+  width: 200px;
+  height: auto;
+  max-width: 100%;
+}
 header .nav-container {
   flex: 1;
   display: flex;
