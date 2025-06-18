@@ -47,7 +47,7 @@ public class StoreTelegramSettingsController {
     }
 
     /**
-     * Обновить настройки магазина.
+     * Обновить настройки магазина (JSON).
      */
     @PostMapping(consumes = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
@@ -72,6 +72,28 @@ public class StoreTelegramSettingsController {
             log.error("Ошибка обновления настроек Telegram", e);
             return ResponseBuilder.error(HttpStatus.BAD_REQUEST, e.getMessage());
         }
+    }
+
+    /**
+     * Обновить настройки магазина через AJAX-форму.
+     * Возвращает HTTP 200 без редиректа.
+     */
+    @PostMapping(consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseBody
+    public ResponseEntity<?> updateSettingsAjax(@PathVariable Long storeId,
+                                                @Valid @ModelAttribute StoreTelegramSettingsDTO dto,
+                                                BindingResult binding,
+                                                Authentication authentication) {
+        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+        if (binding.hasErrors()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(binding.getAllErrors().get(0).getDefaultMessage());
+        }
+
+        Store store = storeService.getStore(storeId, userId);
+        telegramSettingsService.update(store, dto);
+        webSocketController.sendUpdateStatus(userId, "Настройки Telegram сохранены.", true);
+        return ResponseEntity.ok().build();
     }
 
     /**
