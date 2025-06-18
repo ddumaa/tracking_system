@@ -192,7 +192,7 @@ function initTelegramForms() {
                 });
 
                 if (response.ok) {
-                    showInlineNotification(form, 'Настройки сохранены', 'success');
+                    // Уведомление придёт через WebSocket
                 } else {
                     const errorText = await response.text();
                     showInlineNotification(form, errorText || 'Ошибка при сохранении', 'danger');
@@ -344,16 +344,6 @@ function showAlert(message, type) {
             setTimeout(() => notification.remove(), 500);
         }
     }, 5000);
-}
-
-// Показ уведомления прямо под формой
-function showInlineNotification(form, message, type = 'info') {
-    form.nextElementSibling?.classList.contains('form-notification') && form.nextElementSibling.remove();
-    const div = document.createElement('div');
-    div.className = `alert alert-${type} mt-2 form-notification`;
-    div.textContent = message;
-    form.insertAdjacentElement('afterend', div);
-    setTimeout(() => div.remove(), 4000);
 }
 
 // Функция для показа Toast (если пользователь ушёл или уже в модальном окне)

@@ -76,7 +76,15 @@ public class StoreTelegramSettingsController {
 
     /**
      * Обновить настройки магазина через AJAX-форму.
-     * Возвращает HTTP 200 без редиректа.
+     * <p>
+     * Метод используется при отправке формы без перезагрузки страницы и
+     * отправляет уведомление через WebSocket.
+     *
+     * @param storeId        идентификатор магазина
+     * @param dto            заполненные настройки Telegram
+     * @param binding        результаты валидации формы
+     * @param authentication текущая аутентификация пользователя
+     * @return {@link ResponseEntity} с HTTP 200 или ошибкой в тексте
      */
     @PostMapping(consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseBody
@@ -92,6 +100,7 @@ public class StoreTelegramSettingsController {
 
         Store store = storeService.getStore(storeId, userId);
         telegramSettingsService.update(store, dto);
+        // Отправляем уведомление через WebSocket
         webSocketController.sendUpdateStatus(userId, "Настройки Telegram сохранены.", true);
         return ResponseEntity.ok().build();
     }
