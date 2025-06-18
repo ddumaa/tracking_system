@@ -77,7 +77,7 @@ public class UserService {
             throw new UserAlreadyExistsException("Пользователь с таким email уже существует.");
         }
 
-        String confirmationCode = randomlyGeneratedString.generateConfirmCodRegistration();
+        String confirmationCode = randomlyGeneratedString.generateConfirmationCode();
         saveOrUpdateConfirmationToken(email, confirmationCode);
 
         // Отправка email в фоне (не блокируем основной поток)
