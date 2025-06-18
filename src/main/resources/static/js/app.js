@@ -195,10 +195,10 @@ function initTelegramForms() {
                     // Уведомление придёт через WebSocket
                 } else {
                     const errorText = await response.text();
-                    notifyUser(errorText || 'Ошибка при сохранении.', 'danger');
+                    showInlineNotification(form, errorText || 'Ошибка при сохранении', 'danger');
                 }
             } catch (e) {
-                notifyUser('Ошибка сети при сохранении.', 'danger');
+                showInlineNotification(form, 'Ошибка сети при сохранении', 'danger');
             }
         });
     });
