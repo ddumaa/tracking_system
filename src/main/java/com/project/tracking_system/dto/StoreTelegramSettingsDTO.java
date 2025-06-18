@@ -23,4 +23,6 @@ public class StoreTelegramSettingsDTO {
 
     @Size(max = 200)
     private String customSignature;
+
+    private boolean remindersEnabled = false;
 }
