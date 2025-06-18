@@ -11,12 +11,14 @@ import com.project.tracking_system.utils.AuthUtils;
 import com.project.tracking_system.controller.WebSocketController;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.validation.BindingResult;
 
 /**
  * Управление Telegram-настройками магазина.
@@ -50,16 +52,18 @@ public class StoreTelegramSettingsController {
     @PostMapping(consumes = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public ResponseEntity<?> updateSettings(@PathVariable Long storeId,
-                                            @RequestBody StoreTelegramSettingsDTO dto,
+                                            @Valid @RequestBody StoreTelegramSettingsDTO dto,
+                                            BindingResult binding,
                                             Authentication authentication) {
         Long userId = AuthUtils.getCurrentUser(authentication).getId();
         try {
+            if (binding.hasErrors()) {
+                return ResponseBuilder.error(HttpStatus.BAD_REQUEST,
+                        binding.getAllErrors().get(0).getDefaultMessage());
+            }
+
             Store store = storeService.getStore(storeId, userId);
             StoreTelegramSettings settings = settingsRepository.findByStoreId(store.getId());
-            if (dto.getReminderStartAfterDays() < 1 || dto.getReminderStartAfterDays() > 14
-                    || dto.getReminderRepeatIntervalDays() < 1 || dto.getReminderRepeatIntervalDays() > 14) {
-                return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Диапазон дней 1-14");
-            }
             storeService.updateFromDto(settings, dto);
             settingsRepository.save(settings);
             webSocketController.sendUpdateStatus(userId, "Настройки Telegram сохранены.", true);
@@ -81,10 +85,16 @@ public class StoreTelegramSettingsController {
      */
     @PostMapping(consumes = org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED_VALUE)
     public String updateSettingsForm(@PathVariable("storeId") Long storeId,
-                                     @ModelAttribute StoreTelegramSettingsDTO dto,
+                                     @Valid @ModelAttribute StoreTelegramSettingsDTO dto,
+                                     BindingResult binding,
                                      Authentication authentication,
                                      RedirectAttributes redirectAttributes) {
         Long userId = AuthUtils.getCurrentUser(authentication).getId();
+        if (binding.hasErrors()) {
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    binding.getAllErrors().get(0).getDefaultMessage());
+            return "redirect:/profile#v-pills-stores";
+        }
         Store store = storeService.getStore(storeId, userId);
         telegramSettingsService.update(store, dto);
         redirectAttributes.addFlashAttribute("successMessage", "Настройки Telegram сохранены.");
