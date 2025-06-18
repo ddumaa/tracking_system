@@ -1154,6 +1154,11 @@ button:hover {
   display: none !important;
 }
 
+.tg-settings-content {
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  overflow: hidden;
+}
+
 .legal-container {
   font-family: "Arial", sans-serif;
   font-size: 16px;

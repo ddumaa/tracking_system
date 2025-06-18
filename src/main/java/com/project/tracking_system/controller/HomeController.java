@@ -50,16 +50,22 @@ public class HomeController {
     }
 
     /**
-     * Обрабатывает POST-запросы на главной странице. Выполняет отслеживание посылки по номеру.
-     * Отображает информацию о посылке и сохраняет данные отслеживания для авторизованного пользователя.
+     * Обрабатывает POST-запросы на главной странице.
+     * <p>
+     * Выполняет отслеживание посылки по номеру, а также связывает её с покупателем при указании телефона.
+     * </p>
      *
-     * @param number номер посылки для отслеживания
-     * @param model модель для добавления данных в представление
+     * @param number  номер посылки
+     * @param storeId идентификатор магазина
+     * @param phone   телефон покупателя
+     * @param model   модель представления
+     * @param user    аутентифицированный пользователь
      * @return имя представления домашней страницы
      */
     @PostMapping
     public String home(@ModelAttribute("number") String number,
                        @RequestParam(value = "storeId", required = false) Long storeId,
+                       @RequestParam(value = "phone", required = false) String phone,
                        Model model,
                        @AuthenticationPrincipal User user) {
         Long userId = user != null ? user.getId() : null;
@@ -76,7 +82,7 @@ public class HomeController {
 
         try {
             // trackParcelService реализует логику с посылкой!
-            TrackInfoListDTO trackInfo = trackFacade.processTrack(number, storeId, userId, canSave);
+            TrackInfoListDTO trackInfo = trackFacade.processTrack(number, storeId, userId, canSave, phone);
 
             if (trackInfo == null || trackInfo.getList().isEmpty()) {
                 model.addAttribute("customError", "Нет данных для указанного номера посылки.");

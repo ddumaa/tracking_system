@@ -57,4 +57,20 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
     @Transactional
     @Query("DELETE FROM TrackParcel t WHERE t.store.id = :storeId")
     void deleteByStoreId(@Param("storeId") Long storeId);
+
+    /**
+     * Найти посылки, ожидающие покупателя дольше указанной даты.
+     *
+     * @param status    статус посылки
+     * @param threshold дата, ранее которой посылка прибыла на пункт выдачи
+     * @return список подходящих посылок
+     */
+    @Query("""
+        SELECT p FROM TrackParcel p
+        JOIN DeliveryHistory h ON h.trackParcel.id = p.id
+        WHERE p.status = :status
+          AND h.arrivedDate < :threshold
+        """)
+    List<TrackParcel> findWaitingForPickupBefore(@Param("status") GlobalStatus status,
+                                                 @Param("threshold") java.time.ZonedDateTime threshold);
 }

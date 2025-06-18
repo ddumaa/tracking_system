@@ -57,6 +57,23 @@ function loadModal(itemNumber) {
         .catch(() => notifyUser('Ошибка при загрузке данных', "danger"));
 }
 
+function loadCustomerInfo(trackId) {
+    if (!trackId) return;
+    fetch(`/customers/parcel/${trackId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Ошибка при загрузке данных');
+            }
+            return response.text();
+        })
+        .then(data => {
+            document.querySelector('#customerModal .modal-body').innerHTML = data;
+            let modal = new bootstrap.Modal(document.getElementById('customerModal'));
+            modal.show();
+        })
+        .catch(() => notifyUser('Ошибка при загрузке данных', 'danger'));
+}
+
 // Общая функция для отправки формы через AJAX
 function ajaxSubmitForm(formId, containerId, afterLoadCallbacks = []) {
     const form = document.getElementById(formId);
@@ -135,13 +152,122 @@ function initializeCustomCredentialsCheckbox() {
     }
 }
 
+// Инициализация переключателя для ввода телефона
+function initializePhoneToggle() {
+    const toggle = document.getElementById("togglePhone");
+    const phoneField = document.getElementById("phoneField");
+
+    if (toggle && phoneField) {
+        // Первичное состояние
+        toggleFieldsVisibility(toggle, phoneField);
+
+        toggle.addEventListener('change', function () {
+            toggleFieldsVisibility(toggle, phoneField);
+        });
+    }
+}
+
+// Инициализация формы привязки покупателя к посылке
+function initAssignCustomerFormHandler() {
+    ajaxSubmitForm('assign-customer-form', 'customerInfoContainer', [initAssignCustomerFormHandler]);
+}
+
+// Инициализация форм настроек Telegram
+function initTelegramForms() {
+    document.querySelectorAll('.telegram-settings-form').forEach(form => {
+        if (form.dataset.initialized) return;
+        form.dataset.initialized = 'true';
+
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const formData = new FormData(form);
+            const csrfToken = form.querySelector('input[name="_csrf"]')?.value || '';
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': csrfToken },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    // Уведомление придёт через WebSocket
+                } else {
+                    const errorText = await response.text();
+                    showInlineNotification(form, errorText || 'Ошибка при сохранении', 'danger');
+                }
+            } catch (e) {
+                showInlineNotification(form, 'Ошибка сети при сохранении', 'danger');
+            }
+        });
+    });
+}
+
 // Показать или скрыть поля
 function toggleFieldsVisibility(checkbox, fieldsContainer) {
     if (checkbox.checked) {
-        fieldsContainer.classList.remove('hidden');
+        $(fieldsContainer).stop(true, true).slideDown(200, function () {
+            fieldsContainer.classList.remove('hidden');
+        });
     } else {
-        fieldsContainer.classList.add('hidden');
+        $(fieldsContainer).stop(true, true).slideUp(200, function () {
+            fieldsContainer.classList.add('hidden');
+        });
     }
+}
+
+// --- Работа с состоянием блоков настроек Telegram
+const TG_COLLAPSED_KEY = "collapsedTgStores";
+
+function getCollapsedTgStores() {
+    return JSON.parse(localStorage.getItem(TG_COLLAPSED_KEY)) || [];
+}
+
+function saveCollapsedTgStores(ids) {
+    localStorage.setItem(TG_COLLAPSED_KEY, JSON.stringify(ids));
+}
+
+function initTelegramToggle() {
+    const container = document.getElementById('telegram-management');
+    if (!container) return;
+
+    const collapsedStored = getCollapsedTgStores();
+
+    container.querySelectorAll('.tg-settings-content').forEach(content => {
+        if (content.dataset.collapseInit) return;
+        content.dataset.collapseInit = 'true';
+
+        const storeId = content.getAttribute('data-store-id');
+        const btn = container.querySelector(`.toggle-tg-btn[data-store-id="${storeId}"]`);
+        const icon = btn?.querySelector('i');
+        const bsCollapse = bootstrap.Collapse.getOrCreateInstance(content, { toggle: false });
+
+        if (collapsedStored.includes(storeId)) {
+            bsCollapse.hide();
+            icon?.classList.remove('bi-chevron-up');
+            icon?.classList.add('bi-chevron-down');
+        } else {
+            bsCollapse.show();
+            icon?.classList.remove('bi-chevron-down');
+            icon?.classList.add('bi-chevron-up');
+        }
+
+        content.addEventListener('shown.bs.collapse', () => {
+            icon?.classList.remove('bi-chevron-down');
+            icon?.classList.add('bi-chevron-up');
+            let ids = getCollapsedTgStores().filter(id => id !== storeId);
+            saveCollapsedTgStores(ids);
+        });
+
+        content.addEventListener('hidden.bs.collapse', () => {
+            icon?.classList.remove('bi-chevron-up');
+            icon?.classList.add('bi-chevron-down');
+            const ids = getCollapsedTgStores();
+            if (!ids.includes(storeId)) ids.push(storeId);
+            saveCollapsedTgStores(ids);
+        });
+    });
 }
 
 let lastPage = window.location.pathname; // Запоминаем текущую страницу при загрузке
@@ -183,6 +309,16 @@ function notifyUser(message, type = "info") {
 
 // Уведомления
 function showAlert(message, type) {
+    // Находим контейнер уведомлений на странице
+    const notificationContainer = document.querySelector('#storeNotificationContainer')
+        || document.querySelector('#evropostNotificationContainer')
+        || document.querySelector('#notificationContainer');
+
+    if (!notificationContainer) {
+        console.warn("❌ Не найден контейнер для уведомлений!");
+        return;
+    }
+
     let existingAlert = document.querySelector(".notification"); // Берём только первый найденный alert
 
     // ❌ Игнорируем "Обновление запущено...", так как оно временное
@@ -256,9 +392,10 @@ let userId = document.getElementById("userId")?.value || ""; // Получаем
 function connectWebSocket() {
     debugLog("🚀 connectWebSocket() вызван!");
 
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
     stompClient = new StompJs.Client({
-        //'wss://belivery.by/ws', 'ws://localhost:8080/ws',
-        brokerURL: 'ws://localhost:8080/ws',
+        brokerURL: `${protocol}//${host}/ws`,
         reconnectDelay: 1000,
         heartbeatIncoming: 0,
         heartbeatOutgoing: 0,
@@ -460,6 +597,12 @@ async function loadStores() {
     // Инициализируем tooltips после загрузки магазинов
     enableTooltips();
 
+    // --- Инициализируем состояние блоков Telegram
+    initTelegramToggle();
+
+
+
+
     console.info("✅ Магазины успешно загружены и отрисованы.");
 }
 
@@ -497,6 +640,34 @@ async function loadAnalyticsButtons() {
 
     // повторно инициализируем Bootstrap tooltip (если используется)
     enableTooltips(container);
+}
+
+/**
+ * Формирует DOM-блок настроек Telegram для магазина
+ */
+async function renderTelegramBlock(storeId) {
+    const response = await fetch(`/profile/stores/${storeId}/telegram-block`);
+    if (!response.ok) return null;
+
+    const html = await response.text();
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html.trim();
+    return wrapper.firstElementChild;
+}
+
+/**
+ * Загружает настройки Telegram и добавляет блок на страницу
+ */
+async function appendTelegramBlock(store) {
+    const storeId = typeof store === 'object' ? store.id : store;
+
+    const block = await renderTelegramBlock(storeId);
+    if (!block) return;
+    document.getElementById('telegram-management').appendChild(block);
+
+    // --- Инициализируем формы и collapse
+    initTelegramForms();
+    initTelegramToggle();
 }
 
 /**
@@ -628,9 +799,11 @@ async function saveNewStore(event) {
     });
 
     if (response.ok) {
+        const newStore = await response.json();
         loadStores(); // Обновляем список магазинов
         updateStoreLimit();
         loadAnalyticsButtons();
+        appendTelegramBlock(newStore);
     } else {
         console.warn("Ошибка при создании магазина: ", await response.text());
         return;
@@ -662,6 +835,15 @@ async function deleteStore() {
         loadStores();
         updateStoreLimit();
         loadAnalyticsButtons();
+        const storeElement = document.querySelector(`#store-block-${storeToDelete}`);
+        if (storeElement) {
+            storeElement.remove();
+        }
+
+        // Очищаем сохранённый ID из localStorage
+        let collapsed = getCollapsedTgStores();
+        collapsed = collapsed.filter(id => id !== String(storeToDelete));
+        saveCollapsedTgStores(collapsed);
     } else {
         alert("Ошибка при удалении: " + await response.text());
     }
@@ -669,6 +851,7 @@ async function deleteStore() {
     storeToDelete = null;
     bootstrap.Modal.getInstance(document.getElementById('deleteStoreModal')).hide();
 }
+
 
 /**
  * Обновляет отображение лимита магазинов
@@ -860,6 +1043,10 @@ document.addEventListener("DOMContentLoaded", function () {
     initPasswordFormHandler();
     initEvropostFormHandler();
     initializeCustomCredentialsCheckbox();
+    initializePhoneToggle();
+    initAssignCustomerFormHandler();
+    initTelegramForms();
+    initTelegramToggle();
 
     // Назначаем обработчик кнопки "Добавить магазин" - с проверкой на наличие
     const addStoreBtn = document.getElementById("addStoreBtn");
@@ -937,6 +1124,14 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     document.body.addEventListener("click", function (event) {
+        if (event.target.closest(".customer-icon")) {
+            const icon = event.target.closest(".customer-icon");
+            const trackId = icon.getAttribute("data-trackid");
+            loadCustomerInfo(trackId);
+        }
+    });
+
+    document.body.addEventListener("click", function (event) {
         if (event.target.closest(".btn-link")) {
             const button = event.target.closest(".btn-link");
             const itemNumber = button.getAttribute("data-itemnumber");
@@ -954,6 +1149,18 @@ document.addEventListener("DOMContentLoaded", function () {
             }
             document.body.classList.remove('modal-open'); // Убираем класс, если остался
             document.body.style.overflow = ''; // Восстанавливаем прокрутку
+        });
+    }
+
+    let customerModalElement = document.getElementById('customerModal');
+    if (customerModalElement) {
+        customerModalElement.addEventListener('hidden.bs.modal', function () {
+            let backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                backdrop.remove();
+            }
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
         });
     }
 

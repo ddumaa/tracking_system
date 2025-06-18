@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.security.Principal;
 
 
 /**
@@ -65,9 +66,13 @@ public class ProfileController {
 
         String storeLimit = userService.getUserStoreLimit(userId);
 
+        // Загружаем магазины с настройками Telegram
+        List<Store> stores = storeService.getUserStoresWithSettings(userId);
+
         // Добавляем данные профиля в модель
         model.addAttribute("username", user.getEmail());
         model.addAttribute("storeLimit", storeLimit);
+        model.addAttribute("stores", stores);
         log.debug("Данные профиля добавлены в модель для пользователя с ID: {}", userId);
 
         // Добавляем настройки и другие данные пользователя в модель
@@ -303,5 +308,22 @@ public class ProfileController {
         }
     }
 
+    /**
+     * Возвращает HTML-фрагмент блока настроек Telegram для магазина.
+     *
+     * @param storeId        идентификатор магазина
+     * @param authentication текущая аутентификация
+     * @param model          модель для передачи данных во фрагмент
+     * @return HTML-фрагмент блока магазина
+     */
+    @GetMapping("/stores/{storeId}/telegram-block")
+    public String getTelegramBlock(@PathVariable Long storeId,
+                                   Authentication authentication,
+                                   Model model) {
+        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+        Store store = storeService.getStore(storeId, userId);
+        model.addAttribute("store", store);
+        return "profile :: telegramStoreBlock";
+    }
 
 }

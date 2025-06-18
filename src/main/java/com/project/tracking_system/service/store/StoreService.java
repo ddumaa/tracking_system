@@ -7,6 +7,9 @@ import com.project.tracking_system.repository.StoreAnalyticsRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.repository.PostalServiceStatisticsRepository;
+import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
+import com.project.tracking_system.dto.StoreTelegramSettingsDTO;
+import java.security.Principal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,6 +35,7 @@ public class StoreService {
     private final StoreAnalyticsRepository storeAnalyticsRepository;
     private final PostalServiceStatisticsRepository postalServiceStatisticsRepository;
     private final TrackParcelRepository trackParcelRepository;
+    private final StoreTelegramSettingsRepository storeTelegramSettingsRepository;
     private final WebSocketController webSocketController;
 
     /**
@@ -52,14 +56,45 @@ public class StoreService {
     }
 
     /**
-     * Получить список магазинов пользователя.
+     * Найти магазин по Id и проверить принадлежность текущему пользователю.
+     *
+     * @param storeId   идентификатор магазина
+     * @param principal текущий пользователь
+     * @return найденный магазин
+     */
+    public Store findOwnedByUser(Long storeId, Principal principal) {
+        String email = principal.getName();
+        Long userId = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"))
+                .getId();
+        return getStore(storeId, userId);
+    }
+
+    /**
+     * Возвращает список магазинов, принадлежащих пользователю.
+     *
+     * @param userId идентификатор пользователя
+     * @return список магазинов владельца
      */
     public List<Store> getUserStores(Long userId) {
         return storeRepository.findByOwnerId(userId);
     }
 
     /**
-     * Получить список ID магазинов пользователя.
+     * Возвращает магазины пользователя вместе с Telegram-настройками.
+     *
+     * @param userId идентификатор пользователя
+     * @return список магазинов с настройками
+     */
+    public List<Store> getUserStoresWithSettings(Long userId) {
+        return storeRepository.findByOwnerIdFetchSettings(userId);
+    }
+
+    /**
+     * Возвращает список идентификаторов магазинов пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @return список ID магазинов
      */
     public List<Long> getUserStoreIds(Long userId) {
         return storeRepository.findStoreIdsByOwnerId(userId);
@@ -130,6 +165,12 @@ public class StoreService {
         }
 
         webSocketController.sendUpdateStatus(userId, "Магазин '" + storeName + "' добавлен!", true);
+
+        // Создаём настройки Telegram по умолчанию
+        StoreTelegramSettings telegramSettings = new StoreTelegramSettings();
+        telegramSettings.setStore(savedStore);
+        storeTelegramSettingsRepository.save(telegramSettings);
+        savedStore.setTelegramSettings(telegramSettings);
 
         log.info("Создание магазина '{}' для пользователя ID={} успешно завершено", savedStore.getName(), userId);
         return savedStore;
@@ -212,7 +253,10 @@ public class StoreService {
     }
 
     /**
-     * Проверяет, принадлежит ли магазин пользователю, и выбрасывает исключение, если нет.
+     * Проверяет принадлежность магазина пользователю и выбрасывает исключение при отсутствии прав.
+     *
+     * @param storeId идентификатор магазина
+     * @param userId  идентификатор пользователя
      */
     public void checkStoreOwnership(Long storeId, Long userId) {
         if (!userOwnsStore(storeId, userId)) {
@@ -221,7 +265,11 @@ public class StoreService {
     }
 
     /**
-     * Проверяет, принадлежит ли магазин пользователю.
+     * Проверяет принадлежность магазина пользователю.
+     *
+     * @param storeId идентификатор магазина
+     * @param userId  идентификатор пользователя
+     * @return {@code true}, если магазин принадлежит пользователю
      */
     public boolean userOwnsStore(Long storeId, Long userId) {
         return storeRepository.existsByIdAndOwnerId(storeId, userId);
@@ -316,6 +364,13 @@ public class StoreService {
                 .orElse(null);
     }
 
+    /**
+     * Определяет корректный ID магазина исходя из списка доступных магазинов и переданного значения.
+     *
+     * @param storeId переданный ID магазина (может быть {@code null})
+     * @param stores  список магазинов пользователя
+     * @return выбранный ID магазина или {@code null}, если определить невозможно
+     */
     public Long resolveStoreId(Long storeId, List<Store> stores) {
         if (storeId != null) return storeId;
 
@@ -328,6 +383,29 @@ public class StoreService {
                 .map(Store::getId)
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * Преобразовать сущность настроек в DTO.
+     */
+    public StoreTelegramSettingsDTO toDto(StoreTelegramSettings settings) {
+        if (settings == null) return null;
+        StoreTelegramSettingsDTO dto = new StoreTelegramSettingsDTO();
+        dto.setEnabled(settings.isEnabled());
+        dto.setReminderStartAfterDays(settings.getReminderStartAfterDays());
+        dto.setReminderRepeatIntervalDays(settings.getReminderRepeatIntervalDays());
+        dto.setCustomSignature(settings.getCustomSignature());
+        return dto;
+    }
+
+    /**
+     * Обновить сущность настроек на основе DTO.
+     */
+    public void updateFromDto(StoreTelegramSettings settings, StoreTelegramSettingsDTO dto) {
+        settings.setEnabled(dto.isEnabled());
+        settings.setReminderStartAfterDays(dto.getReminderStartAfterDays());
+        settings.setReminderRepeatIntervalDays(dto.getReminderRepeatIntervalDays());
+        settings.setCustomSignature(dto.getCustomSignature());
     }
 
 

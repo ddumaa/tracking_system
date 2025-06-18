@@ -12,6 +12,13 @@ import com.project.tracking_system.repository.StoreDailyStatisticsRepository;
 import com.project.tracking_system.repository.PostalServiceDailyStatisticsRepository;
 import com.project.tracking_system.service.track.StatusTrackService;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
+import com.project.tracking_system.service.customer.CustomerService;
+import com.project.tracking_system.service.customer.CustomerStatsService;
+import com.project.tracking_system.service.telegram.TelegramNotificationService;
+import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.repository.CustomerNotificationLogRepository;
+import com.project.tracking_system.entity.CustomerNotificationLog;
+import com.project.tracking_system.entity.NotificationType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -45,6 +52,11 @@ public class DeliveryHistoryService {
     private final PostalServiceStatisticsRepository postalServiceStatisticsRepository;
     private final StoreDailyStatisticsRepository storeDailyStatisticsRepository;
     private final PostalServiceDailyStatisticsRepository postalServiceDailyStatisticsRepository;
+    private final CustomerService customerService;
+    private final CustomerStatsService customerStatsService;
+    private final TelegramNotificationService telegramNotificationService;
+    private final CustomerNotificationLogRepository customerNotificationLogRepository;
+    private final SubscriptionService subscriptionService;
 
     /**
      * Обновляет или создаёт запись {@link DeliveryHistory}, когда меняется статус посылки.
@@ -116,6 +128,13 @@ public class DeliveryHistoryService {
         // Сохраняем историю, если что-то изменилось
         deliveryHistoryRepository.save(history);
         log.info("История доставки обновлена: {}", trackParcel.getNumber());
+
+        // Отправляем уведомление в Telegram при выполнении условий
+        if (shouldNotifyCustomer(trackParcel, newStatus)) {
+            telegramNotificationService.sendStatusUpdate(trackParcel, newStatus);
+            log.info("✅ Уведомление о статусе {} отправлено для трека {}", newStatus, trackParcel.getNumber());
+            saveNotificationLog(trackParcel, newStatus);
+        }
     }
 
     /**
@@ -325,6 +344,12 @@ public class DeliveryHistoryService {
             updateDailyStats(store, history.getPostalService(), eventDate, status, deliveryDays, pickupDays);
         }
 
+        if (status == GlobalStatus.DELIVERED && trackParcel.getCustomer() != null) {
+            customerStatsService.incrementPickedUp(trackParcel.getCustomer());
+        } else if (status == GlobalStatus.RETURNED && trackParcel.getCustomer() != null) {
+            customerStatsService.incrementReturned(trackParcel.getCustomer());
+        }
+
         // флаг включён, дальнейшее обновление записей не требуется
 
         trackParcel.setIncludedInStatistics(true);
@@ -492,6 +517,10 @@ public class DeliveryHistoryService {
     public void handleTrackParcelBeforeDelete(TrackParcel parcel) {
         log.info("Начало обработки удаления трека {}", parcel.getNumber());
 
+        if (!parcel.getStatus().isFinal()) {
+            customerService.rollbackStatsOnTrackDelete(parcel);
+        }
+
         if (parcel.isIncludedInStatistics()) {
             log.debug("Удаляется уже учтённая в статистике посылка {}, статистику не трогаем", parcel.getNumber());
             return;
@@ -561,6 +590,37 @@ public class DeliveryHistoryService {
             log.info("{}: {}", logMessage, newDate);
             setter.accept(newDate);
         }
+    }
+
+    // Проверить необходимость отправки уведомления покупателю
+    private boolean shouldNotifyCustomer(TrackParcel parcel, GlobalStatus status) {
+        Customer customer = parcel.getCustomer();
+        if (customer == null || customer.getTelegramChatId() == null) {
+            return false;
+        }
+
+        Long ownerId = parcel.getStore().getOwner().getId();
+        boolean premium = subscriptionService.isUserPremium(ownerId);
+        if (!premium) {
+            return false;
+        }
+
+        return !customerNotificationLogRepository.existsByParcelIdAndStatusAndNotificationType(
+                parcel.getId(),
+                status,
+                NotificationType.INSTANT
+        );
+    }
+
+    // Сохранить лог отправленного уведомления
+    private void saveNotificationLog(TrackParcel parcel, GlobalStatus status) {
+        CustomerNotificationLog logEntry = new CustomerNotificationLog();
+        logEntry.setCustomer(parcel.getCustomer());
+        logEntry.setParcel(parcel);
+        logEntry.setStatus(status);
+        logEntry.setNotificationType(NotificationType.INSTANT);
+        logEntry.setSentAt(ZonedDateTime.now(ZoneOffset.UTC));
+        customerNotificationLogRepository.save(logEntry);
     }
 
 
