@@ -1,5 +1,6 @@
 package com.project.tracking_system.repository;
 
+import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -33,4 +34,24 @@ public interface UserRepository extends JpaRepository <User, Long> {
      */
     @Query("SELECT COUNT(u) FROM User u JOIN u.subscription s JOIN s.subscriptionPlan sp WHERE sp.name = :planName")
     long countUsersBySubscriptionPlan(@Param("planName") String planName);
+
+    /**
+     * Найти пользователей по фильтрам email, роли и названию подписки.
+     *
+     * @param search       часть email пользователя
+     * @param role         роль пользователя
+     * @param subscription название подписки
+     * @return список подходящих пользователей
+     */
+    @Query("""
+        SELECT u FROM User u
+        LEFT JOIN u.subscription us
+        LEFT JOIN us.subscriptionPlan sp
+        WHERE (:search IS NULL OR LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')))
+          AND (:role IS NULL OR u.role = :role)
+          AND (:subscription IS NULL OR sp.name = :subscription)
+        """)
+    java.util.List<User> findByFilters(@Param("search") String search,
+                                       @Param("role") Role role,
+                                       @Param("subscription") String subscription);
 }

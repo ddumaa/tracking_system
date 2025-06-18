@@ -7,6 +7,7 @@ import com.project.tracking_system.dto.UserListAdminInfoDTO;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.UserSubscription;
+import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.analytics.StatsAggregationService;
@@ -23,7 +24,6 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -79,34 +79,26 @@ public class AdminController {
     }
 
     /**
-     * Отображает список всех пользователей системы.
+     * Отображает список всех пользователей системы с возможностью фильтрации.
      *
-     * @param model модель для передачи данных о пользователях
+     * @param search       строка поиска по email
+     * @param role         фильтр по роли
+     * @param subscription фильтр по подписке
+     * @param model        модель для передачи данных
      * @return имя шаблона со списком пользователей
      */
     @GetMapping("/users")
-    public String getAllUsers(Model model) {
-        List<User> users = userService.findAll();
-        List<UserListAdminInfoDTO> userListAdminInfoDTOS = new ArrayList<>();
-
-        for (User user : users) {
-            // Получаем подписку пользователя (если есть)
-            String subscriptionName = user.getSubscription() != null
-                    ? user.getSubscription().getSubscriptionPlan().getName()
-                    : "NONE"; // Если подписки нет, ставим "NONE" или "FREE"
-
-            UserListAdminInfoDTO userListAdminInfoDTO = new UserListAdminInfoDTO(
-                    user.getId(),
-                    user.getEmail(),
-                    user.getRole(),
-                    subscriptionName
-            );
-
-            userListAdminInfoDTOS.add(userListAdminInfoDTO);
-        }
-
-        model.addAttribute("users", userListAdminInfoDTOS);
-
+    public String getAllUsers(@RequestParam(value = "search", required = false) String search,
+                              @RequestParam(value = "role", required = false) String role,
+                              @RequestParam(value = "subscription", required = false) String subscription,
+                              Model model) {
+        List<UserListAdminInfoDTO> users = adminService.getUsers(search, role, subscription);
+        model.addAttribute("users", users);
+        model.addAttribute("roles", Role.values());
+        model.addAttribute("plans", adminService.getPlans());
+        model.addAttribute("search", search);
+        model.addAttribute("selectedRole", role);
+        model.addAttribute("selectedSubscription", subscription);
         return "admin/user-list";
     }
 
