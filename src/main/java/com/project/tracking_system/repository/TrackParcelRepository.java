@@ -86,4 +86,12 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
     List<TrackParcel> findActiveByCustomerId(@Param("customerId") Long customerId,
                                              @Param("finalStatuses") List<GlobalStatus> finalStatuses);
 
+    /**
+     * Получить все посылки с загруженными пользователем и магазином.
+     *
+     * @return список посылок
+     */
+    @Query("SELECT t FROM TrackParcel t JOIN FETCH t.store JOIN FETCH t.user")
+    List<TrackParcel> findAllWithStoreAndUser();
+
 }

@@ -1,6 +1,7 @@
 package com.project.tracking_system.service.admin;
 
 import com.project.tracking_system.dto.StoreAdminInfoDTO;
+import com.project.tracking_system.dto.TrackParcelAdminInfoDTO;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class AdminService {
     private final StoreTelegramSettingsRepository storeTelegramSettingsRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
+    private final TrackParcelRepository trackParcelRepository;
 
     /**
      * Подсчитать общее количество покупателей.
@@ -123,5 +125,25 @@ public class AdminService {
      */
     public long countStores() {
         return storeRepository.count();
+    }
+
+    /**
+     * Получить список всех посылок системы с информацией о владельце и магазине.
+     *
+     * @return список посылок для отображения в админ-панели
+     */
+    public List<TrackParcelAdminInfoDTO> getAllParcels() {
+        return trackParcelRepository.findAllWithStoreAndUser().stream()
+                .map(p -> new TrackParcelAdminInfoDTO(
+                        p.getId(),
+                        p.getNumber(),
+                        p.getStatus().getDescription(),
+                        p.getStore().getName(),
+                        p.getUser().getEmail(),
+                        java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss")
+                                .withZone(java.time.ZoneId.systemDefault())
+                                .format(p.getData())
+                ))
+                .collect(java.util.stream.Collectors.toList());
     }
 }

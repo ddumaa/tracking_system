@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/layout}">
+<head>
+    <title layout:fragment="title">Посылки</title>
+</head>
+<main layout:fragment="content">
+    <a href="/admin" class="btn btn-primary mb-4">Админ Панель</a>
+    <table class="table table-bordered table-striped">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Номер</th>
+            <th>Магазин</th>
+            <th>Пользователь</th>
+            <th>Статус</th>
+            <th>Дата</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="p : ${parcels}">
+            <td th:text="${p.id}"></td>
+            <td th:text="${p.number}"></td>
+            <td th:text="${p.storeName}"></td>
+            <td th:text="${p.userEmail}"></td>
+            <td th:text="${p.status}"></td>
+            <td th:text="${p.data}"></td>
+        </tr>
+        </tbody>
+    </table>
+</main>
+</html>
