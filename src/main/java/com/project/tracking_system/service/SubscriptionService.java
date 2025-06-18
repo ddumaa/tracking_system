@@ -31,6 +31,17 @@ public class SubscriptionService {
     private final String PREMIUM_PLAN = "PREMIUM";
     private final String FREE_PLAN = "FREE";
 
+    /**
+     * Рассчитывает, сколько треков можно загрузить в одном файле.
+     * <p>
+     * Если подписка отсутствует, возвращается {@code 0}. Для безлимитного
+     * плана метод вернёт запрошенное количество треков.
+     * </p>
+     *
+     * @param userId      идентификатор пользователя
+     * @param tracksCount запрошенное количество треков
+     * @return максимально допустимое количество треков для загрузки
+     */
     public int canUploadTracks(Long userId, int tracksCount) {
         // Получаем подписку пользователя
         Optional<UserSubscription> optionalSubscription = userSubscriptionRepository.findByUserId(userId);
@@ -50,6 +61,17 @@ public class SubscriptionService {
         return Math.min(tracksCount, maxTracksPerFile);
     }
 
+    /**
+     * Проверяет, сколько новых треков пользователь может сохранить.
+     * <p>
+     * Лимит определяется активной подпиской и уже сохранённым количеством треков.
+     * Если подписки нет, метод возвращает {@code 0}.
+     * </p>
+     *
+     * @param userId            идентификатор пользователя
+     * @param tracksCountToSave количество треков, которые требуется сохранить
+     * @return допустимое количество треков для сохранения
+     */
     public int canSaveMoreTracks(Long userId, int tracksCountToSave) {
         Optional<UserSubscription> optionalSubscription = userSubscriptionRepository.findByUserId(userId);
         if (optionalSubscription.isEmpty()) {
@@ -79,6 +101,17 @@ public class SubscriptionService {
     }
 
 
+    /**
+     * Определяет, сколько обновлений треков доступно пользователю сегодня.
+     * <p>
+     * При смене календарного дня счётчик обновлений сбрасывается. Отсутствие
+     * подписки приводит к возвращению {@code 0}.
+     * </p>
+     *
+     * @param userId          идентификатор пользователя
+     * @param updatesRequested запрошенное количество обновлений
+     * @return разрешённое количество обновлений
+     */
     public int canUpdateTracks(Long userId, int updatesRequested) {
         // Получаем подписку пользователя
         UserSubscription subscription = userSubscriptionRepository.findByUserId(userId)
@@ -124,6 +157,12 @@ public class SubscriptionService {
         return updatesAllowed;
     }
 
+    /**
+     * Проверяет возможность массового обновления треков для пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @return {@code true}, если пользователь имеет премиум-подписку
+     */
     public boolean canUseBulkUpdate(Long userId) {
         String planName = userSubscriptionRepository.getSubscriptionPlanName(userId);
 
@@ -141,13 +180,25 @@ public class SubscriptionService {
      * Проверяет наличие подписки PREMIUM у пользователя.
      *
      * @param userId идентификатор пользователя
-     * @return {@code true}, если у пользователя PREMIUM-подписка
+     * @return {@code true}, если у пользователя активен премиум-план
      */
     public boolean isUserPremium(Long userId) {
         String planName = userSubscriptionRepository.getSubscriptionPlanName(userId);
         return PREMIUM_PLAN.equals(planName);
     }
 
+    /**
+     * Продлевает текущую подписку пользователя либо переводит его на PREMIUM.
+     * <p>
+     * Если пользователь уже имеет PREMIUM-подписку, срок продлевается.
+     * При наличии бесплатного плана происходит апгрейд на PREMIUM.
+     * </p>
+     *
+     * @param userId идентификатор пользователя
+     * @param months количество месяцев продления
+     * @throws IllegalArgumentException если подписка не найдена либо её тип не поддерживает апгрейд
+     * @throws IllegalStateException    если у пользователя отсутствует план подписки
+     */
     @Transactional
     public void upgradeOrExtendSubscription(Long userId, int months) {
         log.info("🔄 Попытка обновления подписки для пользователя с ID: {}", userId);
@@ -200,6 +251,18 @@ public class SubscriptionService {
                 subscription.getUser().getId(), PREMIUM_PLAN, subscription.getSubscriptionEndDate());
     }
 
+    /**
+     * Изменяет подписку пользователя на указанный тариф.
+     * <p>
+     * При переходе на PREMIUM устанавливается срок действия. Для бесплатного
+     * плана срок обнуляется.
+     * </p>
+     *
+     * @param userId      идентификатор пользователя
+     * @param newPlanName название нового плана
+     * @param months      срок действия в месяцах (только для PREMIUM; может быть {@code null})
+     * @throws IllegalArgumentException если подписка пользователя или новый план не найдены
+     */
     @Transactional
     public void changeSubscription(Long userId, String newPlanName, Integer months) {
         log.info("Начало смены подписки пользователя ID={} на {}", userId, newPlanName);
