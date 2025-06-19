@@ -6,6 +6,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -19,6 +20,20 @@ import java.util.Base64;
  */
 @Component
 public class CspNonceFilter extends OncePerRequestFilter {
+
+    /**
+     * Разрешённые адреса для директивы connect-src.
+     */
+    private final String[] allowedConnectOrigins;
+
+    /**
+     * Создаёт фильтр с разрешёнными источниками connect-src.
+     *
+     * @param allowedConnectOrigins список разрешённых адресов
+     */
+    public CspNonceFilter(@Value("${csp.allowed-connect-origins}") String[] allowedConnectOrigins) {
+        this.allowedConnectOrigins = allowedConnectOrigins;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -34,12 +49,14 @@ public class CspNonceFilter extends OncePerRequestFilter {
         request.setAttribute("nonce", nonce);
 
         // Формируем заголовок CSP
+        String connectSrc = String.join(" ", allowedConnectOrigins);
+
         String cspPolicy = "default-src 'self'; " +
                 "script-src 'self' 'nonce-" + nonce + "' https://code.jquery.com https://cdn.jsdelivr.net; " +
                 "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
                 "font-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
                 "img-src 'self' data:; " +
-                "connect-src 'self' wss://belivery.by ws://localhost:8080/; " +
+                "connect-src 'self'" + (connectSrc.isBlank() ? "" : " " + connectSrc) + "; " +
                 "object-src 'none'; " +
                 "frame-ancestors 'none'; " +
                 "base-uri 'self'; " +
