@@ -267,6 +267,7 @@ function initTelegramToggle() {
 
         const storeId = content.getAttribute('data-store-id');
         const btn = container.querySelector(`.toggle-tg-btn[data-store-id="${storeId}"]`);
+        const link = container.querySelector(`a[data-bs-toggle="collapse"][href="#collapse-tg-${storeId}"]`);
         const icon = btn?.querySelector('i');
         const bsCollapse = bootstrap.Collapse.getOrCreateInstance(content, { toggle: false });
 
@@ -280,20 +281,30 @@ function initTelegramToggle() {
             icon?.classList.add('bi-chevron-up');
         }
 
-        content.addEventListener('shown.bs.collapse', () => {
-            icon?.classList.remove('bi-chevron-down');
-            icon?.classList.add('bi-chevron-up');
-            let ids = getCollapsedTgStores().filter(id => id !== storeId);
-            saveCollapsedTgStores(ids);
-        });
-
-        content.addEventListener('hidden.bs.collapse', () => {
-            icon?.classList.remove('bi-chevron-up');
-            icon?.classList.add('bi-chevron-down');
+        const toggleHandler = (e) => {
+            e.preventDefault();
+            const isShown = content.classList.contains('show');
             const ids = getCollapsedTgStores();
-            if (!ids.includes(storeId)) ids.push(storeId);
-            saveCollapsedTgStores(ids);
-        });
+
+            if (isShown) {
+                // Скрываем блок и запоминаем состояние
+                icon?.classList.remove('bi-chevron-up');
+                icon?.classList.add('bi-chevron-down');
+                if (!ids.includes(storeId)) ids.push(storeId);
+                saveCollapsedTgStores(ids);
+                bsCollapse.hide();
+            } else {
+                // Показываем блок и удаляем id из списка скрытых
+                icon?.classList.remove('bi-chevron-down');
+                icon?.classList.add('bi-chevron-up');
+                saveCollapsedTgStores(ids.filter(id => id !== storeId));
+                bsCollapse.show();
+            }
+        };
+
+        // Обработчики клика по кнопке и заголовку блока Telegram
+        btn?.addEventListener('click', toggleHandler);
+        link?.addEventListener('click', toggleHandler);
     });
 }
 
