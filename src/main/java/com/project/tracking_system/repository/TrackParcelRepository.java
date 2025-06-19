@@ -104,4 +104,22 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
            countQuery = "SELECT count(t) FROM TrackParcel t")
     Page<TrackParcel> findAllWithStoreAndUser(Pageable pageable);
 
+    /**
+     * Найти посылку по номеру с подгруженными магазином и пользователем.
+     *
+     * @param number номер посылки
+     * @return посылка или {@code null}, если не найдена
+     */
+    @Query("SELECT t FROM TrackParcel t JOIN FETCH t.store JOIN FETCH t.user WHERE t.number = :number")
+    TrackParcel findByNumberWithStoreAndUser(@Param("number") String number);
+
+    /**
+     * Найти посылку по идентификатору с подгруженными магазином и пользователем.
+     *
+     * @param id идентификатор посылки
+     * @return посылка или {@code null}, если не найдена
+     */
+    @Query("SELECT t FROM TrackParcel t JOIN FETCH t.store JOIN FETCH t.user WHERE t.id = :id")
+    TrackParcel findByIdWithStoreAndUser(@Param("id") Long id);
+
 }

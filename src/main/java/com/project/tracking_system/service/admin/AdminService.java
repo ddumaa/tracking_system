@@ -5,6 +5,8 @@ import com.project.tracking_system.dto.TrackParcelAdminInfoDTO;
 import com.project.tracking_system.dto.UserListAdminInfoDTO;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.*;
+import com.project.tracking_system.service.track.TrackDeletionService;
+import com.project.tracking_system.service.track.TrackProcessingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,6 +31,8 @@ public class AdminService {
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final TrackParcelRepository trackParcelRepository;
     private final UserRepository userRepository;
+    private final TrackDeletionService trackDeletionService;
+    private final TrackProcessingService trackProcessingService;
 
     /**
      * Подсчитать общее количество покупателей.
@@ -190,5 +194,75 @@ public class AdminService {
             ));
         }
         return result;
+    }
+
+    /**
+     * Найти посылку по трек-номеру.
+     *
+     * @param number трек-номер
+     * @return DTO с информацией о посылке или {@code null}
+     */
+    public TrackParcelAdminInfoDTO findParcelByNumber(String number) {
+        TrackParcel parcel = trackParcelRepository.findByNumberWithStoreAndUser(number);
+        if (parcel == null) {
+            return null;
+        }
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter
+                .ofPattern("dd.MM.yyyy HH:mm:ss")
+                .withZone(java.time.ZoneId.systemDefault());
+        return new TrackParcelAdminInfoDTO(
+                parcel.getId(),
+                parcel.getNumber(),
+                parcel.getStatus().getDescription(),
+                parcel.getStore().getName(),
+                parcel.getUser().getEmail(),
+                formatter.format(parcel.getData())
+        );
+    }
+
+    /**
+     * Получить информацию о посылке по идентификатору.
+     *
+     * @param id идентификатор посылки
+     * @return DTO с информацией о посылке
+     */
+    public TrackParcelAdminInfoDTO getParcelById(Long id) {
+        TrackParcel parcel = trackParcelRepository.findByIdWithStoreAndUser(id);
+        if (parcel == null) {
+            throw new IllegalArgumentException("Посылка не найдена");
+        }
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter
+                .ofPattern("dd.MM.yyyy HH:mm:ss")
+                .withZone(java.time.ZoneId.systemDefault());
+        return new TrackParcelAdminInfoDTO(
+                parcel.getId(),
+                parcel.getNumber(),
+                parcel.getStatus().getDescription(),
+                parcel.getStore().getName(),
+                parcel.getUser().getEmail(),
+                formatter.format(parcel.getData())
+        );
+    }
+
+    /**
+     * Удалить посылку по идентификатору.
+     *
+     * @param id идентификатор посылки
+     */
+    public void deleteParcel(Long id) {
+        TrackParcel parcel = trackParcelRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Посылка не найдена"));
+        trackDeletionService.deleteByNumbersAndUserId(java.util.List.of(parcel.getNumber()), parcel.getUser().getId());
+    }
+
+    /**
+     * Принудительно обновить статус посылки.
+     *
+     * @param id идентификатор посылки
+     */
+    public void forceUpdateParcel(Long id) {
+        TrackParcel parcel = trackParcelRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Посылка не найдена"));
+        trackProcessingService.processTrack(parcel.getNumber(), parcel.getStore().getId(), parcel.getUser().getId(), true);
     }
 }
