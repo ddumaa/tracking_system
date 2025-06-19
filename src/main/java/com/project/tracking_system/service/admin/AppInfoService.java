@@ -2,6 +2,7 @@ package com.project.tracking_system.service.admin;
 
 import com.project.tracking_system.repository.SubscriptionPlanRepository;
 import com.project.tracking_system.entity.SubscriptionPlan;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,8 +14,8 @@ import java.util.List;
  * Сервис предоставления системной информации для админ-панели.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
+@Getter
 public class AppInfoService {
 
     private final SubscriptionPlanRepository planRepository;
@@ -36,23 +37,6 @@ public class AppInfoService {
         this.telegramWebhookEnabled = webhookEnabled;
     }
 
-    /**
-     * Получить версию приложения.
-     *
-     * @return строка версии
-     */
-    public String getApplicationVersion() {
-        return applicationVersion;
-    }
-
-    /**
-     * Проверить, активен ли вебхук Telegram.
-     *
-     * @return {@code true}, если вебхук включён
-     */
-    public boolean isTelegramWebhookEnabled() {
-        return telegramWebhookEnabled;
-    }
 
     /**
      * Получить список тарифных планов с лимитами.
