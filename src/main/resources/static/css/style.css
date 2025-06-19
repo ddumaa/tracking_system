@@ -5,7 +5,7 @@ html, body {
   display: flex;
   flex-direction: column;
   background-color: #f8f9fa;
-  font-family: "Arial", sans-serif;
+  font-family: "Inter", sans-serif;
 }
 
 .main-content {
@@ -1165,7 +1165,7 @@ button:hover {
 }
 
 .legal-container {
-  font-family: "Arial", sans-serif;
+  font-family: "Inter", sans-serif;
   font-size: 16px;
   max-width: 800px;
   margin: 0 auto;
@@ -1248,28 +1248,16 @@ button:hover {
   text-align: center;
 }
 .custom-card.bg-primary .card-title,
-.custom-card.bg-success .card-title,
-.custom-card.bg-warning .card-title,
-.custom-card.bg-info .card-title,
-.custom-card.bg-secondary .card-title,
-.custom-card.bg-dark .card-title,
-.custom-card.bg-danger .card-title,
-.custom-card.bg-primary .card-text,
-.custom-card.bg-success .card-text,
-.custom-card.bg-warning .card-text,
-.custom-card.bg-info .card-text,
-.custom-card.bg-secondary .card-text,
-.custom-card.bg-dark .card-text,
+.custom-card.bg-primary .card-text, .custom-card.bg-success .card-title,
+.custom-card.bg-success .card-text, .custom-card.bg-warning .card-title,
+.custom-card.bg-warning .card-text, .custom-card.bg-info .card-title,
+.custom-card.bg-info .card-text, .custom-card.bg-secondary .card-title,
+.custom-card.bg-secondary .card-text, .custom-card.bg-dark .card-title,
+.custom-card.bg-dark .card-text, .custom-card.bg-danger .card-title,
 .custom-card.bg-danger .card-text {
   color: #ffffff;
 }
-.custom-card.bg-primary i,
-.custom-card.bg-success i,
-.custom-card.bg-warning i,
-.custom-card.bg-info i,
-.custom-card.bg-secondary i,
-.custom-card.bg-dark i,
-.custom-card.bg-danger i {
+.custom-card.bg-primary i, .custom-card.bg-success i, .custom-card.bg-warning i, .custom-card.bg-info i, .custom-card.bg-secondary i, .custom-card.bg-dark i, .custom-card.bg-danger i {
   color: #ffffff;
 }
 
