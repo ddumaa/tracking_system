@@ -17,6 +17,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.concurrent.TimeUnit;
+
 import java.util.Optional;
 
 /**
@@ -37,6 +39,8 @@ public class CustomerService {
      * <p>
      * Все операции поиска и сохранения выполняются в отдельных транзакциях,
      * что исключает ошибку "current transaction is aborted" при конкурентной записи.
+     * При возникновении гонки сохранения выполняется несколько повторных чтений
+     * записи с небольшими задержками.
      * </p>
      *
      * @param rawPhone телефон в произвольном формате
@@ -59,13 +63,20 @@ public class CustomerService {
             return saved;
         } catch (DataIntegrityViolationException e) {
             log.warn("Покупатель с номером {} уже существует, выполняем повторный поиск", phone);
-            try {
-                Thread.sleep(100); // Ждём 100мс пока транзакция коммитится
-            } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
+            // Несколько раз пытаемся прочитать покупателя, ожидая завершения транзакции сохранения
+            for (int attempt = 0; attempt < 3; attempt++) {
+                Optional<Customer> byPhone = transactionalService.findByPhone(phone);
+                if (byPhone.isPresent()) {
+                    return byPhone.get();
+                }
+                try {
+                    TimeUnit.MILLISECONDS.sleep(50);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
             }
-            return transactionalService.findByPhone(phone)
-                    .orElseThrow(() -> new IllegalStateException("Покупатель не найден после ошибки сохранения"));
+            throw new IllegalStateException("Покупатель не найден после ошибки сохранения");
         }
 
     }
