@@ -684,14 +684,13 @@ async function loadAnalyticsButtons() {
     stores.forEach(store => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'btn btn-outline-secondary w-100 reset-store-analytics-btn mb-2 d-flex align-items-center';
+        btn.className = 'btn btn-outline-secondary btn-sm reset-store-analytics-btn d-inline-flex align-items-center';
         btn.dataset.storeId = store.id;
         btn.dataset.storeName = store.name;
         btn.setAttribute('data-bs-toggle', 'tooltip');
         btn.title = `Очистить аналитику магазина «${store.name}»`;
         btn.innerHTML = `<i class="bi bi-brush me-2"></i> Очистить аналитику — ${store.name}`;
 
-        // ✅ обработчик клика на кнопку
         btn.addEventListener('click', () => {
             analyticsActionUrl = `/analytics/reset/store/${store.id}`;
             showResetModal(`Вы действительно хотите очистить аналитику магазина «${store.name}»?`);
@@ -700,9 +699,9 @@ async function loadAnalyticsButtons() {
         container.appendChild(btn);
     });
 
-    // повторно инициализируем Bootstrap tooltip (если используется)
     enableTooltips(container);
 }
+
 
 /**
  * Формирует DOM-блок настроек Telegram для магазина

@@ -76,7 +76,11 @@
 
             <!-- Контент вкладок -->
             <div class="col-lg-9 col-md-8 tab-content" id="v-pills-tabContent">
-                <div class="tab-pane fade show active card p-4 shadow-sm rounded-4" id="v-pills-home" role="tabpanel">
+
+                <!-- Контейнер для уведомлений -->
+                <div id="storeNotificationContainer"></div>
+
+                <div class="tab-pane fade show active card p-3 shadow-sm rounded-4 mb-4" id="v-pills-home" role="tabpanel">
                     <h5 class="mb-3">Об аккаунте</h5>
                     <hr class="my-3">
                     <div class="row mb-2">
@@ -100,10 +104,9 @@
                     </div>
                 </div>
 
-                <div class="tab-pane fade card p-4 shadow-sm rounded-4" id="v-pills-stores" role="tabpanel">
+                <div class="tab-pane fade" id="v-pills-stores" role="tabpanel">
 
-                    <!-- Контейнер для уведомлений -->
-                    <div id="storeNotificationContainer"></div>
+                    <div class="card p-3 shadow-sm rounded-4 mb-4">
 
                     <h5 class="mb-3">
                         Мои магазины
@@ -127,15 +130,22 @@
 
                         <button type="button" class="btn btn-primary mt-3" id="addStoreBtn">Добавить магазин</button>
                     </form>
-
-                    <div class="mt-4" id="analytics-management">
-                        <h5 class="mb-3">Управление аналитикой</h5>
-                        <div id="storeAnalyticsButtons" class="d-flex flex-column w-100 mb-3"><!-- JS --></div>
-                        <button type="button" class="btn btn-danger w-100 d-flex align-items-center" id="resetAllAnalyticsBtn">
-                            <i class="bi bi-trash me-2"></i> Удалить всю аналитику
-                        </button>
                     </div>
 
+                    <div class="card p-3 shadow-sm rounded-4 mb-4">
+                    <div class="mt-4" id="analytics-management">
+                        <h5 class="mb-3">
+                            Управление аналитикой
+                        </h5>
+                        <div id="storeAnalyticsButtons" class="d-flex flex-wrap gap-2 mb-3"><!-- Кнопки — через JS --></div>
+                        <button type="button" class="btn btn-danger d-flex align-items-center" id="resetAllAnalyticsBtn">
+                            <i class="bi bi-trash me-2"></i>
+                            Удалить всю аналитику
+                        </button>
+                    </div>
+                    </div>
+
+                    <div class="card p-3 shadow-sm rounded-4 mb-4">
                     <div id="telegram-management" class="mt-4">
                         <h5 class="mb-3">Настройки Telegram</h5>
                         <p class="text-muted mb-3">
@@ -145,9 +155,10 @@
                             <div th:replace="~{profile :: telegramStoreBlock(store=${store}, first=${iter.first})}"></div>
                         </th:block>
                     </div>
+                    </div>
                 </div>
 
-                <div class="tab-pane fade card p-4 shadow-sm rounded-4"
+                <div class="tab-pane fade card p-3 shadow-sm rounded-4 mb-4"
                      id="v-pills-profile"
                      role="tabpanel">
 
@@ -198,7 +209,7 @@
                     </div>
                 </div>
 
-                <div class="tab-pane fade card p-4 shadow-sm rounded-4"
+                <div class="tab-pane fade card p-3 shadow-sm rounded-4 mb-4"
                      id="v-pills-evropost"
                      role="tabpanel">
 
@@ -254,7 +265,7 @@
                     </div>
                 </div>
 
-                <div class="tab-pane fade card p-4 shadow-sm rounded-4"
+                <div class="tab-pane fade card p-3 shadow-sm rounded-4 mb-4"
                      id="v-pills-belpost"
                      role="tabpanel">
 
@@ -299,7 +310,8 @@
                     </p>
 
                     <button class="btn btn-danger w-50 py-2" data-bs-toggle="modal" data-bs-target="#deleteAccountModal">
-                        <i class="bi bi-trash"></i> Удалить аккаунт
+                        <i class="bi bi-trash"></i>
+                        Удалить аккаунт
                     </button>
                 </div>
             </div>

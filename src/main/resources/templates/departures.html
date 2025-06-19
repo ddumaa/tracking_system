@@ -16,7 +16,7 @@
 
                     <!-- Заголовок с кнопкой обновления -->
                     <div class="d-flex justify-content-center align-items-center mb-4 gap-2">
-                        <h1 class="mb-1 fs-2">Информация о посылках</h1>
+                        <h1 class="mb-1">Информация о посылках</h1>
                         <button type="button"
                                 id="refreshAllBtn"
                                 class="history-refresh-btn ms-2"
@@ -28,8 +28,6 @@
                         </button>
                     </div>
 
-                    <div class="card shadow-sm p-4 rounded-4 mb-4">
-
                     <!-- Уведомления -->
                     <div th:if="${trackParcelNotification}" class="alert alert-warning" role="alert">
                         <span th:text="${trackParcelNotification}"></span>
@@ -37,6 +35,8 @@
 
                     <!-- Контейнер для уведомлений -->
                     <div id="notificationContainer"></div>
+
+                    <div class="card shadow-sm p-4 rounded-4 mb-4">
 
                     <!-- Форма действий, фильтрации и количества элементов -->
                     <div class="history-controls d-flex flex-wrap align-items-center gap-3 justify-content-between">

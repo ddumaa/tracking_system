@@ -27,17 +27,14 @@
 }
 
 .tab-pane {
-  min-height: auto;
-  padding: 20px;
+  padding: 0;
   opacity: 0;
-  transform: translateY(10px);
-  //@include ui.transition;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform: none;
+  transition: opacity 0.3s ease;
 
   &.active {
     opacity: 1;
-    transform: translateY(0);
-    background-color: #f9f9f9;
+    background-color: transparent;
   }
 }
 

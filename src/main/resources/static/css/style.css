@@ -479,16 +479,14 @@ header .mobile-nav.active {
 }
 
 .tab-pane {
-  min-height: auto;
-  padding: 20px;
+  padding: 0;
   opacity: 0;
-  transform: translateY(10px);
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform: none;
+  transition: opacity 0.3s ease;
 }
 .tab-pane.active {
   opacity: 1;
-  transform: translateY(0);
-  background-color: #f9f9f9;
+  background-color: transparent;
 }
 
 @media (max-width: 768px) {
@@ -835,6 +833,12 @@ button:hover {
 @media (max-width: 768px) {
   .col-md-4 {
     display: none;
+  }
+}
+@media (min-width: 768px) {
+  .sticky-sidebar {
+    position: sticky;
+    top: 1rem;
   }
 }
 .limit-warning {
@@ -1382,13 +1386,6 @@ body.loading {
   transform: translate(-50%, -50%);
   text-align: center;
   opacity: 0.6;
-}
-
-@media (min-width: 768px) {
-  .sticky-sidebar {
-    position: sticky;
-    top: 1rem;
-  }
 }
 
 /*# sourceMappingURL=style.css.map */
