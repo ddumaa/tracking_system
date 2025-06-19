@@ -14,6 +14,7 @@ import com.project.tracking_system.service.analytics.StatsAggregationService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.admin.AdminService;
+import com.project.tracking_system.service.admin.AppInfoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -47,6 +48,7 @@ public class AdminController {
     private final StoreRepository storeRepository;
     private final StatsAggregationService statsAggregationService;
     private final AdminService adminService;
+    private final AppInfoService appInfoService;
 
     /**
      * Отображает дашборд администратора.
@@ -356,7 +358,10 @@ public class AdminController {
      * @return имя шаблона настроек
      */
     @GetMapping("/settings")
-    public String settings() {
+    public String settings(Model model) {
+        model.addAttribute("appVersion", appInfoService.getApplicationVersion());
+        model.addAttribute("webhookEnabled", appInfoService.isTelegramWebhookEnabled());
+        model.addAttribute("plans", appInfoService.getPlans());
         return "admin/settings";
     }
 
