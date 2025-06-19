@@ -281,8 +281,10 @@ function initTelegramToggle() {
             icon?.classList.add('bi-chevron-up');
         }
 
+
         const toggleHandler = (e) => {
             e.preventDefault();
+
             const isShown = content.classList.contains('show');
             const ids = getCollapsedTgStores();
 
@@ -305,6 +307,7 @@ function initTelegramToggle() {
         // Обработчики клика по кнопке и заголовку блока Telegram
         btn?.addEventListener('click', toggleHandler);
         link?.addEventListener('click', toggleHandler);
+
     });
 }
 
