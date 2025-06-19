@@ -170,32 +170,24 @@
 
 <div layout:fragment="afterFooter">
     <!-- Модальное окно -->
-    <div class="modal fade" id="infoModal" tabindex="-1" aria-labelledby="infoModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="infoModalLabel">Детали посылки</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
-                </div>
-                <div class="modal-body">
-                    <!-- Данные загружаются через AJAX -->
-                </div>
-            </div>
+    <div th:replace="~{partials/modal :: modal('infoModal', 'modal-lg', '')}">
+        <div class="modal-header">
+            <h5 class="modal-title" id="infoModalLabel">Детали посылки</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+        </div>
+        <div class="modal-body">
+            <!-- Данные загружаются через AJAX -->
         </div>
     </div>
 
     <!-- Модальное окно покупателя -->
-    <div class="modal fade" id="customerModal" tabindex="-1" aria-labelledby="customerModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="customerModalLabel">Информация о покупателе</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
-                </div>
-                <div class="modal-body">
-                    <!-- Данные загружаются через AJAX -->
-                </div>
-            </div>
+    <div th:replace="~{partials/modal :: modal('customerModal', '', '')}">
+        <div class="modal-header">
+            <h5 class="modal-title" id="customerModalLabel">Информация о покупателе</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+        </div>
+        <div class="modal-body">
+            <!-- Данные загружаются через AJAX -->
         </div>
     </div>
 </div>
