@@ -1,10 +1,9 @@
-@use '../abstracts/_variables.scss' as vars;
-@use '../abstracts/_mixins.scss' as mixins;
+@use '../ui' as ui;
 
 @mixin card-style {
-  background: vars.$white;
+  background: ui.$white;
   border-radius: 10px;
-  @include mixins.box-shadow(0, 4px, 8px);
+  @include ui.box-shadow(0, 4px, 8px);
   padding: 20px;
 }
 

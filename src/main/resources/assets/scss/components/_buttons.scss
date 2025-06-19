@@ -1,8 +1,7 @@
-@use '../abstracts/_variables.scss' as vars;
-@use '../abstracts/_mixins.scss' as mixins;
+@use '../ui' as ui;
 
 button {
-  @include mixins.transition;
+  @include ui.transition;
 
   &:hover {
     transform: scale(1.05);
@@ -13,7 +12,7 @@ button {
   width: 150px;
   flex-shrink: 0;
 
-  @include mixins.respond-to(sm) {
+  @include ui.respond-to(sm) {
     width: 100%;
   }
 }

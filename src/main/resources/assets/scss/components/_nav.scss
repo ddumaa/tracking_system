@@ -1,5 +1,4 @@
-@use '../abstracts/variables' as vars;
-@use '../abstracts/mixins' as mixins;
+@use '../ui' as ui;
 
 .nav-pills {
   display: flex;
@@ -10,19 +9,19 @@
     font-weight: 500;
     padding: 12px 15px;
     border-radius: 8px;
-    @include mixins.transition;
+    @include ui.transition;
 
     i {
       font-size: 1.2rem;
     }
 
     &:hover {
-      background-color: rgba(vars.$light, 0.8);
+      background-color: rgba(ui.$light, 0.8);
     }
 
     &.active {
-      background-color: vars.$primary;
-      color: vars.$white;
+      background-color: ui.$primary;
+      color: ui.$white;
     }
   }
 }
@@ -32,7 +31,7 @@
   padding: 20px;
   opacity: 0;
   transform: translateY(10px);
-  //@include mixins.transition;
+  //@include ui.transition;
   transition: opacity 0.3s ease, transform 0.3s ease;
 
   &.active {
@@ -41,7 +40,7 @@
   }
 }
 
-@include mixins.respond-to(md) {
+@include ui.respond-to(md) {
   .nav-pills {
     flex-direction: row;
     justify-content: center;
