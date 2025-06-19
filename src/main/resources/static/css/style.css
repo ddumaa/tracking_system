@@ -1236,11 +1236,41 @@ button:hover {
   color: #343a40;
   text-align: center;
 }
+.custom-card .card-title .metric-icon {
+  margin-right: 8px;
+  font-size: 1.3rem;
+  color: inherit;
+}
 .custom-card .card-text {
   font-size: 1.5rem;
   font-weight: 700;
   color: #007bff;
   text-align: center;
+}
+.custom-card.bg-primary .card-title,
+.custom-card.bg-success .card-title,
+.custom-card.bg-warning .card-title,
+.custom-card.bg-info .card-title,
+.custom-card.bg-secondary .card-title,
+.custom-card.bg-dark .card-title,
+.custom-card.bg-danger .card-title,
+.custom-card.bg-primary .card-text,
+.custom-card.bg-success .card-text,
+.custom-card.bg-warning .card-text,
+.custom-card.bg-info .card-text,
+.custom-card.bg-secondary .card-text,
+.custom-card.bg-dark .card-text,
+.custom-card.bg-danger .card-text {
+  color: #ffffff;
+}
+.custom-card.bg-primary i,
+.custom-card.bg-success i,
+.custom-card.bg-warning i,
+.custom-card.bg-info i,
+.custom-card.bg-secondary i,
+.custom-card.bg-dark i,
+.custom-card.bg-danger i {
+  color: #ffffff;
 }
 
 /* Стили для элементов списка */

@@ -15,49 +15,49 @@
     <div class="row">
         <!-- Карточки с данными -->
         <div class="col-md-4">
-            <div class="card shadow-sm custom-card">
+            <div class="card shadow-sm custom-card bg-primary text-white">
                 <div class="card-body">
-                    <h5 class="card-title text-center">Общее количество пользователей</h5>
+                    <h5 class="card-title text-center"><i class="bi bi-people metric-icon"></i>Общее количество пользователей</h5>
                     <p class="card-text text-center" th:text="${totalUsers}">100</p>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card shadow-sm custom-card">
+            <div class="card shadow-sm custom-card bg-success text-white">
                 <div class="card-body">
-                    <h5 class="card-title text-center">Платных пользователей</h5>
+                    <h5 class="card-title text-center"><i class="bi bi-cash-stack metric-icon"></i>Платных пользователей</h5>
                     <p class="card-text text-center" th:text="${paidUsers}">50</p>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card shadow-sm custom-card">
+            <div class="card shadow-sm custom-card bg-warning text-dark">
                 <div class="card-body">
-                    <h5 class="card-title text-center">Количество посылок в системе</h5>
+                    <h5 class="card-title text-center"><i class="bi bi-box-seam metric-icon"></i>Количество посылок в системе</h5>
                     <p class="card-text text-center" th:text="${totalParcels}">200</p>
                 </div>
             </div>
         </div>
         <div class="col-md-4 mt-3">
-            <div class="card shadow-sm custom-card">
+            <div class="card shadow-sm custom-card bg-info text-white">
                 <div class="card-body">
-                    <h5 class="card-title text-center">Всего покупателей</h5>
+                    <h5 class="card-title text-center"><i class="bi bi-people-fill metric-icon"></i>Всего покупателей</h5>
                     <p class="card-text text-center" th:text="${totalCustomers}"></p>
                 </div>
             </div>
         </div>
         <div class="col-md-4 mt-3">
-            <div class="card shadow-sm custom-card">
+            <div class="card shadow-sm custom-card bg-secondary text-white">
                 <div class="card-body">
-                    <h5 class="card-title text-center">Telegram привязок</h5>
+                    <h5 class="card-title text-center"><i class="bi bi-telegram metric-icon"></i>Telegram привязок</h5>
                     <p class="card-text text-center" th:text="${telegramBound}"></p>
                 </div>
             </div>
         </div>
         <div class="col-md-4 mt-3">
-            <div class="card shadow-sm custom-card">
+            <div class="card shadow-sm custom-card bg-danger text-white">
                 <div class="card-body">
-                    <h5 class="card-title text-center">Всего магазинов</h5>
+                    <h5 class="card-title text-center"><i class="bi bi-shop metric-icon"></i>Всего магазинов</h5>
                     <p class="card-text text-center" th:text="${storesCount}"></p>
                 </div>
             </div>
