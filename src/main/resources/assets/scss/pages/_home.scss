@@ -1,12 +1,13 @@
 @use '../abstracts/variables' as var;
 @use '../abstracts/mixins' as mixins;
 @use '../ui' as ui;
+@use "sass:color";
 
 .limit-warning {
   font-size: 18px; // Увеличенный размер шрифта
   font-weight: bold; // Жирный текст
   color: ui.$primary-color; // Темно-красный цвет текста
-  background-color: lighten(ui.$primary-color, 40%); // Светло-красный фон
+  background-color: color.adjust(ui.$primary-color, $lightness: 40%); // Светло-красный фон
   padding: 12px; // Внутренние отступы
   border: 2px solid ui.$primary-color; // Красная рамка
   border-radius: ui.$border-radius; // Скругленные углы

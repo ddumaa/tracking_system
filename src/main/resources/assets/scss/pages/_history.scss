@@ -207,15 +207,10 @@
   }
 }
 
-/* Стили для таблицы */
 .history-table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  border-radius: ui.$border-radius;
-  overflow: hidden;
-  background: vars.$white;
-  @include mixins.box-shadow(0, 4px, 8px);
 
   thead {
     background: vars.$primary;
@@ -252,6 +247,7 @@
     }
   }
 }
+
 
 .pagination {
   display: flex;

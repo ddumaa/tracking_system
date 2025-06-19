@@ -229,9 +229,9 @@ header .mobile-nav {
   left: 0;
   width: 100%;
   background: #ffffff;
-  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
   padding: 10px 0;
-  border-radius: 0 0 10px 10px;
+  border-radius: 0 0 8px 8px;
   overflow: hidden;
   transform: translateY(-10px);
   opacity: 0;
@@ -311,7 +311,7 @@ header .mobile-nav.active {
 .footer {
   width: 100%;
   background-color: #ffffff;
-  box-shadow: 0px -4px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
   padding: 20px 0;
   font-size: 14px;
   color: #343a40;
@@ -385,7 +385,7 @@ header .mobile-nav.active {
   font-weight: bold;
 }
 .footer .footer-contacts .contact-group a:hover {
-  color: #007bff;
+  color: #0d6efd;
 }
 .footer .footer-contacts .contact-group a i {
   font-size: 16px;
@@ -412,7 +412,7 @@ header .mobile-nav.active {
   color: #6c757d;
 }
 .footer .footer-contacts .contact-group .footer-bottom a:hover {
-  color: #007bff;
+  color: #0d6efd;
 }
 
 .nav-pills {
@@ -485,7 +485,7 @@ button:hover {
   width: 100%;
   max-width: 400px;
   background: #ffffff;
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .form-signin {
@@ -512,7 +512,7 @@ button:hover {
   padding-right: 3.5rem !important;
   height: 40px;
   line-height: normal;
-  border-radius: 5px;
+  border-radius: 8px;
 }
 
 .toggle-password {
@@ -581,9 +581,9 @@ button:hover {
   margin: auto;
 }
 .modal .modal-content {
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 20px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 .modal .modal-header {
   border-bottom: none;
@@ -659,7 +659,7 @@ button:hover {
   background: #ffffff;
   padding: 14px 20px;
   border-radius: 8px;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -703,7 +703,7 @@ button:hover {
 .cookie-modal .cookie-buttons .btn {
   padding: 8px 14px;
   font-size: 15px;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   width: 60%;
   max-width: 220px;
@@ -798,15 +798,15 @@ button:hover {
 .limit-warning {
   font-size: 18px;
   font-weight: bold;
-  color: #b30000;
-  background-color: #ffe6e6;
+  color: #0d6efd;
+  background-color: rgb(215.3278688525, 231.2295081967, 254.6721311475);
   padding: 12px;
-  border: 2px solid #b30000;
-  border-radius: 6px;
+  border: 2px solid #0d6efd;
+  border-radius: 8px;
   text-align: center;
   margin-top: 15px;
   transition: fadeIn 0.5s ease-in-out;
-  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 @media (max-width: 768px) {
   .limit-warning {
@@ -846,11 +846,11 @@ button:hover {
 .history-refresh-btn:hover {
   transform: rotate(360deg) scale(1.1);
   background: rgba(0, 123, 255, 0.1);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 .history-refresh-btn:active {
   transform: scale(0.95);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 .history-refresh-btn i {
   font-size: 1.6rem;
@@ -859,7 +859,7 @@ button:hover {
 /* Фильтр и форма */
 .history-filters {
   background: #ffffff;
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 15px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
@@ -904,7 +904,7 @@ button:hover {
   width: 22px;
   height: 22px;
   border: 2px solid #007bff;
-  border-radius: 5px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -952,7 +952,7 @@ button:hover {
   max-width: 150px;
   font-size: 0.9rem;
   padding: 6px 12px;
-  border-radius: 6px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1003,15 +1003,10 @@ button:hover {
   transform: scale(1.05);
 }
 
-/* Стили для таблицы */
 .history-table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  border-radius: 10px;
-  overflow: hidden;
-  background: #ffffff;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 .history-table thead {
   background: #007bff;
@@ -1065,7 +1060,7 @@ button:hover {
   background: #ffffff;
   border: 1px solid #007bff;
   border-radius: 50%;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease-in-out;
 }
 .pagination .page-item .page-link:hover {
@@ -1119,7 +1114,7 @@ button:hover {
 .size-btn {
   padding: 8px 15px;
   font-size: 0.9rem;
-  border-radius: 6px;
+  border-radius: 8px;
   min-width: 50px;
 }
 .size-btn.active {
