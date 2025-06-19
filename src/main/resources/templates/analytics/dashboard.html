@@ -94,7 +94,7 @@
             <!-- Графики -->
             <div class="row mt-5">
                 <div class="col-md-6 mb-4">
-                    <div class="chart-wrapper">
+                    <div th:replace="~{partials/card :: card(~{::content}, 'chart-wrapper')}">
                         <h5>Статусы отправлений</h5>
                         <div class="chart-container position-relative">
                             <canvas id="statusPieChart"></canvas>
@@ -106,7 +106,7 @@
                     </div>
                 </div>
                 <div class="col-md-6 mb-4">
-                    <div class="chart-wrapper">
+                    <div th:replace="~{partials/card :: card(~{::content}, 'chart-wrapper')}">
                         <h5 id="periodChartTitle">Динамика отправлений по неделям</h5>
                         <div class="chart-container position-relative">
                             <canvas id="periodBarChart"></canvas>
