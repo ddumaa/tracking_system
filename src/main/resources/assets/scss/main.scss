@@ -15,17 +15,13 @@
 @use 'components/cards';
 @use 'components/modals';
 @use 'components/alerts';
-@use 'components/animations';
 
 // Подключаем layout
 @use 'layouts/sidebar';
-@use 'layouts/grid';
-@use 'layouts/layout-helpers';
 
 // Подключаем стили отдельных страниц
 @use 'pages/home';
 @use 'pages/history';
-@use 'pages/reg';
 @use 'pages/profile';
 @use 'pages/legal';
 @use 'pages/dashboard';
