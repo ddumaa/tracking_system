@@ -47,7 +47,7 @@ public interface UserRepository extends JpaRepository <User, Long> {
         SELECT u FROM User u
         LEFT JOIN u.subscription us
         LEFT JOIN us.subscriptionPlan sp
-        WHERE (:search IS NULL OR LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')))
+        WHERE (:search = '' OR u.email LIKE CONCAT('%', :search, '%'))
           AND (:role IS NULL OR u.role = :role)
           AND (:subscription IS NULL OR sp.name = :subscription)
         """)

@@ -179,8 +179,13 @@ public class AdminService {
             }
         }
 
-        List<User> users = userRepository.findByFilters(search, roleEnum, subscription);
+        List<User> users = userRepository.findByFilters(
+                search != null ? search : "",
+                roleEnum,
+                subscription
+        );
         List<UserListAdminInfoDTO> result = new java.util.ArrayList<>();
+
         for (User u : users) {
             String planName = Optional.ofNullable(u.getSubscription())
                     .map(UserSubscription::getSubscriptionPlan)
