@@ -9,7 +9,7 @@
 </head>
 
 <div layout:fragment="afterHeader"
-     th:with="items=${T(java.util.List).of(T(java.util.Map).of('url', null, 'label','Админ Панель'))}">
+     th:with="items=${#lists.list(#maps.map('url','', 'label','Админ Панель'))}">
     <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${items})}"></div>
 </div>
 

@@ -9,9 +9,9 @@
 </head>
 
 <div layout:fragment="afterHeader"
-     th:with="items=${T(java.util.List).of(T(java.util.Map).of('url','/admin','label','Админ Панель'),
-                                            T(java.util.Map).of('url','/admin/users','label','Пользователи'),
-                                            T(java.util.Map).of('url', null, 'label','Информация о пользователе'))}">
+     th:with="items=${#lists.list(#maps.map('url','/admin','label','Админ Панель'),
+                                            #maps.map('url','/admin/users','label','Пользователи'),
+                                            #maps.map('url','', 'label','Информация о пользователе'))}">
     <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${items})}"></div>
 </div>
 

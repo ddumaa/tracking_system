@@ -4,9 +4,9 @@
     <title layout:fragment="title">Детали посылки</title>
 </head>
 <div layout:fragment="afterHeader"
-     th:with="items=${T(java.util.List).of(T(java.util.Map).of('url','/admin','label','Админ Панель'),
-                                            T(java.util.Map).of('url','/admin/parcels','label','Посылки'),
-                                            T(java.util.Map).of('url', null, 'label','Детали посылки'))}">
+     th:with="items=${#lists.list(#maps.map('url','/admin','label','Админ Панель'),
+                                            #maps.map('url','/admin/parcels','label','Посылки'),
+                                            #maps.map('url','', 'label','Детали посылки'))}">
     <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${items})}"></div>
 </div>
 
