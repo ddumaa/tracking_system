@@ -4,6 +4,7 @@ import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.dto.TrackParcelAdminInfoDTO;
 import com.project.tracking_system.dto.UserDetailsAdminInfoDTO;
 import com.project.tracking_system.dto.UserListAdminInfoDTO;
+import com.project.tracking_system.dto.BreadcrumbItemDTO;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.UserSubscription;
@@ -77,6 +78,12 @@ public class AdminController {
         model.addAttribute("telegramBound", telegramBound);
         model.addAttribute("storesCount", storesCount);
 
+        // Хлебные крошки
+        List<BreadcrumbItemDTO> breadcrumbs = List.of(
+                new BreadcrumbItemDTO("Админ Панель", "")
+        );
+        model.addAttribute("breadcrumbs", breadcrumbs);
+
         return "admin/dashboard";
     }
 
@@ -101,6 +108,13 @@ public class AdminController {
         model.addAttribute("search", search);
         model.addAttribute("selectedRole", role);
         model.addAttribute("selectedSubscription", subscription);
+
+        // Хлебные крошки
+        List<BreadcrumbItemDTO> breadcrumbs = List.of(
+                new BreadcrumbItemDTO("Админ Панель", "/admin"),
+                new BreadcrumbItemDTO("Пользователи", "")
+        );
+        model.addAttribute("breadcrumbs", breadcrumbs);
         return "admin/user-list";
     }
 
@@ -115,6 +129,14 @@ public class AdminController {
     @GetMapping("/users/new")
     public String newUserForm(Model model) {
         model.addAttribute("plans", adminService.getPlans());
+
+        // Хлебные крошки
+        List<BreadcrumbItemDTO> breadcrumbs = List.of(
+                new BreadcrumbItemDTO("Админ Панель", "/admin"),
+                new BreadcrumbItemDTO("Пользователи", "/admin/users"),
+                new BreadcrumbItemDTO("Новый пользователь", "")
+        );
+        model.addAttribute("breadcrumbs", breadcrumbs);
         return "admin/user-new";
     }
 
@@ -190,6 +212,14 @@ public class AdminController {
         model.addAttribute("user", adminInfoDTO);
         model.addAttribute("stores", stores); // Передаём магазины
         model.addAttribute("storeParcels", storeParcels); // Передаём посылки по магазинам
+
+        // Хлебные крошки
+        List<BreadcrumbItemDTO> breadcrumbs = List.of(
+                new BreadcrumbItemDTO("Админ Панель", "/admin"),
+                new BreadcrumbItemDTO("Пользователи", "/admin/users"),
+                new BreadcrumbItemDTO("Информация о пользователе", "")
+        );
+        model.addAttribute("breadcrumbs", breadcrumbs);
         return "admin/user-details";
     }
 
@@ -278,6 +308,13 @@ public class AdminController {
         model.addAttribute("totalCustomers", total);
         model.addAttribute("unreliablePercent", String.format("%.2f", percent));
         model.addAttribute("riskCustomers", adminService.getUnreliableCustomers());
+
+        // Хлебные крошки
+        List<BreadcrumbItemDTO> breadcrumbs = List.of(
+                new BreadcrumbItemDTO("Админ Панель", "/admin"),
+                new BreadcrumbItemDTO("Покупатели", "")
+        );
+        model.addAttribute("breadcrumbs", breadcrumbs);
         return "admin/customers";
     }
 
@@ -303,6 +340,13 @@ public class AdminController {
         model.addAttribute("boundCustomers", adminService.countTelegramBoundCustomers());
         model.addAttribute("remindersEnabled", adminService.countStoresWithReminders());
         model.addAttribute("logs", adminService.getRecentLogs());
+
+        // Хлебные крошки
+        List<BreadcrumbItemDTO> breadcrumbs = List.of(
+                new BreadcrumbItemDTO("Админ Панель", "/admin"),
+                new BreadcrumbItemDTO("Telegram", "")
+        );
+        model.addAttribute("breadcrumbs", breadcrumbs);
         return "admin/telegram";
     }
 
@@ -315,6 +359,13 @@ public class AdminController {
     @GetMapping("/stores")
     public String stores(Model model) {
         model.addAttribute("stores", adminService.getStoresInfo());
+
+        // Хлебные крошки
+        List<BreadcrumbItemDTO> breadcrumbs = List.of(
+                new BreadcrumbItemDTO("Админ Панель", "/admin"),
+                new BreadcrumbItemDTO("Магазины", "")
+        );
+        model.addAttribute("breadcrumbs", breadcrumbs);
         return "admin/stores";
     }
 
@@ -335,6 +386,13 @@ public class AdminController {
         model.addAttribute("currentPage", parcelPage.getNumber());
         model.addAttribute("totalPages", parcelPage.getTotalPages());
         model.addAttribute("size", size);
+
+        // Хлебные крошки
+        List<BreadcrumbItemDTO> breadcrumbs = List.of(
+                new BreadcrumbItemDTO("Админ Панель", "/admin"),
+                new BreadcrumbItemDTO("Посылки", "")
+        );
+        model.addAttribute("breadcrumbs", breadcrumbs);
 
         return "admin/parcels";
     }
@@ -364,6 +422,14 @@ public class AdminController {
     @GetMapping("/parcels/{id}")
     public String parcelDetails(@PathVariable Long id, Model model) {
         model.addAttribute("parcel", adminService.getParcelById(id));
+
+        // Хлебные крошки
+        List<BreadcrumbItemDTO> breadcrumbs = List.of(
+                new BreadcrumbItemDTO("Админ Панель", "/admin"),
+                new BreadcrumbItemDTO("Посылки", "/admin/parcels"),
+                new BreadcrumbItemDTO("Детали посылки", "")
+        );
+        model.addAttribute("breadcrumbs", breadcrumbs);
         return "admin/parcel-details";
     }
 
@@ -401,6 +467,13 @@ public class AdminController {
     public String subscriptions(Model model) {
         model.addAttribute("subscriptions", adminService.getAllUserSubscriptions());
         model.addAttribute("plans", adminService.getPlans());
+
+        // Хлебные крошки
+        List<BreadcrumbItemDTO> breadcrumbs = List.of(
+                new BreadcrumbItemDTO("Админ Панель", "/admin"),
+                new BreadcrumbItemDTO("Подписки", "")
+        );
+        model.addAttribute("breadcrumbs", breadcrumbs);
         return "admin/subscriptions";
     }
 
@@ -414,6 +487,13 @@ public class AdminController {
         model.addAttribute("appVersion", appInfoService.getApplicationVersion());
         model.addAttribute("webhookEnabled", appInfoService.isTelegramWebhookEnabled());
         model.addAttribute("plans", appInfoService.getPlans());
+
+        // Хлебные крошки
+        List<BreadcrumbItemDTO> breadcrumbs = List.of(
+                new BreadcrumbItemDTO("Админ Панель", "/admin"),
+                new BreadcrumbItemDTO("Настройки", "")
+        );
+        model.addAttribute("breadcrumbs", breadcrumbs);
         return "admin/settings";
     }
 

@@ -3,11 +3,8 @@
 <head>
     <title layout:fragment="title">Детали посылки</title>
 </head>
-<div layout:fragment="afterHeader"
-     th:with="items=${#lists.list(#maps.map('url','/admin','label','Админ Панель'),
-                                            #maps.map('url','/admin/parcels','label','Посылки'),
-                                            #maps.map('url','', 'label','Детали посылки'))}">
-    <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${items})}"></div>
+<div layout:fragment="afterHeader">
+    <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${breadcrumbs})}"></div>
 </div>
 
 <main layout:fragment="content">
