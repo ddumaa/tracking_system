@@ -26,6 +26,12 @@
     font-weight: 600;
     color: vars.$dark;
     text-align: center;
+
+    .metric-icon {
+      margin-right: 8px;
+      font-size: 1.3rem;
+      color: inherit;
+    }
   }
 
   .card-text {
@@ -33,6 +39,23 @@
     font-weight: 700;
     color: vars.$primary;
     text-align: center;
+  }
+
+  &.bg-primary,
+  &.bg-success,
+  &.bg-warning,
+  &.bg-info,
+  &.bg-secondary,
+  &.bg-dark,
+  &.bg-danger {
+    .card-title,
+    .card-text {
+      color: vars.$white;
+    }
+
+    i {
+      color: vars.$white;
+    }
   }
 }
 
