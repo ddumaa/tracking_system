@@ -8,10 +8,8 @@
     <title layout:fragment="title">Список пользователей</title>
 </head>
 
-<div layout:fragment="afterHeader"
-     th:with="items=${#lists.list(#maps.map('url','/admin','label','Админ Панель'),
-                                            #maps.map('url','', 'label','Пользователи'))}">
-    <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${items})}"></div>
+<div layout:fragment="afterHeader">
+    <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${breadcrumbs})}"></div>
 </div>
 
 <main layout:fragment="content">
