@@ -177,6 +177,31 @@ public class StoreService {
     }
 
     /**
+     * Создаёт магазин по умолчанию для указанного пользователя.
+     * <p>
+     * Использует внутренний метод {@link #createStore(Long, String)} для создания магазина
+     * с названием "Мой магазин", после чего устанавливает флаг {@code default = true} и сохраняет изменения.
+     * <p>
+     * В процессе также:
+     * <ul>
+     *     <li>Создаётся объект {@code StoreStatistics} для аналитики;</li>
+     *     <li>Создаются записи {@code PostalServiceStatistics} для всех служб доставки;</li>
+     *     <li>Создаются настройки Telegram уведомлений {@code StoreTelegramSettings}.</li>
+     * </ul>
+     *
+     * @param user пользователь, для которого создаётся магазин
+     * @return созданный магазин с флагом {@code default = true}
+     * @throws IllegalArgumentException если пользователь не найден или превышен лимит магазинов
+     * @throws IllegalStateException    если отсутствует активная подписка
+     */
+    @Transactional
+    public Store createDefaultStoreForUser(User user) {
+        Store store = createStore(user.getId(), "Мой магазин");
+        store.setDefault(true);
+        return storeRepository.save(store);
+    }
+
+    /**
      * Обновить название магазина.
      *
      * @param storeId ID магазина, который нужно обновить.

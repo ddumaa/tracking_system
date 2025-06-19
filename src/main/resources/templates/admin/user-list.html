@@ -32,7 +32,11 @@
         <div class="col-12">
             <select class="form-select" name="subscription">
                 <option value="">Все подписки</option>
-                <option th:each="p : ${plans}" th:value="${p.name}" th:text="${p.name}" th:selected="${selectedSubscription == p.name}"></option>
+                <option th:each="p : ${plans}"
+                        th:value="${p.code.name()}"
+                        th:text="${p.code.displayName}"
+                        th:selected="${selectedSubscription?.name() == p.code.name()}">
+                </option>
             </select>
         </div>
         <div class="col-12">
@@ -55,9 +59,9 @@
             <td th:text="${user.id}"></td>
             <td th:text="${user.email}"></td>
             <td th:text="${user.role}"></td>
-            <td th:text="${user.subscriptionPlanName}"></td>
+            <td th:text="${user.getSubscriptionPlanCode().getDisplayName()}"></td>
             <td>
-                <a th:href="@{/admin/users/{usersId}(usersId=${user.id})}" class="btn btn-info btn-sm">Подробнее</a>
+                <a th:href="@{/admin/users/{userId}(userId=${user.id})}" class="btn btn-info btn-sm">Подробнее</a>
             </td>
         </tr>
         </tbody>

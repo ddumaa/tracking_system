@@ -105,10 +105,9 @@
                     <div class="row mb-2">
                         <div class="col-sm-4 text-muted">Тариф</div>
                         <div class="col-sm-8">
-                            <span th:if="${userProfile.subscriptionPlan == 'PREMIUM'}"
-                                  class="badge bg-success">PREMIUM</span>
-                            <span th:if="${userProfile.subscriptionPlan == 'FREE'}"
-                                  class="badge bg-secondary">FREE</span>
+                            <span th:class="'badge ' + (${userProfile.subscriptionCode.name() == 'PREMIUM'} ? 'bg-success' : 'bg-secondary')"
+                                  th:text="${userProfile.subscriptionDisplayName}">
+                            </span>
                         </div>
                     </div>
                     <div class="row mb-2">

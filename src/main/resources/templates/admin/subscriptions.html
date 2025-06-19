@@ -20,13 +20,17 @@
         <tbody>
         <tr th:each="s : ${subscriptions}">
             <td th:text="${s.user.email}"></td>
-            <td th:text="${s.subscriptionPlan.name}"></td>
+            <td th:text="${s.subscriptionPlan.getCode().getDisplayName()}"></td>
             <td th:text="${s.subscriptionEndDate}"></td>
             <td>
                 <form th:action="@{/admin/users/{id}/change-subscription(id=${s.user.id})}" method="post" class="d-flex">
                     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                     <select name="subscriptionPlan" class="form-select form-select-sm me-2">
-                        <option th:each="p : ${plans}" th:value="${p.name}" th:text="${p.name}" th:selected="${p.name == s.subscriptionPlan.name}"></option>
+                        <option th:each="p : ${plans}"
+                                th:value="${p.code}"
+                                th:text="${p.code.displayName}"
+                                th:selected="${p.code == s.subscriptionPlan.code}">
+                        </option>
                     </select>
                     <input type="number" name="months" value="1" min="1" class="form-control form-control-sm me-2" />
                     <button type="submit" class="btn btn-success btn-sm">Сохранить</button>

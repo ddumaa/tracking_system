@@ -5,10 +5,7 @@ import com.project.tracking_system.dto.TrackParcelAdminInfoDTO;
 import com.project.tracking_system.dto.UserDetailsAdminInfoDTO;
 import com.project.tracking_system.dto.UserListAdminInfoDTO;
 import com.project.tracking_system.dto.BreadcrumbItemDTO;
-import com.project.tracking_system.entity.Store;
-import com.project.tracking_system.entity.User;
-import com.project.tracking_system.entity.UserSubscription;
-import com.project.tracking_system.entity.Role;
+import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.analytics.StatsAggregationService;
@@ -64,7 +61,7 @@ public class AdminController {
     @GetMapping()
     public String adminDashboard(Model model) {
         long totalUsers = userService.countUsers();
-        long paidUsers = userService.countUsersBySubscriptionPlan("PREMIUM");
+        long paidUsers = userService.countUsersBySubscriptionPlan(SubscriptionCode.PREMIUM);
         long totalParcels = trackParcelService.countAllParcels();
         long totalCustomers = adminService.countCustomers();
         long telegramBound = adminService.countTelegramBoundCustomers();
@@ -99,7 +96,7 @@ public class AdminController {
     @GetMapping("/users")
     public String getAllUsers(@RequestParam(value = "search", required = false) String search,
                               @RequestParam(value = "role", required = false) String role,
-                              @RequestParam(value = "subscription", required = false) String subscription,
+                              @RequestParam(value = "subscription", required = false) SubscriptionCode subscription,
                               Model model) {
         List<UserListAdminInfoDTO> users = adminService.getUsers(search, role, subscription);
         model.addAttribute("users", users);
@@ -154,17 +151,18 @@ public class AdminController {
     public String createUser(@RequestParam String email,
                              @RequestParam String password,
                              @RequestParam String role,
-                             @RequestParam("subscriptionPlan") String subscriptionPlan,
+                             @RequestParam("subscriptionPlan") SubscriptionCode subscriptionCode,
                              Model model) {
         try {
-            userService.createUserByAdmin(email, password, role, subscriptionPlan);
+            userService.createUserByAdmin(email, password, role, subscriptionCode);
             return "redirect:/admin/users";
         } catch (Exception e) {
             model.addAttribute("errorMessage", e.getMessage());
-            model.addAttribute("plans", adminService.getPlans());
+            model.addAttribute("plans", SubscriptionCode.values());
             return "admin/user-new";
         }
     }
+
 
     /**
      * Отображает детальную информацию о выбранном пользователе.
@@ -191,27 +189,33 @@ public class AdminController {
 
         // Получаем подписку пользователя (если есть)
         UserSubscription subscription = user.getSubscription();
-        String subscriptionName = (subscription != null)
-                ? subscription.getSubscriptionPlan().getName()
-                : "NONE"; // Если подписки нет, указываем "NONE" или "FREE"
 
+        SubscriptionCode code = null;
         String subscriptionEndDate = null;
-        if (subscription != null && subscription.getSubscriptionEndDate() != null) {
-            subscriptionEndDate = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-                    .format(subscription.getSubscriptionEndDate());
+
+        if (subscription != null) {
+            SubscriptionPlan plan = subscription.getSubscriptionPlan();
+            if (plan != null) {
+                code = plan.getCode(); // enum
+            }
+
+            if (subscription.getSubscriptionEndDate() != null) {
+                subscriptionEndDate = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                        .format(subscription.getSubscriptionEndDate());
+            }
         }
 
         UserDetailsAdminInfoDTO adminInfoDTO = new UserDetailsAdminInfoDTO(
                 user.getId(),
                 user.getEmail(),
                 user.getRole(),
-                subscriptionName,
+                code,
                 subscriptionEndDate
         );
 
         model.addAttribute("user", adminInfoDTO);
-        model.addAttribute("stores", stores); // Передаём магазины
-        model.addAttribute("storeParcels", storeParcels); // Передаём посылки по магазинам
+        model.addAttribute("stores", stores);
+        model.addAttribute("storeParcels", storeParcels);
 
         // Хлебные крошки
         List<BreadcrumbItemDTO> breadcrumbs = List.of(
@@ -220,9 +224,9 @@ public class AdminController {
                 new BreadcrumbItemDTO("Информация о пользователе", "")
         );
         model.addAttribute("breadcrumbs", breadcrumbs);
+
         return "admin/user-details";
     }
-
 
     /**
      * Обновляет роль пользователя.
@@ -251,16 +255,15 @@ public class AdminController {
      */
     @PostMapping("/users/{userId}/change-subscription")
     public String changeUserSubscription(@PathVariable Long userId,
-                                         @RequestParam("subscriptionPlan") String subscriptionPlan,
+                                         @RequestParam("subscriptionPlan") SubscriptionCode subscriptionPlan,
                                          @RequestParam(value = "months", required = false) Integer months) {
-        // Проверяем, если месяц не передан, ставим значение по умолчанию 1
-        if ("PREMIUM".equalsIgnoreCase(subscriptionPlan)) {
-            if (months == null) {
-                months = 1;
+        if (subscriptionPlan == SubscriptionCode.PREMIUM) {
+            if (months == null || months <= 0) {
+                months = 1; // защита от некорректных значений
             }
-            subscriptionService.upgradeOrExtendSubscription(userId, months); // Продление платной подписки
+            subscriptionService.upgradeOrExtendSubscription(userId, months);
         } else {
-            subscriptionService.changeSubscription(userId, subscriptionPlan, null);  // Смена подписки
+            subscriptionService.changeSubscription(userId, subscriptionPlan, null);
         }
         return "redirect:/admin/users/" + userId;
     }

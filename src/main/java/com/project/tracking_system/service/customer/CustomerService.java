@@ -1,18 +1,12 @@
 package com.project.tracking_system.service.customer;
 
-import com.project.tracking_system.entity.Customer;
-import com.project.tracking_system.entity.TrackParcel;
-import com.project.tracking_system.entity.Store;
-import com.project.tracking_system.entity.User;
-import com.project.tracking_system.entity.UserSubscription;
-import com.project.tracking_system.entity.SubscriptionPlan;
+import com.project.tracking_system.entity.*;
 import com.project.tracking_system.dto.CustomerInfoDTO;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import com.project.tracking_system.service.customer.CustomerTransactionalService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -220,13 +214,12 @@ public class CustomerService {
         }
 
         // Определяем активную подписку владельца магазина
-        String planName = Optional.ofNullable(store.getOwner())
+        return Optional.ofNullable(store.getOwner())
                 .map(User::getSubscription)
                 .map(UserSubscription::getSubscriptionPlan)
-                .map(SubscriptionPlan::getName)
-                .orElse(null);
-
-        return "PREMIUM".equals(planName);
+                .map(SubscriptionPlan::getCode)
+                .map(code -> code == SubscriptionCode.PREMIUM)
+                .orElse(false);
     }
 
     private CustomerInfoDTO toInfoDto(Customer customer) {
