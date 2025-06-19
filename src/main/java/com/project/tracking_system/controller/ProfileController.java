@@ -66,11 +66,15 @@ public class ProfileController {
 
         String storeLimit = userService.getUserStoreLimit(userId);
 
+        // Получаем информацию о профиле пользователя
+        var userProfile = userService.getUserProfile(userId);
+
         // Загружаем магазины с настройками Telegram
         List<Store> stores = storeService.getUserStoresWithSettings(userId);
 
         // Добавляем данные профиля в модель
         model.addAttribute("username", user.getEmail());
+        model.addAttribute("userProfile", userProfile);
         model.addAttribute("storeLimit", storeLimit);
         model.addAttribute("stores", stores);
         log.debug("Данные профиля добавлены в модель для пользователя с ID: {}", userId);
