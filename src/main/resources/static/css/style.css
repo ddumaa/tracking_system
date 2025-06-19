@@ -488,6 +488,7 @@ header .mobile-nav.active {
 .tab-pane.active {
   opacity: 1;
   transform: translateY(0);
+  background-color: #f9f9f9;
 }
 
 @media (max-width: 768px) {
@@ -1381,6 +1382,13 @@ body.loading {
   transform: translate(-50%, -50%);
   text-align: center;
   opacity: 0.6;
+}
+
+@media (min-width: 768px) {
+  .sticky-sidebar {
+    position: sticky;
+    top: 1rem;
+  }
 }
 
 /*# sourceMappingURL=style.css.map */

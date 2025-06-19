@@ -1236,6 +1236,28 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
+    // Запоминание активной вкладки и анимация при переключении
+    const tabKey = "profileActiveTab";
+    const tabLinks = document.querySelectorAll('#v-pills-tab a');
+    const savedTab = localStorage.getItem(tabKey);
+    if (savedTab) {
+        const triggerEl = document.querySelector(`[href="${savedTab}"]`);
+        if (triggerEl) new bootstrap.Tab(triggerEl).show();
+    }
+    tabLinks.forEach(link => {
+        link.addEventListener('shown.bs.tab', e => {
+            const href = e.target.getAttribute('href');
+            localStorage.setItem(tabKey, href);
+            const pane = document.querySelector(href);
+            if (pane) {
+                pane.classList.add('animate__animated', 'animate__fadeIn');
+                pane.addEventListener('animationend', () => {
+                    pane.classList.remove('animate__animated', 'animate__fadeIn');
+                }, { once: true });
+            }
+        });
+    });
+
     // Логика показа/скрытия пароля
     document.querySelectorAll(".toggle-password").forEach(button => {
         button.addEventListener("click", function () {

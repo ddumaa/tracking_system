@@ -13,8 +13,8 @@
         <div class="row">
 
             <!-- Плавающая кнопка вызова меню (мобильная версия) -->
-            <button class="menu-toggle d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#settingsSidebar">
-                <i class="bi bi-gear"></i>
+            <button class="menu-toggle d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#settingsSidebar" title="Меню настроек">
+                <i class="bi bi-gear" title="Меню"></i>
             </button>
 
             <!-- Offcanvas боковая панель -->
@@ -26,22 +26,22 @@
                 <div class="offcanvas-body">
                     <div class="nav flex-column nav-pills" id="v-pills-tab" role="tablist" aria-orientation="vertical">
                         <a class="nav-link active d-flex align-items-center" id="v-pills-home-tab" data-bs-toggle="pill" href="#v-pills-home" role="tab">
-                            <i class="bi bi-person me-2"></i> Об аккаунте
+                            <i class="bi bi-person me-2" title="Об аккаунте"></i> Об аккаунте
                         </a>
                         <a class="nav-link d-flex align-items-center" id="stores-settings-link" data-bs-toggle="pill" href="#v-pills-stores" role="tab">
-                            <i class="bi bi-shop me-2"></i> Мои магазины
+                            <i class="bi bi-shop me-2" title="Мои магазины"></i> Мои магазины
                         </a>
                         <a class="nav-link d-flex align-items-center" id="password-settings-link" data-bs-toggle="pill" href="#v-pills-profile" role="tab">
-                            <i class="bi bi-key me-2"></i> Изменить пароль
+                            <i class="bi bi-key me-2" title="Изменить пароль"></i> Изменить пароль
                         </a>
                         <a class="nav-link d-flex align-items-center" id="evropost-settings-link" data-bs-toggle="pill" href="#v-pills-evropost" role="tab">
-                            <i class="bi bi-truck me-2"></i> Европочта
+                            <i class="bi bi-truck me-2" title="Европочта"></i> Европочта
                         </a>
                         <a class="nav-link d-flex align-items-center" id="belpost-settings-link" data-bs-toggle="pill" href="#v-pills-belpost" role="tab">
-                            <i class="bi bi-envelope me-2"></i> Белпочта
+                            <i class="bi bi-envelope me-2" title="Белпочта"></i> Белпочта
                         </a>
                         <a class="nav-link d-flex align-items-center text-danger" id="v-pills-messages-tab" data-bs-toggle="pill" href="#v-pills-messages" role="tab">
-                            <i class="bi bi-trash me-2"></i> Удалить аккаунт
+                            <i class="bi bi-trash me-2" title="Удалить аккаунт"></i> Удалить аккаунт
                         </a>
                     </div>
                 </div>
@@ -49,26 +49,26 @@
 
             <!-- Боковое меню (для ПК и планшетов) -->
             <div class="col-lg-3 col-md-4 d-none d-md-block">
-                <div class="card shadow-sm p-3 rounded-4">
+                <div class="card shadow-sm p-4 rounded-4 sticky-sidebar">
                     <h5 class="mb-3 text-center">Меню</h5>
                     <div class="nav flex-column nav-pills" id="v-pills-tab" role="tablist" aria-orientation="vertical">
                         <a class="nav-link active d-flex align-items-center" id="v-pills-home-tab" data-bs-toggle="pill" href="#v-pills-home" role="tab">
-                            <i class="bi bi-person me-2"></i> Об аккаунте
+                            <i class="bi bi-person me-2" title="Об аккаунте"></i> Об аккаунте
                         </a>
                         <a class="nav-link d-flex align-items-center" id="stores-settings-link" data-bs-toggle="pill" href="#v-pills-stores" role="tab">
-                            <i class="bi bi-shop me-2"></i> Мои магазины
+                            <i class="bi bi-shop me-2" title="Мои магазины"></i> Мои магазины
                         </a>
                         <a class="nav-link d-flex align-items-center" id="password-settings-link" data-bs-toggle="pill" href="#v-pills-profile" role="tab">
-                            <i class="bi bi-key me-2"></i> Изменить пароль
+                            <i class="bi bi-key me-2" title="Изменить пароль"></i> Изменить пароль
                         </a>
                         <a class="nav-link d-flex align-items-center" id="evropost-settings-link" data-bs-toggle="pill" href="#v-pills-evropost" role="tab">
-                            <i class="bi bi-truck me-2"></i> Европочта
+                            <i class="bi bi-truck me-2" title="Европочта"></i> Европочта
                         </a>
                         <a class="nav-link d-flex align-items-center" id="belpost-settings-link" data-bs-toggle="pill" href="#v-pills-belpost" role="tab">
-                            <i class="bi bi-envelope me-2"></i> Белпочта
+                            <i class="bi bi-envelope me-2" title="Белпочта"></i> Белпочта
                         </a>
                         <a class="nav-link d-flex align-items-center text-danger" id="v-pills-messages-tab" data-bs-toggle="pill" href="#v-pills-messages" role="tab">
-                            <i class="bi bi-trash me-2"></i> Удалить аккаунт
+                            <i class="bi bi-trash me-2" title="Удалить аккаунт"></i> Удалить аккаунт
                         </a>
                     </div>
                 </div>
@@ -85,7 +85,10 @@
                     </div>
                     <div class="row mb-2">
                         <div class="col-sm-4 text-muted">Тариф</div>
-                        <div class="col-sm-8" th:text="${userProfile.subscriptionPlan}"></div>
+                        <div class="col-sm-8">
+                            <span th:if="${userProfile.subscriptionPlan == 'PREMIUM'}" class="badge bg-success">PREMIUM</span>
+                            <span th:if="${userProfile.subscriptionPlan == 'FREE'}" class="badge bg-secondary">FREE</span>
+                        </div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-sm-4 text-muted">Оплачено до</div>
@@ -245,7 +248,7 @@
                                     <div th:errors="*{serviceNumber}" class="text-danger"></div>
                                 </div>
 
-                                <button class="btn btn-primary w-100 py-2" type="submit">Сохранить данные</button>
+                                <button class="btn btn-primary btn-sm w-100" type="submit">Сохранить данные</button>
                             </div>
                         </form>
                     </div>
@@ -364,7 +367,7 @@
                     <input type="text" class="form-control form-control-sm" th:id="'tg-sign-' + ${store.id}" name="customSignature"
                            th:value="${store.telegramSettings?.customSignature}" maxlength="200">
                 </div>
-                <button type="submit" class="btn btn-sm btn-primary">Сохранить</button>
+                <button type="submit" class="btn btn-sm btn-primary w-100">Сохранить</button>
             </form>
         </div>
     </div>
