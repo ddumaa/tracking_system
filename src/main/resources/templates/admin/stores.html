@@ -3,8 +3,13 @@
 <head>
     <title layout:fragment="title">Магазины</title>
 </head>
+<div layout:fragment="afterHeader"
+     th:with="items=${T(java.util.List).of(T(java.util.Map).of('url','/admin','label','Админ Панель'),
+                                            T(java.util.Map).of('url', null, 'label','Магазины'))}">
+    <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${items})}"></div>
+</div>
+
 <main layout:fragment="content">
-    <a href="/admin" class="btn btn-primary mb-4">Админ Панель</a>
     <table class="table table-bordered table-striped">
         <thead>
         <tr>
