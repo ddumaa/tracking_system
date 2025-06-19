@@ -1,11 +1,12 @@
 @use '../abstracts/_variables.scss' as vars;
 @use '../abstracts/_mixins.scss' as mixins;
+@use '../ui' as ui;
 
 .auth-form {
   width: 100%;
   max-width: 400px;
   background: vars.$white;
-  border-radius: 10px;
+  border-radius: ui.$border-radius;
 }
 
 .form-signin {
@@ -34,7 +35,7 @@
   padding-right: 3.5rem !important;
   height: 40px;
   line-height: normal;
-  border-radius: 5px;
+  border-radius: ui.$border-radius;
 }
 
 .toggle-password {
@@ -66,13 +67,13 @@
 
 .input-group {
   @include mixins.box-shadow(0px, 2px, 5px);
-  border-radius: 8px;
+  border-radius: ui.$border-radius;
 
   input {
-    border-radius: 8px 0 0 8px;
+    border-radius: ui.$border-radius 0 0 ui.$border-radius;
   }
 
   .btn {
-    border-radius: 0 8px 8px 0;
+    border-radius: 0 ui.$border-radius ui.$border-radius 0;
   }
 }
