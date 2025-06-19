@@ -11,7 +11,7 @@
 
     <div class="row mb-4">
         <div class="col-md-6">
-            <div th:replace="~{partials/card :: card(~{::content}, 'custom-card')}">
+            <div class="card shadow-sm custom-card">
                 <div class="card-body">
                     <h5 class="card-title text-center">Покупателей с Telegram</h5>
                     <p class="card-text text-center" th:text="${boundCustomers}"></p>
@@ -19,7 +19,7 @@
             </div>
         </div>
         <div class="col-md-6">
-            <div th:replace="~{partials/card :: card(~{::content}, 'custom-card')}">
+            <div class="card shadow-sm custom-card">
                 <div class="card-body">
                     <h5 class="card-title text-center">Магазинов с напоминаниями</h5>
                     <p class="card-text text-center" th:text="${remindersEnabled}"></p>

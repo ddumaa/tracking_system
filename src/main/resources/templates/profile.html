@@ -49,7 +49,7 @@
 
             <!-- Боковое меню (для ПК и планшетов) -->
             <div class="col-lg-3 col-md-4 d-none d-md-block">
-                <div th:replace="~{partials/card :: card(~{::content}, 'p-3')}">
+                <div class="card shadow-sm p-3 rounded-4">
                     <h5 class="mb-3 text-center">Меню</h5>
                     <div class="nav flex-column nav-pills" id="v-pills-tab" role="tablist" aria-orientation="vertical">
                         <a class="nav-link active d-flex align-items-center" id="v-pills-home-tab" data-bs-toggle="pill" href="#v-pills-home" role="tab">
@@ -76,15 +76,12 @@
 
             <!-- Контент вкладок -->
             <div class="col-lg-9 col-md-8 tab-content" id="v-pills-tabContent">
-                <div class="tab-pane fade show active" id="v-pills-home" role="tabpanel">
-                    <div th:replace="~{partials/card :: card(~{::content}, 'p-4')}">
-                        <h5 class="mb-3">Об аккаунте</h5>
-                        <p>Тут просто информация.</p>
-                    </div>
+                <div class="tab-pane fade show active card p-4 shadow-sm rounded-4" id="v-pills-home" role="tabpanel">
+                    <h5 class="mb-3">Об аккаунте</h5>
+                    <p>Тут просто информация.</p>
                 </div>
 
-                <div class="tab-pane fade" id="v-pills-stores" role="tabpanel">
-                    <div th:replace="~{partials/card :: card(~{::content}, 'p-4')}">
+                <div class="tab-pane fade card p-4 shadow-sm rounded-4" id="v-pills-stores" role="tabpanel">
 
                     <!-- Контейнер для уведомлений -->
                     <div id="storeNotificationContainer"></div>
@@ -131,8 +128,9 @@
                     </div>
                 </div>
 
-                <div class="tab-pane fade" id="v-pills-profile" role="tabpanel">
-                    <div th:replace="~{partials/card :: card(~{::content}, 'p-4')}">
+                <div class="tab-pane fade card p-4 shadow-sm rounded-4"
+                     id="v-pills-profile"
+                     role="tabpanel">
 
                     <div id="password-content" th:fragment="passwordFragment">
 
@@ -181,8 +179,9 @@
                     </div>
                 </div>
 
-                <div class="tab-pane fade" id="v-pills-evropost" role="tabpanel">
-                    <div th:replace="~{partials/card :: card(~{::content}, 'p-4')}">
+                <div class="tab-pane fade card p-4 shadow-sm rounded-4"
+                     id="v-pills-evropost"
+                     role="tabpanel">
 
                     <!-- Контейнер для уведомлений -->
                     <div id="evropostNotificationContainer"></div>
@@ -236,8 +235,9 @@
                     </div>
                 </div>
 
-                <div class="tab-pane fade" id="v-pills-belpost" role="tabpanel">
-                    <div th:replace="~{partials/card :: card(~{::content}, 'p-4')}">
+                <div class="tab-pane fade card p-4 shadow-sm rounded-4"
+                     id="v-pills-belpost"
+                     role="tabpanel">
 
                     <h5 class="mb-3">Белпочта</h5>
                     <p>Если у вас есть договор на API Белпочты, свяжитесь со мной для реализации интеграции.</p>
@@ -246,11 +246,9 @@
                     <p>
                         📧 <a href="mailto:info@belivery.by" class="text-decoration-none">info@belivery.by</a>
                     </p>
-                    </div>
                 </div>
 
-                <div class="tab-pane fade" id="v-pills-messages" role="tabpanel">
-                    <div th:replace="~{partials/card :: card(~{::content}, 'p-4')}">
+                <div class="tab-pane fade card p-4 shadow-sm rounded-4" id="v-pills-messages" role="tabpanel">
                     <h5 class="mb-3">Удаление аккаунта</h5>
                     <p class="fw-semibold">
                         <strong>Вы уверены, что хотите удалить аккаунт?</strong>
@@ -284,7 +282,6 @@
                     <button class="btn btn-danger w-50 py-2" data-bs-toggle="modal" data-bs-target="#deleteAccountModal">
                         <i class="bi bi-trash"></i> Удалить аккаунт
                     </button>
-                    </div>
                 </div>
             </div>
         </div>
@@ -359,61 +356,73 @@
 
 <div layout:fragment="afterFooter">
     <!-- Модальное окно подтверждения удаления аккаунта -->
-    <div th:replace="~{partials/modal :: modal('deleteAccountModal', '', 'border-danger')}">
-        <div class="modal-header position-relative">
-            <h5 class="modal-title text-danger w-100 text-center position-absolute start-50 translate-middle-x" id="deleteAccountModalLabel">
-                Подтверждение удаления
-            </h5>
-            <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Закрыть"></button>
-        </div>
-        <div class="modal-body">
-            <p class="text-danger fw-semibold text-center">
-                Вы уверены, что хотите удалить аккаунт? Это действие <span class="fw-bold text-uppercase">невозможно</span> отменить.
-            </p>
-        </div>
-        <div class="modal-footer d-flex justify-content-between">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-            <form th:action="@{/profile/settings/delete}" method="post">
-                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                <button class="btn btn-danger">
-                    <i class="bi bi-trash-fill"></i> Да, удалить
-                </button>
-            </form>
+    <div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-labelledby="deleteAccountModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"> <!-- Добавили класс для центрирования -->
+            <div class="modal-content border-danger">
+                <div class="modal-header position-relative">
+                    <h5 class="modal-title text-danger w-100 text-center position-absolute start-50 translate-middle-x" id="deleteAccountModalLabel">
+                        Подтверждение удаления
+                    </h5>
+                    <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-danger fw-semibold text-center">
+                        Вы уверены, что хотите удалить аккаунт? Это действие <span class="fw-bold text-uppercase">невозможно</span> отменить.
+                    </p>
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <form th:action="@{/profile/settings/delete}" method="post">
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                        <button class="btn btn-danger">
+                            <i class="bi bi-trash-fill"></i> Да, удалить
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Модальное окно подтверждения удаления магазина-->
-    <div th:replace="~{partials/modal :: modal('deleteStoreModal', '', 'border-danger')}">
-        <div class="modal-header">
-            <h5 class="modal-title text-danger">Подтверждение удаления</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-            <p class="text-danger fw-semibold text-center">
-                Вы уверены, что хотите <span class="fw-bold">удалить этот магазин</span>?
-                Это действие <span class="fw-bold text-uppercase">невозможно</span> отменить.
-            </p>
-            <p class="text-muted text-center">
-                ❗ Вместе с магазином будут удалены <br>
-                <span class="fw-semibold">все его посылки и аналитика</span>.
-            </p>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-            <button class="btn btn-danger" id="confirmDeleteStore">Да, удалить</button>
+    <div class="modal fade" id="deleteStoreModal" tabindex="-1" aria-labelledby="deleteStoreModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content border-danger">
+                <div class="modal-header">
+                    <h5 class="modal-title text-danger">Подтверждение удаления</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-danger fw-semibold text-center">
+                        Вы уверены, что хотите <span class="fw-bold">удалить этот магазин</span>?
+                        Это действие <span class="fw-bold text-uppercase">невозможно</span> отменить.
+                    </p>
+                    <p class="text-muted text-center">
+                        ❗ Вместе с магазином будут удалены <br>
+                        <span class="fw-semibold">все его посылки и аналитика</span>.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button class="btn btn-danger" id="confirmDeleteStore">Да, удалить</button>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Модальное окно подтверждения очистки аналитики -->
-    <div th:replace="~{partials/modal :: modal('resetAnalyticsModal', '', 'border-danger')}">
-        <div class="modal-header">
-            <h5 class="modal-title text-danger" id="resetAnalyticsModalLabel">Подтверждение действия</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body" id="resetAnalyticsMessage"></div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-            <button class="btn btn-danger" id="confirmResetAnalytics">Да, удалить</button>
+    <div class="modal fade" id="resetAnalyticsModal" tabindex="-1" aria-labelledby="resetAnalyticsModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content border-danger">
+                <div class="modal-header">
+                    <h5 class="modal-title text-danger" id="resetAnalyticsModalLabel">Подтверждение действия</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="resetAnalyticsMessage"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button class="btn btn-danger" id="confirmResetAnalytics">Да, удалить</button>
+                </div>
+            </div>
         </div>
     </div>
 

@@ -1,8 +1,0 @@
-<div th:fragment="modal(id, sizeClass, extraClasses)" class="modal fade" th:id="${id}"
-     tabindex="-1" th:attr="aria-labelledby=${id + 'Label'}" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" th:classappend="${sizeClass}">
-        <div class="modal-content p-4 rounded-4 shadow" th:classappend="${extraClasses}">
-            <th:block th:replace="~{::content}"></th:block>
-        </div>
-    </div>
-</div>
