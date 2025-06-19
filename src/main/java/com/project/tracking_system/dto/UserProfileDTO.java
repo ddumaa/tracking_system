@@ -16,5 +16,7 @@ public class UserProfileDTO {
     private String email; // отображение e-mail, но не редактируемый
     //private String fullName; // опционально, если в будущем понадобится
     private String timezone; // например, "Europe/Minsk"
+    private String subscriptionPlan; // план подписки (FREE или PREMIUM)
+    private String subscriptionEndDate; // дата окончания подписки
 
 }

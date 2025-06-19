@@ -4,6 +4,7 @@ import com.project.tracking_system.dto.EvropostCredentialsDTO;
 import com.project.tracking_system.dto.ResolvedCredentialsDTO;
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.dto.UserSettingsDTO;
+import com.project.tracking_system.dto.UserProfileDTO;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.repository.ConfirmationTokenRepository;
@@ -26,6 +27,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
@@ -473,6 +475,42 @@ public class UserService {
     public ZoneId getUserZone(Long userId) {
         return ZoneId.of(userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден")).getTimeZone());
+    }
+
+    /**
+     * Возвращает профиль пользователя.
+     * <p>
+     * Метод извлекает пользователя и связанную подписку, формируя DTO с основной информацией.
+     * </p>
+     *
+     * @param userId идентификатор пользователя
+     * @return данные профиля пользователя
+     */
+    @Transactional
+    public UserProfileDTO getUserProfile(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+
+        UserSubscription subscription = user.getSubscription();
+
+        String planName = Optional.ofNullable(subscription)
+                .map(UserSubscription::getSubscriptionPlan)
+                .map(SubscriptionPlan::getName)
+                .orElse("NONE");
+
+        String formattedEndDate = null;
+        if (subscription != null && subscription.getSubscriptionEndDate() != null) {
+            formattedEndDate = DateTimeFormatter.ofPattern("dd MMMM yyyy")
+                    .withZone(ZoneId.of(user.getTimeZone()))
+                    .format(subscription.getSubscriptionEndDate());
+        }
+
+        return new UserProfileDTO(
+                user.getEmail(),
+                user.getTimeZone(),
+                planName,
+                formattedEndDate
+        );
     }
 
 }
