@@ -280,19 +280,25 @@ function initTelegramToggle() {
             icon?.classList.add('bi-chevron-up');
         }
 
-        content.addEventListener('shown.bs.collapse', () => {
-            icon?.classList.remove('bi-chevron-down');
-            icon?.classList.add('bi-chevron-up');
-            let ids = getCollapsedTgStores().filter(id => id !== storeId);
-            saveCollapsedTgStores(ids);
-        });
-
-        content.addEventListener('hidden.bs.collapse', () => {
-            icon?.classList.remove('bi-chevron-up');
-            icon?.classList.add('bi-chevron-down');
+        // Обработчик клика по заголовку блока Telegram
+        btn?.addEventListener('click', () => {
+            const isShown = content.classList.contains('show');
             const ids = getCollapsedTgStores();
-            if (!ids.includes(storeId)) ids.push(storeId);
-            saveCollapsedTgStores(ids);
+
+            if (isShown) {
+                // Скрываем блок и запоминаем состояние
+                icon?.classList.remove('bi-chevron-up');
+                icon?.classList.add('bi-chevron-down');
+                if (!ids.includes(storeId)) ids.push(storeId);
+                saveCollapsedTgStores(ids);
+                bsCollapse.hide();
+            } else {
+                // Показываем блок и удаляем id из списка скрытых
+                icon?.classList.remove('bi-chevron-down');
+                icon?.classList.add('bi-chevron-up');
+                saveCollapsedTgStores(ids.filter(id => id !== storeId));
+                bsCollapse.show();
+            }
         });
     });
 }
