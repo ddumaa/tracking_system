@@ -1,3 +1,5 @@
+@use '../ui' as ui;
+
 .text-danger {
   margin-top: 0.5rem;
   display: block;
@@ -13,5 +15,5 @@
 .alert-danger {
   padding: 10px;
   font-size: 0.9rem;
-  border-radius: 8px;
+  border-radius: ui.$border-radius;
 }

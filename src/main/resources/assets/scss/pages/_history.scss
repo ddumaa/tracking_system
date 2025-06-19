@@ -1,6 +1,7 @@
 @use "../abstracts/variables" as vars;
 @use "../abstracts/mixins" as mixins;
 @use "sass:color";
+@use '../ui' as ui;
 
 /* --- Стили для кнопки обновления --- */
 .history-refresh-btn {
@@ -25,13 +26,13 @@
   &:hover {
     transform: rotate(360deg) scale(1.1);  // Вращаем и увеличиваем
     background: rgba(vars.$primary, 0.1);  // Лёгкий фон
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);  // Лёгкая тень
+    box-shadow: ui.$box-shadow;  // Лёгкая тень
   }
 
   /* Эффект нажатия */
   &:active {
     transform: scale(0.95);  // Немного сжимаем при нажатии
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);  // Лёгкая тень при нажатии
+    box-shadow: ui.$box-shadow;  // Лёгкая тень при нажатии
   }
 
   i {
@@ -42,7 +43,7 @@
 /* Фильтр и форма */
 .history-filters {
   background: vars.$white;
-  border-radius: 10px;
+  border-radius: ui.$border-radius;
   padding: 15px;
   @include mixins.box-shadow(0, 4px, 8px);
 
@@ -91,7 +92,7 @@
     width: 22px; // Размер чекбокса
     height: 22px;
     border: 2px solid vars.$primary; // Граница чекбокса
-    border-radius: 5px; // Немного скругляем углы
+    border-radius: ui.$border-radius; // Немного скругляем углы
     display: flex;
     align-items: center;
     justify-content: center;
@@ -141,7 +142,7 @@
     max-width: 150px; // Ограничиваем максимальную ширину
     font-size: 0.9rem;
     padding: 6px 12px;
-    border-radius: 6px;
+    border-radius: ui.$border-radius;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -211,7 +212,7 @@
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  border-radius: 10px;
+  border-radius: ui.$border-radius;
   overflow: hidden;
   background: vars.$white;
   @include mixins.box-shadow(0, 4px, 8px);
@@ -274,7 +275,7 @@
       background: vars.$white;
       border: 1px solid vars.$primary;
       border-radius: 50%;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      box-shadow: ui.$box-shadow;
       transition: all 0.3s ease-in-out;
 
       &:hover {
@@ -333,7 +334,7 @@
 .size-btn {
   padding: 8px 15px;
   font-size: 0.9rem;
-  border-radius: 6px;
+  border-radius: ui.$border-radius;
   min-width: 50px;
 
   &.active {

@@ -1,13 +1,14 @@
 @use '../abstracts/_variables.scss' as vars;
 @use '../abstracts/_mixins.scss' as mixins;
+@use '../ui' as ui;
 
 .footer {
   width: 100%;
-  background-color: #ffffff;
-  box-shadow: 0px -4px 10px rgba(0, 0, 0, 0.1);
+  background-color: ui.$background-color;
+  box-shadow: ui.$box-shadow;
   padding: 20px 0;
   font-size: 14px;
-  color: #343a40;
+  color: ui.$text-color;
   position: relative;
   bottom: 0;
   z-index: 10;
@@ -77,11 +78,11 @@
         align-items: center;
         gap: 8px;
         text-decoration: none;
-        color: #343a40;
+        color: ui.$text-color;
         font-weight: bold;
 
         &:hover {
-          color: #007bff;
+          color: ui.$primary-color;
         }
 
         i {
@@ -112,7 +113,7 @@
           color: #6c757d;
 
           &:hover {
-            color: #007bff;
+            color: ui.$primary-color;
           }
         }
       }

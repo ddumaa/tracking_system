@@ -1,6 +1,7 @@
 @use "../abstracts/_mixins.scss" as mixins;
 @use "../abstracts/_variables.scss" as vars;
 @use "sass:color";
+@use '../ui' as ui;
 
 .modal {
   display: none;
@@ -20,9 +21,9 @@
   }
 
   .modal-content {
-    border-radius: 10px;
+    border-radius: ui.$border-radius;
     padding: 20px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    box-shadow: ui.$box-shadow;
   }
 
   .modal-header {
@@ -113,8 +114,8 @@
   transform: translateX(-50%);
   background: vars.$white;
   padding: 14px 20px;
-  border-radius: 8px;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+  border-radius: ui.$border-radius;
+  box-shadow: ui.$box-shadow;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -158,7 +159,7 @@
     .btn {
       padding: 8px 14px;
       font-size: 15px; // Чуть больше кнопка
-      border-radius: 6px;
+      border-radius: ui.$border-radius;
       cursor: pointer;
       width: 60%; // Немного шире
       max-width: 220px;

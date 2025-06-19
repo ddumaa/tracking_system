@@ -1,5 +1,6 @@
 @use '../abstracts/_variables.scss' as vars;
 @use '../abstracts/_mixins.scss' as mixins;
+@use '../ui' as ui;
 
 header {
   background-color: vars.$white;
@@ -104,9 +105,9 @@ header {
     left: 0;
     width: 100%;
     background: vars.$white;
-    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: ui.$box-shadow;
     padding: 10px 0;
-    border-radius: 0 0 10px 10px;
+    border-radius: 0 0 ui.$border-radius ui.$border-radius;
     overflow: hidden;
     transform: translateY(-10px);
     opacity: 0;
