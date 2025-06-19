@@ -205,15 +205,42 @@ function initTelegramForms() {
 }
 
 // Показать или скрыть поля
+function slideDown(element, duration = 200) {
+    element.classList.remove('hidden');
+    element.style.removeProperty('display');
+    let height = element.scrollHeight;
+    element.style.overflow = 'hidden';
+    element.style.maxHeight = '0';
+    element.offsetHeight; // принудительный reflow
+    element.style.transition = `max-height ${duration}ms ease`;
+    element.style.maxHeight = height + 'px';
+    setTimeout(() => {
+        element.style.removeProperty('max-height');
+        element.style.removeProperty('overflow');
+        element.style.removeProperty('transition');
+    }, duration);
+}
+
+function slideUp(element, duration = 200) {
+    element.style.overflow = 'hidden';
+    element.style.maxHeight = element.scrollHeight + 'px';
+    element.offsetHeight; // принудительный reflow
+    element.style.transition = `max-height ${duration}ms ease`;
+    element.style.maxHeight = '0';
+    setTimeout(() => {
+        element.classList.add('hidden');
+        element.style.removeProperty('max-height');
+        element.style.removeProperty('overflow');
+        element.style.removeProperty('transition');
+    }, duration);
+}
+
 function toggleFieldsVisibility(checkbox, fieldsContainer) {
+    if (!fieldsContainer) return;
     if (checkbox.checked) {
-        $(fieldsContainer).stop(true, true).slideDown(200, function () {
-            fieldsContainer.classList.remove('hidden');
-        });
+        slideDown(fieldsContainer);
     } else {
-        $(fieldsContainer).stop(true, true).slideUp(200, function () {
-            fieldsContainer.classList.add('hidden');
-        });
+        slideUp(fieldsContainer);
     }
 }
 
