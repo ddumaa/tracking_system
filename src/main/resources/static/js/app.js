@@ -267,6 +267,7 @@ function initTelegramToggle() {
 
         const storeId = content.getAttribute('data-store-id');
         const btn = container.querySelector(`.toggle-tg-btn[data-store-id="${storeId}"]`);
+        const link = container.querySelector(`a[data-bs-toggle="collapse"][href="#collapse-tg-${storeId}"]`);
         const icon = btn?.querySelector('i');
         const bsCollapse = bootstrap.Collapse.getOrCreateInstance(content, { toggle: false });
 
@@ -280,8 +281,10 @@ function initTelegramToggle() {
             icon?.classList.add('bi-chevron-up');
         }
 
-        // Обработчик клика по заголовку блока Telegram
-        btn?.addEventListener('click', () => {
+
+        const toggleHandler = (e) => {
+            e.preventDefault();
+
             const isShown = content.classList.contains('show');
             const ids = getCollapsedTgStores();
 
@@ -299,7 +302,12 @@ function initTelegramToggle() {
                 saveCollapsedTgStores(ids.filter(id => id !== storeId));
                 bsCollapse.show();
             }
-        });
+        };
+
+        // Обработчики клика по кнопке и заголовку блока Telegram
+        btn?.addEventListener('click', toggleHandler);
+        link?.addEventListener('click', toggleHandler);
+
     });
 }
 
