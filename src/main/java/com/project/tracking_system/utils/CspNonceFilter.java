@@ -53,8 +53,10 @@ public class CspNonceFilter extends OncePerRequestFilter {
 
         String cspPolicy = "default-src 'self'; " +
                 "script-src 'self' 'nonce-" + nonce + "' https://code.jquery.com https://cdn.jsdelivr.net; " +
-                "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
-                "font-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
+                // Разрешаем подключать стили с CDN Google Fonts
+                "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; " +
+                // Разрешаем подгрузку шрифтов с CDN Google Fonts
+                "font-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.gstatic.com; " +
                 "img-src 'self' data:; " +
                 "connect-src 'self'" + (connectSrc.isBlank() ? "" : " " + connectSrc) + "; " +
                 "object-src 'none'; " +
