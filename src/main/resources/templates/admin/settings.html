@@ -5,7 +5,50 @@
 </head>
 <main layout:fragment="content">
     <a href="/admin" class="btn btn-primary mb-4">Админ Панель</a>
-    <h1>Страница настроек администратора</h1>
-    <p>Здесь будут настройки.</p>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm custom-card">
+                <div class="card-body">
+                    <h5 class="card-title text-center">Версия приложения</h5>
+                    <p class="card-text text-center" th:text="${appVersion}">-</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm custom-card">
+                <div class="card-body">
+                    <h5 class="card-title text-center">Webhook Telegram</h5>
+                    <p class="card-text text-center">
+                        <span th:text="${webhookEnabled} ? 'Включен' : 'Выключен'"></span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h4>Тарифные планы</h4>
+    <table class="table table-bordered table-striped">
+        <thead>
+        <tr>
+            <th>Название</th>
+            <th>Треков в файле</th>
+            <th>Сохранённых треков</th>
+            <th>Обновлений в день</th>
+            <th>Магазинов</th>
+            <th>Массовое обновление</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="plan : ${plans}">
+            <td th:text="${plan.name}"></td>
+            <td th:text="${plan.maxTracksPerFile != null ? plan.maxTracksPerFile : '∞'}"></td>
+            <td th:text="${plan.maxSavedTracks != null ? plan.maxSavedTracks : '∞'}"></td>
+            <td th:text="${plan.maxTrackUpdates != null ? plan.maxTrackUpdates : '∞'}"></td>
+            <td th:text="${plan.maxStores}"></td>
+            <td th:text="${plan.allowBulkUpdate}"></td>
+        </tr>
+        </tbody>
+    </table>
 </main>
 </html>
