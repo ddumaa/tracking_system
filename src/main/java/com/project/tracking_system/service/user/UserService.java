@@ -324,29 +324,65 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
+    /**
+     * Возвращает пользователя по его идентификатору.
+     *
+     * @param userId идентификатор пользователя
+     * @return найденный пользователь
+     * @throws IllegalArgumentException если пользователь не найден
+     */
     public User findUserById(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
     }
 
+    /**
+     * Получает список всех пользователей системы.
+     *
+     * @return список пользователей
+     */
     public List<User> findAll() {
         return userRepository.findAll();
     }
 
+    /**
+     * Возвращает общее количество пользователей в системе.
+     *
+     * @return число пользователей
+     */
     public long countUsers() {
         return userRepository.count();
     }
 
+    /**
+     * Разрешает учётные данные пользователя для работы с сервисом Evropost.
+     *
+     * @param userId идентификатор пользователя
+     * @return объект с расшифрованными учётными данными
+     * @throws UsernameNotFoundException если пользователь не найден
+     */
     public ResolvedCredentialsDTO resolveCredentials(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
         return userCredentialsResolver.resolveCredentials(user);
     }
 
+    /**
+     * Проверяет, использует ли пользователь собственные учётные данные Evropost.
+     *
+     * @param userId идентификатор пользователя
+     * @return {@code true}, если используется свой набор учётных данных
+     */
     public boolean isUsingCustomCredentials(Long userId) {
         return evropostServiceCredentialRepository.isUsingCustomCredentials(userId);
     }
 
+    /**
+     * Подсчитывает пользователей по названию тарифного плана.
+     *
+     * @param planName имя тарифного плана
+     * @return количество пользователей с указанным тарифом
+     */
     public long countUsersBySubscriptionPlan(String planName) {
         return userRepository.countUsersBySubscriptionPlan(planName);
     }
