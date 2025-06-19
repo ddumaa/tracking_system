@@ -1,14 +1,12 @@
-@use '../abstracts/_variables.scss' as vars;
-@use '../abstracts/_mixins.scss' as mixins;
 @use '../ui' as ui;
 
 .footer {
   width: 100%;
-  background-color: ui.$background-color;
+  background-color: ui.$white;
   box-shadow: ui.$box-shadow;
   padding: 20px 0;
   font-size: 14px;
-  color: ui.$text-color;
+  color: ui.$dark;
   position: relative;
   bottom: 0;
   z-index: 10;
@@ -78,7 +76,7 @@
         align-items: center;
         gap: 8px;
         text-decoration: none;
-        color: ui.$text-color;
+        color: ui.$dark;
         font-weight: bold;
 
         &:hover {

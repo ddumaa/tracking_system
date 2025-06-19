@@ -1,7 +1,4 @@
-// Подключаем абстрактные файлы (переменные, миксины, функции)
-@use 'abstracts/variables' as vars;
-@use 'abstracts/mixins' as mixins;
-@use 'abstracts/functions' as funcs;
+// Подключаем общий интерфейс с переменными и миксинами
 @use 'ui' as ui;
 
 // Подключаем базу
@@ -34,7 +31,4 @@
 @use 'pages/dashboard';
 @use 'pages/analytics';
 
-// Подключаем утилиты
-@use 'utilities/media';
-@use 'utilities/helpers';
 

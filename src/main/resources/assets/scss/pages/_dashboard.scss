@@ -1,5 +1,4 @@
-@use "../abstracts/_variables.scss" as vars;
-@use "../abstracts/_mixins.scss" as mixins;
+@use '../ui' as ui;
 @use "sass:color";
 
 /* Основные стили для всего контейнера */
@@ -12,19 +11,19 @@
 .custom-card {
   border-radius: 10px;
   padding: 20px;
-  background-color: vars.$light;
-  @include mixins.box-shadow(0, 4px, 10px, rgba(0, 0, 0, 0.1));
-  @include mixins.transition(all, 0.3s);
+  background-color: ui.$light;
+  @include ui.box-shadow(0, 4px, 10px, rgba(0, 0, 0, 0.1));
+  @include ui.transition(all, 0.3s);
 
   &:hover {
     transform: translateY(-5px);
-    @include mixins.box-shadow(0, 8px, 15px, rgba(0, 0, 0, 0.15));
+    @include ui.box-shadow(0, 8px, 15px, rgba(0, 0, 0, 0.15));
   }
 
   .card-title {
     font-size: 1.2rem;
     font-weight: 600;
-    color: vars.$dark;
+    color: ui.$dark;
     text-align: center;
 
     .metric-icon {
@@ -37,7 +36,7 @@
   .card-text {
     font-size: 1.5rem;
     font-weight: 700;
-    color: vars.$primary;
+    color: ui.$primary;
     text-align: center;
   }
 
@@ -50,11 +49,11 @@
   &.bg-danger {
     .card-title,
     .card-text {
-      color: vars.$white;
+      color: ui.$white;
     }
 
     i {
-      color: vars.$white;
+      color: ui.$white;
     }
   }
 }
@@ -64,22 +63,22 @@
   border-radius: 8px;
   margin-bottom: 10px;
   padding: 15px;
-  color: vars.$dark;
+  color: ui.$dark;
   font-size: 1.1rem;
-  @include mixins.transition(all, 0.3s);
+  @include ui.transition(all, 0.3s);
 
   &:hover {
-    background-color: vars.$light;
-    @include mixins.box-shadow(0, 4px, 10px, rgba(0, 0, 0, 0.05));
+    background-color: ui.$light;
+    @include ui.box-shadow(0, 4px, 10px, rgba(0, 0, 0, 0.05));
   }
 
   i {
     margin-right: 10px;
-    color: vars.$primary;
+    color: ui.$primary;
   }
 }
 
-@include mixins.respond-to(md) {
+@include ui.respond-to(md) {
   .custom-card {
     margin-bottom: 30px;
   }

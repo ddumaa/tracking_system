@@ -1,6 +1,5 @@
-$primary-color: #0d6efd;
-$secondary-color: #6c757d;
-$background-color: #ffffff;
-$text-color: #343a40;
-$border-radius: 8px;
-$box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+@forward 'abstracts/variables';
+@forward 'abstracts/mixins';
+@forward 'abstracts/functions';
+@forward 'utilities/helpers';
+@forward 'utilities/media';

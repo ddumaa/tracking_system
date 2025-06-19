@@ -1,10 +1,8 @@
-@use '../abstracts/_variables.scss' as vars;
-@use '../abstracts/_mixins.scss' as mixins;
 @use '../ui' as ui;
 
 header {
-  background-color: vars.$white;
-  @include mixins.box-shadow(0, 4px, 10px);
+  background-color: ui.$white;
+  @include ui.box-shadow(0, 4px, 10px);
   height: 80px;
   display: flex;
   align-items: center;
@@ -44,22 +42,22 @@ header {
     flex-wrap: wrap;
     justify-content: center;
     gap: 15px;
-    @include mixins.transition(color);
+    @include ui.transition(color);
   }
 
   .nav-link {
     font-weight: 500;
-    color: vars.$dark;
-    @include mixins.transition(color);
+    color: ui.$dark;
+    @include ui.transition(color);
 
     &:hover {
-      color: vars.$primary;
+      color: ui.$primary;
     }
 
     &.active {
       font-weight: bold;
-      color: vars.$primary;
-      border-bottom: 3px solid vars.$primary;
+      color: ui.$primary;
+      border-bottom: 3px solid ui.$primary;
     }
   }
 
@@ -77,7 +75,7 @@ header {
       align-items: center;
       gap: 5px;
       white-space: nowrap;
-      @include mixins.hover-effect;
+      @include ui.hover-effect;
     }
 
     /* Иконки */
@@ -104,7 +102,7 @@ header {
     top: 80px;
     left: 0;
     width: 100%;
-    background: vars.$white;
+    background: ui.$white;
     box-shadow: ui.$box-shadow;
     padding: 10px 0;
     border-radius: 0 0 ui.$border-radius ui.$border-radius;
@@ -127,12 +125,12 @@ header {
           text-decoration: none;
           font-size: 1.2rem;
           font-weight: bold;
-          color: vars.$dark;
+          color: ui.$dark;
           display: block;
           padding: 10px;
           &:hover {
-            background: vars.$primary;
-            color: vars.$white;
+            background: ui.$primary;
+            color: ui.$white;
           }
         }
       }
@@ -148,7 +146,7 @@ header {
   /* ============================= */
   /* Адаптивные стили */
   /* ============================= */
-  @include mixins.respond-to(md) {
+  @include ui.respond-to(md) {
     .burger-menu {
       display: block;
       position: absolute;
@@ -184,13 +182,13 @@ header {
         height: 40px;
         border-radius: 50%;
         font-size: 1.3rem;
-        color: vars.$white;
-        background-color: vars.$primary;
+        color: ui.$white;
+        background-color: ui.$primary;
         border: none;
-        @include mixins.hover-effect;
+        @include ui.hover-effect;
 
         &.logout {
-          background-color: vars.$danger;
+          background-color: ui.$danger;
         }
       }
     }

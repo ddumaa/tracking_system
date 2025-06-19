@@ -1,13 +1,12 @@
-@use '../abstracts/variables' as vars;
-@use '../abstracts/mixins' as mixins;
+@use '../ui' as ui;
 
 html, body {
   height: 100%;
   margin: 0;
   display: flex;
   flex-direction: column;
-  background-color: vars.$light;
-  font-family: vars.$font-stack;
+  background-color: ui.$light;
+  font-family: ui.$font-stack;
 }
 
 .main-content {
@@ -43,7 +42,7 @@ footer {
   margin-top: auto; // Футер прижимается вниз, но не накладывается на контент
 }
 
-@include mixins.respond-to(sm) {
+@include ui.respond-to(sm) {
   .nav-link {
     padding: 8px 10px;
     font-size: 0.9rem;
