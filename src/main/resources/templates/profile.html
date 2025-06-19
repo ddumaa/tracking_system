@@ -78,7 +78,22 @@
             <div class="col-lg-9 col-md-8 tab-content" id="v-pills-tabContent">
                 <div class="tab-pane fade show active card p-4 shadow-sm rounded-4" id="v-pills-home" role="tabpanel">
                     <h5 class="mb-3">Об аккаунте</h5>
-                    <p>Тут просто информация.</p>
+                    <div class="row mb-2">
+                        <div class="col-sm-4 text-muted">Email</div>
+                        <div class="col-sm-8" th:text="${userProfile.email}"></div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-sm-4 text-muted">Тариф</div>
+                        <div class="col-sm-8" th:text="${userProfile.subscriptionPlan}"></div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-sm-4 text-muted">Оплачено до</div>
+                        <div class="col-sm-8" th:text="${userProfile.subscriptionEndDate}"></div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-sm-4 text-muted">Часовой пояс</div>
+                        <div class="col-sm-8" th:text="${userProfile.timezone}"></div>
+                    </div>
                 </div>
 
                 <div class="tab-pane fade card p-4 shadow-sm rounded-4" id="v-pills-stores" role="tabpanel">
