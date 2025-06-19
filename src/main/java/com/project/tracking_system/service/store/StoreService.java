@@ -395,6 +395,7 @@ public class StoreService {
         dto.setReminderStartAfterDays(settings.getReminderStartAfterDays());
         dto.setReminderRepeatIntervalDays(settings.getReminderRepeatIntervalDays());
         dto.setCustomSignature(settings.getCustomSignature());
+        dto.setRemindersEnabled(settings.isRemindersEnabled());
         return dto;
     }
 
@@ -406,6 +407,7 @@ public class StoreService {
         settings.setReminderStartAfterDays(dto.getReminderStartAfterDays());
         settings.setReminderRepeatIntervalDays(dto.getReminderRepeatIntervalDays());
         settings.setCustomSignature(dto.getCustomSignature());
+        settings.setRemindersEnabled(dto.isRemindersEnabled());
     }
 
 

@@ -77,7 +77,7 @@ public class UserService {
             throw new UserAlreadyExistsException("Пользователь с таким email уже существует.");
         }
 
-        String confirmationCode = randomlyGeneratedString.generateConfirmCodRegistration();
+        String confirmationCode = randomlyGeneratedString.generateConfirmationCode();
         saveOrUpdateConfirmationToken(email, confirmationCode);
 
         // Отправка email в фоне (не блокируем основной поток)
@@ -198,6 +198,43 @@ public class UserService {
     }
 
     /**
+     * Создаёт пользователя по заданным данным без подтверждения email.
+     *
+     * @param email       адрес электронной почты
+     * @param rawPassword пароль в открытом виде
+     * @param roleName    наименование роли
+     * @param planName    стартовый тариф
+     * @throws UserAlreadyExistsException если пользователь уже существует
+     */
+    @Transactional
+    public void createUserByAdmin(String email, String rawPassword, String roleName,
+                                 String planName) {
+        log.info("Администратор создаёт пользователя {}", EmailUtils.maskEmail(email));
+
+        if (userRepository.findByEmail(email).isPresent()) {
+            throw new UserAlreadyExistsException("Пользователь с таким email уже существует.");
+        }
+
+        Role role;
+        try {
+            role = Role.valueOf(roleName);
+        } catch (IllegalArgumentException e) {
+            log.error("Некорректная роль '{}' при создании пользователя", roleName, e);
+            throw new IllegalArgumentException("Некорректная роль: " + roleName);
+        }
+
+        User user = new User();
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode(rawPassword));
+        user.setTimeZone("Europe/Minsk");
+        user.setRole(role);
+
+        userRepository.save(user);
+        subscriptionService.changeSubscription(user.getId(), planName, null);
+        log.info("Пользователь {} создан администратором", EmailUtils.maskEmail(email));
+    }
+
+    /**
      * Обновляет настройки и учётные данные Evropost пользователя.
      *
      * @param userId идентификатор пользователя
@@ -287,29 +324,65 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
+    /**
+     * Возвращает пользователя по его идентификатору.
+     *
+     * @param userId идентификатор пользователя
+     * @return найденный пользователь
+     * @throws IllegalArgumentException если пользователь не найден
+     */
     public User findUserById(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
     }
 
+    /**
+     * Получает список всех пользователей системы.
+     *
+     * @return список пользователей
+     */
     public List<User> findAll() {
         return userRepository.findAll();
     }
 
+    /**
+     * Возвращает общее количество пользователей в системе.
+     *
+     * @return число пользователей
+     */
     public long countUsers() {
         return userRepository.count();
     }
 
+    /**
+     * Разрешает учётные данные пользователя для работы с сервисом Evropost.
+     *
+     * @param userId идентификатор пользователя
+     * @return объект с расшифрованными учётными данными
+     * @throws UsernameNotFoundException если пользователь не найден
+     */
     public ResolvedCredentialsDTO resolveCredentials(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
         return userCredentialsResolver.resolveCredentials(user);
     }
 
+    /**
+     * Проверяет, использует ли пользователь собственные учётные данные Evropost.
+     *
+     * @param userId идентификатор пользователя
+     * @return {@code true}, если используется свой набор учётных данных
+     */
     public boolean isUsingCustomCredentials(Long userId) {
         return evropostServiceCredentialRepository.isUsingCustomCredentials(userId);
     }
 
+    /**
+     * Подсчитывает пользователей по названию тарифного плана.
+     *
+     * @param planName имя тарифного плана
+     * @return количество пользователей с указанным тарифом
+     */
     public long countUsersBySubscriptionPlan(String planName) {
         return userRepository.countUsersBySubscriptionPlan(planName);
     }
@@ -378,7 +451,10 @@ public class UserService {
     }
 
     /**
-     * Определяет ID текущего пользователя.
+     * Определяет ID текущего пользователя из объекта аутентификации.
+     *
+     * @param authentication текущая аутентификация Spring Security
+     * @return идентификатор пользователя или {@code null}, если пользователь не определён
      */
     public Long extractUserId(Authentication authentication) {
         if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof User user) {
@@ -387,6 +463,13 @@ public class UserService {
         return null;
     }
 
+    /**
+     * Получает часовой пояс пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @return объект {@link ZoneId} с часовым поясом пользователя
+     * @throws IllegalArgumentException если пользователь не найден
+     */
     public ZoneId getUserZone(Long userId) {
         return ZoneId.of(userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден")).getTimeZone());

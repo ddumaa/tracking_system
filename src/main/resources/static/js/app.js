@@ -270,6 +270,37 @@ function initTelegramToggle() {
     });
 }
 
+// Инициализация зависимых полей Telegram
+function initTelegramReminderBlocks() {
+    document.querySelectorAll('.telegram-settings-form').forEach(form => {
+        const enabledCb = form.querySelector('input[name="enabled"]');
+        const remindersBlock = form.querySelector('.reminders-container');
+        const remindersCb = form.querySelector('input[name="remindersEnabled"]');
+        const reminderFields = form.querySelector('.reminder-fields');
+
+        if (!enabledCb) return;
+
+        const updateVisibility = () => {
+            if (remindersBlock) toggleFieldsVisibility(enabledCb, remindersBlock);
+            if (reminderFields && remindersCb) {
+                if (enabledCb.checked) {
+                    toggleFieldsVisibility(remindersCb, reminderFields);
+                } else {
+                    reminderFields.classList.add('hidden');
+                }
+            }
+        };
+
+        // Первоначальное состояние
+        updateVisibility();
+
+        enabledCb.addEventListener('change', updateVisibility);
+        remindersCb?.addEventListener('change', () => {
+            if (reminderFields) toggleFieldsVisibility(remindersCb, reminderFields);
+        });
+    });
+}
+
 let lastPage = window.location.pathname; // Запоминаем текущую страницу при загрузке
 let isInitialLoad = true;
 
@@ -668,6 +699,7 @@ async function appendTelegramBlock(store) {
     // --- Инициализируем формы и collapse
     initTelegramForms();
     initTelegramToggle();
+    initTelegramReminderBlocks();
 }
 
 /**
@@ -1047,6 +1079,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initAssignCustomerFormHandler();
     initTelegramForms();
     initTelegramToggle();
+    initTelegramReminderBlocks();
 
     // Назначаем обработчик кнопки "Добавить магазин" - с проверкой на наличие
     const addStoreBtn = document.getElementById("addStoreBtn");

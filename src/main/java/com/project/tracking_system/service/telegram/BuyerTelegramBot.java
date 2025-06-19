@@ -1,5 +1,6 @@
 package com.project.tracking_system.service.telegram;
 
+import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -104,10 +105,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         String phone = PhoneUtils.normalizePhone(rawPhone);
 
         try {
-            telegramService.linkTelegramToCustomer(phone, chatId);
-            SendMessage confirm = new SendMessage(chatId.toString(), "✅ Номер сохранён. Спасибо!");
-
-            telegramClient.execute(confirm);
+            Customer customer = telegramService.linkTelegramToCustomer(phone, chatId);
+            if (!customer.isTelegramConfirmed()) {
+                SendMessage confirm = new SendMessage(chatId.toString(), "✅ Номер сохранён. Спасибо!");
+                telegramClient.execute(confirm);
+                telegramService.confirmTelegram(customer);
+                telegramService.notifyActualStatuses(customer);
+            }
         } catch (Exception e) {
             log.error("❌ Ошибка регистрации телефона {} для чата {}", phone, chatId, e);
         }

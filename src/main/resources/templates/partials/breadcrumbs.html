@@ -1,0 +1,10 @@
+<nav th:fragment="breadcrumbs(items)">
+    <ol class="breadcrumb my-3">
+        <li class="breadcrumb-item" th:each="item, iterStat : ${items}"
+            th:classappend="${iterStat.last} ? 'active'" th:attr="aria-current=${iterStat.last}? 'page'">
+            <a th:if="${item.url != ''}" th:href="${item.url}" th:text="${item.label}"></a>
+            <span th:if="${item.url == ''}" th:text="${item.label}"></span>
+        </li>
+    </ol>
+</nav>
+

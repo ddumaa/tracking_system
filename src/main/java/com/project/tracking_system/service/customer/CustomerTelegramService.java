@@ -1,8 +1,14 @@
 package com.project.tracking_system.service.customer;
 
-import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.entity.*;
+import com.project.tracking_system.mapper.BuyerStatusMapper;
+import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.repository.CustomerRepository;
-import com.project.tracking_system.service.customer.CustomerService;
+import com.project.tracking_system.repository.TrackParcelRepository;
+import com.project.tracking_system.service.telegram.TelegramNotificationService;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.util.List;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +25,9 @@ public class CustomerTelegramService {
 
     private final CustomerRepository customerRepository;
     private final CustomerService customerService;
+    private final TrackParcelRepository trackParcelRepository;
+    private final CustomerNotificationLogRepository notificationLogRepository;
+    private final TelegramNotificationService telegramNotificationService;
 
     /**
      * Привязать чат Telegram к покупателю по номеру телефона.
@@ -52,4 +61,70 @@ public class CustomerTelegramService {
         log.info("✅ Чат {} привязан к покупателю {}", chatId, saved.getId());
         return saved;
     }
+
+    /**
+     * Подтвердить получение уведомления о привязке Telegram.
+     *
+     * @param customer покупатель
+     * @return обновлённый покупатель
+     */
+    @Transactional
+    public Customer confirmTelegram(Customer customer) {
+        if (customer == null) {
+            throw new IllegalArgumentException("Покупатель не задан");
+        }
+        if (!customer.isTelegramConfirmed()) {
+            customer.setTelegramConfirmed(true);
+            customer = customerRepository.save(customer);
+            log.info("✅ Покупатель {} подтвердил Telegram", customer.getId());
+        }
+        return customer;
+    }
+
+    /**
+     * Отправить текущие статусы всех активных посылок покупателю после привязки Telegram.
+     * <p>
+     * Метод ищет все посылки покупателя в не финальных статусах и отправляет
+     * соответствующие уведомления через Telegram, если такие уведомления ещё не
+     * были отправлены ранее.
+     * </p>
+     *
+     * @param customer покупатель, подтвердивший Telegram
+     */
+    @Transactional
+    public void notifyActualStatuses(Customer customer) {
+        if (customer == null || customer.getTelegramChatId() == null) {
+            return;
+        }
+
+        List<TrackParcel> parcels = trackParcelRepository.findActiveByCustomerId(
+                customer.getId(),
+                List.of(GlobalStatus.DELIVERED, GlobalStatus.RETURNED)
+        );
+
+        for (TrackParcel parcel : parcels) {
+            GlobalStatus status = parcel.getStatus();
+
+            if (notificationLogRepository.existsByParcelIdAndStatusAndNotificationType(
+                    parcel.getId(), status, NotificationType.INSTANT)) {
+                continue;
+            }
+
+            BuyerStatus buyerStatus = BuyerStatusMapper.map(status);
+            if (buyerStatus == null) {
+                continue; // статус не подлежит уведомлению
+            }
+
+            telegramNotificationService.sendStatusUpdate(parcel, status);
+
+            CustomerNotificationLog logEntry = new CustomerNotificationLog();
+            logEntry.setCustomer(customer);
+            logEntry.setParcel(parcel);
+            logEntry.setStatus(status);
+            logEntry.setNotificationType(NotificationType.INSTANT);
+            logEntry.setSentAt(ZonedDateTime.now(ZoneOffset.UTC));
+            notificationLogRepository.save(logEntry);
+        }
+    }
+
 }

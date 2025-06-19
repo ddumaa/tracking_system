@@ -51,8 +51,6 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
     @Query("SELECT COUNT(p) FROM TrackParcel p WHERE p.store.id = :storeId AND p.status = :status")
     int countByStoreIdAndStatus(@Param("storeId") Long storeId, @Param("status") GlobalStatus status);
 
-
-
     @Modifying
     @Transactional
     @Query("DELETE FROM TrackParcel t WHERE t.store.id = :storeId")
@@ -73,4 +71,55 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
         """)
     List<TrackParcel> findWaitingForPickupBefore(@Param("status") GlobalStatus status,
                                                  @Param("threshold") java.time.ZonedDateTime threshold);
+
+    /**
+     * Найти все активные посылки покупателя в указанных статусах.
+     *
+     * @param customerId идентификатор покупателя
+     * @param statuses    список статусов
+     * @return список подходящих посылок
+     */
+    List<TrackParcel> findByCustomerIdAndStatusIn(Long customerId, List<GlobalStatus> statuses);
+
+
+    @Query("SELECT t FROM TrackParcel t WHERE t.customer.id = :customerId AND t.status NOT IN (:finalStatuses)")
+    List<TrackParcel> findActiveByCustomerId(@Param("customerId") Long customerId,
+                                             @Param("finalStatuses") List<GlobalStatus> finalStatuses);
+
+    /**
+     * Получить все посылки с загруженными пользователем и магазином.
+     *
+     * @return список посылок
+     */
+    @Query("SELECT t FROM TrackParcel t JOIN FETCH t.store JOIN FETCH t.user")
+    List<TrackParcel> findAllWithStoreAndUser();
+
+    /**
+     * Получить все посылки постранично с подгруженными магазином и пользователем.
+     *
+     * @param pageable настройки пагинации
+     * @return страница посылок
+     */
+    @Query(value = "SELECT t FROM TrackParcel t JOIN FETCH t.store JOIN FETCH t.user",
+           countQuery = "SELECT count(t) FROM TrackParcel t")
+    Page<TrackParcel> findAllWithStoreAndUser(Pageable pageable);
+
+    /**
+     * Найти посылку по номеру с подгруженными магазином и пользователем.
+     *
+     * @param number номер посылки
+     * @return посылка или {@code null}, если не найдена
+     */
+    @Query("SELECT t FROM TrackParcel t JOIN FETCH t.store JOIN FETCH t.user WHERE t.number = :number")
+    TrackParcel findByNumberWithStoreAndUser(@Param("number") String number);
+
+    /**
+     * Найти посылку по идентификатору с подгруженными магазином и пользователем.
+     *
+     * @param id идентификатор посылки
+     * @return посылка или {@code null}, если не найдена
+     */
+    @Query("SELECT t FROM TrackParcel t JOIN FETCH t.store JOIN FETCH t.user WHERE t.id = :id")
+    TrackParcel findByIdWithStoreAndUser(@Param("id") Long id);
+
 }

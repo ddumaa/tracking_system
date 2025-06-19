@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/layout}">
+<head>
+    <title layout:fragment="title">Магазины</title>
+</head>
+<div layout:fragment="afterHeader">
+    <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${breadcrumbs})}"></div>
+</div>
+
+<main layout:fragment="content">
+    <table class="table table-bordered table-striped">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Название</th>
+            <th>Владелец</th>
+            <th>Telegram</th>
+            <th>Напоминания</th>
+            <th>Подписка</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="s : ${stores}">
+            <td th:text="${s.id}"></td>
+            <td th:text="${s.name}"></td>
+            <td th:text="${s.ownerEmail}"></td>
+            <td th:text="${s.telegramEnabled}"></td>
+            <td th:text="${s.remindersEnabled}"></td>
+            <td th:text="${s.subscriptionPlan}"></td>
+        </tr>
+        </tbody>
+    </table>
+</main>
+</html>

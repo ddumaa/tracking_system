@@ -72,4 +72,12 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
        """)
     void resetUpdateCount(@Param("userId") Long userId, @Param("resetDate") LocalDate resetDate);
 
+    /**
+     * Получить все подписки вместе с пользователем и планом.
+     *
+     * @return список подписок
+     */
+    @Query("SELECT s FROM UserSubscription s JOIN FETCH s.user u JOIN FETCH s.subscriptionPlan sp")
+    List<UserSubscription> findAllWithUserAndPlan();
+
 }

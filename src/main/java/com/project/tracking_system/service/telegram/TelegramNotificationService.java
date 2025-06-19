@@ -1,8 +1,10 @@
 package com.project.tracking_system.service.telegram;
 
+import com.project.tracking_system.entity.BuyerStatus;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.StoreTelegramSettings;
+import com.project.tracking_system.mapper.BuyerStatusMapper;
 import com.project.tracking_system.service.customer.CustomerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,19 +42,24 @@ public class TelegramNotificationService {
             return;
         }
 
-        Long chatId = getChatId(parcel);
-        String text = buildStatusText(parcel, status);
+        BuyerStatus buyerStatus = BuyerStatusMapper.map(status);
+        if (buyerStatus == null) {
+            log.debug("Статус {} не предназначен для уведомления покупателя", status);
+            return;
+        }
 
+        Long chatId = getChatId(parcel);
+        String text = buyerStatus.formatMessage(parcel.getNumber(), parcel.getStore().getName());
         SendMessage message = new SendMessage(chatId.toString(), text);
 
         try {
             telegramClient.execute(message);
-            log.info("📨 Статус {} отправлен в чат {} для трека {}", status, chatId, parcel.getNumber());
+            log.info("📨 Уведомление отправлено: {} (статус {}) в чат {} для трека {}",
+                    text, status, chatId, parcel.getNumber());
         } catch (TelegramApiException e) {
             log.error("❌ Ошибка отправки уведомления в чат {}: {}", chatId, e.getMessage(), e);
         }
     }
-
 
     /**
      * Отправить напоминание о необходимости забрать посылку.
@@ -66,7 +73,7 @@ public class TelegramNotificationService {
         }
 
         StoreTelegramSettings settings = parcel.getStore().getTelegramSettings();
-        if (settings != null && !settings.isEnabled()) {
+        if (settings != null && (!settings.isEnabled() || !settings.isRemindersEnabled())) {
             log.debug("Напоминания отключены для магазина {}", parcel.getStore().getId());
             return;
         }
@@ -74,7 +81,7 @@ public class TelegramNotificationService {
         Long chatId = getChatId(parcel);
 
         String text = String.format(
-                "🔔 Напоминание: заберите заказ %s из магазина %s.",
+                "🔔 Не забудьте забрать посылку %s из магазина %s — она ждёт вас в пункте выдачи.",
                 parcel.getNumber(),
                 parcel.getStore().getName()
         );
@@ -101,19 +108,4 @@ public class TelegramNotificationService {
         return parcel.getCustomer().getTelegramChatId();
     }
 
-    // Формирование текста уведомления в зависимости от статуса
-    private String buildStatusText(TrackParcel parcel, GlobalStatus status) {
-        String storeName = parcel.getStore().getName();
-        String track = parcel.getNumber();
-        return switch (status) {
-            case WAITING_FOR_CUSTOMER ->
-                    String.format("Посылка %s из магазина %s прибыла и ждёт вас в пункте выдачи.", track, storeName);
-            case DELIVERED ->
-                    String.format("Посылка %s из магазина %s получена. Спасибо за покупку!", track, storeName);
-            case RETURNED ->
-                    String.format("Посылка %s из магазина %s возвращена отправителю.", track, storeName);
-            default ->
-                    String.format("Ваш заказ %s из магазина %s отправлен.", track, storeName);
-        };
-    }
 }

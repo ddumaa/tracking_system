@@ -68,4 +68,16 @@ public interface StoreRepository extends JpaRepository<Store, Long> {
     @Query("SELECT s FROM Store s LEFT JOIN FETCH s.telegramSettings WHERE s.owner.id = :ownerId")
     List<Store> findByOwnerIdFetchSettings(@Param("ownerId") Long ownerId);
 
+    /**
+     * Получить все магазины с Telegram-настройками и подпиской владельца.
+     *
+     * @return список магазинов
+     */
+    @Query("SELECT s FROM Store s " +
+           "LEFT JOIN FETCH s.telegramSettings " +
+           "LEFT JOIN FETCH s.owner o " +
+           "LEFT JOIN FETCH o.subscription us " +
+           "LEFT JOIN FETCH us.subscriptionPlan")
+    List<Store> findAllWithSettingsAndSubscription();
+
 }

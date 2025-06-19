@@ -38,4 +38,8 @@ public class StoreTelegramSettings {
 
     @Column(name = "custom_signature", length = 200)
     private String customSignature;
+
+
+    @Column(name = "reminders_enabled", nullable = false)
+    private boolean remindersEnabled = false;
 }
