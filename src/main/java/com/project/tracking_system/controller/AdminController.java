@@ -338,6 +338,58 @@ public class AdminController {
     }
 
     /**
+     * Поиск посылки по номеру и редирект на страницу деталей.
+     *
+     * @param number трек-номер
+     * @return редирект на страницу подробной информации
+     */
+    @GetMapping("/parcels/search")
+    public String searchParcel(@RequestParam("number") String number) {
+        TrackParcelAdminInfoDTO parcel = adminService.findParcelByNumber(number);
+        if (parcel == null) {
+            return "redirect:/admin/parcels";
+        }
+        return "redirect:/admin/parcels/" + parcel.getId();
+    }
+
+    /**
+     * Отображает подробную информацию о посылке.
+     *
+     * @param id идентификатор посылки
+     * @param model модель для передачи данных
+     * @return имя шаблона с деталями посылки
+     */
+    @GetMapping("/parcels/{id}")
+    public String parcelDetails(@PathVariable Long id, Model model) {
+        model.addAttribute("parcel", adminService.getParcelById(id));
+        return "admin/parcel-details";
+    }
+
+    /**
+     * Удаляет посылку из системы.
+     *
+     * @param id идентификатор посылки
+     * @return редирект на список посылок
+     */
+    @PostMapping("/parcels/{id}/delete")
+    public String deleteParcel(@PathVariable Long id) {
+        adminService.deleteParcel(id);
+        return "redirect:/admin/parcels";
+    }
+
+    /**
+     * Принудительно обновляет статус посылки.
+     *
+     * @param id идентификатор посылки
+     * @return редирект на страницу деталей
+     */
+    @PostMapping("/parcels/{id}/force-update")
+    public String forceUpdateParcel(@PathVariable Long id) {
+        adminService.forceUpdateParcel(id);
+        return "redirect:/admin/parcels/" + id;
+    }
+
+    /**
      * Отображает список подписок пользователей и доступных тарифов.
      *
      * @param model модель, в которую передаются сведения о подписках
