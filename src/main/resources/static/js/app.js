@@ -261,53 +261,43 @@ function initTelegramToggle() {
 
     const collapsedStored = getCollapsedTgStores();
 
-    container.querySelectorAll('.tg-settings-content').forEach(content => {
-        if (content.dataset.collapseInit) return;
-        content.dataset.collapseInit = 'true';
-
-        const storeId = content.getAttribute('data-store-id');
+    collapsedStored.forEach(storeId => {
+        const content = container.querySelector(`.tg-settings-content[data-store-id="${storeId}"]`);
         const btn = container.querySelector(`.toggle-tg-btn[data-store-id="${storeId}"]`);
-        const link = container.querySelector(`a[data-bs-toggle="collapse"][href="#collapse-tg-${storeId}"]`);
-        const icon = btn?.querySelector('i');
-        const bsCollapse = bootstrap.Collapse.getOrCreateInstance(content, { toggle: false });
-
-        if (collapsedStored.includes(storeId)) {
-            bsCollapse.hide();
+        if (content && btn) {
+            content.classList.remove('expanded');
+            content.classList.add('collapsed');
+            const icon = btn.querySelector('i');
             icon?.classList.remove('bi-chevron-up');
             icon?.classList.add('bi-chevron-down');
-        } else {
-            bsCollapse.show();
-            icon?.classList.remove('bi-chevron-down');
-            icon?.classList.add('bi-chevron-up');
         }
+    });
 
-
-        const toggleHandler = (e) => {
+    container.querySelectorAll('.toggle-tg-btn').forEach(btn => {
+        if (btn.dataset.toggleInit) return;
+        btn.dataset.toggleInit = 'true';
+        btn.addEventListener('click', function (e) {
             e.preventDefault();
+            const storeId = this.getAttribute('data-store-id');
+            const content = container.querySelector(`.tg-settings-content[data-store-id="${storeId}"]`);
+            const icon = this.querySelector('i');
 
-            const isShown = content.classList.contains('show');
-            const ids = getCollapsedTgStores();
+            if (!content) return;
 
-            if (isShown) {
-                // Скрываем блок и запоминаем состояние
-                icon?.classList.remove('bi-chevron-up');
-                icon?.classList.add('bi-chevron-down');
+            const collapsed = content.classList.toggle('collapsed');
+            content.classList.toggle('expanded', !collapsed);
+
+            icon?.classList.toggle('bi-chevron-down', collapsed);
+            icon?.classList.toggle('bi-chevron-up', !collapsed);
+
+            let ids = getCollapsedTgStores();
+            if (collapsed) {
                 if (!ids.includes(storeId)) ids.push(storeId);
-                saveCollapsedTgStores(ids);
-                bsCollapse.hide();
             } else {
-                // Показываем блок и удаляем id из списка скрытых
-                icon?.classList.remove('bi-chevron-down');
-                icon?.classList.add('bi-chevron-up');
-                saveCollapsedTgStores(ids.filter(id => id !== storeId));
-                bsCollapse.show();
+                ids = ids.filter(id => id !== storeId);
             }
-        };
-
-        // Обработчики клика по кнопке и заголовку блока Telegram
-        btn?.addEventListener('click', toggleHandler);
-        link?.addEventListener('click', toggleHandler);
-
+            saveCollapsedTgStores(ids);
+        });
     });
 }
 

@@ -1163,6 +1163,16 @@ button:hover {
   transition: max-height 0.3s ease, opacity 0.3s ease;
   overflow: hidden;
 }
+.tg-settings-content.collapsed {
+  max-height: 0;
+  opacity: 0;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.tg-settings-content.expanded {
+  max-height: 1000px;
+  opacity: 1;
+}
 
 .legal-container {
   font-family: "Inter", sans-serif;
