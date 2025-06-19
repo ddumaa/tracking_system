@@ -28,8 +28,8 @@ public class SubscriptionService {
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
 
-    private final String PREMIUM_PLAN = "PREMIUM";
-    private final String FREE_PLAN = "FREE";
+    private static final String PREMIUM_PLAN = "PREMIUM";
+    private static final String FREE_PLAN = "FREE";
 
     /**
      * Рассчитывает, сколько треков можно загрузить в одном файле.
