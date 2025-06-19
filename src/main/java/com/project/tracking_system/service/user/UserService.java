@@ -191,11 +191,15 @@ public class UserService {
 
     /**
      * Создаёт пользователя по заданным данным без подтверждения email.
+     * <p>
+     * После создания пользователя формируется бесплатная подписка и магазин по умолчанию,
+     * затем подписка переключается на указанный тарифный план.
+     * </p>
      *
      * @param email       адрес электронной почты
      * @param rawPassword пароль в открытом виде
      * @param roleName    наименование роли
-     * @param planName    стартовый тариф
+     * @param planCode    стартовый тариф
      * @throws UserAlreadyExistsException если пользователь уже существует
      */
     @Transactional
@@ -221,7 +225,17 @@ public class UserService {
         user.setTimeZone("Europe/Minsk");
         user.setRole(role);
 
+        // Создаём подписку FREE по умолчанию
+        UserSubscription subscription = subscriptionService.createDefaultSubscriptionForUser(user);
+        user.setSubscription(subscription);
+
+        // Сохраняем пользователя вместе с созданной подпиской
         userRepository.save(user);
+
+        // Создаём магазин по умолчанию
+        storeService.createDefaultStoreForUser(user);
+
+        // Переключаем подписку на указанный тариф
         subscriptionService.changeSubscription(user.getId(), planCode, null);
         log.info("Пользователь {} создан администратором", EmailUtils.maskEmail(email));
     }
