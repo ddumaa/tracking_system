@@ -94,7 +94,8 @@
             <!-- Графики -->
             <div class="row mt-5">
                 <div class="col-md-6 mb-4">
-                    <div th:replace="~{partials/card :: card(~{::content}, 'chart-wrapper')}">
+                    <div th:replace="~{partials/card :: card(~{this.content}, 'chart-wrapper')}">
+                        <div th:fragment="content">
                         <h5>Статусы отправлений</h5>
                         <div class="chart-container position-relative">
                             <canvas id="statusPieChart"></canvas>
@@ -103,10 +104,12 @@
                                 <p class="text-muted mt-2">Нет данных для отображения</p>
                             </div>
                         </div>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-6 mb-4">
-                    <div th:replace="~{partials/card :: card(~{::content}, 'chart-wrapper')}">
+                    <div th:replace="~{partials/card :: card(~{this.content}, 'chart-wrapper')}">
+                        <div th:fragment="content">
                         <h5 id="periodChartTitle">Динамика отправлений по неделям</h5>
                         <div class="chart-container position-relative">
                             <canvas id="periodBarChart"></canvas>
@@ -114,6 +117,7 @@
                                 <img src="/images/no-data.png" alt="Нет данных" class="img-fluid" style="max-height: 180px;">
                                 <p class="text-muted mt-2">Нет данных для отображения</p>
                             </div>
+                        </div>
                         </div>
                     </div>
                 </div>

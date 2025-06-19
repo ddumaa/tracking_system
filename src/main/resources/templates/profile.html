@@ -49,7 +49,8 @@
 
             <!-- Боковое меню (для ПК и планшетов) -->
             <div class="col-lg-3 col-md-4 d-none d-md-block">
-                <div th:replace="~{partials/card :: card(~{::content}, 'p-3')}">
+                <div th:replace="~{partials/card :: card(~{this.content}, 'p-3')}">
+                    <div th:fragment="content">
                     <h5 class="mb-3 text-center">Меню</h5>
                     <div class="nav flex-column nav-pills" id="v-pills-tab" role="tablist" aria-orientation="vertical">
                         <a class="nav-link active d-flex align-items-center" id="v-pills-home-tab" data-bs-toggle="pill" href="#v-pills-home" role="tab">
@@ -71,20 +72,24 @@
                             <i class="bi bi-trash me-2"></i> Удалить аккаунт
                         </a>
                     </div>
+                    </div>
                 </div>
             </div>
 
             <!-- Контент вкладок -->
             <div class="col-lg-9 col-md-8 tab-content" id="v-pills-tabContent">
                 <div class="tab-pane fade show active" id="v-pills-home" role="tabpanel">
-                    <div th:replace="~{partials/card :: card(~{::content}, 'p-4')}">
+                    <div th:replace="~{partials/card :: card(~{this.content}, 'p-4')}">
+                        <div th:fragment="content">
                         <h5 class="mb-3">Об аккаунте</h5>
                         <p>Тут просто информация.</p>
+                        </div>
                     </div>
                 </div>
 
                 <div class="tab-pane fade" id="v-pills-stores" role="tabpanel">
-                    <div th:replace="~{partials/card :: card(~{::content}, 'p-4')}">
+                    <div th:replace="~{partials/card :: card(~{this.content}, 'p-4')}">
+                        <div th:fragment="content">
 
                     <!-- Контейнер для уведомлений -->
                     <div id="storeNotificationContainer"></div>
@@ -118,6 +123,7 @@
                         <button type="button" class="btn btn-danger w-100 d-flex align-items-center" id="resetAllAnalyticsBtn">
                             <i class="bi bi-trash me-2"></i> Удалить всю аналитику
                         </button>
+                        </div>
                     </div>
 
                     <div id="telegram-management" class="mt-4">
@@ -132,7 +138,8 @@
                 </div>
 
                 <div class="tab-pane fade" id="v-pills-profile" role="tabpanel">
-                    <div th:replace="~{partials/card :: card(~{::content}, 'p-4')}">
+                    <div th:replace="~{partials/card :: card(~{this.content}, 'p-4')}">
+                        <div th:fragment="content">
 
                     <div id="password-content" th:fragment="passwordFragment">
 
@@ -182,7 +189,8 @@
                 </div>
 
                 <div class="tab-pane fade" id="v-pills-evropost" role="tabpanel">
-                    <div th:replace="~{partials/card :: card(~{::content}, 'p-4')}">
+                    <div th:replace="~{partials/card :: card(~{this.content}, 'p-4')}">
+                        <div th:fragment="content">
 
                     <!-- Контейнер для уведомлений -->
                     <div id="evropostNotificationContainer"></div>
@@ -233,11 +241,13 @@
                                 <button class="btn btn-primary w-100 py-2" type="submit">Сохранить данные</button>
                             </div>
                         </form>
+                        </div>
                     </div>
                 </div>
 
                 <div class="tab-pane fade" id="v-pills-belpost" role="tabpanel">
-                    <div th:replace="~{partials/card :: card(~{::content}, 'p-4')}">
+                    <div th:replace="~{partials/card :: card(~{this.content}, 'p-4')}">
+                        <div th:fragment="content">
 
                     <h5 class="mb-3">Белпочта</h5>
                     <p>Если у вас есть договор на API Белпочты, свяжитесь со мной для реализации интеграции.</p>
@@ -246,11 +256,13 @@
                     <p>
                         📧 <a href="mailto:info@belivery.by" class="text-decoration-none">info@belivery.by</a>
                     </p>
+                        </div>
                     </div>
                 </div>
 
                 <div class="tab-pane fade" id="v-pills-messages" role="tabpanel">
-                    <div th:replace="~{partials/card :: card(~{::content}, 'p-4')}">
+                    <div th:replace="~{partials/card :: card(~{this.content}, 'p-4')}">
+                    <div th:fragment="content">
                     <h5 class="mb-3">Удаление аккаунта</h5>
                     <p class="fw-semibold">
                         <strong>Вы уверены, что хотите удалить аккаунт?</strong>
@@ -284,6 +296,7 @@
                     <button class="btn btn-danger w-50 py-2" data-bs-toggle="modal" data-bs-target="#deleteAccountModal">
                         <i class="bi bi-trash"></i> Удалить аккаунт
                     </button>
+                    </div>
                     </div>
                 </div>
             </div>
