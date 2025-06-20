@@ -63,11 +63,12 @@ public class StoreTelegramSettingsController {
             }
 
             Store store = storeService.getStore(storeId, userId);
-            StoreTelegramSettings settings = settingsRepository.findByStoreId(store.getId());
-            storeService.updateFromDto(settings, dto);
-            settingsRepository.save(settings);
+            telegramSettingsService.update(store, dto, userId);
             webSocketController.sendUpdateStatus(userId, "Настройки Telegram сохранены.", true);
-            return ResponseBuilder.ok(storeService.toDto(settings));
+            return ResponseBuilder.ok(storeService.toDto(store.getTelegramSettings()));
+        } catch (IllegalStateException e) {
+            log.warn("Ошибка обновления настроек Telegram: {}", e.getMessage());
+            return ResponseBuilder.error(HttpStatus.FORBIDDEN, e.getMessage());
         } catch (Exception e) {
             log.error("Ошибка обновления настроек Telegram", e);
             return ResponseBuilder.error(HttpStatus.BAD_REQUEST, e.getMessage());
@@ -99,10 +100,14 @@ public class StoreTelegramSettingsController {
         }
 
         Store store = storeService.getStore(storeId, userId);
-        telegramSettingsService.update(store, dto);
-        // Отправляем уведомление через WebSocket
-        webSocketController.sendUpdateStatus(userId, "Настройки Telegram сохранены.", true);
-        return ResponseEntity.ok().build();
+        try {
+            telegramSettingsService.update(store, dto, userId);
+            webSocketController.sendUpdateStatus(userId, "Настройки Telegram сохранены.", true);
+            return ResponseEntity.ok().build();
+        } catch (IllegalStateException e) {
+            log.warn("Ошибка обновления настроек Telegram: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        }
     }
 
     /**
@@ -127,9 +132,14 @@ public class StoreTelegramSettingsController {
             return "redirect:/profile#v-pills-stores";
         }
         Store store = storeService.getStore(storeId, userId);
-        telegramSettingsService.update(store, dto);
-        redirectAttributes.addFlashAttribute("successMessage", "Настройки Telegram сохранены.");
-        webSocketController.sendUpdateStatus(userId, "Настройки Telegram сохранены.", true);
+        try {
+            telegramSettingsService.update(store, dto, userId);
+            redirectAttributes.addFlashAttribute("successMessage", "Настройки Telegram сохранены.");
+            webSocketController.sendUpdateStatus(userId, "Настройки Telegram сохранены.", true);
+        } catch (IllegalStateException e) {
+            log.warn("Ошибка обновления настроек Telegram: {}", e.getMessage());
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
         return "redirect:/profile#v-pills-stores";
     }
 }
