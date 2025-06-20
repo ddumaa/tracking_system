@@ -4,12 +4,10 @@ import com.project.tracking_system.entity.TrackParcel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.stereotype.Component;
 
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
-@Component
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
