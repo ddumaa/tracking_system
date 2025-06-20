@@ -57,6 +57,23 @@ function loadModal(itemNumber) {
         .catch(() => notifyUser('Ошибка при загрузке данных', "danger"));
 }
 
+function loadCustomerInfo(trackId) {
+    if (!trackId) return;
+    fetch(`/customers/parcel/${trackId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Ошибка при загрузке данных');
+            }
+            return response.text();
+        })
+        .then(data => {
+            document.querySelector('#customerModal .modal-body').innerHTML = data;
+            let modal = new bootstrap.Modal(document.getElementById('customerModal'));
+            modal.show();
+        })
+        .catch(() => notifyUser('Ошибка при загрузке данных', 'danger'));
+}
+
 // Общая функция для отправки формы через AJAX
 function ajaxSubmitForm(formId, containerId, afterLoadCallbacks = []) {
     const form = document.getElementById(formId);
@@ -135,13 +152,184 @@ function initializeCustomCredentialsCheckbox() {
     }
 }
 
-// Показать или скрыть поля
-function toggleFieldsVisibility(checkbox, fieldsContainer) {
-    if (checkbox.checked) {
-        fieldsContainer.classList.remove('hidden');
-    } else {
-        fieldsContainer.classList.add('hidden');
+// Инициализация переключателя для ввода телефона
+function initializePhoneToggle() {
+    const toggle = document.getElementById("togglePhone");
+    const phoneField = document.getElementById("phoneField");
+
+    if (toggle && phoneField) {
+        // Первичное состояние
+        toggleFieldsVisibility(toggle, phoneField);
+
+        toggle.addEventListener('change', function () {
+            toggleFieldsVisibility(toggle, phoneField);
+        });
     }
+}
+
+// Инициализация формы привязки покупателя к посылке
+function initAssignCustomerFormHandler() {
+    ajaxSubmitForm('assign-customer-form', 'customerInfoContainer', [initAssignCustomerFormHandler]);
+}
+
+// Инициализация форм настроек Telegram
+function initTelegramForms() {
+    document.querySelectorAll('.telegram-settings-form').forEach(form => {
+        if (form.dataset.initialized) return;
+        form.dataset.initialized = 'true';
+
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const formData = new FormData(form);
+            const csrfToken = form.querySelector('input[name="_csrf"]')?.value || '';
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': csrfToken },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    // Уведомление придёт через WebSocket
+                } else {
+                    const errorText = await response.text();
+                    showInlineNotification(form, errorText || 'Ошибка при сохранении', 'danger');
+                }
+            } catch (e) {
+                showInlineNotification(form, 'Ошибка сети при сохранении', 'danger');
+            }
+        });
+    });
+}
+
+// Показать или скрыть поля
+function slideDown(element, duration = 200) {
+    element.classList.remove('hidden');
+    element.style.removeProperty('display');
+    let height = element.scrollHeight;
+    element.style.overflow = 'hidden';
+    element.style.maxHeight = '0';
+    element.offsetHeight; // принудительный reflow
+    element.style.transition = `max-height ${duration}ms ease`;
+    element.style.maxHeight = height + 'px';
+    setTimeout(() => {
+        element.style.removeProperty('max-height');
+        element.style.removeProperty('overflow');
+        element.style.removeProperty('transition');
+    }, duration);
+}
+
+function slideUp(element, duration = 200) {
+    element.style.overflow = 'hidden';
+    element.style.maxHeight = element.scrollHeight + 'px';
+    element.offsetHeight; // принудительный reflow
+    element.style.transition = `max-height ${duration}ms ease`;
+    element.style.maxHeight = '0';
+    setTimeout(() => {
+        element.classList.add('hidden');
+        element.style.removeProperty('max-height');
+        element.style.removeProperty('overflow');
+        element.style.removeProperty('transition');
+    }, duration);
+}
+
+function toggleFieldsVisibility(checkbox, fieldsContainer) {
+    if (!fieldsContainer) return;
+    if (checkbox.checked) {
+        slideDown(fieldsContainer);
+    } else {
+        slideUp(fieldsContainer);
+    }
+}
+
+// --- Работа с состоянием блоков настроек Telegram
+const TG_COLLAPSED_KEY = "collapsedTgStores";
+
+function getCollapsedTgStores() {
+    return JSON.parse(localStorage.getItem(TG_COLLAPSED_KEY)) || [];
+}
+
+function saveCollapsedTgStores(ids) {
+    localStorage.setItem(TG_COLLAPSED_KEY, JSON.stringify(ids));
+}
+
+function initTelegramToggle() {
+    const container = document.getElementById('telegram-management');
+    if (!container) return;
+
+    const collapsedStored = getCollapsedTgStores();
+
+    collapsedStored.forEach(storeId => {
+        const content = container.querySelector(`.tg-settings-content[data-store-id="${storeId}"]`);
+        const btn = container.querySelector(`.toggle-tg-btn[data-store-id="${storeId}"]`);
+        if (content && btn) {
+            content.classList.remove('expanded');
+            content.classList.add('collapsed');
+            const icon = btn.querySelector('i');
+            icon?.classList.remove('bi-chevron-up');
+            icon?.classList.add('bi-chevron-down');
+        }
+    });
+
+    container.querySelectorAll('.toggle-tg-btn').forEach(btn => {
+        if (btn.dataset.toggleInit) return;
+        btn.dataset.toggleInit = 'true';
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            const storeId = this.getAttribute('data-store-id');
+            const content = container.querySelector(`.tg-settings-content[data-store-id="${storeId}"]`);
+            const icon = this.querySelector('i');
+
+            if (!content) return;
+
+            const collapsed = content.classList.toggle('collapsed');
+            content.classList.toggle('expanded', !collapsed);
+
+            icon?.classList.toggle('bi-chevron-down', collapsed);
+            icon?.classList.toggle('bi-chevron-up', !collapsed);
+
+            let ids = getCollapsedTgStores();
+            if (collapsed) {
+                if (!ids.includes(storeId)) ids.push(storeId);
+            } else {
+                ids = ids.filter(id => id !== storeId);
+            }
+            saveCollapsedTgStores(ids);
+        });
+    });
+}
+
+// Инициализация зависимых полей Telegram
+function initTelegramReminderBlocks() {
+    document.querySelectorAll('.telegram-settings-form').forEach(form => {
+        const enabledCb = form.querySelector('input[name="enabled"]');
+        const remindersBlock = form.querySelector('.reminders-container');
+        const remindersCb = form.querySelector('input[name="remindersEnabled"]');
+        const reminderFields = form.querySelector('.reminder-fields');
+
+        if (!enabledCb) return;
+
+        const updateVisibility = () => {
+            if (remindersBlock) toggleFieldsVisibility(enabledCb, remindersBlock);
+            if (reminderFields && remindersCb) {
+                if (enabledCb.checked) {
+                    toggleFieldsVisibility(remindersCb, reminderFields);
+                } else {
+                    reminderFields.classList.add('hidden');
+                }
+            }
+        };
+
+        // Первоначальное состояние
+        updateVisibility();
+
+        enabledCb.addEventListener('change', updateVisibility);
+        remindersCb?.addEventListener('change', () => {
+            if (reminderFields) toggleFieldsVisibility(remindersCb, reminderFields);
+        });
+    });
 }
 
 let lastPage = window.location.pathname; // Запоминаем текущую страницу при загрузке
@@ -183,6 +371,16 @@ function notifyUser(message, type = "info") {
 
 // Уведомления
 function showAlert(message, type) {
+    // Находим контейнер уведомлений на странице
+    const notificationContainer = document.querySelector('#storeNotificationContainer')
+        || document.querySelector('#evropostNotificationContainer')
+        || document.querySelector('#notificationContainer');
+
+    if (!notificationContainer) {
+        console.warn("❌ Не найден контейнер для уведомлений!");
+        return;
+    }
+
     let existingAlert = document.querySelector(".notification"); // Берём только первый найденный alert
 
     // ❌ Игнорируем "Обновление запущено...", так как оно временное
@@ -256,9 +454,10 @@ let userId = document.getElementById("userId")?.value || ""; // Получаем
 function connectWebSocket() {
     debugLog("🚀 connectWebSocket() вызван!");
 
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
     stompClient = new StompJs.Client({
-        //'wss://belivery.by/ws', 'ws://localhost:8080/ws',
-        brokerURL: 'wss://belivery.by/ws',
+        brokerURL: `${protocol}//${host}/ws`,
         reconnectDelay: 1000,
         heartbeatIncoming: 0,
         heartbeatOutgoing: 0,
@@ -429,18 +628,16 @@ async function loadStores() {
     }
 
     tableBody.innerHTML = "";
-    const isMultipleStores = stores.length > 1; // Проверяем, можно ли менять магазин по умолчанию
 
     stores.forEach(store => {
         const row = document.createElement("tr");
         row.innerHTML = `
             <td class="d-flex align-items-center">
-                <input type="radio" name="defaultStore" 
-                       class="default-store-radio me-2" 
-                       data-store-id="${store.id}" 
-                       ${store.default ? "checked" : ""} 
-                       ${!isMultipleStores ? "disabled" : ""} 
-                       data-bs-toggle="tooltip" 
+                <input type="radio" name="defaultStore"
+                       class="default-store-radio me-2"
+                       data-store-id="${store.id}"
+                       ${store.default ? "checked" : ""}
+                       data-bs-toggle="tooltip"
                        title="Магазин по умолчанию">
                 <input type="text" class="form-control store-name-input" value="${store.name}" id="store-name-${store.id}" disabled>
             </td>
@@ -462,6 +659,12 @@ async function loadStores() {
     // Инициализируем tooltips после загрузки магазинов
     enableTooltips();
 
+    // --- Инициализируем состояние блоков Telegram
+    initTelegramToggle();
+
+
+
+
     console.info("✅ Магазины успешно загружены и отрисованы.");
 }
 
@@ -477,18 +680,56 @@ async function loadAnalyticsButtons() {
     if (!container) return;
 
     container.innerHTML = '';
+
     stores.forEach(store => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'btn btn-outline-secondary w-100 reset-store-analytics-btn mb-2 d-flex align-items-center';
+        btn.className = 'btn btn-outline-secondary btn-sm reset-store-analytics-btn d-inline-flex align-items-center';
         btn.dataset.storeId = store.id;
         btn.dataset.storeName = store.name;
         btn.setAttribute('data-bs-toggle', 'tooltip');
         btn.title = `Очистить аналитику магазина «${store.name}»`;
         btn.innerHTML = `<i class="bi bi-brush me-2"></i> Очистить аналитику — ${store.name}`;
+
+        btn.addEventListener('click', () => {
+            analyticsActionUrl = `/analytics/reset/store/${store.id}`;
+            showResetModal(`Вы действительно хотите очистить аналитику магазина «${store.name}»?`);
+        });
+
         container.appendChild(btn);
     });
+
     enableTooltips(container);
+}
+
+
+/**
+ * Формирует DOM-блок настроек Telegram для магазина
+ */
+async function renderTelegramBlock(storeId) {
+    const response = await fetch(`/profile/stores/${storeId}/telegram-block`);
+    if (!response.ok) return null;
+
+    const html = await response.text();
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html.trim();
+    return wrapper.firstElementChild;
+}
+
+/**
+ * Загружает настройки Telegram и добавляет блок на страницу
+ */
+async function appendTelegramBlock(store) {
+    const storeId = typeof store === 'object' ? store.id : store;
+
+    const block = await renderTelegramBlock(storeId);
+    if (!block) return;
+    document.getElementById('telegram-management').appendChild(block);
+
+    // --- Инициализируем формы и collapse
+    initTelegramForms();
+    initTelegramToggle();
+    initTelegramReminderBlocks();
 }
 
 /**
@@ -551,6 +792,7 @@ async function saveStore(storeId) {
 
     if (response.ok) {
         loadStores();
+        loadAnalyticsButtons();
     } else {
         alert("Ошибка обновления: " + await response.text());
     }
@@ -619,8 +861,11 @@ async function saveNewStore(event) {
     });
 
     if (response.ok) {
+        const newStore = await response.json();
         loadStores(); // Обновляем список магазинов
         updateStoreLimit();
+        loadAnalyticsButtons();
+        appendTelegramBlock(newStore);
     } else {
         console.warn("Ошибка при создании магазина: ", await response.text());
         return;
@@ -651,6 +896,16 @@ async function deleteStore() {
     if (response.ok) {
         loadStores();
         updateStoreLimit();
+        loadAnalyticsButtons();
+        const storeElement = document.querySelector(`#store-block-${storeToDelete}`);
+        if (storeElement) {
+            storeElement.remove();
+        }
+
+        // Очищаем сохранённый ID из localStorage
+        let collapsed = getCollapsedTgStores();
+        collapsed = collapsed.filter(id => id !== String(storeToDelete));
+        saveCollapsedTgStores(collapsed);
     } else {
         alert("Ошибка при удалении: " + await response.text());
     }
@@ -658,6 +913,7 @@ async function deleteStore() {
     storeToDelete = null;
     bootstrap.Modal.getInstance(document.getElementById('deleteStoreModal')).hide();
 }
+
 
 /**
  * Обновляет отображение лимита магазинов
@@ -849,6 +1105,11 @@ document.addEventListener("DOMContentLoaded", function () {
     initPasswordFormHandler();
     initEvropostFormHandler();
     initializeCustomCredentialsCheckbox();
+    initializePhoneToggle();
+    initAssignCustomerFormHandler();
+    initTelegramForms();
+    initTelegramToggle();
+    initTelegramReminderBlocks();
 
     // Назначаем обработчик кнопки "Добавить магазин" - с проверкой на наличие
     const addStoreBtn = document.getElementById("addStoreBtn");
@@ -926,6 +1187,14 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     document.body.addEventListener("click", function (event) {
+        if (event.target.closest(".customer-icon")) {
+            const icon = event.target.closest(".customer-icon");
+            const trackId = icon.getAttribute("data-trackid");
+            loadCustomerInfo(trackId);
+        }
+    });
+
+    document.body.addEventListener("click", function (event) {
         if (event.target.closest(".btn-link")) {
             const button = event.target.closest(".btn-link");
             const itemNumber = button.getAttribute("data-itemnumber");
@@ -946,12 +1215,46 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    let customerModalElement = document.getElementById('customerModal');
+    if (customerModalElement) {
+        customerModalElement.addEventListener('hidden.bs.modal', function () {
+            let backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                backdrop.remove();
+            }
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+        });
+    }
+
     //установка активной вкладки в хедере
     const currentPath = window.location.pathname;
     document.querySelectorAll(".nav-link").forEach(link => {
         if (link.getAttribute("data-path") === currentPath) {
             link.classList.add("active");
         }
+    });
+
+    // Запоминание активной вкладки и анимация при переключении
+    const tabKey = "profileActiveTab";
+    const tabLinks = document.querySelectorAll('#v-pills-tab a');
+    const savedTab = localStorage.getItem(tabKey);
+    if (savedTab) {
+        const triggerEl = document.querySelector(`[href="${savedTab}"]`);
+        if (triggerEl) new bootstrap.Tab(triggerEl).show();
+    }
+    tabLinks.forEach(link => {
+        link.addEventListener('shown.bs.tab', e => {
+            const href = e.target.getAttribute('href');
+            localStorage.setItem(tabKey, href);
+            const pane = document.querySelector(href);
+            if (pane) {
+                pane.classList.add('animate__animated', 'animate__fadeIn');
+                pane.addEventListener('animationend', () => {
+                    pane.classList.remove('animate__animated', 'animate__fadeIn');
+                }, { once: true });
+            }
+        });
     });
 
     // Логика показа/скрытия пароля
@@ -1176,24 +1479,27 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
                 notifyUser("Выбранные посылки успешно удалены.", "success");
 
-                clearAllCheckboxes();
+                const checkedCheckboxes = Array.from(document.querySelectorAll(".selectCheckbox:checked"));
+                const rowsToRemove = checkedCheckboxes
+                    .map(cb => cb.closest("tr"))
+                    .filter(row => row);
 
                 // Анимация исчезновения удалённых строк
-                document.querySelectorAll(".selectCheckbox:checked").forEach(checkbox => {
-                    const row = checkbox.closest("tr");
-                    if (row) {
-                        row.style.transition = "opacity 0.5s";
-                        row.style.opacity = "0";
-                        setTimeout(() => row.remove(), 500);
-                    }
+                rowsToRemove.forEach(row => {
+                    row.style.transition = "opacity 0.5s";
+                    row.style.opacity = "0";
                 });
 
-                // ✅ Возвращаем кнопку в нормальное состояние
-                applyBtn.disabled = false;
-                applyBtn.innerHTML = "Применить";
+                // Удаляем строки и очищаем чекбоксы после завершения анимации
+                setTimeout(() => {
+                    rowsToRemove.forEach(row => row.remove());
+                    clearAllCheckboxes();
+                }, 500);
             })
             .catch(error => {
                 notifyUser("Ошибка при удалении: " + error.message, "danger");
+            })
+            .finally(() => {
                 applyBtn.disabled = false;
                 applyBtn.innerHTML = "Применить";
             });

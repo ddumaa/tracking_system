@@ -1,6 +1,5 @@
-@use "../abstracts/variables" as vars;
-@use "../abstracts/mixins" as mixins;
 @use "sass:color";
+@use '../ui' as ui;
 
 /* --- Стили для кнопки обновления --- */
 .history-refresh-btn {
@@ -8,7 +7,7 @@
   border: none;  // Без рамки
   font-size: 2rem;  // Увеличиваем размер иконки
   cursor: pointer;  // Курсор при наведении
-  color: vars.$primary;  // Цвет иконки
+  color: ui.$primary;  // Цвет иконки
   padding: 12px;  // Устанавливаем отступы, чтобы кнопка была круглая
   border-radius: 50%;  // Округляем кнопку
 
@@ -24,14 +23,14 @@
   /* Эффект при наведении */
   &:hover {
     transform: rotate(360deg) scale(1.1);  // Вращаем и увеличиваем
-    background: rgba(vars.$primary, 0.1);  // Лёгкий фон
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);  // Лёгкая тень
+    background: rgba(ui.$primary, 0.1);  // Лёгкий фон
+    box-shadow: ui.$box-shadow;  // Лёгкая тень
   }
 
   /* Эффект нажатия */
   &:active {
     transform: scale(0.95);  // Немного сжимаем при нажатии
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);  // Лёгкая тень при нажатии
+    box-shadow: ui.$box-shadow;  // Лёгкая тень при нажатии
   }
 
   i {
@@ -41,10 +40,10 @@
 
 /* Фильтр и форма */
 .history-filters {
-  background: vars.$white;
-  border-radius: 10px;
+  background: ui.$white;
+  border-radius: ui.$border-radius;
   padding: 15px;
-  @include mixins.box-shadow(0, 4px, 8px);
+  @include ui.box-shadow(0, 4px, 8px);
 
   .row {
     display: flex;
@@ -61,7 +60,7 @@
 
     label {
       font-weight: bold;
-      color: vars.$dark;
+      color: ui.$dark;
     }
 
     .form-select {
@@ -74,7 +73,7 @@
       font-size: 1rem;
       font-weight: bold;
       padding: 10px 15px;
-      @include mixins.hover-effect;
+      @include ui.hover-effect;
     }
   }
 }
@@ -90,28 +89,28 @@
     -moz-appearance: none;
     width: 22px; // Размер чекбокса
     height: 22px;
-    border: 2px solid vars.$primary; // Граница чекбокса
-    border-radius: 5px; // Немного скругляем углы
+    border: 2px solid ui.$primary; // Граница чекбокса
+    border-radius: ui.$border-radius; // Немного скругляем углы
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    @include mixins.transition();
+    @include ui.transition();
 
     &:hover {
-      border-color: color.scale(vars.$primary, $lightness: -10%);
+      border-color: color.scale(ui.$primary, $lightness: -10%);
     }
 
     &:checked {
-      background: vars.$primary;
-      border-color: vars.$primary;
+      background: ui.$primary;
+      border-color: ui.$primary;
       position: relative;
 
       &::after {
         content: "\f26b"; // Галочка из Bootstrap Icons (bi-check-square)
         font-family: "bootstrap-icons";
         font-size: 18px;
-        color: vars.$white;
+        color: ui.$white;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -141,12 +140,12 @@
     max-width: 150px; // Ограничиваем максимальную ширину
     font-size: 0.9rem;
     padding: 6px 12px;
-    border-radius: 6px;
+    border-radius: ui.$border-radius;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 5px;
-    @include mixins.transition();
+    @include ui.transition();
 
     i {
       font-size: 1rem;
@@ -155,13 +154,13 @@
 
   /* Кнопка "Выделить все" */
   #selectAllBtn {
-    background: vars.$primary;
-    color: vars.$white;
+    background: ui.$primary;
+    color: ui.$white;
     border: none;
     font-weight: bold;
 
     &:hover {
-      background: color.scale(vars.$primary, $lightness: -10%);
+      background: color.scale(ui.$primary, $lightness: -10%);
     }
 
     &:active {
@@ -175,14 +174,14 @@
 
   /* Кнопка "Удалить выделенное" */
   #deleteSelectedBtn {
-    background: vars.$danger;
-    color: vars.$white;
+    background: ui.$danger;
+    color: ui.$white;
     border: none;
     cursor: not-allowed;
-    @include mixins.transition();
+    @include ui.transition();
 
     &:hover {
-      background: color.scale(vars.$danger, $lightness: -10%);
+      background: color.scale(ui.$danger, $lightness: -10%);
     }
 
     &:active {
@@ -199,36 +198,31 @@
       cursor: pointer;
 
       &:hover {
-        background: color.scale(vars.$danger, $lightness: -15%);
+        background: color.scale(ui.$danger, $lightness: -15%);
         transform: scale(1.05);
       }
     }
   }
 }
 
-/* Стили для таблицы */
 .history-table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  border-radius: 10px;
-  overflow: hidden;
-  background: vars.$white;
-  @include mixins.box-shadow(0, 4px, 8px);
 
   thead {
-    background: vars.$primary;
-    color: vars.$white;
+    background: ui.$primary;
+    color: ui.$white;
   }
 
   th, td {
     padding: 12px;
     text-align: center;
-    border-bottom: 1px solid vars.$light;
+    border-bottom: 1px solid ui.$light;
   }
 
   tbody tr:hover {
-    background: rgba(vars.$primary, 0.1);
+    background: rgba(ui.$primary, 0.1);
     cursor: pointer;
     transition: all 0.3s ease-in-out;
   }
@@ -240,17 +234,18 @@
   button {
     border: none;
     background: none;
-    color: vars.$primary;
+    color: ui.$primary;
     font-weight: 500;
-    @include mixins.transition();
+    @include ui.transition();
 
     &:hover {
       text-decoration: underline;
-      color: color.scale(vars.$primary, $lightness: -15%);
+      color: color.scale(ui.$primary, $lightness: -15%);
       transform: scale(1.1);
     }
   }
 }
+
 
 .pagination {
   display: flex;
@@ -270,33 +265,33 @@
       height: 40px;
       font-size: 1rem;
       font-weight: bold;
-      color: vars.$primary;
-      background: vars.$white;
-      border: 1px solid vars.$primary;
+      color: ui.$primary;
+      background: ui.$white;
+      border: 1px solid ui.$primary;
       border-radius: 50%;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      box-shadow: ui.$box-shadow;
       transition: all 0.3s ease-in-out;
 
       &:hover {
-        background: vars.$primary;
-        color: vars.$white;
-        border-color: vars.$primary;
+        background: ui.$primary;
+        color: ui.$white;
+        border-color: ui.$primary;
         transform: scale(1.1);
       }
     }
 
     &.active .page-link {
-      background: vars.$primary;
-      color: vars.$white;
-      border-color: vars.$primary;
+      background: ui.$primary;
+      color: ui.$white;
+      border-color: ui.$primary;
       cursor: default;
       transform: scale(1);
     }
 
     &.disabled .page-link {
-      color: vars.$secondary;
-      background: vars.$light;
-      border-color: vars.$light;
+      color: ui.$secondary;
+      background: ui.$light;
+      border-color: ui.$light;
       cursor: not-allowed;
       opacity: 0.6;
       transform: none;
@@ -333,22 +328,22 @@
 .size-btn {
   padding: 8px 15px;
   font-size: 0.9rem;
-  border-radius: 6px;
+  border-radius: ui.$border-radius;
   min-width: 50px;
 
   &.active {
-    background-color: color.scale(vars.$primary, $lightness: 85%);
-    color: color.scale(vars.$primary, $lightness: -30%);
-    border-color: color.scale(vars.$primary, $lightness: 60%);
+    background-color: color.scale(ui.$primary, $lightness: 85%);
+    color: color.scale(ui.$primary, $lightness: -30%);
+    border-color: color.scale(ui.$primary, $lightness: 60%);
   }
 
   &:hover {
-    background-color: color.scale(vars.$primary, $lightness: 90%);
-    border-color: vars.$primary;
+    background-color: color.scale(ui.$primary, $lightness: 90%);
+    border-color: ui.$primary;
   }
 }
 
-@include mixins.respond-to(sm) {
+@include ui.respond-to(sm) {
   .history-filters {
     flex-direction: column;
     align-items: stretch;

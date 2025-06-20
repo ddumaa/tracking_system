@@ -4,6 +4,10 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
+/**
+ * Представляет посылку с трек-номером в системе.
+ */
+
 import java.time.ZonedDateTime;
 
 @Getter
@@ -37,10 +41,18 @@ public class TrackParcel {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
+
     @OneToOne(mappedBy = "trackParcel", cascade = {}, orphanRemoval = false)
     private DeliveryHistory deliveryHistory;
 
     @Column(name = "included_in_statistics", nullable = false)
     private boolean includedInStatistics = false;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
 
 }

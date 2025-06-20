@@ -8,14 +8,41 @@
     <title layout:fragment="title">Список пользователей</title>
 </head>
 
+<div layout:fragment="afterHeader">
+    <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${breadcrumbs})}"></div>
+</div>
+
 <main layout:fragment="content">
 
-<a href="/admin" class="btn btn-primary mb-4">Админ Панель</a>
-
 <div class="container mt-4">
-    <h1 class="mb-4">Список пользователей</h1>
+    <h1 class="mb-1">Список пользователей</h1>
 
-    <a href="/admin/users/new" class="btn btn-primary mb-4">Добавить пользователя</a>
+    <a th:href="@{/admin/users/new}" class="btn btn-primary mb-4">Добавить пользователя</a>
+
+    <form method="get" th:action="@{/admin/users}" class="row row-cols-lg-auto g-2 mb-3">
+        <div class="col-12">
+            <input type="text" class="form-control" name="search" placeholder="Поиск по email" th:value="${search}">
+        </div>
+        <div class="col-12">
+            <select class="form-select" name="role">
+                <option value="">Все роли</option>
+                <option th:each="r : ${roles}" th:value="${r}" th:text="${r}" th:selected="${selectedRole == r}"></option>
+            </select>
+        </div>
+        <div class="col-12">
+            <select class="form-select" name="subscription">
+                <option value="">Все подписки</option>
+                <option th:each="p : ${plans}"
+                        th:value="${p.code.name()}"
+                        th:text="${p.code.displayName}"
+                        th:selected="${selectedSubscription?.name() == p.code.name()}">
+                </option>
+            </select>
+        </div>
+        <div class="col-12">
+            <button type="submit" class="btn btn-secondary">Найти</button>
+        </div>
+    </form>
 
     <table class="table table-bordered table-striped">
         <thead class="thead-dark">
@@ -32,9 +59,9 @@
             <td th:text="${user.id}"></td>
             <td th:text="${user.email}"></td>
             <td th:text="${user.role}"></td>
-            <td th:text="${user.subscriptionPlanName}"></td>
+            <td th:text="${user.getSubscriptionPlanCode().getDisplayName()}"></td>
             <td>
-                <a th:href="@{/admin/users/{usersId}(usersId=${user.id})}" class="btn btn-info btn-sm">Подробнее</a>
+                <a th:href="@{/admin/users/{userId}(userId=${user.id})}" class="btn btn-info btn-sm">Подробнее</a>
             </td>
         </tr>
         </tbody>

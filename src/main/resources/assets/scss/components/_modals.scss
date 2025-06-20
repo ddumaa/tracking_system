@@ -1,6 +1,5 @@
-@use "../abstracts/_mixins.scss" as mixins;
-@use "../abstracts/_variables.scss" as vars;
 @use "sass:color";
+@use '../ui' as ui;
 
 .modal {
   display: none;
@@ -20,9 +19,9 @@
   }
 
   .modal-content {
-    border-radius: 10px;
+    border-radius: ui.$border-radius;
     padding: 20px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    box-shadow: ui.$box-shadow;
   }
 
   .modal-header {
@@ -62,7 +61,7 @@
     font-weight: 700;
   }
 
-  @include mixins.respond-to(md){
+  @include ui.respond-to(md){
     .modal-dialog {
       max-width: 90%;
     }
@@ -91,7 +90,7 @@
     }
   }
 
-  @include mixins.respond-to(sm) {
+  @include ui.respond-to(sm) {
     .modal-dialog {
       max-width: 95%;
     }
@@ -111,10 +110,10 @@
   bottom: 15px;
   left: 50%;
   transform: translateX(-50%);
-  background: vars.$white;
+  background: ui.$white;
   padding: 14px 20px;
-  border-radius: 8px;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+  border-radius: ui.$border-radius;
+  box-shadow: ui.$box-shadow;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -125,11 +124,11 @@
   z-index: 1050;
   opacity: 0;
   visibility: hidden;
-  font-size: vars.$font-size-base; // Увеличиваем размер шрифта
+  font-size: ui.$font-size-base; // Увеличиваем размер шрифта
   text-align: center;
   word-wrap: break-word;
   line-height: 1.4;
-  @include mixins.transition(opacity, 0.3s, ease-in-out);
+  @include ui.transition(opacity, 0.3s, ease-in-out);
 
   &.show {
     opacity: 1;
@@ -137,17 +136,17 @@
   }
 
   p {
-    font-size: vars.$font-size-base - 1px; // Поднимаем размер шрифта
-    color: vars.$dark;
+    font-size: ui.$font-size-base - 1px; // Поднимаем размер шрифта
+    color: ui.$dark;
     margin: 0 0 12px 0; // Больше отступа снизу
     max-width: 380px; // Ограничиваем ширину текста, чтобы не растягивался
   }
 
   a {
-    color: vars.$primary;
+    color: ui.$primary;
     text-decoration: none;
     font-weight: 500;
-    @include mixins.hover-effect;
+    @include ui.hover-effect;
   }
 
   .cookie-buttons {
@@ -158,22 +157,22 @@
     .btn {
       padding: 8px 14px;
       font-size: 15px; // Чуть больше кнопка
-      border-radius: 6px;
+      border-radius: ui.$border-radius;
       cursor: pointer;
       width: 60%; // Немного шире
       max-width: 220px;
       text-align: center;
-      @include mixins.transition();
+      @include ui.transition();
 
       &.btn-primary {
-        @include mixins.button-style(vars.$primary);
+        @include ui.button-style(ui.$primary);
       }
     }
   }
 }
 
 // 🔹 Адаптация для мобильных устройств
-@include mixins.respond-to(sm) {
+@include ui.respond-to(sm) {
   .cookie-modal {
     width: 90%;
     max-width: 320px;

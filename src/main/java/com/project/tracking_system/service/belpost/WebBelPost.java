@@ -6,12 +6,13 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
+import com.project.tracking_system.webdriver.WebDriverFactory;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
 import java.util.List;
@@ -27,8 +28,12 @@ import java.util.concurrent.CompletableFuture;
  * @author Dmitriy Anisimov
  * @date 07.01.2025
  */
+@RequiredArgsConstructor
 @Service
+@Slf4j
 public class WebBelPost {
+
+    private final WebDriverFactory webDriverFactory;
 
     /**
      * Асинхронно выполняет процесс отслеживания посылки на сайте BelPost.
@@ -55,18 +60,8 @@ public class WebBelPost {
         WebDriver driver = null;
         TrackInfoListDTO trackInfoListDTO = new TrackInfoListDTO();
         try {
-            // Настройка ChromeDriver с нужными параметрами
-            ChromeOptions options = new ChromeOptions();
-            options.addArguments("--headless"); // Запуск без графического интерфейса
-            options.addArguments("--disable-gpu");
-            options.addArguments("--window-size=1920,1080");
-            options.addArguments("--ignore-certificate-errors");
-            options.addArguments("--no-sandbox");
-            options.addArguments("--disable-dev-shm-usage");
-            options.addArguments("--remote-debugging-port=9222");
-
-            // Создание и запуск драйвера
-            driver = new ChromeDriver(options);
+            // Создаём драйвер через фабрику
+            driver = webDriverFactory.create();
 
             // передаём ссылку + номер
             String url = "https://belpost.by/Otsleditotpravleniye?number=" + number;
@@ -107,7 +102,7 @@ public class WebBelPost {
                 trackInfoListDTO.addTrackInfo(trackInfoDTO);
             }
         } catch (Exception e) {
-            System.err.println("Error: " + e.getMessage());
+            log.error("Ошибка веб-автоматизации BelPost: {}", e.getMessage(), e);
         } finally {
             if (driver != null) {
                 driver.quit();

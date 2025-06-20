@@ -14,8 +14,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.Authentication;
+import com.project.tracking_system.utils.AuthUtils;
+import com.project.tracking_system.utils.ResponseBuilder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -57,10 +59,7 @@ public class AnalyticsController {
             HttpServletRequest request) {
 
         // 1) Проверяем аутентификацию
-        if (!(authentication.getPrincipal() instanceof User user)) {
-            log.debug("Попытка доступа к аналитике без аутентификации.");
-            return "redirect:/login";
-        }
+        User user = AuthUtils.getCurrentUser(authentication);
 
         Long userId = user.getId();
         ZoneId userZone = ZoneId.of(user.getTimeZone());
@@ -169,12 +168,7 @@ public class AnalyticsController {
     @PostMapping("/update")
     public ResponseEntity<?> updateAnalytics(@RequestParam(required = false) Long storeId,
                                              Authentication authentication) {
-        if (!(authentication.getPrincipal() instanceof User user)) {
-            log.warn("Попытка обновления аналитики без аутентификации.");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("message", "Вы не авторизованы"));
-        }
-
+        User user = AuthUtils.getCurrentUser(authentication);
         Long userId = user.getId();
         log.info("Обновление timestamp аналитики (данные считаются инкрементально): userId={}, storeId={}", userId, storeId);
 
@@ -183,14 +177,14 @@ public class AnalyticsController {
             userStoreIds.forEach(storeAnalyticsService::updateStoreAnalytics);
 
             webSocketController.sendUpdateStatus(userId, "Обновлена аналитика по всем вашим магазинам!", true);
-            return ResponseEntity.ok(Map.of("message", "Аналитика обновлена по всем магазинам!"));
+            return ResponseBuilder.ok(Map.of("message", "Аналитика обновлена по всем магазинам!"));
         }
 
         Store store = storeService.getStore(storeId, userId);
         storeAnalyticsService.updateStoreAnalytics(storeId);
         webSocketController.sendUpdateStatus(userId, "Аналитика обновлена для магазина: " + store.getName(), true);
 
-        return ResponseEntity.ok(Map.of("message", "Аналитика обновлена для магазина: " + store.getName()));
+        return ResponseBuilder.ok(Map.of("message", "Аналитика обновлена для магазина: " + store.getName()));
     }
 
     /**
@@ -208,10 +202,7 @@ public class AnalyticsController {
     public Map<String, Object> getAnalyticsJson(@RequestParam(required = false) Long storeId,
                                                 @RequestParam(defaultValue = "WEEKS") String interval,
                                                 Authentication authentication) {
-        if (!(authentication.getPrincipal() instanceof User user)) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-        }
-
+        User user = AuthUtils.getCurrentUser(authentication);
         Long userId = user.getId();
         List<Store> stores = storeService.getUserStores(userId);
         List<StoreStatistics> visibleStats;
@@ -268,7 +259,7 @@ public class AnalyticsController {
     public ResponseEntity<Void> resetAllAnalyticsForUser(@AuthenticationPrincipal User user) {
         analyticsResetService.resetAllAnalytics(user.getId());
         webSocketController.sendUpdateStatus(user.getId(), "Аналитика удалена", true);
-        return ResponseEntity.ok().build();
+        return ResponseBuilder.ok(null);
     }
 
     /**
@@ -279,7 +270,7 @@ public class AnalyticsController {
                                                        @AuthenticationPrincipal User user) {
         analyticsResetService.resetStoreAnalytics(user.getId(), storeId);
         webSocketController.sendUpdateStatus(user.getId(), "Аналитика магазина удалена", true);
-        return ResponseEntity.ok().build();
+        return ResponseBuilder.ok(null);
     }
 
 }

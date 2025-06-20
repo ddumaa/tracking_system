@@ -9,15 +9,17 @@ import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.service.track.StatusTrackService;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.track.TrackParcelService;
+import com.project.tracking_system.service.track.TrackFacade;
 import com.project.tracking_system.service.store.StoreService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import com.project.tracking_system.utils.ResponseBuilder;
 
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import com.project.tracking_system.utils.AuthUtils;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -41,6 +43,7 @@ import java.util.List;
 public class DeparturesController {
 
     private final TrackParcelService trackParcelService;
+    private final TrackFacade trackFacade;
     private final StatusTrackService statusTrackService;
     private final StoreService storeService;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
@@ -66,11 +69,7 @@ public class DeparturesController {
             Model model,
             Authentication authentication) {
 
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
-            log.debug("Попытка доступа к странице 'Отправления' без аутентификации.");
-            return "redirect:/login";
-        }
-
+        User user = AuthUtils.getCurrentUser(authentication);
         Long userId = user.getId();
         List<Store> stores = storeService.getUserStores(userId); // Загружаем магазины с именами
         List<Long> storeIds = storeService.getUserStoreIds(userId); // Все id магазины пользователя
@@ -151,10 +150,7 @@ public class DeparturesController {
             @PathVariable("itemNumber") String itemNumber,
             Authentication authentication) {
 
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
-            throw new RuntimeException("Пользователь не аутентифицирован.");
-        }
-
+        User user = AuthUtils.getCurrentUser(authentication);
         Long userId = user.getId();
         log.info("🔍 Запрос информации о посылке {} для пользователя ID={}", itemNumber, userId);
 
@@ -181,35 +177,30 @@ public class DeparturesController {
      * @return Перенаправление на страницу истории.
      */
     @PostMapping("/track-update")
-    public ResponseEntity<UpdateResult> updateDepartures(
+    public ResponseEntity<?> updateDepartures(
             @RequestParam(required = false) List<String> selectedNumbers,
             Authentication authentication
     ) {
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth)
-                || !(auth.getPrincipal() instanceof User user)) {
-            log.warn("❌ Попытка обновления посылок без аутентификации.");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
+        User user = AuthUtils.getCurrentUser(authentication);
         Long userId = user.getId();
         log.info("🔄 Запрос на обновление посылок: userId={}", userId);
 
         UpdateResult result;
         try {
             if (selectedNumbers != null && !selectedNumbers.isEmpty()) {
-                result = trackParcelService.updateSelectedParcels(userId, selectedNumbers);
+                result = trackFacade.updateSelectedParcels(userId, selectedNumbers);
             } else {
-                result = trackParcelService.updateAllParcels(userId);
+                result = trackFacade.updateAllParcels(userId);
             }
 
             // Отправляем WebSocket-уведомление
             webSocketController.sendDetailUpdateStatus(userId, result);
-            return ResponseEntity.ok(result);
+            return ResponseBuilder.ok(result);
 
         } catch (Exception e) {
             log.error("❌ Ошибка при обновлении посылок: userId={}, ошибка={}", userId, e.getMessage(), e);
             webSocketController.sendUpdateStatus(userId, "Произошла ошибка обновления.", false);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseBuilder.error(HttpStatus.INTERNAL_SERVER_ERROR, "Ошибка обновления посылок");
         }
     }
 
@@ -224,32 +215,27 @@ public class DeparturesController {
      * @return перенаправление на страницу истории.
      */
     @PostMapping("/delete-selected")
-    public ResponseEntity<String> deleteSelected(
+    public ResponseEntity<?> deleteSelected(
             @RequestParam List<String> selectedNumbers,
             Authentication authentication) {
-
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
-            log.warn("Попытка удаления посылок без аутентификации.");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Ошибка: Необходимо войти в систему.");
-        }
-
+        User user = AuthUtils.getCurrentUser(authentication);
         Long userId = user.getId();
         log.info("Запрос на удаление посылок {} для пользователя с ID: {}", selectedNumbers, userId);
 
         if (selectedNumbers == null || selectedNumbers.isEmpty()) {
             log.warn("Попытка удаления без выбранных посылок пользователем с ID: {}", userId);
-            return ResponseEntity.badRequest().body("Ошибка: Не выбраны посылки для удаления.");
+            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Ошибка: Не выбраны посылки для удаления.");
         }
 
         try {
-            trackParcelService.deleteByNumbersAndUserId(selectedNumbers, userId);
+            trackFacade.deleteByNumbersAndUserId(selectedNumbers, userId);
             log.info("Выбранные посылки {} удалены пользователем с ID: {}", selectedNumbers, userId);
             webSocketController.sendUpdateStatus(userId, "Выбранные посылки успешно удалены.", true);
-            return ResponseEntity.ok("Выбранные посылки успешно удалены.");
+            return ResponseBuilder.ok("Выбранные посылки успешно удалены.");
         } catch (Exception e) {
             log.error("Ошибка при удалении посылок {} пользователем с ID: {}: {}", selectedNumbers, userId, e.getMessage(), e);
             webSocketController.sendUpdateStatus(userId, "Ошибка при удалении посылок.", false);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Ошибка при удалении посылок.");
+            return ResponseBuilder.error(HttpStatus.INTERNAL_SERVER_ERROR, "Ошибка при удалении посылок.");
         }
     }
 

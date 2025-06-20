@@ -1,0 +1,26 @@
+<div id="customerInfoContainer">
+    <div th:if="${notFound}">
+        <p>Покупатель не найден</p>
+        <form id="assign-customer-form" th:action="@{/customers/assign}" method="post" class="mt-3">
+            <input type="hidden" name="trackId" th:value="${trackId}">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <div class="input-group mb-2">
+                <input type="text" name="phone" class="form-control" placeholder="375XXXXXXXXX" required>
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+            </div>
+        </form>
+    </div>
+    <div th:unless="${notFound}">
+        <ul class="list-group">
+            <li class="list-group-item"><strong>Телефон:</strong> <span th:text="${customerInfo.phone}"></span></li>
+            <li class="list-group-item"><strong>Отправлено:</strong> <span th:text="${customerInfo.sentCount}"></span></li>
+            <li class="list-group-item"><strong>Забрано:</strong> <span th:text="${customerInfo.pickedUpCount}"></span></li>
+            <li class="list-group-item"><strong>Процент выкупа:</strong> <span th:text="${customerInfo.pickupPercentage}"></span>%</li>
+            <li class="list-group-item">
+                <strong>Репутация:</strong>
+                <span th:text="${customerInfo.reputationDisplayName}"
+                      th:class="${customerInfo.colorClass}"></span>
+            </li>
+        </ul>
+    </div>
+</div>

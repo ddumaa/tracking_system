@@ -1,5 +1,6 @@
 package com.project.tracking_system.dto;
 
+import com.project.tracking_system.entity.SubscriptionCode;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -13,8 +14,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class UserProfileDTO {
 
-    private String email; // отображение e-mail, но не редактируемый
-    //private String fullName; // опционально, если в будущем понадобится
-    private String timezone; // например, "Europe/Minsk"
+    private String email;
+    private String timezone;
+    private SubscriptionCode subscriptionCode;
+    private String subscriptionEndDate;
 
+    public String getSubscriptionDisplayName() {
+        return subscriptionCode != null ? subscriptionCode.getDisplayName() : "Без подписки";
+    }
 }

@@ -1,21 +1,21 @@
-@use '../abstracts/variables' as var;
-@use '../abstracts/mixins' as mixins;
+@use '../ui' as ui;
+@use "sass:color";
 
 .limit-warning {
   font-size: 18px; // Увеличенный размер шрифта
   font-weight: bold; // Жирный текст
-  color: #b30000; // Темно-красный цвет текста
-  background-color: #ffe6e6; // Светло-красный фон
+  color: ui.$primary-color; // Темно-красный цвет текста
+  background-color: color.adjust(ui.$primary-color, $lightness: 40%); // Светло-красный фон
   padding: 12px; // Внутренние отступы
-  border: 2px solid #b30000; // Красная рамка
-  border-radius: 6px; // Скругленные углы
+  border: 2px solid ui.$primary-color; // Красная рамка
+  border-radius: ui.$border-radius; // Скругленные углы
   text-align: center; // Центрирование текста
   margin-top: 15px; // Отступ сверху
-  @include mixins.transition(fadeIn, 0.5s);
-  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+  @include ui.transition(fadeIn, 0.5s);
+  box-shadow: ui.$box-shadow;
 
   // Медиа-запрос для мобильных устройств (делаем текст чуть меньше)
-  @include mixins.respond-to(md) {
+  @include ui.respond-to(md) {
     font-size: 16px;
     padding: 10px;
   }

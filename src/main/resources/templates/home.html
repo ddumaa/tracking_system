@@ -14,8 +14,10 @@
         <div class="row justify-content-center">
             <div class="col-lg-10 col-md-10 col-12">
 
+                <div class="d-flex justify-content-center align-items-center mb-4 gap-2">
                 <!-- Заголовок страницы -->
-                <h1>Отслеживание посылок</h1>
+                <h1 class="mb-1">Отслеживание посылок</h1>
+                </div>
 
                 <!-- Ошибки -->
                 <div th:if="${customError}" class="alert alert-danger mb-4">
@@ -50,9 +52,23 @@
                             <i class="bi bi-info-circle text-primary" data-bs-toggle="tooltip"
                                data-bs-placement="right" title="Белпочта, Европочта"></i>
                         </label>
-                        <div class="input-group">
+                        <div class="input-group mb-3">
                             <input type="text" id="number" name="number" class="form-control" placeholder="Номер посылки" required>
                             <button type="submit" class="btn btn-outline-primary btn-equal">Проверить</button>
+                        </div>
+
+                        <!-- Переключатель для отображения поля телефона -->
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="togglePhone">
+                            <label class="form-check-label" for="togglePhone">Указать телефон покупателя</label>
+                        </div>
+
+                        <!-- Блок поля ввода телефона -->
+                        <div id="phoneField" class="mb-3 hidden">
+                            <label for="phone" class="form-label fw-semibold">Номер телефона покупателя:</label>
+                            <div class="input-group">
+                                <input type="text" id="phone" name="phone" class="form-control" placeholder="375XXXXXXXXX">
+                            </div>
                         </div>
                     </form>
 

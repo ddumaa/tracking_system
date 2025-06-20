@@ -14,6 +14,7 @@ import java.time.format.DateTimeFormatter;
 @AllArgsConstructor
 @Data
 public class TrackParcelDTO {
+    private Long id;
     private String number;
     private String status;
     private String data;
@@ -21,6 +22,7 @@ public class TrackParcelDTO {
     private Long storeId;
 
     public TrackParcelDTO(TrackParcel trackParcel, ZoneId userZone) {
+        this.id = trackParcel.getId();
         this.number = trackParcel.getNumber();
         this.status = trackParcel.getStatus().getDescription();
         this.storeId = trackParcel.getStore().getId();

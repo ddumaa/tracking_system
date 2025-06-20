@@ -1,6 +1,7 @@
 package com.project.tracking_system.repository;
 
 import com.project.tracking_system.dto.UpdateInfoDto;
+import com.project.tracking_system.entity.SubscriptionCode;
 import com.project.tracking_system.entity.UserSubscription;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -55,10 +56,13 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
     UpdateInfoDto getUpdateInfo(@Param("userId") Long userId);
 
     /**
-     * Получение названия подписки пользователя.
+     * Получение кода подписки пользователя.
+     *
+     * @param userId ID пользователя
+     * @return код подписки (например, FREE, PREMIUM)
      */
-    @Query("SELECT sp.name FROM UserSubscription s JOIN s.subscriptionPlan sp WHERE s.user.id = :userId")
-    String getSubscriptionPlanName(@Param("userId") Long userId);
+    @Query("SELECT sp.code FROM UserSubscription s JOIN s.subscriptionPlan sp WHERE s.user.id = :userId")
+    SubscriptionCode getSubscriptionPlanCode(@Param("userId") Long userId);
 
     /**
      * Сброс количества обновлений (лимитов).
@@ -71,5 +75,13 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
        WHERE s.user.id = :userId
        """)
     void resetUpdateCount(@Param("userId") Long userId, @Param("resetDate") LocalDate resetDate);
+
+    /**
+     * Получить все подписки вместе с пользователем и планом.
+     *
+     * @return список подписок
+     */
+    @Query("SELECT s FROM UserSubscription s JOIN FETCH s.user u JOIN FETCH s.subscriptionPlan sp")
+    List<UserSubscription> findAllWithUserAndPlan();
 
 }

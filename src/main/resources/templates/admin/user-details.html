@@ -8,13 +8,14 @@
     <title layout:fragment="title">Информация о пользователе</title>
 </head>
 
+<div layout:fragment="afterHeader">
+    <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${breadcrumbs})}"></div>
+</div>
+
 <main layout:fragment="content">
 
-<a href="/admin" class="btn btn-primary mb-4">Админ Панель</a>
-<a href="/admin/users" class="btn btn-primary mb-4">Пользователи</a>
-
 <div class="container mt-4">
-    <h1 class="mb-4">Информация о пользователе</h1>
+    <h1 class="mb-1">Информация о пользователе</h1>
 
     <div class="card mb-4">
         <div class="card-body">
@@ -22,7 +23,7 @@
             <p><strong>Email:</strong> <span th:text="${user.email}"></span></p>
             <p><strong>Роль:</strong> <span th:text="${user.role}"></span></p>
             <p><strong>Текущий план подписки:</strong>
-                <span th:text="${user.subscriptionPlanName}"></span>
+                <span th:text="${user.subscriptionPlanCode != null ? user.subscriptionPlanCode.displayName : 'Нет подписки'}"></span>
             </p>
             <p><strong>Дата окончания подписки:</strong>
                 <span th:text="${user.subscriptionEndDate}"></span>
@@ -32,6 +33,7 @@
 
     <h4>Сменить роль</h4>
     <form th:action="@{/admin/users/{userId}/role-update(userId=${user.id})}" method="post" class="mb-4">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
         <div class="d-flex">
             <div class="mb-3 me-2">
                 <label for="role" class="form-label">Новая роль:</label>
@@ -46,12 +48,16 @@
 
     <h4>Изменить план подписки</h4>
     <form th:action="@{/admin/users/{userId}/change-subscription(userId=${user.id})}" method="post" class="mb-4">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
         <div class="d-flex">
             <div class="mb-3 me-2">
                 <label for="subscriptionPlan" class="form-label">Новый план:</label>
                 <select name="subscriptionPlan" id="subscriptionPlan" class="form-select form-select-sm">
-                    <option value="FREE" th:selected="${subscriptionPlan == 'FREE'}">FREE</option>
-                    <option value="PREMIUM" th:selected="${subscriptionPlan == 'PREMIUM'}">PREMIUM</option>
+                    <option th:each="plan : ${T(com.project.tracking_system.entity.SubscriptionCode).values()}"
+                            th:value="${plan.name()}"
+                            th:text="${plan.displayName}"
+                            th:selected="${user.subscriptionPlanCode == plan}">
+                    </option>
                 </select>
             </div>
             <div class="mb-3 me-2">

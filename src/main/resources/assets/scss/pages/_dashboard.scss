@@ -1,0 +1,85 @@
+@use '../ui' as ui;
+@use "sass:color";
+
+/* Основные стили для всего контейнера */
+.container {
+  padding-top: 40px;
+  padding-bottom: 40px;
+}
+
+/* Стили для карточек */
+.custom-card {
+  border-radius: 10px;
+  padding: 20px;
+  background-color: ui.$light;
+  @include ui.box-shadow(0, 4px, 10px, rgba(0, 0, 0, 0.1));
+  @include ui.transition(all, 0.3s);
+
+  &:hover {
+    transform: translateY(-5px);
+    @include ui.box-shadow(0, 8px, 15px, rgba(0, 0, 0, 0.15));
+  }
+
+  .card-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: ui.$dark;
+    text-align: center;
+
+    .metric-icon {
+      margin-right: 8px;
+      font-size: 1.3rem;
+      color: inherit;
+    }
+  }
+
+  .card-text {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: ui.$primary;
+    text-align: center;
+  }
+
+  &.bg-primary,
+  &.bg-success,
+  &.bg-warning,
+  &.bg-info,
+  &.bg-secondary,
+  &.bg-dark,
+  &.bg-danger {
+    .card-title,
+    .card-text {
+      color: ui.$white;
+    }
+
+    i {
+      color: ui.$white;
+    }
+  }
+}
+
+/* Стили для элементов списка */
+.custom-list-item {
+  border-radius: 8px;
+  margin-bottom: 10px;
+  padding: 15px;
+  color: ui.$dark;
+  font-size: 1.1rem;
+  @include ui.transition(all, 0.3s);
+
+  &:hover {
+    background-color: ui.$light;
+    @include ui.box-shadow(0, 4px, 10px, rgba(0, 0, 0, 0.05));
+  }
+
+  i {
+    margin-right: 10px;
+    color: ui.$primary;
+  }
+}
+
+@include ui.respond-to(md) {
+  .custom-card {
+    margin-bottom: 30px;
+  }
+}

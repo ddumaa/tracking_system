@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/layout}">
+<head>
+    <title layout:fragment="title">Посылки</title>
+</head>
+<div layout:fragment="afterHeader">
+    <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${breadcrumbs})}"></div>
+</div>
+
+<main layout:fragment="content">
+
+    <form method="get" th:action="@{/admin/parcels/search}" class="row row-cols-lg-auto g-2 mb-3">
+        <div class="col-12">
+            <input type="text" class="form-control" name="number" placeholder="Поиск по номеру">
+        </div>
+        <div class="col-12">
+            <button type="submit" class="btn btn-secondary">Найти</button>
+        </div>
+    </form>
+
+    <table class="table table-bordered table-striped">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Номер</th>
+            <th>Магазин</th>
+            <th>Пользователь</th>
+            <th>Статус</th>
+            <th>Дата</th>
+            <th>Действия</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="p : ${parcels}">
+            <td th:text="${p.id}"></td>
+            <td th:text="${p.number}"></td>
+            <td th:text="${p.storeName}"></td>
+            <td th:text="${p.userEmail}"></td>
+            <td th:text="${p.status}"></td>
+            <td th:text="${p.data}"></td>
+            <td><a th:href="@{/admin/parcels/{id}(id=${p.id})}" class="btn btn-sm btn-info">Подробнее</a></td>
+        </tr>
+        </tbody>
+    </table>
+
+    <!-- Пагинация -->
+    <div class="d-flex justify-content-center">
+        <ul class="pagination" th:if="${totalPages > 1}">
+            <!-- Кнопка "Назад" -->
+            <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled'">
+                <a class="page-link" th:href="@{/admin/parcels(page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size})}" aria-label="Предыдущая страница">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+
+            <!-- Номера страниц -->
+            <li class="page-item" th:each="i : ${#numbers.sequence(0, totalPages - 1)}" th:classappend="${i == currentPage} ? 'active'">
+                <a class="page-link" th:href="@{/admin/parcels(page=${i}, size=${size})}" th:text="${i + 1}" aria-label="Страница ${i + 1}"></a>
+            </li>
+
+            <!-- Кнопка "Вперёд" -->
+            <li class="page-item" th:classappend="${currentPage == totalPages - 1} ? 'disabled'">
+                <a class="page-link" th:href="@{/admin/parcels(page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size})}" aria-label="Следующая страница">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+        </ul>
+    </div>
+</main>
+</html>

@@ -1,4 +1,4 @@
-@use '../abstracts/_variables.scss' as vars;
+@use '../abstracts/variables' as vars;
 @use "sass:color";
 
 @mixin respond-to($breakpoint) {

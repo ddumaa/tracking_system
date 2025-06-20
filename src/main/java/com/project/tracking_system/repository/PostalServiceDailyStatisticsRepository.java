@@ -8,14 +8,19 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.project.tracking_system.repository.DeletableByStoreOrUser;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.math.BigDecimal;
 
 /**
  * Репозиторий для ежедневной статистики по почтовым службам.
  */
-public interface PostalServiceDailyStatisticsRepository extends JpaRepository<PostalServiceDailyStatistics, Long> {
+public interface PostalServiceDailyStatisticsRepository
+        extends JpaRepository<PostalServiceDailyStatistics, Long>,
+        DeletableByStoreOrUser<PostalServiceDailyStatistics, Long> {
 
     /**
      * Найти статистику почтовой службы магазина за конкретную дату.
@@ -66,18 +71,81 @@ public interface PostalServiceDailyStatisticsRepository extends JpaRepository<Po
     List<PostalServiceDailyStatistics> findByDate(LocalDate date);
 
     /**
-     * Удалить ежедневную статистику конкретного магазина.
+     * Атомарно увеличивает ежедневный счётчик отправлений для почтовой службы.
+     *
+     * @param storeId идентификатор магазина
+     * @param postalServiceType тип почтовой службы
+     * @param date дата статистики
+     * @param delta величина увеличения
+     * @return количество обновлённых записей
      */
     @Modifying
     @Transactional
-    @Query("DELETE FROM PostalServiceDailyStatistics s WHERE s.store.id = :storeId")
-    void deleteByStoreId(@Param("storeId") Long storeId);
+    @Query("""
+        UPDATE PostalServiceDailyStatistics p
+        SET p.sent = p.sent + :delta,
+            p.updatedAt = CURRENT_TIMESTAMP
+        WHERE p.store.id = :storeId AND p.postalServiceType = :postalServiceType AND p.date = :date
+        """)
+    int incrementSent(@Param("storeId") Long storeId,
+                      @Param("postalServiceType") PostalServiceType postalServiceType,
+                      @Param("date") LocalDate date,
+                      @Param("delta") int delta);
 
     /**
-     * Удалить ежедневную статистику всех магазинов пользователя.
+     * Атомарно увеличивает счётчик доставленных посылок за день.
+     *
+     * @param storeId        идентификатор магазина
+     * @param postalServiceType тип почтовой службы
+     * @param date           дата статистики
+     * @param delta          величина увеличения
+     * @param deliveryDays   добавляемые дни доставки
+     * @param pickupDays     добавляемые дни ожидания
+     * @return количество обновлённых записей
      */
     @Modifying
     @Transactional
-    @Query("DELETE FROM PostalServiceDailyStatistics s WHERE s.store.owner.id = :userId")
-    void deleteByUserId(@Param("userId") Long userId);
+    @Query("""
+        UPDATE PostalServiceDailyStatistics p
+        SET p.delivered = p.delivered + :delta,
+            p.sumDeliveryDays = p.sumDeliveryDays + :deliveryDays,
+            p.sumPickupDays = p.sumPickupDays + :pickupDays,
+            p.updatedAt = CURRENT_TIMESTAMP
+        WHERE p.store.id = :storeId AND p.postalServiceType = :postalServiceType AND p.date = :date
+        """)
+    int incrementDelivered(@Param("storeId") Long storeId,
+                           @Param("postalServiceType") PostalServiceType postalServiceType,
+                           @Param("date") LocalDate date,
+                           @Param("delta") int delta,
+                           @Param("deliveryDays") java.math.BigDecimal deliveryDays,
+                           @Param("pickupDays") java.math.BigDecimal pickupDays);
+
+    /**
+     * Атомарно увеличивает счётчик возвращённых посылок за день.
+     *
+     * @param storeId        идентификатор магазина
+     * @param postalServiceType тип почтовой службы
+     * @param date           дата статистики
+     * @param delta          величина увеличения
+     * @param deliveryDays   добавляемые дни доставки
+     * @param pickupDays     добавляемые дни нахождения на пункте
+     * @return количество обновлённых записей
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE PostalServiceDailyStatistics p
+        SET p.returned = p.returned + :delta,
+            p.sumDeliveryDays = p.sumDeliveryDays + :deliveryDays,
+            p.sumPickupDays = p.sumPickupDays + :pickupDays,
+            p.updatedAt = CURRENT_TIMESTAMP
+        WHERE p.store.id = :storeId AND p.postalServiceType = :postalServiceType AND p.date = :date
+        """)
+    int incrementReturned(@Param("storeId") Long storeId,
+                          @Param("postalServiceType") PostalServiceType postalServiceType,
+                          @Param("date") LocalDate date,
+                          @Param("delta") int delta,
+                          @Param("deliveryDays") java.math.BigDecimal deliveryDays,
+                          @Param("pickupDays") java.math.BigDecimal pickupDays);
+
 }

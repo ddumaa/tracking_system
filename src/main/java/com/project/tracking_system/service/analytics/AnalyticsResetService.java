@@ -59,6 +59,8 @@ public class AnalyticsResetService {
         psWeeklyRepo.deleteByUserId(userId);
         psMonthlyRepo.deleteByUserId(userId);
         psYearlyRepo.deleteByUserId(userId);
+
+        log.info("Аналитика пользователя ID={} успешно сброшена", userId);
     }
 
     /**
@@ -88,6 +90,6 @@ public class AnalyticsResetService {
         psMonthlyRepo.deleteByStoreId(storeId);
         psYearlyRepo.deleteByStoreId(storeId);
 
-        log.info("Analytics reset for store {} by user {}", storeId, userId);
+        log.info("Аналитика магазина ID={} пользователя ID={} успешно сброшена", storeId, userId);
     }
 }

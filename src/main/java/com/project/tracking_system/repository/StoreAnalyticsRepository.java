@@ -2,10 +2,15 @@ package com.project.tracking_system.repository;
 
 import com.project.tracking_system.entity.StoreStatistics;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+
+// Интерфейс для удалений
+import com.project.tracking_system.repository.DeletableByStoreOrUser;
 
 import java.util.List;
 import java.util.Optional;
@@ -14,7 +19,9 @@ import java.util.Optional;
  * @author Dmitriy Anisimov
  * @date 11.03.2025
  */
-public interface StoreAnalyticsRepository extends JpaRepository<StoreStatistics, Long> {
+public interface StoreAnalyticsRepository
+        extends JpaRepository<StoreStatistics, Long>,
+        DeletableByStoreOrUser<StoreStatistics, Long> {
 
     /**
      * Найти статистику магазина по его идентификатору.
@@ -36,24 +43,70 @@ public interface StoreAnalyticsRepository extends JpaRepository<StoreStatistics,
     List<StoreStatistics> findByStoreIdIn(List<Long> storeIds);
 
     /**
-     * Удалить статистику конкретного магазина.
+     * Атомарно увеличивает счётчик отправленных посылок магазина.
      *
      * @param storeId идентификатор магазина
+     * @param delta   величина увеличения
+     * @return количество обновлённых записей
      */
     @Modifying
     @Transactional
-    @Query("DELETE FROM StoreStatistics s WHERE s.store.id = :storeId")
-    void deleteByStoreId(@Param("storeId") Long storeId);
+    @Query("""
+        UPDATE StoreStatistics s
+        SET s.totalSent = s.totalSent + :delta,
+            s.updatedAt = CURRENT_TIMESTAMP
+        WHERE s.store.id = :storeId
+        """)
+    int incrementTotalSent(@Param("storeId") Long storeId, @Param("delta") int delta);
 
     /**
-     * Удалить всю статистику всех магазинов пользователя.
+     * Атомарно увеличивает счётчик доставленных посылок магазина и суммируемые значения.
      *
-     * @param userId идентификатор пользователя
+     * @param storeId      идентификатор магазина
+     * @param delta        величина увеличения доставленных посылок
+     * @param deliveryDays добавляемые дни доставки
+     * @param pickupDays   добавляемые дни получения
+     * @return количество обновлённых записей
      */
     @Modifying
     @Transactional
-    @Query("DELETE FROM StoreStatistics s WHERE s.store.owner.id = :userId")
-    void deleteByUserId(@Param("userId") Long userId);
+    @Query("""
+        UPDATE StoreStatistics s
+        SET s.totalDelivered = s.totalDelivered + :delta,
+            s.sumDeliveryDays = s.sumDeliveryDays + :deliveryDays,
+            s.sumPickupDays = s.sumPickupDays + :pickupDays,
+            s.updatedAt = CURRENT_TIMESTAMP
+        WHERE s.store.id = :storeId
+        """)
+    int incrementDelivered(@Param("storeId") Long storeId,
+                           @Param("delta") int delta,
+                           @Param("deliveryDays") java.math.BigDecimal deliveryDays,
+                           @Param("pickupDays") java.math.BigDecimal pickupDays);
+
+    /**
+     * Атомарно увеличивает счётчик возвращённых посылок магазина и связанные суммы.
+     *
+     * @param storeId      идентификатор магазина
+     * @param delta        величина увеличения возвращённых посылок
+     * @param deliveryDays добавляемые дни доставки
+     * @param pickupDays   добавляемые дни нахождения на пункте
+     * @return количество обновлённых записей
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE StoreStatistics s
+        SET s.totalReturned = s.totalReturned + :delta,
+            s.sumDeliveryDays = s.sumDeliveryDays + :deliveryDays,
+            s.sumPickupDays = s.sumPickupDays + :pickupDays,
+            s.updatedAt = CURRENT_TIMESTAMP
+        WHERE s.store.id = :storeId
+        """)
+    int incrementReturned(@Param("storeId") Long storeId,
+                          @Param("delta") int delta,
+                          @Param("deliveryDays") java.math.BigDecimal deliveryDays,
+                          @Param("pickupDays") java.math.BigDecimal pickupDays);
+
 
     /**
      * Обнулить счётчики для всех магазинов пользователя.

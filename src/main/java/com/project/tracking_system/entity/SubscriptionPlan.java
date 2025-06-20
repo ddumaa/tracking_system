@@ -20,8 +20,9 @@ public class SubscriptionPlan {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, unique = true)
-    private String name;
+    private SubscriptionCode code;
 
     @Column(nullable = false)
     private Integer maxTracksPerFile;

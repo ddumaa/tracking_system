@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/layout}">
+<head>
+    <title layout:fragment="title">Настройки</title>
+</head>
+<div layout:fragment="afterHeader">
+    <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${breadcrumbs})}"></div>
+</div>
+
+<main layout:fragment="content">
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm custom-card">
+                <div class="card-body">
+                    <h5 class="card-title text-center">Версия приложения</h5>
+                    <p class="card-text text-center" th:text="${appVersion}">-</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm custom-card">
+                <div class="card-body">
+                    <h5 class="card-title text-center">Webhook Telegram</h5>
+                    <p class="card-text text-center">
+                        <span th:text="${webhookEnabled} ? 'Включен' : 'Выключен'"></span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h4>Тарифные планы</h4>
+    <table class="table table-bordered table-striped">
+        <thead>
+        <tr>
+            <th>Название</th>
+            <th>Треков в файле</th>
+            <th>Сохранённых треков</th>
+            <th>Обновлений в день</th>
+            <th>Магазинов</th>
+            <th>Массовое обновление</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="plan : ${plans}">
+            <td th:text="${plan.code.displayName}"></td>
+            <td th:text="${plan.maxTracksPerFile != null ? plan.maxTracksPerFile : '∞'}"></td>
+            <td th:text="${plan.maxSavedTracks != null ? plan.maxSavedTracks : '∞'}"></td>
+            <td th:text="${plan.maxTrackUpdates != null ? plan.maxTrackUpdates : '∞'}"></td>
+            <td th:text="${plan.maxStores}"></td>
+            <td th:text="${plan.allowBulkUpdate}"></td>
+        </tr>
+        </tbody>
+    </table>
+</main>
+</html>

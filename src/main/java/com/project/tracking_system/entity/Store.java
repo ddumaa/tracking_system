@@ -41,4 +41,8 @@ public class Store {
     @JsonIgnore
     private List<TrackParcel> trackParcels = new ArrayList<>();
 
+    @OneToOne(mappedBy = "store", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonIgnore
+    private StoreTelegramSettings telegramSettings;
+
 }

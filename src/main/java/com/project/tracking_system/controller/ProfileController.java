@@ -13,9 +13,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
+import com.project.tracking_system.utils.ResponseBuilder;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.Authentication;
+import com.project.tracking_system.utils.AuthUtils;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.security.Principal;
 
 
 /**
@@ -58,19 +60,23 @@ public class ProfileController {
      */
     @GetMapping
     public String profile(Model model, Authentication authentication) {
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
-            log.warn("Попытка доступа к профилю неаутентифицированного пользователя.");
-            return "redirect:/login"; // Перенаправляем на страницу входа
-        }
-
+        User user = AuthUtils.getCurrentUser(authentication);
         Long userId = user.getId();
         log.info("Получен запрос на отображение профиля для пользователя с ID: {}", userId);
 
         String storeLimit = userService.getUserStoreLimit(userId);
 
+        // Получаем информацию о профиле пользователя
+        var userProfile = userService.getUserProfile(userId);
+
+        // Загружаем магазины с настройками Telegram
+        List<Store> stores = storeService.getUserStoresWithSettings(userId);
+
         // Добавляем данные профиля в модель
         model.addAttribute("username", user.getEmail());
+        model.addAttribute("userProfile", userProfile);
         model.addAttribute("storeLimit", storeLimit);
+        model.addAttribute("stores", stores);
         log.debug("Данные профиля добавлены в модель для пользователя с ID: {}", userId);
 
         // Добавляем настройки и другие данные пользователя в модель
@@ -95,11 +101,7 @@ public class ProfileController {
             Model model,
             Authentication authentication) {
 
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
-            log.warn("Попытка доступа к настройкам без аутентификации.");
-            return "redirect:/login"; // Перенаправление, если пользователь не аутентифицирован
-        }
-
+        User user = AuthUtils.getCurrentUser(authentication);
         Long userId = user.getId();
         model.addAttribute("userSettingsDTO", new UserSettingsDTO());
 
@@ -118,35 +120,18 @@ public class ProfileController {
             @Valid @ModelAttribute("evropostCredentialsDTO") EvropostCredentialsDTO evropostCredentialsDTO,
             BindingResult bindingResult, Model model, Authentication authentication) {
 
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
-            log.warn("Попытка обновления данных Европочты без аутентификации.");
-            return "redirect:/login"; // Защита от неаутентифицированных пользователей
-        }
+        Long userId = AuthUtils.getCurrentUser(authentication).getId();
 
-        Long userId = user.getId();
-        log.info("Запрос на обновление данных Европочты для пользователя с ID: {}", userId);
-
-        // Проверяем ошибки валидации
         if (bindingResult.hasErrors()) {
-            log.warn("Обнаружены ошибки валидации для данных Европочты пользователя с ID: {}", userId);
             model.addAttribute("evropostCredentialsDTO", evropostCredentialsDTO);
         } else {
             try {
                 userService.updateEvropostCredentialsAndSettings(userId, evropostCredentialsDTO);
-                log.info("Данные Европочты успешно обновлены для пользователя с ID: {}", userId);
-
-                EvropostCredentialsDTO updatedDto = userService.getEvropostCredentials(userId);
-                model.addAttribute("evropostCredentialsDTO", updatedDto);
-
-                // ✅ Отправляем WebSocket-уведомление
-                String successMessage = "Данные API Европочты успешно обновлены!";
-                webSocketController.sendUpdateStatus(userId, successMessage, true);
-
+                model.addAttribute("evropostCredentialsDTO", userService.getEvropostCredentials(userId));
+                webSocketController.sendUpdateStatus(userId, "Данные API Европочты успешно обновлены!", true);
             } catch (Exception e) {
                 log.error("Ошибка при обновлении данных Европочты для пользователя с ID {}: {}", userId, e.getMessage(), e);
                 model.addAttribute("error", "Ошибка при обновлении данных: " + e.getMessage());
-
-                // ❌ Отправляем WebSocket-уведомление об ошибке
                 webSocketController.sendUpdateStatus(userId, "Ошибка обновления Европочты!", false);
             }
         }
@@ -155,31 +140,22 @@ public class ProfileController {
     }
 
     @PostMapping("/settings/use-custom-credentials")
-    public ResponseEntity<String> updateUseCustomCredentials(
+    public ResponseEntity<?> updateUseCustomCredentials(
             @RequestParam(value = "useCustomCredentials", required = false) Boolean useCustomCredentials,
             Authentication authentication) {
 
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
-            log.warn("Попытка обновления настроек без аутентификации.");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Необходима аутентификация");
-        }
-
-        Long userId = user.getId();
-        log.info("Запрос на обновление флага 'useCustomCredentials' для пользователя с ID: {}", userId);
+        Long userId = AuthUtils.getCurrentUser(authentication).getId();
 
         if (useCustomCredentials == null) {
-            log.warn("Не указан параметр 'useCustomCredentials' для пользователя с ID: {}", userId);
-            return ResponseEntity.badRequest().body("Не указан параметр useCustomCredentials");
+            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Не указан параметр useCustomCredentials");
         }
 
         try {
             userService.updateUseCustomCredentials(userId, useCustomCredentials);
-            log.info("Флаг 'useCustomCredentials' успешно обновлён для пользователя с ID: {}", userId);
-            return ResponseEntity.ok("Настройки успешно обновлены.");
+            return ResponseBuilder.ok("Настройки успешно обновлены.");
         } catch (Exception e) {
             log.error("Ошибка при обновлении настройки для пользователя с ID {}: {}", userId, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Ошибка при обновлении настроек.");
+            return ResponseBuilder.error(HttpStatus.INTERNAL_SERVER_ERROR, "Ошибка при обновлении настроек.");
         }
     }
 
@@ -200,28 +176,20 @@ public class ProfileController {
                                  @Valid @ModelAttribute("userSettingsDTO") UserSettingsDTO userSettingsDTO,
                                  BindingResult result,
                                  Authentication authentication) {
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
-            log.warn("Попытка смены пароля без аутентификации.");
-            return "redirect:/login"; // Защита от неаутентифицированных пользователей
-        }
-
-        Long userId = user.getId();
-        log.info("Запрос на смену пароля для пользователя с ID: {}", userId);
+        Long userId = AuthUtils.getCurrentUser(authentication).getId();
 
         if (result.hasErrors()) {
-            log.warn("Обнаружены ошибки валидации при смене пароля для пользователя с ID: {}", userId);
-        } else if (!userSettingsDTO.getNewPassword().equals(userSettingsDTO.getConfirmPassword())) {
-            log.warn("Пароли не совпадают для пользователя с ID: {}", userId);
+            return "profile :: passwordFragment";
+        }
+        if (!userSettingsDTO.getNewPassword().equals(userSettingsDTO.getConfirmPassword())) {
             result.rejectValue("confirmPassword", "password.mismatch", "Пароли не совпадают");
-        } else {
-            try {
-                userService.changePassword(userId, userSettingsDTO);
-                log.info("Пароль успешно изменен для пользователя с ID: {}", userId);
-                model.addAttribute("notification", "Пароль успешно изменен");
-            } catch (IllegalArgumentException e) {
-                log.error("Ошибка при смене пароля для пользователя с ID {}: {}", userId, e.getMessage());
-                result.rejectValue("currentPassword", "password.incorrect", e.getMessage());
-            }
+            return "profile :: passwordFragment";
+        }
+        try {
+            userService.changePassword(userId, userSettingsDTO);
+            model.addAttribute("notification", "Пароль успешно изменен");
+        } catch (IllegalArgumentException e) {
+            result.rejectValue("currentPassword", "password.incorrect", e.getMessage());
         }
 
         return "profile :: passwordFragment";
@@ -240,11 +208,7 @@ public class ProfileController {
      */
     @PostMapping("/settings/delete")
     public String delete(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
-        if (authentication == null || !(authentication.getPrincipal() instanceof User user)) {
-            log.warn("Попытка удаления учетной записи без аутентификации.");
-            return "redirect:/login"; // Отправляем на логин, если пользователь не аутентифицирован
-        }
-
+        User user = AuthUtils.getCurrentUser(authentication);
         Long userId = user.getId();
         log.info("Запрос на удаление учетной записи пользователя с ID: {}", userId);
 
@@ -257,11 +221,19 @@ public class ProfileController {
     }
 
     /**
-     * Получает список магазинов пользователя.
+     * Возвращает список магазинов пользователя.
+     * <p>
+     * Перед отправкой данных вызывается сервис {@link StoreService#getDefaultStoreId(Long)},
+     * чтобы установить магазин по умолчанию, если у пользователя только один магазин.
+     * </p>
+     *
+     * @param user текущий пользователь
+     * @return список магазинов пользователя
      */
     @GetMapping("/stores")
     @ResponseBody
     public List<Store> getUserStores(@AuthenticationPrincipal User user) {
+        storeService.getDefaultStoreId(user.getId());
         return storeService.getUserStores(user.getId());
     }
 
@@ -274,10 +246,10 @@ public class ProfileController {
                                          @RequestBody Map<String, String> request) {
         try {
             Store store = storeService.createStore(user.getId(), request.get("name"));
-            return ResponseEntity.ok(store);
+            return ResponseBuilder.ok(store);
         } catch (IllegalStateException e) {
             webSocketController.sendUpdateStatus(user.getId(), "❌ Ошибка: " + e.getMessage(), false);
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+            return ResponseBuilder.error(HttpStatus.FORBIDDEN, e.getMessage());
         }
     }
 
@@ -291,10 +263,10 @@ public class ProfileController {
                                          @RequestBody Map<String, String> request) {
         try {
             Store updatedStore = storeService.updateStore(storeId, user.getId(), request.get("name"));
-            return ResponseEntity.ok(updatedStore);
+            return ResponseBuilder.ok(updatedStore);
         } catch (SecurityException e) {
             webSocketController.sendUpdateStatus(user.getId(), "❌ Ошибка: " + e.getMessage(), false);
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+            return ResponseBuilder.error(HttpStatus.FORBIDDEN, e.getMessage());
         }
     }
 
@@ -307,10 +279,10 @@ public class ProfileController {
                                          @PathVariable Long storeId) {
         try {
             storeService.deleteStore(storeId, user.getId());
-            return ResponseEntity.ok().build();
+            return ResponseBuilder.ok(null);
         } catch (SecurityException e) {
             webSocketController.sendUpdateStatus(user.getId(), "❌ Ошибка: " + e.getMessage(), false);
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+            return ResponseBuilder.error(HttpStatus.FORBIDDEN, e.getMessage());
         }
     }
 
@@ -323,25 +295,39 @@ public class ProfileController {
     @GetMapping("/stores/limit")
     @ResponseBody
     public String getStoreLimit(Authentication authentication) {
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken auth) || !(auth.getPrincipal() instanceof User user)) {
-            throw new SecurityException("Необходима аутентификация");
-        }
-
+        User user = AuthUtils.getCurrentUser(authentication);
         return userService.getUserStoreLimit(user.getId());
     }
 
     @PostMapping("/stores/default/{storeId}")
     @ResponseBody
-    public ResponseEntity<String> setDefaultStore(@AuthenticationPrincipal User user,
+    public ResponseEntity<?> setDefaultStore(@AuthenticationPrincipal User user,
                                                   @PathVariable Long storeId) {
         try {
             storeService.setDefaultStore(user.getId(), storeId);
-            return ResponseEntity.ok("Магазин по умолчанию установлен.");
+            return ResponseBuilder.ok("Магазин по умолчанию установлен.");
         } catch (Exception e) {
             log.error("Ошибка установки магазина по умолчанию: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, e.getMessage());
         }
     }
 
+    /**
+     * Возвращает HTML-фрагмент блока настроек Telegram для магазина.
+     *
+     * @param storeId        идентификатор магазина
+     * @param authentication текущая аутентификация
+     * @param model          модель для передачи данных во фрагмент
+     * @return HTML-фрагмент блока магазина
+     */
+    @GetMapping("/stores/{storeId}/telegram-block")
+    public String getTelegramBlock(@PathVariable Long storeId,
+                                   Authentication authentication,
+                                   Model model) {
+        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+        Store store = storeService.getStore(storeId, userId);
+        model.addAttribute("store", store);
+        return "profile :: telegramStoreBlock";
+    }
 
 }
