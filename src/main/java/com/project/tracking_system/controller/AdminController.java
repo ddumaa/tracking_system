@@ -582,6 +582,8 @@ public class AdminController {
                                  @RequestParam String cron) {
         dynamicSchedulerService.updateCron(id, cron);
         return "redirect:/admin/schedules";
+    }
+
     /**
      * Отображает список тарифных планов и форму их редактирования.
      *
