@@ -43,7 +43,6 @@ public class TariffController {
         }
         List<SubscriptionPlanDTO> plans = tariffService.getAllPlans();
         model.addAttribute("plans", plans);
-        model.addAttribute("breadcrumbs", List.of(new BreadcrumbItemDTO("Тарифы", "")));
         return "tariffs";
     }
 
