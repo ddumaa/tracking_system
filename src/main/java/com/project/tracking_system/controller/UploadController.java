@@ -4,7 +4,6 @@ import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.model.TrackingResponse;
 import com.project.tracking_system.service.track.TrackNumberOcrService;
 import com.project.tracking_system.service.track.TrackingNumberServiceXLS;
-import com.project.tracking_system.service.store.StoreService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,7 +27,6 @@ public class UploadController {
 
     private final TrackingNumberServiceXLS trackingNumberServiceXLS;
     private final TrackNumberOcrService trackNumberOcrService;
-    private final StoreService storeService;
 
     /**
      * Обрабатывает загрузку файла (XLS, XLSX или изображения).

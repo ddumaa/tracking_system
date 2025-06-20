@@ -15,9 +15,15 @@
                 <div th:if="${trackParcelDTO != null}" class=" w-100">
 
                     <!-- Заголовок с кнопкой обновления -->
-                    <div class="d-flex justify-content-center align-items-center history-header">
-                        <h1>Информация о посылках</h1>
-                        <button type="button" id="refreshAllBtn" class="history-refresh-btn ms-3" aria-label="Обновить данные">
+                    <div class="d-flex justify-content-center align-items-center mb-4 gap-2">
+                        <h1 class="mb-1">Информация о посылках</h1>
+                        <button type="button"
+                                id="refreshAllBtn"
+                                class="history-refresh-btn ms-2"
+                                data-bs-toggle="tooltip"
+                                data-bs-placement="right"
+                                title="Обновить все посылки"
+                                aria-label="Обновить данные">
                             <i class="bi bi-arrow-repeat"></i>
                         </button>
                     </div>
@@ -29,6 +35,8 @@
 
                     <!-- Контейнер для уведомлений -->
                     <div id="notificationContainer"></div>
+
+                    <div class="card shadow-sm p-4 rounded-4 mb-4">
 
                     <!-- Форма действий, фильтрации и количества элементов -->
                     <div class="history-controls d-flex flex-wrap align-items-center gap-3 justify-content-between">
@@ -162,6 +170,7 @@
                             </li>
                         </ul>
                     </div>
+                </div>
                 </div>
             </div>
         </div>

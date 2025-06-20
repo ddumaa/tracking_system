@@ -4,15 +4,14 @@ import com.project.tracking_system.dto.EvropostCredentialsDTO;
 import com.project.tracking_system.dto.ResolvedCredentialsDTO;
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.dto.UserSettingsDTO;
+import com.project.tracking_system.dto.UserProfileDTO;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
-import com.project.tracking_system.repository.ConfirmationTokenRepository;
-import com.project.tracking_system.repository.EvropostServiceCredentialRepository;
-import com.project.tracking_system.repository.StoreRepository;
-import com.project.tracking_system.repository.UserRepository;
+import com.project.tracking_system.repository.*;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.email.EmailService;
 import com.project.tracking_system.service.jsonEvropostService.JwtTokenManager;
+import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.utils.EncryptionUtils;
 import com.project.tracking_system.utils.EmailUtils;
 import com.project.tracking_system.utils.UserCredentialsResolver;
@@ -26,6 +25,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
@@ -56,7 +56,7 @@ public class UserService {
     private final JwtTokenManager jwtTokenManager;
     private final UserCredentialsResolver userCredentialsResolver;
     private final SubscriptionService subscriptionService;
-    private final StoreRepository storeRepository;
+    private final StoreService storeService;
 
     /**
      * Отправляет код подтверждения на email для регистрации нового пользователя.
@@ -148,20 +148,11 @@ public class UserService {
         user.setTimeZone("Europe/Minsk");
         user.setRole(Role.ROLE_USER);
 
+        UserSubscription subscription = subscriptionService.createDefaultSubscriptionForUser(user);
+        user.setSubscription(subscription);
+
         userRepository.save(user);
-
-        // Создаём магазин для нового пользователя с общим названием и ставим его дефолтным
-        Store store = new Store();
-        store.setName("Мой магазин");
-        store.setOwner(user);
-        store.setDefault(true);
-
-        storeRepository.save(store);
-
-        // Настраиваем подписку пользователя
-        subscriptionService.changeSubscription(user.getId(), "FREE", null);
-
-        // Удаляем токен подтверждения
+        storeService.createDefaultStoreForUser(user);
         confirmationTokenRepository.deleteByEmail(userDTO.getEmail());
 
         log.info("Пользователь {} успешно создан, код подтверждения удалён", EmailUtils.maskEmail(userDTO.getEmail()));
@@ -199,16 +190,20 @@ public class UserService {
 
     /**
      * Создаёт пользователя по заданным данным без подтверждения email.
+     * <p>
+     * После создания пользователя формируется бесплатная подписка и магазин по умолчанию,
+     * затем подписка переключается на указанный тарифный план.
+     * </p>
      *
      * @param email       адрес электронной почты
      * @param rawPassword пароль в открытом виде
      * @param roleName    наименование роли
-     * @param planName    стартовый тариф
+     * @param planCode    стартовый тариф
      * @throws UserAlreadyExistsException если пользователь уже существует
      */
     @Transactional
     public void createUserByAdmin(String email, String rawPassword, String roleName,
-                                 String planName) {
+                                 SubscriptionCode planCode) {
         log.info("Администратор создаёт пользователя {}", EmailUtils.maskEmail(email));
 
         if (userRepository.findByEmail(email).isPresent()) {
@@ -229,8 +224,18 @@ public class UserService {
         user.setTimeZone("Europe/Minsk");
         user.setRole(role);
 
+        // Создаём подписку FREE по умолчанию
+        UserSubscription subscription = subscriptionService.createDefaultSubscriptionForUser(user);
+        user.setSubscription(subscription);
+
+        // Сохраняем пользователя вместе с созданной подпиской
         userRepository.save(user);
-        subscriptionService.changeSubscription(user.getId(), planName, null);
+
+        // Создаём магазин по умолчанию
+        storeService.createDefaultStoreForUser(user);
+
+        // Переключаем подписку на указанный тариф
+        subscriptionService.changeSubscription(user.getId(), planCode, null);
         log.info("Пользователь {} создан администратором", EmailUtils.maskEmail(email));
     }
 
@@ -289,7 +294,17 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
 
-        user.getEvropostServiceCredential().setUseCustomCredentials(useCustomCredentials);
+        EvropostServiceCredential credentials = user.getEvropostServiceCredential();
+
+        if (credentials == null) {
+            log.warn("Попытка обновить Evropost настройки, но они отсутствуют у пользователя ID={}", userId);
+            // Вариант 1: создать новый объект, если это допустимо
+            credentials = new EvropostServiceCredential();
+            credentials.setUser(user);
+            user.setEvropostServiceCredential(credentials);
+        }
+
+        credentials.setUseCustomCredentials(useCustomCredentials);
         userRepository.save(user);
 
         log.info("Флаг 'useCustomCredentials' обновлён для пользователя с ID {}: {}", userId, useCustomCredentials);
@@ -305,9 +320,16 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
 
+        EvropostServiceCredential credentials = user.getEvropostServiceCredential();
+
+        if (credentials == null) {
+            log.warn("У пользователя с ID {} отсутствуют учётные данные Evropost", userId);
+            return new EvropostCredentialsDTO(); // или выбросить исключение, если это ошибка логики
+        }
+
         EvropostCredentialsDTO dto = new EvropostCredentialsDTO();
-        dto.setEvropostUsername(user.getEvropostServiceCredential().getUsername());
-        dto.setUseCustomCredentials(user.getEvropostServiceCredential().getUseCustomCredentials());
+        dto.setEvropostUsername(credentials.getUsername());
+        dto.setUseCustomCredentials(credentials.getUseCustomCredentials());
 
         log.info("Запрошены учетные данные Evropost для пользователя с ID {}", userId);
 
@@ -378,15 +400,14 @@ public class UserService {
     }
 
     /**
-     * Подсчитывает пользователей по названию тарифного плана.
+     * Подсчитывает пользователей по коду тарифного плана.
      *
-     * @param planName имя тарифного плана
+     * @param code код тарифного плана (например, FREE, PREMIUM)
      * @return количество пользователей с указанным тарифом
      */
-    public long countUsersBySubscriptionPlan(String planName) {
-        return userRepository.countUsersBySubscriptionPlan(planName);
+    public long countUsersBySubscriptionPlan(SubscriptionCode code) {
+        return userRepository.countBySubscription_SubscriptionPlan_Code(code);
     }
-
 
     /**
      * Меняет пароль пользователя.
@@ -473,6 +494,42 @@ public class UserService {
     public ZoneId getUserZone(Long userId) {
         return ZoneId.of(userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден")).getTimeZone());
+    }
+
+    /**
+     * Возвращает профиль пользователя.
+     * <p>
+     * Метод извлекает пользователя и связанную подписку, формируя DTO с основной информацией.
+     * </p>
+     *
+     * @param userId идентификатор пользователя
+     * @return данные профиля пользователя
+     */
+    @Transactional
+    public UserProfileDTO getUserProfile(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+
+        UserSubscription subscription = user.getSubscription();
+
+        SubscriptionCode planCode = Optional.ofNullable(subscription)
+                .map(UserSubscription::getSubscriptionPlan)
+                .map(SubscriptionPlan::getCode)
+                .orElse(null);
+
+        String formattedEndDate = null;
+        if (subscription != null && subscription.getSubscriptionEndDate() != null) {
+            formattedEndDate = DateTimeFormatter.ofPattern("dd MMMM yyyy")
+                    .withZone(ZoneId.of(user.getTimeZone()))
+                    .format(subscription.getSubscriptionEndDate());
+        }
+
+        return new UserProfileDTO(
+                user.getEmail(),
+                user.getTimeZone(),
+                planCode,
+                formattedEndDate
+        );
     }
 
 }

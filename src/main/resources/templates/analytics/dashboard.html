@@ -8,163 +8,177 @@
 </head>
 
 <main layout:fragment="content">
-    <div class="container mt-4">
-        <h1>Аналитика магазинов</h1>
+    <div class="container-xl">
+        <div class="row justify-content-center">
+            <div class="col-lg-10 col-md-10 col-12">
 
-        <!-- Контейнер для уведомлений -->
-        <div id="notificationContainer"></div>
-
-        <div th:if="${stores == null or #lists.isEmpty(stores)}">
-            <p class="text-muted">У вас пока нет магазинов. Добавьте магазин для просмотра аналитики.</p>
-            <a href="/stores/add" class="btn btn-primary">Добавить магазин</a>
-        </div>
-
-        <div class="dashboard-container" th:if="${stores != null and not #lists.isEmpty(stores)}">
-            <!-- Панель выбора магазина -->
-            <div class="d-flex justify-content-between align-items-center mb-4">
-
-                <!-- Фильтр по магазину -->
-                <div class="d-flex align-items-center gap-2" th:if="${isMultiStore}">
-                    <label for="analyticsStoreSelect" class="form-label mb-0">Магазин:</label>
-                    <select id="analyticsStoreSelect" class="form-select form-select-sm">
-                        <option value="" th:selected="${selectedStoreId == null}">Все магазины</option>
-                        <option th:each="store : ${stores}"
-                                th:value="${store.id}"
-                                th:text="${store.name}"
-                                th:selected="${store.id.toString() == selectedStoreId?.toString()}">
-                        </option>
-                    </select>
+                <div class="d-flex justify-content-center align-items-center mb-4 gap-2">
+                    <h1 class="mb-1">Аналитика магазинов</h1>
                 </div>
 
-                <!-- Фильтр по периоду -->
-                <div class="d-flex align-items-center gap-2">
-                    <label for="periodSelect" class="form-label mb-0">Период:</label>
-                    <select id="periodSelect" class="form-select form-select-sm">
-                        <option value="DAYS" th:selected="${selectedInterval == 'DAYS'}">День</option>
-                        <option value="WEEKS" th:selected="${selectedInterval == 'WEEKS'}">Неделя</option>
-                        <option value="MONTHS" th:selected="${selectedInterval == 'MONTHS'}">Месяц</option>
-                        <option value="YEARS" th:selected="${selectedInterval == 'YEARS'}">Год</option>
-                    </select>
+                <!-- Контейнер для уведомлений -->
+                <div id="notificationContainer"></div>
+
+                <div th:if="${stores == null or #lists.isEmpty(stores)}">
+                    <p class="text-muted">У вас пока нет магазинов. Добавьте магазин для просмотра аналитики.</p>
+                    <a href="/stores/add" class="btn btn-primary">Добавить магазин</a>
                 </div>
 
-            </div>
+                <div class="dashboard-container" th:if="${stores != null and not #lists.isEmpty(stores)}">
 
-            <!-- Метрики -->
-            <div th:if="${selectedStoreId != null}">
-                <div class="row text-center mb-4" th:each="stat : ${statistics}">
-                    <div th:replace="~{partials/store-statistics :: statBlock(stat=${stat})}"></div>
-                </div>
-            </div>
+                    <div class="card p-3 shadow-sm rounded-4 mb-4">
+                    <!-- Панель выбора магазина -->
+                    <div class="d-flex justify-content-between align-items-center mb-4">
 
-            <!-- Отображаем общую аналитику по всем магазинам, если storeId не выбран -->
-            <div th:if="${selectedStoreId == null}">
-                <div class="mb-4">
-                    <h5>Общая аналитика по всем магазинам</h5>
-                    <div class="row text-center mb-4">
-                        <div th:replace="~{partials/store-statistics :: statBlock(stat=${storeStatistics})}"></div>
-                    </div>
-                </div>
-            </div>
+                        <!-- Фильтр по магазину -->
+                        <div class="d-flex align-items-center gap-2" th:if="${isMultiStore}">
+                            <label for="analyticsStoreSelect" class="form-label mb-0">Магазин:</label>
+                            <select id="analyticsStoreSelect" class="form-select form-select-sm">
+                                <option value="" th:selected="${selectedStoreId == null}">Все магазины</option>
+                                <option th:each="store : ${stores}"
+                                        th:value="${store.id}"
+                                        th:text="${store.name}"
+                                        th:selected="${store.id.toString() == selectedStoreId?.toString()}">
+                                </option>
+                            </select>
+                        </div>
 
-            <!-- Детальная аналитика по магазинам -->
-            <div class="mt-5" th:if="${selectedStoreId == null}">
-                <h5 class="text-muted">Детально по магазинам</h5>
-                <div th:each="stat : ${statistics}" class="mb-5"
-                     th:if="${selectedStoreId == null or stat.store.id == selectedStoreId}">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h6 class="text-secondary mb-2 border-bottom pb-2">
-                            Магазин: <span class="fw-bold" th:text="${stat.store.name}">Название</span>
-                        </h6>
-                        <button type="button" class="btn btn-sm btn-outline-secondary toggle-store-btn"
-                                th:attr="data-store-id=${stat.store.id}">
-                            <i class="bi bi-chevron-up"></i>
-                        </button>
+                        <!-- Фильтр по периоду -->
+                        <div class="d-flex align-items-center gap-2">
+                            <label for="periodSelect" class="form-label mb-0">Период:</label>
+                            <select id="periodSelect" class="form-select form-select-sm">
+                                <option value="DAYS" th:selected="${selectedInterval == 'DAYS'}">День</option>
+                                <option value="WEEKS" th:selected="${selectedInterval == 'WEEKS'}">Неделя</option>
+                                <option value="MONTHS" th:selected="${selectedInterval == 'MONTHS'}">Месяц</option>
+                                <option value="YEARS" th:selected="${selectedInterval == 'YEARS'}">Год</option>
+                            </select>
+                        </div>
+
                     </div>
 
-                    <div class="store-statistics-content row text-center mb-4 expanded"
-                         th:attr="data-store-id=${stat.store.id}">
-                        <div th:replace="~{partials/store-statistics :: statBlock(stat=${stat})}"></div>
+                    <!-- Метрики -->
+                    <div th:if="${selectedStoreId != null}">
+                        <div class="row text-center mb-4" th:each="stat : ${statistics}">
+                            <div th:replace="~{partials/store-statistics :: statBlock(stat=${stat})}"></div>
+                        </div>
                     </div>
-                </div>
-            </div>
 
-            <!-- Графики -->
-            <div class="row mt-5">
-                <div class="col-md-6 mb-4">
-                    <div class="chart-wrapper">
-                        <h5>Статусы отправлений</h5>
-                        <div class="chart-container position-relative">
-                            <canvas id="statusPieChart"></canvas>
-                            <div id="pieNoData" class="no-data-placeholder d-none">
-                                <img src="/images/no-data.png" alt="Нет данных" class="img-fluid" style="max-height: 180px;">
-                                <p class="text-muted mt-2">Нет данных для отображения</p>
+                    <!-- Отображаем общую аналитику по всем магазинам, если storeId не выбран -->
+                    <div th:if="${selectedStoreId == null}">
+                        <div class="mb-4">
+                            <h5>Общая аналитика по всем магазинам</h5>
+                            <div class="row text-center mb-4">
+                                <div th:replace="~{partials/store-statistics :: statBlock(stat=${storeStatistics})}"></div>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="col-md-6 mb-4">
-                    <div class="chart-wrapper">
-                        <h5 id="periodChartTitle">Динамика отправлений по неделям</h5>
-                        <div class="chart-container position-relative">
-                            <canvas id="periodBarChart"></canvas>
-                            <div id="barNoData" class="no-data-placeholder d-none">
-                                <img src="/images/no-data.png" alt="Нет данных" class="img-fluid" style="max-height: 180px;">
-                                <p class="text-muted mt-2">Нет данных для отображения</p>
+                    </div>
+
+                    <div class="card p-3 shadow-sm rounded-4 mb-4">
+                    <!-- Детальная аналитика по магазинам -->
+                    <div class="mt-4" th:if="${selectedStoreId == null}">
+                        <h5>Детально по магазинам</h5>
+                        <div th:each="stat : ${statistics}" class="mb-5"
+                             th:if="${selectedStoreId == null or stat.store.id == selectedStoreId}">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="text-secondary mb-2 border-bottom pb-2">
+                                    Магазин: <span class="fw-bold" th:text="${stat.store.name}">Название</span>
+                                </h6>
+                                <button type="button" class="btn btn-sm btn-outline-secondary toggle-store-btn"
+                                        th:attr="data-store-id=${stat.store.id}">
+                                    <i class="bi bi-chevron-up"></i>
+                                </button>
+                            </div>
+
+                            <div class="store-statistics-content row text-center mb-4 expanded"
+                                 th:attr="data-store-id=${stat.store.id}">
+                                <div th:replace="~{partials/store-statistics :: statBlock(stat=${stat})}"></div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
+                    </div>
 
-            <!-- Таблица служб доставки -->
-            <div class="mt-5" th:if="${postalStats != null and not #lists.isEmpty(postalStats)}">
-                <h4 class="mb-3">Почтовые службы</h4>
-                <table class="table table-hover align-middle">
-                    <thead>
-                    <tr>
-                        <th>Служба</th>
-                        <th>Отправлено</th>
-                        <th>Доставлено</th>
-                        <th>Возвращено</th>
-                        <th>Ср.вр. доставки</th>
-                        <th>Ср. вр. забора</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr th:each="s : ${postalStats}">
-                        <td th:text="${s.postalService}">Служба</td>
-                        <td>
-                            <div class="progress" style="height: 20px;">
-                                <div class="progress-bar bg-primary" role="progressbar"
-                                     th:style="'width: 100%'"
-                                     th:text="${s.sent}">0</div>
-                            </div>
-                        </td>
-                        <td>
-                            <div class="progress" style="height: 20px;">
-                                <div class="progress-bar bg-success" role="progressbar"
-                                     th:style="'width: ' + (${s.sent} > 0 ? (${s.delivered} / ${s.sent} * 100) : 0) + '%'">
-                                    <span th:text="${s.delivered > 0 ? s.delivered : 0}">0</span>
+                    <!-- Графики -->
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <div class="card p-3 shadow-sm rounded-4">
+                                <h5>Статусы отправлений</h5>
+                                <div class="chart-container position-relative">
+                                    <canvas id="statusPieChart"></canvas>
+                                    <div id="pieNoData" class="no-data-placeholder d-none">
+                                        <img src="/images/no-data.png" alt="Нет данных" class="img-fluid" style="max-height: 180px;">
+                                        <p class="text-muted mt-2">Нет данных для отображения</p>
+                                    </div>
                                 </div>
                             </div>
-                        </td>
-                        <td>
-                            <div class="progress" style="height: 20px;">
-                                <div class="progress-bar bg-danger" role="progressbar"
-                                     th:style="'width: ' + (${s.sent} > 0 ? (${s.returned} / ${s.sent} * 100) : 0) + '%'">
-                                    <span th:text="${s.returned > 0 ? s.returned : 0}">0</span>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card p-3 shadow-sm rounded-4">
+                                <h5 id="periodChartTitle">Динамика отправлений по неделям</h5>
+                                <div class="chart-container position-relative">
+                                    <canvas id="periodBarChart"></canvas>
+                                    <div id="barNoData" class="no-data-placeholder d-none">
+                                        <img src="/images/no-data.png" alt="Нет данных" class="img-fluid" style="max-height: 180px;">
+                                        <p class="text-muted mt-2">Нет данных для отображения</p>
+                                    </div>
                                 </div>
                             </div>
-                        </td>
-                        <td>
-                            <span th:text="${#numbers.formatDecimal(s.avgDeliveryDays, 1, 1)}">0</span> дн.
-                        </td>
-                        <td>
-                            <span th:text="${#numbers.formatDecimal(s.avgPickupTimeDays, 1, 1)}">0</span> дн.
-                        </td>
-                    </tr>
-                    </tbody>
-                </table>
+                        </div>
+                    </div>
+
+                    <!-- Таблица служб доставки -->
+                    <div class="mt-4" th:if="${postalStats != null and not #lists.isEmpty(postalStats)}">
+                        <div class="card p-3 shadow-sm rounded-4 mb-4">
+                        <h4 class="mb-3">Почтовые службы</h4>
+                        <table class="table table-hover align-middle">
+                            <thead>
+                            <tr>
+                                <th>Служба</th>
+                                <th>Отправлено</th>
+                                <th>Доставлено</th>
+                                <th>Возвращено</th>
+                                <th>Ср.вр. доставки</th>
+                                <th>Ср. вр. забора</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="s : ${postalStats}">
+                                <td th:text="${s.postalService}">Служба</td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar bg-primary" role="progressbar"
+                                             th:style="'width: 100%'"
+                                             th:text="${s.sent}">0</div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar bg-success" role="progressbar"
+                                             th:style="'width: ' + (${s.sent} > 0 ? (${s.delivered} / ${s.sent} * 100) : 0) + '%'">
+                                            <span th:text="${s.delivered > 0 ? s.delivered : 0}">0</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar bg-danger" role="progressbar"
+                                             th:style="'width: ' + (${s.sent} > 0 ? (${s.returned} / ${s.sent} * 100) : 0) + '%'">
+                                            <span th:text="${s.returned > 0 ? s.returned : 0}">0</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span th:text="${#numbers.formatDecimal(s.avgDeliveryDays, 1, 1)}">0</span> дн.
+                                </td>
+                                <td>
+                                    <span th:text="${#numbers.formatDecimal(s.avgPickupTimeDays, 1, 1)}">0</span> дн.
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

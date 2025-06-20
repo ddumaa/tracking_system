@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -106,7 +107,8 @@ public class AdminService {
                         Optional.ofNullable(s.getTelegramSettings()).map(StoreTelegramSettings::isRemindersEnabled).orElse(false),
                         Optional.ofNullable(s.getOwner().getSubscription())
                                 .map(UserSubscription::getSubscriptionPlan)
-                                .map(SubscriptionPlan::getName)
+                                .map(SubscriptionPlan::getCode)
+                                .map(SubscriptionCode::getDisplayName)
                                 .orElse("NONE")
                 ))
                 .collect(Collectors.toList());
@@ -169,7 +171,7 @@ public class AdminService {
      * @param subscription название плана подписки
      * @return список DTO с информацией о пользователях
      */
-    public java.util.List<UserListAdminInfoDTO> getUsers(String search, String role, String subscription) {
+    public List<UserListAdminInfoDTO> getUsers(String search, String role, SubscriptionCode subscription) {
         Role roleEnum = null;
         if (role != null && !role.isBlank()) {
             try {
@@ -184,20 +186,23 @@ public class AdminService {
                 roleEnum,
                 subscription
         );
-        List<UserListAdminInfoDTO> result = new java.util.ArrayList<>();
+
+        List<UserListAdminInfoDTO> result = new ArrayList<>();
 
         for (User u : users) {
-            String planName = Optional.ofNullable(u.getSubscription())
+            SubscriptionCode code = Optional.ofNullable(u.getSubscription())
                     .map(UserSubscription::getSubscriptionPlan)
-                    .map(SubscriptionPlan::getName)
-                    .orElse("NONE");
+                    .map(SubscriptionPlan::getCode)
+                    .orElse(SubscriptionCode.FREE);
+
             result.add(new UserListAdminInfoDTO(
                     u.getId(),
                     u.getEmail(),
                     u.getRole(),
-                    planName
+                    code
             ));
         }
+
         return result;
     }
 

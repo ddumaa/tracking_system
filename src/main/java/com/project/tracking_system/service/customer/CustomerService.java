@@ -1,21 +1,17 @@
 package com.project.tracking_system.service.customer;
 
-import com.project.tracking_system.entity.Customer;
-import com.project.tracking_system.entity.TrackParcel;
-import com.project.tracking_system.entity.Store;
-import com.project.tracking_system.entity.User;
-import com.project.tracking_system.entity.UserSubscription;
-import com.project.tracking_system.entity.SubscriptionPlan;
+import com.project.tracking_system.entity.*;
 import com.project.tracking_system.dto.CustomerInfoDTO;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import com.project.tracking_system.service.customer.CustomerTransactionalService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.concurrent.TimeUnit;
 
 import java.util.Optional;
 
@@ -37,6 +33,8 @@ public class CustomerService {
      * <p>
      * Все операции поиска и сохранения выполняются в отдельных транзакциях,
      * что исключает ошибку "current transaction is aborted" при конкурентной записи.
+     * При возникновении гонки сохранения выполняется несколько повторных чтений
+     * записи с небольшими задержками.
      * </p>
      *
      * @param rawPhone телефон в произвольном формате
@@ -59,13 +57,20 @@ public class CustomerService {
             return saved;
         } catch (DataIntegrityViolationException e) {
             log.warn("Покупатель с номером {} уже существует, выполняем повторный поиск", phone);
-            try {
-                Thread.sleep(100); // Ждём 100мс пока транзакция коммитится
-            } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
+            // Несколько раз пытаемся прочитать покупателя, ожидая завершения транзакции сохранения
+            for (int attempt = 0; attempt < 3; attempt++) {
+                Optional<Customer> byPhone = transactionalService.findByPhone(phone);
+                if (byPhone.isPresent()) {
+                    return byPhone.get();
+                }
+                try {
+                    TimeUnit.MILLISECONDS.sleep(50);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
             }
-            return transactionalService.findByPhone(phone)
-                    .orElseThrow(() -> new IllegalStateException("Покупатель не найден после ошибки сохранения"));
+            throw new IllegalStateException("Покупатель не найден после ошибки сохранения");
         }
 
     }
@@ -209,13 +214,12 @@ public class CustomerService {
         }
 
         // Определяем активную подписку владельца магазина
-        String planName = Optional.ofNullable(store.getOwner())
+        return Optional.ofNullable(store.getOwner())
                 .map(User::getSubscription)
                 .map(UserSubscription::getSubscriptionPlan)
-                .map(SubscriptionPlan::getName)
-                .orElse(null);
-
-        return "PREMIUM".equals(planName);
+                .map(SubscriptionPlan::getCode)
+                .map(code -> code == SubscriptionCode.PREMIUM)
+                .orElse(false);
     }
 
     private CustomerInfoDTO toInfoDto(Customer customer) {

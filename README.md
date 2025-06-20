@@ -15,3 +15,12 @@ Belpost and Evropost
 ## Конфигурация Tesseract
 
 Для работы OCR-сервиса в `application.properties` необходимо указать путь к каталогу с данными Tesseract через свойство `tesseract.datapath`. По умолчанию используется `/usr/local/share/tessdata`.
+
+## Компиляция CSS
+
+Для генерации стилей используется Sass, исходный SCSS размещён в каталоге `src/main/resources/assets/scss`.
+
+- `npm run build:css` — выполняет разовую компиляцию файла `main.scss` и создаёт `src/main/resources/static/css/style.css`.
+- `npm run watch:css` — отслеживает изменения SCSS и автоматически обновляет тот же CSS-файл.
+
+Скомпилированный `style.css` располагается в `src/main/resources/static/css` и подключается приложением при запуске.

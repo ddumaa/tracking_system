@@ -10,7 +10,7 @@
 <main layout:fragment="content">
 
     <div class="container mt-4">
-        <h1 class="mb-4">Новый пользователь</h1>
+        <h1 class="mb-1">Новый пользователь</h1>
 
         <div th:if="${errorMessage}" class="alert alert-danger" th:text="${errorMessage}"></div>
 
@@ -34,7 +34,7 @@
             <div class="mb-3">
                 <label for="subscriptionPlan" class="form-label">Статус аккаунта</label>
                 <select id="subscriptionPlan" name="subscriptionPlan" class="form-select">
-                    <option th:each="p : ${plans}" th:value="${p.name}" th:text="${p.name}"></option>
+                    <option th:each="p : ${plans}" th:value="${p.code.name()}" th:text="${p.code.getDisplayName()}"></option>
                 </select>
             </div>
             <button type="submit" class="btn btn-success">Создать</button>

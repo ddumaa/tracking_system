@@ -205,15 +205,42 @@ function initTelegramForms() {
 }
 
 // Показать или скрыть поля
+function slideDown(element, duration = 200) {
+    element.classList.remove('hidden');
+    element.style.removeProperty('display');
+    let height = element.scrollHeight;
+    element.style.overflow = 'hidden';
+    element.style.maxHeight = '0';
+    element.offsetHeight; // принудительный reflow
+    element.style.transition = `max-height ${duration}ms ease`;
+    element.style.maxHeight = height + 'px';
+    setTimeout(() => {
+        element.style.removeProperty('max-height');
+        element.style.removeProperty('overflow');
+        element.style.removeProperty('transition');
+    }, duration);
+}
+
+function slideUp(element, duration = 200) {
+    element.style.overflow = 'hidden';
+    element.style.maxHeight = element.scrollHeight + 'px';
+    element.offsetHeight; // принудительный reflow
+    element.style.transition = `max-height ${duration}ms ease`;
+    element.style.maxHeight = '0';
+    setTimeout(() => {
+        element.classList.add('hidden');
+        element.style.removeProperty('max-height');
+        element.style.removeProperty('overflow');
+        element.style.removeProperty('transition');
+    }, duration);
+}
+
 function toggleFieldsVisibility(checkbox, fieldsContainer) {
+    if (!fieldsContainer) return;
     if (checkbox.checked) {
-        $(fieldsContainer).stop(true, true).slideDown(200, function () {
-            fieldsContainer.classList.remove('hidden');
-        });
+        slideDown(fieldsContainer);
     } else {
-        $(fieldsContainer).stop(true, true).slideUp(200, function () {
-            fieldsContainer.classList.add('hidden');
-        });
+        slideUp(fieldsContainer);
     }
 }
 
@@ -234,37 +261,41 @@ function initTelegramToggle() {
 
     const collapsedStored = getCollapsedTgStores();
 
-    container.querySelectorAll('.tg-settings-content').forEach(content => {
-        if (content.dataset.collapseInit) return;
-        content.dataset.collapseInit = 'true';
-
-        const storeId = content.getAttribute('data-store-id');
+    collapsedStored.forEach(storeId => {
+        const content = container.querySelector(`.tg-settings-content[data-store-id="${storeId}"]`);
         const btn = container.querySelector(`.toggle-tg-btn[data-store-id="${storeId}"]`);
-        const icon = btn?.querySelector('i');
-        const bsCollapse = bootstrap.Collapse.getOrCreateInstance(content, { toggle: false });
-
-        if (collapsedStored.includes(storeId)) {
-            bsCollapse.hide();
+        if (content && btn) {
+            content.classList.remove('expanded');
+            content.classList.add('collapsed');
+            const icon = btn.querySelector('i');
             icon?.classList.remove('bi-chevron-up');
             icon?.classList.add('bi-chevron-down');
-        } else {
-            bsCollapse.show();
-            icon?.classList.remove('bi-chevron-down');
-            icon?.classList.add('bi-chevron-up');
         }
+    });
 
-        content.addEventListener('shown.bs.collapse', () => {
-            icon?.classList.remove('bi-chevron-down');
-            icon?.classList.add('bi-chevron-up');
-            let ids = getCollapsedTgStores().filter(id => id !== storeId);
-            saveCollapsedTgStores(ids);
-        });
+    container.querySelectorAll('.toggle-tg-btn').forEach(btn => {
+        if (btn.dataset.toggleInit) return;
+        btn.dataset.toggleInit = 'true';
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            const storeId = this.getAttribute('data-store-id');
+            const content = container.querySelector(`.tg-settings-content[data-store-id="${storeId}"]`);
+            const icon = this.querySelector('i');
 
-        content.addEventListener('hidden.bs.collapse', () => {
-            icon?.classList.remove('bi-chevron-up');
-            icon?.classList.add('bi-chevron-down');
-            const ids = getCollapsedTgStores();
-            if (!ids.includes(storeId)) ids.push(storeId);
+            if (!content) return;
+
+            const collapsed = content.classList.toggle('collapsed');
+            content.classList.toggle('expanded', !collapsed);
+
+            icon?.classList.toggle('bi-chevron-down', collapsed);
+            icon?.classList.toggle('bi-chevron-up', !collapsed);
+
+            let ids = getCollapsedTgStores();
+            if (collapsed) {
+                if (!ids.includes(storeId)) ids.push(storeId);
+            } else {
+                ids = ids.filter(id => id !== storeId);
+            }
             saveCollapsedTgStores(ids);
         });
     });
@@ -653,14 +684,13 @@ async function loadAnalyticsButtons() {
     stores.forEach(store => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'btn btn-outline-secondary w-100 reset-store-analytics-btn mb-2 d-flex align-items-center';
+        btn.className = 'btn btn-outline-secondary btn-sm reset-store-analytics-btn d-inline-flex align-items-center';
         btn.dataset.storeId = store.id;
         btn.dataset.storeName = store.name;
         btn.setAttribute('data-bs-toggle', 'tooltip');
         btn.title = `Очистить аналитику магазина «${store.name}»`;
         btn.innerHTML = `<i class="bi bi-brush me-2"></i> Очистить аналитику — ${store.name}`;
 
-        // ✅ обработчик клика на кнопку
         btn.addEventListener('click', () => {
             analyticsActionUrl = `/analytics/reset/store/${store.id}`;
             showResetModal(`Вы действительно хотите очистить аналитику магазина «${store.name}»?`);
@@ -669,9 +699,9 @@ async function loadAnalyticsButtons() {
         container.appendChild(btn);
     });
 
-    // повторно инициализируем Bootstrap tooltip (если используется)
     enableTooltips(container);
 }
+
 
 /**
  * Формирует DOM-блок настроек Telegram для магазина
@@ -1203,6 +1233,28 @@ document.addEventListener("DOMContentLoaded", function () {
         if (link.getAttribute("data-path") === currentPath) {
             link.classList.add("active");
         }
+    });
+
+    // Запоминание активной вкладки и анимация при переключении
+    const tabKey = "profileActiveTab";
+    const tabLinks = document.querySelectorAll('#v-pills-tab a');
+    const savedTab = localStorage.getItem(tabKey);
+    if (savedTab) {
+        const triggerEl = document.querySelector(`[href="${savedTab}"]`);
+        if (triggerEl) new bootstrap.Tab(triggerEl).show();
+    }
+    tabLinks.forEach(link => {
+        link.addEventListener('shown.bs.tab', e => {
+            const href = e.target.getAttribute('href');
+            localStorage.setItem(tabKey, href);
+            const pane = document.querySelector(href);
+            if (pane) {
+                pane.classList.add('animate__animated', 'animate__fadeIn');
+                pane.addEventListener('animationend', () => {
+                    pane.classList.remove('animate__animated', 'animate__fadeIn');
+                }, { once: true });
+            }
+        });
     });
 
     // Логика показа/скрытия пароля

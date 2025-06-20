@@ -1,5 +1,6 @@
 package com.project.tracking_system.service.user;
 
+import com.project.tracking_system.entity.SubscriptionCode;
 import com.project.tracking_system.entity.SubscriptionPlan;
 import com.project.tracking_system.entity.UserSubscription;
 import com.project.tracking_system.repository.SubscriptionPlanRepository;
@@ -58,7 +59,8 @@ public class SubscriptionExpirationScheduler {
     }
 
     private SubscriptionPlan getFreePlan() {
-        return subscriptionPlanRepository.findByName("FREE")
+        return subscriptionPlanRepository.findByCode(SubscriptionCode.FREE)
                 .orElseThrow(() -> new IllegalStateException("План FREE не найден в БД!"));
     }
+
 }

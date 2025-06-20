@@ -1,9 +1,8 @@
-@use '../abstracts/variables' as vars;
-@use '../abstracts/mixins' as mixins;
+@use '../ui' as ui;
 
 // Общие стили для заголовков
 h1, h3, h4, h5 {
-  color: vars.$dark;
+  color: ui.$dark;
   font-weight: bold;
   margin-bottom: 15px;
 }
@@ -18,15 +17,15 @@ h1 {
   gap: 15px;
   margin-bottom: 1.5rem;
 
-  @include mixins.respond-to(lg) {
+  @include ui.respond-to(lg) {
     font-size: 2rem;
   }
 
-  @include mixins.respond-to(md) {
+  @include ui.respond-to(md) {
     font-size: 1.75rem;
   }
 
-  @include mixins.respond-to(sm) {
+  @include ui.respond-to(sm) {
     font-size: 1.5rem;
   }
 }
@@ -47,11 +46,11 @@ h5 {
   gap: 10px;
   margin-bottom: 1rem;
 
-  @include mixins.respond-to(md) {
+  @include ui.respond-to(md) {
     font-size: 1.3rem;
   }
 
-  @include mixins.respond-to(sm) {
+  @include ui.respond-to(sm) {
     font-size: 1.2rem;
   }
 }
@@ -64,10 +63,10 @@ h5 {
 
 .text-center a.btn-link {
   font-size: 0.95rem;
-  color: vars.$secondary;
+  color: ui.$secondary;
 
   &:hover {
-    color: vars.$dark;
+    color: ui.$dark;
   }
 }
 
@@ -77,7 +76,7 @@ h5 {
   transition: color 0.3s ease-in-out, text-decoration 0.3s ease-in-out;
 
   &:hover {
-    color: vars.$dark;
+    color: ui.$dark;
     text-decoration: underline;
   }
 }
