@@ -4,6 +4,7 @@ import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +38,7 @@ public class StatsAggregationService {
     /**
      * Агрегирует статистику за предыдущий день.
      */
+    @Scheduled(cron = "0 0 2 * * *", zone = "UTC")
     public void aggregateYesterday() {
         LocalDate yesterday = LocalDate.now(ZoneOffset.UTC).minusDays(1);
         aggregateForDate(yesterday);

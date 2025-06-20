@@ -13,7 +13,6 @@ import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.admin.AdminService;
 import com.project.tracking_system.service.admin.AppInfoService;
-import com.project.tracking_system.service.DynamicSchedulerService;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,7 +48,6 @@ public class AdminController {
     private final StatsAggregationService statsAggregationService;
     private final AdminService adminService;
     private final AppInfoService appInfoService;
-    private final DynamicSchedulerService dynamicSchedulerService;
 
     /**
      * Отображает дашборд администратора.
@@ -513,38 +511,6 @@ public class AdminController {
         );
         model.addAttribute("breadcrumbs", breadcrumbs);
         return "admin/settings";
-    }
-
-    /**
-     * Просмотр расписания всех задач.
-     *
-     * @param model модель представления
-     * @return страница расписания
-     */
-    @GetMapping("/schedules")
-    public String schedules(Model model) {
-        model.addAttribute("configs", dynamicSchedulerService.getAllConfigs());
-
-        List<BreadcrumbItemDTO> breadcrumbs = List.of(
-                new BreadcrumbItemDTO("Админ Панель", "/admin"),
-                new BreadcrumbItemDTO("Расписание", "")
-        );
-        model.addAttribute("breadcrumbs", breadcrumbs);
-        return "admin/schedules";
-    }
-
-    /**
-     * Обновление cron выражения задачи.
-     *
-     * @param id   идентификатор задачи
-     * @param cron новое выражение cron
-     * @return редирект на список задач
-     */
-    @PostMapping("/schedules/{id}")
-    public String updateSchedule(@PathVariable Long id,
-                                 @RequestParam String cron) {
-        dynamicSchedulerService.updateCron(id, cron);
-        return "redirect:/admin/schedules";
     }
 
 }
