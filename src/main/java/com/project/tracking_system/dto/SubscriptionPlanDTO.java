@@ -18,4 +18,5 @@ public class SubscriptionPlanDTO {
     private Integer maxTrackUpdates;
     private boolean allowBulkUpdate;
     private Integer maxStores;
+    private boolean allowTelegramNotifications;
 }

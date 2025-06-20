@@ -17,6 +17,7 @@
             <th>Обновлений в день</th>
             <th>Магазинов</th>
             <th>Массовое обновление</th>
+            <th>Telegram-уведомления</th>
             <th>Действия</th>
         </tr>
         </thead>
@@ -30,6 +31,7 @@
                 <td><input type="number" name="maxTrackUpdates" class="form-control" th:value="${plan.maxTrackUpdates}" /></td>
                 <td><input type="number" name="maxStores" class="form-control" th:value="${plan.maxStores}" /></td>
                 <td class="text-center"><input type="checkbox" name="allowBulkUpdate" th:checked="${plan.allowBulkUpdate}" /></td>
+                <td class="text-center"><input type="checkbox" name="allowTelegramNotifications" th:checked="${plan.allowTelegramNotifications}" /></td>
                 <td><button type="submit" class="btn btn-success btn-sm">Сохранить</button></td>
             </form>
         </tr>
@@ -49,6 +51,7 @@
         <div class="col-md-2"><input type="number" name="maxTrackUpdates" class="form-control" /></div>
         <div class="col-md-2"><input type="number" name="maxStores" class="form-control" /></div>
         <div class="col-md-1 d-flex align-items-center"><input type="checkbox" name="allowBulkUpdate" class="form-check-input" /></div>
+        <div class="col-md-1 d-flex align-items-center"><input type="checkbox" name="allowTelegramNotifications" class="form-check-input" /></div>
         <div class="col-md-1"><button type="submit" class="btn btn-primary">Создать</button></div>
     </form>
 </main>
