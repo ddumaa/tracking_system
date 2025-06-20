@@ -30,6 +30,16 @@ function toggleAllCheckboxes(checked) {
     updateApplyButtonState();
 }
 
+/**
+ * Устанавливает активную вкладку профиля во всех меню.
+ * @param {string} href - Идентификатор вкладки (href вида '#v-pills-home').
+ */
+function setActiveProfileTab(href) {
+    document.querySelectorAll('.profile-tab-menu a').forEach(link => {
+        link.classList.toggle('active', link.getAttribute('href') === href);
+    });
+}
+
 // Обновляем кнопку при изменении чекбоксов
 document.body.addEventListener("change", function (event) {
     if (event.target.classList.contains("selectCheckbox")) {
@@ -1243,15 +1253,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Запоминание активной вкладки и анимация при переключении
     const tabKey = "profileActiveTab";
-    const tabLinks = document.querySelectorAll('#v-pills-tab a');
+    const tabLinks = document.querySelectorAll('.profile-tab-menu a');
     const savedTab = localStorage.getItem(tabKey);
     if (savedTab) {
-        const triggerEl = document.querySelector(`[href="${savedTab}"]`);
-        if (triggerEl) new bootstrap.Tab(triggerEl).show();
+        const links = document.querySelectorAll(`.profile-tab-menu a[href="${savedTab}"]`);
+        if (links.length > 0) {
+            bootstrap.Tab.getOrCreateInstance(links[0]).show();
+            setActiveProfileTab(savedTab);
+        }
     }
     tabLinks.forEach(link => {
         link.addEventListener('shown.bs.tab', e => {
             const href = e.target.getAttribute('href');
+            setActiveProfileTab(href);
             localStorage.setItem(tabKey, href);
             const pane = document.querySelector(href);
             if (pane) {
