@@ -150,4 +150,27 @@ public class CustomerTelegramService {
                 .orElse(false);
     }
 
+    /**
+     * Включить отправку Telegram-уведомлений покупателю.
+     *
+     * @param chatId идентификатор Telegram-чата
+     * @return {@code true}, если уведомления были включены
+     */
+    @Transactional
+    public boolean enableNotifications(Long chatId) {
+        if (chatId == null) {
+            return false;
+        }
+
+        return customerRepository.findByTelegramChatId(chatId)
+                .filter(c -> !c.isNotificationsEnabled())
+                .map(customer -> {
+                    customer.setNotificationsEnabled(true);
+                    customerRepository.save(customer);
+                    log.info("🔔 Уведомления включены для покупателя {}", customer.getId());
+                    return true;
+                })
+                .orElse(false);
+    }
+
 }
