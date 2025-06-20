@@ -27,7 +27,7 @@
                 <div class="card h-100 shadow-sm border-0 rounded-4 d-flex flex-column">
 
                     <div class="card-header bg-light text-center border-0 rounded-top-4">
-                        <h4 class="mb-0 fw-bold" th:text="${plan.code.displayName}">Премиум</h4>
+                        <h4 class="mb-0 fw-bold" th:text="${plan.code.displayName}"></h4>
                         <p class="mb-0 mt-2 fw-semibold text-primary price-monthly"
                            th:if="${plan.monthlyPrice != null and plan.monthlyPrice > 0}"
                            th:text="'от ' + #numbers.formatDecimal(plan.monthlyPrice, 2, 2) + ' BYN/мес'"></p>
