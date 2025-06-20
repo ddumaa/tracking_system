@@ -19,4 +19,6 @@ public class SubscriptionPlanDTO {
     private boolean allowBulkUpdate;
     private Integer maxStores;
     private boolean allowTelegramNotifications;
+    private java.math.BigDecimal monthlyPrice;
+    private java.math.BigDecimal annualPrice;
 }

@@ -54,6 +54,8 @@ public class TariffService {
         dto.setAllowBulkUpdate(plan.isAllowBulkUpdate());
         dto.setMaxStores(plan.getMaxStores());
         dto.setAllowTelegramNotifications(Boolean.TRUE.equals(plan.getAllowTelegramNotifications()));
+        dto.setMonthlyPrice(plan.getMonthlyPrice());
+        dto.setAnnualPrice(plan.getAnnualPrice());
         return dto;
     }
 }

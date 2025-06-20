@@ -21,6 +21,8 @@
                             <li>Сохранённых треков: <span th:text="${plan.maxSavedTracks != null ? plan.maxSavedTracks : 'Без лимита'}"></span></li>
                             <li>Обновлений в день: <span th:text="${plan.maxTrackUpdates != null ? plan.maxTrackUpdates : 'Без лимита'}"></span></li>
                             <li>Количество магазинов: <span th:text="${plan.maxStores}"></span></li>
+                            <li>Цена за месяц: <span th:text="${plan.monthlyPrice}"></span></li>
+                            <li>Цена за год: <span th:text="${plan.annualPrice}"></span></li>
                             <li th:if="${plan.allowBulkUpdate}">Массовое обновление доступно</li>
                             <li th:if="${plan.allowTelegramNotifications}">Telegram-уведомления</li>
                         </ul>
