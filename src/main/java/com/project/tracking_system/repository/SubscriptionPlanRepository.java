@@ -3,8 +3,6 @@ package com.project.tracking_system.repository;
 import com.project.tracking_system.entity.SubscriptionCode;
 import com.project.tracking_system.entity.SubscriptionPlan;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
@@ -14,8 +12,6 @@ import java.util.Optional;
  */
 
 public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPlan, Long> {
-
-    Optional<SubscriptionPlan> findById(Long id);
 
     Optional<SubscriptionPlan> findByCode(SubscriptionCode code);
 
