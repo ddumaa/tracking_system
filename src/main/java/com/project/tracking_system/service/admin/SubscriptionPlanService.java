@@ -42,6 +42,7 @@ public class SubscriptionPlanService {
         plan.setMaxTrackUpdates(dto.getMaxTrackUpdates());
         plan.setAllowBulkUpdate(dto.isAllowBulkUpdate());
         plan.setMaxStores(dto.getMaxStores());
+        plan.setAllowTelegramNotifications(dto.isAllowTelegramNotifications());
         log.info("Создан тарифный план {}", dto.getCode());
         return planRepository.save(plan);
     }
@@ -62,6 +63,7 @@ public class SubscriptionPlanService {
         plan.setMaxTrackUpdates(dto.getMaxTrackUpdates());
         plan.setAllowBulkUpdate(dto.isAllowBulkUpdate());
         plan.setMaxStores(dto.getMaxStores());
+        plan.setAllowTelegramNotifications(dto.isAllowTelegramNotifications());
         log.info("Обновлен тарифный план {}", id);
         return planRepository.save(plan);
     }

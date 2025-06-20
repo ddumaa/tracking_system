@@ -179,6 +179,23 @@ public class SubscriptionService {
     }
 
     /**
+     * Проверяет, разрешены ли Telegram-уведомления для пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @return {@code true}, если тарифный план пользователя позволяет Telegram-уведомления
+     */
+    public boolean canUseTelegramNotifications(Long userId) {
+        SubscriptionCode code = userSubscriptionRepository.getSubscriptionPlanCode(userId);
+        if (code == null) {
+            log.warn("Пользователь {} не имеет активной подписки. Telegram недоступен.", userId);
+            return false;
+        }
+        return subscriptionPlanRepository.findByCode(code)
+                .map(SubscriptionPlan::getAllowTelegramNotifications)
+                .orElse(false);
+    }
+
+    /**
      * Проверяет наличие подписки PREMIUM у пользователя.
      *
      * @param userId идентификатор пользователя

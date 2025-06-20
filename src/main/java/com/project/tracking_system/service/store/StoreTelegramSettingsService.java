@@ -39,8 +39,8 @@ public class StoreTelegramSettingsService {
     public void update(Store store, StoreTelegramSettingsDTO dto, Long userId) {
         boolean enableRequested = dto.isEnabled();
 
-        if (enableRequested && !subscriptionService.isUserPremium(userId)) {
-            String msg = "Telegram-уведомления доступны только для подписки PREMIUM.";
+        if (enableRequested && !subscriptionService.canUseTelegramNotifications(userId)) {
+            String msg = "Telegram-уведомления доступны только на выбранном тарифе.";
             webSocketController.sendUpdateStatus(userId, msg, false);
             log.warn("⛔ Попытка включить Telegram-уведомления магазином ID={} без премиум-подписки", store.getId());
             throw new IllegalStateException(msg);
