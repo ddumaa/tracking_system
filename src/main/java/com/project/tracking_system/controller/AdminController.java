@@ -13,6 +13,7 @@ import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.admin.AdminService;
 import com.project.tracking_system.service.admin.AppInfoService;
+import com.project.tracking_system.exception.UserAlreadyExistsException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -156,11 +157,23 @@ public class AdminController {
         try {
             userService.createUserByAdmin(email, password, role, subscriptionCode);
             return "redirect:/admin/users";
-        } catch (Exception e) {
+        } catch (UserAlreadyExistsException e) {
+            // Пользователь с таким email уже существует
+            log.warn("Не удалось создать пользователя: {} уже существует", email);
             model.addAttribute("errorMessage", e.getMessage());
-            model.addAttribute("plans", SubscriptionCode.values());
-            return "admin/user-new";
+        } catch (IllegalArgumentException e) {
+            // Переданы некорректные параметры
+            log.warn("Ошибка создания пользователя: {}", e.getMessage());
+            model.addAttribute("errorMessage", e.getMessage());
+        } catch (Exception e) {
+            // Прочие ошибки
+            log.error("Неизвестная ошибка создания пользователя", e);
+            model.addAttribute("errorMessage", e.getMessage());
         }
+
+        // Возвращаем пользователя на форму с выбором тарифных планов
+        model.addAttribute("plans", adminService.getPlans());
+        return "admin/user-new";
     }
 
 
