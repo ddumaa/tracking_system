@@ -75,7 +75,7 @@
     border-radius: 0 ui.$border-radius ui.$border-radius 0;
   }
 
-  @include ui.respond-to(sm) {
+  @include ui.respond-to(md) {
     flex-direction: column;
     align-items: stretch;
 

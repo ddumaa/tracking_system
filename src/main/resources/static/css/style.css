@@ -520,7 +520,7 @@ button:hover {
   width: 150px;
   flex-shrink: 0;
 }
-@media (max-width: 576px) {
+@media (max-width: 768px) {
   .btn-equal {
     width: 100%;
   }
