@@ -627,6 +627,10 @@ button:hover {
   padding: 20px;
 }
 
+.price-placeholder {
+  visibility: hidden;
+}
+
 .modal {
   display: none;
 }

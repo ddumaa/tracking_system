@@ -30,10 +30,14 @@
                         <h4 class="mb-0 fw-bold" th:text="${plan.code.displayName}">Премиум</h4>
                         <p class="mb-0 mt-2 fw-semibold text-primary price-monthly"
                            th:if="${plan.monthlyPrice != null and plan.monthlyPrice > 0}"
-                           th:text="'от ' + plan.monthlyPrice + ' BYN/мес'"></p>
+                           th:text="'от ' + #numbers.formatDecimal(plan.monthlyPrice, 2, 2) + ' BYN/мес'"></p>
+                        <p class="mb-0 mt-2 fw-semibold price-placeholder price-monthly"
+                           th:unless="${plan.monthlyPrice != null and plan.monthlyPrice > 0}">0</p>
                         <p class="mb-0 mt-2 fw-semibold text-primary price-yearly d-none"
                            th:if="${plan.annualPrice != null and plan.annualPrice > 0}"
-                           th:text="'от ' + plan.annualPrice + ' BYN/год'"></p>
+                           th:text="'от ' + #numbers.formatDecimal(plan.annualPrice, 2, 2) + ' BYN/год'"></p>
+                        <p class="mb-0 mt-2 fw-semibold price-placeholder price-yearly d-none"
+                           th:unless="${plan.annualPrice != null and plan.annualPrice > 0}">0</p>
                     </div>
 
                     <div class="card-body px-4 d-flex flex-column">
