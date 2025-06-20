@@ -161,9 +161,10 @@ function initializePhoneToggle() {
         // Первичное состояние
         toggleFieldsVisibility(toggle, phoneField);
 
-        toggle.addEventListener('change', function () {
-            toggleFieldsVisibility(toggle, phoneField);
-        });
+        // Единый обработчик для переключения и касания на мобилках
+        const handler = () => toggleFieldsVisibility(toggle, phoneField);
+        toggle.addEventListener('change', handler);
+        toggle.addEventListener('touchstart', handler);
     }
 }
 
@@ -276,11 +277,12 @@ function initTelegramToggle() {
     container.querySelectorAll('.toggle-tg-btn').forEach(btn => {
         if (btn.dataset.toggleInit) return;
         btn.dataset.toggleInit = 'true';
-        btn.addEventListener('click', function (e) {
+
+        const handler = (e) => {
             e.preventDefault();
-            const storeId = this.getAttribute('data-store-id');
+            const storeId = btn.getAttribute('data-store-id');
             const content = container.querySelector(`.tg-settings-content[data-store-id="${storeId}"]`);
-            const icon = this.querySelector('i');
+            const icon = btn.querySelector('i');
 
             if (!content) return;
 
@@ -290,6 +292,8 @@ function initTelegramToggle() {
             icon?.classList.toggle('bi-chevron-down', collapsed);
             icon?.classList.toggle('bi-chevron-up', !collapsed);
 
+            debugLog(`⚙️ Telegram блок магазина ${storeId} toggled. collapsed=${collapsed}. event=${e.type}`);
+
             let ids = getCollapsedTgStores();
             if (collapsed) {
                 if (!ids.includes(storeId)) ids.push(storeId);
@@ -297,7 +301,10 @@ function initTelegramToggle() {
                 ids = ids.filter(id => id !== storeId);
             }
             saveCollapsedTgStores(ids);
-        });
+        };
+
+        btn.addEventListener('click', handler);
+        btn.addEventListener('touchstart', handler);
     });
 }
 
