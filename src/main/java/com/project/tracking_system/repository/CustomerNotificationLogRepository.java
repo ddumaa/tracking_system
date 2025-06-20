@@ -4,6 +4,9 @@ import com.project.tracking_system.entity.CustomerNotificationLog;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.NotificationType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
 
 /**
@@ -35,4 +38,13 @@ public interface CustomerNotificationLogRepository extends JpaRepository<Custome
      * @return список из десяти последних уведомлений
      */
     List<CustomerNotificationLog> findTop10ByOrderBySentAtDesc();
+
+    /**
+     * Удалить все записи лога конкретного покупателя.
+     *
+     * @param customerId идентификатор покупателя
+     */
+    @Modifying
+    @Transactional
+    void deleteByCustomerId(Long customerId);
 }

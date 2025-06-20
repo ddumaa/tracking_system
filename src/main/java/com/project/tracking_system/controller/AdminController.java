@@ -282,6 +282,18 @@ public class AdminController {
     }
 
     /**
+     * Удаляет пользователя целиком.
+     *
+     * @param id идентификатор пользователя
+     * @return редирект на список пользователей
+     */
+    @PostMapping("/users/{id}/delete")
+    public String deleteUser(@PathVariable Long id) {
+        adminService.deleteUser(id);
+        return "redirect:/admin/users";
+    }
+
+    /**
      * Запускает агрегацию недельной, месячной и годовой статистики за вчерашний день.
      *
      * @return редирект на административную страницу
@@ -346,6 +358,18 @@ public class AdminController {
     }
 
     /**
+     * Удаляет покупателя и его связи.
+     *
+     * @param id идентификатор покупателя
+     * @return редирект на список покупателей
+     */
+    @PostMapping("/customers/{id}/delete")
+    public String deleteCustomer(@PathVariable Long id) {
+        adminService.deleteCustomer(id);
+        return "redirect:/admin/customers";
+    }
+
+    /**
      * Отображает статистику активности Telegram-бота.
      *
      * @param model модель, в которую передаются данные об активности
@@ -383,6 +407,18 @@ public class AdminController {
         );
         model.addAttribute("breadcrumbs", breadcrumbs);
         return "admin/stores";
+    }
+
+    /**
+     * Удаляет магазин с его данными.
+     *
+     * @param id идентификатор магазина
+     * @return редирект на список магазинов
+     */
+    @PostMapping("/stores/{id}/delete")
+    public String deleteStore(@PathVariable Long id) {
+        adminService.deleteStore(id);
+        return "redirect:/admin/stores";
     }
 
     /**

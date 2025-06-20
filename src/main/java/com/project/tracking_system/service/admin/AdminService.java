@@ -7,6 +7,8 @@ import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.*;
 import com.project.tracking_system.service.track.TrackDeletionService;
 import com.project.tracking_system.service.track.TrackProcessingService;
+import com.project.tracking_system.service.store.StoreService;
+import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,6 +36,8 @@ public class AdminService {
     private final UserRepository userRepository;
     private final TrackDeletionService trackDeletionService;
     private final TrackProcessingService trackProcessingService;
+    private final com.project.tracking_system.service.user.UserService userService;
+    private final com.project.tracking_system.service.store.StoreService storeService;
 
     /**
      * Подсчитать общее количество покупателей.
@@ -274,5 +278,46 @@ public class AdminService {
         TrackParcel parcel = trackParcelRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Посылка не найдена"));
         trackProcessingService.processTrack(parcel.getNumber(), parcel.getStore().getId(), parcel.getUser().getId(), true);
+    }
+
+    /**
+     * Удалить пользователя целиком.
+     *
+     * @param userId идентификатор пользователя
+     */
+    public void deleteUser(Long userId) {
+        log.info("Админ удаляет пользователя ID={}", userId);
+        userService.deleteUser(userId);
+    }
+
+    /**
+     * Удалить магазин вместе с его посылками и статистикой.
+     *
+     * @param storeId идентификатор магазина
+     */
+    public void deleteStore(Long storeId) {
+        Store store = storeRepository.findById(storeId)
+                .orElseThrow(() -> new IllegalArgumentException("Магазин не найден"));
+        storeService.deleteStore(storeId, store.getOwner().getId());
+    }
+
+    /**
+     * Удалить покупателя и разорвать связи с его посылками.
+     *
+     * @param customerId идентификатор покупателя
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public void deleteCustomer(Long customerId) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new IllegalArgumentException("Покупатель не найден"));
+
+        // Удаляем связи с посылками
+        trackParcelRepository.clearCustomer(customerId);
+
+        // Удаляем связанные логи уведомлений
+        notificationRepository.deleteByCustomerId(customerId);
+
+        customerRepository.delete(customer);
+        log.info("Удалён покупатель ID={}", customerId);
     }
 }
