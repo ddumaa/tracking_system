@@ -13,6 +13,7 @@
     btnYearly.classList.replace('btn-primary', 'btn-outline-secondary');
     document.querySelectorAll('.price-monthly').forEach(el => el.classList.remove('d-none'));
     document.querySelectorAll('.price-yearly').forEach(el => el.classList.add('d-none'));
+    document.querySelectorAll('.discount-label').forEach(el => el.classList.add('d-none'));
     if (subscribeBtn) {
         subscribeBtn.textContent = 'Перейти';
     }
@@ -26,6 +27,7 @@
     btnYearly.classList.replace('btn-outline-secondary', 'btn-primary');
     document.querySelectorAll('.price-monthly').forEach(el => el.classList.add('d-none'));
     document.querySelectorAll('.price-yearly').forEach(el => el.classList.remove('d-none'));
+    document.querySelectorAll('.discount-label').forEach(el => el.classList.remove('d-none'));
     if (subscribeBtn) {
         subscribeBtn.textContent = 'Перейти ';
     }
