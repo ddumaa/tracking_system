@@ -195,8 +195,8 @@ public class CustomerService {
     /**
      * Проверяет, можно ли отправлять уведомления покупателю.
      * <p>
-     * Уведомления разрешены, если у покупателя указан идентификатор Telegram-чатa
-     * и владелец магазина обладает подпиской PREMIUM.
+     * Уведомления разрешены, если у покупателя указан идентификатор Telegram-чатa,
+     * включены уведомления и владелец магазина обладает подпиской PREMIUM.
      * </p>
      *
      * @param customer покупатель
@@ -208,8 +208,8 @@ public class CustomerService {
             return false;
         }
 
-        // Проверяем наличие привязанного чата
-        if (customer.getTelegramChatId() == null) {
+        // Проверяем наличие привязанного чата и разрешение на уведомления
+        if (customer.getTelegramChatId() == null || !customer.isNotificationsEnabled()) {
             return false;
         }
 

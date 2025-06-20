@@ -71,9 +71,25 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (update.hasMessage()) {
             var message = update.getMessage();
 
-            if (message.hasText() && "/start".equals(message.getText())) {
-                log.info("✅ Команда /start получена от {}", message.getChatId());
-                sendSharePhoneKeyboard(message.getChatId());
+            if (message.hasText()) {
+                String text = message.getText();
+                if ("/start".equals(text)) {
+                    log.info("✅ Команда /start получена от {}", message.getChatId());
+                    sendSharePhoneKeyboard(message.getChatId());
+                }
+                if ("/stop".equals(text) || "/unsubscribe".equals(text)) {
+                    log.info("🔕 Команда {} получена от {}", text, message.getChatId());
+                    boolean disabled = telegramService.disableNotifications(message.getChatId());
+                    if (disabled) {
+                        SendMessage confirm = new SendMessage(message.getChatId().toString(),
+                                "🔕 Уведомления отключены. Чтобы возобновить их, снова отправьте /start.");
+                        try {
+                            telegramClient.execute(confirm);
+                        } catch (TelegramApiException e) {
+                            log.error("❌ Ошибка отправки подтверждения", e);
+                        }
+                    }
+                }
             }
 
             if (message.hasContact()) {
