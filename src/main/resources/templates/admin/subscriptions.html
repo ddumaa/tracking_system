@@ -27,7 +27,7 @@
                     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                     <select name="subscriptionPlan" class="form-select form-select-sm me-2">
                         <option th:each="p : ${plans}"
-                                th:value="${p.code}"
+                                th:value="${p.code.name()}"
                                 th:text="${p.code.displayName}"
                                 th:selected="${p.code == s.subscriptionPlan.code}">
                         </option>

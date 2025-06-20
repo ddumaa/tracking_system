@@ -34,7 +34,7 @@
             <div class="mb-3">
                 <label for="subscriptionPlan" class="form-label">Статус аккаунта</label>
                 <select id="subscriptionPlan" name="subscriptionPlan" class="form-select">
-                    <option th:each="p : ${plans}" th:value="${p.name}" th:text="${p.name}"></option>
+                    <option th:each="p : ${plans}" th:value="${p.code.name()}" th:text="${p.code.getDisplayName()}"></option>
                 </select>
             </div>
             <button type="submit" class="btn btn-success">Создать</button>

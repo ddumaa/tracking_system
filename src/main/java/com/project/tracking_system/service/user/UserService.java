@@ -56,7 +56,6 @@ public class UserService {
     private final JwtTokenManager jwtTokenManager;
     private final UserCredentialsResolver userCredentialsResolver;
     private final SubscriptionService subscriptionService;
-    private final StoreRepository storeRepository;
     private final StoreService storeService;
 
     /**
