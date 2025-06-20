@@ -319,6 +319,11 @@ header .mobile-nav.active {
     left: 50%;
     transform: translateX(-50%);
   }
+
+  header .logo img,
+  header .logo svg {
+    width: 150px;
+  }
   header .auth-buttons {
     position: absolute;
     right: 10px;

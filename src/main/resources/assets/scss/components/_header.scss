@@ -164,6 +164,11 @@ header {
       transform: translateX(-50%);
     }
 
+    .logo img,
+    .logo svg {
+      width: 150px;
+    }
+
     .auth-buttons {
       position: absolute;
       right: 10px;
