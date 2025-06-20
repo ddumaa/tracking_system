@@ -40,6 +40,7 @@ public class TariffController {
         Long userId = userService.extractUserId(authentication);
         if (userId != null) {
             model.addAttribute("authenticatedUser", userId);
+            model.addAttribute("userProfile", userService.getUserProfile(userId));
         }
         List<SubscriptionPlanViewDTO> plans = tariffService.getAllPlans();
         model.addAttribute("plans", plans);
