@@ -3,8 +3,10 @@ package com.project.tracking_system.service.admin;
 import com.project.tracking_system.dto.StoreAdminInfoDTO;
 import com.project.tracking_system.dto.TrackParcelAdminInfoDTO;
 import com.project.tracking_system.dto.UserListAdminInfoDTO;
+import com.project.tracking_system.dto.SubscriptionPlanDTO;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.*;
+import com.project.tracking_system.service.admin.SubscriptionPlanService;
 import com.project.tracking_system.service.track.TrackDeletionService;
 import com.project.tracking_system.service.track.TrackProcessingService;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +31,7 @@ public class AdminService {
     private final StoreRepository storeRepository;
     private final StoreTelegramSettingsRepository storeTelegramSettingsRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
-    private final SubscriptionPlanRepository subscriptionPlanRepository;
+    private final SubscriptionPlanService subscriptionPlanService;
     private final TrackParcelRepository trackParcelRepository;
     private final UserRepository userRepository;
     private final TrackDeletionService trackDeletionService;
@@ -125,7 +127,28 @@ public class AdminService {
      * Получить все планы подписки.
      */
     public List<SubscriptionPlan> getPlans() {
-        return subscriptionPlanRepository.findAll();
+        return subscriptionPlanService.getAllPlans();
+    }
+
+    /**
+     * Создать новый тарифный план.
+     *
+     * @param dto параметры нового плана
+     * @return созданный план
+     */
+    public SubscriptionPlan createPlan(SubscriptionPlanDTO dto) {
+        return subscriptionPlanService.createPlan(dto);
+    }
+
+    /**
+     * Обновить тарифный план.
+     *
+     * @param id  идентификатор плана
+     * @param dto новые параметры
+     * @return обновлённый план
+     */
+    public SubscriptionPlan updatePlan(Long id, SubscriptionPlanDTO dto) {
+        return subscriptionPlanService.updatePlan(id, dto);
     }
 
     /**

@@ -5,6 +5,7 @@ import com.project.tracking_system.dto.TrackParcelAdminInfoDTO;
 import com.project.tracking_system.dto.UserDetailsAdminInfoDTO;
 import com.project.tracking_system.dto.UserListAdminInfoDTO;
 import com.project.tracking_system.dto.BreadcrumbItemDTO;
+import com.project.tracking_system.dto.SubscriptionPlanDTO;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.service.SubscriptionService;
@@ -511,6 +512,50 @@ public class AdminController {
         );
         model.addAttribute("breadcrumbs", breadcrumbs);
         return "admin/settings";
+    }
+
+    /**
+     * Отображает список тарифных планов и форму их редактирования.
+     *
+     * @param model модель для передачи данных
+     * @return имя шаблона управления тарифами
+     */
+    @GetMapping("/plans")
+    public String plans(Model model) {
+        model.addAttribute("plans", adminService.getPlans());
+        model.addAttribute("codes", SubscriptionCode.values());
+
+        List<BreadcrumbItemDTO> breadcrumbs = List.of(
+                new BreadcrumbItemDTO("Админ Панель", "/admin"),
+                new BreadcrumbItemDTO("Тарифы", "")
+        );
+        model.addAttribute("breadcrumbs", breadcrumbs);
+        return "admin/plans";
+    }
+
+    /**
+     * Создаёт новый тарифный план.
+     *
+     * @param dto параметры плана
+     * @return редирект на страницу тарифов
+     */
+    @PostMapping("/plans")
+    public String createPlan(SubscriptionPlanDTO dto) {
+        adminService.createPlan(dto);
+        return "redirect:/admin/plans";
+    }
+
+    /**
+     * Обновляет существующий тарифный план.
+     *
+     * @param id  идентификатор плана
+     * @param dto новые параметры
+     * @return редирект на страницу тарифов
+     */
+    @PostMapping("/plans/{id}")
+    public String updatePlan(@PathVariable Long id, SubscriptionPlanDTO dto) {
+        adminService.updatePlan(id, dto);
+        return "redirect:/admin/plans";
     }
 
 }
