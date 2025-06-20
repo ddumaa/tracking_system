@@ -30,8 +30,8 @@ public class TrackParcel {
     @Column(name = "status", nullable = false)
     private GlobalStatus status;
 
-    @Column(name = "data", nullable = false)
-    private ZonedDateTime data;
+    @Column(name = "timestamp", nullable = false)
+    private ZonedDateTime timestamp;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "store_id", nullable = false)
