@@ -161,9 +161,10 @@ function initializePhoneToggle() {
         // Первичное состояние
         toggleFieldsVisibility(toggle, phoneField);
 
-        toggle.addEventListener('change', function () {
-            toggleFieldsVisibility(toggle, phoneField);
-        });
+        // Единый обработчик для переключения и касания на мобилках
+        const handler = () => toggleFieldsVisibility(toggle, phoneField);
+        toggle.addEventListener('change', handler);
+        toggle.addEventListener('touchstart', handler);
     }
 }
 
