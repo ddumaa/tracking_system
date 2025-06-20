@@ -15,6 +15,7 @@
 @use 'components/cards';
 @use 'components/modals';
 @use 'components/alerts';
+@use 'components/loading';
 
 // Подключаем layout
 @use 'layouts/sidebar';
