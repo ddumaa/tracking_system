@@ -35,15 +35,17 @@
                     <p class="mb-0 mt-2 fw-semibold price-placeholder price-monthly"
                        th:unless="${plan.monthlyPriceLabel != null}">0</p>
 
-                    <p class="mb-0 mt-2 fw-semibold text-primary price-yearly d-none"
-                       th:if="${plan.annualPriceLabel != null}"
-                       th:text="${plan.annualPriceLabel}">150 BYN/год</p>
+                    <p class="mb-0 mt-2 fw-semibold price-yearly d-none"
+                       th:if="${plan.annualPriceLabel != null}">
+                        <span th:text="${plan.annualPriceLabel}">150 BYN/год</span>
+                        <span class="discount-label">Скидка 16%</span>
+                    </p>
 
                     <p class="mb-0 mt-2 fw-semibold price-placeholder price-yearly d-none"
                        th:unless="${plan.annualPriceLabel != null}">0</p>
 
                     <div class="card-body px-4 d-flex flex-column">
-                        <ul class="list-unstyled mb-4 flex-grow-1">
+                        <ul class="tariff-features list-unstyled mb-4 flex-grow-1">
                             <li>📥 Треков в файле:
                                 <strong th:text="${plan.maxTracksPerFile != null ? plan.maxTracksPerFile : 'Без лимита'}"></strong>
                             </li>
@@ -66,13 +68,17 @@
                             </li>
                         </ul>
 
-                        <form th:if="${plan.code.name() == 'PREMIUM'}" th:action="@{/tariffs/upgrade}" method="post" class="mt-auto">
+                        <form th:if="${plan.code.name() == 'PREMIUM' && (userProfile == null || userProfile.subscriptionCode == null || userProfile.subscriptionCode.name() != 'PREMIUM')}" th:action="@{/tariffs/upgrade}" method="post" class="mt-auto">
                             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                             <input type="hidden" id="monthsInput" name="months" value="1"/>
                             <button type="submit" id="subscribeBtn" class="btn btn-primary w-100">
                                 Перейти на Premium
                             </button>
                         </form>
+                        <div th:if="${plan.code.name() == 'PREMIUM' && userProfile != null && userProfile.subscriptionCode != null && userProfile.subscriptionCode.name() == 'PREMIUM'}" class="mt-auto">
+                            <button class="btn btn-outline-success w-100" disabled
+                                    th:text="'Ваш тариф до ' + ${userProfile.subscriptionEndDate}"></button>
+                        </div>
 
                         <div th:if="${plan.code.name() == 'FREE'}" class="mt-auto">
                             <button class="btn btn-outline-secondary w-100" disabled>Вы используете</button>
