@@ -6,6 +6,7 @@ import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.utils.EncryptionUtils;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -159,6 +160,7 @@ public class JwtTokenManager {
      * @see Scheduled
      */
     @Transactional
+    @Scheduled(cron = "0 0 0 * * ?") // Обновление токена в полночь
     public void scheduledTokenRefresh() {
         log.info("Запуск планового обновления токенов в полночь.");
         try {

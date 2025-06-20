@@ -9,6 +9,7 @@ import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +37,7 @@ public class TelegramReminderScheduler {
      * напоминание через Telegram.
      * </p>
      */
+    @Scheduled(cron = "0 0 8 * * *", zone = "UTC")
     @Transactional
     public void sendReminders() {
         ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);

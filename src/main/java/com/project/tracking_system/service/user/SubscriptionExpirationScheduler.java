@@ -7,6 +7,7 @@ import com.project.tracking_system.repository.SubscriptionPlanRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.ZoneOffset;
@@ -31,6 +32,7 @@ public class SubscriptionExpirationScheduler {
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
 
+    @Scheduled(cron = "0 0 3 * * *", zone = "UTC")
     public void checkExpiredSubscriptions() {
         ZonedDateTime nowUtc = ZonedDateTime.now(ZoneOffset.UTC);
 
