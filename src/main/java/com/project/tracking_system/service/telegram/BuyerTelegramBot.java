@@ -19,6 +19,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Telegram-бот для покупателей.
@@ -76,6 +77,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 if ("/start".equals(text)) {
                     log.info("✅ Команда /start получена от {}", message.getChatId());
                     sendSharePhoneKeyboard(message.getChatId());
+
+                    // 🔽 Добавить отображение текущих настроек, если юзер уже привязан
+                    Optional<Customer> optional = telegramService.findByChatId(message.getChatId());
+                    if (optional.isPresent() && optional.get().isTelegramConfirmed()) {
+                        boolean enabled = optional.get().isNotificationsEnabled();
+                        sendNotificationsKeyboard(message.getChatId(), enabled);
+                    }
                 }
                 if ("/stop".equals(text) || "/unsubscribe".equals(text)) {
                     log.info("🔕 Команда {} получена от {}", text, message.getChatId());
