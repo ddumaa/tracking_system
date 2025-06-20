@@ -163,19 +163,39 @@ public class SubscriptionService {
      * Проверяет возможность массового обновления треков для пользователя.
      *
      * @param userId идентификатор пользователя
-     * @return {@code true}, если пользователь имеет премиум-подписку
+     * @return {@code true}, если тарифный план позволяет массовое обновление
      */
     public boolean canUseBulkUpdate(Long userId) {
-        SubscriptionCode code = userSubscriptionRepository.getSubscriptionPlanCode(userId);
+        UserSubscription subscription = userSubscriptionRepository.findByUserId(userId)
+                .orElse(null);
 
-        if (code == null) {
+        if (subscription == null) {
             log.warn("Пользователь {} не имеет активной подписки. Массовое обновление недоступно.", userId);
             return false;
         }
 
-        boolean hasAccess = (code == SubscriptionCode.PREMIUM);
-        log.debug("Пользователь {} пытается использовать массовое обновление. Доступ: {}", userId, hasAccess);
-        return hasAccess;
+        SubscriptionPlan plan = subscription.getSubscriptionPlan();
+        boolean allowed = plan != null && plan.isAllowBulkUpdate();
+
+        log.debug("Пользователь {} пытается использовать массовое обновление. Доступ: {}", userId, allowed);
+        return allowed;
+    }
+
+    /**
+     * Проверяет, разрешены ли Telegram-уведомления для пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @return {@code true}, если тарифный план пользователя позволяет Telegram-уведомления
+     */
+    public boolean canUseTelegramNotifications(Long userId) {
+        SubscriptionCode code = userSubscriptionRepository.getSubscriptionPlanCode(userId);
+        if (code == null) {
+            log.warn("Пользователь {} не имеет активной подписки. Telegram недоступен.", userId);
+            return false;
+        }
+        return subscriptionPlanRepository.findByCode(code)
+                .map(SubscriptionPlan::getAllowTelegramNotifications)
+                .orElse(false);
     }
 
     /**

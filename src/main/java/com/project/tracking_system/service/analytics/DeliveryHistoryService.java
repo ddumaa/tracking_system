@@ -555,7 +555,7 @@ public class DeliveryHistoryService {
             postalServiceStatisticsRepository.save(psStats);
         }
 
-        LocalDate day = parcel.getData() != null ? parcel.getData().toLocalDate() : null;
+        LocalDate day = parcel.getTimestamp() != null ? parcel.getTimestamp().toLocalDate() : null;
         if (day != null) {
             StoreDailyStatistics daily = storeDailyStatisticsRepository
                     .findByStoreIdAndDate(store.getId(), day)
@@ -600,8 +600,8 @@ public class DeliveryHistoryService {
         }
 
         Long ownerId = parcel.getStore().getOwner().getId();
-        boolean premium = subscriptionService.isUserPremium(ownerId);
-        if (!premium) {
+        boolean allowed = subscriptionService.canUseTelegramNotifications(ownerId);
+        if (!allowed) {
             return false;
         }
 

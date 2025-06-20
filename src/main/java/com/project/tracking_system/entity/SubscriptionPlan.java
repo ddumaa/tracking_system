@@ -38,4 +38,7 @@ public class SubscriptionPlan {
 
     @Column(nullable = false)
     private Integer maxStores;
+
+    @Column(name = "allow_telegram_notifications", nullable = false)
+    private Boolean allowTelegramNotifications = false;
 }

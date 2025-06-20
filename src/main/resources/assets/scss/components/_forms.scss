@@ -74,4 +74,24 @@
   .btn {
     border-radius: 0 ui.$border-radius ui.$border-radius 0;
   }
+
+  @include ui.respond-to(md) {
+    flex-direction: column;
+    align-items: stretch;
+
+    input,
+    .btn {
+      border-radius: ui.$border-radius !important;
+      width: 100%;
+    }
+
+    input {
+      margin-bottom: 0.5rem;
+    }
+  }
+}
+
+// Округление поля ввода телефона
+#phone {
+  border-radius: ui.$border-radius !important;
 }

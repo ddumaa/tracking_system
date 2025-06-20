@@ -39,6 +39,9 @@ public class Customer {
     @Column(name = "telegram_confirmed", nullable = false)
     private boolean telegramConfirmed = false;
 
+    @Column(name = "notifications_enabled", nullable = false)
+    private boolean notificationsEnabled = true;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "reputation", nullable = false)
     private BuyerReputation reputation = BuyerReputation.NEW;
