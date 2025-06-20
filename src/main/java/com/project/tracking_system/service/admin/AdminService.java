@@ -186,7 +186,7 @@ public class AdminService {
                 p.getStatus().getDescription(),
                 p.getStore().getName(),
                 p.getUser().getEmail(),
-                formatter.format(p.getData())
+                formatter.format(p.getTimestamp())
         ));
     }
 
@@ -253,7 +253,7 @@ public class AdminService {
                 parcel.getStatus().getDescription(),
                 parcel.getStore().getName(),
                 parcel.getUser().getEmail(),
-                formatter.format(parcel.getData())
+                formatter.format(parcel.getTimestamp())
         );
     }
 
@@ -277,7 +277,7 @@ public class AdminService {
                 parcel.getStatus().getDescription(),
                 parcel.getStore().getName(),
                 parcel.getUser().getEmail(),
-                formatter.format(parcel.getData())
+                formatter.format(parcel.getTimestamp())
         );
     }
 

@@ -16,5 +16,5 @@ public class TrackParcelAdminInfoDTO {
     private String status;
     private String storeName;
     private String userEmail;
-    private String data;
+    private String timestamp;
 }

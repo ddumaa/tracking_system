@@ -555,7 +555,7 @@ public class DeliveryHistoryService {
             postalServiceStatisticsRepository.save(psStats);
         }
 
-        LocalDate day = parcel.getData() != null ? parcel.getData().toLocalDate() : null;
+        LocalDate day = parcel.getTimestamp() != null ? parcel.getTimestamp().toLocalDate() : null;
         if (day != null) {
             StoreDailyStatistics daily = storeDailyStatisticsRepository
                     .findByStoreIdAndDate(store.getId(), day)
