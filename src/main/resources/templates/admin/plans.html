@@ -16,6 +16,8 @@
             <th>Сохранённых треков</th>
             <th>Обновлений в день</th>
             <th>Магазинов</th>
+            <th>Цена в месяц</th>
+            <th>Цена в год</th>
             <th>Массовое обновление</th>
             <th>Telegram-уведомления</th>
             <th>Действия</th>
@@ -30,6 +32,8 @@
                 <td><input type="number" name="maxSavedTracks" class="form-control" th:value="${plan.maxSavedTracks}" /></td>
                 <td><input type="number" name="maxTrackUpdates" class="form-control" th:value="${plan.maxTrackUpdates}" /></td>
                 <td><input type="number" name="maxStores" class="form-control" th:value="${plan.maxStores}" /></td>
+                <td><input type="number" step="0.01" name="monthlyPrice" class="form-control" th:value="${plan.monthlyPrice}" /></td>
+                <td><input type="number" step="0.01" name="annualPrice" class="form-control" th:value="${plan.annualPrice}" /></td>
                 <td class="text-center"><input type="checkbox" name="allowBulkUpdate" th:checked="${plan.allowBulkUpdate}" /></td>
                 <td class="text-center"><input type="checkbox" name="allowTelegramNotifications" th:checked="${plan.allowTelegramNotifications}" /></td>
                 <td><button type="submit" class="btn btn-success btn-sm">Сохранить</button></td>
@@ -50,6 +54,8 @@
         <div class="col-md-2"><input type="number" name="maxSavedTracks" class="form-control" /></div>
         <div class="col-md-2"><input type="number" name="maxTrackUpdates" class="form-control" /></div>
         <div class="col-md-2"><input type="number" name="maxStores" class="form-control" /></div>
+        <div class="col-md-2"><input type="number" step="0.01" name="monthlyPrice" class="form-control" /></div>
+        <div class="col-md-2"><input type="number" step="0.01" name="annualPrice" class="form-control" /></div>
         <div class="col-md-1 d-flex align-items-center"><input type="checkbox" name="allowBulkUpdate" class="form-check-input" /></div>
         <div class="col-md-1 d-flex align-items-center"><input type="checkbox" name="allowTelegramNotifications" class="form-check-input" /></div>
         <div class="col-md-1"><button type="submit" class="btn btn-primary">Создать</button></div>
