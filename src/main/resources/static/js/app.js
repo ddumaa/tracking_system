@@ -30,6 +30,16 @@ function toggleAllCheckboxes(checked) {
     updateApplyButtonState();
 }
 
+function showLoading() {
+    document.body.classList.add('loading');
+    document.getElementById('loadingOverlay')?.classList.remove('hidden');
+}
+
+function hideLoading() {
+    document.body.classList.remove('loading');
+    document.getElementById('loadingOverlay')?.classList.add('hidden');
+}
+
 /**
  * Устанавливает активную вкладку профиля во всех меню.
  * @param {string} href - Идентификатор вкладки (href вида '#v-pills-home').
@@ -1020,6 +1030,11 @@ if (storeTableBody) {
 
 document.addEventListener("DOMContentLoaded", function () {
     debugLog("DOM полностью загружен");
+
+    hideLoading();
+
+    document.querySelector('form[action="/"]')?.addEventListener('submit', showLoading);
+    document.querySelector('form[action="/upload"]')?.addEventListener('submit', showLoading);
 
     // === Добавляем CSRF-токен ===
     const csrfToken = document.querySelector('meta[name="_csrf"]')?.content || "";
