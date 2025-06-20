@@ -9,6 +9,9 @@ import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+
 import jakarta.annotation.PostConstruct;
 import java.util.List;
 import java.util.Map;
@@ -83,12 +86,16 @@ public class DynamicSchedulerService {
         if (r == null) {
             return;
         }
-        String zone = cfg.getZone();
-        CronTrigger trigger = zone == null
-                ? new CronTrigger(cfg.getCron())
-                : new CronTrigger(cfg.getCron(), zone);
+
+        // Определяем зону по умолчанию UTC при отсутствии или пустом значении
+        ZoneId zoneId = (cfg.getZone() == null || cfg.getZone().isBlank())
+                ? ZoneOffset.UTC
+                : ZoneId.of(cfg.getZone());
+
+        CronTrigger trigger = new CronTrigger(cfg.getCron(), zoneId);
         futures.put(cfg.getId(), taskScheduler.schedule(r, trigger));
-        log.info("Запланирована задача {} c cron {}", cfg.getDescription(), cfg.getCron());
+        log.info("Запланирована задача {} c cron {} в таймзоне {}",
+                cfg.getDescription(), cfg.getCron(), zoneId);
     }
 
     private void reschedule(ScheduledTaskConfig cfg) {
