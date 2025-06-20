@@ -1,6 +1,7 @@
 package com.project.tracking_system.service.tariff;
 
 import com.project.tracking_system.dto.SubscriptionPlanDTO;
+import com.project.tracking_system.dto.SubscriptionPlanViewDTO;
 import com.project.tracking_system.entity.SubscriptionPlan;
 import com.project.tracking_system.repository.SubscriptionPlanRepository;
 import com.project.tracking_system.service.SubscriptionService;
@@ -9,6 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,9 +31,10 @@ public class TariffService {
      *
      * @return список планов в виде DTO
      */
-    public List<SubscriptionPlanDTO> getAllPlans() {
-        return planRepository.findAll().stream()
-                .map(this::toDto)
+    public List<SubscriptionPlanViewDTO> getAllPlans() {
+        return planRepository.findAll()
+                .stream()
+                .map(this::toViewDto)
                 .collect(Collectors.toList());
     }
 
@@ -45,8 +49,8 @@ public class TariffService {
         subscriptionService.upgradeOrExtendSubscription(userId, months);
     }
 
-    private SubscriptionPlanDTO toDto(SubscriptionPlan plan) {
-        SubscriptionPlanDTO dto = new SubscriptionPlanDTO();
+    private SubscriptionPlanViewDTO toViewDto(SubscriptionPlan plan) {
+        SubscriptionPlanViewDTO dto = new SubscriptionPlanViewDTO();
         dto.setCode(plan.getCode());
         dto.setMaxTracksPerFile(plan.getMaxTracksPerFile());
         dto.setMaxSavedTracks(plan.getMaxSavedTracks());
@@ -54,8 +58,16 @@ public class TariffService {
         dto.setAllowBulkUpdate(plan.isAllowBulkUpdate());
         dto.setMaxStores(plan.getMaxStores());
         dto.setAllowTelegramNotifications(Boolean.TRUE.equals(plan.getAllowTelegramNotifications()));
-        dto.setMonthlyPrice(plan.getMonthlyPrice());
-        dto.setAnnualPrice(plan.getAnnualPrice());
+
+        if (plan.getMonthlyPrice() != null && plan.getMonthlyPrice().compareTo(BigDecimal.ZERO) > 0) {
+            dto.setMonthlyPriceLabel(plan.getMonthlyPrice().setScale(2, RoundingMode.HALF_UP) + " BYN/мес");
+        }
+
+        if (plan.getAnnualPrice() != null && plan.getAnnualPrice().compareTo(BigDecimal.ZERO) > 0) {
+            dto.setAnnualPriceLabel(plan.getAnnualPrice().setScale(2, RoundingMode.HALF_UP) + " BYN/год");
+        }
+
         return dto;
     }
+
 }

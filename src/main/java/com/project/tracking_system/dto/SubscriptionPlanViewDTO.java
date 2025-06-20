@@ -5,15 +5,14 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-
 /**
- * DTO для отображения с тарифных планов.
+ * @author Dmitriy Anisimov
+ * @date 21.06.2025
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class SubscriptionPlanDTO {
+public class SubscriptionPlanViewDTO {
     private SubscriptionCode code;
     private Integer maxTracksPerFile;
     private Integer maxSavedTracks;
@@ -21,6 +20,6 @@ public class SubscriptionPlanDTO {
     private boolean allowBulkUpdate;
     private Integer maxStores;
     private boolean allowTelegramNotifications;
-    private BigDecimal monthlyPrice;
-    private BigDecimal annualPrice;
+    private String monthlyPriceLabel;
+    private String annualPriceLabel;
 }

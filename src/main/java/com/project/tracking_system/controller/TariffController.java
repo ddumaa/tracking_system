@@ -1,6 +1,7 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.SubscriptionPlanDTO;
+import com.project.tracking_system.dto.SubscriptionPlanViewDTO;
 import com.project.tracking_system.service.tariff.TariffService;
 import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
@@ -40,7 +41,7 @@ public class TariffController {
         if (userId != null) {
             model.addAttribute("authenticatedUser", userId);
         }
-        List<SubscriptionPlanDTO> plans = tariffService.getAllPlans();
+        List<SubscriptionPlanViewDTO> plans = tariffService.getAllPlans();
         model.addAttribute("plans", plans);
         return "tariffs";
     }
