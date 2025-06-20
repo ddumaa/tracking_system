@@ -22,4 +22,15 @@ public class ScheduledTaskConfig {
     private String cron;
 
     private String zone;
+
+    /**
+     * Устанавливает таймзону по умолчанию, если она не указана.
+     */
+    @PrePersist
+    @PreUpdate
+    private void ensureZone() {
+        if (zone == null || zone.isBlank()) {
+            zone = "UTC";
+        }
+    }
 }

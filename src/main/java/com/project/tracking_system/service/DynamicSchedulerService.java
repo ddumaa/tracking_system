@@ -77,6 +77,10 @@ public class DynamicSchedulerService {
         ScheduledTaskConfig cfg = repository.findById(id)
                 .orElseThrow();
         cfg.setCron(cron);
+        // При отсутствии таймзоны проставляем значение по умолчанию
+        if (cfg.getZone() == null || cfg.getZone().isBlank()) {
+            cfg.setZone("UTC");
+        }
         repository.save(cfg);
         reschedule(cfg);
     }
