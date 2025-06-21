@@ -1,6 +1,5 @@
 package com.project.tracking_system.service.tariff;
 
-import com.project.tracking_system.dto.SubscriptionPlanDTO;
 import com.project.tracking_system.dto.SubscriptionPlanViewDTO;
 import com.project.tracking_system.entity.SubscriptionPlan;
 import com.project.tracking_system.entity.SubscriptionLimits;
