@@ -4,6 +4,8 @@ import com.project.tracking_system.dto.StoreTelegramSettingsDTO;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.StoreTelegramSettings;
 import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
+import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.controller.WebSocketController;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,21 +20,38 @@ import org.springframework.transaction.annotation.Transactional;
 public class StoreTelegramSettingsService {
 
     private final StoreTelegramSettingsRepository settingsRepository;
+    private final SubscriptionService subscriptionService;
+    private final WebSocketController webSocketController;
 
     /**
      * Создать или обновить настройки Telegram магазина.
+     * <p>
+     * Если владелец магазина имеет план {@code FREE}, включение Telegram-уведомлений запрещено.
+     * Пользователь получит предупреждение через WebSocket, а настройки не будут сохранены.
+     * </p>
      *
-     * @param store магазин, к которому относятся настройки
-     * @param dto   данные настроек
-     * @return ничего не возвращает
+     * @param store  магазин, к которому относятся настройки
+     * @param dto    данные настроек
+     * @param userId идентификатор владельца магазина
+     * @throws IllegalStateException если попытка включения уведомлений при бесплатном плане
      */
     @Transactional
-    public void update(Store store, StoreTelegramSettingsDTO dto) {
+    public void update(Store store, StoreTelegramSettingsDTO dto, Long userId) {
+        boolean enableRequested = dto.isEnabled();
+
+        if (enableRequested && !subscriptionService.isUserPremium(userId)) {
+            String msg = "Telegram-уведомления недоступны на вашем тарифе.";
+            webSocketController.sendUpdateStatus(userId, msg, false);
+            log.warn("⛔ Попытка включить Telegram-уведомления магазином ID={} без премиум-подписки", store.getId());
+            throw new IllegalStateException(msg);
+        }
+
         StoreTelegramSettings settings = settingsRepository.findByStoreId(store.getId());
         if (settings == null) {
             settings = new StoreTelegramSettings();
             settings.setStore(store);
         }
+
         settings.setEnabled(dto.isEnabled());
         settings.setReminderStartAfterDays(dto.getReminderStartAfterDays());
         settings.setReminderRepeatIntervalDays(dto.getReminderRepeatIntervalDays());

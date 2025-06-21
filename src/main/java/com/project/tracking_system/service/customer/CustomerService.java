@@ -4,6 +4,7 @@ import com.project.tracking_system.entity.*;
 import com.project.tracking_system.dto.CustomerInfoDTO;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
+import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +28,7 @@ public class CustomerService {
     private final TrackParcelRepository trackParcelRepository;
     private final CustomerTransactionalService transactionalService;
     private final CustomerStatsService customerStatsService;
+    private final SubscriptionService subscriptionService;
 
     /**
      * Зарегистрировать нового покупателя или получить существующего по телефону.
@@ -195,8 +197,9 @@ public class CustomerService {
     /**
      * Проверяет, можно ли отправлять уведомления покупателю.
      * <p>
-     * Уведомления разрешены, если у покупателя указан идентификатор Telegram-чатa
-     * и владелец магазина обладает подпиской PREMIUM.
+     * Уведомления разрешены, если у покупателя указан идентификатор Telegram-чатa,
+     * включены уведомления и владелец магазина имеет тариф, допускающий отправку
+     * Telegram-уведомлений.
      * </p>
      *
      * @param customer покупатель
@@ -208,18 +211,17 @@ public class CustomerService {
             return false;
         }
 
-        // Проверяем наличие привязанного чата
-        if (customer.getTelegramChatId() == null) {
+        // Проверяем наличие привязанного чата и разрешение на уведомления
+        if (customer.getTelegramChatId() == null || !customer.isNotificationsEnabled()) {
             return false;
         }
 
-        // Определяем активную подписку владельца магазина
-        return Optional.ofNullable(store.getOwner())
-                .map(User::getSubscription)
-                .map(UserSubscription::getSubscriptionPlan)
-                .map(SubscriptionPlan::getCode)
-                .map(code -> code == SubscriptionCode.PREMIUM)
-                .orElse(false);
+        // Проверяем возможность отправки уведомлений согласно подписке владельца
+        Long ownerId = Optional.ofNullable(store.getOwner())
+                .map(User::getId)
+                .orElse(null);
+
+        return ownerId != null && subscriptionService.canUseTelegramNotifications(ownerId);
     }
 
     private CustomerInfoDTO toInfoDto(Customer customer) {

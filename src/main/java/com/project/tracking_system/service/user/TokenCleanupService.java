@@ -3,7 +3,6 @@ package com.project.tracking_system.service.user;
 import com.project.tracking_system.repository.ConfirmationTokenRepository;
 import com.project.tracking_system.repository.PasswordResetTokenRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,7 +34,6 @@ public class TokenCleanupService {
      * </p>
      */
     @Transactional
-    @Scheduled(cron = "0 0 * * * *")
     public void cleanupExpiredTokens() {
         ZonedDateTime expiryDate = ZonedDateTime.now(ZoneOffset.UTC).minusHours(1);
 

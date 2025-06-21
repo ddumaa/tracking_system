@@ -14,3 +14,7 @@
 .table-container {
   @include card-style;
 }
+
+.price-placeholder {
+  visibility: hidden;
+}

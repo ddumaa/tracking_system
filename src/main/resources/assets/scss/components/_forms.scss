@@ -66,6 +66,7 @@
 .input-group {
   @include ui.box-shadow(0px, 2px, 5px);
   border-radius: ui.$border-radius;
+  width: 100%;
 
   input {
     border-radius: ui.$border-radius 0 0 ui.$border-radius;
@@ -74,4 +75,25 @@
   .btn {
     border-radius: 0 ui.$border-radius ui.$border-radius 0;
   }
+
+  // ✅ Меняем поведение на мобильных (до sm)
+  @include ui.respond-to(sm) {
+    //flex-direction: column;
+    align-items: stretch;
+
+    input,
+    .btn {
+      border-radius: ui.$border-radius !important;
+      width: 100%;
+    }
+
+    input {
+      margin-bottom: 0.5rem;
+    }
+  }
+}
+
+// Округление поля ввода телефона
+#phone {
+  border-radius: ui.$border-radius !important;
 }

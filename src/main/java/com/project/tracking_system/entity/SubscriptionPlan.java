@@ -38,4 +38,13 @@ public class SubscriptionPlan {
 
     @Column(nullable = false)
     private Integer maxStores;
+
+    @Column(name = "allow_telegram_notifications", nullable = false)
+    private Boolean allowTelegramNotifications = false;
+
+    @Column(name = "monthly_price", nullable = false)
+    private java.math.BigDecimal monthlyPrice = java.math.BigDecimal.ZERO;
+
+    @Column(name = "annual_price", nullable = false)
+    private java.math.BigDecimal annualPrice = java.math.BigDecimal.ZERO;
 }

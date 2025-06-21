@@ -1,10 +1,6 @@
 package com.project.tracking_system.controller;
 
-import com.project.tracking_system.dto.TrackParcelDTO;
-import com.project.tracking_system.dto.TrackParcelAdminInfoDTO;
-import com.project.tracking_system.dto.UserDetailsAdminInfoDTO;
-import com.project.tracking_system.dto.UserListAdminInfoDTO;
-import com.project.tracking_system.dto.BreadcrumbItemDTO;
+import com.project.tracking_system.dto.*;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.service.SubscriptionService;
@@ -13,6 +9,7 @@ import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.admin.AdminService;
 import com.project.tracking_system.service.admin.AppInfoService;
+import com.project.tracking_system.service.DynamicSchedulerService;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +45,7 @@ public class AdminController {
     private final StatsAggregationService statsAggregationService;
     private final AdminService adminService;
     private final AppInfoService appInfoService;
+    private final DynamicSchedulerService dynamicSchedulerService;
 
     /**
      * Отображает дашборд администратора.
@@ -282,6 +280,18 @@ public class AdminController {
     }
 
     /**
+     * Удаляет пользователя целиком.
+     *
+     * @param id идентификатор пользователя
+     * @return редирект на список пользователей
+     */
+    @PostMapping("/users/{id}/delete")
+    public String deleteUser(@PathVariable Long id) {
+        adminService.deleteUser(id);
+        return "redirect:/admin/users";
+    }
+
+    /**
      * Запускает агрегацию недельной, месячной и годовой статистики за вчерашний день.
      *
      * @return редирект на административную страницу
@@ -346,6 +356,18 @@ public class AdminController {
     }
 
     /**
+     * Удаляет покупателя и его связи.
+     *
+     * @param id идентификатор покупателя
+     * @return редирект на список покупателей
+     */
+    @PostMapping("/customers/{id}/delete")
+    public String deleteCustomer(@PathVariable Long id) {
+        adminService.deleteCustomer(id);
+        return "redirect:/admin/customers";
+    }
+
+    /**
      * Отображает статистику активности Telegram-бота.
      *
      * @param model модель, в которую передаются данные об активности
@@ -383,6 +405,18 @@ public class AdminController {
         );
         model.addAttribute("breadcrumbs", breadcrumbs);
         return "admin/stores";
+    }
+
+    /**
+     * Удаляет магазин с его данными.
+     *
+     * @param id идентификатор магазина
+     * @return редирект на список магазинов
+     */
+    @PostMapping("/stores/{id}/delete")
+    public String deleteStore(@PathVariable Long id) {
+        adminService.deleteStore(id);
+        return "redirect:/admin/stores";
     }
 
     /**
@@ -511,6 +545,82 @@ public class AdminController {
         );
         model.addAttribute("breadcrumbs", breadcrumbs);
         return "admin/settings";
+    }
+
+    /**
+     * Просмотр расписания всех задач.
+     *
+     * @param model модель представления
+     * @return страница расписания
+     */
+    @GetMapping("/schedules")
+    public String schedules(Model model) {
+        model.addAttribute("configs", dynamicSchedulerService.getAllConfigs());
+
+        List<BreadcrumbItemDTO> breadcrumbs = List.of(
+                new BreadcrumbItemDTO("Админ Панель", "/admin"),
+                new BreadcrumbItemDTO("Расписание", "")
+        );
+        model.addAttribute("breadcrumbs", breadcrumbs);
+        return "admin/schedules";
+    }
+
+    /**
+     * Обновление cron выражения задачи.
+     *
+     * @param id   идентификатор задачи
+     * @param cron новое выражение cron
+     * @return редирект на список задач
+     */
+    @PostMapping("/schedules/{id}")
+    public String updateSchedule(@PathVariable Long id,
+                                 @RequestParam String cron) {
+        dynamicSchedulerService.updateCron(id, cron);
+        return "redirect:/admin/schedules";
+    }
+
+    /**
+     * Отображает список тарифных планов и форму их редактирования.
+     *
+     * @param model модель для передачи данных
+     * @return имя шаблона управления тарифами
+     */
+    @GetMapping("/plans")
+    public String plans(Model model) {
+        model.addAttribute("plans", adminService.getPlans());
+        model.addAttribute("codes", SubscriptionCode.values());
+
+        List<BreadcrumbItemDTO> breadcrumbs = List.of(
+                new BreadcrumbItemDTO("Админ Панель", "/admin"),
+                new BreadcrumbItemDTO("Тарифы", "")
+        );
+        model.addAttribute("breadcrumbs", breadcrumbs);
+        return "admin/plans";
+    }
+
+    /**
+     * Создаёт новый тарифный план.
+     *
+     * @param dto параметры плана
+     * @return редирект на страницу тарифов
+     */
+    @PostMapping("/plans")
+    public String createPlan(SubscriptionPlanDTO dto) {
+        adminService.createPlan(dto);
+        return "redirect:/admin/plans";
+    }
+
+    /**
+     * Обновляет существующий тарифный план.
+     *
+     * @param id  идентификатор плана
+     * @param dto новые параметры
+     * @return редирект на страницу тарифов
+     */
+    @PostMapping("/plans/{id}")
+    public String updatePlan(@PathVariable Long id, SubscriptionPlanDTO dto) {
+        adminService.updatePlan(id, dto);
+        return "redirect:/admin/plans";
     }
 
 }
