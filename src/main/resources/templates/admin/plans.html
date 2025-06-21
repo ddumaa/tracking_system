@@ -27,7 +27,7 @@
         <tr th:each="plan : ${plans}">
             <form th:action="@{/admin/plans/{id}(id=${plan.id})}" method="post" class="align-middle">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
-                <td th:text="${plan.code.name()}"></td>
+                <td th:text="${plan.code}"></td>
                 <td><input type="number" name="maxTracksPerFile" class="form-control" th:value="${plan.maxTracksPerFile}" /></td>
                 <td><input type="number" name="maxSavedTracks" class="form-control" th:value="${plan.maxSavedTracks}" /></td>
                 <td><input type="number" name="maxTrackUpdates" class="form-control" th:value="${plan.maxTrackUpdates}" /></td>
@@ -47,7 +47,7 @@
         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
         <div class="col-md-2">
             <select name="code" class="form-select">
-                <option th:each="c : ${codes}" th:value="${c.name()}" th:text="${c.displayName}"></option>
+                <option th:each="c : ${codes}" th:value="${c}" th:text="${c}"></option>
             </select>
         </div>
         <div class="col-md-2"><input type="number" name="maxTracksPerFile" class="form-control" /></div>

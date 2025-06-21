@@ -23,7 +23,7 @@
             <p><strong>Email:</strong> <span th:text="${user.email}"></span></p>
             <p><strong>Роль:</strong> <span th:text="${user.role}"></span></p>
             <p><strong>Текущий план подписки:</strong>
-                <span th:text="${user.subscriptionPlanCode != null ? user.subscriptionPlanCode.displayName : 'Нет подписки'}"></span>
+                <span th:text="${user.subscriptionPlanCode != null ? user.subscriptionPlanCode : 'Нет подписки'}"></span>
             </p>
             <p><strong>Дата окончания подписки:</strong>
                 <span th:text="${user.subscriptionEndDate}"></span>
