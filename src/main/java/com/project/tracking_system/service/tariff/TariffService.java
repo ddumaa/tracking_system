@@ -51,6 +51,12 @@ public class TariffService {
         subscriptionService.upgradeOrExtendSubscription(userId, months);
     }
 
+    /**
+     * Преобразует сущность тарифного плана в DTO для отображения.
+     *
+     * @param plan сущность тарифного плана
+     * @return объект с информацией для клиента
+     */
     public SubscriptionPlanViewDTO toViewDto(SubscriptionPlan plan) {
         BigDecimal monthly = plan.getMonthlyPrice();
         BigDecimal annual = plan.getAnnualPrice();
