@@ -85,7 +85,7 @@ public class TariffService {
                 plan.getMaxTrackUpdates(),
                 plan.isAllowBulkUpdate(),
                 plan.getMaxStores(),
-                Boolean.TRUE.equals(plan.getAllowTelegramNotifications()),
+                plan.getAllowTelegramNotifications(),
                 monthlyLabel,
                 annualLabel,
                 fullAnnualPriceLabel,

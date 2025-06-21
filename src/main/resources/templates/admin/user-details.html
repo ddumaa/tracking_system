@@ -53,10 +53,10 @@
             <div class="mb-3 me-2">
                 <label for="subscriptionPlan" class="form-label">Новый план:</label>
                 <select name="subscriptionPlan" id="subscriptionPlan" class="form-select form-select-sm">
-                    <option th:each="plan : ${T(com.project.tracking_system.entity.SubscriptionCode).values()}"
-                            th:value="${plan.name()}"
-                            th:text="${plan.displayName}"
-                            th:selected="${user.subscriptionPlanCode == plan}">
+                    <option th:each="plan : ${plans}"
+                            th:value="${plan.code}"
+                            th:text="${plan.name}"
+                            th:selected="${user.subscriptionPlanCode == plan.code}">
                     </option>
                 </select>
             </div>

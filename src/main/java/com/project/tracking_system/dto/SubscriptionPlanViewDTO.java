@@ -1,6 +1,5 @@
 package com.project.tracking_system.dto;
 
-import com.project.tracking_system.entity.SubscriptionCode;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -13,7 +12,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SubscriptionPlanViewDTO {
-    private SubscriptionCode code;
+    private String code;
     private Integer maxTracksPerFile;
     private Integer maxSavedTracks;
     private Integer maxTrackUpdates;

@@ -9,6 +9,7 @@ import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.admin.AdminService;
 import com.project.tracking_system.service.admin.AppInfoService;
+import com.project.tracking_system.service.admin.SubscriptionPlanService;
 import com.project.tracking_system.service.DynamicSchedulerService;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +42,7 @@ public class AdminController {
     private final UserService userService;
     private final TrackParcelService trackParcelService;
     private final SubscriptionService subscriptionService;
+    private final SubscriptionPlanService subscriptionPlanService;
     private final StoreRepository storeRepository;
     private final StatsAggregationService statsAggregationService;
     private final AdminService adminService;
@@ -60,7 +62,7 @@ public class AdminController {
     @GetMapping()
     public String adminDashboard(Model model) {
         long totalUsers = userService.countUsers();
-        long paidUsers = userService.countUsersBySubscriptionPlan(SubscriptionCode.PREMIUM);
+        long paidUsers = userService.countPaidUsers();
         long totalParcels = trackParcelService.countAllParcels();
         long totalCustomers = adminService.countCustomers();
         long telegramBound = adminService.countTelegramBoundCustomers();
@@ -95,7 +97,7 @@ public class AdminController {
     @GetMapping("/users")
     public String getAllUsers(@RequestParam(value = "search", required = false) String search,
                               @RequestParam(value = "role", required = false) String role,
-                              @RequestParam(value = "subscription", required = false) SubscriptionCode subscription,
+                              @RequestParam(value = "subscription", required = false) String subscription,
                               Model model) {
         List<UserListAdminInfoDTO> users = adminService.getUsers(search, role, subscription);
         model.addAttribute("users", users);
@@ -150,7 +152,7 @@ public class AdminController {
     public String createUser(@RequestParam String email,
                              @RequestParam String password,
                              @RequestParam String role,
-                             @RequestParam("subscriptionPlan") SubscriptionCode subscriptionCode,
+                             @RequestParam("subscriptionPlan") String subscriptionCode,
                              Model model) {
         try {
             userService.createUserByAdmin(email, password, role, subscriptionCode);
@@ -201,13 +203,13 @@ public class AdminController {
         // Получаем подписку пользователя (если есть)
         UserSubscription subscription = user.getSubscription();
 
-        SubscriptionCode code = null;
+        String code = null;
         String subscriptionEndDate = null;
 
         if (subscription != null) {
             SubscriptionPlan plan = subscription.getSubscriptionPlan();
             if (plan != null) {
-                code = plan.getCode(); // enum
+                code = plan.getCode();
             }
 
             if (subscription.getSubscriptionEndDate() != null) {
@@ -266,9 +268,9 @@ public class AdminController {
      */
     @PostMapping("/users/{userId}/change-subscription")
     public String changeUserSubscription(@PathVariable Long userId,
-                                         @RequestParam("subscriptionPlan") SubscriptionCode subscriptionPlan,
+                                         @RequestParam("subscriptionPlan") String subscriptionPlan,
                                          @RequestParam(value = "months", required = false) Integer months) {
-        if (subscriptionPlan == SubscriptionCode.PREMIUM) {
+        if (subscriptionPlanService.isPaidPlan(subscriptionPlan)) {
             if (months == null || months <= 0) {
                 months = 1; // защита от некорректных значений
             }
@@ -588,7 +590,7 @@ public class AdminController {
     @GetMapping("/plans")
     public String plans(Model model) {
         model.addAttribute("plans", adminService.getPlans());
-        model.addAttribute("codes", SubscriptionCode.values());
+        model.addAttribute("codes", adminService.getPlans().stream().map(SubscriptionPlan::getCode).toList());
 
         List<BreadcrumbItemDTO> breadcrumbs = List.of(
                 new BreadcrumbItemDTO("Админ Панель", "/admin"),

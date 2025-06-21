@@ -15,6 +15,7 @@ import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.utils.EncryptionUtils;
 import com.project.tracking_system.utils.EmailUtils;
 import com.project.tracking_system.utils.UserCredentialsResolver;
+import java.math.BigDecimal;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -203,7 +204,7 @@ public class UserService {
      */
     @Transactional
     public void createUserByAdmin(String email, String rawPassword, String roleName,
-                                 SubscriptionCode planCode) {
+                                 String planCode) {
         log.info("Администратор создаёт пользователя {}", EmailUtils.maskEmail(email));
 
         if (userRepository.findByEmail(email).isPresent()) {
@@ -405,8 +406,17 @@ public class UserService {
      * @param code код тарифного плана (например, FREE, PREMIUM)
      * @return количество пользователей с указанным тарифом
      */
-    public long countUsersBySubscriptionPlan(SubscriptionCode code) {
+    public long countUsersBySubscriptionPlan(String code) {
         return userRepository.countBySubscription_SubscriptionPlan_Code(code);
+    }
+
+    /**
+     * Подсчитывает количество пользователей с платными тарифами.
+     *
+     * @return число пользователей, использующих платные планы
+     */
+    public long countPaidUsers() {
+        return userRepository.countBySubscription_SubscriptionPlan_PriceGreaterThan(BigDecimal.ZERO);
     }
 
     /**
@@ -512,7 +522,7 @@ public class UserService {
 
         UserSubscription subscription = user.getSubscription();
 
-        SubscriptionCode planCode = Optional.ofNullable(subscription)
+        String planCode = Optional.ofNullable(subscription)
                 .map(UserSubscription::getSubscriptionPlan)
                 .map(SubscriptionPlan::getCode)
                 .orElse(null);

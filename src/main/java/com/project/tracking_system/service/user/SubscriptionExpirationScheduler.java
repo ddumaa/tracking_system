@@ -1,6 +1,5 @@
 package com.project.tracking_system.service.user;
 
-import com.project.tracking_system.entity.SubscriptionCode;
 import com.project.tracking_system.entity.SubscriptionPlan;
 import com.project.tracking_system.entity.UserSubscription;
 import com.project.tracking_system.repository.SubscriptionPlanRepository;
@@ -12,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.math.BigDecimal;
 
 /**
  * Метод проверки роли пользователей
@@ -57,8 +57,8 @@ public class SubscriptionExpirationScheduler {
     }
 
     private SubscriptionPlan getFreePlan() {
-        return subscriptionPlanRepository.findByCode(SubscriptionCode.FREE)
-                .orElseThrow(() -> new IllegalStateException("План FREE не найден в БД!"));
+        return subscriptionPlanRepository.findFirstByPrice(BigDecimal.ZERO)
+                .orElseThrow(() -> new IllegalStateException("План с нулевой стоимостью не найден в БД!"));
     }
 
 }

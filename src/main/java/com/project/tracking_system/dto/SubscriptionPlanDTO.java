@@ -1,6 +1,5 @@
 package com.project.tracking_system.dto;
 
-import com.project.tracking_system.entity.SubscriptionCode;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -14,7 +13,12 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SubscriptionPlanDTO {
-    private SubscriptionCode code;
+    private String code;
+    private String name;
+    private String description;
+    private BigDecimal price;
+    private Integer durationDays;
+    private Boolean active;
     private Integer maxTracksPerFile;
     private Integer maxSavedTracks;
     private Integer maxTrackUpdates;
