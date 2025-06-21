@@ -1,6 +1,7 @@
 package com.project.tracking_system.repository;
 
 import com.project.tracking_system.entity.SubscriptionPlan;
+import com.project.tracking_system.entity.SubscriptionLimits;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -25,12 +26,17 @@ class SubscriptionPlanRepositoryTest {
     void createAndFindWithPrices() {
         SubscriptionPlan plan = new SubscriptionPlan();
         plan.setCode("PREMIUM");
-        plan.setMaxTracksPerFile(1);
-        plan.setMaxSavedTracks(1);
-        plan.setMaxTrackUpdates(1);
-        plan.setAllowBulkUpdate(true);
-        plan.setMaxStores(1);
-        plan.setAllowTelegramNotifications(false);
+
+        SubscriptionLimits limits = new SubscriptionLimits();
+        limits.setSubscriptionPlan(plan);
+        limits.setMaxTracksPerFile(1);
+        limits.setMaxSavedTracks(1);
+        limits.setMaxTrackUpdates(1);
+        limits.setAllowBulkUpdate(true);
+        limits.setMaxStores(1);
+        limits.setAllowTelegramNotifications(false);
+        plan.setLimits(limits);
+
         plan.setMonthlyPrice(new BigDecimal("9.99"));
         plan.setAnnualPrice(new BigDecimal("99.99"));
 

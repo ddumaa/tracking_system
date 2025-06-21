@@ -39,23 +39,8 @@ public class SubscriptionPlan {
     private Boolean active = true;
 
 
-    @Column(nullable = false)
-    private Integer maxTracksPerFile;
-
-    @Column(nullable = false)
-    private Integer maxSavedTracks;
-
-    @Column(nullable = false)
-    private Integer maxTrackUpdates;
-
-    @Column(nullable = false)
-    private boolean allowBulkUpdate;
-
-    @Column(nullable = false)
-    private Integer maxStores;
-
-    @Column(name = "allow_telegram_notifications", nullable = false)
-    private Boolean allowTelegramNotifications = false;
+    @OneToOne(mappedBy = "subscriptionPlan", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private SubscriptionLimits limits;
 
     @Column(name = "monthly_price", nullable = false)
     private java.math.BigDecimal monthlyPrice = java.math.BigDecimal.ZERO;

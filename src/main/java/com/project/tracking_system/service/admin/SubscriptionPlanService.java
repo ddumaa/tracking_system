@@ -2,6 +2,7 @@ package com.project.tracking_system.service.admin;
 
 import com.project.tracking_system.dto.SubscriptionPlanDTO;
 import com.project.tracking_system.entity.SubscriptionPlan;
+import com.project.tracking_system.entity.SubscriptionLimits;
 import com.project.tracking_system.repository.SubscriptionPlanRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,12 +45,19 @@ public class SubscriptionPlanService {
         plan.setPrice(dto.getPrice());
         plan.setDurationDays(dto.getDurationDays());
         plan.setActive(dto.getActive());
-        plan.setMaxTracksPerFile(dto.getMaxTracksPerFile());
-        plan.setMaxSavedTracks(dto.getMaxSavedTracks());
-        plan.setMaxTrackUpdates(dto.getMaxTrackUpdates());
-        plan.setAllowBulkUpdate(dto.isAllowBulkUpdate());
-        plan.setMaxStores(dto.getMaxStores());
-        plan.setAllowTelegramNotifications(dto.isAllowTelegramNotifications());
+
+        SubscriptionLimits limits = plan.getLimits();
+        if (limits == null) {
+            limits = new SubscriptionLimits();
+            limits.setSubscriptionPlan(plan);
+            plan.setLimits(limits);
+        }
+        limits.setMaxTracksPerFile(dto.getMaxTracksPerFile());
+        limits.setMaxSavedTracks(dto.getMaxSavedTracks());
+        limits.setMaxTrackUpdates(dto.getMaxTrackUpdates());
+        limits.setAllowBulkUpdate(dto.isAllowBulkUpdate());
+        limits.setMaxStores(dto.getMaxStores());
+        limits.setAllowTelegramNotifications(dto.isAllowTelegramNotifications());
 
         BigDecimal monthly = dto.getMonthlyPrice();
         if (monthly == null || monthly.compareTo(BigDecimal.ZERO) < 0) {
