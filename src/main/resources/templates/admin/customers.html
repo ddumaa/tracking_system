@@ -6,8 +6,9 @@
 <div layout:fragment="afterHeader">
     <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${breadcrumbs})}"></div>
 </div>
-
-<main layout:fragment="content">
+<main layout:fragment="content" class="py-5">
+    <div class="container-xl">
+    <h1 class="mb-4">Покупатели</h1>
 
     <div class="row mb-4">
         <div class="col-md-6">
@@ -57,5 +58,6 @@
         </tr>
         </tbody>
     </table>
+    </div>
 </main>
 </html>
