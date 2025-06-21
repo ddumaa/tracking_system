@@ -475,7 +475,8 @@ public class UserService {
         int storeCount = user.getStores().size(); // Получаем количество магазинов
         int maxStores = Optional.ofNullable(user.getSubscription())
                 .map(UserSubscription::getSubscriptionPlan)
-                .map(SubscriptionPlan::getMaxStores)
+                .map(SubscriptionPlan::getLimits)
+                .map(SubscriptionLimits::getMaxStores)
                 .orElse(1); // По умолчанию 1
 
         return storeCount + "/" + maxStores;

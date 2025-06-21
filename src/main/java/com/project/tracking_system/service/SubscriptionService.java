@@ -1,6 +1,7 @@
 package com.project.tracking_system.service;
 
 import com.project.tracking_system.entity.SubscriptionPlan;
+import com.project.tracking_system.entity.SubscriptionLimits;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.UserSubscription;
 import com.project.tracking_system.repository.SubscriptionPlanRepository;
@@ -50,9 +51,10 @@ public class SubscriptionService {
 
         UserSubscription subscription = optionalSubscription.get();
         SubscriptionPlan plan = subscription.getSubscriptionPlan();
+        SubscriptionLimits limits = (plan != null) ? plan.getLimits() : null;
 
         // Получаем лимит треков на файл
-        Integer maxTracksPerFile = (plan != null) ? plan.getMaxTracksPerFile() : null;
+        Integer maxTracksPerFile = (limits != null) ? limits.getMaxTracksPerFile() : null;
         if (maxTracksPerFile == null) {
             return Integer.MAX_VALUE; // Безлимитный план
         }
@@ -80,8 +82,9 @@ public class SubscriptionService {
 
         UserSubscription subscription = optionalSubscription.get();
         SubscriptionPlan plan = subscription.getSubscriptionPlan();
+        SubscriptionLimits limits = (plan != null) ? plan.getLimits() : null;
 
-        Integer maxSavedTracks = (plan != null) ? plan.getMaxSavedTracks() : null;
+        Integer maxSavedTracks = (limits != null) ? limits.getMaxSavedTracks() : null;
         if (maxSavedTracks == null) {
             log.info("✅ У пользователя {} безлимитный план. Можно сохранить {} треков.", userId, tracksCountToSave);
             return tracksCountToSave; // Безлимитный план позволяет сохранить все запрошенные треки
@@ -121,7 +124,8 @@ public class SubscriptionService {
         }
 
         SubscriptionPlan plan = subscription.getSubscriptionPlan();
-        Integer maxUpdates = (plan != null) ? plan.getMaxTrackUpdates() : null;
+        SubscriptionLimits limits = (plan != null) ? plan.getLimits() : null;
+        Integer maxUpdates = (limits != null) ? limits.getMaxTrackUpdates() : null;
         if (maxUpdates == null) {
             log.info("✅ У пользователя {} безлимитный план. Разрешено {} обновлений.", userId, updatesRequested);
             return updatesRequested; // Безлимитный план
@@ -172,7 +176,8 @@ public class SubscriptionService {
         }
 
         SubscriptionPlan plan = subscription.getSubscriptionPlan();
-        boolean allowed = plan != null && plan.isAllowBulkUpdate();
+        SubscriptionLimits limits = (plan != null) ? plan.getLimits() : null;
+        boolean allowed = limits != null && limits.isAllowBulkUpdate();
 
         log.debug("Пользователь {} пытается использовать массовое обновление. Доступ: {}", userId, allowed);
         return allowed;
@@ -191,7 +196,8 @@ public class SubscriptionService {
             return false;
         }
         return subscriptionPlanRepository.findByCode(code)
-                .map(p -> Boolean.TRUE.equals(p.getAllowTelegramNotifications()))
+                .map(SubscriptionPlan::getLimits)
+                .map(l -> Boolean.TRUE.equals(l.getAllowTelegramNotifications()))
                 .orElse(false);
     }
 
