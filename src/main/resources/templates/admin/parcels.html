@@ -6,8 +6,9 @@
 <div layout:fragment="afterHeader">
     <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${breadcrumbs})}"></div>
 </div>
-
-<main layout:fragment="content">
+<main layout:fragment="content" class="py-5">
+    <div class="container-xl">
+    <h1 class="mb-4">Посылки</h1>
 
     <form method="get" th:action="@{/admin/parcels/search}" class="row row-cols-lg-auto g-2 mb-3">
         <div class="col-12">
@@ -66,5 +67,7 @@
             </li>
         </ul>
     </div>
+    </div>
 </main>
+
 </html>

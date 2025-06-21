@@ -6,12 +6,11 @@
 <div layout:fragment="afterHeader">
     <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${breadcrumbs})}"></div>
 </div>
-
-<main layout:fragment="content">
+<main layout:fragment="content" class="py-5">
+    <div class="container-xl">
     <a href="/admin/parcels" class="btn btn-primary mb-4">Посылки</a>
 
-    <div class="container mt-4">
-        <h1 class="mb-1">Информация о посылке</h1>
+    <h1 class="mb-4">Информация о посылке</h1>
         <div class="card mb-4">
             <div class="card-body">
                 <p><strong>ID:</strong> <span th:text="${parcel.id}"></span></p>
@@ -34,4 +33,5 @@
         </form>
     </div>
 </main>
+
 </html>

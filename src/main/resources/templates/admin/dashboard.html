@@ -12,8 +12,9 @@
     <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${breadcrumbs})}"></div>
 </div>
 
-<main layout:fragment="content">
-    <h1 class="mt-4 text-center mb-1">Добро пожаловать в админ панель</h1>
+<main layout:fragment="content" class="py-5">
+    <div class="container-xl">
+    <h1 class="mt-4 text-center mb-4">Добро пожаловать в админ панель</h1>
     <p class="text-center mb-4">Здесь вы можете управлять пользователями, посылками и другими ресурсами.</p>
 
     <div class="row">
@@ -96,6 +97,7 @@
         <a href="/admin/plans" class="list-group-item list-group-item-action custom-list-item">
             <i class="bi bi-list"></i> Тарифы
         </a>
+    </div>
     </div>
 </main>
 
