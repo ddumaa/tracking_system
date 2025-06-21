@@ -22,4 +22,8 @@ public class SubscriptionPlanViewDTO {
     private boolean allowTelegramNotifications;
     private String monthlyPriceLabel;
     private String annualPriceLabel;
+
+
+    private String annualFullPriceLabel;     // "180 BYN"
+    private String annualDiscountLabel;      // "выгода −16%"
 }

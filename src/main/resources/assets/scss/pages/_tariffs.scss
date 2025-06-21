@@ -5,11 +5,12 @@
 }
 
 .price-yearly {
-  color: ui.$danger;
+  color: inherit;
 }
 
 .discount-label {
-  color: ui.$danger;
+  color: ui.$success;
+  font-weight: 500;
   font-size: 0.875rem;
-  margin-left: 0.25rem;
+  margin-left: 0.5rem;
 }

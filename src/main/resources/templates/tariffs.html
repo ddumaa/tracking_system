@@ -29,19 +29,26 @@
                     <!-- Название -->
                     <h3 class="text-center fw-bold fs-3 mt-3 mb-1" th:text="${plan.code.displayName}">Premium</h3>
 
-                    <!-- Цена -->
+                    <!-- Цена (ежемесячно) -->
                     <p class="text-center mb-2 mt-2 fw-semibold fs-5 price-monthly text-dark"
                        th:if="${plan.monthlyPriceLabel != null}"
-                       th:text="${plan.monthlyPriceLabel}"></p>
+                       th:text="${plan.monthlyPriceLabel}">15 BYN/мес</p>
 
                     <p class="text-center mb-2 mt-2 fs-6 text-muted price-placeholder price-monthly"
                        th:unless="${plan.monthlyPriceLabel != null}">0</p>
 
-                    <p class="mb-0 mt-2 fw-semibold price-yearly d-none"
-                       th:if="${plan.annualPriceLabel != null}">
-                        <span th:text="${plan.annualPriceLabel}">150 BYN/год</span>
-                        <span class="discount-label">Скидка 16%</span>
-                    </p>
+                    <!-- Цена (ежегодно) -->
+                    <div class="price-yearly d-none text-center">
+                        <p class="mb-1 fw-semibold fs-5 text-dark"
+                           th:if="${plan.annualPriceLabel != null}"
+                           th:text="${plan.annualPriceLabel}">150 BYN/год</p>
+
+                        <p class="mb-2 text-muted small"
+                           th:if="${plan.annualFullPriceLabel != null}">
+                            <s th:text="${plan.annualFullPriceLabel}">180 BYN</s>
+                            <span class="discount-label" th:text="${plan.annualDiscountLabel}">выгода −17%</span>
+                        </p>
+                    </div>
 
                     <p class="text-center mb-2 mt-2 fs-6 text-muted price-placeholder price-yearly d-none"
                        th:unless="${plan.annualPriceLabel != null}">0</p>

@@ -49,25 +49,48 @@ public class TariffService {
         subscriptionService.upgradeOrExtendSubscription(userId, months);
     }
 
-    private SubscriptionPlanViewDTO toViewDto(SubscriptionPlan plan) {
-        SubscriptionPlanViewDTO dto = new SubscriptionPlanViewDTO();
-        dto.setCode(plan.getCode());
-        dto.setMaxTracksPerFile(plan.getMaxTracksPerFile());
-        dto.setMaxSavedTracks(plan.getMaxSavedTracks());
-        dto.setMaxTrackUpdates(plan.getMaxTrackUpdates());
-        dto.setAllowBulkUpdate(plan.isAllowBulkUpdate());
-        dto.setMaxStores(plan.getMaxStores());
-        dto.setAllowTelegramNotifications(Boolean.TRUE.equals(plan.getAllowTelegramNotifications()));
+    public SubscriptionPlanViewDTO toViewDto(SubscriptionPlan plan) {
+        BigDecimal monthly = plan.getMonthlyPrice();
+        BigDecimal annual = plan.getAnnualPrice();
 
-        if (plan.getMonthlyPrice() != null && plan.getMonthlyPrice().compareTo(BigDecimal.ZERO) > 0) {
-            dto.setMonthlyPriceLabel(plan.getMonthlyPrice().setScale(2, RoundingMode.HALF_UP) + " BYN/мес");
+        String monthlyLabel = (monthly != null && monthly.compareTo(BigDecimal.ZERO) > 0)
+                ? monthly.setScale(2, RoundingMode.HALF_UP) + " BYN/мес"
+                : null;
+
+        String annualLabel = (annual != null && annual.compareTo(BigDecimal.ZERO) > 0)
+                ? annual.setScale(2, RoundingMode.HALF_UP) + " BYN/год"
+                : null;
+
+        String fullAnnualPriceLabel = null;
+        String discountLabel = null;
+
+        if (monthly != null && annual != null
+                && monthly.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal fullPrice = monthly.multiply(BigDecimal.valueOf(12));
+            BigDecimal discount = fullPrice.subtract(annual);
+
+            if (fullPrice.compareTo(BigDecimal.ZERO) > 0 && discount.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal discountPercent = discount.multiply(BigDecimal.valueOf(100))
+                        .divide(fullPrice, 0, RoundingMode.HALF_UP);
+
+                fullAnnualPriceLabel = fullPrice.setScale(2, RoundingMode.HALF_UP) + " BYN";
+                discountLabel = "выгода −" + discountPercent.intValue() + "%";
+            }
         }
 
-        if (plan.getAnnualPrice() != null && plan.getAnnualPrice().compareTo(BigDecimal.ZERO) > 0) {
-            dto.setAnnualPriceLabel(plan.getAnnualPrice().setScale(2, RoundingMode.HALF_UP) + " BYN/год");
-        }
-
-        return dto;
+        return new SubscriptionPlanViewDTO(
+                plan.getCode(),
+                plan.getMaxTracksPerFile(),
+                plan.getMaxSavedTracks(),
+                plan.getMaxTrackUpdates(),
+                plan.isAllowBulkUpdate(),
+                plan.getMaxStores(),
+                Boolean.TRUE.equals(plan.getAllowTelegramNotifications()),
+                monthlyLabel,
+                annualLabel,
+                fullAnnualPriceLabel,
+                discountLabel
+        );
     }
 
 }

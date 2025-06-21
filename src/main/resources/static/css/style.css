@@ -1441,13 +1441,14 @@ body.loading {
 }
 
 .price-yearly {
-  color: #dc3545;
+  color: inherit;
 }
 
 .discount-label {
-  color: #dc3545;
+  color: #28a745;
+  font-weight: 500;
   font-size: 0.875rem;
-  margin-left: 0.25rem;
+  margin-left: 0.5rem;
 }
 
 /*# sourceMappingURL=style.css.map */
