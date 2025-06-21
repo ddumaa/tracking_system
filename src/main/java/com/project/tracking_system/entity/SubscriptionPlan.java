@@ -30,13 +30,8 @@ public class SubscriptionPlan {
     @Column(nullable = false)
     private String name;
 
-    private String description;
-
     @Column(nullable = false)
     private BigDecimal price = BigDecimal.ZERO;
-
-    @Column(name = "duration_days")
-    private Integer durationDays;
 
     @Column(nullable = false)
     private Boolean active = true;
