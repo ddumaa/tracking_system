@@ -4,7 +4,6 @@ import com.project.tracking_system.dto.SubscriptionPlanViewDTO;
 import com.project.tracking_system.dto.UserProfileDTO;
 import com.project.tracking_system.service.tariff.TariffService;
 import com.project.tracking_system.service.user.UserService;
-import com.project.tracking_system.service.SubscriptionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -28,7 +27,6 @@ public class TariffController {
 
     private final TariffService tariffService;
     private final UserService userService;
-    private final SubscriptionService subscriptionService;
 
     /**
      * Отображает страницу с тарифными планами.
@@ -44,11 +42,9 @@ public class TariffController {
             // пользователь авторизован
             model.addAttribute("authenticatedUser", userId);
 
-            // проверяем, активен ли премиум-план, чтобы избежать ошибок вывода
-            if (subscriptionService.isUserPremium(userId)) {
-                UserProfileDTO profile = userService.getUserProfile(userId);
-                model.addAttribute("userProfile", profile);
-            }
+            // загружаем профиль пользователя для отображения тарифа
+            UserProfileDTO profile = userService.getUserProfile(userId);
+            model.addAttribute("userProfile", profile);
         }
         List<SubscriptionPlanViewDTO> plans = tariffService.getAllPlans();
         model.addAttribute("plans", plans);
