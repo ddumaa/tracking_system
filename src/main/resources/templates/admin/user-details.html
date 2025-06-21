@@ -12,9 +12,10 @@
     <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${breadcrumbs})}"></div>
 </div>
 
-<main layout:fragment="content" class="py-5">
-    <div class="container-xl">
-    <h1 class="mb-4">Информация о пользователе</h1>
+<main layout:fragment="content">
+
+<div class="container mt-4">
+    <h1 class="mb-1">Информация о пользователе</h1>
 
     <div class="card mb-4">
         <div class="card-body">
@@ -91,7 +92,7 @@
             </tbody>
         </table>
     </div>
-    </div>
+</div>
 </main>
 
 </html>

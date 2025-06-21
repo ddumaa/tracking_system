@@ -6,9 +6,8 @@
 <div layout:fragment="afterHeader">
     <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${breadcrumbs})}"></div>
 </div>
-<main layout:fragment="content" class="py-5">
-    <div class="container-xl">
-    <h1 class="mb-4">Тарифные планы</h1>
+<main layout:fragment="content">
+    <h1 class="mb-3">Тарифные планы</h1>
     <table class="table table-bordered">
         <thead>
         <tr>
@@ -68,7 +67,5 @@
         <div class="col-md-1 d-flex align-items-center"><input type="checkbox" name="active" class="form-check-input" checked /></div>
         <div class="col-md-1"><button type="submit" class="btn btn-primary">Создать</button></div>
     </form>
-    </div>
 </main>
-
 </html>

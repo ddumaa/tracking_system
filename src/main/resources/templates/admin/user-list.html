@@ -12,9 +12,10 @@
     <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${breadcrumbs})}"></div>
 </div>
 
-<main layout:fragment="content" class="py-5">
-    <div class="container-xl">
-    <h1 class="mb-4">Список пользователей</h1>
+<main layout:fragment="content">
+
+<div class="container mt-4">
+    <h1 class="mb-1">Список пользователей</h1>
 
     <a th:href="@{/admin/users/new}" class="btn btn-primary mb-4">Добавить пользователя</a>
 
@@ -69,7 +70,7 @@
         </tr>
         </tbody>
     </table>
-    </div>
+</div>
 </main>
 
 </html>
