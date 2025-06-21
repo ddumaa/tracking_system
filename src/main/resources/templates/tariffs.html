@@ -36,7 +36,7 @@
                        th:text="${plan.monthlyPriceLabel}">15 BYN/мес</p>
 
                     <p class="text-center mb-2 mt-2 fs-6 text-muted price-placeholder price-monthly"
-                       th:unless="${plan.monthlyPriceLabel != null}">0</p>
+                       th:unless="${plan.monthlyPriceLabel != null}">Бесплатно</p>
 
                     <!-- Цена (ежегодно) -->
                     <div class="price-yearly d-none text-center">
@@ -52,7 +52,7 @@
                     </div>
 
                     <p class="text-center mb-2 mt-2 fs-6 text-muted price-placeholder price-yearly d-none"
-                       th:unless="${plan.annualPriceLabel != null}">0</p>
+                       th:unless="${plan.annualPriceLabel != null}">Бесплатно</p>
 
                     <div class="card-body px-4 d-flex flex-column">
                         <ul class="tariff-features list-unstyled mb-4 flex-grow-1">
