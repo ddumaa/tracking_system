@@ -13,6 +13,10 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SubscriptionPlanDTO {
+    /**
+     * Идентификатор тарифного плана.
+     */
+    private Long id;
     private String code;
     private String name;
     private String description;

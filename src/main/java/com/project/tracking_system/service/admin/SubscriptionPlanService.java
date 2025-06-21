@@ -57,6 +57,7 @@ public class SubscriptionPlanService {
         limitsDto.setAllowTelegramNotifications(plan.isFeatureEnabled(FeatureKey.TELEGRAM_NOTIFICATIONS));
 
         SubscriptionPlanDTO dto = new SubscriptionPlanDTO();
+        dto.setId(plan.getId());
         dto.setCode(plan.getCode());
         dto.setName(plan.getName());
         dto.setDescription(plan.getDescription());
