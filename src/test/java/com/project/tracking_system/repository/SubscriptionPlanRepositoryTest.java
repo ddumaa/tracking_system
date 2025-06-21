@@ -1,6 +1,5 @@
 package com.project.tracking_system.repository;
 
-import com.project.tracking_system.entity.SubscriptionCode;
 import com.project.tracking_system.entity.SubscriptionPlan;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +24,7 @@ class SubscriptionPlanRepositoryTest {
     @Test
     void createAndFindWithPrices() {
         SubscriptionPlan plan = new SubscriptionPlan();
-        plan.setCode(SubscriptionCode.PREMIUM);
+        plan.setCode("PREMIUM");
         plan.setMaxTracksPerFile(1);
         plan.setMaxSavedTracks(1);
         plan.setMaxTrackUpdates(1);

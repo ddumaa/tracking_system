@@ -39,6 +39,11 @@ public class SubscriptionPlanService {
      */
     private void fillFromDto(SubscriptionPlan plan, SubscriptionPlanDTO dto) {
         plan.setCode(dto.getCode());
+        plan.setName(dto.getName());
+        plan.setDescription(dto.getDescription());
+        plan.setPrice(dto.getPrice());
+        plan.setDurationDays(dto.getDurationDays());
+        plan.setActive(dto.getActive());
         plan.setMaxTracksPerFile(dto.getMaxTracksPerFile());
         plan.setMaxSavedTracks(dto.getMaxSavedTracks());
         plan.setMaxTrackUpdates(dto.getMaxTrackUpdates());
@@ -87,5 +92,28 @@ public class SubscriptionPlanService {
         fillFromDto(plan, dto);
         log.info("Обновлен тарифный план {}", id);
         return planRepository.save(plan);
+    }
+
+    /**
+     * Возвращает бесплатный тарифный план с нулевой стоимостью.
+     *
+     * @return бесплатный план
+     * @throws IllegalStateException если план не найден в базе
+     */
+    public SubscriptionPlan getFreePlan() {
+        return planRepository.findFirstByPrice(BigDecimal.ZERO)
+                .orElseThrow(() -> new IllegalStateException("Бесплатный план не найден"));
+    }
+
+    /**
+     * Проверяет, является ли указанный тариф платным.
+     *
+     * @param code код тарифа
+     * @return {@code true}, если стоимость плана больше нуля
+     */
+    public boolean isPaidPlan(String code) {
+        return planRepository.findByCode(code)
+                .map(p -> p.getPrice().compareTo(BigDecimal.ZERO) > 0)
+                .orElse(false);
     }
 }

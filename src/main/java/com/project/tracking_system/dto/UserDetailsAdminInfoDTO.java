@@ -1,7 +1,6 @@
 package com.project.tracking_system.dto;
 
 import com.project.tracking_system.entity.Role;
-import com.project.tracking_system.entity.SubscriptionCode;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -17,6 +16,6 @@ public class UserDetailsAdminInfoDTO {
     private Long id;
     private String email;
     private Role role;
-    private SubscriptionCode subscriptionPlanCode;
+    private String subscriptionPlanCode;
     private String subscriptionEndDate;
 }
