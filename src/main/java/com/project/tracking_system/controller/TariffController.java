@@ -38,6 +38,7 @@ public class TariffController {
     @GetMapping
     public String tariffs(Model model, Authentication authentication) {
         Long userId = userService.extractUserId(authentication);
+        Integer userPlanPosition = null;
         if (userId != null) {
             // пользователь авторизован
             model.addAttribute("authenticatedUser", userId);
@@ -45,9 +46,14 @@ public class TariffController {
             // загружаем профиль пользователя для отображения тарифа
             UserProfileDTO profile = userService.getUserProfile(userId);
             model.addAttribute("userProfile", profile);
+
+            if (profile.getSubscriptionCode() != null) {
+                userPlanPosition = tariffService.getPlanPositionByCode(profile.getSubscriptionCode());
+            }
         }
         List<SubscriptionPlanViewDTO> plans = tariffService.getAllPlans();
         model.addAttribute("plans", plans);
+        model.addAttribute("userPlanPosition", userPlanPosition);
         return "tariffs";
     }
 

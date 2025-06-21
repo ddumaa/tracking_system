@@ -114,8 +114,24 @@ public class TariffService {
                 monthlyLabel,
                 annualLabel,
                 fullAnnualPriceLabel,
-                discountLabel
+                discountLabel,
+                plan.getPosition()
         );
+    }
+
+    /**
+     * Возвращает позицию плана по его коду.
+     *
+     * @param code код тарифного плана
+     * @return позицию плана или {@code -1}, если план не найден
+     */
+    public int getPlanPositionByCode(String code) {
+        if (code == null) {
+            return -1;
+        }
+        return planRepository.findByCode(code)
+                .map(SubscriptionPlan::getPosition)
+                .orElse(-1);
     }
 
 }
