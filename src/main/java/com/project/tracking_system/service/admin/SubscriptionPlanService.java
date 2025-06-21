@@ -6,6 +6,9 @@ import com.project.tracking_system.repository.SubscriptionPlanRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
 
 import java.util.List;
 
@@ -29,13 +32,12 @@ public class SubscriptionPlanService {
     }
 
     /**
-     * Создать новый тарифный план.
+     * Заполнить план данными из DTO.
      *
-     * @param dto DTO с параметрами плана
-     * @return созданный план
+     * @param plan план для заполнения
+     * @param dto  исходные данные
      */
-    public SubscriptionPlan createPlan(SubscriptionPlanDTO dto) {
-        SubscriptionPlan plan = new SubscriptionPlan();
+    private void fillFromDto(SubscriptionPlan plan, SubscriptionPlanDTO dto) {
         plan.setCode(dto.getCode());
         plan.setMaxTracksPerFile(dto.getMaxTracksPerFile());
         plan.setMaxSavedTracks(dto.getMaxSavedTracks());
@@ -43,8 +45,30 @@ public class SubscriptionPlanService {
         plan.setAllowBulkUpdate(dto.isAllowBulkUpdate());
         plan.setMaxStores(dto.getMaxStores());
         plan.setAllowTelegramNotifications(dto.isAllowTelegramNotifications());
-        plan.setMonthlyPrice(dto.getMonthlyPrice());
-        plan.setAnnualPrice(dto.getAnnualPrice());
+
+        BigDecimal monthly = dto.getMonthlyPrice();
+        if (monthly == null || monthly.compareTo(BigDecimal.ZERO) < 0) {
+            monthly = BigDecimal.ZERO;
+        }
+        plan.setMonthlyPrice(monthly);
+
+        BigDecimal annual = dto.getAnnualPrice();
+        if (annual == null || annual.compareTo(BigDecimal.ZERO) < 0) {
+            annual = BigDecimal.ZERO;
+        }
+        plan.setAnnualPrice(annual);
+    }
+
+    /**
+     * Создать новый тарифный план.
+     *
+     * @param dto DTO с параметрами плана
+     * @return созданный план
+     */
+    @Transactional
+    public SubscriptionPlan createPlan(SubscriptionPlanDTO dto) {
+        SubscriptionPlan plan = new SubscriptionPlan();
+        fillFromDto(plan, dto);
         log.info("Создан тарифный план {}", dto.getCode());
         return planRepository.save(plan);
     }
@@ -56,18 +80,11 @@ public class SubscriptionPlanService {
      * @param dto новые параметры
      * @return обновлённый план
      */
+    @Transactional
     public SubscriptionPlan updatePlan(Long id, SubscriptionPlanDTO dto) {
         SubscriptionPlan plan = planRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("План не найден"));
-        plan.setCode(dto.getCode());
-        plan.setMaxTracksPerFile(dto.getMaxTracksPerFile());
-        plan.setMaxSavedTracks(dto.getMaxSavedTracks());
-        plan.setMaxTrackUpdates(dto.getMaxTrackUpdates());
-        plan.setAllowBulkUpdate(dto.isAllowBulkUpdate());
-        plan.setMaxStores(dto.getMaxStores());
-        plan.setAllowTelegramNotifications(dto.isAllowTelegramNotifications());
-        plan.setMonthlyPrice(dto.getMonthlyPrice());
-        plan.setAnnualPrice(dto.getAnnualPrice());
+        fillFromDto(plan, dto);
         log.info("Обновлен тарифный план {}", id);
         return planRepository.save(plan);
     }
