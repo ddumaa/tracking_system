@@ -51,6 +51,21 @@ public class TariffService {
     }
 
     /**
+     * Покупает указанный тарифный план для пользователя.
+     * <p>
+     * Валидация срока подписки выполняется на уровне сервиса подписок.
+     * </p>
+     *
+     * @param userId   идентификатор пользователя
+     * @param planCode код тарифа
+     * @param months   количество месяцев действия тарифа
+     */
+    @Transactional
+    public void buyPlan(Long userId, String planCode, int months) {
+        subscriptionService.changeSubscription(userId, planCode, months);
+    }
+
+    /**
      * Преобразует сущность тарифного плана в DTO для отображения.
      *
      * @param plan сущность тарифного плана
