@@ -19,7 +19,6 @@ public class SubscriptionPlanDTO {
     private Long id;
     private String code;
     private String name;
-    private BigDecimal price;
     private Boolean active;
     private BigDecimal monthlyPrice;
     private BigDecimal annualPrice;
