@@ -16,7 +16,7 @@ import com.project.tracking_system.utils.EncryptionUtils;
 import com.project.tracking_system.utils.EmailUtils;
 import com.project.tracking_system.utils.UserCredentialsResolver;
 import java.math.BigDecimal;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
