@@ -1239,6 +1239,15 @@ button:hover {
   .history-controls .filter-group select {
     width: 100%;
   }
+  /* Специальное правило для кнопок выбора количества элементов */
+  .history-controls .size-controls {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .history-controls .size-controls button {
+    width: auto;
+  }
   .table-responsive {
     overflow-x: auto;
   }
