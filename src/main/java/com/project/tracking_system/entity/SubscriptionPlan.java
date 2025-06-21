@@ -6,6 +6,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * @author Dmitriy Anisimov
@@ -43,6 +45,9 @@ public class SubscriptionPlan {
     @OneToOne(mappedBy = "subscriptionPlan", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private SubscriptionLimits limits;
 
+    @OneToMany(mappedBy = "subscriptionPlan", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<SubscriptionFeature> features = new ArrayList<>();
+
     @Column(name = "monthly_price", nullable = false)
     private java.math.BigDecimal monthlyPrice = java.math.BigDecimal.ZERO;
 
@@ -56,13 +61,13 @@ public class SubscriptionPlan {
      * @return {@code true}, если возможность включена
      */
     public boolean isFeatureEnabled(FeatureKey key) {
-        if (limits == null || key == null) {
+        if (key == null || features == null) {
             return false;
         }
-        return switch (key) {
-            case TELEGRAM_NOTIFICATIONS -> Boolean.TRUE.equals(limits.getAllowTelegramNotifications());
-            case BULK_UPDATE -> limits.isAllowBulkUpdate();
-        };
+
+        // ищем соответствующую настройку в списке функций
+        return features.stream()
+                .anyMatch(f -> key.equals(f.getFeatureKey()) && f.isEnabled());
     }
 
 }

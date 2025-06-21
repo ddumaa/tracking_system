@@ -2,6 +2,8 @@ package com.project.tracking_system.repository;
 
 import com.project.tracking_system.entity.SubscriptionPlan;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 
 import java.util.Optional;
@@ -13,7 +15,8 @@ import java.util.Optional;
 
 public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPlan, Long> {
 
-    Optional<SubscriptionPlan> findByCode(String code);
+    @Query("SELECT sp FROM SubscriptionPlan sp LEFT JOIN FETCH sp.features WHERE sp.code = :code")
+    Optional<SubscriptionPlan> findByCode(@Param("code") String code);
 
     /**
      * Найти первый план с указанной ценой.
