@@ -1,8 +1,9 @@
 package com.project.tracking_system.service.tariff;
 
-import com.project.tracking_system.dto.SubscriptionPlanDTO;
 import com.project.tracking_system.dto.SubscriptionPlanViewDTO;
 import com.project.tracking_system.entity.SubscriptionPlan;
+import com.project.tracking_system.entity.SubscriptionLimits;
+import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.SubscriptionPlanRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +33,7 @@ public class TariffService {
      * @return список планов в виде DTO
      */
     public List<SubscriptionPlanViewDTO> getAllPlans() {
-        return planRepository.findAll()
+        return planRepository.findAllByOrderByPositionAsc()
                 .stream()
                 .map(this::toViewDto)
                 .collect(Collectors.toList());
@@ -49,6 +50,27 @@ public class TariffService {
         subscriptionService.upgradeOrExtendSubscription(userId, months);
     }
 
+    /**
+     * Покупает указанный тарифный план для пользователя.
+     * <p>
+     * Валидация срока подписки выполняется на уровне сервиса подписок.
+     * </p>
+     *
+     * @param userId   идентификатор пользователя
+     * @param planCode код тарифа
+     * @param months   количество месяцев действия тарифа
+     */
+    @Transactional
+    public void buyPlan(Long userId, String planCode, int months) {
+        subscriptionService.changeSubscription(userId, planCode, months);
+    }
+
+    /**
+     * Преобразует сущность тарифного плана в DTO для отображения.
+     *
+     * @param plan сущность тарифного плана
+     * @return объект с информацией для клиента
+     */
     public SubscriptionPlanViewDTO toViewDto(SubscriptionPlan plan) {
         BigDecimal monthly = plan.getMonthlyPrice();
         BigDecimal annual = plan.getAnnualPrice();
@@ -78,19 +100,38 @@ public class TariffService {
             }
         }
 
+        SubscriptionLimits limits = plan.getLimits();
+
         return new SubscriptionPlanViewDTO(
                 plan.getCode(),
-                plan.getMaxTracksPerFile(),
-                plan.getMaxSavedTracks(),
-                plan.getMaxTrackUpdates(),
-                plan.isAllowBulkUpdate(),
-                plan.getMaxStores(),
-                Boolean.TRUE.equals(plan.getAllowTelegramNotifications()),
+                plan.getName(),
+                limits.getMaxTracksPerFile(),
+                limits.getMaxSavedTracks(),
+                limits.getMaxTrackUpdates(),
+                plan.isFeatureEnabled(FeatureKey.BULK_UPDATE),
+                limits.getMaxStores(),
+                plan.isFeatureEnabled(FeatureKey.TELEGRAM_NOTIFICATIONS),
                 monthlyLabel,
                 annualLabel,
                 fullAnnualPriceLabel,
-                discountLabel
+                discountLabel,
+                plan.getPosition()
         );
+    }
+
+    /**
+     * Возвращает позицию плана по его коду.
+     *
+     * @param code код тарифного плана
+     * @return позицию плана или {@code -1}, если план не найден
+     */
+    public int getPlanPositionByCode(String code) {
+        if (code == null) {
+            return -1;
+        }
+        return planRepository.findByCode(code)
+                .map(SubscriptionPlan::getPosition)
+                .orElse(-1);
     }
 
 }

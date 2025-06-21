@@ -9,6 +9,7 @@ import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.admin.AdminService;
 import com.project.tracking_system.service.admin.AppInfoService;
+import com.project.tracking_system.service.admin.SubscriptionPlanService;
 import com.project.tracking_system.service.DynamicSchedulerService;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +42,7 @@ public class AdminController {
     private final UserService userService;
     private final TrackParcelService trackParcelService;
     private final SubscriptionService subscriptionService;
+    private final SubscriptionPlanService subscriptionPlanService;
     private final StoreRepository storeRepository;
     private final StatsAggregationService statsAggregationService;
     private final AdminService adminService;
@@ -60,7 +62,7 @@ public class AdminController {
     @GetMapping()
     public String adminDashboard(Model model) {
         long totalUsers = userService.countUsers();
-        long paidUsers = userService.countUsersBySubscriptionPlan(SubscriptionCode.PREMIUM);
+        long paidUsers = userService.countPaidUsers();
         long totalParcels = trackParcelService.countAllParcels();
         long totalCustomers = adminService.countCustomers();
         long telegramBound = adminService.countTelegramBoundCustomers();
@@ -95,7 +97,7 @@ public class AdminController {
     @GetMapping("/users")
     public String getAllUsers(@RequestParam(value = "search", required = false) String search,
                               @RequestParam(value = "role", required = false) String role,
-                              @RequestParam(value = "subscription", required = false) SubscriptionCode subscription,
+                              @RequestParam(value = "subscription", required = false) String subscription,
                               Model model) {
         List<UserListAdminInfoDTO> users = adminService.getUsers(search, role, subscription);
         model.addAttribute("users", users);
@@ -150,7 +152,7 @@ public class AdminController {
     public String createUser(@RequestParam String email,
                              @RequestParam String password,
                              @RequestParam String role,
-                             @RequestParam("subscriptionPlan") SubscriptionCode subscriptionCode,
+                             @RequestParam("subscriptionPlan") String subscriptionCode,
                              Model model) {
         try {
             userService.createUserByAdmin(email, password, role, subscriptionCode);
@@ -178,7 +180,8 @@ public class AdminController {
     /**
      * Отображает детальную информацию о выбранном пользователе.
      *
-     * Загружает в модель список магазинов пользователя и связанные посылки.
+     * Загружает в модель список магазинов пользователя и связанные посылки,
+     * а также список доступных тарифных планов для изменения подписки.
      *
      * @param userId идентификатор пользователя
      * @param model  модель для передачи деталей пользователя
@@ -201,13 +204,15 @@ public class AdminController {
         // Получаем подписку пользователя (если есть)
         UserSubscription subscription = user.getSubscription();
 
-        SubscriptionCode code = null;
+        String code = null;
+        String planName = null;
         String subscriptionEndDate = null;
 
         if (subscription != null) {
             SubscriptionPlan plan = subscription.getSubscriptionPlan();
             if (plan != null) {
-                code = plan.getCode(); // enum
+                code = plan.getCode();
+                planName = plan.getName();
             }
 
             if (subscription.getSubscriptionEndDate() != null) {
@@ -220,6 +225,7 @@ public class AdminController {
                 user.getId(),
                 user.getEmail(),
                 user.getRole(),
+                planName,
                 code,
                 subscriptionEndDate
         );
@@ -227,6 +233,8 @@ public class AdminController {
         model.addAttribute("user", adminInfoDTO);
         model.addAttribute("stores", stores);
         model.addAttribute("storeParcels", storeParcels);
+        // Список доступных тарифов для смены подписки
+        model.addAttribute("plans", adminService.getPlans());
 
         // Хлебные крошки
         List<BreadcrumbItemDTO> breadcrumbs = List.of(
@@ -254,28 +262,30 @@ public class AdminController {
     }
 
     /**
-     * Изменяет подписку пользователя.
+     * Изменяет тарифный план пользователя.
      * <p>
-     * При выборе премиум-плана возможно продление подписки на указанное количество месяцев.
+     * При выборе платного плана можно указать срок действия в месяцах. Для бесплатных
+     * тарифов дата окончания обнуляется.
      * </p>
      *
      * @param userId           идентификатор пользователя
-     * @param subscriptionPlan название плана подписки
-     * @param months           количество месяцев продления (необязательно)
+     * @param subscriptionPlan код нового плана подписки
+     * @param months           срок действия в месяцах (для платных тарифов)
      * @return редирект на страницу деталей пользователя
      */
     @PostMapping("/users/{userId}/change-subscription")
     public String changeUserSubscription(@PathVariable Long userId,
-                                         @RequestParam("subscriptionPlan") SubscriptionCode subscriptionPlan,
+                                         @RequestParam("subscriptionPlan") String subscriptionPlan,
                                          @RequestParam(value = "months", required = false) Integer months) {
-        if (subscriptionPlan == SubscriptionCode.PREMIUM) {
+        if (subscriptionPlanService.isPaidPlan(subscriptionPlan)) {
             if (months == null || months <= 0) {
                 months = 1; // защита от некорректных значений
             }
-            subscriptionService.upgradeOrExtendSubscription(userId, months);
         } else {
-            subscriptionService.changeSubscription(userId, subscriptionPlan, null);
+            months = null; // для бесплатных тарифов срок не нужен
         }
+
+        subscriptionService.changeSubscription(userId, subscriptionPlan, months);
         return "redirect:/admin/users/" + userId;
     }
 
@@ -588,7 +598,6 @@ public class AdminController {
     @GetMapping("/plans")
     public String plans(Model model) {
         model.addAttribute("plans", adminService.getPlans());
-        model.addAttribute("codes", SubscriptionCode.values());
 
         List<BreadcrumbItemDTO> breadcrumbs = List.of(
                 new BreadcrumbItemDTO("Админ Панель", "/admin"),
@@ -605,7 +614,7 @@ public class AdminController {
      * @return редирект на страницу тарифов
      */
     @PostMapping("/plans")
-    public String createPlan(SubscriptionPlanDTO dto) {
+    public String createPlan(@ModelAttribute SubscriptionPlanDTO dto) {
         adminService.createPlan(dto);
         return "redirect:/admin/plans";
     }
@@ -618,8 +627,50 @@ public class AdminController {
      * @return редирект на страницу тарифов
      */
     @PostMapping("/plans/{id}")
-    public String updatePlan(@PathVariable Long id, SubscriptionPlanDTO dto) {
+    public String updatePlan(@PathVariable Long id, @ModelAttribute SubscriptionPlanDTO dto) {
         adminService.updatePlan(id, dto);
+        return "redirect:/admin/plans";
+    }
+
+    /**
+     * Отключить или включить тарифный план.
+     */
+    @PostMapping("/plans/{id}/active")
+    public String togglePlan(@PathVariable Long id, @RequestParam boolean active) {
+        adminService.setPlanActive(id, active);
+        return "redirect:/admin/plans";
+    }
+
+    /**
+     * Удалить тарифный план.
+     */
+    @PostMapping("/plans/{id}/delete")
+    public String deletePlan(@PathVariable Long id) {
+        adminService.deletePlan(id);
+        return "redirect:/admin/plans";
+    }
+
+    /**
+     * Переместить тариф вверх в списке.
+     *
+     * @param id идентификатор плана
+     * @return редирект на страницу тарифов
+     */
+    @PostMapping("/plans/{id}/move-up")
+    public String movePlanUp(@PathVariable Long id) {
+        subscriptionPlanService.movePlanUp(id);
+        return "redirect:/admin/plans";
+    }
+
+    /**
+     * Переместить тариф вниз в списке.
+     *
+     * @param id идентификатор плана
+     * @return редирект на страницу тарифов
+     */
+    @PostMapping("/plans/{id}/move-down")
+    public String movePlanDown(@PathVariable Long id) {
+        subscriptionPlanService.movePlanDown(id);
         return "redirect:/admin/plans";
     }
 

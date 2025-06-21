@@ -1,7 +1,6 @@
 package com.project.tracking_system.repository;
 
 import com.project.tracking_system.dto.UpdateInfoDto;
-import com.project.tracking_system.entity.SubscriptionCode;
 import com.project.tracking_system.entity.UserSubscription;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -62,7 +61,7 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
      * @return код подписки (например, FREE, PREMIUM)
      */
     @Query("SELECT sp.code FROM UserSubscription s JOIN s.subscriptionPlan sp WHERE s.user.id = :userId")
-    SubscriptionCode getSubscriptionPlanCode(@Param("userId") Long userId);
+    String getSubscriptionPlanCode(@Param("userId") Long userId);
 
     /**
      * Сброс количества обновлений (лимитов).

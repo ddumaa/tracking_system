@@ -23,7 +23,7 @@
             <p><strong>Email:</strong> <span th:text="${user.email}"></span></p>
             <p><strong>Роль:</strong> <span th:text="${user.role}"></span></p>
             <p><strong>Текущий план подписки:</strong>
-                <span th:text="${user.subscriptionPlanCode != null ? user.subscriptionPlanCode.displayName : 'Нет подписки'}"></span>
+                <span th:text="${user.subscriptionPlanName != null ? user.subscriptionPlanName : 'Нет подписки'}"></span>
             </p>
             <p><strong>Дата окончания подписки:</strong>
                 <span th:text="${user.subscriptionEndDate}"></span>
@@ -38,8 +38,8 @@
             <div class="mb-3 me-2">
                 <label for="role" class="form-label">Новая роль:</label>
                 <select name="role" id="role" class="form-select form-select-sm">
-                    <option value="ROLE_USER" th:selected="${role == 'ROLE_USER'}">ROLE_USER</option>
-                    <option value="ROLE_ADMIN" th:selected="${role == 'ROLE_ADMIN'}">ROLE_ADMIN</option>
+                    <option value="ROLE_USER" th:selected="${user.role.name() == 'ROLE_USER'}">ROLE_USER</option>
+                    <option value="ROLE_ADMIN" th:selected="${user.role.name() == 'ROLE_ADMIN'}">ROLE_ADMIN</option>
                 </select>
             </div>
             <button type="submit" class="btn btn-primary btn-sm">Обновить роль</button>
@@ -53,10 +53,10 @@
             <div class="mb-3 me-2">
                 <label for="subscriptionPlan" class="form-label">Новый план:</label>
                 <select name="subscriptionPlan" id="subscriptionPlan" class="form-select form-select-sm">
-                    <option th:each="plan : ${T(com.project.tracking_system.entity.SubscriptionCode).values()}"
-                            th:value="${plan.name()}"
-                            th:text="${plan.displayName}"
-                            th:selected="${user.subscriptionPlanCode == plan}">
+                    <option th:each="plan : ${plans}"
+                            th:value="${plan.code}"
+                            th:text="${plan.name}"
+                            th:selected="${user.subscriptionPlanCode == plan.code}">
                     </option>
                 </select>
             </div>

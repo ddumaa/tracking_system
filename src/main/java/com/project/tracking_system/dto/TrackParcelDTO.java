@@ -2,7 +2,8 @@ package com.project.tracking_system.dto;
 
 import com.project.tracking_system.entity.TrackParcel;
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
 
 import java.time.ZoneId;
@@ -10,7 +11,8 @@ import java.time.format.DateTimeFormatter;
 
 @NoArgsConstructor
 @AllArgsConstructor
-@Data
+@Getter
+@Setter
 public class TrackParcelDTO {
     private Long id;
     private String number;

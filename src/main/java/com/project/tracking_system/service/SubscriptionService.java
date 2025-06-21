@@ -1,13 +1,14 @@
 package com.project.tracking_system.service;
 
-import com.project.tracking_system.entity.SubscriptionCode;
 import com.project.tracking_system.entity.SubscriptionPlan;
+import com.project.tracking_system.entity.SubscriptionLimits;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.UserSubscription;
+import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.SubscriptionPlanRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Optional;
+import java.math.BigDecimal;
 
 /**
  * @author Dmitriy Anisimov
@@ -29,9 +31,6 @@ public class SubscriptionService {
     private final TrackParcelRepository trackParcelRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
-
-    private static final SubscriptionCode PREMIUM_PLAN = SubscriptionCode.PREMIUM;
-    private static final SubscriptionCode FREE_PLAN = SubscriptionCode.FREE;
 
     /**
      * Рассчитывает, сколько треков можно загрузить в одном файле.
@@ -53,9 +52,10 @@ public class SubscriptionService {
 
         UserSubscription subscription = optionalSubscription.get();
         SubscriptionPlan plan = subscription.getSubscriptionPlan();
+        SubscriptionLimits limits = (plan != null) ? plan.getLimits() : null;
 
         // Получаем лимит треков на файл
-        Integer maxTracksPerFile = (plan != null) ? plan.getMaxTracksPerFile() : null;
+        Integer maxTracksPerFile = (limits != null) ? limits.getMaxTracksPerFile() : null;
         if (maxTracksPerFile == null) {
             return Integer.MAX_VALUE; // Безлимитный план
         }
@@ -83,8 +83,9 @@ public class SubscriptionService {
 
         UserSubscription subscription = optionalSubscription.get();
         SubscriptionPlan plan = subscription.getSubscriptionPlan();
+        SubscriptionLimits limits = (plan != null) ? plan.getLimits() : null;
 
-        Integer maxSavedTracks = (plan != null) ? plan.getMaxSavedTracks() : null;
+        Integer maxSavedTracks = (limits != null) ? limits.getMaxSavedTracks() : null;
         if (maxSavedTracks == null) {
             log.info("✅ У пользователя {} безлимитный план. Можно сохранить {} треков.", userId, tracksCountToSave);
             return tracksCountToSave; // Безлимитный план позволяет сохранить все запрошенные треки
@@ -124,7 +125,8 @@ public class SubscriptionService {
         }
 
         SubscriptionPlan plan = subscription.getSubscriptionPlan();
-        Integer maxUpdates = (plan != null) ? plan.getMaxTrackUpdates() : null;
+        SubscriptionLimits limits = (plan != null) ? plan.getLimits() : null;
+        Integer maxUpdates = (limits != null) ? limits.getMaxTrackUpdates() : null;
         if (maxUpdates == null) {
             log.info("✅ У пользователя {} безлимитный план. Разрешено {} обновлений.", userId, updatesRequested);
             return updatesRequested; // Безлимитный план
@@ -166,17 +168,7 @@ public class SubscriptionService {
      * @return {@code true}, если тарифный план позволяет массовое обновление
      */
     public boolean canUseBulkUpdate(Long userId) {
-        UserSubscription subscription = userSubscriptionRepository.findByUserId(userId)
-                .orElse(null);
-
-        if (subscription == null) {
-            log.warn("Пользователь {} не имеет активной подписки. Массовое обновление недоступно.", userId);
-            return false;
-        }
-
-        SubscriptionPlan plan = subscription.getSubscriptionPlan();
-        boolean allowed = plan != null && plan.isAllowBulkUpdate();
-
+        boolean allowed = isFeatureEnabled(userId, FeatureKey.BULK_UPDATE);
         log.debug("Пользователь {} пытается использовать массовое обновление. Доступ: {}", userId, allowed);
         return allowed;
     }
@@ -188,32 +180,51 @@ public class SubscriptionService {
      * @return {@code true}, если тарифный план пользователя позволяет Telegram-уведомления
      */
     public boolean canUseTelegramNotifications(Long userId) {
-        SubscriptionCode code = userSubscriptionRepository.getSubscriptionPlanCode(userId);
+        boolean allowed = isFeatureEnabled(userId, FeatureKey.TELEGRAM_NOTIFICATIONS);
+        if (!allowed) {
+            log.warn("Пользователь {} не имеет активной подписки или функция Telegram недоступна.", userId);
+        }
+        return allowed;
+    }
+
+    /**
+     * Проверяет доступность функции для указанного пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @param key    ключ функции
+     * @return {@code true}, если функция доступна
+     */
+    public boolean isFeatureEnabled(Long userId, FeatureKey key) {
+        String code = userSubscriptionRepository.getSubscriptionPlanCode(userId);
         if (code == null) {
-            log.warn("Пользователь {} не имеет активной подписки. Telegram недоступен.", userId);
             return false;
         }
         return subscriptionPlanRepository.findByCode(code)
-                .map(SubscriptionPlan::getAllowTelegramNotifications)
+                .map(plan -> plan.isFeatureEnabled(key))
                 .orElse(false);
     }
 
     /**
-     * Проверяет наличие подписки PREMIUM у пользователя.
+     * Проверяет, использует ли пользователь платный тарифный план.
      *
      * @param userId идентификатор пользователя
-     * @return {@code true}, если у пользователя активен премиум-план
+     * @return {@code true}, если стоимость текущего плана больше нуля
      */
     public boolean isUserPremium(Long userId) {
-        SubscriptionCode code = userSubscriptionRepository.getSubscriptionPlanCode(userId);
-        return code == SubscriptionCode.PREMIUM;
+        String code = userSubscriptionRepository.getSubscriptionPlanCode(userId);
+        if (code == null) {
+            return false;
+        }
+        return subscriptionPlanRepository.findByCode(code)
+                .map(SubscriptionPlan::isPaid)
+                .orElse(false);
     }
 
     /**
-     * Продлевает текущую подписку пользователя либо переводит его на PREMIUM.
+     * Продлевает платную подписку пользователя или переводит его на неё.
      * <p>
-     * Если пользователь уже имеет PREMIUM-подписку, срок продлевается.
-     * При наличии бесплатного плана происходит апгрейд на PREMIUM.
+     * Если текущий тариф платный, его срок продлевается.
+     * При бесплатном плане выполняется апгрейд на платный тариф.
      * </p>
      *
      * @param userId идентификатор пользователя
@@ -239,13 +250,10 @@ public class SubscriptionService {
             throw new IllegalStateException("У пользователя отсутствует подписка");
         }
 
-        if (PREMIUM_PLAN.equals(plan.getCode())) {
-            extendPremiumSubscription(subscription, months, nowUtc);
-        } else if (FREE_PLAN.equals(plan.getCode())) {
-            upgradeToPremiumSubscription(subscription, months, nowUtc);
+        if (plan.isPaid()) {
+            extendPaidSubscription(subscription, months, nowUtc);
         } else {
-            log.warn("⚠️ Попытка обновления подписки пользователя {}, но его статус не позволяет это сделать", userId);
-            throw new IllegalArgumentException("Пользователь в статусе, который нельзя апгрейдить");
+            upgradeToPaidSubscription(subscription, months, nowUtc);
         }
 
         userSubscriptionRepository.save(subscription);
@@ -253,7 +261,7 @@ public class SubscriptionService {
                 userId, subscription.getSubscriptionPlan().getCode(), subscription.getSubscriptionEndDate());
     }
 
-    private void extendPremiumSubscription(UserSubscription subscription, int months, ZonedDateTime nowUtc) {
+    private void extendPaidSubscription(UserSubscription subscription, int months, ZonedDateTime nowUtc) {
         ZonedDateTime currentExpiry = subscription.getSubscriptionEndDate();
         if (currentExpiry == null || currentExpiry.isBefore(nowUtc)) {
             currentExpiry = nowUtc;
@@ -262,59 +270,74 @@ public class SubscriptionService {
         log.info("🔄 Продление подписки пользователя {} до {}", subscription.getUser().getId(), subscription.getSubscriptionEndDate());
     }
 
-    private void upgradeToPremiumSubscription(UserSubscription subscription, int months, ZonedDateTime nowUtc) {
-        SubscriptionPlan premiumPlan = subscriptionPlanRepository.findByCode(PREMIUM_PLAN)
-                .orElseThrow(() -> new RuntimeException("🚨 План " + PREMIUM_PLAN + " не найден"));
+    private void upgradeToPaidSubscription(UserSubscription subscription, int months, ZonedDateTime nowUtc) {
+        SubscriptionPlan paidPlan = subscriptionPlanRepository
+                .findFirstByMonthlyPriceGreaterThanOrAnnualPriceGreaterThan(BigDecimal.ZERO, BigDecimal.ZERO)
+                .orElseThrow(() -> new RuntimeException("🚨 Платный план не найден"));
 
-        subscription.setSubscriptionPlan(premiumPlan);
+        subscription.setSubscriptionPlan(paidPlan);
         subscription.setSubscriptionEndDate(nowUtc.plusMonths(months));
-
-        log.info("⬆️ Апгрейд пользователя {} до подписки {} с подпиской до {}",
-                subscription.getUser().getId(), PREMIUM_PLAN, subscription.getSubscriptionEndDate());
+        log.info("⬆️ Апгрейд пользователя {} до платной подписки до {}",
+                subscription.getUser().getId(), subscription.getSubscriptionEndDate());
     }
 
     /**
-     * Изменяет подписку пользователя на указанный тариф.
+     * Изменяет подписку пользователя на указанный тарифный план.
      * <p>
-     * При переходе на PREMIUM устанавливается срок действия. Для бесплатного
-     * плана срок обнуляется.
+     * Для платных планов устанавливается срок действия, для бесплатных
+     * дата окончания очищается.
      * </p>
      *
      * @param userId      идентификатор пользователя
-     * @param newPlanName название нового плана
-     * @param months      срок действия в месяцах (только для PREMIUM; может быть {@code null})
+     * @param code        код нового плана
+     * @param months      срок действия в месяцах (применяется для платных планов)
      * @throws IllegalArgumentException если подписка пользователя или новый план не найдены
      */
     @Transactional
-    public void changeSubscription(Long userId, SubscriptionCode code, Integer months) {
+    public void changeSubscription(Long userId, String code, Integer months) {
         log.info("Начало смены подписки пользователя ID={} на {}", userId, code);
+
+        // Нормализуем код тарифа
+        String parsedCode = parseCode(code)
+                .orElseThrow(() -> new IllegalArgumentException("Код плана не задан"));
 
         UserSubscription subscription = userSubscriptionRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Подписка пользователя не найдена"));
 
-        // Получаем план из БД по enum-коду
-        SubscriptionPlan newPlan = subscriptionPlanRepository.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("План с кодом " + code + " не найден"));
+        // Получаем план из БД по коду
+        SubscriptionPlan newPlan = subscriptionPlanRepository.findByCode(parsedCode)
+                .orElseThrow(() -> new IllegalArgumentException("План с кодом " + parsedCode + " не найден"));
 
         // Устанавливаем новый план
         subscription.setSubscriptionPlan(newPlan);
 
-        if (code == SubscriptionCode.PREMIUM) {
+        if (newPlan.isPaid()) {
             int subscriptionMonths = (months != null && months > 0) ? months : 1;
             subscription.setSubscriptionEndDate(ZonedDateTime.now(ZoneOffset.UTC).plusMonths(subscriptionMonths));
-            log.info("⬆️ Пользователь {} получил подписку {} до {}", userId, code, subscription.getSubscriptionEndDate());
+            log.info("⬆️ Пользователь {} получил платную подписку до {}", userId, subscription.getSubscriptionEndDate());
         } else {
             subscription.setSubscriptionEndDate(null);
-            log.info("⬇️ Пользователь {} переведен на план {}", userId, code);
+            log.info("⬇️ Пользователь {} переведен на план {}", userId, parsedCode);
         }
 
         userSubscriptionRepository.save(subscription);
-        log.info("✅ Подписка пользователя с ID {} изменена на {} до {}", userId, code, subscription.getSubscriptionEndDate());
+        log.info("✅ Подписка пользователя с ID {} изменена на {} до {}", userId, parsedCode, subscription.getSubscriptionEndDate());
     }
 
+    /**
+     * Создаёт базовую подписку для нового пользователя.
+     * <p>
+     * Пользователь автоматически привязывается к бесплатному тарифному плану
+     * со сброшенными лимитами обновлений.
+     * </p>
+     *
+     * @param user пользователь, которому создаётся подписка
+     * @return новая подписка пользователя
+     */
     public UserSubscription createDefaultSubscriptionForUser(User user) {
-        SubscriptionPlan defaultPlan = subscriptionPlanRepository.findByCode(SubscriptionCode.FREE)
-                .orElseThrow(() -> new IllegalStateException("FREE план не найден"));
+        SubscriptionPlan defaultPlan = subscriptionPlanRepository
+                .findByCode("FREE")
+                .orElseThrow(() -> new IllegalStateException("Бесплатный план не найден"));
 
         UserSubscription subscription = new UserSubscription();
         subscription.setUser(user);
@@ -325,12 +348,17 @@ public class SubscriptionService {
         return subscription;
     }
 
-    public Optional<SubscriptionCode> parseCode(String name) {
-        try {
-            return Optional.of(SubscriptionCode.valueOf(name.toUpperCase()));
-        } catch (IllegalArgumentException | NullPointerException e) {
+    /**
+     * Нормализует код тарифного плана.
+     *
+     * @param name исходное значение кода
+     * @return нормализованный код в верхнем регистре или {@link Optional#empty()} при пустом значении
+     */
+    private Optional<String> parseCode(String name) {
+        if (name == null || name.isBlank()) {
             return Optional.empty();
         }
+        return Optional.of(name.trim().toUpperCase());
     }
 
 }

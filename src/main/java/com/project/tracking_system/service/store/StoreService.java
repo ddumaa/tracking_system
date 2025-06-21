@@ -117,7 +117,7 @@ public class StoreService {
                 .map(UserSubscription::getSubscriptionPlan)
                 .orElseThrow(() -> new IllegalStateException("У пользователя нет активной подписки"));
 
-        int maxStores = subscriptionPlan.getMaxStores(); // Получаем лимит магазинов
+        int maxStores = subscriptionPlan.getLimits().getMaxStores(); // Получаем лимит магазинов
 
         if (userStoreCount >= maxStores) {
             String message = "Вы достигли лимита магазинов (" + maxStores + ")";

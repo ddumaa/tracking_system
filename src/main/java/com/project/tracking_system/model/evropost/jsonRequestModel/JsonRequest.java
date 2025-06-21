@@ -2,7 +2,8 @@ package com.project.tracking_system.model.evropost.jsonRequestModel;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +18,8 @@ import org.springframework.stereotype.Component;
  * @date 07.01.2025
  */
 @Component
-@Data
+@Getter
+@Setter
 @AllArgsConstructor
 @NoArgsConstructor
 public class JsonRequest {

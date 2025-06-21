@@ -1,12 +1,14 @@
 package com.project.tracking_system.entity;
 
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * @author Dmitriy Anisimov
  * @date 19.02.2025
  */
-@Data
+@Getter
+@Setter
 public class UpdateResult {
 
     private final boolean success;

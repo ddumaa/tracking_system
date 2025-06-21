@@ -1,13 +1,15 @@
 package com.project.tracking_system.dto;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * @author Dmitriy Anisimov
  * @date 29.01.2025
  */
-@Data
+@Getter
+@Setter
 @AllArgsConstructor
 public class ResolvedCredentialsDTO {
 
