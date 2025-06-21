@@ -7,7 +7,6 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.UserSubscription;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.SubscriptionPlanRepository;
-import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,8 +30,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class SubscriptionServiceTest {
 
-    @Mock
-    private TrackParcelRepository trackParcelRepository;
     @Mock
     private UserSubscriptionRepository userSubscriptionRepository;
     @Mock
