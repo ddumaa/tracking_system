@@ -69,6 +69,12 @@ public class LoginAttemptService {
         log.info("Пользователь {} успешно вошел. IP {} разблокирован.", EmailUtils.maskEmail(email), ip);
     }
 
+    /**
+     * Проверяет, заблокирован ли IP-адрес из-за превышения числа попыток входа.
+     *
+     * @param ip IP-адрес клиента
+     * @return {@code true}, если IP в чёрном списке, иначе {@code false}
+     */
     public boolean isIPBlocked(String ip) {
         if (blockedIPs.containsKey(ip)) {
 
@@ -201,6 +207,15 @@ public class LoginAttemptService {
         return null;
     }
 
+    /**
+     * Проверяет блокировки по IP и email, перенаправляя пользователя при необходимости.
+     *
+     * @param request  HTTP-запрос
+     * @param response HTTP-ответ
+     * @param email    email пользователя (может быть {@code null})
+     * @param ip       IP-адрес клиента
+     * @return {@code true}, если было выполнено перенаправление
+     */
     public boolean checkAndRedirect(HttpServletRequest request, HttpServletResponse response,
                                     String email, String ip) throws IOException {
         if (isIPBlocked(ip)) {

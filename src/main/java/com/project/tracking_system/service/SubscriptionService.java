@@ -317,6 +317,16 @@ public class SubscriptionService {
         log.info("✅ Подписка пользователя с ID {} изменена на {} до {}", userId, parsedCode, subscription.getSubscriptionEndDate());
     }
 
+    /**
+     * Создаёт базовую подписку для нового пользователя.
+     * <p>
+     * Пользователь автоматически привязывается к бесплатному тарифному плану
+     * со сброшенными лимитами обновлений.
+     * </p>
+     *
+     * @param user пользователь, которому создаётся подписка
+     * @return новая подписка пользователя
+     */
     public UserSubscription createDefaultSubscriptionForUser(User user) {
         SubscriptionPlan defaultPlan = subscriptionPlanRepository.findFirstByPrice(BigDecimal.ZERO)
                 .orElseThrow(() -> new IllegalStateException("Бесплатный план не найден"));
@@ -330,6 +340,12 @@ public class SubscriptionService {
         return subscription;
     }
 
+    /**
+     * Нормализует код тарифного плана.
+     *
+     * @param name исходное значение кода
+     * @return нормализованный код в верхнем регистре или {@link Optional#empty()} при пустом значении
+     */
     private Optional<String> parseCode(String name) {
         if (name == null || name.isBlank()) {
             return Optional.empty();
