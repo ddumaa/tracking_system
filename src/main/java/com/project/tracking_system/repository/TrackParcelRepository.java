@@ -122,4 +122,14 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
     @Query("SELECT t FROM TrackParcel t JOIN FETCH t.store JOIN FETCH t.user WHERE t.id = :id")
     TrackParcel findByIdWithStoreAndUser(@Param("id") Long id);
 
+    /**
+     * Очистить связь покупателя у его посылок.
+     *
+     * @param customerId идентификатор покупателя
+     */
+    @Modifying
+    @Transactional
+    @Query("UPDATE TrackParcel t SET t.customer = null WHERE t.customer.id = :customerId")
+    void clearCustomer(@Param("customerId") Long customerId);
+
 }

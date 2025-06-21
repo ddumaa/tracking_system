@@ -9,6 +9,8 @@ import com.project.tracking_system.service.telegram.TelegramNotificationService;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Optional;
+
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,6 +62,20 @@ public class CustomerTelegramService {
         Customer saved = customerRepository.save(customer);
         log.info("✅ Чат {} привязан к покупателю {}", chatId, saved.getId());
         return saved;
+    }
+
+    /**
+     * Найти покупателя по идентификатору Telegram-чата.
+     *
+     * @param chatId идентификатор чата
+     * @return найденный покупатель или {@link java.util.Optional#empty()}
+     */
+    @Transactional(readOnly = true)
+    public Optional<Customer> findByChatId(Long chatId) {
+        if (chatId == null) {
+            return Optional.empty();
+        }
+        return customerRepository.findByTelegramChatId(chatId);
     }
 
     /**
@@ -125,6 +141,52 @@ public class CustomerTelegramService {
             logEntry.setSentAt(ZonedDateTime.now(ZoneOffset.UTC));
             notificationLogRepository.save(logEntry);
         }
+    }
+
+    /**
+     * Отключить отправку Telegram-уведомлений покупателю.
+     *
+     * @param chatId идентификатор Telegram-чата
+     * @return {@code true}, если уведомления были отключены
+     */
+    @Transactional
+    public boolean disableNotifications(Long chatId) {
+        if (chatId == null) {
+            return false;
+        }
+
+        return customerRepository.findByTelegramChatId(chatId)
+                .filter(Customer::isNotificationsEnabled)
+                .map(customer -> {
+                    customer.setNotificationsEnabled(false);
+                    customerRepository.save(customer);
+                    log.info("🔕 Уведомления отключены для покупателя {}", customer.getId());
+                    return true;
+                })
+                .orElse(false);
+    }
+
+    /**
+     * Включить отправку Telegram-уведомлений покупателю.
+     *
+     * @param chatId идентификатор Telegram-чата
+     * @return {@code true}, если уведомления были включены
+     */
+    @Transactional
+    public boolean enableNotifications(Long chatId) {
+        if (chatId == null) {
+            return false;
+        }
+
+        return customerRepository.findByTelegramChatId(chatId)
+                .filter(c -> !c.isNotificationsEnabled())
+                .map(customer -> {
+                    customer.setNotificationsEnabled(true);
+                    customerRepository.save(customer);
+                    log.info("🔔 Уведомления включены для покупателя {}", customer.getId());
+                    return true;
+                })
+                .orElse(false);
     }
 
 }

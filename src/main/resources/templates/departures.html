@@ -42,7 +42,7 @@
                     <div class="history-controls d-flex flex-wrap align-items-center gap-3 justify-content-between">
 
                         <!-- Действие + кнопка "Применить" -->
-                        <div class="filter-group d-flex align-items-center gap-2">
+                        <div class="filter-group d-flex flex-column flex-sm-row align-items-sm-center gap-2">
                             <div class="filter-item d-flex align-items-center">
                                 <label for="actionSelect" class="form-label m-0 me-2">Действие:</label>
                                 <select id="actionSelect" class="form-select w-auto">
@@ -55,7 +55,7 @@
                         </div>
 
                         <!-- Фильтр по магазину (показываем только если магазинов больше 1) -->
-                        <div class="filter-group d-flex align-items-center gap-2"
+                        <div class="filter-group d-flex flex-column flex-sm-row align-items-sm-center gap-2"
                              th:if="${stores != null and #lists.size(stores) > 1}">
                             <label for="storeId" class="form-label m-0 me-2">Магазин:</label>
                             <select id="storeId" name="storeId" class="form-select w-auto">
@@ -69,7 +69,7 @@
                         </div>
 
                         <!-- Фильтр по статусу -->
-                        <div class="filter-group d-flex align-items-center gap-2">
+                        <div class="filter-group d-flex flex-column flex-sm-row align-items-sm-center gap-2">
                             <label for="status" class="form-label m-0 me-2">Статус:</label>
                             <select id="status" name="status" class="form-select w-auto">
                                 <!-- Всегда выводим опцию "Все статусы" -->
@@ -84,7 +84,7 @@
                         </div>
 
                         <!-- Количество элементов на странице -->
-                        <div class="filter-group size-controls d-flex align-items-center gap-2">
+                        <div class="filter-group size-controls d-flex flex-column flex-sm-row align-items-sm-center gap-2">
                             <button type="button" class="btn btn-outline-secondary size-btn" data-size="20"
                                     th:classappend="${size == 20} ? 'active'">20</button>
                             <button type="button" class="btn btn-outline-secondary size-btn" data-size="50"
@@ -134,7 +134,7 @@
                                             </div>
                                         </td>
                                         <td th:text="${item.status}" class="status-text"></td>
-                                        <td th:text="${item.data}" class="date-text"></td>
+                                        <td th:text="${item.timestamp}" class="date-text"></td>
                                     </tr>
                                     </tbody>
                                 </table>

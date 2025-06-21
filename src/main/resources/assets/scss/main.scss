@@ -15,6 +15,7 @@
 @use 'components/cards';
 @use 'components/modals';
 @use 'components/alerts';
+@use 'components/loading';
 
 // Подключаем layout
 @use 'layouts/sidebar';
@@ -26,5 +27,6 @@
 @use 'pages/legal';
 @use 'pages/dashboard';
 @use 'pages/analytics';
+@use 'pages/tariffs';
 
 

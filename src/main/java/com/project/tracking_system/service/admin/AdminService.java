@@ -1,8 +1,6 @@
 package com.project.tracking_system.service.admin;
 
-import com.project.tracking_system.dto.StoreAdminInfoDTO;
-import com.project.tracking_system.dto.TrackParcelAdminInfoDTO;
-import com.project.tracking_system.dto.UserListAdminInfoDTO;
+import com.project.tracking_system.dto.*;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.*;
 import com.project.tracking_system.service.track.TrackDeletionService;
@@ -29,11 +27,13 @@ public class AdminService {
     private final StoreRepository storeRepository;
     private final StoreTelegramSettingsRepository storeTelegramSettingsRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
-    private final SubscriptionPlanRepository subscriptionPlanRepository;
+    private final SubscriptionPlanService subscriptionPlanService;
     private final TrackParcelRepository trackParcelRepository;
     private final UserRepository userRepository;
     private final TrackDeletionService trackDeletionService;
     private final TrackProcessingService trackProcessingService;
+    private final com.project.tracking_system.service.user.UserService userService;
+    private final com.project.tracking_system.service.store.StoreService storeService;
 
     /**
      * Подсчитать общее количество покупателей.
@@ -125,7 +125,28 @@ public class AdminService {
      * Получить все планы подписки.
      */
     public List<SubscriptionPlan> getPlans() {
-        return subscriptionPlanRepository.findAll();
+        return subscriptionPlanService.getAllPlans();
+    }
+
+    /**
+     * Создать новый тарифный план.
+     *
+     * @param dto параметры нового плана
+     * @return созданный план
+     */
+    public SubscriptionPlan createPlan(SubscriptionPlanDTO dto) {
+        return subscriptionPlanService.createPlan(dto);
+    }
+
+    /**
+     * Обновить тарифный план.
+     *
+     * @param id  идентификатор плана
+     * @param dto новые параметры
+     * @return обновлённый план
+     */
+    public SubscriptionPlan updatePlan(Long id, SubscriptionPlanDTO dto) {
+        return subscriptionPlanService.updatePlan(id, dto);
     }
 
     /**
@@ -159,7 +180,7 @@ public class AdminService {
                 p.getStatus().getDescription(),
                 p.getStore().getName(),
                 p.getUser().getEmail(),
-                formatter.format(p.getData())
+                formatter.format(p.getTimestamp())
         ));
     }
 
@@ -226,7 +247,7 @@ public class AdminService {
                 parcel.getStatus().getDescription(),
                 parcel.getStore().getName(),
                 parcel.getUser().getEmail(),
-                formatter.format(parcel.getData())
+                formatter.format(parcel.getTimestamp())
         );
     }
 
@@ -250,7 +271,7 @@ public class AdminService {
                 parcel.getStatus().getDescription(),
                 parcel.getStore().getName(),
                 parcel.getUser().getEmail(),
-                formatter.format(parcel.getData())
+                formatter.format(parcel.getTimestamp())
         );
     }
 
@@ -274,5 +295,46 @@ public class AdminService {
         TrackParcel parcel = trackParcelRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Посылка не найдена"));
         trackProcessingService.processTrack(parcel.getNumber(), parcel.getStore().getId(), parcel.getUser().getId(), true);
+    }
+
+    /**
+     * Удалить пользователя целиком.
+     *
+     * @param userId идентификатор пользователя
+     */
+    public void deleteUser(Long userId) {
+        log.info("Админ удаляет пользователя ID={}", userId);
+        userService.deleteUser(userId);
+    }
+
+    /**
+     * Удалить магазин вместе с его посылками и статистикой.
+     *
+     * @param storeId идентификатор магазина
+     */
+    public void deleteStore(Long storeId) {
+        Store store = storeRepository.findById(storeId)
+                .orElseThrow(() -> new IllegalArgumentException("Магазин не найден"));
+        storeService.deleteStore(storeId, store.getOwner().getId());
+    }
+
+    /**
+     * Удалить покупателя и разорвать связи с его посылками.
+     *
+     * @param customerId идентификатор покупателя
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public void deleteCustomer(Long customerId) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new IllegalArgumentException("Покупатель не найден"));
+
+        // Удаляем связи с посылками
+        trackParcelRepository.clearCustomer(customerId);
+
+        // Удаляем связанные логи уведомлений
+        notificationRepository.deleteByCustomerId(customerId);
+
+        customerRepository.delete(customer);
+        log.info("Удалён покупатель ID={}", customerId);
     }
 }

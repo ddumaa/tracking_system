@@ -87,7 +87,7 @@
             <tr th:each="parcel : ${storeParcels[store.id]}">
                 <td th:text="${parcel.number}"></td>
                 <td th:text="${parcel.status}"></td>
-                <td th:text="${parcel.data}"></td>
+                <td th:text="${parcel.timestamp}"></td>
             </tr>
             </tbody>
         </table>

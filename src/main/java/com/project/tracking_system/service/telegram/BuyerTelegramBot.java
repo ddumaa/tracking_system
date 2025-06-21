@@ -19,6 +19,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Telegram-бот для покупателей.
@@ -71,9 +72,44 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (update.hasMessage()) {
             var message = update.getMessage();
 
-            if (message.hasText() && "/start".equals(message.getText())) {
-                log.info("✅ Команда /start получена от {}", message.getChatId());
-                sendSharePhoneKeyboard(message.getChatId());
+            if (message.hasText()) {
+                String text = message.getText();
+                if ("/start".equals(text)) {
+                    log.info("✅ Команда /start получена от {}", message.getChatId());
+                    sendSharePhoneKeyboard(message.getChatId());
+
+                    // 🔽 Добавить отображение текущих настроек, если юзер уже привязан
+                    Optional<Customer> optional = telegramService.findByChatId(message.getChatId());
+                    if (optional.isPresent() && optional.get().isTelegramConfirmed()) {
+                        boolean enabled = optional.get().isNotificationsEnabled();
+                        sendNotificationsKeyboard(message.getChatId(), enabled);
+                    }
+                }
+                if ("/stop".equals(text) || "/unsubscribe".equals(text)) {
+                    log.info("🔕 Команда {} получена от {}", text, message.getChatId());
+                    boolean disabled = telegramService.disableNotifications(message.getChatId());
+                    if (disabled) {
+                        SendMessage confirm = new SendMessage(message.getChatId().toString(),
+                                "🔕 Уведомления отключены. Чтобы возобновить их, снова отправьте /start.");
+                        try {
+                            telegramClient.execute(confirm);
+                        } catch (TelegramApiException e) {
+                            log.error("❌ Ошибка отправки подтверждения", e);
+                        }
+                    }
+                }
+                if ("🔕 Отключить уведомления".equals(text)) {
+                    boolean disabled = telegramService.disableNotifications(message.getChatId());
+                    if (disabled) {
+                        sendNotificationsKeyboard(message.getChatId(), false);
+                    }
+                }
+                if ("🔔 Включить уведомления".equals(text)) {
+                    boolean enabled = telegramService.enableNotifications(message.getChatId());
+                    if (enabled) {
+                        sendNotificationsKeyboard(message.getChatId(), true);
+                    }
+                }
             }
 
             if (message.hasContact()) {
@@ -100,6 +136,26 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
     }
 
+    private void sendNotificationsKeyboard(Long chatId, boolean enabled) {
+        String buttonText = enabled ? "🔕 Отключить уведомления"
+                : "🔔 Включить уведомления";
+
+        KeyboardButton button = new KeyboardButton(buttonText);
+        KeyboardRow row = new KeyboardRow(List.of(button));
+        ReplyKeyboardMarkup markup = new ReplyKeyboardMarkup(List.of(row));
+        markup.setResizeKeyboard(true);
+        markup.setOneTimeKeyboard(true);
+
+        SendMessage message = new SendMessage(chatId.toString(), "🔔 Настройки уведомлений");
+        message.setReplyMarkup(markup);
+
+        try {
+            telegramClient.execute(message);
+        } catch (TelegramApiException e) {
+            log.error("❌ Ошибка отправки клавиатуры уведомлений", e);
+        }
+    }
+
     private void handleContact(Long chatId, Contact contact) {
         String rawPhone = contact.getPhoneNumber();
         String phone = PhoneUtils.normalizePhone(rawPhone);
@@ -111,6 +167,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 telegramClient.execute(confirm);
                 telegramService.confirmTelegram(customer);
                 telegramService.notifyActualStatuses(customer);
+                sendNotificationsKeyboard(chatId, true);
             }
         } catch (Exception e) {
             log.error("❌ Ошибка регистрации телефона {} для чата {}", phone, chatId, e);

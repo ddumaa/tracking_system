@@ -30,6 +30,26 @@ function toggleAllCheckboxes(checked) {
     updateApplyButtonState();
 }
 
+function showLoading() {
+    document.body.classList.add('loading');
+    document.getElementById('loadingOverlay')?.classList.remove('hidden');
+}
+
+function hideLoading() {
+    document.body.classList.remove('loading');
+    document.getElementById('loadingOverlay')?.classList.add('hidden');
+}
+
+/**
+ * Устанавливает активную вкладку профиля во всех меню.
+ * @param {string} href - Идентификатор вкладки (href вида '#v-pills-home').
+ */
+function setActiveProfileTab(href) {
+    document.querySelectorAll('.profile-tab-menu a').forEach(link => {
+        link.classList.toggle('active', link.getAttribute('href') === href);
+    });
+}
+
 // Обновляем кнопку при изменении чекбоксов
 document.body.addEventListener("change", function (event) {
     if (event.target.classList.contains("selectCheckbox")) {
@@ -161,9 +181,9 @@ function initializePhoneToggle() {
         // Первичное состояние
         toggleFieldsVisibility(toggle, phoneField);
 
-        toggle.addEventListener('change', function () {
-            toggleFieldsVisibility(toggle, phoneField);
-        });
+        // Единый обработчик для переключения
+        const handler = () => toggleFieldsVisibility(toggle, phoneField);
+        toggle.addEventListener('change', handler);
     }
 }
 
@@ -276,11 +296,12 @@ function initTelegramToggle() {
     container.querySelectorAll('.toggle-tg-btn').forEach(btn => {
         if (btn.dataset.toggleInit) return;
         btn.dataset.toggleInit = 'true';
-        btn.addEventListener('click', function (e) {
+
+        const handler = (e) => {
             e.preventDefault();
-            const storeId = this.getAttribute('data-store-id');
+            const storeId = btn.getAttribute('data-store-id');
             const content = container.querySelector(`.tg-settings-content[data-store-id="${storeId}"]`);
-            const icon = this.querySelector('i');
+            const icon = btn.querySelector('i');
 
             if (!content) return;
 
@@ -290,6 +311,8 @@ function initTelegramToggle() {
             icon?.classList.toggle('bi-chevron-down', collapsed);
             icon?.classList.toggle('bi-chevron-up', !collapsed);
 
+            debugLog(`⚙️ Telegram блок магазина ${storeId} toggled. collapsed=${collapsed}. event=${e.type}`);
+
             let ids = getCollapsedTgStores();
             if (collapsed) {
                 if (!ids.includes(storeId)) ids.push(storeId);
@@ -297,7 +320,10 @@ function initTelegramToggle() {
                 ids = ids.filter(id => id !== storeId);
             }
             saveCollapsedTgStores(ids);
-        });
+        };
+
+        btn.addEventListener('click', handler);
+        btn.addEventListener('touchstart', handler);
     });
 }
 
@@ -1005,6 +1031,11 @@ if (storeTableBody) {
 document.addEventListener("DOMContentLoaded", function () {
     debugLog("DOM полностью загружен");
 
+    hideLoading();
+
+    document.querySelector('form[action="/"]')?.addEventListener('submit', showLoading);
+    document.querySelector('form[action="/upload"]')?.addEventListener('submit', showLoading);
+
     // === Добавляем CSRF-токен ===
     const csrfToken = document.querySelector('meta[name="_csrf"]')?.content || "";
     const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || "";
@@ -1237,15 +1268,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Запоминание активной вкладки и анимация при переключении
     const tabKey = "profileActiveTab";
-    const tabLinks = document.querySelectorAll('#v-pills-tab a');
+    const tabLinks = document.querySelectorAll('.profile-tab-menu a');
     const savedTab = localStorage.getItem(tabKey);
     if (savedTab) {
-        const triggerEl = document.querySelector(`[href="${savedTab}"]`);
-        if (triggerEl) new bootstrap.Tab(triggerEl).show();
+        const links = document.querySelectorAll(`.profile-tab-menu a[href="${savedTab}"]`);
+        if (links.length > 0) {
+            bootstrap.Tab.getOrCreateInstance(links[0]).show();
+            setActiveProfileTab(savedTab);
+        }
     }
     tabLinks.forEach(link => {
         link.addEventListener('shown.bs.tab', e => {
             const href = e.target.getAttribute('href');
+            setActiveProfileTab(href);
             localStorage.setItem(tabKey, href);
             const pane = document.querySelector(href);
             if (pane) {

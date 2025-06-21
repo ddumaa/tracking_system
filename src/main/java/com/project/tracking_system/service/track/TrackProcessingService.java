@@ -164,7 +164,7 @@ public class TrackProcessingService {
         } else {
             // Запоминаем предыдущие значения для корректировки статистики
             previousStoreId = trackParcel.getStore().getId();
-            previousDate = trackParcel.getData();
+            previousDate = trackParcel.getTimestamp();
         }
         // Если трек уже существует, проверяем, соответствует ли магазин выбранному пользователем
         if (!trackParcel.getStore().getId().equals(storeId)) {
@@ -185,7 +185,7 @@ public class TrackProcessingService {
         String lastDate = trackInfoListDTO.getList().get(0).getTimex();
         ZoneId userZone = userService.getUserZone(userId);
         ZonedDateTime zonedDateTime = DateParserUtils.parse(lastDate, userZone);
-        trackParcel.setData(zonedDateTime);
+        trackParcel.setTimestamp(zonedDateTime);
 
         // Привязываем покупателя, если указан телефон
         Customer customer = null;

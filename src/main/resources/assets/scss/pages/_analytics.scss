@@ -5,6 +5,7 @@ body.loading {
   cursor: wait;
   opacity: 0.6;
   pointer-events: none;
+  overflow: hidden;
 }
 
 .store-statistics-content {

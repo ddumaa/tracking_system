@@ -2,15 +2,27 @@ package com.project.tracking_system.mapper;
 
 import com.project.tracking_system.entity.BuyerStatus;
 import com.project.tracking_system.entity.GlobalStatus;
-import lombok.Getter;
 
 /**
- * @author Dmitriy Anisimov
- * @date 19.06.2025
+ * Утилита для сопоставления глобального статуса с пользовательским.
+ * <p>
+ * Позволяет определить, какое уведомление отправить покупателю в зависимости
+ * от текущего статуса посылки.
+ * </p>
  */
-@Getter
-public class BuyerStatusMapper {
+public final class BuyerStatusMapper {
 
+    private BuyerStatusMapper() {
+    }
+
+    /**
+     * Преобразует глобальный статус в статус, предназначенный для отображения
+     * покупателю.
+     *
+     * @param globalStatus глобальный статус посылки
+     * @return подходящий {@link BuyerStatus} или {@code null}, если статус не
+     *         предназначен для уведомления
+     */
     public static BuyerStatus map(GlobalStatus globalStatus) {
         return switch (globalStatus) {
             case REGISTERED -> BuyerStatus.REGISTERED;
