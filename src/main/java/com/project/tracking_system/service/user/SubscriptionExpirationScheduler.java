@@ -64,8 +64,10 @@ public class SubscriptionExpirationScheduler {
     }
 
     private SubscriptionPlan getFreePlan() {
-        return subscriptionPlanRepository.findFirstByPrice(BigDecimal.ZERO)
-                .orElseThrow(() -> new IllegalStateException("План с нулевой стоимостью не найден в БД!"));
+        return subscriptionPlanRepository.findByCode("FREE")
+                .orElseGet(() -> subscriptionPlanRepository
+                        .findFirstByMonthlyPriceAndAnnualPrice(BigDecimal.ZERO, BigDecimal.ZERO)
+                        .orElseThrow(() -> new IllegalStateException("План с нулевой стоимостью не найден в БД!")));
     }
 
 }

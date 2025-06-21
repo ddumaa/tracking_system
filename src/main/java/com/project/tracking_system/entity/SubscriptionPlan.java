@@ -59,6 +59,16 @@ public class SubscriptionPlan {
     private int position;
 
     /**
+     * Проверяет, является ли тариф платным.
+     *
+     * @return {@code true}, если месячная или годовая стоимость больше нуля
+     */
+    public boolean isPaid() {
+        return monthlyPrice.compareTo(java.math.BigDecimal.ZERO) > 0
+                || annualPrice.compareTo(java.math.BigDecimal.ZERO) > 0;
+    }
+
+    /**
      * Проверяет, доступна ли указанная возможность в тарифе.
      *
      * @param key ключ функции

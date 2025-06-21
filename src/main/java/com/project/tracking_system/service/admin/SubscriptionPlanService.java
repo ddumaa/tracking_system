@@ -176,10 +176,11 @@ public class SubscriptionPlanService {
      * @throws IllegalStateException если план не найден в базе
      */
     public SubscriptionPlan getFreePlan() {
-        return planRepository.findAllByOrderByPositionAsc().stream()
-                .filter(p -> p.getPrice().compareTo(BigDecimal.ZERO) == 0)
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Бесплатный план не найден"));
+        return planRepository.findByCode("FREE")
+                .orElseGet(() -> planRepository.findAllByOrderByPositionAsc().stream()
+                        .filter(p -> !p.isPaid())
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("Бесплатный план не найден")));
     }
 
     /**
@@ -190,7 +191,7 @@ public class SubscriptionPlanService {
      */
     public boolean isPaidPlan(String code) {
         return planRepository.findByCode(code)
-                .map(p -> p.getPrice().compareTo(BigDecimal.ZERO) > 0)
+                .map(SubscriptionPlan::isPaid)
                 .orElse(false);
     }
 

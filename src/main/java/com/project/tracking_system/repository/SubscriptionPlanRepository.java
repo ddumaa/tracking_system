@@ -20,12 +20,14 @@ public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPl
     Optional<SubscriptionPlan> findByCode(@Param("code") String code);
 
     /**
-     * Найти первый план с указанной ценой.
+     * Найти первый бесплатный тарифный план.
      *
-     * @param price стоимость плана
+     * @param monthly стоимость в месяц
+     * @param annual  стоимость в год
      * @return найденный план или {@code Optional.empty()}
      */
-    Optional<SubscriptionPlan> findFirstByPrice(BigDecimal price);
+    Optional<SubscriptionPlan> findFirstByMonthlyPriceAndAnnualPrice(BigDecimal monthly,
+                                                                    BigDecimal annual);
 
     /**
      * Получить все тарифы, отсортированные по позиции.
@@ -43,11 +45,13 @@ public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPl
     Optional<Integer> findMaxPosition();
 
     /**
-     * Найти первый план с ценой выше указанной.
+     * Найти первый платный тарифный план.
      *
-     * @param price минимальная цена плана
+     * @param monthly минимальная месячная цена
+     * @param annual  минимальная годовая цена
      * @return найденный платный план или {@code Optional.empty()}
      */
-    Optional<SubscriptionPlan> findFirstByPriceGreaterThan(BigDecimal price);
+    Optional<SubscriptionPlan> findFirstByMonthlyPriceGreaterThanOrAnnualPriceGreaterThan(BigDecimal monthly,
+                                                                                        BigDecimal annual);
 
 }

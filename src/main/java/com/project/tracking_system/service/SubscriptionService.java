@@ -216,7 +216,7 @@ public class SubscriptionService {
             return false;
         }
         return subscriptionPlanRepository.findByCode(code)
-                .map(p -> p.getPrice().compareTo(BigDecimal.ZERO) > 0)
+                .map(SubscriptionPlan::isPaid)
                 .orElse(false);
     }
 
@@ -250,13 +250,10 @@ public class SubscriptionService {
             throw new IllegalStateException("У пользователя отсутствует подписка");
         }
 
-        if (plan.getPrice().compareTo(BigDecimal.ZERO) > 0) {
+        if (plan.isPaid()) {
             extendPaidSubscription(subscription, months, nowUtc);
-        } else if (plan.getPrice().compareTo(BigDecimal.ZERO) == 0) {
-            upgradeToPaidSubscription(subscription, months, nowUtc);
         } else {
-            log.warn("⚠️ Попытка обновления подписки пользователя {}, но его статус не позволяет это сделать", userId);
-            throw new IllegalArgumentException("Пользователь в статусе, который нельзя апгрейдить");
+            upgradeToPaidSubscription(subscription, months, nowUtc);
         }
 
         userSubscriptionRepository.save(subscription);
@@ -274,7 +271,8 @@ public class SubscriptionService {
     }
 
     private void upgradeToPaidSubscription(UserSubscription subscription, int months, ZonedDateTime nowUtc) {
-        SubscriptionPlan paidPlan = subscriptionPlanRepository.findFirstByPriceGreaterThan(BigDecimal.ZERO)
+        SubscriptionPlan paidPlan = subscriptionPlanRepository
+                .findFirstByMonthlyPriceGreaterThanOrAnnualPriceGreaterThan(BigDecimal.ZERO, BigDecimal.ZERO)
                 .orElseThrow(() -> new RuntimeException("🚨 Платный план не найден"));
 
         subscription.setSubscriptionPlan(paidPlan);
@@ -313,7 +311,7 @@ public class SubscriptionService {
         // Устанавливаем новый план
         subscription.setSubscriptionPlan(newPlan);
 
-        if (newPlan.getPrice().compareTo(BigDecimal.ZERO) > 0) {
+        if (newPlan.isPaid()) {
             int subscriptionMonths = (months != null && months > 0) ? months : 1;
             subscription.setSubscriptionEndDate(ZonedDateTime.now(ZoneOffset.UTC).plusMonths(subscriptionMonths));
             log.info("⬆️ Пользователь {} получил платную подписку до {}", userId, subscription.getSubscriptionEndDate());
@@ -337,8 +335,10 @@ public class SubscriptionService {
      * @return новая подписка пользователя
      */
     public UserSubscription createDefaultSubscriptionForUser(User user) {
-        SubscriptionPlan defaultPlan = subscriptionPlanRepository.findFirstByPrice(BigDecimal.ZERO)
-                .orElseThrow(() -> new IllegalStateException("Бесплатный план не найден"));
+        SubscriptionPlan defaultPlan = subscriptionPlanRepository.findByCode("FREE")
+                .orElseGet(() -> subscriptionPlanRepository
+                        .findFirstByMonthlyPriceAndAnnualPrice(BigDecimal.ZERO, BigDecimal.ZERO)
+                        .orElseThrow(() -> new IllegalStateException("Бесплатный план не найден")));
 
         UserSubscription subscription = new UserSubscription();
         subscription.setUser(user);
