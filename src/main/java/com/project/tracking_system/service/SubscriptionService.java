@@ -335,10 +335,9 @@ public class SubscriptionService {
      * @return новая подписка пользователя
      */
     public UserSubscription createDefaultSubscriptionForUser(User user) {
-        SubscriptionPlan defaultPlan = subscriptionPlanRepository.findByCode("FREE")
-                .orElseGet(() -> subscriptionPlanRepository
-                        .findFirstByMonthlyPriceAndAnnualPrice(BigDecimal.ZERO, BigDecimal.ZERO)
-                        .orElseThrow(() -> new IllegalStateException("Бесплатный план не найден")));
+        SubscriptionPlan defaultPlan = subscriptionPlanRepository
+                .findByCode("FREE")
+                .orElseThrow(() -> new IllegalStateException("Бесплатный план не найден"));
 
         UserSubscription subscription = new UserSubscription();
         subscription.setUser(user);
