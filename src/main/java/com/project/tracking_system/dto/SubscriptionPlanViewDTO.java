@@ -13,6 +13,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class SubscriptionPlanViewDTO {
     private String code;
+    private String name;
+    private String description;
     private Integer maxTracksPerFile;
     private Integer maxSavedTracks;
     private Integer maxTrackUpdates;
