@@ -205,12 +205,14 @@ public class AdminController {
         UserSubscription subscription = user.getSubscription();
 
         String code = null;
+        String planName = null;
         String subscriptionEndDate = null;
 
         if (subscription != null) {
             SubscriptionPlan plan = subscription.getSubscriptionPlan();
             if (plan != null) {
                 code = plan.getCode();
+                planName = plan.getName();
             }
 
             if (subscription.getSubscriptionEndDate() != null) {
@@ -223,6 +225,7 @@ public class AdminController {
                 user.getId(),
                 user.getEmail(),
                 user.getRole(),
+                planName,
                 code,
                 subscriptionEndDate
         );

@@ -18,6 +18,8 @@ public class UserDetailsAdminInfoDTO {
     private Long id;
     private String email;
     private Role role;
+    /** Название текущего тарифного плана */
+    private String subscriptionPlanName;
     private String subscriptionPlanCode;
     private String subscriptionEndDate;
 }
