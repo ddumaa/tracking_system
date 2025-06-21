@@ -71,4 +71,27 @@ public class TariffController {
         tariffService.upgradeUser(userId, months);
         return "redirect:/profile";
     }
+
+    /**
+     * Покупает выбранный тарифный план для пользователя.
+     *
+     * @param planCode       код плана
+     * @param months         срок в месяцах
+     * @param authentication текущая аутентификация
+     * @return редирект на страницу профиля
+     */
+    @PostMapping("/buy")
+    public String buy(@RequestParam("plan") String planCode,
+                      @RequestParam(value = "months", defaultValue = "1") int months,
+                      Authentication authentication) {
+        Long userId = userService.extractUserId(authentication);
+        if (userId == null) {
+            return "redirect:/login";
+        }
+        if (months <= 0) {
+            months = 1;
+        }
+        tariffService.buyPlan(userId, planCode, months);
+        return "redirect:/profile";
+    }
 }
