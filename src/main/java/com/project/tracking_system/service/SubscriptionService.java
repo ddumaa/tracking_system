@@ -290,12 +290,16 @@ public class SubscriptionService {
     public void changeSubscription(Long userId, String code, Integer months) {
         log.info("Начало смены подписки пользователя ID={} на {}", userId, code);
 
+        // Нормализуем код тарифа
+        String parsedCode = parseCode(code)
+                .orElseThrow(() -> new IllegalArgumentException("Код плана не задан"));
+
         UserSubscription subscription = userSubscriptionRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Подписка пользователя не найдена"));
 
         // Получаем план из БД по коду
-        SubscriptionPlan newPlan = subscriptionPlanRepository.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("План с кодом " + code + " не найден"));
+        SubscriptionPlan newPlan = subscriptionPlanRepository.findByCode(parsedCode)
+                .orElseThrow(() -> new IllegalArgumentException("План с кодом " + parsedCode + " не найден"));
 
         // Устанавливаем новый план
         subscription.setSubscriptionPlan(newPlan);
@@ -306,11 +310,11 @@ public class SubscriptionService {
             log.info("⬆️ Пользователь {} получил платную подписку до {}", userId, subscription.getSubscriptionEndDate());
         } else {
             subscription.setSubscriptionEndDate(null);
-            log.info("⬇️ Пользователь {} переведен на план {}", userId, code);
+            log.info("⬇️ Пользователь {} переведен на план {}", userId, parsedCode);
         }
 
         userSubscriptionRepository.save(subscription);
-        log.info("✅ Подписка пользователя с ID {} изменена на {} до {}", userId, code, subscription.getSubscriptionEndDate());
+        log.info("✅ Подписка пользователя с ID {} изменена на {} до {}", userId, parsedCode, subscription.getSubscriptionEndDate());
     }
 
     public UserSubscription createDefaultSubscriptionForUser(User user) {
@@ -326,7 +330,7 @@ public class SubscriptionService {
         return subscription;
     }
 
-    public Optional<String> parseCode(String name) {
+    private Optional<String> parseCode(String name) {
         if (name == null || name.isBlank()) {
             return Optional.empty();
         }
