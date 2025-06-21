@@ -6,6 +6,7 @@ import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.*;
 import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.model.subscription.FeatureKey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
@@ -60,7 +61,7 @@ public class TrackUpdateService {
      */
     @Transactional
     public UpdateResult updateAllParcels(Long userId) {
-        if (!subscriptionService.isFeatureEnabled(userId, "bulkUpdate")) {
+        if (!subscriptionService.isFeatureEnabled(userId, FeatureKey.BULK_UPDATE)) {
             String msg = "Обновление всех треков доступно только в премиум-версии.";
             log.warn("Отказано в доступе для пользователя ID: {}", userId);
 

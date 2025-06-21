@@ -16,6 +16,7 @@ import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.service.customer.CustomerStatsService;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
 import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.entity.CustomerNotificationLog;
 import com.project.tracking_system.entity.NotificationType;
@@ -600,7 +601,7 @@ public class DeliveryHistoryService {
         }
 
         Long ownerId = parcel.getStore().getOwner().getId();
-        boolean allowed = subscriptionService.isFeatureEnabled(ownerId, "telegramNotifications");
+        boolean allowed = subscriptionService.isFeatureEnabled(ownerId, FeatureKey.TELEGRAM_NOTIFICATIONS);
         if (!allowed) {
             return false;
         }
