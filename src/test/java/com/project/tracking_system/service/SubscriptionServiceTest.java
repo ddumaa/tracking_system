@@ -94,7 +94,7 @@ class SubscriptionServiceTest {
     @Test
     void upgradeOrExtendSubscription_ExtendPaidPlan() {
         SubscriptionPlan paidPlan = new SubscriptionPlan();
-        paidPlan.setPrice(new BigDecimal("10"));
+        paidPlan.setMonthlyPrice(new BigDecimal("10"));
         ZonedDateTime oldExpiry = ZonedDateTime.now(ZoneOffset.UTC).plusMonths(1);
 
         UserSubscription subscription = new UserSubscription();
@@ -116,10 +116,11 @@ class SubscriptionServiceTest {
     @Test
     void upgradeOrExtendSubscription_UpgradeFreePlan() {
         SubscriptionPlan freePlan = new SubscriptionPlan();
-        freePlan.setPrice(BigDecimal.ZERO);
+        freePlan.setMonthlyPrice(BigDecimal.ZERO);
+        freePlan.setAnnualPrice(BigDecimal.ZERO);
 
         SubscriptionPlan paidPlan = new SubscriptionPlan();
-        paidPlan.setPrice(new BigDecimal("5"));
+        paidPlan.setMonthlyPrice(new BigDecimal("5"));
 
         UserSubscription subscription = new UserSubscription();
         subscription.setUser(new User());
@@ -128,7 +129,7 @@ class SubscriptionServiceTest {
 
         when(userSubscriptionRepository.findByUserId(1L))
                 .thenReturn(Optional.of(subscription));
-        when(subscriptionPlanRepository.findFirstByPriceGreaterThan(BigDecimal.ZERO))
+        when(subscriptionPlanRepository.findFirstByMonthlyPriceGreaterThanOrAnnualPriceGreaterThan(BigDecimal.ZERO, BigDecimal.ZERO))
                 .thenReturn(Optional.of(paidPlan));
 
         subscriptionService.upgradeOrExtendSubscription(1L, 3);
@@ -172,5 +173,28 @@ class SubscriptionServiceTest {
                 .thenReturn(null);
 
         assertFalse(subscriptionService.isFeatureEnabled(3L, FeatureKey.BULK_UPDATE));
+    }
+
+    @Test
+    void changeSubscription_ToPaidPlan_SetsEndDate() {
+        UserSubscription subscription = new UserSubscription();
+        subscription.setUser(new User());
+        SubscriptionPlan currentPlan = new SubscriptionPlan();
+        currentPlan.setMonthlyPrice(BigDecimal.ZERO);
+        currentPlan.setAnnualPrice(BigDecimal.ZERO);
+        subscription.setSubscriptionPlan(currentPlan);
+
+        SubscriptionPlan paidPlan = new SubscriptionPlan();
+        paidPlan.setMonthlyPrice(new BigDecimal("7"));
+        paidPlan.setCode("PREMIUM");
+
+        when(userSubscriptionRepository.findByUserId(1L)).thenReturn(Optional.of(subscription));
+        when(subscriptionPlanRepository.findByCode("PREMIUM")).thenReturn(Optional.of(paidPlan));
+
+        subscriptionService.changeSubscription(1L, "PREMIUM", 1);
+
+        assertEquals(paidPlan, subscription.getSubscriptionPlan());
+        assertNotNull(subscription.getSubscriptionEndDate());
+        verify(userSubscriptionRepository).save(subscription);
     }
 }
