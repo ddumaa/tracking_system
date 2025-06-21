@@ -2,8 +2,10 @@ package com.project.tracking_system.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
+import java.util.Objects;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -17,7 +19,8 @@ import java.util.List;
 @NoArgsConstructor
 @Entity
 @Table(name = "subscription_plans")
-@Data
+@Getter
+@Setter
 public class SubscriptionPlan {
 
     @Id
@@ -69,6 +72,19 @@ public class SubscriptionPlan {
         // ищем соответствующую настройку в списке функций
         return features.stream()
                 .anyMatch(f -> key.equals(f.getFeatureKey()) && f.isEnabled());
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        SubscriptionPlan that = (SubscriptionPlan) o;
+        return Objects.equals(id, that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
     }
 
 }

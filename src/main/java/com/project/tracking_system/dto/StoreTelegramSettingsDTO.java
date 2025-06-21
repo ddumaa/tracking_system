@@ -3,13 +3,15 @@ package com.project.tracking_system.dto;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
 
 /**
  * DTO настроек Telegram для магазина.
  */
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 public class StoreTelegramSettingsDTO {
     private boolean enabled = true;

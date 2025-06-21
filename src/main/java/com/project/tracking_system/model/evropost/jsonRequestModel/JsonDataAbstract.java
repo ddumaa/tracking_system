@@ -2,7 +2,8 @@ package com.project.tracking_system.model.evropost.jsonRequestModel;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * Абстрактный класс для представления общих данных в JSON запросах, с динамическим типом.
@@ -15,7 +16,8 @@ import lombok.Data;
  * @author Dmitriy Anisimov
  * @date 07.01.2025
  */
-@Data
+@Getter
+@Setter
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
         include = JsonTypeInfo.As.PROPERTY,
