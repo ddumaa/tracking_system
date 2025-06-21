@@ -31,6 +31,13 @@ public class SubscriptionExpirationScheduler {
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
 
+    /**
+     * Проверяет истекшие подписки пользователей и переводит их на бесплатный тариф.
+     * <p>
+     * Метод запускается планировщиком и обновляет все подписки,
+     * у которых дата окончания ранее текущего момента.
+     * </p>
+     */
     public void checkExpiredSubscriptions() {
         ZonedDateTime nowUtc = ZonedDateTime.now(ZoneOffset.UTC);
 
