@@ -123,7 +123,7 @@ public class AdminService {
     /**
      * Получить все планы подписки.
      */
-    public List<SubscriptionPlan> getPlans() {
+    public List<SubscriptionPlanDTO> getPlans() {
         return subscriptionPlanService.getAllPlans();
     }
 
@@ -146,6 +146,25 @@ public class AdminService {
      */
     public SubscriptionPlan updatePlan(Long id, SubscriptionPlanDTO dto) {
         return subscriptionPlanService.updatePlan(id, dto);
+    }
+
+    /**
+     * Изменить активность плана.
+     *
+     * @param id     идентификатор плана
+     * @param active новый статус
+     */
+    public void setPlanActive(Long id, boolean active) {
+        subscriptionPlanService.setPlanActive(id, active);
+    }
+
+    /**
+     * Удалить тарифный план.
+     *
+     * @param id идентификатор плана
+     */
+    public void deletePlan(Long id) {
+        subscriptionPlanService.deletePlan(id);
     }
 
     /**

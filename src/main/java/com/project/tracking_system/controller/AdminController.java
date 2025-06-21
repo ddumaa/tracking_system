@@ -590,7 +590,6 @@ public class AdminController {
     @GetMapping("/plans")
     public String plans(Model model) {
         model.addAttribute("plans", adminService.getPlans());
-        model.addAttribute("codes", adminService.getPlans().stream().map(SubscriptionPlan::getCode).toList());
 
         List<BreadcrumbItemDTO> breadcrumbs = List.of(
                 new BreadcrumbItemDTO("Админ Панель", "/admin"),
@@ -607,7 +606,7 @@ public class AdminController {
      * @return редирект на страницу тарифов
      */
     @PostMapping("/plans")
-    public String createPlan(SubscriptionPlanDTO dto) {
+    public String createPlan(@ModelAttribute SubscriptionPlanDTO dto) {
         adminService.createPlan(dto);
         return "redirect:/admin/plans";
     }
@@ -620,8 +619,26 @@ public class AdminController {
      * @return редирект на страницу тарифов
      */
     @PostMapping("/plans/{id}")
-    public String updatePlan(@PathVariable Long id, SubscriptionPlanDTO dto) {
+    public String updatePlan(@PathVariable Long id, @ModelAttribute SubscriptionPlanDTO dto) {
         adminService.updatePlan(id, dto);
+        return "redirect:/admin/plans";
+    }
+
+    /**
+     * Отключить или включить тарифный план.
+     */
+    @PostMapping("/plans/{id}/active")
+    public String togglePlan(@PathVariable Long id, @RequestParam boolean active) {
+        adminService.setPlanActive(id, active);
+        return "redirect:/admin/plans";
+    }
+
+    /**
+     * Удалить тарифный план.
+     */
+    @PostMapping("/plans/{id}/delete")
+    public String deletePlan(@PathVariable Long id) {
+        adminService.deletePlan(id);
         return "redirect:/admin/plans";
     }
 
