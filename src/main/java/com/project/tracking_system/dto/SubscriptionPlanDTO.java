@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 
 /**
- * DTO для отображения с тарифных планов.
+ * DTO плана подписки с вложенными лимитами.
  */
 @Data
 @NoArgsConstructor
@@ -19,12 +19,7 @@ public class SubscriptionPlanDTO {
     private BigDecimal price;
     private Integer durationDays;
     private Boolean active;
-    private Integer maxTracksPerFile;
-    private Integer maxSavedTracks;
-    private Integer maxTrackUpdates;
-    private boolean allowBulkUpdate;
-    private Integer maxStores;
-    private boolean allowTelegramNotifications;
     private BigDecimal monthlyPrice;
     private BigDecimal annualPrice;
+    private SubscriptionLimitsDTO limits = new SubscriptionLimitsDTO();
 }

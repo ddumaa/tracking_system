@@ -1,6 +1,7 @@
 package com.project.tracking_system.service.admin;
 
 import com.project.tracking_system.dto.SubscriptionPlanDTO;
+import com.project.tracking_system.dto.SubscriptionLimitsDTO;
 import com.project.tracking_system.entity.SubscriptionPlan;
 import com.project.tracking_system.entity.SubscriptionLimits;
 import com.project.tracking_system.repository.SubscriptionPlanRepository;
@@ -26,10 +27,43 @@ public class SubscriptionPlanService {
     /**
      * Получить список всех тарифных планов.
      *
-     * @return список планов
+     * @return список планов в виде DTO
      */
-    public List<SubscriptionPlan> getAllPlans() {
-        return planRepository.findAll();
+    public List<SubscriptionPlanDTO> getAllPlans() {
+        return planRepository.findAll().stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    /**
+     * Преобразовать сущность плана в DTO.
+     *
+     * @param plan сущность плана
+     * @return DTO плана
+     */
+    public SubscriptionPlanDTO toDto(SubscriptionPlan plan) {
+        SubscriptionLimits limits = plan.getLimits();
+        SubscriptionLimitsDTO limitsDto = new SubscriptionLimitsDTO();
+        if (limits != null) {
+            limitsDto.setMaxTracksPerFile(limits.getMaxTracksPerFile());
+            limitsDto.setMaxSavedTracks(limits.getMaxSavedTracks());
+            limitsDto.setMaxTrackUpdates(limits.getMaxTrackUpdates());
+            limitsDto.setAllowBulkUpdate(limits.isAllowBulkUpdate());
+            limitsDto.setMaxStores(limits.getMaxStores());
+            limitsDto.setAllowTelegramNotifications(Boolean.TRUE.equals(limits.getAllowTelegramNotifications()));
+        }
+
+        SubscriptionPlanDTO dto = new SubscriptionPlanDTO();
+        dto.setCode(plan.getCode());
+        dto.setName(plan.getName());
+        dto.setDescription(plan.getDescription());
+        dto.setPrice(plan.getPrice());
+        dto.setDurationDays(plan.getDurationDays());
+        dto.setActive(plan.getActive());
+        dto.setMonthlyPrice(plan.getMonthlyPrice());
+        dto.setAnnualPrice(plan.getAnnualPrice());
+        dto.setLimits(limitsDto);
+        return dto;
     }
 
     /**
@@ -52,12 +86,16 @@ public class SubscriptionPlanService {
             limits.setSubscriptionPlan(plan);
             plan.setLimits(limits);
         }
-        limits.setMaxTracksPerFile(dto.getMaxTracksPerFile());
-        limits.setMaxSavedTracks(dto.getMaxSavedTracks());
-        limits.setMaxTrackUpdates(dto.getMaxTrackUpdates());
-        limits.setAllowBulkUpdate(dto.isAllowBulkUpdate());
-        limits.setMaxStores(dto.getMaxStores());
-        limits.setAllowTelegramNotifications(dto.isAllowTelegramNotifications());
+
+        SubscriptionLimitsDTO l = dto.getLimits();
+        if (l != null) {
+            limits.setMaxTracksPerFile(l.getMaxTracksPerFile());
+            limits.setMaxSavedTracks(l.getMaxSavedTracks());
+            limits.setMaxTrackUpdates(l.getMaxTrackUpdates());
+            limits.setAllowBulkUpdate(l.isAllowBulkUpdate());
+            limits.setMaxStores(l.getMaxStores());
+            limits.setAllowTelegramNotifications(l.isAllowTelegramNotifications());
+        }
 
         BigDecimal monthly = dto.getMonthlyPrice();
         if (monthly == null || monthly.compareTo(BigDecimal.ZERO) < 0) {
@@ -123,5 +161,30 @@ public class SubscriptionPlanService {
         return planRepository.findByCode(code)
                 .map(p -> p.getPrice().compareTo(BigDecimal.ZERO) > 0)
                 .orElse(false);
+    }
+
+    /**
+     * Изменить активность тарифного плана.
+     *
+     * @param id     идентификатор плана
+     * @param active новый статус
+     */
+    @Transactional
+    public void setPlanActive(Long id, boolean active) {
+        SubscriptionPlan plan = planRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("План не найден"));
+        plan.setActive(active);
+        log.info("Статус плана {} изменен на {}", id, active);
+    }
+
+    /**
+     * Удалить тарифный план.
+     *
+     * @param id идентификатор плана
+     */
+    @Transactional
+    public void deletePlan(Long id) {
+        planRepository.deleteById(id);
+        log.info("Удален тарифный план {}", id);
     }
 }
