@@ -46,4 +46,28 @@ class SubscriptionPlanRepositoryTest {
         assertEquals(new BigDecimal("9.99"), found.getMonthlyPrice());
         assertEquals(new BigDecimal("99.99"), found.getAnnualPrice());
     }
+
+    /**
+     * Проверяет поиск плана по его коду.
+     */
+    @Test
+    void findByCodeReturnsPlan() {
+        SubscriptionPlan plan = new SubscriptionPlan();
+        plan.setCode("FREE");
+
+        SubscriptionLimits limits = new SubscriptionLimits();
+        limits.setSubscriptionPlan(plan);
+        limits.setMaxTracksPerFile(1);
+        limits.setMaxSavedTracks(1);
+        limits.setMaxTrackUpdates(1);
+        limits.setAllowBulkUpdate(false);
+        limits.setMaxStores(1);
+        limits.setAllowTelegramNotifications(false);
+        plan.setLimits(limits);
+
+        repository.save(plan);
+
+        SubscriptionPlan found = repository.findByCode("FREE").orElseThrow();
+        assertEquals("FREE", found.getCode());
+    }
 }
