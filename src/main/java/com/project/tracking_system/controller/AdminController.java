@@ -180,7 +180,8 @@ public class AdminController {
     /**
      * Отображает детальную информацию о выбранном пользователе.
      *
-     * Загружает в модель список магазинов пользователя и связанные посылки.
+     * Загружает в модель список магазинов пользователя и связанные посылки,
+     * а также список доступных тарифных планов для изменения подписки.
      *
      * @param userId идентификатор пользователя
      * @param model  модель для передачи деталей пользователя
@@ -204,12 +205,14 @@ public class AdminController {
         UserSubscription subscription = user.getSubscription();
 
         String code = null;
+        String planName = null;
         String subscriptionEndDate = null;
 
         if (subscription != null) {
             SubscriptionPlan plan = subscription.getSubscriptionPlan();
             if (plan != null) {
                 code = plan.getCode();
+                planName = plan.getName();
             }
 
             if (subscription.getSubscriptionEndDate() != null) {
@@ -222,6 +225,7 @@ public class AdminController {
                 user.getId(),
                 user.getEmail(),
                 user.getRole(),
+                planName,
                 code,
                 subscriptionEndDate
         );
@@ -229,6 +233,8 @@ public class AdminController {
         model.addAttribute("user", adminInfoDTO);
         model.addAttribute("stores", stores);
         model.addAttribute("storeParcels", storeParcels);
+        // Список доступных тарифов для смены подписки
+        model.addAttribute("plans", adminService.getPlans());
 
         // Хлебные крошки
         List<BreadcrumbItemDTO> breadcrumbs = List.of(
@@ -256,14 +262,15 @@ public class AdminController {
     }
 
     /**
-     * Изменяет подписку пользователя.
+     * Изменяет тарифный план пользователя.
      * <p>
-     * При выборе премиум-плана возможно продление подписки на указанное количество месяцев.
+     * При выборе платного плана можно указать срок действия в месяцах. Для бесплатных
+     * тарифов дата окончания обнуляется.
      * </p>
      *
      * @param userId           идентификатор пользователя
-     * @param subscriptionPlan название плана подписки
-     * @param months           количество месяцев продления (необязательно)
+     * @param subscriptionPlan код нового плана подписки
+     * @param months           срок действия в месяцах (для платных тарифов)
      * @return редирект на страницу деталей пользователя
      */
     @PostMapping("/users/{userId}/change-subscription")
@@ -274,10 +281,11 @@ public class AdminController {
             if (months == null || months <= 0) {
                 months = 1; // защита от некорректных значений
             }
-            subscriptionService.upgradeOrExtendSubscription(userId, months);
         } else {
-            subscriptionService.changeSubscription(userId, subscriptionPlan, null);
+            months = null; // для бесплатных тарифов срок не нужен
         }
+
+        subscriptionService.changeSubscription(userId, subscriptionPlan, months);
         return "redirect:/admin/users/" + userId;
     }
 
