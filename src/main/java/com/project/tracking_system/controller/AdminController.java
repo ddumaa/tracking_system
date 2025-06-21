@@ -642,4 +642,28 @@ public class AdminController {
         return "redirect:/admin/plans";
     }
 
+    /**
+     * Переместить тариф вверх в списке.
+     *
+     * @param id идентификатор плана
+     * @return редирект на страницу тарифов
+     */
+    @PostMapping("/plans/{id}/move-up")
+    public String movePlanUp(@PathVariable Long id) {
+        subscriptionPlanService.movePlanUp(id);
+        return "redirect:/admin/plans";
+    }
+
+    /**
+     * Переместить тариф вниз в списке.
+     *
+     * @param id идентификатор плана
+     * @return редирект на страницу тарифов
+     */
+    @PostMapping("/plans/{id}/move-down")
+    public String movePlanDown(@PathVariable Long id) {
+        subscriptionPlanService.movePlanDown(id);
+        return "redirect:/admin/plans";
+    }
+
 }

@@ -42,6 +42,8 @@
                 <td class="text-center"><input type="checkbox" name="active" th:checked="${plan.active}" /></td>
                 <td>
                     <button type="submit" class="btn btn-success btn-sm me-1">Сохранить</button>
+                    <button type="submit" class="btn btn-secondary btn-sm me-1" th:formaction="@{/admin/plans/{id}/move-up(id=${plan.id})}" formmethod="post">⬆️</button>
+                    <button type="submit" class="btn btn-secondary btn-sm me-1" th:formaction="@{/admin/plans/{id}/move-down(id=${plan.id})}" formmethod="post">⬇️</button>
                     <button type="submit" class="btn btn-danger btn-sm" th:formaction="@{/admin/plans/{id}/delete(id=${plan.id})}" formmethod="post">Удалить</button>
                 </td>
             </form>

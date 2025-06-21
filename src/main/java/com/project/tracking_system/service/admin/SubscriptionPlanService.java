@@ -32,7 +32,7 @@ public class SubscriptionPlanService {
      * @return список планов в виде DTO
      */
     public List<SubscriptionPlanDTO> getAllPlans() {
-        return planRepository.findAll().stream()
+        return planRepository.findAllByOrderByPositionAsc().stream()
                 .map(this::toDto)
                 .toList();
     }
@@ -120,6 +120,9 @@ public class SubscriptionPlanService {
     public SubscriptionPlan createPlan(SubscriptionPlanDTO dto) {
         SubscriptionPlan plan = new SubscriptionPlan();
         fillFromDto(plan, dto);
+        // устанавливаем позицию в конец списка
+        int nextPos = planRepository.findMaxPosition().orElse(0) + 1;
+        plan.setPosition(nextPos);
         log.info("Создан тарифный план {}", dto.getCode());
         return planRepository.save(plan);
     }
@@ -173,7 +176,9 @@ public class SubscriptionPlanService {
      * @throws IllegalStateException если план не найден в базе
      */
     public SubscriptionPlan getFreePlan() {
-        return planRepository.findFirstByPrice(BigDecimal.ZERO)
+        return planRepository.findAllByOrderByPositionAsc().stream()
+                .filter(p -> p.getPrice().compareTo(BigDecimal.ZERO) == 0)
+                .findFirst()
                 .orElseThrow(() -> new IllegalStateException("Бесплатный план не найден"));
     }
 
@@ -212,5 +217,53 @@ public class SubscriptionPlanService {
     public void deletePlan(Long id) {
         planRepository.deleteById(id);
         log.info("Удален тарифный план {}", id);
+    }
+
+    /**
+     * Переместить тарифный план вверх по позиции.
+     *
+     * @param id идентификатор плана
+     */
+    @Transactional
+    public void movePlanUp(Long id) {
+        List<SubscriptionPlan> plans = planRepository.findAllByOrderByPositionAsc();
+
+        for (int i = 1; i < plans.size(); i++) {
+            SubscriptionPlan current = plans.get(i);
+            if (current.getId().equals(id)) {
+                SubscriptionPlan previous = plans.get(i - 1);
+                // меняем позиции местами
+                int pos = current.getPosition();
+                current.setPosition(previous.getPosition());
+                previous.setPosition(pos);
+                planRepository.save(previous);
+                planRepository.save(current);
+                break;
+            }
+        }
+    }
+
+    /**
+     * Переместить тарифный план вниз по позиции.
+     *
+     * @param id идентификатор плана
+     */
+    @Transactional
+    public void movePlanDown(Long id) {
+        List<SubscriptionPlan> plans = planRepository.findAllByOrderByPositionAsc();
+
+        for (int i = 0; i < plans.size() - 1; i++) {
+            SubscriptionPlan current = plans.get(i);
+            if (current.getId().equals(id)) {
+                SubscriptionPlan next = plans.get(i + 1);
+                // меняем позиции местами
+                int pos = current.getPosition();
+                current.setPosition(next.getPosition());
+                next.setPosition(pos);
+                planRepository.save(current);
+                planRepository.save(next);
+                break;
+            }
+        }
     }
 }

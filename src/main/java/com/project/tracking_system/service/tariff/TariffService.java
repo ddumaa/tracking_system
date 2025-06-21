@@ -33,7 +33,7 @@ public class TariffService {
      * @return список планов в виде DTO
      */
     public List<SubscriptionPlanViewDTO> getAllPlans() {
-        return planRepository.findAll()
+        return planRepository.findAllByOrderByPositionAsc()
                 .stream()
                 .map(this::toViewDto)
                 .collect(Collectors.toList());
