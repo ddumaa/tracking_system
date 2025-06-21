@@ -600,7 +600,7 @@ public class DeliveryHistoryService {
         }
 
         Long ownerId = parcel.getStore().getOwner().getId();
-        boolean allowed = subscriptionService.canUseTelegramNotifications(ownerId);
+        boolean allowed = subscriptionService.isFeatureEnabled(ownerId, "telegramNotifications");
         if (!allowed) {
             return false;
         }

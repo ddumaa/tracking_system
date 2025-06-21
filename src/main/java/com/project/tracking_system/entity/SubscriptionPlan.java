@@ -48,4 +48,21 @@ public class SubscriptionPlan {
     @Column(name = "annual_price", nullable = false)
     private java.math.BigDecimal annualPrice = java.math.BigDecimal.ZERO;
 
+    /**
+     * Проверяет, доступна ли указанная возможность в тарифе.
+     *
+     * @param key ключ функции (bulkUpdate, telegramNotifications и т.д.)
+     * @return {@code true}, если возможность включена
+     */
+    public boolean isFeatureEnabled(String key) {
+        if (limits == null) {
+            return false;
+        }
+        return switch (key) {
+            case "telegramNotifications" -> Boolean.TRUE.equals(limits.getAllowTelegramNotifications());
+            case "bulkUpdate" -> limits.isAllowBulkUpdate();
+            default -> false;
+        };
+    }
+
 }

@@ -167,18 +167,7 @@ public class SubscriptionService {
      * @return {@code true}, если тарифный план позволяет массовое обновление
      */
     public boolean canUseBulkUpdate(Long userId) {
-        UserSubscription subscription = userSubscriptionRepository.findByUserId(userId)
-                .orElse(null);
-
-        if (subscription == null) {
-            log.warn("Пользователь {} не имеет активной подписки. Массовое обновление недоступно.", userId);
-            return false;
-        }
-
-        SubscriptionPlan plan = subscription.getSubscriptionPlan();
-        SubscriptionLimits limits = (plan != null) ? plan.getLimits() : null;
-        boolean allowed = limits != null && limits.isAllowBulkUpdate();
-
+        boolean allowed = isFeatureEnabled(userId, "bulkUpdate");
         log.debug("Пользователь {} пытается использовать массовое обновление. Доступ: {}", userId, allowed);
         return allowed;
     }
@@ -190,14 +179,27 @@ public class SubscriptionService {
      * @return {@code true}, если тарифный план пользователя позволяет Telegram-уведомления
      */
     public boolean canUseTelegramNotifications(Long userId) {
+        boolean allowed = isFeatureEnabled(userId, "telegramNotifications");
+        if (!allowed) {
+            log.warn("Пользователь {} не имеет активной подписки или функция Telegram недоступна.", userId);
+        }
+        return allowed;
+    }
+
+    /**
+     * Проверяет доступность функции для указанного пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @param key    ключ функции
+     * @return {@code true}, если функция доступна
+     */
+    public boolean isFeatureEnabled(Long userId, String key) {
         String code = userSubscriptionRepository.getSubscriptionPlanCode(userId);
         if (code == null) {
-            log.warn("Пользователь {} не имеет активной подписки. Telegram недоступен.", userId);
             return false;
         }
         return subscriptionPlanRepository.findByCode(code)
-                .map(SubscriptionPlan::getLimits)
-                .map(l -> Boolean.TRUE.equals(l.getAllowTelegramNotifications()))
+                .map(plan -> plan.isFeatureEnabled(key))
                 .orElse(false);
     }
 

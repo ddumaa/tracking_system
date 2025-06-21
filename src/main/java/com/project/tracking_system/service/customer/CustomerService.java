@@ -221,7 +221,7 @@ public class CustomerService {
                 .map(User::getId)
                 .orElse(null);
 
-        return ownerId != null && subscriptionService.canUseTelegramNotifications(ownerId);
+        return ownerId != null && subscriptionService.isFeatureEnabled(ownerId, "telegramNotifications");
     }
 
     private CustomerInfoDTO toInfoDto(Customer customer) {
