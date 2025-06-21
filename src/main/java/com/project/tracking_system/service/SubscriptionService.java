@@ -4,6 +4,7 @@ import com.project.tracking_system.entity.SubscriptionPlan;
 import com.project.tracking_system.entity.SubscriptionLimits;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.UserSubscription;
+import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.SubscriptionPlanRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
@@ -167,7 +168,7 @@ public class SubscriptionService {
      * @return {@code true}, если тарифный план позволяет массовое обновление
      */
     public boolean canUseBulkUpdate(Long userId) {
-        boolean allowed = isFeatureEnabled(userId, "bulkUpdate");
+        boolean allowed = isFeatureEnabled(userId, FeatureKey.BULK_UPDATE);
         log.debug("Пользователь {} пытается использовать массовое обновление. Доступ: {}", userId, allowed);
         return allowed;
     }
@@ -179,7 +180,7 @@ public class SubscriptionService {
      * @return {@code true}, если тарифный план пользователя позволяет Telegram-уведомления
      */
     public boolean canUseTelegramNotifications(Long userId) {
-        boolean allowed = isFeatureEnabled(userId, "telegramNotifications");
+        boolean allowed = isFeatureEnabled(userId, FeatureKey.TELEGRAM_NOTIFICATIONS);
         if (!allowed) {
             log.warn("Пользователь {} не имеет активной подписки или функция Telegram недоступна.", userId);
         }
@@ -193,7 +194,7 @@ public class SubscriptionService {
      * @param key    ключ функции
      * @return {@code true}, если функция доступна
      */
-    public boolean isFeatureEnabled(Long userId, String key) {
+    public boolean isFeatureEnabled(Long userId, FeatureKey key) {
         String code = userSubscriptionRepository.getSubscriptionPlanCode(userId);
         if (code == null) {
             return false;

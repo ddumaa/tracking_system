@@ -6,6 +6,7 @@ import com.project.tracking_system.entity.StoreTelegramSettings;
 import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.controller.WebSocketController;
+import com.project.tracking_system.model.subscription.FeatureKey;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,7 +40,7 @@ public class StoreTelegramSettingsService {
     public void update(Store store, StoreTelegramSettingsDTO dto, Long userId) {
         boolean enableRequested = dto.isEnabled();
 
-        if (enableRequested && !subscriptionService.isFeatureEnabled(userId, "telegramNotifications")) {
+        if (enableRequested && !subscriptionService.isFeatureEnabled(userId, FeatureKey.TELEGRAM_NOTIFICATIONS)) {
             String msg = "Telegram-уведомления недоступны на вашем тарифе.";
             webSocketController.sendUpdateStatus(userId, msg, false);
             log.warn("⛔ Попытка включить Telegram-уведомления магазином ID={} без премиум-подписки", store.getId());

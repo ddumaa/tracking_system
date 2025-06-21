@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.project.tracking_system.model.subscription.FeatureKey;
 import java.math.BigDecimal;
 
 /**
@@ -51,17 +52,16 @@ public class SubscriptionPlan {
     /**
      * Проверяет, доступна ли указанная возможность в тарифе.
      *
-     * @param key ключ функции (bulkUpdate, telegramNotifications и т.д.)
+     * @param key ключ функции
      * @return {@code true}, если возможность включена
      */
-    public boolean isFeatureEnabled(String key) {
-        if (limits == null) {
+    public boolean isFeatureEnabled(FeatureKey key) {
+        if (limits == null || key == null) {
             return false;
         }
         return switch (key) {
-            case "telegramNotifications" -> Boolean.TRUE.equals(limits.getAllowTelegramNotifications());
-            case "bulkUpdate" -> limits.isAllowBulkUpdate();
-            default -> false;
+            case TELEGRAM_NOTIFICATIONS -> Boolean.TRUE.equals(limits.getAllowTelegramNotifications());
+            case BULK_UPDATE -> limits.isAllowBulkUpdate();
         };
     }
 
