@@ -27,6 +27,21 @@ public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPl
     Optional<SubscriptionPlan> findFirstByPrice(BigDecimal price);
 
     /**
+     * Получить все тарифы, отсортированные по позиции.
+     *
+     * @return список тарифных планов
+     */
+    List<SubscriptionPlan> findAllByOrderByPositionAsc();
+
+    /**
+     * Найти максимальную позицию среди тарифных планов.
+     *
+     * @return максимальная позиция или {@code Optional.empty()}
+     */
+    @Query("SELECT MAX(sp.position) FROM SubscriptionPlan sp")
+    Optional<Integer> findMaxPosition();
+
+    /**
      * Найти первый план с ценой выше указанной.
      *
      * @param price минимальная цена плана

@@ -44,6 +44,6 @@ public class AppInfoService {
      * @return список тарифных планов
      */
     public List<SubscriptionPlan> getPlans() {
-        return planRepository.findAll();
+        return planRepository.findAllByOrderByPositionAsc();
     }
 }

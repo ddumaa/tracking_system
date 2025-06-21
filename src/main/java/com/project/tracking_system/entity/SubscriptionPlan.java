@@ -50,6 +50,12 @@ public class SubscriptionPlan {
     private java.math.BigDecimal annualPrice = java.math.BigDecimal.ZERO;
 
     /**
+     * Позиция плана в отсортированном списке.
+     */
+    @Column(nullable = false)
+    private int position;
+
+    /**
      * Проверяет, доступна ли указанная возможность в тарифе.
      *
      * @param key ключ функции

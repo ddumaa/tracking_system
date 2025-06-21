@@ -64,7 +64,7 @@ class TariffServiceTest {
 
     @Test
     void getAllPlans_ReturnsDtosWithCalculatedLabels() {
-        when(planRepository.findAll()).thenReturn(List.of(plan));
+        when(planRepository.findAllByOrderByPositionAsc()).thenReturn(List.of(plan));
 
         List<SubscriptionPlanViewDTO> dtos = tariffService.getAllPlans();
 

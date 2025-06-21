@@ -80,4 +80,29 @@ class SubscriptionPlanRepositoryTest {
         SubscriptionPlan found = repository.findByCode("FREE").orElseThrow();
         assertEquals("FREE", found.getCode());
     }
+
+    /**
+     * Проверяет сортировку планов по позиции.
+     */
+    @Test
+    void findAllByOrderByPositionAsc_ReturnsSorted() {
+        SubscriptionPlan first = new SubscriptionPlan();
+        first.setCode("A");
+        first.setPosition(2);
+        first.setLimits(new SubscriptionLimits());
+
+        SubscriptionPlan second = new SubscriptionPlan();
+        second.setCode("B");
+        second.setPosition(1);
+        second.setLimits(new SubscriptionLimits());
+
+        repository.save(first);
+        repository.save(second);
+
+        java.util.List<SubscriptionPlan> plans = repository.findAllByOrderByPositionAsc();
+
+        assertEquals(2, plans.size());
+        assertEquals("B", plans.get(0).getCode());
+        assertEquals("A", plans.get(1).getCode());
+    }
 }
