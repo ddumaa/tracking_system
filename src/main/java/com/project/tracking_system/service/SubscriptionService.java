@@ -282,7 +282,7 @@ public class SubscriptionService {
      * </p>
      *
      * @param userId      идентификатор пользователя
-     * @param newPlanName название нового плана
+     * @param code        код нового плана
      * @param months      срок действия в месяцах (применяется для платных планов)
      * @throws IllegalArgumentException если подписка пользователя или новый план не найдены
      */
