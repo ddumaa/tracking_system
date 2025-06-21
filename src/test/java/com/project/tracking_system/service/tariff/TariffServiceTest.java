@@ -40,7 +40,6 @@ class TariffServiceTest {
         plan = new SubscriptionPlan();
         plan.setCode("PREMIUM");
         plan.setName("Premium");
-        plan.setDescription("Premium plan");
         plan.setMonthlyPrice(new BigDecimal("15"));
         plan.setAnnualPrice(new BigDecimal("150"));
 
@@ -72,7 +71,6 @@ class TariffServiceTest {
         assertEquals(1, dtos.size());
         SubscriptionPlanViewDTO dto = dtos.get(0);
         assertEquals("Premium", dto.getName());
-        assertEquals("Premium plan", dto.getDescription());
         assertEquals("15.00 BYN/мес", dto.getMonthlyPriceLabel());
         assertEquals("150.00 BYN/год", dto.getAnnualPriceLabel());
         assertEquals("180.00 BYN", dto.getAnnualFullPriceLabel());
@@ -85,7 +83,6 @@ class TariffServiceTest {
 
         assertEquals("PREMIUM", dto.getCode());
         assertEquals("Premium", dto.getName());
-        assertEquals("Premium plan", dto.getDescription());
         assertEquals(5, dto.getMaxTracksPerFile());
         assertEquals(100, dto.getMaxSavedTracks());
         assertTrue(dto.isAllowBulkUpdate());

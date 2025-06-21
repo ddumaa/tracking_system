@@ -60,9 +60,7 @@ public class SubscriptionPlanService {
         dto.setId(plan.getId());
         dto.setCode(plan.getCode());
         dto.setName(plan.getName());
-        dto.setDescription(plan.getDescription());
         dto.setPrice(plan.getPrice());
-        dto.setDurationDays(plan.getDurationDays());
         dto.setActive(plan.getActive());
         dto.setMonthlyPrice(plan.getMonthlyPrice());
         dto.setAnnualPrice(plan.getAnnualPrice());
@@ -79,9 +77,7 @@ public class SubscriptionPlanService {
     private void fillFromDto(SubscriptionPlan plan, SubscriptionPlanDTO dto) {
         plan.setCode(dto.getCode());
         plan.setName(dto.getName());
-        plan.setDescription(dto.getDescription());
         plan.setPrice(dto.getPrice());
-        plan.setDurationDays(dto.getDurationDays());
         plan.setActive(dto.getActive());
 
         SubscriptionLimits limits = plan.getLimits();

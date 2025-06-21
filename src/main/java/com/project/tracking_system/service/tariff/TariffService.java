@@ -90,7 +90,6 @@ public class TariffService {
         return new SubscriptionPlanViewDTO(
                 plan.getCode(),
                 plan.getName(),
-                plan.getDescription(),
                 limits.getMaxTracksPerFile(),
                 limits.getMaxSavedTracks(),
                 limits.getMaxTrackUpdates(),
