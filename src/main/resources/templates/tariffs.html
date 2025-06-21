@@ -88,7 +88,8 @@
 
                         <!-- 🔒 FREE: тариф по умолчанию -->
                         <div th:if="${plan.code == 'FREE' && (userProfile == null || userProfile.subscriptionCode != plan.code)}" class="mt-auto">
-                            <button class="btn btn-outline-secondary w-100" disabled th:text="Ваш тариф">
+                            <a th:if="${authenticatedUser == null}" href="/registration" class="btn btn-primary w-100">Зарегистрироваться</a>
+                            <button th:if="${authenticatedUser != null}" class="btn btn-outline-secondary w-100" disabled th:text="Ваш тариф">
                             </button>
                         </div>
 
