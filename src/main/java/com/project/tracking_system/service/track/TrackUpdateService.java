@@ -60,7 +60,7 @@ public class TrackUpdateService {
      */
     @Transactional
     public UpdateResult updateAllParcels(Long userId) {
-        if (!subscriptionService.canUseBulkUpdate(userId)) {
+        if (!subscriptionService.isFeatureEnabled(userId, "bulkUpdate")) {
             String msg = "Обновление всех треков доступно только в премиум-версии.";
             log.warn("Отказано в доступе для пользователя ID: {}", userId);
 
