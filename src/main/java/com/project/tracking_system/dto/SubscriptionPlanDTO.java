@@ -1,7 +1,8 @@
 package com.project.tracking_system.dto;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
@@ -9,7 +10,8 @@ import java.math.BigDecimal;
 /**
  * DTO плана подписки с вложенными лимитами.
  */
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class SubscriptionPlanDTO {

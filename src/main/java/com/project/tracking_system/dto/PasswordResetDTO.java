@@ -3,14 +3,16 @@ package com.project.tracking_system.dto;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
 @NoArgsConstructor
 @AllArgsConstructor
-@Data
+@Getter
+@Setter
 public class PasswordResetDTO {
 
     @NotEmpty(message = "Поле 'Новый пароль' не должно быть пустым")

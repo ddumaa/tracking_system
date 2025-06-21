@@ -1,7 +1,8 @@
 package com.project.tracking_system.model.evropost.jsonRequestModel;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -17,7 +18,8 @@ import org.springframework.stereotype.Component;
  * @date 07.01.2025
  */
 @Component
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class JsonData {
