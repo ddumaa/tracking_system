@@ -45,7 +45,7 @@
         </thead>
         <tbody>
         <tr th:each="plan : ${plans}">
-            <td th:text="${plan.code.displayName}"></td>
+            <td th:text="${plan.name}"></td>
             <td th:text="${plan.maxTracksPerFile != null ? plan.maxTracksPerFile : '∞'}"></td>
             <td th:text="${plan.maxSavedTracks != null ? plan.maxSavedTracks : '∞'}"></td>
             <td th:text="${plan.maxTrackUpdates != null ? plan.maxTrackUpdates : '∞'}"></td>

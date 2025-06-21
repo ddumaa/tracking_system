@@ -27,7 +27,7 @@
                 <div class="card h-100 shadow-sm border-0 rounded-4 d-flex flex-column">
 
                     <!-- Название -->
-                    <h3 class="text-center fw-bold fs-3 mt-3 mb-1" th:text="${plan.code.displayName}">Premium</h3>
+                    <h3 class="text-center fw-bold fs-3 mt-3 mb-1" th:text="${plan.name}">Premium</h3>
 
                     <!-- Цена (ежемесячно) -->
                     <p class="text-center mb-2 mt-2 fw-semibold fs-5 price-monthly text-dark"
@@ -79,18 +79,18 @@
 
 
                         <!-- 🔒 FREE: если у пользователя PREMIUM → отключена -->
-                        <div th:if="${plan.code.name() == 'FREE'}" class="mt-auto">
+                        <div th:if="${plan.code == 'FREE'}" class="mt-auto">
                             <button class="btn btn-outline-secondary w-100" disabled
-                                    th:text="${userProfile != null && userProfile.subscriptionCode.name() == 'PREMIUM' ? 'У вас активен платный тариф' : 'Ваш тариф'}">
+                                    th:text="${userProfile != null && userProfile.subscriptionCode == 'PREMIUM' ? 'У вас активен платный тариф' : 'Ваш тариф'}">
                             </button>
                         </div>
 
                         <!-- ✅ PREMIUM: если уже активен → продление -->
-                        <form th:if="${plan.code.name() == 'PREMIUM'}" th:action="@{/tariffs/upgrade}" method="post" class="mt-auto">
+                        <form th:if="${plan.code == 'PREMIUM'}" th:action="@{/tariffs/upgrade}" method="post" class="mt-auto">
                             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                             <input type="hidden" id="monthsInput" name="months" value="1"/>
                             <button type="submit" class="btn btn-primary w-100"
-                                    th:text="${userProfile != null && userProfile.subscriptionCode.name() == 'PREMIUM' ? 'Ваш тариф активен до ' + userProfile.subscriptionEndDate : 'Перейти на Premium'}">
+                                    th:text="${userProfile != null && userProfile.subscriptionCode == 'PREMIUM' ? 'Ваш тариф активен до ' + userProfile.subscriptionEndDate : 'Перейти на Premium'}">
                             </button>
                         </form>
 
