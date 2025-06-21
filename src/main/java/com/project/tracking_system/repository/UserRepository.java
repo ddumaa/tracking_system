@@ -1,7 +1,6 @@
 package com.project.tracking_system.repository;
 
 import com.project.tracking_system.entity.Role;
-import com.project.tracking_system.entity.SubscriptionCode;
 import com.project.tracking_system.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -34,7 +33,15 @@ public interface UserRepository extends JpaRepository <User, Long> {
      * @param planCode код подписки (FREE, PREMIUM)
      * @return число пользователей с таким тарифом
      */
-    long countBySubscription_SubscriptionPlan_Code(SubscriptionCode code);
+    long countBySubscription_SubscriptionPlan_Code(String code);
+
+    /**
+     * Подсчитать пользователей с платными тарифами.
+     *
+     * @param price минимальная цена тарифа
+     * @return количество пользователей с тарифом дороже указанной цены
+     */
+    long countBySubscription_SubscriptionPlan_PriceGreaterThan(java.math.BigDecimal price);
 
     /**
      * Найти пользователей по фильтрам: часть email, роль и код подписки.
@@ -54,6 +61,6 @@ public interface UserRepository extends JpaRepository <User, Long> {
     """)
     List<User> findByFilters(@Param("search") String search,
                              @Param("role") Role role,
-                             @Param("subscription") SubscriptionCode subscription);
+                             @Param("subscription") String subscription);
 
 }

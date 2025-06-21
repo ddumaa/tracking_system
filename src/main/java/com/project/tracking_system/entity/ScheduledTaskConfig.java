@@ -1,13 +1,16 @@
 package com.project.tracking_system.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
+import java.util.Objects;
 
 /**
  * Конфигурация планируемой задачи.
  */
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @Entity
 @Table(name = "tb_scheduled_task_config")
@@ -32,5 +35,18 @@ public class ScheduledTaskConfig {
         if (zone == null || zone.isBlank()) {
             zone = "UTC";
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ScheduledTaskConfig that = (ScheduledTaskConfig) o;
+        return Objects.equals(id, that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
     }
 }

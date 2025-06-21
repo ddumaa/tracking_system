@@ -6,7 +6,7 @@ import com.project.tracking_system.repository.PasswordResetTokenRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.service.email.EmailService;
 import com.project.tracking_system.utils.EmailUtils;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;

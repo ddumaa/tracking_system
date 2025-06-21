@@ -4,7 +4,6 @@ import com.project.tracking_system.dto.SubscriptionPlanViewDTO;
 import com.project.tracking_system.dto.UserProfileDTO;
 import com.project.tracking_system.service.tariff.TariffService;
 import com.project.tracking_system.service.user.UserService;
-import com.project.tracking_system.service.SubscriptionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -28,7 +27,6 @@ public class TariffController {
 
     private final TariffService tariffService;
     private final UserService userService;
-    private final SubscriptionService subscriptionService;
 
     /**
      * Отображает страницу с тарифными планами.
@@ -40,18 +38,22 @@ public class TariffController {
     @GetMapping
     public String tariffs(Model model, Authentication authentication) {
         Long userId = userService.extractUserId(authentication);
+        Integer userPlanPosition = null;
         if (userId != null) {
             // пользователь авторизован
             model.addAttribute("authenticatedUser", userId);
 
-            // проверяем, активен ли премиум-план, чтобы избежать ошибок вывода
-            if (subscriptionService.isUserPremium(userId)) {
-                UserProfileDTO profile = userService.getUserProfile(userId);
-                model.addAttribute("userProfile", profile);
+            // загружаем профиль пользователя для отображения тарифа
+            UserProfileDTO profile = userService.getUserProfile(userId);
+            model.addAttribute("userProfile", profile);
+
+            if (profile.getSubscriptionCode() != null) {
+                userPlanPosition = tariffService.getPlanPositionByCode(profile.getSubscriptionCode());
             }
         }
         List<SubscriptionPlanViewDTO> plans = tariffService.getAllPlans();
         model.addAttribute("plans", plans);
+        model.addAttribute("userPlanPosition", userPlanPosition);
         return "tariffs";
     }
 
@@ -73,6 +75,29 @@ public class TariffController {
             months = 1;
         }
         tariffService.upgradeUser(userId, months);
+        return "redirect:/profile";
+    }
+
+    /**
+     * Покупает выбранный тарифный план для пользователя.
+     *
+     * @param planCode       код плана
+     * @param months         срок в месяцах
+     * @param authentication текущая аутентификация
+     * @return редирект на страницу профиля
+     */
+    @PostMapping("/buy")
+    public String buy(@RequestParam("plan") String planCode,
+                      @RequestParam(value = "months", defaultValue = "1") int months,
+                      Authentication authentication) {
+        Long userId = userService.extractUserId(authentication);
+        if (userId == null) {
+            return "redirect:/login";
+        }
+        if (months <= 0) {
+            months = 1;
+        }
+        tariffService.buyPlan(userId, planCode, months);
         return "redirect:/profile";
     }
 }

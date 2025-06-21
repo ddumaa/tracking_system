@@ -107,8 +107,7 @@ public class AdminService {
                         Optional.ofNullable(s.getTelegramSettings()).map(StoreTelegramSettings::isRemindersEnabled).orElse(false),
                         Optional.ofNullable(s.getOwner().getSubscription())
                                 .map(UserSubscription::getSubscriptionPlan)
-                                .map(SubscriptionPlan::getCode)
-                                .map(SubscriptionCode::getDisplayName)
+                                .map(SubscriptionPlan::getName)
                                 .orElse("NONE")
                 ))
                 .collect(Collectors.toList());
@@ -124,7 +123,7 @@ public class AdminService {
     /**
      * Получить все планы подписки.
      */
-    public List<SubscriptionPlan> getPlans() {
+    public List<SubscriptionPlanDTO> getPlans() {
         return subscriptionPlanService.getAllPlans();
     }
 
@@ -147,6 +146,25 @@ public class AdminService {
      */
     public SubscriptionPlan updatePlan(Long id, SubscriptionPlanDTO dto) {
         return subscriptionPlanService.updatePlan(id, dto);
+    }
+
+    /**
+     * Изменить активность плана.
+     *
+     * @param id     идентификатор плана
+     * @param active новый статус
+     */
+    public void setPlanActive(Long id, boolean active) {
+        subscriptionPlanService.setPlanActive(id, active);
+    }
+
+    /**
+     * Удалить тарифный план.
+     *
+     * @param id идентификатор плана
+     */
+    public void deletePlan(Long id) {
+        subscriptionPlanService.deletePlan(id);
     }
 
     /**
@@ -192,7 +210,7 @@ public class AdminService {
      * @param subscription название плана подписки
      * @return список DTO с информацией о пользователях
      */
-    public List<UserListAdminInfoDTO> getUsers(String search, String role, SubscriptionCode subscription) {
+    public List<UserListAdminInfoDTO> getUsers(String search, String role, String subscription) {
         Role roleEnum = null;
         if (role != null && !role.isBlank()) {
             try {
@@ -211,10 +229,10 @@ public class AdminService {
         List<UserListAdminInfoDTO> result = new ArrayList<>();
 
         for (User u : users) {
-            SubscriptionCode code = Optional.ofNullable(u.getSubscription())
+            String code = Optional.ofNullable(u.getSubscription())
                     .map(UserSubscription::getSubscriptionPlan)
                     .map(SubscriptionPlan::getCode)
-                    .orElse(SubscriptionCode.FREE);
+                    .orElseGet(() -> subscriptionPlanService.getFreePlan().getCode());
 
             result.add(new UserListAdminInfoDTO(
                     u.getId(),

@@ -1,7 +1,8 @@
 package com.project.tracking_system.dto;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -11,7 +12,8 @@ import java.util.List;
 @Component
 @NoArgsConstructor
 @AllArgsConstructor
-@Data
+@Getter
+@Setter
 public class TrackInfoListDTO {
 
     private List<TrackInfoDTO> list = new ArrayList<>();

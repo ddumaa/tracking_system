@@ -1,19 +1,21 @@
 package com.project.tracking_system.dto;
 
-import com.project.tracking_system.entity.SubscriptionCode;
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
 
 /**
  * @author Dmitriy Anisimov
  * @date 21.06.2025
  */
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class SubscriptionPlanViewDTO {
-    private SubscriptionCode code;
+    private String code;
+    private String name;
     private Integer maxTracksPerFile;
     private Integer maxSavedTracks;
     private Integer maxTrackUpdates;
@@ -26,4 +28,9 @@ public class SubscriptionPlanViewDTO {
 
     private String annualFullPriceLabel;     // "180 BYN"
     private String annualDiscountLabel;      // "выгода −16%"
+
+    /**
+     * Позиция плана в общей иерархии.
+     */
+    private int position;
 }
