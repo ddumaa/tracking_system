@@ -376,6 +376,18 @@
         width: 100%;
       }
     }
+
+    /* Для группы выбора размера элементов оставляем горизонтальное
+       расположение кнопок на мобильных устройствах */
+    .size-controls {
+      flex-direction: row;
+      align-items: center;
+      flex-wrap: wrap;
+
+      button {
+        width: auto;
+      }
+    }
   }
 
   .table-responsive {

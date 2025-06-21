@@ -573,8 +573,11 @@ let activeTooltip = null; // Храним текущий tooltip
 
 /**
  * Функция для создания и управления tooltips
+ * Работает корректно как на ПК, так и на мобильных устройствах
  */
 function enableTooltips(root = document) {
+    const supportsHover = window.matchMedia('(hover: hover)').matches; // Проверяем поддержку наведения
+
     root.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(tooltipTriggerEl => {
         // Если tooltip уже инициализирован для элемента, пропускаем его
         if (bootstrap.Tooltip.getInstance(tooltipTriggerEl)) return;
@@ -586,23 +589,25 @@ function enableTooltips(root = document) {
         });
 
         // === Наведение мыши (ПК) ===
-        tooltipTriggerEl.addEventListener("mouseenter", function () {
-            if (activeTooltip && activeTooltip !== newTooltip) {
-                activeTooltip.hide();
-            }
-            newTooltip.show();
-            activeTooltip = newTooltip;
-        });
+        if (supportsHover) {
+            tooltipTriggerEl.addEventListener("mouseenter", function () {
+                if (activeTooltip && activeTooltip !== newTooltip) {
+                    activeTooltip.hide();
+                }
+                newTooltip.show();
+                activeTooltip = newTooltip;
+            });
 
-        // === Уход курсора (ПК) ===
-        tooltipTriggerEl.addEventListener("mouseleave", function () {
-            newTooltip.hide();
-            if (activeTooltip === newTooltip) {
-                activeTooltip = null;
-            }
-        });
+            // === Уход курсора (ПК) ===
+            tooltipTriggerEl.addEventListener("mouseleave", function () {
+                newTooltip.hide();
+                if (activeTooltip === newTooltip) {
+                    activeTooltip = null;
+                }
+            });
+        }
 
-        // === Клик (мобильные устройства) ===
+        // === Клик/Тап для мобильных устройств ===
         tooltipTriggerEl.addEventListener("click", function (e) {
             // Останавливаем всплытие, чтобы глобальный обработчик клика не сработал сразу
             e.stopPropagation();
