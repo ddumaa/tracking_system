@@ -4,6 +4,8 @@ import com.project.tracking_system.dto.SubscriptionPlanDTO;
 import com.project.tracking_system.dto.SubscriptionLimitsDTO;
 import com.project.tracking_system.entity.SubscriptionPlan;
 import com.project.tracking_system.entity.SubscriptionLimits;
+import com.project.tracking_system.entity.SubscriptionFeature;
+import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.SubscriptionPlanRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,10 +50,11 @@ public class SubscriptionPlanService {
             limitsDto.setMaxTracksPerFile(limits.getMaxTracksPerFile());
             limitsDto.setMaxSavedTracks(limits.getMaxSavedTracks());
             limitsDto.setMaxTrackUpdates(limits.getMaxTrackUpdates());
-            limitsDto.setAllowBulkUpdate(limits.isAllowBulkUpdate());
             limitsDto.setMaxStores(limits.getMaxStores());
-            limitsDto.setAllowTelegramNotifications(Boolean.TRUE.equals(limits.getAllowTelegramNotifications()));
         }
+        // флаги функций определяем через список features
+        limitsDto.setAllowBulkUpdate(plan.isFeatureEnabled(FeatureKey.BULK_UPDATE));
+        limitsDto.setAllowTelegramNotifications(plan.isFeatureEnabled(FeatureKey.TELEGRAM_NOTIFICATIONS));
 
         SubscriptionPlanDTO dto = new SubscriptionPlanDTO();
         dto.setCode(plan.getCode());
@@ -92,9 +95,11 @@ public class SubscriptionPlanService {
             limits.setMaxTracksPerFile(l.getMaxTracksPerFile());
             limits.setMaxSavedTracks(l.getMaxSavedTracks());
             limits.setMaxTrackUpdates(l.getMaxTrackUpdates());
-            limits.setAllowBulkUpdate(l.isAllowBulkUpdate());
             limits.setMaxStores(l.getMaxStores());
-            limits.setAllowTelegramNotifications(l.isAllowTelegramNotifications());
+
+            // обновляем признаки доступности функций
+            setFeature(plan, FeatureKey.BULK_UPDATE, l.isAllowBulkUpdate());
+            setFeature(plan, FeatureKey.TELEGRAM_NOTIFICATIONS, l.isAllowTelegramNotifications());
         }
 
         BigDecimal monthly = dto.getMonthlyPrice();
@@ -138,6 +143,32 @@ public class SubscriptionPlanService {
         fillFromDto(plan, dto);
         log.info("Обновлен тарифный план {}", id);
         return planRepository.save(plan);
+    }
+
+    /**
+     * Установить состояние функции в тарифном плане.
+     *
+     * @param plan    тарифный план
+     * @param key     ключ функции
+     * @param enabled состояние функции
+     */
+    private void setFeature(SubscriptionPlan plan, FeatureKey key, boolean enabled) {
+        List<SubscriptionFeature> list = plan.getFeatures();
+        if (list == null) {
+            list = new java.util.ArrayList<>();
+            plan.setFeatures(list);
+        }
+        for (SubscriptionFeature feature : list) {
+            if (feature.getFeatureKey() == key) {
+                feature.setEnabled(enabled);
+                return;
+            }
+        }
+        SubscriptionFeature feature = new SubscriptionFeature();
+        feature.setFeatureKey(key);
+        feature.setEnabled(enabled);
+        feature.setSubscriptionPlan(plan);
+        list.add(feature);
     }
 
     /**

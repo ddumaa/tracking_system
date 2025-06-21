@@ -4,6 +4,7 @@ import com.project.tracking_system.dto.SubscriptionPlanDTO;
 import com.project.tracking_system.dto.SubscriptionPlanViewDTO;
 import com.project.tracking_system.entity.SubscriptionPlan;
 import com.project.tracking_system.entity.SubscriptionLimits;
+import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.SubscriptionPlanRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import lombok.RequiredArgsConstructor;
@@ -86,9 +87,9 @@ public class TariffService {
                 limits.getMaxTracksPerFile(),
                 limits.getMaxSavedTracks(),
                 limits.getMaxTrackUpdates(),
-                limits.isAllowBulkUpdate(),
+                plan.isFeatureEnabled(FeatureKey.BULK_UPDATE),
                 limits.getMaxStores(),
-                limits.getAllowTelegramNotifications(),
+                plan.isFeatureEnabled(FeatureKey.TELEGRAM_NOTIFICATIONS),
                 monthlyLabel,
                 annualLabel,
                 fullAnnualPriceLabel,
