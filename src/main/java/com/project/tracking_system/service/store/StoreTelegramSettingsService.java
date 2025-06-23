@@ -1,8 +1,7 @@
 package com.project.tracking_system.service.store;
 
 import com.project.tracking_system.dto.StoreTelegramSettingsDTO;
-import com.project.tracking_system.entity.Store;
-import com.project.tracking_system.entity.StoreTelegramSettings;
+import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.controller.WebSocketController;
@@ -58,8 +57,30 @@ public class StoreTelegramSettingsService {
         settings.setReminderRepeatIntervalDays(dto.getReminderRepeatIntervalDays());
         settings.setCustomSignature(dto.getCustomSignature());
         settings.setRemindersEnabled(dto.isRemindersEnabled());
+
+        // Обновляем пользовательские шаблоны
+        settings.getTemplates().clear();
+        if (dto.getTemplates() != null && !dto.getTemplates().isEmpty()) {
+            dto.getTemplates().forEach((key, value) -> {
+                if (value == null || value.isBlank()) return;
+                validateTemplate(value);
+                StoreTelegramTemplate tpl = new StoreTelegramTemplate();
+                tpl.setStatus(BuyerStatus.valueOf(key));
+                tpl.setTemplate(value);
+                tpl.setSettings(settings);
+                settings.getTemplates().add(tpl);
+            });
+        }
+
         settingsRepository.save(settings);
         store.setTelegramSettings(settings);
         log.info("Настройки Telegram для магазина ID={} обновлены", store.getId());
+    }
+
+    // Проверяем наличие обязательных плейсхолдеров
+    private void validateTemplate(String template) {
+        if (!template.contains("{track}") || !template.contains("{store}")) {
+            throw new IllegalArgumentException("Шаблон должен содержать {track} и {store}");
+        }
     }
 }

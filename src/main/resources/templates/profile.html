@@ -416,6 +416,28 @@
                            name="customSignature"
                            th:value="${store.telegramSettings?.customSignature}" maxlength="200">
                 </div>
+
+                <div class="form-check form-switch mb-2 ms-3">
+                    <input class="form-check-input" type="checkbox" th:id="'tg-custom-messages-' + ${store.id}"
+                           name="useTemplates"
+                           th:checked="${store.telegramSettings?.templatesMap?.size() > 0}">
+                    <label class="form-check-label" th:for="'tg-custom-messages-' + ${store.id}">
+                        Использовать собственные сообщения
+                    </label>
+                </div>
+
+                <div th:id="'tg-template-fields-' + ${store.id}" class="ms-4 hidden template-fields">
+                    <div th:each="status : ${T(com.project.tracking_system.entity.BuyerStatus).values()}">
+                        <div class="mb-2">
+                            <label class="form-label" th:for="${'tpl-' + status.name() + '-' + store.id}" th:text="${status.name()}"></label>
+                            <input type="text" class="form-control form-control-sm"
+                                   th:id="${'tpl-' + status.name() + '-' + store.id}"
+                                   th:name="${'templates[' + status.name() + ']'}"
+                                   th:value="${store.telegramSettings?.templatesMap?.get(status)}">
+                        </div>
+                    </div>
+                    <p class="form-text">Шаблоны должны содержать {track} и {store}</p>
+                </div>
                 <button type="submit" class="btn btn-sm btn-primary w-100">Сохранить</button>
             </form>
         </div>

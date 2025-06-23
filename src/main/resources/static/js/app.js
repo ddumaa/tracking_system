@@ -358,6 +358,19 @@ function initTelegramReminderBlocks() {
     });
 }
 
+// Инициализация блока пользовательских шаблонов
+function initTelegramTemplateBlocks() {
+    document.querySelectorAll('.telegram-settings-form').forEach(form => {
+        const cb = form.querySelector('input[name="useTemplates"]');
+        const fields = form.querySelector('.template-fields');
+        if (!cb || !fields) return;
+
+        const update = () => toggleFieldsVisibility(cb, fields);
+        update();
+        cb.addEventListener('change', update);
+    });
+}
+
 let lastPage = window.location.pathname; // Запоминаем текущую страницу при загрузке
 let isInitialLoad = true;
 
@@ -761,6 +774,9 @@ async function appendTelegramBlock(store) {
     initTelegramForms();
     initTelegramToggle();
     initTelegramReminderBlocks();
+    initTelegramTemplateBlocks();
+    initTelegramTemplateBlocks();
+    initTelegramTemplateBlocks();
 }
 
 /**
@@ -1146,6 +1162,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initTelegramForms();
     initTelegramToggle();
     initTelegramReminderBlocks();
+    initTelegramTemplateBlocks();
 
     // Назначаем обработчик кнопки "Добавить магазин" - с проверкой на наличие
     const addStoreBtn = document.getElementById("addStoreBtn");
