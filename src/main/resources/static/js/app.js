@@ -172,6 +172,33 @@ function initializeCustomCredentialsCheckbox() {
     }
 }
 
+// Инициализация переключателя автообновления треков
+function initAutoUpdateToggle() {
+    const checkbox = document.getElementById("autoUpdateToggle");
+    if (!checkbox) return;
+
+    let debounceTimer;
+    checkbox.addEventListener('change', function () {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            fetch('/profile/settings/auto-update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+                },
+                body: new URLSearchParams({ enabled: checkbox.checked })
+            }).then(response => {
+                if (!response.ok) {
+                    alert('Ошибка при обновлении настройки.');
+                }
+            }).catch(() => {
+                alert('Ошибка сети при обновлении настройки.');
+            });
+        }, 300);
+    });
+}
+
 // Инициализация переключателя для ввода телефона
 function initializePhoneToggle() {
     const toggle = document.getElementById("togglePhone");
@@ -1157,6 +1184,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initPasswordFormHandler();
     initEvropostFormHandler();
     initializeCustomCredentialsCheckbox();
+    initAutoUpdateToggle();
     initializePhoneToggle();
     initAssignCustomerFormHandler();
     initTelegramForms();

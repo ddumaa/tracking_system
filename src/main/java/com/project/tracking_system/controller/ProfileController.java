@@ -160,6 +160,33 @@ public class ProfileController {
     }
 
     /**
+     * Изменяет настройку автообновления треков пользователя.
+     *
+     * @param enabled        новое значение флага
+     * @param authentication текущая аутентификация
+     * @return результат операции
+     */
+    @PostMapping("/settings/auto-update")
+    public ResponseEntity<?> updateAutoUpdate(
+            @RequestParam(value = "enabled", required = false) Boolean enabled,
+            Authentication authentication) {
+
+        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+
+        if (enabled == null) {
+            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Не указан параметр enabled");
+        }
+
+        try {
+            userService.updateAutoUpdateEnabled(userId, enabled);
+            return ResponseBuilder.ok("Настройки успешно обновлены.");
+        } catch (Exception e) {
+            log.error("Ошибка обновления автообновления для пользователя {}: {}", userId, e.getMessage(), e);
+            return ResponseBuilder.error(HttpStatus.INTERNAL_SERVER_ERROR, "Ошибка при обновлении настроек.");
+        }
+    }
+
+    /**
      * Обрабатывает запросы на изменение настроек пользователя, включая смену пароля.
      * <p>
      * Этот метод выполняет валидацию нового пароля, проверку совпадения паролей и изменение пароля через сервис.

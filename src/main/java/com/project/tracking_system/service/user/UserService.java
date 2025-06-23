@@ -312,6 +312,27 @@ public class UserService {
     }
 
     /**
+     * Проверяет, включено ли автообновление треков у пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @return {@code true}, если автообновление разрешено
+     */
+    public boolean isAutoUpdateEnabled(Long userId) {
+        return userSubscriptionRepository.isAutoUpdateEnabled(userId);
+    }
+
+    /**
+     * Обновляет настройку автообновления треков пользователя.
+     *
+     * @param userId  идентификатор пользователя
+     * @param enabled новое значение флага
+     */
+    public void updateAutoUpdateEnabled(Long userId, boolean enabled) {
+        userSubscriptionRepository.updateAutoUpdateEnabled(userId, enabled);
+        log.info("Настройка autoUpdateEnabled обновлена для пользователя {}: {}", userId, enabled);
+    }
+
+    /**
      * Получает сохранённые учётные данные Evropost пользователя.
      *
      * @param userId идентификатор пользователя
@@ -535,11 +556,16 @@ public class UserService {
                     .format(subscription.getSubscriptionEndDate());
         }
 
+        boolean autoUpdate = Optional.ofNullable(subscription)
+                .map(UserSubscription::isAutoUpdateEnabled)
+                .orElse(true);
+
         return new UserProfileDTO(
                 user.getEmail(),
                 user.getTimeZone(),
                 planCode,
-                formattedEndDate
+                formattedEndDate,
+                autoUpdate
         );
     }
 

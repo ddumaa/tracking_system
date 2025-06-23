@@ -5,6 +5,7 @@ import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
 import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.service.track.TrackProcessingService;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ public class TrackAutoUpdateScheduler {
     private final TrackParcelRepository trackParcelRepository;
     private final TrackProcessingService trackProcessingService;
     private final SubscriptionService subscriptionService;
+    private final UserService userService;
 
     /**
      * Запускает автообновление треков для всех подходящих пользователей.
@@ -43,7 +45,9 @@ public class TrackAutoUpdateScheduler {
         }
 
         for (Long userId : userIds) {
-            updateUserTracks(userId);
+            if (userService.isAutoUpdateEnabled(userId)) {
+                updateUserTracks(userId);
+            }
         }
     }
 

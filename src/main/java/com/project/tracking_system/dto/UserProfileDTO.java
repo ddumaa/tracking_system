@@ -19,6 +19,7 @@ public class UserProfileDTO {
     private String timezone;
     private String subscriptionCode;
     private String subscriptionEndDate;
+    private boolean autoUpdateEnabled;
 
     public String getSubscriptionDisplayName() {
         return subscriptionCode != null ? subscriptionCode : "Без подписки";
