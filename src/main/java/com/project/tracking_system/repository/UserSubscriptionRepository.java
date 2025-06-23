@@ -83,4 +83,18 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
     @Query("SELECT s FROM UserSubscription s JOIN FETCH s.user u JOIN FETCH s.subscriptionPlan sp")
     List<UserSubscription> findAllWithUserAndPlan();
 
+    /**
+     * Найти идентификаторы пользователей, у которых включена указанная функция.
+     *
+     * @param key ключ функции
+     * @return список идентификаторов пользователей
+     */
+    @Query("""
+        SELECT us.user.id FROM UserSubscription us
+        JOIN us.subscriptionPlan sp
+        JOIN sp.features f
+        WHERE f.featureKey = :key AND f.enabled = true
+        """)
+    List<Long> findUserIdsByFeature(@Param("key") com.project.tracking_system.model.subscription.FeatureKey key);
+
 }

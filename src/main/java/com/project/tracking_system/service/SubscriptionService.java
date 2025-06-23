@@ -174,6 +174,16 @@ public class SubscriptionService {
     }
 
     /**
+     * Проверяет, разрешено ли автообновление треков для пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @return {@code true}, если функция включена в тарифе
+     */
+    public boolean canUseAutoUpdate(Long userId) {
+        return isFeatureEnabled(userId, FeatureKey.AUTO_UPDATE);
+    }
+
+    /**
      * Проверяет, разрешены ли Telegram-уведомления для пользователя.
      *
      * @param userId идентификатор пользователя

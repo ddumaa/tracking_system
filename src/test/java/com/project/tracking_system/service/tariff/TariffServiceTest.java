@@ -56,11 +56,15 @@ class TariffServiceTest {
         bulk.setFeatureKey(FeatureKey.BULK_UPDATE);
         bulk.setEnabled(true);
         bulk.setSubscriptionPlan(plan);
+        SubscriptionFeature auto = new SubscriptionFeature();
+        auto.setFeatureKey(FeatureKey.AUTO_UPDATE);
+        auto.setEnabled(true);
+        auto.setSubscriptionPlan(plan);
         SubscriptionFeature telegram = new SubscriptionFeature();
         telegram.setFeatureKey(FeatureKey.TELEGRAM_NOTIFICATIONS);
         telegram.setEnabled(true);
         telegram.setSubscriptionPlan(plan);
-        plan.setFeatures(List.of(bulk, telegram));
+        plan.setFeatures(List.of(bulk, auto, telegram));
     }
 
     @Test
@@ -98,6 +102,7 @@ class TariffServiceTest {
         assertEquals(5, dto.getMaxTracksPerFile());
         assertEquals(100, dto.getMaxSavedTracks());
         assertTrue(dto.isAllowBulkUpdate());
+        assertTrue(dto.isAllowAutoUpdate());
         assertTrue(dto.isAllowTelegramNotifications());
         assertEquals("15.00 BYN/мес", dto.getMonthlyPriceLabel());
         assertEquals("150.00 BYN/год", dto.getAnnualPriceLabel());
