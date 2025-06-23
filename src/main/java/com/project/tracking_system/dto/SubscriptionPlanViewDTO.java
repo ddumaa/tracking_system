@@ -20,6 +20,7 @@ public class SubscriptionPlanViewDTO {
     private Integer maxSavedTracks;
     private Integer maxTrackUpdates;
     private boolean allowBulkUpdate;
+    private boolean allowAutoUpdate;
     private Integer maxStores;
     private boolean allowTelegramNotifications;
     private String monthlyPriceLabel;

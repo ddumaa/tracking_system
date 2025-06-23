@@ -20,6 +20,7 @@
             <th>Цена в месяц</th>
             <th>Цена в год</th>
             <th>Массовое обновление</th>
+            <th>Автообновление</th>
             <th>Telegram-уведомления</th>
             <th>Активный</th>
             <th>Действия</th>
@@ -38,6 +39,7 @@
                 <td><input type="number" step="0.01" name="monthlyPrice" class="form-control" th:value="${plan.monthlyPrice}" /></td>
                 <td><input type="number" step="0.01" name="annualPrice" class="form-control" th:value="${plan.annualPrice}" /></td>
                 <td class="text-center"><input type="checkbox" name="limits.allowBulkUpdate" th:checked="${plan.limits.allowBulkUpdate}" /></td>
+                <td class="text-center"><input type="checkbox" name="limits.allowAutoUpdate" th:checked="${plan.limits.allowAutoUpdate}" /></td>
                 <td class="text-center"><input type="checkbox" name="limits.allowTelegramNotifications" th:checked="${plan.limits.allowTelegramNotifications}" /></td>
                 <td class="text-center"><input type="checkbox" name="active" th:checked="${plan.active}" /></td>
                 <td>
@@ -90,6 +92,12 @@
             <div class="form-check">
                 <input id="plan-bulk-update" type="checkbox" name="limits.allowBulkUpdate" class="form-check-input" />
                 <label class="form-check-label" for="plan-bulk-update">Массовое обновление</label>
+            </div>
+        </div>
+        <div class="col-md-1">
+            <div class="form-check">
+                <input id="plan-auto-update" type="checkbox" name="limits.allowAutoUpdate" class="form-check-input" />
+                <label class="form-check-label" for="plan-auto-update">Автообновление</label>
             </div>
         </div>
         <div class="col-md-1">

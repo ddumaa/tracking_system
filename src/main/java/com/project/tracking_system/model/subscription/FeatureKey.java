@@ -13,7 +13,12 @@ public enum FeatureKey {
     /**
      * Отправка Telegram-уведомлений.
      */
-    TELEGRAM_NOTIFICATIONS("telegramNotifications");
+    TELEGRAM_NOTIFICATIONS("telegramNotifications"),
+
+    /**
+     * Автоматическое обновление треков.
+     */
+    AUTO_UPDATE("autoUpdate");
 
     private final String key;
 
