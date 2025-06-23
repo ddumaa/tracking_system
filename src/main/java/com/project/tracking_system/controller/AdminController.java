@@ -10,6 +10,7 @@ import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.admin.AdminService;
 import com.project.tracking_system.service.admin.AppInfoService;
 import com.project.tracking_system.service.admin.SubscriptionPlanService;
+import com.project.tracking_system.service.tariff.TariffService;
 import com.project.tracking_system.service.DynamicSchedulerService;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +49,7 @@ public class AdminController {
     private final AdminService adminService;
     private final AppInfoService appInfoService;
     private final DynamicSchedulerService dynamicSchedulerService;
+    private final TariffService tariffService;
 
     /**
      * Отображает дашборд администратора.
@@ -540,13 +542,15 @@ public class AdminController {
     /**
      * Отображает страницу настроек администратора.
      *
+     * @param model модель представления для передачи параметров
      * @return имя шаблона настроек
      */
     @GetMapping("/settings")
     public String settings(Model model) {
         model.addAttribute("appVersion", appInfoService.getApplicationVersion());
         model.addAttribute("webhookEnabled", appInfoService.isTelegramWebhookEnabled());
-        model.addAttribute("plans", appInfoService.getPlans());
+        // для таблицы тарифов используем DTO с лимитами и признаками функций
+        model.addAttribute("plans", tariffService.getAllPlans());
 
         // Хлебные крошки
         List<BreadcrumbItemDTO> breadcrumbs = List.of(
