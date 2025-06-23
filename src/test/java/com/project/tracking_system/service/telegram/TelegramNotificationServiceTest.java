@@ -51,4 +51,27 @@ class TelegramNotificationServiceTest {
 
         verify(telegramClient).execute(argThat(m -> ((SendMessage)m).getText().equals("Test 123 Shop")));
     }
+
+    @Test
+    void sendStatusUpdate_DefaultTemplateUsed() throws Exception {
+        TrackParcel parcel = new TrackParcel();
+        parcel.setNumber("123");
+        Store store = new Store();
+        store.setName("Shop");
+        StoreTelegramSettings settings = new StoreTelegramSettings();
+        settings.setStore(store);
+        // шаблоны не задаём, должны использоваться значения по умолчанию
+        store.setTelegramSettings(settings);
+        parcel.setStore(store);
+        Customer c = new Customer();
+        c.setTelegramChatId(10L);
+        parcel.setCustomer(c);
+
+        when(customerService.isNotifiable(any(), any())).thenReturn(true);
+
+        service.sendStatusUpdate(parcel, GlobalStatus.WAITING_FOR_CUSTOMER);
+
+        String expected = BuyerStatus.WAITING.formatMessage("123", "Shop");
+        verify(telegramClient).execute(argThat(m -> ((SendMessage)m).getText().equals(expected)));
+    }
 }
