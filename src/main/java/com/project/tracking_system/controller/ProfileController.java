@@ -116,6 +116,15 @@ public class ProfileController {
         return "profile";
     }
 
+    /**
+     * Обновляет данные доступа к API Европочты и связанные настройки.
+     *
+     * @param evropostCredentialsDTO новые учётные данные Европочты
+     * @param bindingResult           результат валидации формы
+     * @param model                   модель для передачи данных во фрагмент
+     * @param authentication          текущая аутентификация
+     * @return HTML-фрагмент блока Европочты
+     */
     @PostMapping("/settings/evropost")
     public String updateEvropostCredentials(
             @Valid @ModelAttribute("evropostCredentialsDTO") EvropostCredentialsDTO evropostCredentialsDTO,
@@ -140,6 +149,13 @@ public class ProfileController {
         return "profile :: evropostFragment";
     }
 
+    /**
+     * Обновляет флаг использования собственных учетных данных Европочты.
+     *
+     * @param useCustomCredentials новое значение флага
+     * @param authentication       текущая аутентификация
+     * @return результат операции
+     */
     @PostMapping("/settings/use-custom-credentials")
     public ResponseEntity<?> updateUseCustomCredentials(
             @RequestParam(value = "useCustomCredentials", required = false) Boolean useCustomCredentials,
@@ -266,7 +282,11 @@ public class ProfileController {
     }
 
     /**
-     * Создаёт новый магазин.
+     * Создаёт новый магазин пользователя.
+     *
+     * @param user    текущий пользователь
+     * @param request параметры запроса, содержащие название магазина
+     * @return созданный магазин либо сообщение об ошибке
      */
     @PostMapping("/stores")
     @ResponseBody
@@ -282,7 +302,12 @@ public class ProfileController {
     }
 
     /**
-     * Обновляет название магазина.
+     * Обновляет название указанного магазина.
+     *
+     * @param user    текущий пользователь
+     * @param storeId идентификатор магазина
+     * @param request параметры запроса с новым именем
+     * @return обновленный магазин либо сообщение об ошибке
      */
     @PutMapping("/stores/{storeId}")
     @ResponseBody
@@ -299,7 +324,11 @@ public class ProfileController {
     }
 
     /**
-     * Удаляет магазин.
+     * Удаляет магазин пользователя.
+     *
+     * @param user    текущий пользователь
+     * @param storeId идентификатор магазина
+     * @return результат удаления
      */
     @DeleteMapping("/stores/{storeId}")
     @ResponseBody
@@ -327,10 +356,17 @@ public class ProfileController {
         return userService.getUserStoreLimit(user.getId());
     }
 
+    /**
+     * Устанавливает магазин по умолчанию для пользователя.
+     *
+     * @param user    текущий пользователь
+     * @param storeId идентификатор магазина
+     * @return результат операции
+     */
     @PostMapping("/stores/default/{storeId}")
     @ResponseBody
     public ResponseEntity<?> setDefaultStore(@AuthenticationPrincipal User user,
-                                                  @PathVariable Long storeId) {
+                                             @PathVariable Long storeId) {
         try {
             storeService.setDefaultStore(user.getId(), storeId);
             return ResponseBuilder.ok("Магазин по умолчанию установлен.");
