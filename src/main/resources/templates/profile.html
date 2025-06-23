@@ -135,13 +135,13 @@
                                 <strong th:text="${planDetails.maxTracksPerFile != null ? planDetails.maxTracksPerFile : 'Без лимита'}"></strong>
                             </li>
                             <li>💾 Сохранённых треков:
-                                <strong th:text="${planDetails.maxSavedTracks != null ? planDetails.maxSavedTracks : 'Без лимита'}"></strong>
+                                <strong th:text="${planDetails.maxSavedTracks != null ? userProfile.savedTracksUsed + '/' + planDetails.maxSavedTracks : userProfile.savedTracksUsed + '/∞'}"></strong>
                             </li>
                             <li>🔄 Обновлений в день:
-                                <strong th:text="${planDetails.maxTrackUpdates != null ? planDetails.maxTrackUpdates : 'Без лимита'}"></strong>
+                                <strong th:text="${planDetails.maxTrackUpdates != null ? userProfile.trackUpdatesUsed + '/' + planDetails.maxTrackUpdates : 'Без лимита'}"></strong>
                             </li>
                             <li>🏬 Магазинов:
-                                <strong th:text="${planDetails.maxStores}"></strong>
+                                <strong th:text="${userProfile.storesUsed + '/' + planDetails.maxStores}"></strong>
                             </li>
                             <li>
                                 <span th:if="${planDetails.allowBulkUpdate}">✅ Массовое обновление</span>

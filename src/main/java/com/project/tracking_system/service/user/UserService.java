@@ -31,6 +31,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
+import java.util.Objects;
 
 import static java.time.ZoneOffset.UTC;
 
@@ -61,6 +62,8 @@ public class UserService {
     private final SubscriptionService subscriptionService;
     private final StoreService storeService;
     private final TariffService tariffService;
+    private final TrackParcelRepository trackParcelRepository;
+    private final UserSubscriptionRepository userSubscriptionRepository;
 
     /**
      * Отправляет код подтверждения на email для регистрации нового пользователя.
@@ -552,6 +555,11 @@ public class UserService {
                 .map(SubscriptionPlan::getCode)
                 .orElse(null);
 
+        String planName = Optional.ofNullable(subscription)
+                .map(UserSubscription::getSubscriptionPlan)
+                .map(SubscriptionPlan::getName)
+                .orElse(null);
+
         String formattedEndDate = null;
         if (subscription != null && subscription.getSubscriptionEndDate() != null) {
             formattedEndDate = DateTimeFormatter.ofPattern("dd MMMM yyyy")
@@ -565,13 +573,30 @@ public class UserService {
 
         SubscriptionPlanViewDTO planDetails = tariffService.getPlanInfoByCode(planCode);
 
+        int savedTracks = trackParcelRepository.countByUserId(userId);
+        int storeCount = user.getStores().size();
+
+        int updateCount = 0;
+        if (subscription != null) {
+            var previousDate = subscription.getResetDate();
+            subscription.checkAndResetLimits();
+            if (!Objects.equals(previousDate, subscription.getResetDate())) {
+                userSubscriptionRepository.save(subscription);
+            }
+            updateCount = subscription.getUpdateCount();
+        }
+
         return new UserProfileDTO(
                 user.getEmail(),
                 user.getTimeZone(),
                 planCode,
+                planName,
                 formattedEndDate,
                 autoUpdate,
-                planDetails
+                planDetails,
+                savedTracks,
+                updateCount,
+                storeCount
         );
     }
 
