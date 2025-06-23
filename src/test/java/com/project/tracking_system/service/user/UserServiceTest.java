@@ -22,6 +22,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -29,6 +30,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
 
 /**
  * Тесты для {@link UserService}.
@@ -91,5 +93,25 @@ class UserServiceTest {
         assertNotNull(dto.getPlanDetails());
         assertEquals("PREMIUM", dto.getPlanDetails().getCode());
         verify(tariffService).getPlanInfoByCode("PREMIUM");
+    }
+
+    @Test
+    void createUserByAdmin_SetsDefaultTimeZone() {
+        ReflectionTestUtils.setField(userService, "defaultTimeZone", "Europe/Minsk");
+
+        when(userRepository.findByEmail("new@example.com")).thenReturn(Optional.empty());
+
+        UserSubscription subscription = new UserSubscription();
+        when(subscriptionService.createDefaultSubscriptionForUser(any(User.class)))
+                .thenAnswer(invocation -> {
+                    User u = invocation.getArgument(0);
+                    subscription.setUser(u);
+                    return subscription;
+                });
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.createUserByAdmin("new@example.com", "pass", "ROLE_USER", "FREE");
+
+        verify(userRepository).save(argThat(u -> "Europe/Minsk".equals(u.getTimeZone())));
     }
 }
