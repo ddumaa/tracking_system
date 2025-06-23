@@ -1271,6 +1271,11 @@ button:hover {
   opacity: 1;
 }
 
+.custom-template-fields textarea {
+  min-height: 4rem;
+  resize: vertical;
+}
+
 .legal-container {
   font-family: "Inter", sans-serif;
   font-size: 16px;

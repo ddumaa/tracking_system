@@ -361,8 +361,8 @@ function initTelegramReminderBlocks() {
 // Инициализация блока пользовательских шаблонов
 function initTelegramTemplateBlocks() {
     document.querySelectorAll('.telegram-settings-form').forEach(form => {
-        const cb = form.querySelector('input[name="useTemplates"]');
-        const fields = form.querySelector('.template-fields');
+        const cb = form.querySelector('input[name="useCustomTemplates"]');
+        const fields = form.querySelector('.custom-template-fields');
         if (!cb || !fields) return;
 
         const update = () => toggleFieldsVisibility(cb, fields);
