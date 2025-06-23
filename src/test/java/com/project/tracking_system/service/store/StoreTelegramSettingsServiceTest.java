@@ -5,6 +5,7 @@ import com.project.tracking_system.dto.StoreTelegramSettingsDTO;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
+import com.project.tracking_system.service.store.StoreService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -28,6 +29,8 @@ class StoreTelegramSettingsServiceTest {
     private SubscriptionService subscriptionService;
     @Mock
     private WebSocketController webSocketController;
+    @Mock
+    private StoreService storeService;
     @InjectMocks
     private StoreTelegramSettingsService service;
 
@@ -41,6 +44,7 @@ class StoreTelegramSettingsServiceTest {
         when(subscriptionService.isFeatureEnabled(1L, FeatureKey.TELEGRAM_NOTIFICATIONS)).thenReturn(true);
 
         StoreTelegramSettingsDTO dto = new StoreTelegramSettingsDTO();
+        dto.setUseCustomTemplates(true);
         dto.setTemplates(Map.of("WAITING", "Msg {track} {store}"));
 
         service.update(store, dto, 1L);
@@ -59,6 +63,7 @@ class StoreTelegramSettingsServiceTest {
         when(subscriptionService.isFeatureEnabled(1L, FeatureKey.TELEGRAM_NOTIFICATIONS)).thenReturn(true);
 
         StoreTelegramSettingsDTO dto = new StoreTelegramSettingsDTO();
+        dto.setUseCustomTemplates(true);
         dto.setTemplates(Map.of("WAITING", "Неверный шаблон"));
 
         assertThrows(IllegalArgumentException.class, () -> service.update(store, dto, 1L));

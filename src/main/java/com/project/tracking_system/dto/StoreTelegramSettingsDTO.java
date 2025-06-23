@@ -31,6 +31,9 @@ public class StoreTelegramSettingsDTO {
 
     private boolean remindersEnabled = false;
 
+    /** Использовать пользовательские шаблоны сообщений. */
+    private boolean useCustomTemplates = false;
+
     /** Статус → шаблон сообщения. */
     private Map<String, String> templates = new HashMap<>();
 }

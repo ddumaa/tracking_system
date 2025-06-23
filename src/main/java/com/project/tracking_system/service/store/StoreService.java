@@ -412,7 +412,9 @@ public class StoreService {
     }
 
     /**
-     * Преобразовать сущность настроек в DTO.
+     * Преобразовать сущность настроек Telegram в DTO.
+     * Поле {@code useCustomTemplates} будет установлено в {@code true},
+     * если список шаблонов не пуст.
      */
     public StoreTelegramSettingsDTO toDto(StoreTelegramSettings settings) {
         if (settings == null) return null;
@@ -422,6 +424,7 @@ public class StoreService {
         dto.setReminderRepeatIntervalDays(settings.getReminderRepeatIntervalDays());
         dto.setCustomSignature(settings.getCustomSignature());
         dto.setRemindersEnabled(settings.isRemindersEnabled());
+        dto.setUseCustomTemplates(!settings.getTemplates().isEmpty());
         dto.setTemplates(settings.getTemplatesMap().entrySet().stream()
                 .collect(java.util.stream.Collectors.toMap(e -> e.getKey().name(), Map.Entry::getValue)));
         return dto;
@@ -429,6 +432,7 @@ public class StoreService {
 
     /**
      * Обновить сущность настроек на основе DTO.
+     * Если {@code useCustomTemplates=false}, пользовательские шаблоны будут удалены.
      */
     public void updateFromDto(StoreTelegramSettings settings, StoreTelegramSettingsDTO dto) {
         settings.setEnabled(dto.isEnabled());
@@ -437,13 +441,15 @@ public class StoreService {
         settings.setCustomSignature(dto.getCustomSignature());
         settings.setRemindersEnabled(dto.isRemindersEnabled());
         settings.getTemplates().clear();
-        dto.getTemplates().forEach((k, v) -> {
-            StoreTelegramTemplate t = new StoreTelegramTemplate();
-            t.setStatus(BuyerStatus.valueOf(k));
-            t.setTemplate(v);
-            t.setSettings(settings);
-            settings.getTemplates().add(t);
-        });
+        if (dto.isUseCustomTemplates()) {
+            dto.getTemplates().forEach((k, v) -> {
+                StoreTelegramTemplate t = new StoreTelegramTemplate();
+                t.setStatus(BuyerStatus.valueOf(k));
+                t.setTemplate(v);
+                t.setSettings(settings);
+                settings.getTemplates().add(t);
+            });
+        }
     }
 
 
