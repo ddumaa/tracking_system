@@ -20,6 +20,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
 
 /**
  * @author Dmitriy Anisimov
@@ -421,6 +422,8 @@ public class StoreService {
         dto.setReminderRepeatIntervalDays(settings.getReminderRepeatIntervalDays());
         dto.setCustomSignature(settings.getCustomSignature());
         dto.setRemindersEnabled(settings.isRemindersEnabled());
+        dto.setTemplates(settings.getTemplatesMap().entrySet().stream()
+                .collect(java.util.stream.Collectors.toMap(e -> e.getKey().name(), Map.Entry::getValue)));
         return dto;
     }
 
@@ -433,6 +436,14 @@ public class StoreService {
         settings.setReminderRepeatIntervalDays(dto.getReminderRepeatIntervalDays());
         settings.setCustomSignature(dto.getCustomSignature());
         settings.setRemindersEnabled(dto.isRemindersEnabled());
+        settings.getTemplates().clear();
+        dto.getTemplates().forEach((k, v) -> {
+            StoreTelegramTemplate t = new StoreTelegramTemplate();
+            t.setStatus(BuyerStatus.valueOf(k));
+            t.setTemplate(v);
+            t.setSettings(settings);
+            settings.getTemplates().add(t);
+        });
     }
 
 

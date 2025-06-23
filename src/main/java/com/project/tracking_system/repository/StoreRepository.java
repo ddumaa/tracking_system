@@ -65,7 +65,10 @@ public interface StoreRepository extends JpaRepository<Store, Long> {
      * @param ownerId идентификатор владельца
      * @return список магазинов с инициализированными настройками
      */
-    @Query("SELECT s FROM Store s LEFT JOIN FETCH s.telegramSettings WHERE s.owner.id = :ownerId")
+    @Query("SELECT DISTINCT s FROM Store s " +
+           "LEFT JOIN FETCH s.telegramSettings ts " +
+           "LEFT JOIN FETCH ts.templates " +
+           "WHERE s.owner.id = :ownerId")
     List<Store> findByOwnerIdFetchSettings(@Param("ownerId") Long ownerId);
 
     /**

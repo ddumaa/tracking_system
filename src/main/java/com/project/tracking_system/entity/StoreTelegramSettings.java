@@ -7,6 +7,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import com.project.tracking_system.entity.BuyerStatus;
+import com.project.tracking_system.entity.StoreTelegramTemplate;
+
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+
 /**
  * Настройки Telegram для магазина.
  */
@@ -42,4 +50,21 @@ public class StoreTelegramSettings {
 
     @Column(name = "reminders_enabled", nullable = false)
     private boolean remindersEnabled = false;
+
+    @OneToMany(mappedBy = "settings", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonIgnore
+    private List<StoreTelegramTemplate> templates = new ArrayList<>();
+
+    /**
+     * Возвращает карту шаблонов сообщений.
+     *
+     * @return сопоставление статуса и шаблона
+     */
+    public Map<BuyerStatus, String> getTemplatesMap() {
+        Map<BuyerStatus, String> map = new EnumMap<>(BuyerStatus.class);
+        for (StoreTelegramTemplate t : templates) {
+            map.put(t.getStatus(), t.getTemplate());
+        }
+        return map;
+    }
 }
