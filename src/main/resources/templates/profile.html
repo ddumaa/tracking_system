@@ -118,6 +118,15 @@
                         <div class="col-sm-4 text-muted">Часовой пояс</div>
                         <div class="col-sm-8" th:text="${userProfile.timezone}"></div>
                     </div>
+                    <form id="auto-update-form" class="mt-3">
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="autoUpdateToggle"
+                                   th:checked="${userProfile.autoUpdateEnabled}">
+                            <label class="form-check-label" for="autoUpdateToggle">Автообновление треков</label>
+                        </div>
+                        <p class="form-text ms-4">Автообновления расходуют лимит обновлений.</p>
+                    </form>
                 </div>
 
                 <div class="tab-pane fade" id="v-pills-stores" role="tabpanel">
