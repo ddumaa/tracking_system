@@ -109,4 +109,23 @@ class TariffServiceTest {
         assertEquals("180.00 BYN", dto.getAnnualFullPriceLabel());
         assertEquals("выгода −17%", dto.getAnnualDiscountLabel());
     }
+
+    @Test
+    void getPlanInfoByCode_ReturnsDto() {
+        when(planRepository.findByCode("PREMIUM")).thenReturn(java.util.Optional.of(plan));
+
+        SubscriptionPlanViewDTO dto = tariffService.getPlanInfoByCode("PREMIUM");
+
+        assertNotNull(dto);
+        assertEquals("PREMIUM", dto.getCode());
+    }
+
+    @Test
+    void getPlanInfoByCode_NotFound_ReturnsNull() {
+        when(planRepository.findByCode("NONE")).thenReturn(java.util.Optional.empty());
+
+        SubscriptionPlanViewDTO dto = tariffService.getPlanInfoByCode("NONE");
+
+        assertNull(dto);
+    }
 }

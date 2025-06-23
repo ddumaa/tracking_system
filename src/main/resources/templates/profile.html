@@ -127,6 +127,36 @@
                         </div>
                         <p class="form-text ms-4">Автообновления расходуют дневной лимит обновлений.</p>
                     </form>
+
+                    <div class="mt-4">
+                        <h6 class="mb-2">Возможности тарифа</h6>
+                        <ul class="list-unstyled">
+                            <li>📥 Треков в файле:
+                                <strong th:text="${planDetails.maxTracksPerFile != null ? planDetails.maxTracksPerFile : 'Без лимита'}"></strong>
+                            </li>
+                            <li>💾 Сохранённых треков:
+                                <strong th:text="${planDetails.maxSavedTracks != null ? planDetails.maxSavedTracks : 'Без лимита'}"></strong>
+                            </li>
+                            <li>🔄 Обновлений в день:
+                                <strong th:text="${planDetails.maxTrackUpdates != null ? planDetails.maxTrackUpdates : 'Без лимита'}"></strong>
+                            </li>
+                            <li>🏬 Магазинов:
+                                <strong th:text="${planDetails.maxStores}"></strong>
+                            </li>
+                            <li>
+                                <span th:if="${planDetails.allowBulkUpdate}">✅ Массовое обновление</span>
+                                <span th:unless="${planDetails.allowBulkUpdate}" class="text-muted">❌ Массовое обновление</span>
+                            </li>
+                            <li>
+                                <span th:if="${planDetails.allowAutoUpdate}">♻️ Автообновление треков</span>
+                                <span th:unless="${planDetails.allowAutoUpdate}" class="text-muted">❌ Автообновление треков</span>
+                            </li>
+                            <li>
+                                <span th:if="${planDetails.allowTelegramNotifications}">📨 Telegram-уведомления</span>
+                                <span th:unless="${planDetails.allowTelegramNotifications}" class="text-muted">❌ Telegram-уведомления</span>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
 
                 <div class="tab-pane fade" id="v-pills-stores" role="tabpanel">
