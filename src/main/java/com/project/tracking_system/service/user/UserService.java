@@ -9,6 +9,8 @@ import com.project.tracking_system.entity.*;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.repository.*;
 import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.service.tariff.TariffService;
+import com.project.tracking_system.dto.SubscriptionPlanViewDTO;
 import com.project.tracking_system.service.email.EmailService;
 import com.project.tracking_system.service.jsonEvropostService.JwtTokenManager;
 import com.project.tracking_system.service.store.StoreService;
@@ -58,6 +60,7 @@ public class UserService {
     private final UserCredentialsResolver userCredentialsResolver;
     private final SubscriptionService subscriptionService;
     private final StoreService storeService;
+    private final TariffService tariffService;
 
     /**
      * Отправляет код подтверждения на email для регистрации нового пользователя.
@@ -560,12 +563,15 @@ public class UserService {
                 .map(UserSubscription::isAutoUpdateEnabled)
                 .orElse(true);
 
+        SubscriptionPlanViewDTO planDetails = tariffService.getPlanInfoByCode(planCode);
+
         return new UserProfileDTO(
                 user.getEmail(),
                 user.getTimeZone(),
                 planCode,
                 formattedEndDate,
-                autoUpdate
+                autoUpdate,
+                planDetails
         );
     }
 

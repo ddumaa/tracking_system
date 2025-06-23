@@ -75,6 +75,7 @@ public class ProfileController {
         // Добавляем данные профиля в модель
         model.addAttribute("username", user.getEmail());
         model.addAttribute("userProfile", userProfile);
+        model.addAttribute("planDetails", userProfile.getPlanDetails());
         model.addAttribute("storeLimit", storeLimit);
         model.addAttribute("stores", stores);
         log.debug("Данные профиля добавлены в модель для пользователя с ID: {}", userId);

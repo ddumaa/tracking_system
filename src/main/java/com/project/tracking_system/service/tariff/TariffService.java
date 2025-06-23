@@ -135,4 +135,19 @@ public class TariffService {
                 .orElse(-1);
     }
 
+    /**
+     * Находит тарифный план по его коду и возвращает информацию для отображения.
+     *
+     * @param code код плана
+     * @return DTO с данными плана или {@code null}, если план не найден
+     */
+    public SubscriptionPlanViewDTO getPlanInfoByCode(String code) {
+        if (code == null) {
+            return null;
+        }
+        return planRepository.findByCode(code)
+                .map(this::toViewDto)
+                .orElse(null);
+    }
+
 }
