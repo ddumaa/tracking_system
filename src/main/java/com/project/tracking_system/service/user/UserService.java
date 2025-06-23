@@ -17,6 +17,7 @@ import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.utils.EncryptionUtils;
 import com.project.tracking_system.utils.EmailUtils;
 import com.project.tracking_system.utils.UserCredentialsResolver;
+import org.springframework.beans.factory.annotation.Value;
 import java.math.BigDecimal;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -64,6 +65,12 @@ public class UserService {
     private final TariffService tariffService;
     private final TrackParcelRepository trackParcelRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
+
+    /**
+     * Значение таймзоны по умолчанию, используется при создании пользователя.
+     */
+    @Value("${app.default-timezone}")
+    private String defaultTimeZone;
 
     /**
      * Отправляет код подтверждения на email для регистрации нового пользователя.
@@ -152,7 +159,7 @@ public class UserService {
         User user = new User();
         user.setEmail(userDTO.getEmail());
         user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
-        user.setTimeZone("Europe/Minsk");
+        user.setTimeZone(defaultTimeZone);
         user.setRole(Role.ROLE_USER);
 
         UserSubscription subscription = subscriptionService.createDefaultSubscriptionForUser(user);
@@ -228,7 +235,7 @@ public class UserService {
         User user = new User();
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(rawPassword));
-        user.setTimeZone("Europe/Minsk");
+        user.setTimeZone(defaultTimeZone);
         user.setRole(role);
 
         // Создаём подписку FREE по умолчанию

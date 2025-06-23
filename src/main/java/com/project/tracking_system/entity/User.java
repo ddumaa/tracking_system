@@ -35,7 +35,7 @@ public class User implements UserDetails {
     private String password;
 
     @Column(name = "time_zone", nullable = false)
-    private String timeZone = "Europe/Minsk";
+    private String timeZone;
 
     @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
