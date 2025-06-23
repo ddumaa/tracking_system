@@ -6,6 +6,7 @@ import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.UserService;
+import com.project.tracking_system.service.SubscriptionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -47,6 +48,7 @@ public class ProfileController {
     private final UserService userService;
     private final StoreService storeService;
     private final WebSocketController webSocketController;
+    private final SubscriptionService subscriptionService;
 
     /**
      * Отображает страницу профиля пользователя.
@@ -195,6 +197,11 @@ public class ProfileController {
         }
 
         try {
+            // проверяем доступность функции автообновления
+            if (!subscriptionService.canUseAutoUpdate(userId)) {
+                return ResponseBuilder.error(HttpStatus.FORBIDDEN,
+                        "Опция автообновления недоступна на текущем тарифе");
+            }
             userService.updateAutoUpdateEnabled(userId, enabled);
             return ResponseBuilder.ok("Настройки успешно обновлены.");
         } catch (Exception e) {
