@@ -104,4 +104,18 @@ class TariffServiceTest {
         assertEquals("180.00 BYN", dto.getAnnualFullPriceLabel());
         assertEquals("выгода −17%", dto.getAnnualDiscountLabel());
     }
+
+    @Test
+    void toViewDto_LimitsNull_ReturnsDtoWithDefaultValues() {
+        plan.setLimits(null);
+
+        SubscriptionPlanViewDTO dto = tariffService.toViewDto(plan);
+
+        assertNull(dto.getMaxTracksPerFile());
+        assertNull(dto.getMaxSavedTracks());
+        assertNull(dto.getMaxTrackUpdates());
+        assertNull(dto.getMaxStores());
+        assertEquals("15.00 BYN/мес", dto.getMonthlyPriceLabel());
+        assertEquals("150.00 BYN/год", dto.getAnnualPriceLabel());
+    }
 }
