@@ -31,13 +31,21 @@
                            href="#v-pills-home" role="tab">
                             <i class="bi bi-person me-2" title="Об аккаунте"></i> Об аккаунте
                         </a>
-                        <a class="nav-link d-flex align-items-center" id="plan-settings-link" data-bs-toggle="pill"
-                           href="#v-pills-plan" role="tab">
-                            <i class="bi bi-speedometer2 me-2" title="Тариф и лимиты"></i> Тариф и лимиты
-                        </a>
                         <a class="nav-link d-flex align-items-center" id="stores-settings-link" data-bs-toggle="pill"
                            href="#v-pills-stores" role="tab">
                             <i class="bi bi-shop me-2" title="Мои магазины"></i> Мои магазины
+                        </a>
+                        <a class="nav-link d-flex align-items-center" id="notifications-settings-link" data-bs-toggle="pill"
+                           href="#v-pills-notifications" role="tab">
+                            <i class="bi bi-bell me-2" title="Уведомления (Telegram)"></i> Уведомления (Telegram)
+                        </a>
+                        <a class="nav-link d-flex align-items-center" id="automation-settings-link" data-bs-toggle="pill"
+                           href="#v-pills-automation" role="tab">
+                            <i class="bi bi-lightning-charge me-2" title="Функции и автоматизация"></i> Функции и автоматизация
+                        </a>
+                        <a class="nav-link d-flex align-items-center" id="plan-settings-link" data-bs-toggle="pill"
+                           href="#v-pills-plan" role="tab">
+                            <i class="bi bi-speedometer2 me-2" title="Тариф и лимиты"></i> Тариф и лимиты
                         </a>
                         <a class="nav-link d-flex align-items-center" id="integrations-settings-link" data-bs-toggle="pill"
                            href="#v-pills-integrations" role="tab">
@@ -60,13 +68,21 @@
                            href="#v-pills-home" role="tab">
                             <i class="bi bi-person me-2" title="Об аккаунте"></i> Об аккаунте
                         </a>
-                        <a class="nav-link d-flex align-items-center" id="plan-settings-link" data-bs-toggle="pill"
-                           href="#v-pills-plan" role="tab">
-                            <i class="bi bi-speedometer2 me-2" title="Тариф и лимиты"></i> Тариф и лимиты
-                        </a>
                         <a class="nav-link d-flex align-items-center" id="stores-settings-link" data-bs-toggle="pill"
                            href="#v-pills-stores" role="tab">
                             <i class="bi bi-shop me-2" title="Мои магазины"></i> Мои магазины
+                        </a>
+                        <a class="nav-link d-flex align-items-center" id="notifications-settings-link" data-bs-toggle="pill"
+                           href="#v-pills-notifications" role="tab">
+                            <i class="bi bi-bell me-2" title="Уведомления (Telegram)"></i> Уведомления (Telegram)
+                        </a>
+                        <a class="nav-link d-flex align-items-center" id="automation-settings-link" data-bs-toggle="pill"
+                           href="#v-pills-automation" role="tab">
+                            <i class="bi bi-lightning-charge me-2" title="Функции и автоматизация"></i> Функции и автоматизация
+                        </a>
+                        <a class="nav-link d-flex align-items-center" id="plan-settings-link" data-bs-toggle="pill"
+                           href="#v-pills-plan" role="tab">
+                            <i class="bi bi-speedometer2 me-2" title="Тариф и лимиты"></i> Тариф и лимиты
                         </a>
                         <a class="nav-link d-flex align-items-center" id="integrations-settings-link" data-bs-toggle="pill"
                            href="#v-pills-integrations" role="tab">
@@ -110,50 +126,9 @@
             <div class="col-sm-8" th:text="${userProfile.timezone}"></div>
         </div>
     </div>
-    <div class="card p-3 shadow-sm rounded-4 mb-4">
-        <h5 class="mb-3">Функции и автоматизация</h5>
-        <form id="auto-update-form" class="mt-2">
-            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-            <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="autoUpdateToggle"
-                       th:checked="${userProfile.autoUpdateEnabled}">
-                <label class="form-check-label" for="autoUpdateToggle">Автообновление треков</label>
-            </div>
-            <p class="form-text ms-4">Автообновления расходуют дневной лимит обновлений.</p>
-        </form>
-    </div>
 </div>
 
-<div class="tab-pane fade card p-3 shadow-sm rounded-4 mb-4" id="v-pills-plan" role="tabpanel">
-    <h5 class="mb-3">Тариф и лимиты</h5>
-    <ul class="list-unstyled">
-        <li>📥 Треков в файле:
-            <strong th:text="${planDetails.maxTracksPerFile != null ? planDetails.maxTracksPerFile : 'Без лимита'}"></strong>
-        </li>
-        <li>💾 Сохранённых треков:
-            <strong th:text="${planDetails.maxSavedTracks != null ? userProfile.savedTracksUsed + '/' + planDetails.maxSavedTracks : userProfile.savedTracksUsed + '/∞'}"></strong>
-        </li>
-        <li>🔄 Обновлений в день:
-            <strong th:text="${planDetails.maxTrackUpdates != null ? userProfile.trackUpdatesUsed + '/' + planDetails.maxTrackUpdates : 'Без лимита'}"></strong>
-        </li>
-        <li>🏬 Магазинов:
-            <strong th:text="${userProfile.storesUsed + '/' + planDetails.maxStores}"></strong>
-        </li>
-        <li>
-            <span th:if="${planDetails.allowBulkUpdate}">✅ Массовое обновление</span>
-            <span th:unless="${planDetails.allowBulkUpdate}" class="text-muted">❌ Массовое обновление</span>
-        </li>
-        <li>
-            <span th:if="${planDetails.allowAutoUpdate}">♻️ Автообновление треков</span>
-            <span th:unless="${planDetails.allowAutoUpdate}" class="text-muted">❌ Автообновление треков</span>
-        </li>
-        <li>
-            <span th:if="${planDetails.allowTelegramNotifications}">📨 Telegram-уведомления</span>
-            <span th:unless="${planDetails.allowTelegramNotifications}" class="text-muted">❌ Telegram-уведомления</span>
-        </li>
-    </ul>
-</div>
-                <div class="tab-pane fade" id="v-pills-stores" role="tabpanel">
+<div class="tab-pane fade" id="v-pills-stores" role="tabpanel">
 
                     <div class="card p-3 shadow-sm rounded-4 mb-4">
 
@@ -211,6 +186,64 @@
                         </div>
                     </div>
                 </div>
+
+<div class="tab-pane fade" id="v-pills-notifications" role="tabpanel">
+    <div class="card p-3 shadow-sm rounded-4 mb-4">
+        <h5 class="mb-3">Уведомления (Telegram)</h5>
+        <form id="telegram-notifications-form" class="mt-2">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="telegramNotificationsToggle">
+                <label class="form-check-label" for="telegramNotificationsToggle">Получать уведомления о статусах посылок</label>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="tab-pane fade" id="v-pills-automation" role="tabpanel">
+    <div class="card p-3 shadow-sm rounded-4 mb-4">
+        <h5 class="mb-3">Функции и автоматизация</h5>
+        <form id="auto-update-form" class="mt-2">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="autoUpdateToggle"
+                       th:checked="${userProfile.autoUpdateEnabled}">
+                <label class="form-check-label" for="autoUpdateToggle">Автообновление треков</label>
+            </div>
+            <p class="form-text ms-4">Автообновления расходуют дневной лимит обновлений.</p>
+        </form>
+    </div>
+</div>
+
+<div class="tab-pane fade card p-3 shadow-sm rounded-4 mb-4" id="v-pills-plan" role="tabpanel">
+    <h5 class="mb-3">Тариф и лимиты</h5>
+    <ul class="list-unstyled">
+        <li>📥 Треков в файле:
+            <strong th:text="${planDetails.maxTracksPerFile != null ? planDetails.maxTracksPerFile : 'Без лимита'}"></strong>
+        </li>
+        <li>💾 Сохранённых треков:
+            <strong th:text="${planDetails.maxSavedTracks != null ? userProfile.savedTracksUsed + '/' + planDetails.maxSavedTracks : userProfile.savedTracksUsed + '/∞'}"></strong>
+        </li>
+        <li>🔄 Обновлений в день:
+            <strong th:text="${planDetails.maxTrackUpdates != null ? userProfile.trackUpdatesUsed + '/' + planDetails.maxTrackUpdates : 'Без лимита'}"></strong>
+        </li>
+        <li>🏬 Магазинов:
+            <strong th:text="${userProfile.storesUsed + '/' + planDetails.maxStores}"></strong>
+        </li>
+        <li>
+            <span th:if="${planDetails.allowBulkUpdate}">✅ Массовое обновление</span>
+            <span th:unless="${planDetails.allowBulkUpdate}" class="text-muted">❌ Массовое обновление</span>
+        </li>
+        <li>
+            <span th:if="${planDetails.allowAutoUpdate}">♻️ Автообновление треков</span>
+            <span th:unless="${planDetails.allowAutoUpdate}" class="text-muted">❌ Автообновление треков</span>
+        </li>
+        <li>
+            <span th:if="${planDetails.allowTelegramNotifications}">📨 Telegram-уведомления</span>
+            <span th:unless="${planDetails.allowTelegramNotifications}" class="text-muted">❌ Telegram-уведомления</span>
+        </li>
+    </ul>
+</div>
 <div class="tab-pane fade" id="v-pills-integrations" role="tabpanel">
     <div class="card p-3 shadow-sm rounded-4 mb-4">
         <!-- Контейнер для уведомлений -->
