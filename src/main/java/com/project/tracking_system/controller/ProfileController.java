@@ -92,11 +92,15 @@ public class ProfileController {
     /**
      * Отображает форму настроек пользователя.
      * <p>
-     * Этот метод подготавливает форму для изменения настроек пользователя (например, смены пароля).
+     * При передаче параметра {@code tab} можно открыть вкладки:
+     * {@code password} (по умолчанию), {@code evropost}, {@code notifications} и {@code automation}.
+     * Метод загружает необходимые данные в модель в зависимости от выбранной вкладки.
      * </p>
      *
-     * @param model модель для добавления данных в представление
-     * @return имя представления для части страницы с настройками
+     * @param tab    название вкладки
+     * @param model  модель для добавления данных в представление
+     * @param authentication текущая аутентификация
+     * @return имя представления для страницы профиля
      */
     @GetMapping("/settings")
     public String settings(
@@ -108,11 +112,23 @@ public class ProfileController {
         Long userId = user.getId();
         model.addAttribute("userSettingsDTO", new UserSettingsDTO());
 
-        if ("evropost".equals(tab)) {
-            model.addAttribute("evropostCredentialsDTO", userService.getEvropostCredentials(userId));
-            log.debug("Форма Европочты подготовлена для пользователя с ID: {}", userId);
-        } else {
-            log.debug("Открыта вкладка по умолчанию (пароль) для пользователя с ID: {}", userId);
+        switch (tab) {
+            case "evropost" -> {
+                model.addAttribute("evropostCredentialsDTO", userService.getEvropostCredentials(userId));
+                log.debug("Форма Европочты подготовлена для пользователя с ID: {}", userId);
+            }
+            case "notifications" -> {
+                List<Store> stores = storeService.getUserStoresWithSettings(userId);
+                model.addAttribute("stores", stores);
+                log.debug("Вкладка уведомлений открыта, загружено {} магазинов", stores.size());
+            }
+            case "automation" -> {
+                var userProfile = userService.getUserProfile(userId);
+                model.addAttribute("userProfile", userProfile);
+                model.addAttribute("planDetails", userProfile.getPlanDetails());
+                log.debug("Вкладка автоматизации открыта для пользователя с ID: {}", userId);
+            }
+            default -> log.debug("Открыта вкладка по умолчанию (пароль) для пользователя с ID: {}", userId);
         }
 
         return "profile";
