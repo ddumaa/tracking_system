@@ -117,7 +117,7 @@
                       th:text="${userProfile.subscriptionDisplayName}"></span>
             </div>
         </div>
-        <div class="row mb-2">
+        <div class="row mb-2" th:if="${userProfile.subscriptionEndDate != null}">
             <div class="col-sm-4 text-muted">Оплачено до</div>
             <div class="col-sm-8" th:text="${userProfile.subscriptionEndDate}"></div>
         </div>
