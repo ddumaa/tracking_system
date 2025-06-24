@@ -214,9 +214,12 @@
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
             <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" id="autoUpdateToggle"
-                       th:checked="${userProfile.autoUpdateEnabled}">
+                       th:checked="${userProfile.autoUpdateEnabled}" th:disabled="${!planDetails.allowAutoUpdate}">
                 <label class="form-check-label" for="autoUpdateToggle">Автообновление треков</label>
             </div>
+            <p class="form-text text-danger ms-4" th:if="${!planDetails.allowAutoUpdate}">
+                Функция доступна в тарифе "Бизнес" и выше
+            </p>
             <p class="form-text ms-4">Автообновления расходуют дневной лимит обновлений.</p>
         </form>
     </div>
