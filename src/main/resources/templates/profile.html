@@ -472,7 +472,7 @@
                 <div th:id="'tg-custom-template-fields-' + ${store.id}" class="ms-4 hidden custom-template-fields">
                     <div th:each="status : ${T(com.project.tracking_system.entity.BuyerStatus).values()}">
                         <div class="mb-2">
-                            <label class="form-label" th:for="${'tpl-' + status.name() + '-' + store.id}" th:text="${status.name()}"></label>
+                            <label class="form-label" th:for="${'tpl-' + status.name() + '-' + store.id}" th:text="${status.displayName}"></label>
                             <textarea class="form-control form-control-sm"
                                       th:id="${'tpl-' + status.name() + '-' + store.id}"
                                       th:name="${'templates[' + status.name() + ']'}"
