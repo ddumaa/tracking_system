@@ -361,7 +361,8 @@ public class UserService {
      */
     @Transactional(readOnly = true)
     public boolean isShowBulkUpdateButton(Long userId) {
-        return userSettingsService.getUserSettings(userId).isShowBulkUpdateButton();
+        UserSettings settings = userSettingsService.getUserSettings(userId);
+        return settings != null && settings.isShowBulkUpdateButton();
     }
 
     /**

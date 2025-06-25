@@ -18,26 +18,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserSettingsService {
 
     private final UserSettingsRepository settingsRepository;
-    private final UserRepository userRepository;
 
     /**
-     * Получить настройки пользователя. Если они отсутствуют, создаются настройки по умолчанию.
-     *
-     * @param userId идентификатор пользователя
-     * @return найденные или созданные настройки
+     * Получить настройки пользователя. Если они отсутствуют, возвращается null.
      */
-    @Transactional
+    @Transactional(readOnly = true)
     public UserSettings getUserSettings(Long userId) {
-        UserSettings settings = settingsRepository.findByUserId(userId);
-        if (settings == null) {
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
-            settings = new UserSettings();
-            settings.setUser(user);
-            settings = settingsRepository.save(settings);
-            log.info("Созданы настройки по умолчанию для пользователя {}", userId);
-        }
-        return settings;
+        return settingsRepository.findByUserId(userId);
     }
 
     /**
@@ -53,4 +40,5 @@ public class UserSettingsService {
         settingsRepository.save(settings);
         log.info("Настройка showBulkUpdateButton обновлена для пользователя {}: {}", userId, value);
     }
+
 }
