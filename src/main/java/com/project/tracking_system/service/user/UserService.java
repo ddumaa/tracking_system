@@ -24,7 +24,6 @@ import java.math.BigDecimal;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -555,18 +554,6 @@ public class UserService {
         return storeCount + "/" + maxStores;
     }
 
-    /**
-     * Определяет ID текущего пользователя из объекта аутентификации.
-     *
-     * @param authentication текущая аутентификация Spring Security
-     * @return идентификатор пользователя или {@code null}, если пользователь не определён
-     */
-    public Long extractUserId(Authentication authentication) {
-        if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof User user) {
-            return user.getId();
-        }
-        return null;
-    }
 
     /**
      * Получает часовой пояс пользователя.
