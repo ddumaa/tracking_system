@@ -23,6 +23,7 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Map;
+import java.util.EnumMap;
 
 /**
  * @author Dmitriy Anisimov
@@ -441,9 +442,17 @@ public class StoreService {
     }
 
     /**
-     * Обновить сущность настроек на основе DTO.
-     * Если {@code useCustomTemplates=false}, пользовательские шаблоны будут удалены.
-     * Перед сохранением проверяется корректность переданных статусов.
+     * Обновляет {@link StoreTelegramSettings} на основе данных из DTO.
+     * <p>
+     * Ранее список шаблонов полностью очищался и заново заполнялся. При наличии
+     * уникального ограничения на пару {@code settings_id, status} такое удаление
+     * и последующее создание приводило к попытке вставить новую запись до удаления
+     * старой. Hibernate генерировал SQL в неверном порядке, что вызывало ошибку
+     * нарушения ограничения. Поэтому используется пошаговое обновление.
+     * </p>
+     *
+     * @param settings сущность настроек, которую необходимо обновить
+     * @param dto      входные данные от пользователя
      */
     public void updateFromDto(StoreTelegramSettings settings, StoreTelegramSettingsDTO dto) {
         settings.setEnabled(dto.isEnabled());
@@ -451,21 +460,40 @@ public class StoreService {
         settings.setReminderRepeatIntervalDays(dto.getReminderRepeatIntervalDays());
         settings.setCustomSignature(dto.getCustomSignature());
         settings.setRemindersEnabled(dto.isRemindersEnabled());
-        settings.getTemplates().clear();
+
+        // Составляем карту существующих шаблонов для быстрого доступа
+        Map<BuyerStatus, StoreTelegramTemplate> current = new EnumMap<>(BuyerStatus.class);
+        for (StoreTelegramTemplate template : settings.getTemplates()) {
+            current.put(template.getStatus(), template);
+        }
+
         if (dto.isUseCustomTemplates()) {
-            dto.getTemplates().forEach((k, v) -> {
-                // Проверяем существование статуса перед созданием шаблона
-                if (!isValidBuyerStatus(k)) {
-                    log.warn("⚠ Неизвестный статус шаблона: {}", k);
-                    throw new InvalidTemplateException("Неизвестный статус: " + k);
+            // Обновляем или создаём шаблоны
+            dto.getTemplates().forEach((statusName, text) -> {
+                if (!isValidBuyerStatus(statusName)) {
+                    log.warn("⚠ Неизвестный статус шаблона: {}", statusName);
+                    throw new InvalidTemplateException("Неизвестный статус: " + statusName);
                 }
 
-                StoreTelegramTemplate t = new StoreTelegramTemplate();
-                t.setStatus(BuyerStatus.valueOf(k));
-                t.setTemplate(v);
-                t.setSettings(settings);
-                settings.getTemplates().add(t);
+                BuyerStatus status = BuyerStatus.valueOf(statusName);
+                StoreTelegramTemplate template = current.get(status);
+                if (template == null) {
+                    template = new StoreTelegramTemplate();
+                    template.setSettings(settings);
+                    template.setStatus(status);
+                    settings.getTemplates().add(template);
+                }
+                template.setTemplate(text);
+                current.remove(status); // помечаем как обработанный
             });
+
+            // Удаляем устаревшие шаблоны, оставшиеся в карте
+            if (!current.isEmpty()) {
+                settings.getTemplates().removeIf(t -> current.containsKey(t.getStatus()));
+            }
+        } else {
+            // Пользователь отключил индивидуальные шаблоны
+            settings.getTemplates().clear();
         }
     }
 
