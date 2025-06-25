@@ -10,6 +10,7 @@ import com.project.tracking_system.repository.PostalServiceStatisticsRepository;
 import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
 import com.project.tracking_system.dto.StoreTelegramSettingsDTO;
 import com.project.tracking_system.dto.StoreDTO;
+import com.project.tracking_system.exception.InvalidTemplateException;
 import java.security.Principal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -442,6 +443,7 @@ public class StoreService {
     /**
      * Обновить сущность настроек на основе DTO.
      * Если {@code useCustomTemplates=false}, пользовательские шаблоны будут удалены.
+     * Перед сохранением проверяется корректность переданных статусов.
      */
     public void updateFromDto(StoreTelegramSettings settings, StoreTelegramSettingsDTO dto) {
         settings.setEnabled(dto.isEnabled());
@@ -452,6 +454,12 @@ public class StoreService {
         settings.getTemplates().clear();
         if (dto.isUseCustomTemplates()) {
             dto.getTemplates().forEach((k, v) -> {
+                // Проверяем существование статуса перед созданием шаблона
+                if (!isValidBuyerStatus(k)) {
+                    log.warn("⚠ Неизвестный статус шаблона: {}", k);
+                    throw new InvalidTemplateException("Неизвестный статус: " + k);
+                }
+
                 StoreTelegramTemplate t = new StoreTelegramTemplate();
                 t.setStatus(BuyerStatus.valueOf(k));
                 t.setTemplate(v);
@@ -459,6 +467,16 @@ public class StoreService {
                 settings.getTemplates().add(t);
             });
         }
+    }
+
+    /** Проверяет, существует ли статус покупателя. */
+    private boolean isValidBuyerStatus(String status) {
+        for (BuyerStatus s : BuyerStatus.values()) {
+            if (s.name().equals(status)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
