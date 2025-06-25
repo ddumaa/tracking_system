@@ -71,6 +71,24 @@ class StoreTelegramSettingsServiceTest {
     }
 
     @Test
+    void update_InvalidTemplate_Message() {
+        Store store = new Store();
+        store.setId(1L);
+        StoreTelegramSettings settings = new StoreTelegramSettings();
+        settings.setStore(store);
+        when(repository.findByStoreId(1L)).thenReturn(settings);
+        when(subscriptionService.isFeatureEnabled(1L, FeatureKey.TELEGRAM_NOTIFICATIONS)).thenReturn(true);
+
+        StoreTelegramSettingsDTO dto = new StoreTelegramSettingsDTO();
+        dto.setUseCustomTemplates(true);
+        dto.setTemplates(Map.of("WAITING", "Неверный шаблон"));
+
+        InvalidTemplateException ex = assertThrows(InvalidTemplateException.class,
+                () -> service.update(store, dto, 1L));
+        assertEquals("Шаблон должен содержать {track} и {store}", ex.getMessage());
+    }
+
+    @Test
     void update_UnknownStatus_Throws() {
         Store store = new Store();
         store.setId(1L);
