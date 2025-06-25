@@ -14,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Map;
 
+import com.project.tracking_system.exception.InvalidTemplateException;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -66,6 +67,6 @@ class StoreTelegramSettingsServiceTest {
         dto.setUseCustomTemplates(true);
         dto.setTemplates(Map.of("WAITING", "Неверный шаблон"));
 
-        assertThrows(IllegalArgumentException.class, () -> service.update(store, dto, 1L));
+        assertThrows(InvalidTemplateException.class, () -> service.update(store, dto, 1L));
     }
 }
