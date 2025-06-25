@@ -199,6 +199,33 @@ function initAutoUpdateToggle() {
     });
 }
 
+// Инициализация переключателя отображения кнопки массового обновления
+function initBulkButtonToggle() {
+    const checkbox = document.getElementById("showBulkUpdateButton");
+    if (!checkbox) return;
+
+    let debounceTimer;
+    checkbox.addEventListener('change', function () {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            fetch('/profile/settings/bulk-button', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+                },
+                body: new URLSearchParams({ show: checkbox.checked })
+            }).then(response => {
+                if (!response.ok) {
+                    alert('Ошибка при обновлении настройки.');
+                }
+            }).catch(() => {
+                alert('Ошибка сети при обновлении настройки.');
+            });
+        }, 300);
+    });
+}
+
 // Инициализация переключателя для ввода телефона
 function initializePhoneToggle() {
     const toggle = document.getElementById("togglePhone");
@@ -1185,6 +1212,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initEvropostFormHandler();
     initializeCustomCredentialsCheckbox();
     initAutoUpdateToggle();
+    initBulkButtonToggle();
     initializePhoneToggle();
     initAssignCustomerFormHandler();
     initTelegramForms();

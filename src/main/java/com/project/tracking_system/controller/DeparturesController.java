@@ -11,6 +11,8 @@ import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.track.TrackFacade;
 import com.project.tracking_system.service.store.StoreService;
+import com.project.tracking_system.dto.UserSettingsDTO;
+import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -48,6 +50,7 @@ public class DeparturesController {
     private final StoreService storeService;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final WebSocketController webSocketController;
+    private final UserService userService;
 
     /**
      * Метод для отображения списка отслеживаемых посылок пользователя с возможностью фильтрации по магазину и статусу.
@@ -132,6 +135,7 @@ public class DeparturesController {
         model.addAttribute("currentPage", trackParcelPage.getNumber());
         model.addAttribute("totalPages", trackParcelPage.getTotalPages());
         model.addAttribute("trackParcelNotification", trackParcelPage.isEmpty() ? "Отслеживаемых посылок нет" : null);
+        model.addAttribute("userSettings", new UserSettingsDTO(userService.isShowBulkUpdateButton(userId)));
 
         return "departures";
     }
