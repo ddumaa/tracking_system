@@ -1,5 +1,7 @@
 package com.project.tracking_system.entity;
 
+import lombok.Getter;
+
 /**
  * Статус посылки, предназначенный для отображения покупателю.
  * Содержит шаблон сообщения и читабельное название на русском языке.
@@ -17,21 +19,19 @@ public enum BuyerStatus {
     /** Посылка возвращается отправителю. */
     RETURNED("Возврат", "Посылка %s из магазина %s уже возвращается отправителю.");
 
+    /**
+     * -- GETTER --
+     *  Возвращает русскоязычное название статуса.
+     *
+     * @return читаемое название статуса
+     */
+    @Getter
     private final String displayName;
     private final String messageTemplate;
 
     BuyerStatus(String displayName, String messageTemplate) {
         this.displayName = displayName;
         this.messageTemplate = messageTemplate;
-    }
-
-    /**
-     * Возвращает русскоязычное название статуса.
-     *
-     * @return читаемое название статуса
-     */
-    public String getDisplayName() {
-        return displayName;
     }
 
     /**
