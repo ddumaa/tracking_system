@@ -13,6 +13,7 @@ import com.project.tracking_system.service.email.EmailService;
 import com.project.tracking_system.service.jsonEvropostService.JwtTokenManager;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.tariff.TariffService;
+import com.project.tracking_system.service.user.UserSettingsService;
 import com.project.tracking_system.utils.EncryptionUtils;
 import com.project.tracking_system.utils.RandomlyGeneratedString;
 import com.project.tracking_system.utils.UserCredentialsResolver;
@@ -62,6 +63,9 @@ class UserServiceTest {
     private StoreService storeService;
     @Mock
     private TariffService tariffService;
+
+    @Mock
+    private UserSettingsService userSettingsService;
 
     @InjectMocks
     private UserService userService;
@@ -113,5 +117,6 @@ class UserServiceTest {
         userService.createUserByAdmin("new@example.com", "pass", "ROLE_USER", "FREE");
 
         verify(userRepository).save(argThat(u -> "Europe/Minsk".equals(u.getTimeZone())));
+        verify(userSettingsService).getUserSettings(anyLong());
     }
 }
