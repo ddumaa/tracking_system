@@ -233,36 +233,48 @@ function initTelegramNotificationsToggle() {
 
     const updateFormState = () => {
         document.querySelectorAll('.telegram-settings-form').forEach(form => {
-            const enableCb = form.querySelector('input[name="enabled"]');
-            const remindersCb = form.querySelector('input[name="remindersEnabled"]');
-            if (enableCb) enableCb.disabled = !checkbox.checked;
-            if (remindersCb) remindersCb.disabled = !checkbox.checked;
+            // При недоступном тарифе блокируем формы и сбрасываем чекбоксы
+            if (checkbox.disabled) {
+                form.querySelectorAll('input, select, button').forEach(el => {
+                    el.disabled = true;
+                    if (el.type === 'checkbox' || el.type === 'radio') {
+                        el.checked = false;
+                    }
+                });
+            } else {
+                const enableCb = form.querySelector('input[name="enabled"]');
+                const remindersCb = form.querySelector('input[name="remindersEnabled"]');
+                if (enableCb) enableCb.disabled = !checkbox.checked;
+                if (remindersCb) remindersCb.disabled = !checkbox.checked;
+            }
         });
     };
 
     updateFormState();
 
-    let debounceTimer;
-    checkbox.addEventListener('change', function () {
-        updateFormState();
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-            fetch('/profile/settings/telegram-notifications', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
-                },
-                body: new URLSearchParams({ enabled: checkbox.checked })
-            }).then(response => {
-                if (!response.ok) {
-                    alert('Ошибка при обновлении настройки.');
-                }
-            }).catch(() => {
-                alert('Ошибка сети при обновлении настройки.');
-            });
-        }, 300);
-    });
+    if (!checkbox.disabled) {
+        let debounceTimer;
+        checkbox.addEventListener('change', function () {
+            updateFormState();
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                fetch('/profile/settings/telegram-notifications', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+                    },
+                    body: new URLSearchParams({ enabled: checkbox.checked })
+                }).then(response => {
+                    if (!response.ok) {
+                        alert('Ошибка при обновлении настройки.');
+                    }
+                }).catch(() => {
+                    alert('Ошибка сети при обновлении настройки.');
+                });
+            }, 300);
+        });
+    }
 }
 
 // Инициализация переключателя для ввода телефона
