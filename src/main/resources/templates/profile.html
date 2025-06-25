@@ -181,6 +181,7 @@
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
             <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" id="telegramNotificationsToggle"
+                       th:checked="${userSettingsDTO.telegramNotificationsEnabled}"
                        th:disabled="${!planDetails.allowTelegramNotifications}">
                 <label class="form-check-label" for="telegramNotificationsToggle">Получать уведомления о статусах посылок</label>
             </div>
@@ -408,7 +409,7 @@
                 <div class="form-check form-switch mb-2">
                     <input class="form-check-input" type="checkbox" th:id="'tg-enable-' + ${store.id}" name="enabled"
                            th:checked="${store.telegramSettings != null and store.telegramSettings.enabled}"
-                           th:disabled="${!planDetails.allowTelegramNotifications}">
+                           th:disabled="${!planDetails.allowTelegramNotifications or !userSettingsDTO.telegramNotificationsEnabled}">
                     <label class="form-check-label" th:for="'tg-enable-' + ${store.id}">
                         Отправлять уведомления покупателям этого магазина
                     </label>
@@ -422,7 +423,7 @@
                     <input class="form-check-input" type="checkbox" th:id="'tg-reminders-' + ${store.id}"
                            name="remindersEnabled"
                            th:checked="${store.telegramSettings?.remindersEnabled}"
-                           th:disabled="${!planDetails.allowTelegramNotifications}">
+                           th:disabled="${!planDetails.allowTelegramNotifications or !userSettingsDTO.telegramNotificationsEnabled}">
                     <label class="form-check-label" th:for="'tg-reminders-' + ${store.id}">
                         Отправлять напоминания, если посылка не забрана
                     </label>
