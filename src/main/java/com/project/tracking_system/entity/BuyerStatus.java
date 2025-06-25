@@ -15,7 +15,7 @@ public enum BuyerStatus {
     IN_TRANSIT("Посылка %s из магазина %s находится в пути."),
     WAITING("Посылка %s из магазина %s прибыла и ждёт вас в пункте выдачи."),
     DELIVERED("Посылка %s из магазина %s получена. Спасибо за покупку!"),
-    RETURNED("Посылка %s из магазина %s возвращена отправителю.");
+    RETURNED("Посылка {track} из магазина {store} уже возвращается отправителю.");
 
     private final String messageTemplate;
 

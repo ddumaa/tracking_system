@@ -29,7 +29,7 @@ public final class BuyerStatusMapper {
             case IN_TRANSIT -> BuyerStatus.IN_TRANSIT;
             case WAITING_FOR_CUSTOMER -> BuyerStatus.WAITING;
             case DELIVERED -> BuyerStatus.DELIVERED;
-            case RETURNED, RETURN_IN_PROGRESS, RETURN_PENDING_PICKUP -> BuyerStatus.RETURNED;
+            case RETURN_IN_PROGRESS -> BuyerStatus.RETURNED;
             default -> null;
         };
     }
