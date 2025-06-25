@@ -145,7 +145,8 @@ public class StoreTelegramSettingsController {
             webSocketController.sendUpdateStatus(userId, "Настройки Telegram сохранены.", true);
         } catch (InvalidTemplateException e) {
             log.warn("Некорректный шаблон Telegram: {}", e.getMessage());
-            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+            redirectAttributes.addFlashAttribute("templateError", e.getMessage());
+            redirectAttributes.addFlashAttribute("storeIdWithError", storeId);
         } catch (IllegalStateException e) {
             log.warn("Ошибка обновления настроек Telegram: {}", e.getMessage());
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
