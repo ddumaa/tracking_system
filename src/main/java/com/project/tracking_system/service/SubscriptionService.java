@@ -43,6 +43,7 @@ public class SubscriptionService {
      * @param tracksCount запрошенное количество треков
      * @return максимально допустимое количество треков для загрузки
      */
+    @Transactional(readOnly = true)
     public int canUploadTracks(Long userId, int tracksCount) {
         // Получаем подписку пользователя
         Optional<UserSubscription> optionalSubscription = userSubscriptionRepository.findByUserId(userId);
@@ -74,6 +75,7 @@ public class SubscriptionService {
      * @param tracksCountToSave количество треков, которые требуется сохранить
      * @return допустимое количество треков для сохранения
      */
+    @Transactional(readOnly = true)
     public int canSaveMoreTracks(Long userId, int tracksCountToSave) {
         Optional<UserSubscription> optionalSubscription = userSubscriptionRepository.findByUserId(userId);
         if (optionalSubscription.isEmpty()) {
@@ -167,6 +169,7 @@ public class SubscriptionService {
      * @param userId идентификатор пользователя
      * @return {@code true}, если тарифный план позволяет массовое обновление
      */
+    @Transactional(readOnly = true)
     public boolean canUseBulkUpdate(Long userId) {
         boolean allowed = isFeatureEnabled(userId, FeatureKey.BULK_UPDATE);
         log.debug("Пользователь {} пытается использовать массовое обновление. Доступ: {}", userId, allowed);
@@ -179,6 +182,7 @@ public class SubscriptionService {
      * @param userId идентификатор пользователя
      * @return {@code true}, если функция включена в тарифе
      */
+    @Transactional(readOnly = true)
     public boolean canUseAutoUpdate(Long userId) {
         return isFeatureEnabled(userId, FeatureKey.AUTO_UPDATE);
     }
@@ -189,6 +193,7 @@ public class SubscriptionService {
      * @param userId идентификатор пользователя
      * @return {@code true}, если тарифный план пользователя позволяет Telegram-уведомления
      */
+    @Transactional(readOnly = true)
     public boolean canUseTelegramNotifications(Long userId) {
         boolean allowed = isFeatureEnabled(userId, FeatureKey.TELEGRAM_NOTIFICATIONS);
         if (!allowed) {
@@ -204,6 +209,7 @@ public class SubscriptionService {
      * @param key    ключ функции
      * @return {@code true}, если функция доступна
      */
+    @Transactional(readOnly = true)
     public boolean isFeatureEnabled(Long userId, FeatureKey key) {
         String code = userSubscriptionRepository.getSubscriptionPlanCode(userId);
         if (code == null) {
@@ -220,6 +226,7 @@ public class SubscriptionService {
      * @param userId идентификатор пользователя
      * @return {@code true}, если стоимость текущего плана больше нуля
      */
+    @Transactional(readOnly = true)
     public boolean isUserPremium(Long userId) {
         String code = userSubscriptionRepository.getSubscriptionPlanCode(userId);
         if (code == null) {

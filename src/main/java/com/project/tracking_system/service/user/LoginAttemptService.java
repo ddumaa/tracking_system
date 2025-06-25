@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.time.ZoneOffset;
@@ -170,6 +171,7 @@ public class LoginAttemptService {
      * @param email адрес электронной почты пользователя
      * @return количество оставшихся попыток входа
      */
+    @Transactional(readOnly = true)
     public int getRemainingAttempts(String email) {
         Optional<User> userOptional = userRepository.findByEmail(email);
 
@@ -193,6 +195,7 @@ public class LoginAttemptService {
      * @param email адрес электронной почты пользователя
      * @return время разблокировки аккаунта, если он заблокирован, иначе {@code null}
      */
+    @Transactional(readOnly = true)
     public ZonedDateTime getUnlockTime(String email) {
         Optional<User> userOptional = userRepository.findByEmail(email);
 

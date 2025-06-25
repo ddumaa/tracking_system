@@ -6,6 +6,7 @@ import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.repository.PostalServiceStatisticsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.EnumMap;
 import java.util.List;
@@ -30,6 +31,7 @@ public class PostalServiceStatisticsService {
      * @return список статистик по службам доставки магазина
      *         (службы без отправлений исключаются)
      */
+    @Transactional(readOnly = true)
     public List<PostalServiceStatsDTO> getStatsByStore(Long storeId) {
         return repository.findByStoreId(storeId)
                 .stream()
@@ -53,6 +55,7 @@ public class PostalServiceStatisticsService {
      * @return агрегированная статистика по службам доставки
      *         (службы без отправлений исключаются)
      */
+    @Transactional(readOnly = true)
     public List<PostalServiceStatsDTO> getStatsForStores(List<Long> storeIds) {
         List<PostalServiceStatistics> stats = repository.findByStoreIdIn(storeIds);
         Map<PostalServiceType, PostalServiceStatistics> aggregated = new EnumMap<>(PostalServiceType.class);

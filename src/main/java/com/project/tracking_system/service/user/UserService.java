@@ -338,6 +338,7 @@ public class UserService {
      * @param userId идентификатор пользователя
      * @return {@code true}, если автообновление разрешено
      */
+    @Transactional(readOnly = true)
     public boolean isAutoUpdateEnabled(Long userId) {
         return userSubscriptionRepository.isAutoUpdateEnabled(userId);
     }
@@ -359,6 +360,7 @@ public class UserService {
      * @param userId идентификатор пользователя
      * @return {@code true}, если кнопка должна отображаться
      */
+    @Transactional(readOnly = true)
     public boolean isShowBulkUpdateButton(Long userId) {
         return userSettingsService.getUserSettings(userId).isShowBulkUpdateButton();
     }
@@ -379,6 +381,7 @@ public class UserService {
      * @param userId идентификатор пользователя
      * @return DTO с именем пользователя и флагом использования своих данных
      */
+    @Transactional(readOnly = true)
     public EvropostCredentialsDTO getEvropostCredentials(long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
@@ -405,6 +408,7 @@ public class UserService {
      * @param email Email пользователя.
      * @return Опциональный объект с пользователем.
      */
+    @Transactional(readOnly = true)
     public Optional<User> findByUserEmail(String email) {
         return userRepository.findByEmail(email);
     }
@@ -416,6 +420,7 @@ public class UserService {
      * @return найденный пользователь
      * @throws IllegalArgumentException если пользователь не найден
      */
+    @Transactional(readOnly = true)
     public User findUserById(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
@@ -426,6 +431,7 @@ public class UserService {
      *
      * @return список пользователей
      */
+    @Transactional(readOnly = true)
     public List<User> findAll() {
         return userRepository.findAll();
     }
@@ -435,6 +441,7 @@ public class UserService {
      *
      * @return число пользователей
      */
+    @Transactional(readOnly = true)
     public long countUsers() {
         return userRepository.count();
     }
@@ -446,6 +453,7 @@ public class UserService {
      * @return объект с расшифрованными учётными данными
      * @throws UsernameNotFoundException если пользователь не найден
      */
+    @Transactional(readOnly = true)
     public ResolvedCredentialsDTO resolveCredentials(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
@@ -458,6 +466,7 @@ public class UserService {
      * @param userId идентификатор пользователя
      * @return {@code true}, если используется свой набор учётных данных
      */
+    @Transactional(readOnly = true)
     public boolean isUsingCustomCredentials(Long userId) {
         return evropostServiceCredentialRepository.isUsingCustomCredentials(userId);
     }
@@ -468,6 +477,7 @@ public class UserService {
      * @param code код тарифного плана (например, FREE, PREMIUM)
      * @return количество пользователей с указанным тарифом
      */
+    @Transactional(readOnly = true)
     public long countUsersBySubscriptionPlan(String code) {
         return userRepository.countBySubscription_SubscriptionPlan_Code(code);
     }
@@ -477,6 +487,7 @@ public class UserService {
      *
      * @return число пользователей, использующих платные планы
      */
+    @Transactional(readOnly = true)
     public long countPaidUsers() {
         return userRepository.countBySubscription_SubscriptionPlan_PriceGreaterThan(BigDecimal.ZERO);
     }
@@ -529,7 +540,7 @@ public class UserService {
      * @param userId ID пользователя.
      * @return Количество использованных и доступных магазинов в виде строки "1/10".
      */
-    @Transactional
+    @Transactional(readOnly = true)
     public String getUserStoreLimit(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
@@ -564,6 +575,7 @@ public class UserService {
      * @return объект {@link ZoneId} с часовым поясом пользователя
      * @throws IllegalArgumentException если пользователь не найден
      */
+    @Transactional(readOnly = true)
     public ZoneId getUserZone(Long userId) {
         return ZoneId.of(userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден")).getTimeZone());

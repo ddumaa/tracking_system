@@ -32,6 +32,7 @@ public class TariffService {
      *
      * @return список планов в виде DTO
      */
+    @Transactional(readOnly = true)
     public List<SubscriptionPlanViewDTO> getAllPlans() {
         return planRepository.findAllByOrderByPositionAsc()
                 .stream()
@@ -126,6 +127,7 @@ public class TariffService {
      * @param code код тарифного плана
      * @return позицию плана или {@code -1}, если план не найден
      */
+    @Transactional(readOnly = true)
     public int getPlanPositionByCode(String code) {
         if (code == null) {
             return -1;
@@ -141,6 +143,7 @@ public class TariffService {
      * @param code код плана
      * @return DTO с данными плана или {@code null}, если план не найден
      */
+    @Transactional(readOnly = true)
     public SubscriptionPlanViewDTO getPlanInfoByCode(String code) {
         if (code == null) {
             return null;
