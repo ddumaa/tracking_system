@@ -46,9 +46,6 @@ public class UploadController {
 
         if (user != null) {
             userId = user.getId();
-            model.addAttribute("authenticatedUser", user.getEmail());
-        } else {
-            model.addAttribute("authenticatedUser", null);
         }
 
         if (file.isEmpty()) {
