@@ -222,6 +222,17 @@
             </p>
             <p class="form-text ms-4">Автообновления расходуют дневной лимит обновлений.</p>
         </form>
+        <form id="bulk-button-form" class="mt-3">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="showBulkUpdateButton"
+                       th:checked="${userSettingsDTO.showBulkUpdateButton}" th:disabled="${!planDetails.allowBulkUpdate}">
+                <label class="form-check-label" for="showBulkUpdateButton">Показывать кнопку массового обновления</label>
+            </div>
+            <p class="form-text text-danger ms-4" th:if="${!planDetails.allowBulkUpdate}">
+                Доступно только в тарифе Premium
+            </p>
+        </form>
     </div>
 </div>
 
