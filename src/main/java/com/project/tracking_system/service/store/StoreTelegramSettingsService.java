@@ -5,6 +5,7 @@ import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.controller.WebSocketController;
+import com.project.tracking_system.exception.InvalidTemplateException;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.service.store.StoreService;
 import lombok.RequiredArgsConstructor;
@@ -71,7 +72,7 @@ public class StoreTelegramSettingsService {
     // Проверяем наличие обязательных плейсхолдеров
     private void validateTemplate(String template) {
         if (!template.contains("{track}") || !template.contains("{store}")) {
-            throw new IllegalArgumentException("Шаблон должен содержать {track} и {store}");
+            throw new InvalidTemplateException("Шаблон должен содержать {track} и {store}");
         }
     }
 }
