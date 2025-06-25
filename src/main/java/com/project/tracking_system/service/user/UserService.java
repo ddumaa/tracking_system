@@ -266,26 +266,33 @@ public class UserService {
      * @param userId идентификатор пользователя
      * @param dto    новые учётные данные
      */
+    @Transactional
     public void updateEvropostCredentialsAndSettings(Long userId, EvropostCredentialsDTO dto) {
         log.info("Начало обновления данных Evropost для пользователя ID={}", userId);
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
 
+        // Получаем существующие учётные данные или создаём новые
+        EvropostServiceCredential credentials = user.getEvropostServiceCredential();
+        if (credentials == null) {
+            credentials = new EvropostServiceCredential();
+            credentials.setUser(user);
+            user.setEvropostServiceCredential(credentials);
+        }
+
         try {
             // Шифрование пароля и номера сервиса
             String encryptedPassword = encryptionUtils.encrypt(dto.getEvropostPassword());
             String encryptedServiceNumber = encryptionUtils.encrypt(dto.getServiceNumber());
 
-
-
             // Обновление всех данных
-            user.getEvropostServiceCredential().setUsername(dto.getEvropostUsername());
-            user.getEvropostServiceCredential().setPassword(encryptedPassword);
-            user.getEvropostServiceCredential().setServiceNumber(encryptedServiceNumber);
-            user.getEvropostServiceCredential().setUseCustomCredentials(dto.getUseCustomCredentials());
+            credentials.setUsername(dto.getEvropostUsername());
+            credentials.setPassword(encryptedPassword);
+            credentials.setServiceNumber(encryptedServiceNumber);
+            credentials.setUseCustomCredentials(dto.getUseCustomCredentials());
 
-            userRepository.save(user);
+            userRepository.save(user); // сохраняем пользователя и связанные данные
             log.info("Данные успешно обновлены для пользователя с ID: {}", userId);
 
         } catch (Exception e) {
