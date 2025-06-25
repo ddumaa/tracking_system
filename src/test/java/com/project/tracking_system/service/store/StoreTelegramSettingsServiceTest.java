@@ -69,4 +69,20 @@ class StoreTelegramSettingsServiceTest {
 
         assertThrows(InvalidTemplateException.class, () -> service.update(store, dto, 1L));
     }
+
+    @Test
+    void update_UnknownStatus_Throws() {
+        Store store = new Store();
+        store.setId(1L);
+        StoreTelegramSettings settings = new StoreTelegramSettings();
+        settings.setStore(store);
+        when(repository.findByStoreId(1L)).thenReturn(settings);
+        when(subscriptionService.isFeatureEnabled(1L, FeatureKey.TELEGRAM_NOTIFICATIONS)).thenReturn(true);
+
+        StoreTelegramSettingsDTO dto = new StoreTelegramSettingsDTO();
+        dto.setUseCustomTemplates(true);
+        dto.setTemplates(Map.of("UNKNOWN", "Msg {track} {store}"));
+
+        assertThrows(InvalidTemplateException.class, () -> service.update(store, dto, 1L));
+    }
 }
