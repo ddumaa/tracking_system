@@ -40,8 +40,6 @@ public class HomeController {
     @GetMapping
     public String home(@AuthenticationPrincipal User user, Model model) {
         if (user != null) {
-            model.addAttribute("authenticatedUser", user.getEmail());
-
             // Получаем магазины пользователя
             List<Store> stores = storeService.getUserStores(user.getId());
             model.addAttribute("stores", stores);
@@ -73,7 +71,6 @@ public class HomeController {
         boolean canSave = userId != null;
 
         model.addAttribute("number", number);
-        model.addAttribute("authenticatedUser", userId);
 
         // Получаем магазины пользователя и определяем ID магазина
         List<Store> stores = userId != null ? storeService.getUserStores(userId) : List.of();
