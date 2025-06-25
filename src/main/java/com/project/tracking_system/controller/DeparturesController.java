@@ -116,7 +116,7 @@ public class DeparturesController {
                     : trackParcelService.findByStoreTracks(filteredStoreIds, page, size, userId);
         }
 
-        // ✅ Добавляем иконки в DTO перед передачей в шаблон
+        // Добавляем иконки в DTO перед передачей в шаблон
         trackParcelPage.forEach(dto -> {
             GlobalStatus statusEnum = GlobalStatus.fromDescription(dto.getStatus()); // Конвертация строки в Enum
             dto.setIconHtml(statusTrackService.getIcon(statusEnum)); // Передаем Enum в сервис для получения иконки
