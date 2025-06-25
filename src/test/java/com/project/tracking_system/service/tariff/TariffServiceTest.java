@@ -6,7 +6,6 @@ import com.project.tracking_system.entity.SubscriptionLimits;
 import com.project.tracking_system.entity.SubscriptionPlan;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.SubscriptionPlanRepository;
-import com.project.tracking_system.service.SubscriptionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,8 +27,6 @@ class TariffServiceTest {
 
     @Mock
     private SubscriptionPlanRepository planRepository;
-    @Mock
-    private SubscriptionService subscriptionService;
     @InjectMocks
     private TariffService tariffService;
 

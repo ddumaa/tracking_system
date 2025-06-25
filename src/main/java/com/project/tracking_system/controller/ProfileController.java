@@ -4,6 +4,7 @@ import com.project.tracking_system.dto.EvropostCredentialsDTO;
 import com.project.tracking_system.dto.UserSettingsDTO;
 import com.project.tracking_system.dto.PasswordChangeDTO;
 import com.project.tracking_system.entity.Store;
+import com.project.tracking_system.dto.StoreDTO;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.UserService;
@@ -70,7 +71,7 @@ public class ProfileController {
         var userProfile = userService.getUserProfile(userId);
 
         // Загружаем магазины с настройками Telegram
-        List<Store> stores = storeService.getUserStoresWithSettings(userId);
+        List<StoreDTO> stores = storeService.getUserStoresDto(userId);
 
         // Добавляем данные профиля в модель
         model.addAttribute("username", user.getEmail());
@@ -83,6 +84,7 @@ public class ProfileController {
         // Добавляем настройки и другие данные пользователя в модель
         UserSettingsDTO settingsDTO = new UserSettingsDTO();
         settingsDTO.setShowBulkUpdateButton(userService.isShowBulkUpdateButton(userId));
+        settingsDTO.setTelegramNotificationsEnabled(userService.isTelegramNotificationsEnabled(userId));
         model.addAttribute("userSettingsDTO", settingsDTO);
         model.addAttribute("passwordChangeDTO", new PasswordChangeDTO());
         model.addAttribute("evropostCredentialsDTO", userService.getEvropostCredentials(userId));
@@ -112,6 +114,7 @@ public class ProfileController {
         Long userId = user.getId();
         UserSettingsDTO settingsDTO = new UserSettingsDTO();
         settingsDTO.setShowBulkUpdateButton(userService.isShowBulkUpdateButton(userId));
+        settingsDTO.setTelegramNotificationsEnabled(userService.isTelegramNotificationsEnabled(userId));
         model.addAttribute("userSettingsDTO", settingsDTO);
         model.addAttribute("passwordChangeDTO", new PasswordChangeDTO());
 
@@ -256,6 +259,32 @@ public class ProfileController {
     }
 
     /**
+     * Обновляет глобальный флаг Telegram-уведомлений.
+     *
+     * @param enabled новое значение флага
+     * @param user    текущий пользователь
+     * @return результат операции
+     */
+    @PostMapping("/settings/telegram-notifications")
+    public ResponseEntity<?> updateTelegramNotifications(
+            @RequestParam(value = "enabled", required = false) Boolean enabled,
+            @AuthenticationPrincipal User user) {
+        Long userId = user.getId();
+
+        if (enabled == null) {
+            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Не указан параметр enabled");
+        }
+
+        if (!subscriptionService.isFeatureEnabled(userId, FeatureKey.TELEGRAM_NOTIFICATIONS)) {
+            log.warn("Пользователь {} попытался изменить флаг Telegram без доступа", userId);
+            return ResponseBuilder.error(HttpStatus.FORBIDDEN, "Опция недоступна на текущем тарифе");
+        }
+
+        userService.updateTelegramNotificationsEnabled(userId, enabled);
+        return ResponseBuilder.ok("Настройки успешно обновлены.");
+    }
+
+    /**
      * Обрабатывает запросы на изменение настроек пользователя, включая смену пароля.
      * <p>
      * Этот метод выполняет валидацию нового пароля, проверку совпадения паролей и изменение пароля через сервис.
@@ -325,13 +354,13 @@ public class ProfileController {
      * </p>
      *
      * @param user текущий пользователь
-     * @return список магазинов пользователя
+     * @return список магазинов пользователя в виде DTO
      */
     @GetMapping("/stores")
     @ResponseBody
-    public List<Store> getUserStores(@AuthenticationPrincipal User user) {
+    public List<StoreDTO> getUserStores(@AuthenticationPrincipal User user) {
         storeService.getDefaultStoreId(user.getId());
-        return storeService.getUserStores(user.getId());
+        return storeService.getUserStoresDto(user.getId());
     }
 
     /**

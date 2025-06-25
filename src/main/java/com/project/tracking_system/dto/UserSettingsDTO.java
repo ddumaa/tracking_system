@@ -22,4 +22,9 @@ public class UserSettingsDTO {
      * Показывать кнопку массового обновления треков.
      */
     private Boolean showBulkUpdateButton;
+
+    /**
+     * Разрешены ли уведомления Telegram для всех магазинов.
+     */
+    private Boolean telegramNotificationsEnabled;
 }

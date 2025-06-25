@@ -1,5 +1,6 @@
 package com.project.tracking_system.repository;
 
+import com.project.tracking_system.entity.StoreTelegramSettings;
 import com.project.tracking_system.entity.StoreTelegramTemplate;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -17,4 +18,5 @@ public interface StoreTelegramTemplateRepository extends JpaRepository<StoreTele
      * @return список шаблонов
      */
     List<StoreTelegramTemplate> findBySettingsId(Long settingsId);
+
 }

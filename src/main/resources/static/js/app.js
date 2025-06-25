@@ -176,6 +176,11 @@ function initializeCustomCredentialsCheckbox() {
 function initAutoUpdateToggle() {
     const checkbox = document.getElementById("autoUpdateToggle");
     if (!checkbox) return;
+    // При недоступном тарифе переключатель заблокирован
+    if (checkbox.disabled) {
+        checkbox.checked = false; // визуально показываем выключенное состояние
+        return;
+    }
 
     let debounceTimer;
     checkbox.addEventListener('change', function () {
@@ -204,6 +209,11 @@ function initBulkButtonToggle() {
     const checkbox = document.getElementById("showBulkUpdateButton");
     if (!checkbox) return;
 
+    // Форма может быть отключена на бесплатном тарифе
+    if (checkbox.disabled) {
+        checkbox.checked = false; // состояние всегда выключено
+        return;
+    }
     let debounceTimer;
     checkbox.addEventListener('change', function () {
         clearTimeout(debounceTimer);
@@ -224,6 +234,57 @@ function initBulkButtonToggle() {
             });
         }, 300);
     });
+}
+
+// Инициализация глобального переключателя Telegram-уведомлений
+function initTelegramNotificationsToggle() {
+    const checkbox = document.getElementById('telegramNotificationsToggle');
+    if (!checkbox) return;
+
+    const updateFormState = () => {
+        document.querySelectorAll('.telegram-settings-form').forEach(form => {
+            // При недоступном тарифе блокируем формы и сбрасываем чекбоксы
+            if (checkbox.disabled) {
+                form.querySelectorAll('input, select, button').forEach(el => {
+                    el.disabled = true;
+                    if (el.type === 'checkbox' || el.type === 'radio') {
+                        el.checked = false;
+                    }
+                });
+            } else {
+                const enableCb = form.querySelector('input[name="enabled"]');
+                const remindersCb = form.querySelector('input[name="remindersEnabled"]');
+                if (enableCb) enableCb.disabled = !checkbox.checked;
+                if (remindersCb) remindersCb.disabled = !checkbox.checked;
+            }
+        });
+    };
+
+    updateFormState();
+
+    if (!checkbox.disabled) {
+        let debounceTimer;
+        checkbox.addEventListener('change', function () {
+            updateFormState();
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                fetch('/profile/settings/telegram-notifications', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+                    },
+                    body: new URLSearchParams({ enabled: checkbox.checked })
+                }).then(response => {
+                    if (!response.ok) {
+                        alert('Ошибка при обновлении настройки.');
+                    }
+                }).catch(() => {
+                    alert('Ошибка сети при обновлении настройки.');
+                });
+            }, 300);
+        });
+    }
 }
 
 // Инициализация переключателя для ввода телефона
@@ -248,9 +309,19 @@ function initAssignCustomerFormHandler() {
 
 // Инициализация форм настроек Telegram
 function initTelegramForms() {
+    const tgToggle = document.getElementById('telegramNotificationsToggle');
+    const telegramUnavailable = tgToggle && tgToggle.disabled;
+
     document.querySelectorAll('.telegram-settings-form').forEach(form => {
         if (form.dataset.initialized) return;
         form.dataset.initialized = 'true';
+
+        if (telegramUnavailable) {
+            // Отправка настроек запрещена на базовом тарифе
+            const saveBtn = form.querySelector('button[type="submit"]');
+            if (saveBtn) saveBtn.disabled = true;
+            return;
+        }
 
         form.addEventListener('submit', async function (event) {
             event.preventDefault();
@@ -269,9 +340,11 @@ function initTelegramForms() {
                     // Уведомление придёт через WebSocket
                 } else {
                     const errorText = await response.text();
+                    // Показываем ошибку непосредственно в форме
                     showInlineNotification(form, errorText || 'Ошибка при сохранении', 'danger');
                 }
             } catch (e) {
+                // В случае сетевой ошибки также выводим сообщение в форме
                 showInlineNotification(form, 'Ошибка сети при сохранении', 'danger');
             }
         });
@@ -539,6 +612,32 @@ function showToast(message, type = "info") {
     toastElement.addEventListener("hidden.bs.toast", () => {
         toastElement.remove();
     });
+}
+
+/**
+ * Показывает встроенное уведомление в форме.
+ * Предыдущее уведомление удаляется, чтобы не дублировать сообщения.
+ * @param {HTMLFormElement} form - форма, в которую вставляется уведомление
+ * @param {string} message - текст уведомления
+ * @param {string} type - тип Bootstrap-алерта (success, danger, warning, ...)
+ */
+function showInlineNotification(form, message, type = 'danger') {
+    if (!form) return;
+
+    // Если в форме уже есть уведомление, удаляем его
+    const existing = form.querySelector('.inline-notification');
+    if (existing) existing.remove();
+
+    // Создаём элемент уведомления
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show inline-notification mb-2`;
+    alertDiv.role = 'alert';
+    alertDiv.innerHTML = `
+        <span class="alert-text">${message}</span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Закрыть"></button>`;
+
+    // Добавляем уведомление в начало формы
+    form.prepend(alertDiv);
 }
 
 let stompClient = null;
@@ -826,8 +925,7 @@ async function appendTelegramBlock(store) {
     initTelegramToggle();
     initTelegramReminderBlocks();
     initTelegramTemplateBlocks();
-    initTelegramTemplateBlocks();
-    initTelegramTemplateBlocks();
+    initTelegramNotificationsToggle();
 }
 
 /**
@@ -1216,6 +1314,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initTelegramToggle();
     initTelegramReminderBlocks();
     initTelegramTemplateBlocks();
+    initTelegramNotificationsToggle();
 
     // Назначаем обработчик кнопки "Добавить магазин" - с проверкой на наличие
     const addStoreBtn = document.getElementById("addStoreBtn");

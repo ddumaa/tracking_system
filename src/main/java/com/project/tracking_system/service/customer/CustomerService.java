@@ -5,6 +5,7 @@ import com.project.tracking_system.dto.CustomerInfoDTO;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.service.user.UserSettingsService;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ public class CustomerService {
     private final CustomerTransactionalService transactionalService;
     private final CustomerStatsService customerStatsService;
     private final SubscriptionService subscriptionService;
+    private final UserSettingsService userSettingsService;
 
     /**
      * Зарегистрировать нового покупателя или получить существующего по телефону.
@@ -223,7 +225,11 @@ public class CustomerService {
                 .map(User::getId)
                 .orElse(null);
 
-        return ownerId != null && subscriptionService.isFeatureEnabled(ownerId, FeatureKey.TELEGRAM_NOTIFICATIONS);
+        if (ownerId == null || !subscriptionService.isFeatureEnabled(ownerId, FeatureKey.TELEGRAM_NOTIFICATIONS)) {
+            return false;
+        }
+
+        return userSettingsService.isTelegramNotificationsEnabled(ownerId);
     }
 
     private CustomerInfoDTO toInfoDto(Customer customer) {

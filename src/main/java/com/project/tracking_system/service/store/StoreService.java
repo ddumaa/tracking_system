@@ -9,6 +9,8 @@ import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.repository.PostalServiceStatisticsRepository;
 import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
 import com.project.tracking_system.dto.StoreTelegramSettingsDTO;
+import com.project.tracking_system.dto.StoreDTO;
+import com.project.tracking_system.exception.InvalidTemplateException;
 import java.security.Principal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +23,7 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Map;
+import java.util.EnumMap;
 
 /**
  * @author Dmitriy Anisimov
@@ -439,8 +442,17 @@ public class StoreService {
     }
 
     /**
-     * Обновить сущность настроек на основе DTO.
-     * Если {@code useCustomTemplates=false}, пользовательские шаблоны будут удалены.
+     * Обновляет {@link StoreTelegramSettings} на основе данных из DTO.
+     * <p>
+     * Ранее список шаблонов полностью очищался и заново заполнялся. При наличии
+     * уникального ограничения на пару {@code settings_id, status} такое удаление
+     * и последующее создание приводило к попытке вставить новую запись до удаления
+     * старой. Hibernate генерировал SQL в неверном порядке, что вызывало ошибку
+     * нарушения ограничения. Поэтому используется пошаговое обновление.
+     * </p>
+     *
+     * @param settings сущность настроек, которую необходимо обновить
+     * @param dto      входные данные от пользователя
      */
     public void updateFromDto(StoreTelegramSettings settings, StoreTelegramSettingsDTO dto) {
         settings.setEnabled(dto.isEnabled());
@@ -448,16 +460,80 @@ public class StoreService {
         settings.setReminderRepeatIntervalDays(dto.getReminderRepeatIntervalDays());
         settings.setCustomSignature(dto.getCustomSignature());
         settings.setRemindersEnabled(dto.isRemindersEnabled());
-        settings.getTemplates().clear();
-        if (dto.isUseCustomTemplates()) {
-            dto.getTemplates().forEach((k, v) -> {
-                StoreTelegramTemplate t = new StoreTelegramTemplate();
-                t.setStatus(BuyerStatus.valueOf(k));
-                t.setTemplate(v);
-                t.setSettings(settings);
-                settings.getTemplates().add(t);
-            });
+
+        // Составляем карту существующих шаблонов для быстрого доступа
+        Map<BuyerStatus, StoreTelegramTemplate> current = new EnumMap<>(BuyerStatus.class);
+        for (StoreTelegramTemplate template : settings.getTemplates()) {
+            current.put(template.getStatus(), template);
         }
+
+        if (dto.isUseCustomTemplates()) {
+            // Обновляем или создаём шаблоны
+            dto.getTemplates().forEach((statusName, text) -> {
+                if (!isValidBuyerStatus(statusName)) {
+                    log.warn("⚠ Неизвестный статус шаблона: {}", statusName);
+                    throw new InvalidTemplateException("Неизвестный статус: " + statusName);
+                }
+
+                BuyerStatus status = BuyerStatus.valueOf(statusName);
+                StoreTelegramTemplate template = current.get(status);
+                if (template == null) {
+                    template = new StoreTelegramTemplate();
+                    template.setSettings(settings);
+                    template.setStatus(status);
+                    settings.getTemplates().add(template);
+                }
+                template.setTemplate(text);
+                current.remove(status); // помечаем как обработанный
+            });
+
+            // Удаляем устаревшие шаблоны, оставшиеся в карте
+            if (!current.isEmpty()) {
+                settings.getTemplates().removeIf(t -> current.containsKey(t.getStatus()));
+            }
+        } else {
+            // Пользователь отключил индивидуальные шаблоны
+            settings.getTemplates().clear();
+        }
+    }
+
+    /** Проверяет, существует ли статус покупателя. */
+    private boolean isValidBuyerStatus(String status) {
+        for (BuyerStatus s : BuyerStatus.values()) {
+            if (s.name().equals(status)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Преобразует сущность магазина в {@link StoreDTO}.
+     *
+     * @param store сущность магазина
+     * @return DTO с необходимыми для профиля полями
+     */
+    public StoreDTO toDto(Store store) {
+        if (store == null) return null;
+        StoreDTO dto = new StoreDTO();
+        dto.setId(store.getId());
+        dto.setName(store.getName());
+        dto.setDefault(store.isDefault());
+        dto.setTelegramSettings(toDto(store.getTelegramSettings()));
+        return dto;
+    }
+
+    /**
+     * Возвращает список магазинов пользователя в виде DTO.
+     *
+     * @param userId идентификатор пользователя
+     * @return список магазинов с минимальным набором полей
+     */
+    @Transactional(readOnly = true)
+    public List<StoreDTO> getUserStoresDto(Long userId) {
+        return storeRepository.findByOwnerIdFetchSettings(userId).stream()
+                .map(this::toDto)
+                .toList();
     }
 
 

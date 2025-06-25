@@ -169,7 +169,7 @@ public class UserService {
 
         userRepository.save(user);
         // Создаём настройки пользователя по умолчанию
-        userSettingsService.getUserSettings(user.getId());
+        userSettingsService.getOrCreateSettings(user.getId());
         storeService.createDefaultStoreForUser(user);
         confirmationTokenRepository.deleteByEmail(userDTO.getEmail());
 
@@ -250,7 +250,7 @@ public class UserService {
         userRepository.save(user);
 
         // Создаём настройки пользователя по умолчанию
-        userSettingsService.getUserSettings(user.getId());
+        userSettingsService.getOrCreateSettings(user.getId());
 
         // Создаём магазин по умолчанию
         storeService.createDefaultStoreForUser(user);
@@ -380,6 +380,27 @@ public class UserService {
      */
     public void updateShowBulkUpdateButton(Long userId, boolean value) {
         userSettingsService.updateShowBulkUpdateButton(userId, value);
+    }
+
+    /**
+     * Проверяет, разрешены ли Telegram-уведомления у пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @return {@code true}, если уведомления включены
+     */
+    @Transactional(readOnly = true)
+    public boolean isTelegramNotificationsEnabled(Long userId) {
+        return userSettingsService.isTelegramNotificationsEnabled(userId);
+    }
+
+    /**
+     * Обновляет глобальный флаг Telegram-уведомлений пользователя.
+     *
+     * @param userId  идентификатор пользователя
+     * @param enabled новое значение флага
+     */
+    public void updateTelegramNotificationsEnabled(Long userId, boolean enabled) {
+        userSettingsService.updateTelegramNotificationsEnabled(userId, enabled);
     }
 
     /**

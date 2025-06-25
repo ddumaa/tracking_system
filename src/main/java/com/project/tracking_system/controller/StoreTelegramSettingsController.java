@@ -7,6 +7,7 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
 import com.project.tracking_system.service.store.StoreTelegramSettingsService;
+import com.project.tracking_system.exception.InvalidTemplateException;
 import com.project.tracking_system.utils.ResponseBuilder;
 import com.project.tracking_system.controller.WebSocketController;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,12 @@ public class StoreTelegramSettingsController {
 
     /**
      * Получить текущие настройки магазина.
+     * <p>
+     * Метод возвращает параметры Telegram для указанного магазина.
+     *
+     * @param storeId идентификатор магазина
+     * @param user    текущий пользователь
+     * @return {@link ResponseEntity} с {@link StoreTelegramSettingsDTO} в теле
      */
     @GetMapping
     @ResponseBody
@@ -66,6 +73,9 @@ public class StoreTelegramSettingsController {
             telegramSettingsService.update(store, dto, userId);
             webSocketController.sendUpdateStatus(userId, "Настройки Telegram сохранены.", true);
             return ResponseBuilder.ok(storeService.toDto(store.getTelegramSettings()));
+        } catch (InvalidTemplateException e) {
+            log.warn("Некорректный шаблон Telegram: {}", e.getMessage());
+            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, e.getMessage());
         } catch (IllegalStateException e) {
             log.warn("Ошибка обновления настроек Telegram: {}", e.getMessage());
             return ResponseBuilder.error(HttpStatus.FORBIDDEN, e.getMessage());
@@ -104,6 +114,9 @@ public class StoreTelegramSettingsController {
             telegramSettingsService.update(store, dto, userId);
             webSocketController.sendUpdateStatus(userId, "Настройки Telegram сохранены.", true);
             return ResponseEntity.ok().build();
+        } catch (InvalidTemplateException e) {
+            log.warn("Некорректный шаблон Telegram: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         } catch (IllegalStateException e) {
             log.warn("Ошибка обновления настроек Telegram: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
@@ -136,6 +149,10 @@ public class StoreTelegramSettingsController {
             telegramSettingsService.update(store, dto, userId);
             redirectAttributes.addFlashAttribute("successMessage", "Настройки Telegram сохранены.");
             webSocketController.sendUpdateStatus(userId, "Настройки Telegram сохранены.", true);
+        } catch (InvalidTemplateException e) {
+            log.warn("Некорректный шаблон Telegram: {}", e.getMessage());
+            redirectAttributes.addFlashAttribute("templateError", e.getMessage());
+            redirectAttributes.addFlashAttribute("storeIdWithError", storeId);
         } catch (IllegalStateException e) {
             log.warn("Ошибка обновления настроек Telegram: {}", e.getMessage());
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());

@@ -47,8 +47,16 @@ class JwtTokenManagerTest {
         user.setEvropostServiceCredential(cred);
 
         when(userRepository.findUsersForTokenRefresh(any())).thenReturn(List.of(user));
-        when(encryptionUtils.decrypt("encPass")).thenReturn("pass");
-        when(encryptionUtils.decrypt("encSrv")).thenReturn("srv");
+        try {
+            when(encryptionUtils.decrypt("encPass")).thenReturn("pass");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        try {
+            when(encryptionUtils.decrypt("encSrv")).thenReturn("srv");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         when(getJwtTokenService.getUserTokenFromApi("login", "pass", "srv")).thenReturn("new");
 
         tokenManager.scheduledTokenRefresh();

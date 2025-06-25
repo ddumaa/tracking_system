@@ -1,26 +1,58 @@
 package com.project.tracking_system.entity;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /**
- * @author Dmitriy Anisimov
- * @date 19.06.2025
+ * Статус посылки, предназначенный для отображения покупателю.
+ * Содержит шаблон сообщения и читабельное название на русском языке.
  */
-@Getter
-@AllArgsConstructor
 public enum BuyerStatus {
 
-    REGISTERED("Ваш заказ %s из магазина %s зарегистрирован и скоро будет отправлен."),
-    IN_TRANSIT("Посылка %s из магазина %s находится в пути."),
-    WAITING("Посылка %s из магазина %s прибыла и ждёт вас в пункте выдачи."),
-    DELIVERED("Посылка %s из магазина %s получена. Спасибо за покупку!"),
-    RETURNED("Посылка %s из магазина %s возвращена отправителю.");
+    /** Заказ зарегистрирован. */
+    REGISTERED("Зарегистрирован", "Ваш заказ %s из магазина %s зарегистрирован и скоро будет отправлен."),
+    /** Посылка находится в пути. */
+    IN_TRANSIT("В пути", "Посылка %s из магазина %s находится в пути."),
+    /** Посылка ожидает получения. */
+    WAITING("Ожидает получения", "Посылка %s из магазина %s прибыла и ждёт вас в пункте выдачи."),
+    /** Посылка получена покупателем. */
+    DELIVERED("Получена", "Посылка %s из магазина %s получена. Спасибо за покупку!"),
+    /** Посылка возвращается отправителю. */
+    RETURNED("Возврат", "Посылка %s из магазина %s уже возвращается отправителю.");
 
+    /**
+     * -- GETTER --
+     *  Возвращает русскоязычное название статуса.
+     *
+     * @return читаемое название статуса
+     */
+    @Getter
+    private final String displayName;
     private final String messageTemplate;
 
-    public String formatMessage(String track, String store) {
-        return String.format(messageTemplate, track, store);
+    BuyerStatus(String displayName, String messageTemplate) {
+        this.displayName = displayName;
+        this.messageTemplate = messageTemplate;
     }
 
+    /**
+     * Формирует текст уведомления для покупателя.
+     * <p>
+     * Метод поддерживает два формата шаблонов: классический с {@code %s}
+     * и новый с плейсхолдерами {@code {track}} и {@code {store}}.
+     * Если в шаблоне присутствуют фигурные скобки, они будут заменены
+     * напрямую, иначе используется {@link String#format}.
+     * </p>
+     *
+     * @param track трек-номер посылки
+     * @param store название магазина
+     * @return готовое сообщение
+     */
+    public String formatMessage(String track, String store) {
+        // Поддерживаем как шаблоны с %s, так и с {track}/{store}
+        if (messageTemplate.contains("{track}") || messageTemplate.contains("{store}")) {
+            return messageTemplate.replace("{track}", track)
+                    .replace("{store}", store);
+        }
+        return String.format(messageTemplate, track, store);
+    }
 }

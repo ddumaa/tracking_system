@@ -10,10 +10,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
@@ -26,37 +23,55 @@ class UserSettingsServiceTest {
     private UserSettingsRepository settingsRepository;
     @Mock
     private UserRepository userRepository;
+
     @InjectMocks
     private UserSettingsService service;
 
     @Test
-    void getUserSettings_SettingsMissing_CreatesDefault() {
-        User user = new User();
-        user.setId(1L);
+    void isTelegramNotificationsEnabled_ReturnsValue() {
+        UserSettings settings = new UserSettings();
+        settings.setTelegramNotificationsEnabled(false);
+        when(settingsRepository.findByUserId(1L)).thenReturn(settings);
 
-        when(settingsRepository.findByUserId(1L)).thenReturn(null);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(settingsRepository.save(any(UserSettings.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        boolean result = service.isTelegramNotificationsEnabled(1L);
 
-        UserSettings result = service.getUserSettings(1L);
-
-        assertNotNull(result);
-        assertEquals(user, result.getUser());
-        verify(settingsRepository).save(any(UserSettings.class));
+        assertFalse(result);
     }
 
     @Test
-    void getUserSettings_ExistingSettings_ReturnedAsIs() {
-        UserSettings existing = new UserSettings();
-        existing.setId(2L);
+    void updateTelegramNotificationsEnabled_UpdatesFlag() {
+        UserSettings settings = new UserSettings();
+        when(settingsRepository.findByUserId(2L)).thenReturn(settings);
 
-        when(settingsRepository.findByUserId(2L)).thenReturn(existing);
+        service.updateTelegramNotificationsEnabled(2L, true);
 
-        UserSettings result = service.getUserSettings(2L);
+        assertTrue(settings.isTelegramNotificationsEnabled());
+        verify(settingsRepository).save(settings);
+    }
 
-        assertEquals(existing, result);
+    @Test
+    void getOrCreateSettings_ReturnsExisting() {
+        UserSettings settings = new UserSettings();
+        when(settingsRepository.findByUserId(3L)).thenReturn(settings);
+
+        UserSettings result = service.getOrCreateSettings(3L);
+
+        assertSame(settings, result);
         verify(settingsRepository, never()).save(any());
-        verify(userRepository, never()).findById(any());
+    }
+
+    @Test
+    void getOrCreateSettings_CreatesNew() {
+        when(settingsRepository.findByUserId(4L)).thenReturn(null);
+        User user = new User();
+        user.setId(4L);
+        when(userRepository.findById(4L)).thenReturn(java.util.Optional.of(user));
+        when(settingsRepository.save(any(UserSettings.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserSettings result = service.getOrCreateSettings(4L);
+
+        assertNotNull(result);
+        assertEquals(user, result.getUser());
+        verify(settingsRepository).save(result);
     }
 }

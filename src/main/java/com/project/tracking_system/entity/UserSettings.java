@@ -30,6 +30,9 @@ public class UserSettings {
     @Column(name = "show_bulk_update_button", nullable = false)
     private boolean showBulkUpdateButton = false;
 
+    @Column(name = "telegram_notifications_enabled", nullable = false)
+    private boolean telegramNotificationsEnabled = true;
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
