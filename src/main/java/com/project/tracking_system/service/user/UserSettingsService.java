@@ -2,7 +2,6 @@ package com.project.tracking_system.service.user;
 
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.UserSettings;
-import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.repository.UserSettingsRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
