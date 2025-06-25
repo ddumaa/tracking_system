@@ -180,8 +180,9 @@
         <form id="telegram-notifications-form" class="mt-2">
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
             <div class="form-check form-switch">
+                <!-- При недоступной функции переключатель всегда выключен -->
                 <input class="form-check-input" type="checkbox" id="telegramNotificationsToggle"
-                       th:checked="${userSettingsDTO.telegramNotificationsEnabled}"
+                       th:checked="${planDetails.allowTelegramNotifications and userSettingsDTO.telegramNotificationsEnabled}"
                        th:disabled="${!planDetails.allowTelegramNotifications}">
                 <label class="form-check-label" for="telegramNotificationsToggle">Получать уведомления о статусах посылок</label>
             </div>
