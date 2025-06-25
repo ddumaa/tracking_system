@@ -299,9 +299,19 @@ function initAssignCustomerFormHandler() {
 
 // Инициализация форм настроек Telegram
 function initTelegramForms() {
+    const tgToggle = document.getElementById('telegramNotificationsToggle');
+    const telegramUnavailable = tgToggle && tgToggle.disabled;
+
     document.querySelectorAll('.telegram-settings-form').forEach(form => {
         if (form.dataset.initialized) return;
         form.dataset.initialized = 'true';
+
+        if (telegramUnavailable) {
+            // Отправка настроек запрещена на базовом тарифе
+            const saveBtn = form.querySelector('button[type="submit"]');
+            if (saveBtn) saveBtn.disabled = true;
+            return;
+        }
 
         form.addEventListener('submit', async function (event) {
             event.preventDefault();
