@@ -63,4 +63,24 @@ public interface UserRepository extends JpaRepository <User, Long> {
                              @Param("role") Role role,
                              @Param("subscription") String subscription);
 
+    /**
+     * Найти пользователей с просроченным JWT токеном Европочты.
+     * <p>
+     * Пользователь должен иметь учётные данные Европочты и использовать
+     * собственные данные для подключения к API. Метод выбирает только тех
+     * пользователей, у кого токен отсутствует или создан раньше указанной
+     * даты.
+     * </p>
+     *
+     * @param expiryDate дата, раньше которой токен считается просроченным
+     * @return список пользователей с истекшим токеном
+     */
+    @Query("""
+        SELECT u FROM User u
+        JOIN u.evropostServiceCredential esc
+        WHERE esc.useCustomCredentials = true
+          AND (esc.tokenCreatedAt IS NULL OR esc.tokenCreatedAt < :expiryDate)
+        """)
+    List<User> findUsersForTokenRefresh(@Param("expiryDate") java.time.ZonedDateTime expiryDate);
+
 }

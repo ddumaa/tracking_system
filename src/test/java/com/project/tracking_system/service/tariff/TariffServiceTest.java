@@ -56,11 +56,15 @@ class TariffServiceTest {
         bulk.setFeatureKey(FeatureKey.BULK_UPDATE);
         bulk.setEnabled(true);
         bulk.setSubscriptionPlan(plan);
+        SubscriptionFeature auto = new SubscriptionFeature();
+        auto.setFeatureKey(FeatureKey.AUTO_UPDATE);
+        auto.setEnabled(true);
+        auto.setSubscriptionPlan(plan);
         SubscriptionFeature telegram = new SubscriptionFeature();
         telegram.setFeatureKey(FeatureKey.TELEGRAM_NOTIFICATIONS);
         telegram.setEnabled(true);
         telegram.setSubscriptionPlan(plan);
-        plan.setFeatures(List.of(bulk, telegram));
+        plan.setFeatures(List.of(bulk, auto, telegram));
     }
 
     @Test
@@ -98,10 +102,30 @@ class TariffServiceTest {
         assertEquals(5, dto.getMaxTracksPerFile());
         assertEquals(100, dto.getMaxSavedTracks());
         assertTrue(dto.isAllowBulkUpdate());
+        assertTrue(dto.isAllowAutoUpdate());
         assertTrue(dto.isAllowTelegramNotifications());
         assertEquals("15.00 BYN/мес", dto.getMonthlyPriceLabel());
         assertEquals("150.00 BYN/год", dto.getAnnualPriceLabel());
         assertEquals("180.00 BYN", dto.getAnnualFullPriceLabel());
         assertEquals("выгода −17%", dto.getAnnualDiscountLabel());
+    }
+
+    @Test
+    void getPlanInfoByCode_ReturnsDto() {
+        when(planRepository.findByCode("PREMIUM")).thenReturn(java.util.Optional.of(plan));
+
+        SubscriptionPlanViewDTO dto = tariffService.getPlanInfoByCode("PREMIUM");
+
+        assertNotNull(dto);
+        assertEquals("PREMIUM", dto.getCode());
+    }
+
+    @Test
+    void getPlanInfoByCode_NotFound_ReturnsNull() {
+        when(planRepository.findByCode("NONE")).thenReturn(java.util.Optional.empty());
+
+        SubscriptionPlanViewDTO dto = tariffService.getPlanInfoByCode("NONE");
+
+        assertNull(dto);
     }
 }

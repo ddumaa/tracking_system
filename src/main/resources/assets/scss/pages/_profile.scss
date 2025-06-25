@@ -18,3 +18,10 @@
     opacity: 1;
   }
 }
+
+.custom-template-fields {
+  textarea {
+    min-height: 4rem;
+    resize: vertical;
+  }
+}

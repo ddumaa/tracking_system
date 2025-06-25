@@ -38,6 +38,7 @@ public class TrackParcelService {
      * @param userId     идентификатор пользователя
      * @return true, если посылка принадлежит пользователю
      */
+    @Transactional(readOnly = true)
     public boolean userOwnsParcel(String itemNumber, Long userId) {
         return trackParcelRepository.existsByNumberAndUserId(itemNumber, userId);
     }
@@ -51,7 +52,7 @@ public class TrackParcelService {
      * @param userId   идентификатор пользователя
      * @return страница посылок указанного пользователя
      */
-    @Transactional
+    @Transactional(readOnly = true)
     public Page<TrackParcelDTO> findByStoreTracks(List<Long> storeIds, int page, int size, Long userId) {
         Pageable pageable = PageRequest.of(page, size);
         Page<TrackParcel> trackParcels = trackParcelRepository.findByStoreIdIn(storeIds, pageable);
@@ -69,7 +70,7 @@ public class TrackParcelService {
      * @param userId   идентификатор пользователя
      * @return страница посылок
      */
-    @Transactional
+    @Transactional(readOnly = true)
     public Page<TrackParcelDTO> findByStoreTracksAndStatus(List<Long> storeIds, GlobalStatus status, int page, int size, Long userId) {
         Pageable pageable = PageRequest.of(page, size);
         Page<TrackParcel> trackParcels = trackParcelRepository.findByStoreIdInAndStatus(storeIds, status, pageable);
@@ -82,7 +83,7 @@ public class TrackParcelService {
      *
      * @return количество всех посылок
      */
-    @Transactional
+    @Transactional(readOnly = true)
     public long countAllParcels() {
         return trackParcelRepository.count();
     }
@@ -94,7 +95,7 @@ public class TrackParcelService {
      * @param storeId        идентификатор магазина (может быть {@code null})
      * @return {@code true}, если такой посылки ещё нет в магазине
      */
-    @Transactional
+    @Transactional(readOnly = true)
     public boolean isNewTrack(String trackingNumber, Long storeId) {
         if (storeId == null) {
             return true;
@@ -121,7 +122,7 @@ public class TrackParcelService {
      * @param userId  идентификатор пользователя
      * @return список посылок магазина
      */
-    @Transactional
+    @Transactional(readOnly = true)
     public List<TrackParcelDTO> findAllByStoreTracks(Long storeId, Long userId) {
         List<TrackParcel> trackParcels = trackParcelRepository.findByStoreId(storeId);
         ZoneId userZone = userService.getUserZone(userId);
@@ -136,7 +137,7 @@ public class TrackParcelService {
      * @param userId идентификатор пользователя
      * @return список всех его посылок
      */
-    @Transactional
+    @Transactional(readOnly = true)
     public List<TrackParcelDTO> findAllByUserTracks(Long userId) {
         List<TrackParcel> trackParcels = trackParcelRepository.findByUserId(userId);
         ZoneId userZone = userService.getUserZone(userId);

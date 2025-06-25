@@ -2,6 +2,7 @@ package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackParcelDTO;
+import com.project.tracking_system.dto.UserSettingsDTO;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.UpdateResult;
 import com.project.tracking_system.entity.User;
@@ -11,15 +12,15 @@ import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.track.TrackFacade;
 import com.project.tracking_system.service.store.StoreService;
+import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import com.project.tracking_system.utils.ResponseBuilder;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
-import org.springframework.security.core.Authentication;
-import com.project.tracking_system.utils.AuthUtils;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -48,6 +49,7 @@ public class DeparturesController {
     private final StoreService storeService;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final WebSocketController webSocketController;
+    private final UserService userService;
 
     /**
      * Метод для отображения списка отслеживаемых посылок пользователя с возможностью фильтрации по магазину и статусу.
@@ -56,8 +58,8 @@ public class DeparturesController {
      * @param statusString строковое представление статуса для фильтрации.
      * @param page         номер страницы для пагинации.
      * @param size         размер страницы.
-     * @param model        модель для передачи данных на представление.
-     * @param authentication информация о пользователе.
+     * @param model модель для передачи данных на представление.
+     * @param user  текущий пользователь.
      * @return имя представления для отображения истории.
      */
     @GetMapping()
@@ -67,9 +69,8 @@ public class DeparturesController {
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size,
             Model model,
-            Authentication authentication) {
+            @AuthenticationPrincipal User user) {
 
-        User user = AuthUtils.getCurrentUser(authentication);
         Long userId = user.getId();
         List<Store> stores = storeService.getUserStores(userId); // Загружаем магазины с именами
         List<Long> storeIds = storeService.getUserStoreIds(userId); // Все id магазины пользователя
@@ -132,6 +133,8 @@ public class DeparturesController {
         model.addAttribute("currentPage", trackParcelPage.getNumber());
         model.addAttribute("totalPages", trackParcelPage.getTotalPages());
         model.addAttribute("trackParcelNotification", trackParcelPage.isEmpty() ? "Отслеживаемых посылок нет" : null);
+        model.addAttribute("userSettings",
+                new UserSettingsDTO(userService.isShowBulkUpdateButton(user.getId())));
 
         return "departures";
     }
@@ -139,18 +142,17 @@ public class DeparturesController {
     /**
      * Метод для отображения подробной информации о посылке.
      *
-     * @param model       модель для передачи данных на представление.
-     * @param itemNumber  номер отслеживаемой посылки.
-     * @param authentication информация о пользователе.
+     * @param model      модель для передачи данных на представление.
+     * @param itemNumber номер отслеживаемой посылки.
+     * @param user       текущий пользователь.
      * @return имя частичного представления с информацией о посылке.
      */
     @GetMapping("/{itemNumber}")
     public String departures(
             Model model,
             @PathVariable("itemNumber") String itemNumber,
-            Authentication authentication) {
+            @AuthenticationPrincipal User user) {
 
-        User user = AuthUtils.getCurrentUser(authentication);
         Long userId = user.getId();
         log.info("🔍 Запрос информации о посылке {} для пользователя ID={}", itemNumber, userId);
 
@@ -179,9 +181,8 @@ public class DeparturesController {
     @PostMapping("/track-update")
     public ResponseEntity<?> updateDepartures(
             @RequestParam(required = false) List<String> selectedNumbers,
-            Authentication authentication
+            @AuthenticationPrincipal User user
     ) {
-        User user = AuthUtils.getCurrentUser(authentication);
         Long userId = user.getId();
         log.info("🔄 Запрос на обновление посылок: userId={}", userId);
 
@@ -211,14 +212,13 @@ public class DeparturesController {
      * </p>
      *
      * @param selectedNumbers список номеров посылок, которые нужно удалить.
-     * @param redirectAttributes атрибуты для передачи сообщений о результате операции.
+     * @param user            текущий пользователь
      * @return перенаправление на страницу истории.
      */
     @PostMapping("/delete-selected")
     public ResponseEntity<?> deleteSelected(
             @RequestParam List<String> selectedNumbers,
-            Authentication authentication) {
-        User user = AuthUtils.getCurrentUser(authentication);
+            @AuthenticationPrincipal User user) {
         Long userId = user.getId();
         log.info("Запрос на удаление посылок {} для пользователя с ID: {}", selectedNumbers, userId);
 

@@ -20,6 +20,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
 
 /**
  * @author Dmitriy Anisimov
@@ -42,6 +43,7 @@ public class StoreService {
      * Возвращает `Store` по Id, проверяя, принадлежит ли он указанному пользователю.
      * Если магазин не найден или не принадлежит пользователю — выбрасывает исключение.
      */
+    @Transactional(readOnly = true)
     public Store getStore(Long storeId, Long userId) {
         Store store = storeRepository.findStoreById(storeId);
         if (store == null) {
@@ -62,6 +64,7 @@ public class StoreService {
      * @param principal текущий пользователь
      * @return найденный магазин
      */
+    @Transactional(readOnly = true)
     public Store findOwnedByUser(Long storeId, Principal principal) {
         String email = principal.getName();
         Long userId = userRepository.findByEmail(email)
@@ -76,6 +79,7 @@ public class StoreService {
      * @param userId идентификатор пользователя
      * @return список магазинов владельца
      */
+    @Transactional(readOnly = true)
     public List<Store> getUserStores(Long userId) {
         return storeRepository.findByOwnerId(userId);
     }
@@ -86,6 +90,7 @@ public class StoreService {
      * @param userId идентификатор пользователя
      * @return список магазинов с настройками
      */
+    @Transactional(readOnly = true)
     public List<Store> getUserStoresWithSettings(Long userId) {
         return storeRepository.findByOwnerIdFetchSettings(userId);
     }
@@ -96,6 +101,7 @@ public class StoreService {
      * @param userId идентификатор пользователя
      * @return список ID магазинов
      */
+    @Transactional(readOnly = true)
     public List<Long> getUserStoreIds(Long userId) {
         return storeRepository.findStoreIdsByOwnerId(userId);
     }
@@ -283,6 +289,7 @@ public class StoreService {
      * @param storeId идентификатор магазина
      * @param userId  идентификатор пользователя
      */
+    @Transactional(readOnly = true)
     public void checkStoreOwnership(Long storeId, Long userId) {
         if (!userOwnsStore(storeId, userId)) {
             throw new SecurityException("Вы не можете управлять этим магазином");
@@ -296,6 +303,7 @@ public class StoreService {
      * @param userId  идентификатор пользователя
      * @return {@code true}, если магазин принадлежит пользователю
      */
+    @Transactional(readOnly = true)
     public boolean userOwnsStore(Long storeId, Long userId) {
         return storeRepository.existsByIdAndOwnerId(storeId, userId);
     }
@@ -381,6 +389,7 @@ public class StoreService {
      * @param userId    ID пользователя
      * @return ID найденного магазина или null, если не найден
      */
+    @Transactional(readOnly = true)
     public Long findStoreIdByName(String storeName, Long userId) {
         return storeRepository.findByOwnerId(userId).stream()
                 .filter(store -> store.getName().equalsIgnoreCase(storeName))
@@ -411,7 +420,9 @@ public class StoreService {
     }
 
     /**
-     * Преобразовать сущность настроек в DTO.
+     * Преобразовать сущность настроек Telegram в DTO.
+     * Поле {@code useCustomTemplates} будет установлено в {@code true},
+     * если список шаблонов не пуст.
      */
     public StoreTelegramSettingsDTO toDto(StoreTelegramSettings settings) {
         if (settings == null) return null;
@@ -421,11 +432,15 @@ public class StoreService {
         dto.setReminderRepeatIntervalDays(settings.getReminderRepeatIntervalDays());
         dto.setCustomSignature(settings.getCustomSignature());
         dto.setRemindersEnabled(settings.isRemindersEnabled());
+        dto.setUseCustomTemplates(!settings.getTemplates().isEmpty());
+        dto.setTemplates(settings.getTemplatesMap().entrySet().stream()
+                .collect(java.util.stream.Collectors.toMap(e -> e.getKey().name(), Map.Entry::getValue)));
         return dto;
     }
 
     /**
      * Обновить сущность настроек на основе DTO.
+     * Если {@code useCustomTemplates=false}, пользовательские шаблоны будут удалены.
      */
     public void updateFromDto(StoreTelegramSettings settings, StoreTelegramSettingsDTO dto) {
         settings.setEnabled(dto.isEnabled());
@@ -433,6 +448,16 @@ public class StoreService {
         settings.setReminderRepeatIntervalDays(dto.getReminderRepeatIntervalDays());
         settings.setCustomSignature(dto.getCustomSignature());
         settings.setRemindersEnabled(dto.isRemindersEnabled());
+        settings.getTemplates().clear();
+        if (dto.isUseCustomTemplates()) {
+            dto.getTemplates().forEach((k, v) -> {
+                StoreTelegramTemplate t = new StoreTelegramTemplate();
+                t.setStatus(BuyerStatus.valueOf(k));
+                t.setTemplate(v);
+                t.setSettings(settings);
+                settings.getTemplates().add(t);
+            });
+        }
     }
 
 

@@ -13,6 +13,7 @@ import com.project.tracking_system.repository.StoreYearlyStatisticsRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -48,6 +49,7 @@ public class PeriodDataResolver {
      * @param zone     часовой пояс пользователя
      * @return список статистик, отсортированный по периоду
      */
+    @Transactional(readOnly = true)
     public List<PeriodStatsDTO> resolve(List<Long> storeIds,
                                         ChronoUnit interval,
                                         ZonedDateTime from,

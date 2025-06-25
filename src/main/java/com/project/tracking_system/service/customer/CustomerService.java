@@ -207,6 +207,7 @@ public class CustomerService {
      * @param store    магазин
      * @return {@code true}, если уведомления разрешены
      */
+    @Transactional(readOnly = true)
     public boolean isNotifiable(Customer customer, Store store) {
         if (customer == null || store == null) {
             return false;

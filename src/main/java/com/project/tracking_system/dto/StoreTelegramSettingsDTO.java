@@ -3,6 +3,8 @@ package com.project.tracking_system.dto;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
@@ -28,4 +30,10 @@ public class StoreTelegramSettingsDTO {
 
 
     private boolean remindersEnabled = false;
+
+    /** Использовать пользовательские шаблоны сообщений. */
+    private boolean useCustomTemplates = false;
+
+    /** Статус → шаблон сообщения. */
+    private Map<String, String> templates = new HashMap<>();
 }

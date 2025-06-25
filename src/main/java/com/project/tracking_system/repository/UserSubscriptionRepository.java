@@ -83,4 +83,43 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
     @Query("SELECT s FROM UserSubscription s JOIN FETCH s.user u JOIN FETCH s.subscriptionPlan sp")
     List<UserSubscription> findAllWithUserAndPlan();
 
+    /**
+     * Найти идентификаторы пользователей, у которых включена указанная функция.
+     *
+     * @param key ключ функции
+     * @return список идентификаторов пользователей
+     */
+    @Query("""
+        SELECT us.user.id FROM UserSubscription us
+        JOIN us.subscriptionPlan sp
+        JOIN sp.features f
+        WHERE f.featureKey = :key AND f.enabled = true AND us.autoUpdateEnabled = true
+        """)
+    List<Long> findUserIdsByFeature(@Param("key") com.project.tracking_system.model.subscription.FeatureKey key);
+
+    /**
+     * Проверить, включено ли автообновление треков у пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @return {@code true}, если автообновление разрешено
+     */
+    @Query("SELECT us.autoUpdateEnabled FROM UserSubscription us WHERE us.user.id = :userId")
+    boolean isAutoUpdateEnabled(@Param("userId") Long userId);
+
+    /**
+     * Обновить флаг автообновления треков.
+     *
+     * @param userId идентификатор пользователя
+     * @param enabled новое значение флага
+     * @return количество обновлённых записей
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE UserSubscription us
+        SET us.autoUpdateEnabled = :enabled
+        WHERE us.user.id = :userId
+        """)
+    int updateAutoUpdateEnabled(@Param("userId") Long userId, @Param("enabled") boolean enabled);
+
 }

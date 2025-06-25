@@ -172,6 +172,60 @@ function initializeCustomCredentialsCheckbox() {
     }
 }
 
+// Инициализация переключателя автообновления треков
+function initAutoUpdateToggle() {
+    const checkbox = document.getElementById("autoUpdateToggle");
+    if (!checkbox) return;
+
+    let debounceTimer;
+    checkbox.addEventListener('change', function () {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            fetch('/profile/settings/auto-update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+                },
+                body: new URLSearchParams({ enabled: checkbox.checked })
+            }).then(response => {
+                if (!response.ok) {
+                    alert('Ошибка при обновлении настройки.');
+                }
+            }).catch(() => {
+                alert('Ошибка сети при обновлении настройки.');
+            });
+        }, 300);
+    });
+}
+
+// Инициализация переключателя отображения кнопки массового обновления
+function initBulkButtonToggle() {
+    const checkbox = document.getElementById("showBulkUpdateButton");
+    if (!checkbox) return;
+
+    let debounceTimer;
+    checkbox.addEventListener('change', function () {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            fetch('/profile/settings/bulk-button', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+                },
+                body: new URLSearchParams({ show: checkbox.checked })
+            }).then(response => {
+                if (!response.ok) {
+                    alert('Ошибка при обновлении настройки.');
+                }
+            }).catch(() => {
+                alert('Ошибка сети при обновлении настройки.');
+            });
+        }, 300);
+    });
+}
+
 // Инициализация переключателя для ввода телефона
 function initializePhoneToggle() {
     const toggle = document.getElementById("togglePhone");
@@ -355,6 +409,19 @@ function initTelegramReminderBlocks() {
         remindersCb?.addEventListener('change', () => {
             if (reminderFields) toggleFieldsVisibility(remindersCb, reminderFields);
         });
+    });
+}
+
+// Инициализация блока пользовательских шаблонов
+function initTelegramTemplateBlocks() {
+    document.querySelectorAll('.telegram-settings-form').forEach(form => {
+        const cb = form.querySelector('input[name="useCustomTemplates"]');
+        const fields = form.querySelector('.custom-template-fields');
+        if (!cb || !fields) return;
+
+        const update = () => toggleFieldsVisibility(cb, fields);
+        update();
+        cb.addEventListener('change', update);
     });
 }
 
@@ -693,9 +760,6 @@ async function loadStores() {
     // --- Инициализируем состояние блоков Telegram
     initTelegramToggle();
 
-
-
-
     console.info("✅ Магазины успешно загружены и отрисованы.");
 }
 
@@ -761,6 +825,9 @@ async function appendTelegramBlock(store) {
     initTelegramForms();
     initTelegramToggle();
     initTelegramReminderBlocks();
+    initTelegramTemplateBlocks();
+    initTelegramTemplateBlocks();
+    initTelegramTemplateBlocks();
 }
 
 /**
@@ -1141,11 +1208,14 @@ document.addEventListener("DOMContentLoaded", function () {
     initPasswordFormHandler();
     initEvropostFormHandler();
     initializeCustomCredentialsCheckbox();
+    initAutoUpdateToggle();
+    initBulkButtonToggle();
     initializePhoneToggle();
     initAssignCustomerFormHandler();
     initTelegramForms();
     initTelegramToggle();
     initTelegramReminderBlocks();
+    initTelegramTemplateBlocks();
 
     // Назначаем обработчик кнопки "Добавить магазин" - с проверкой на наличие
     const addStoreBtn = document.getElementById("addStoreBtn");

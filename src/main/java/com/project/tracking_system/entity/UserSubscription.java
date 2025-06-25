@@ -36,6 +36,9 @@ public class UserSubscription {
     @Column(name = "subscription_end_date")
     private ZonedDateTime subscriptionEndDate;
 
+    @Column(name = "auto_update_enabled", nullable = false)
+    private boolean autoUpdateEnabled = true;
+
     @Column(name = "update_count")
     private int updateCount = 0;
 
