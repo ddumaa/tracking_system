@@ -2,6 +2,7 @@ package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackParcelDTO;
+import com.project.tracking_system.dto.UserSettingsDTO;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.UpdateResult;
 import com.project.tracking_system.entity.User;
@@ -134,6 +135,8 @@ public class DeparturesController {
         model.addAttribute("currentPage", trackParcelPage.getNumber());
         model.addAttribute("totalPages", trackParcelPage.getTotalPages());
         model.addAttribute("trackParcelNotification", trackParcelPage.isEmpty() ? "Отслеживаемых посылок нет" : null);
+        model.addAttribute("userSettings",
+                new UserSettingsDTO(userService.isShowBulkUpdateButton(user.getId())));
 
         return "departures";
     }
