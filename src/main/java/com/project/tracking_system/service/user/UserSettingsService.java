@@ -26,7 +26,7 @@ public class UserSettingsService {
      * @param userId идентификатор пользователя
      * @return найденные или созданные настройки
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public UserSettings getUserSettings(Long userId) {
         UserSettings settings = settingsRepository.findByUserId(userId);
         if (settings == null) {
