@@ -26,6 +26,10 @@ public class TelegramNotificationService {
 
     /**
      * Отправить уведомление о смене статуса посылки.
+     * <p>
+     * Если в профиле магазина указана подпись, она будет добавлена
+     * в конец сообщения.
+     * </p>
      *
      * @param parcel посылка
      * @param status новый статус
@@ -49,7 +53,19 @@ public class TelegramNotificationService {
         }
 
         Long chatId = getChatId(parcel);
-        String text = buyerStatus.formatMessage(parcel.getNumber(), parcel.getStore().getName());
+        String text;
+        if (settings != null && settings.getTemplatesMap().containsKey(buyerStatus)) {
+            text = settings.getTemplatesMap().get(buyerStatus)
+                    .replace("{track}", parcel.getNumber())
+                    .replace("{store}", parcel.getStore().getName());
+        } else {
+            text = buyerStatus.formatMessage(parcel.getNumber(), parcel.getStore().getName());
+        }
+
+        if (settings != null && settings.getCustomSignature() != null && !settings.getCustomSignature().isBlank()) {
+            text += "\n\n" + settings.getCustomSignature();
+        }
+
         SendMessage message = new SendMessage(chatId.toString(), text);
 
         try {

@@ -35,21 +35,25 @@
                            href="#v-pills-stores" role="tab">
                             <i class="bi bi-shop me-2" title="Мои магазины"></i> Мои магазины
                         </a>
-                        <a class="nav-link d-flex align-items-center" id="password-settings-link" data-bs-toggle="pill"
-                           href="#v-pills-profile" role="tab">
-                            <i class="bi bi-key me-2" title="Изменить пароль"></i> Изменить пароль
+                        <a class="nav-link d-flex align-items-center" id="notifications-settings-link" data-bs-toggle="pill"
+                           href="#v-pills-notifications" role="tab">
+                            <i class="bi bi-bell me-2" title="Уведомления (Telegram)"></i> Уведомления (Telegram)
                         </a>
-                        <a class="nav-link d-flex align-items-center" id="evropost-settings-link" data-bs-toggle="pill"
-                           href="#v-pills-evropost" role="tab">
-                            <i class="bi bi-truck me-2" title="Европочта"></i> Европочта
+                        <a class="nav-link d-flex align-items-center" id="automation-settings-link" data-bs-toggle="pill"
+                           href="#v-pills-automation" role="tab">
+                            <i class="bi bi-lightning-charge me-2" title="Функции и автоматизация"></i> Функции и автоматизация
                         </a>
-                        <a class="nav-link d-flex align-items-center" id="belpost-settings-link" data-bs-toggle="pill"
-                           href="#v-pills-belpost" role="tab">
-                            <i class="bi bi-envelope me-2" title="Белпочта"></i> Белпочта
+                        <a class="nav-link d-flex align-items-center" id="plan-settings-link" data-bs-toggle="pill"
+                           href="#v-pills-plan" role="tab">
+                            <i class="bi bi-speedometer2 me-2" title="Тариф и лимиты"></i> Тариф и лимиты
                         </a>
-                        <a class="nav-link d-flex align-items-center text-danger" id="v-pills-messages-tab"
-                           data-bs-toggle="pill" href="#v-pills-messages" role="tab">
-                            <i class="bi bi-trash me-2" title="Удалить аккаунт"></i> Удалить аккаунт
+                        <a class="nav-link d-flex align-items-center" id="integrations-settings-link" data-bs-toggle="pill"
+                           href="#v-pills-integrations" role="tab">
+                            <i class="bi bi-link-45deg me-2" title="Интеграции (API)"></i> Интеграции (API)
+                        </a>
+                        <a class="nav-link d-flex align-items-center" id="security-settings-link" data-bs-toggle="pill"
+                           href="#v-pills-security" role="tab">
+                            <i class="bi bi-shield-lock me-2" title="Безопасность"></i> Безопасность
                         </a>
                     </div>
                 </div>
@@ -68,21 +72,25 @@
                            href="#v-pills-stores" role="tab">
                             <i class="bi bi-shop me-2" title="Мои магазины"></i> Мои магазины
                         </a>
-                        <a class="nav-link d-flex align-items-center" id="password-settings-link" data-bs-toggle="pill"
-                           href="#v-pills-profile" role="tab">
-                            <i class="bi bi-key me-2" title="Изменить пароль"></i> Изменить пароль
+                        <a class="nav-link d-flex align-items-center" id="notifications-settings-link" data-bs-toggle="pill"
+                           href="#v-pills-notifications" role="tab">
+                            <i class="bi bi-bell me-2" title="Уведомления (Telegram)"></i> Уведомления (Telegram)
                         </a>
-                        <a class="nav-link d-flex align-items-center" id="evropost-settings-link" data-bs-toggle="pill"
-                           href="#v-pills-evropost" role="tab">
-                            <i class="bi bi-truck me-2" title="Европочта"></i> Европочта
+                        <a class="nav-link d-flex align-items-center" id="automation-settings-link" data-bs-toggle="pill"
+                           href="#v-pills-automation" role="tab">
+                            <i class="bi bi-lightning-charge me-2" title="Функции и автоматизация"></i> Функции и автоматизация
                         </a>
-                        <a class="nav-link d-flex align-items-center" id="belpost-settings-link" data-bs-toggle="pill"
-                           href="#v-pills-belpost" role="tab">
-                            <i class="bi bi-envelope me-2" title="Белпочта"></i> Белпочта
+                        <a class="nav-link d-flex align-items-center" id="plan-settings-link" data-bs-toggle="pill"
+                           href="#v-pills-plan" role="tab">
+                            <i class="bi bi-speedometer2 me-2" title="Тариф и лимиты"></i> Тариф и лимиты
                         </a>
-                        <a class="nav-link d-flex align-items-center text-danger" id="v-pills-messages-tab"
-                           data-bs-toggle="pill" href="#v-pills-messages" role="tab">
-                            <i class="bi bi-trash me-2" title="Удалить аккаунт"></i> Удалить аккаунт
+                        <a class="nav-link d-flex align-items-center" id="integrations-settings-link" data-bs-toggle="pill"
+                           href="#v-pills-integrations" role="tab">
+                            <i class="bi bi-link-45deg me-2" title="Интеграции (API)"></i> Интеграции (API)
+                        </a>
+                        <a class="nav-link d-flex align-items-center" id="security-settings-link" data-bs-toggle="pill"
+                           href="#v-pills-security" role="tab">
+                            <i class="bi bi-shield-lock me-2" title="Безопасность"></i> Безопасность
                         </a>
                     </div>
                 </div>
@@ -94,33 +102,33 @@
                 <!-- Контейнер для уведомлений -->
                 <div id="storeNotificationContainer"></div>
 
-                <div class="tab-pane fade show active card p-3 shadow-sm rounded-4 mb-4" id="v-pills-home"
-                     role="tabpanel">
-                    <h5 class="mb-3">Об аккаунте</h5>
-                    <hr class="my-3">
-                    <div class="row mb-2">
-                        <div class="col-sm-4 text-muted">Email</div>
-                        <div class="col-sm-8" th:text="${userProfile.email}"></div>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col-sm-4 text-muted">Тариф</div>
-                        <div class="col-sm-8">
-                            <span th:class="'badge ' + (${userProfile.subscriptionCode == 'PREMIUM'} ? 'bg-success' : 'bg-secondary')"
-                                  th:text="${userProfile.subscriptionDisplayName}">
-                            </span>
-                        </div>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col-sm-4 text-muted">Оплачено до</div>
-                        <div class="col-sm-8" th:text="${userProfile.subscriptionEndDate}"></div>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col-sm-4 text-muted">Часовой пояс</div>
-                        <div class="col-sm-8" th:text="${userProfile.timezone}"></div>
-                    </div>
-                </div>
+<div class="tab-pane fade show active" id="v-pills-home" role="tabpanel">
+    <div class="card p-3 shadow-sm rounded-4 mb-4">
+        <h5 class="mb-3">Об аккаунте</h5>
+        <hr class="my-3">
+        <div class="row mb-2">
+            <div class="col-sm-4 text-muted">Email</div>
+            <div class="col-sm-8" th:text="${userProfile.email}"></div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-sm-4 text-muted">Тариф</div>
+            <div class="col-sm-8">
+                <span th:class="'badge ' + (${userProfile.subscriptionCode == 'PREMIUM'} ? 'bg-success' : 'bg-secondary')"
+                      th:text="${userProfile.subscriptionDisplayName}"></span>
+            </div>
+        </div>
+        <div class="row mb-2" th:if="${userProfile.subscriptionEndDate != null}">
+            <div class="col-sm-4 text-muted">Оплачено до</div>
+            <div class="col-sm-8" th:text="${userProfile.subscriptionEndDate}"></div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-sm-4 text-muted">Часовой пояс</div>
+            <div class="col-sm-8" th:text="${userProfile.timezone}"></div>
+        </div>
+    </div>
+</div>
 
-                <div class="tab-pane fade" id="v-pills-stores" role="tabpanel">
+<div class="tab-pane fade" id="v-pills-stores" role="tabpanel">
 
                     <div class="card p-3 shadow-sm rounded-4 mb-4">
 
@@ -164,186 +172,219 @@
                         </div>
                     </div>
 
-                    <div class="card p-3 shadow-sm rounded-4 mb-4">
-                        <div id="telegram-management" class="mt-4">
-                            <h5 class="mb-3">Настройки Telegram</h5>
-                            <p class="text-muted mb-3">
-                                Настройки уведомлений для покупателей в Telegram. Если включено, покупатели будут
-                                получать автоматические уведомления о статусах посылок (например, «отправлена», «прибыла
-                                в пункт выдачи» и др.).
-                            </p>
-                            <th:block th:each="store, iter : ${stores}">
-                                <div th:replace="~{profile :: telegramStoreBlock(store=${store}, first=${iter.first})}"></div>
-                            </th:block>
-                        </div>
+                </div>
+
+<div class="tab-pane fade" id="v-pills-notifications" role="tabpanel">
+    <div class="card p-3 shadow-sm rounded-4 mb-4">
+        <h5 class="mb-3">Уведомления (Telegram)</h5>
+        <form id="telegram-notifications-form" class="mt-2">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <div class="form-check form-switch">
+                <!-- При недоступной функции переключатель всегда выключен -->
+                <input class="form-check-input" type="checkbox" id="telegramNotificationsToggle"
+                       th:checked="${planDetails.allowTelegramNotifications and userSettingsDTO.telegramNotificationsEnabled}"
+                       th:disabled="${!planDetails.allowTelegramNotifications}">
+                <label class="form-check-label" for="telegramNotificationsToggle">Получать уведомления о статусах посылок</label>
+            </div>
+            <p class="form-text text-danger ms-4" th:if="${!planDetails.allowTelegramNotifications}">
+                Функция доступна в тарифе "Команда" и выше
+            </p>
+        </form>
+    </div>
+    <div class="card p-3 shadow-sm rounded-4 mb-4">
+        <div id="telegram-management" class="mt-4">
+            <h5 class="mb-3">Настройки Telegram</h5>
+            <p class="form-text text-danger" th:if="${!planDetails.allowTelegramNotifications}">
+                Функция доступна в тарифе "Команда" и выше
+            </p>
+            <p class="text-muted mb-3">
+                Настройки уведомлений для покупателей в Telegram. Если включено, покупатели будут
+                получать автоматические уведомления о статусах посылок (например, «отправлена», «прибыла
+                в пункт выдачи» и др.).
+            </p>
+            <th:block th:each="store, iter : ${stores}">
+                <div th:replace="~{profile :: telegramStoreBlock(store=${store}, first=${iter.first})}"></div>
+            </th:block>
+        </div>
+    </div>
+</div>
+
+<div class="tab-pane fade" id="v-pills-automation" role="tabpanel">
+    <div class="card p-3 shadow-sm rounded-4 mb-4">
+        <h5 class="mb-3">Функции и автоматизация</h5>
+        <form id="auto-update-form" class="mt-2">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="autoUpdateToggle"
+                       th:checked="${planDetails.allowAutoUpdate ? userProfile.autoUpdateEnabled : false}"
+                       th:disabled="${!planDetails.allowAutoUpdate}">
+                <label class="form-check-label" for="autoUpdateToggle">Автообновление треков</label>
+            </div>
+            <p class="form-text text-danger ms-4" th:if="${!planDetails.allowAutoUpdate}">
+                Функция доступна в тарифе "Бизнес" и выше
+            </p>
+            <p class="form-text ms-4">Автообновления расходуют дневной лимит обновлений.</p>
+        </form>
+        <form id="bulk-button-form" class="mt-3">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="showBulkUpdateButton"
+                       th:checked="${planDetails.allowBulkUpdate ? userSettingsDTO.showBulkUpdateButton : false}"
+                       th:disabled="${!planDetails.allowBulkUpdate}">
+                <label class="form-check-label" for="showBulkUpdateButton">Показывать кнопку массового обновления</label>
+            </div>
+            <p class="form-text text-danger ms-4" th:if="${!planDetails.allowBulkUpdate}">
+                Функция доступна в тарифе "Бизнес" и выше
+            </p>
+        </form>
+    </div>
+</div>
+
+<div class="tab-pane fade card p-3 shadow-sm rounded-4 mb-4" id="v-pills-plan" role="tabpanel">
+    <h5 class="mb-3">Тариф и лимиты</h5>
+    <p class="fw-semibold mb-2">Текущий тариф:
+        <span class="badge bg-primary" th:text="${planDetails.name}"></span>
+    </p>
+    <ul class="list-unstyled">
+        <li>📥 Треков в файле:
+            <strong th:text="${planDetails.maxTracksPerFile != null ? planDetails.maxTracksPerFile : 'Без лимита'}"></strong>
+        </li>
+        <li>💾 Сохранённых треков:
+            <strong th:text="${planDetails.maxSavedTracks != null ? userProfile.savedTracksUsed + '/' + planDetails.maxSavedTracks : userProfile.savedTracksUsed + '/∞'}"></strong>
+        </li>
+        <li>🔄 Обновлений в день:
+            <strong th:text="${planDetails.maxTrackUpdates != null ? userProfile.trackUpdatesUsed + '/' + planDetails.maxTrackUpdates : 'Без лимита'}"></strong>
+        </li>
+        <li>🏬 Магазинов:
+            <strong th:text="${userProfile.storesUsed + '/' + planDetails.maxStores}"></strong>
+        </li>
+        <li>
+            <span th:if="${planDetails.allowBulkUpdate}">✅ Массовое обновление</span>
+            <span th:unless="${planDetails.allowBulkUpdate}" class="text-muted">❌ Массовое обновление</span>
+        </li>
+        <li>
+            <span th:if="${planDetails.allowAutoUpdate}">♻️ Автообновление треков</span>
+            <span th:unless="${planDetails.allowAutoUpdate}" class="text-muted">❌ Автообновление треков</span>
+        </li>
+        <li>
+            <span th:if="${planDetails.allowTelegramNotifications}">📨 Telegram-уведомления</span>
+            <span th:unless="${planDetails.allowTelegramNotifications}" class="text-muted">❌ Telegram-уведомления</span>
+        </li>
+    </ul>
+</div>
+
+<div class="tab-pane fade" id="v-pills-integrations" role="tabpanel">
+    <div class="card p-3 shadow-sm rounded-4 mb-4">
+        <!-- Контейнер для уведомлений -->
+        <div id="evropostNotificationContainer"></div>
+        <div id="evropost-content" th:fragment="evropostFragment">
+            <h5 class="mb-3">Настройки Европочты</h5>
+            <form id="evropost-settings-form" th:action="@{/profile/settings/evropost}" th:object="${evropostCredentialsDTO}" method="post">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="useCustomCredentials" name="useCustomCredentials" th:field="*{useCustomCredentials}">
+                    <label class="form-check-label" for="useCustomCredentials">Подключить API Европочты (договор – бесплатно)</label>
+                </div>
+                <div id="custom-credentials-fields" class="hidden">
+                    <div class="form-floating mb-3">
+                        <input type="text" class="form-control" id="evropostUsername" name="evropostUsername" th:field="*{evropostUsername}" placeholder="LoginName" autocomplete="off">
+                        <label for="evropostUsername">LoginName</label>
+                        <div th:errors="*{evropostUsername}" class="text-danger"></div>
                     </div>
-                </div>
-
-                <div class="tab-pane fade card p-3 shadow-sm rounded-4 mb-4"
-                     id="v-pills-profile"
-                     role="tabpanel">
-
-                    <div id="password-content" th:fragment="passwordFragment">
-
-                        <h5 class="mb-3">Изменение пароля</h5>
-                        <form id="password-settings-form" th:action="@{/profile/settings/password}"
-                              th:object="${userSettingsDTO}" method="post">
-
-                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-
-                            <div class="form-floating mb-3 position-relative">
-                                <input type="password" class="form-control password-input" id="currentPassword"
-                                       name="currentPassword"
-                                       th:field="*{currentPassword}" placeholder="Текущий пароль" autocomplete="off">
-                                <label for="currentPassword">Текущий пароль</label>
-                                <span class="toggle-password" data-target="currentPassword">
-                                    <i class="bi bi-eye"></i>
-                                </span>
-                                <div th:errors="*{currentPassword}" class="text-danger"></div>
-                            </div>
-
-                            <div class="form-floating mb-3 position-relative">
-                                <input type="password" class="form-control password-input" id="newPassword"
-                                       name="newPassword"
-                                       th:field="*{newPassword}" placeholder="Новый пароль" autocomplete="off">
-                                <label for="newPassword">Новый пароль</label>
-                                <span class="toggle-password" data-target="newPassword">
-                                    <i class="bi bi-eye"></i>
-                                </span>
-                                <div th:errors="*{newPassword}" class="text-danger"></div>
-                            </div>
-
-                            <div class="form-floating mb-3 position-relative">
-                                <input type="password" class="form-control password-input" id="confirmPassword"
-                                       name="confirmPassword"
-                                       th:field="*{confirmPassword}" placeholder="Подтвердите пароль"
-                                       autocomplete="off">
-                                <label for="confirmPassword">Подтвердите пароль</label>
-                                <span class="toggle-password" data-target="confirmPassword">
-                                    <i class="bi bi-eye"></i>
-                                </span>
-                                <div th:errors="*{confirmPassword}" class="text-danger"></div>
-                            </div>
-
-                            <div th:if="${notification}" class="mb-3">
-                                <p th:text="${notification}" class="text-success"></p>
-                            </div>
-
-                            <button class="btn btn-primary w-100 py-2" type="submit">Изменить пароль</button>
-                        </form>
+                    <div class="form-floating mb-3 position-relative">
+                        <input type="password" class="form-control password-input" id="evropostPassword" name="evropostPassword" th:field="*{evropostPassword}" placeholder="Password" autocomplete="off">
+                        <label for="evropostPassword">Password</label>
+                        <span class="toggle-password" data-target="evropostPassword">
+                            <i class="bi bi-eye"></i>
+                        </span>
+                        <div th:errors="*{evropostPassword}" class="text-danger"></div>
                     </div>
-                </div>
-
-                <div class="tab-pane fade card p-3 shadow-sm rounded-4 mb-4"
-                     id="v-pills-evropost"
-                     role="tabpanel">
-
-                    <!-- Контейнер для уведомлений -->
-                    <div id="evropostNotificationContainer"></div>
-
-                    <div id="evropost-content" th:fragment="evropostFragment">
-
-                        <h5 class="mb-3">Настройки Европочты</h5>
-
-                        <form id="evropost-settings-form" th:action="@{/profile/settings/evropost}"
-                              th:object="${evropostCredentialsDTO}" method="post">
-
-                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="useCustomCredentials"
-                                       name="useCustomCredentials"
-                                       th:field="*{useCustomCredentials}">
-                                <label class="form-check-label" for="useCustomCredentials">Подключить API Европочты
-                                    (договор – бесплатно)</label>
-                            </div>
-
-                            <div id="custom-credentials-fields" class="hidden">
-                                <div class="form-floating mb-3">
-                                    <input type="text" class="form-control" id="evropostUsername"
-                                           name="evropostUsername"
-                                           th:field="*{evropostUsername}" placeholder="LoginName" autocomplete="off">
-                                    <label for="evropostUsername">LoginName</label>
-                                    <div th:errors="*{evropostUsername}" class="text-danger"></div>
-                                </div>
-
-                                <div class="form-floating mb-3 position-relative">
-                                    <input type="password" class="form-control password-input" id="evropostPassword"
-                                           name="evropostPassword"
-                                           th:field="*{evropostPassword}" placeholder="Password" autocomplete="off">
-                                    <label for="evropostPassword">Password</label>
-                                    <span class="toggle-password" data-target="evropostPassword">
-                                        <i class="bi bi-eye"></i>
-                                    </span>
-                                    <div th:errors="*{evropostPassword}" class="text-danger"></div>
-                                </div>
-
-                                <div class="form-floating mb-3 position-relative">
-                                    <input type="password" class="form-control password-input" id="serviceNumber"
-                                           name="serviceNumber"
-                                           th:field="*{serviceNumber}" placeholder="ServiceNumber" autocomplete="off">
-                                    <label for="serviceNumber">ServiceNumber</label>
-                                    <span class="toggle-password" data-target="serviceNumber">
-                                        <i class="bi bi-eye"></i>
-                                    </span>
-                                    <div th:errors="*{serviceNumber}" class="text-danger"></div>
-                                </div>
-
-                                <button class="btn btn-primary btn-sm w-100" type="submit">Сохранить данные</button>
-                            </div>
-                        </form>
+                    <div class="form-floating mb-3 position-relative">
+                        <input type="password" class="form-control password-input" id="serviceNumber" name="serviceNumber" th:field="*{serviceNumber}" placeholder="ServiceNumber" autocomplete="off">
+                        <label for="serviceNumber">ServiceNumber</label>
+                        <span class="toggle-password" data-target="serviceNumber">
+                            <i class="bi bi-eye"></i>
+                        </span>
+                        <div th:errors="*{serviceNumber}" class="text-danger"></div>
                     </div>
+                    <button class="btn btn-primary btn-sm w-100" type="submit">Сохранить данные</button>
                 </div>
+            </form>
+        </div>
+    </div>
+    <div class="card p-3 shadow-sm rounded-4 mb-4">
+        <h5 class="mb-3">Белпочта</h5>
+        <p>Если у вас есть договор на API Белпочты, свяжитесь со мной для реализации интеграции.</p>
+        <p class="fw-semibold">Контакт для связи:</p>
+        <p>📧 <a href="mailto:info@belivery.by" class="text-decoration-none">info@belivery.by</a></p>
+    </div>
+</div>
 
-                <div class="tab-pane fade card p-3 shadow-sm rounded-4 mb-4"
-                     id="v-pills-belpost"
-                     role="tabpanel">
-
-                    <h5 class="mb-3">Белпочта</h5>
-                    <p>Если у вас есть договор на API Белпочты, свяжитесь со мной для реализации интеграции.</p>
-
-                    <p class="fw-semibold">Контакт для связи:</p>
-                    <p>
-                        📧 <a href="mailto:info@belivery.by" class="text-decoration-none">info@belivery.by</a>
-                    </p>
+<div class="tab-pane fade" id="v-pills-security" role="tabpanel">
+    <div class="card p-3 shadow-sm rounded-4 mb-4">
+        <div id="password-content" th:fragment="passwordFragment">
+            <h5 class="mb-3">Изменение пароля</h5>
+            <form id="password-settings-form" th:action="@{/profile/settings/password}" th:object="${passwordChangeDTO}" method="post">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <div class="form-floating mb-3 position-relative">
+                    <input type="password" class="form-control password-input" id="currentPassword" name="currentPassword" th:field="*{currentPassword}" placeholder="Текущий пароль" autocomplete="off">
+                    <label for="currentPassword">Текущий пароль</label>
+                    <span class="toggle-password" data-target="currentPassword">
+                        <i class="bi bi-eye"></i>
+                    </span>
+                    <div th:errors="*{currentPassword}" class="text-danger"></div>
                 </div>
-
-                <div class="tab-pane fade card p-4 shadow-sm rounded-4" id="v-pills-messages" role="tabpanel">
-                    <h5 class="mb-3">Удаление аккаунта</h5>
-                    <p class="fw-semibold">
-                        <strong>Вы уверены, что хотите удалить аккаунт?</strong>
-                    </p>
-
-                    <ul>
-                        <li>Вся ваша информация будет <strong>безвозвратно удалена</strong>, включая:</li>
-                        <ul>
-                            <li>Историю отслеживания посылок</li>
-                            <li>Все загруженные файлы и данные</li>
-                            <li>Настройки профиля и персональные данные</li>
-                        </ul>
-                    </ul>
-
-                    <p>
-                        <strong>Удаление аккаунта необратимо</strong> – вы не сможете восстановить доступ.
-                        Если в будущем вы захотите снова воспользоваться сервисом, вам потребуется
-                        <strong>создать новый аккаунт с нуля</strong>.
-                    </p>
-
-                    <p>
-                        <strong>Обратите внимание:</strong>
-                        Если ваш аккаунт имел <strong>дополнительные платные функции или подписки</strong>,
-                        они также будут <strong>аннулированы без возможности восстановления</strong>.
-                    </p>
-
-                    <p class="text-uppercase fw-bold">
-                        Это действие невозможно отменить.
-                    </p>
-
-                    <button class="btn btn-danger w-50 py-2" data-bs-toggle="modal"
-                            data-bs-target="#deleteAccountModal">
-                        <i class="bi bi-trash"></i>
-                        Удалить аккаунт
-                    </button>
+                <div class="form-floating mb-3 position-relative">
+                    <input type="password" class="form-control password-input" id="newPassword" name="newPassword" th:field="*{newPassword}" placeholder="Новый пароль" autocomplete="off">
+                    <label for="newPassword">Новый пароль</label>
+                    <span class="toggle-password" data-target="newPassword">
+                        <i class="bi bi-eye"></i>
+                    </span>
+                    <div th:errors="*{newPassword}" class="text-danger"></div>
+                </div>
+                <div class="form-floating mb-3 position-relative">
+                    <input type="password" class="form-control password-input" id="confirmPassword" name="confirmPassword" th:field="*{confirmPassword}" placeholder="Подтвердите пароль" autocomplete="off">
+                    <label for="confirmPassword">Подтвердите пароль</label>
+                    <span class="toggle-password" data-target="confirmPassword">
+                        <i class="bi bi-eye"></i>
+                    </span>
+                    <div th:errors="*{confirmPassword}" class="text-danger"></div>
+                </div>
+                <div th:if="${notification}" class="mb-3">
+                    <p th:text="${notification}" class="text-success"></p>
+                </div>
+                <button class="btn btn-primary w-100 py-2" type="submit">Изменить пароль</button>
+            </form>
+        </div>
+    </div>
+    <div class="card p-4 shadow-sm rounded-4">
+        <h5 class="mb-3">Удаление аккаунта</h5>
+        <p class="fw-semibold"><strong>Вы уверены, что хотите удалить аккаунт?</strong></p>
+        <ul>
+            <li>Вся ваша информация будет <strong>безвозвратно удалена</strong>, включая:
+                <ul>
+                    <li>Историю отслеживания посылок</li>
+                    <li>Все загруженные файлы и данные</li>
+                    <li>Настройки профиля и персональные данные</li>
+                </ul>
+            </li>
+        </ul>
+        <p>
+            <strong>Удаление аккаунта необратимо</strong> – вы не сможете восстановить доступ.
+            Если в будущем вы захотите снова воспользоваться сервисом, вам потребуется
+            <strong>создать новый аккаунт с нуля</strong>.
+        </p>
+        <p>
+            <strong>Обратите внимание:</strong>
+            Если ваш аккаунт имел <strong>дополнительные платные функции или подписки</strong>,
+            они также будут <strong>аннулированы без возможности восстановления</strong>.
+        </p>
+        <p class="text-uppercase fw-bold">Это действие невозможно отменить.</p>
+        <button class="btn btn-danger w-50 py-2" data-bs-toggle="modal" data-bs-target="#deleteAccountModal">
+            <i class="bi bi-trash"></i> Удалить аккаунт
+        </button>
+    </div>
+</div>
                 </div>
             </div>
         </div>
@@ -352,6 +393,7 @@
 
 <th:block th:fragment="telegramStoreBlock(store, first)" th:remove="tag">
     <div th:id="'store-block-' + ${store.id}" class="mt-3 border p-3 rounded bg-light-subtle">
+        <div th:if="${storeIdWithError == store.id}" class="alert alert-danger py-2" th:text="${templateError}"></div>
         <div class="d-flex justify-content-between align-items-center">
             <h5 class="mb-2">
                 <span class="text-decoration-none" th:text="${store.name}"></span>
@@ -370,7 +412,8 @@
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                 <div class="form-check form-switch mb-2">
                     <input class="form-check-input" type="checkbox" th:id="'tg-enable-' + ${store.id}" name="enabled"
-                           th:checked="${store.telegramSettings != null and store.telegramSettings.enabled}">
+                           th:checked="${store.telegramSettings != null and store.telegramSettings.enabled}"
+                           th:disabled="${!planDetails.allowTelegramNotifications or !userSettingsDTO.telegramNotificationsEnabled}">
                     <label class="form-check-label" th:for="'tg-enable-' + ${store.id}">
                         Отправлять уведомления покупателям этого магазина
                     </label>
@@ -383,7 +426,8 @@
                      class="form-check form-switch mb-2 ms-3 hidden reminders-container">
                     <input class="form-check-input" type="checkbox" th:id="'tg-reminders-' + ${store.id}"
                            name="remindersEnabled"
-                           th:checked="${store.telegramSettings?.remindersEnabled}">
+                           th:checked="${store.telegramSettings?.remindersEnabled}"
+                           th:disabled="${!planDetails.allowTelegramNotifications or !userSettingsDTO.telegramNotificationsEnabled}">
                     <label class="form-check-label" th:for="'tg-reminders-' + ${store.id}">
                         Отправлять напоминания, если посылка не забрана
                     </label>
@@ -416,6 +460,29 @@
                            name="customSignature"
                            th:value="${store.telegramSettings?.customSignature}" maxlength="200">
                 </div>
+
+                <div class="form-check form-switch mb-2 ms-3">
+                    <input class="form-check-input" type="checkbox" th:id="'tg-custom-templates-' + ${store.id}"
+                           name="useCustomTemplates"
+                           th:checked="${store.telegramSettings?.templates?.size() > 0}">
+                    <label class="form-check-label" th:for="'tg-custom-templates-' + ${store.id}">
+                        Использовать собственные сообщения
+                    </label>
+                </div>
+
+                <div th:id="'tg-custom-template-fields-' + ${store.id}" class="ms-4 hidden custom-template-fields">
+                    <div th:each="status : ${T(com.project.tracking_system.entity.BuyerStatus).values()}">
+                        <div class="mb-2">
+                            <label class="form-label" th:for="${'tpl-' + status.name() + '-' + store.id}" th:text="${status.displayName}"></label>
+                            <textarea class="form-control form-control-sm"
+                                      th:id="${'tpl-' + status.name() + '-' + store.id}"
+                                      th:name="${'templates[' + status.name() + ']'}"
+                                      rows="3"
+                                      th:text="${store.telegramSettings?.templates?.get(status.name())}"></textarea>
+                        </div>
+                    </div>
+                    <p class="form-text">Шаблоны должны содержать {track} и {store}</p>
+                </div>
                 <button type="submit" class="btn btn-sm btn-primary w-100">Сохранить</button>
             </form>
         </div>
@@ -426,7 +493,7 @@
     <!-- Модальное окно подтверждения удаления аккаунта -->
     <div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-labelledby="deleteAccountModalLabel"
          aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered"> <!-- Добавили класс для центрирования -->
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-danger">
                 <div class="modal-header position-relative">
                     <h5 class="modal-title text-danger w-100 text-center position-absolute start-50 translate-middle-x"

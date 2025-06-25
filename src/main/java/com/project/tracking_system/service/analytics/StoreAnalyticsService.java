@@ -28,6 +28,7 @@ public class StoreAnalyticsService {
     /**
      * Получает аналитику по всем магазинам пользователя.
      */
+    @Transactional(readOnly = true)
     public List<StoreStatistics> getUserStatistics(Long userId) {
         log.info("📊 Получаем статистику по всем магазинам пользователя ID: {}", userId);
         return storeAnalyticsRepository.findAllByUserId(userId);
@@ -36,6 +37,7 @@ public class StoreAnalyticsService {
     /**
      * Получает аналитику по конкретному магазину.
      */
+    @Transactional(readOnly = true)
     public Optional<StoreStatistics> getStoreStatistics(Long storeId) {
         log.info("📊 Получаем статистику по магазину ID: {}", storeId);
         return storeAnalyticsRepository.findByStoreId(storeId);

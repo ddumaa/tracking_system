@@ -3,22 +3,23 @@ package com.project.tracking_system.controller;
 import com.project.tracking_system.dto.StoreTelegramSettingsDTO;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.StoreTelegramSettings;
+import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
 import com.project.tracking_system.service.store.StoreTelegramSettingsService;
+import com.project.tracking_system.exception.InvalidTemplateException;
 import com.project.tracking_system.utils.ResponseBuilder;
-import com.project.tracking_system.utils.AuthUtils;
 import com.project.tracking_system.controller.WebSocketController;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.validation.BindingResult;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 /**
  * Управление Telegram-настройками магазина.
@@ -36,11 +37,17 @@ public class StoreTelegramSettingsController {
 
     /**
      * Получить текущие настройки магазина.
+     * <p>
+     * Метод возвращает параметры Telegram для указанного магазина.
+     *
+     * @param storeId идентификатор магазина
+     * @param user    текущий пользователь
+     * @return {@link ResponseEntity} с {@link StoreTelegramSettingsDTO} в теле
      */
     @GetMapping
     @ResponseBody
-    public ResponseEntity<?> getSettings(@PathVariable Long storeId, Authentication authentication) {
-        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+    public ResponseEntity<?> getSettings(@PathVariable Long storeId, @AuthenticationPrincipal User user) {
+        Long userId = user.getId();
         Store store = storeService.getStore(storeId, userId);
         StoreTelegramSettings settings = settingsRepository.findByStoreId(store.getId());
         return ResponseBuilder.ok(storeService.toDto(settings));
@@ -54,8 +61,8 @@ public class StoreTelegramSettingsController {
     public ResponseEntity<?> updateSettings(@PathVariable Long storeId,
                                             @Valid @RequestBody StoreTelegramSettingsDTO dto,
                                             BindingResult binding,
-                                            Authentication authentication) {
-        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+                                            @AuthenticationPrincipal User user) {
+        Long userId = user.getId();
         try {
             if (binding.hasErrors()) {
                 return ResponseBuilder.error(HttpStatus.BAD_REQUEST,
@@ -66,6 +73,9 @@ public class StoreTelegramSettingsController {
             telegramSettingsService.update(store, dto, userId);
             webSocketController.sendUpdateStatus(userId, "Настройки Telegram сохранены.", true);
             return ResponseBuilder.ok(storeService.toDto(store.getTelegramSettings()));
+        } catch (InvalidTemplateException e) {
+            log.warn("Некорректный шаблон Telegram: {}", e.getMessage());
+            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, e.getMessage());
         } catch (IllegalStateException e) {
             log.warn("Ошибка обновления настроек Telegram: {}", e.getMessage());
             return ResponseBuilder.error(HttpStatus.FORBIDDEN, e.getMessage());
@@ -84,7 +94,7 @@ public class StoreTelegramSettingsController {
      * @param storeId        идентификатор магазина
      * @param dto            заполненные настройки Telegram
      * @param binding        результаты валидации формы
-     * @param authentication текущая аутентификация пользователя
+     * @param user           текущий пользователь
      * @return {@link ResponseEntity} с HTTP 200 или ошибкой в тексте
      */
     @PostMapping(consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -92,8 +102,8 @@ public class StoreTelegramSettingsController {
     public ResponseEntity<?> updateSettingsAjax(@PathVariable Long storeId,
                                                 @Valid @ModelAttribute StoreTelegramSettingsDTO dto,
                                                 BindingResult binding,
-                                                Authentication authentication) {
-        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+                                                @AuthenticationPrincipal User user) {
+        Long userId = user.getId();
         if (binding.hasErrors()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(binding.getAllErrors().get(0).getDefaultMessage());
@@ -104,6 +114,9 @@ public class StoreTelegramSettingsController {
             telegramSettingsService.update(store, dto, userId);
             webSocketController.sendUpdateStatus(userId, "Настройки Telegram сохранены.", true);
             return ResponseEntity.ok().build();
+        } catch (InvalidTemplateException e) {
+            log.warn("Некорректный шаблон Telegram: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         } catch (IllegalStateException e) {
             log.warn("Ошибка обновления настроек Telegram: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
@@ -115,17 +128,17 @@ public class StoreTelegramSettingsController {
      *
      * @param storeId            идентификатор магазина
      * @param dto                заполненные настройки Telegram
-     * @param authentication     текущая аутентификация пользователя
-     * @param redirectAttributes атрибуты для передачи уведомления об успехе
+     * @param user                текущий пользователь
+     * @param redirectAttributes  атрибуты для передачи уведомления об успехе
      * @return редирект на страницу профиля пользователя
      */
     @PostMapping(consumes = org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED_VALUE)
     public String updateSettingsForm(@PathVariable("storeId") Long storeId,
                                      @Valid @ModelAttribute StoreTelegramSettingsDTO dto,
                                      BindingResult binding,
-                                     Authentication authentication,
+                                     @AuthenticationPrincipal User user,
                                      RedirectAttributes redirectAttributes) {
-        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+        Long userId = user.getId();
         if (binding.hasErrors()) {
             redirectAttributes.addFlashAttribute("errorMessage",
                     binding.getAllErrors().get(0).getDefaultMessage());
@@ -136,6 +149,10 @@ public class StoreTelegramSettingsController {
             telegramSettingsService.update(store, dto, userId);
             redirectAttributes.addFlashAttribute("successMessage", "Настройки Telegram сохранены.");
             webSocketController.sendUpdateStatus(userId, "Настройки Telegram сохранены.", true);
+        } catch (InvalidTemplateException e) {
+            log.warn("Некорректный шаблон Telegram: {}", e.getMessage());
+            redirectAttributes.addFlashAttribute("templateError", e.getMessage());
+            redirectAttributes.addFlashAttribute("storeIdWithError", storeId);
         } catch (IllegalStateException e) {
             log.warn("Ошибка обновления настроек Telegram: {}", e.getMessage());
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());

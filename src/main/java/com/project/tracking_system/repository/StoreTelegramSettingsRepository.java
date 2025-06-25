@@ -1,6 +1,8 @@
 package com.project.tracking_system.repository;
 
 import com.project.tracking_system.entity.StoreTelegramSettings;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
@@ -14,7 +16,8 @@ public interface StoreTelegramSettingsRepository extends JpaRepository<StoreTele
      * @param storeId идентификатор магазина
      * @return настройки или {@code null}, если не найдены
      */
-    StoreTelegramSettings findByStoreId(Long storeId);
+    @Query("SELECT ts FROM StoreTelegramSettings ts LEFT JOIN FETCH ts.templates WHERE ts.store.id = :storeId")
+    StoreTelegramSettings findByStoreId(@Param("storeId") Long storeId);
 
     /**
      * Подсчитать количество магазинов с включёнными напоминаниями.

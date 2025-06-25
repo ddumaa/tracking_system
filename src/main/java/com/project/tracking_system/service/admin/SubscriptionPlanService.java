@@ -31,6 +31,7 @@ public class SubscriptionPlanService {
      *
      * @return список планов в виде DTO
      */
+    @Transactional(readOnly = true)
     public List<SubscriptionPlanDTO> getAllPlans() {
         return planRepository.findAllByOrderByPositionAsc().stream()
                 .map(this::toDto)
@@ -54,6 +55,7 @@ public class SubscriptionPlanService {
         }
         // флаги функций определяем через список features
         limitsDto.setAllowBulkUpdate(plan.isFeatureEnabled(FeatureKey.BULK_UPDATE));
+        limitsDto.setAllowAutoUpdate(plan.isFeatureEnabled(FeatureKey.AUTO_UPDATE));
         limitsDto.setAllowTelegramNotifications(plan.isFeatureEnabled(FeatureKey.TELEGRAM_NOTIFICATIONS));
 
         SubscriptionPlanDTO dto = new SubscriptionPlanDTO();
@@ -94,6 +96,7 @@ public class SubscriptionPlanService {
 
             // обновляем признаки доступности функций
             setFeature(plan, FeatureKey.BULK_UPDATE, l.isAllowBulkUpdate());
+            setFeature(plan, FeatureKey.AUTO_UPDATE, l.isAllowAutoUpdate());
             setFeature(plan, FeatureKey.TELEGRAM_NOTIFICATIONS, l.isAllowTelegramNotifications());
         }
 
@@ -175,6 +178,7 @@ public class SubscriptionPlanService {
      * @return бесплатный план
      * @throws IllegalStateException если план не найден в базе
      */
+    @Transactional(readOnly = true)
     public SubscriptionPlan getFreePlan() {
         return planRepository.findByCode("FREE")
                 .orElseGet(() -> planRepository.findAllByOrderByPositionAsc().stream()
@@ -189,6 +193,7 @@ public class SubscriptionPlanService {
      * @param code код тарифа
      * @return {@code true}, если стоимость плана больше нуля
      */
+    @Transactional(readOnly = true)
     public boolean isPaidPlan(String code) {
         return planRepository.findByCode(code)
                 .map(SubscriptionPlan::isPaid)

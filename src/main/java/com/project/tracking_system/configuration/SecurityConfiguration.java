@@ -5,6 +5,7 @@ import com.project.tracking_system.utils.CspNonceFilter;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -43,6 +44,12 @@ public class SecurityConfiguration {
 
     private final AuthenticationProviderConfig authenticationProviderConfig;
     private final LoginAttemptService loginAttemptService;
+    /**
+     * Ключ для механизма "remember-me". Если не задан в application.properties,
+     * используется значение по умолчанию {@code defaultKey}.
+     */
+    @Value("${security.remember-me-key:defaultKey}")
+    private String rememberMeKey;
 
     /**
      * Формирует настройки безопасности приложения.
@@ -57,6 +64,10 @@ public class SecurityConfiguration {
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, CspNonceFilter cspNonceFilter) throws Exception {
+        // Если ключ не переопределён в конфигурации, выводим предупреждение
+        if ("defaultKey".equals(rememberMeKey)) {
+            log.warn("Используется значение по умолчанию для security.remember-me-key. Задайте уникальное значение в application.properties!");
+        }
         http
                 .addFilterBefore(cspNonceFilter, SecurityContextPersistenceFilter.class)
                 .headers(h -> h
@@ -112,7 +123,7 @@ public class SecurityConfiguration {
                         })
                 )
                 .rememberMe(rememberMe -> rememberMe
-                        .key(System.getenv("REMEMBER_ME_KEY"))
+                        .key(rememberMeKey)
                         .tokenValiditySeconds(14 * 24 * 60 * 60)
                 )
                 .logout(logout -> logout

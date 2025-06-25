@@ -32,6 +32,7 @@ public class TariffService {
      *
      * @return список планов в виде DTO
      */
+    @Transactional(readOnly = true)
     public List<SubscriptionPlanViewDTO> getAllPlans() {
         return planRepository.findAllByOrderByPositionAsc()
                 .stream()
@@ -122,7 +123,8 @@ public class TariffService {
                 maxSavedTracks,
                 maxTrackUpdates,
                 plan.isFeatureEnabled(FeatureKey.BULK_UPDATE),
-                maxStores,
+                plan.isFeatureEnabled(FeatureKey.AUTO_UPDATE),
+                limits.getMaxStores(),
                 plan.isFeatureEnabled(FeatureKey.TELEGRAM_NOTIFICATIONS),
                 monthlyLabel,
                 annualLabel,
@@ -138,6 +140,7 @@ public class TariffService {
      * @param code код тарифного плана
      * @return позицию плана или {@code -1}, если план не найден
      */
+    @Transactional(readOnly = true)
     public int getPlanPositionByCode(String code) {
         if (code == null) {
             return -1;
@@ -145,6 +148,22 @@ public class TariffService {
         return planRepository.findByCode(code)
                 .map(SubscriptionPlan::getPosition)
                 .orElse(-1);
+    }
+
+    /**
+     * Находит тарифный план по его коду и возвращает информацию для отображения.
+     *
+     * @param code код плана
+     * @return DTO с данными плана или {@code null}, если план не найден
+     */
+    @Transactional(readOnly = true)
+    public SubscriptionPlanViewDTO getPlanInfoByCode(String code) {
+        if (code == null) {
+            return null;
+        }
+        return planRepository.findByCode(code)
+                .map(this::toViewDto)
+                .orElse(null);
     }
 
 }

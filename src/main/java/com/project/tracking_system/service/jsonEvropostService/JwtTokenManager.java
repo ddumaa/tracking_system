@@ -164,11 +164,10 @@ public class JwtTokenManager {
         try {
             refreshSystemTokenIfExpired();
 
-            List<User> users = userRepository.findAll().stream()
-                    .filter(user -> user.getEvropostServiceCredential() != null)
-                    .filter(user -> user.getEvropostServiceCredential().getUseCustomCredentials()) // Только пользователи с пользовательскими кредами
-                    .filter(this::isUserTokenExpired)      // Проверяем, истёк ли токен
-                    .toList();
+            java.time.ZonedDateTime threshold = java.time.ZonedDateTime
+                    .now(java.time.ZoneOffset.UTC)
+                    .minusDays(TOKEN_LIFETIME_DAYS);
+            List<User> users = userRepository.findUsersForTokenRefresh(threshold);
 
             for (User user : users) {
                 log.info("Обновление токена для пользователя: {}", user.getEmail());

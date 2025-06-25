@@ -2,10 +2,14 @@ package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.EvropostCredentialsDTO;
 import com.project.tracking_system.dto.UserSettingsDTO;
+import com.project.tracking_system.dto.PasswordChangeDTO;
 import com.project.tracking_system.entity.Store;
+import com.project.tracking_system.dto.StoreDTO;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.UserService;
+import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.model.subscription.FeatureKey;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -15,8 +19,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import com.project.tracking_system.utils.ResponseBuilder;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.Authentication;
-import com.project.tracking_system.utils.AuthUtils;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -25,7 +27,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-import java.security.Principal;
 
 
 /**
@@ -47,6 +48,7 @@ public class ProfileController {
     private final UserService userService;
     private final StoreService storeService;
     private final WebSocketController webSocketController;
+    private final SubscriptionService subscriptionService;
 
     /**
      * Отображает страницу профиля пользователя.
@@ -59,8 +61,7 @@ public class ProfileController {
      * @return имя представления страницы профиля
      */
     @GetMapping
-    public String profile(Model model, Authentication authentication) {
-        User user = AuthUtils.getCurrentUser(authentication);
+    public String profile(Model model, @AuthenticationPrincipal User user) {
         Long userId = user.getId();
         log.info("Получен запрос на отображение профиля для пользователя с ID: {}", userId);
 
@@ -70,17 +71,22 @@ public class ProfileController {
         var userProfile = userService.getUserProfile(userId);
 
         // Загружаем магазины с настройками Telegram
-        List<Store> stores = storeService.getUserStoresWithSettings(userId);
+        List<StoreDTO> stores = storeService.getUserStoresDto(userId);
 
         // Добавляем данные профиля в модель
         model.addAttribute("username", user.getEmail());
         model.addAttribute("userProfile", userProfile);
+        model.addAttribute("planDetails", userProfile.getPlanDetails());
         model.addAttribute("storeLimit", storeLimit);
         model.addAttribute("stores", stores);
         log.debug("Данные профиля добавлены в модель для пользователя с ID: {}", userId);
 
         // Добавляем настройки и другие данные пользователя в модель
-        model.addAttribute("userSettingsDTO", new UserSettingsDTO());
+        UserSettingsDTO settingsDTO = new UserSettingsDTO();
+        settingsDTO.setShowBulkUpdateButton(userService.isShowBulkUpdateButton(userId));
+        settingsDTO.setTelegramNotificationsEnabled(userService.isTelegramNotificationsEnabled(userId));
+        model.addAttribute("userSettingsDTO", settingsDTO);
+        model.addAttribute("passwordChangeDTO", new PasswordChangeDTO());
         model.addAttribute("evropostCredentialsDTO", userService.getEvropostCredentials(userId));
 
         return "profile";
@@ -89,38 +95,66 @@ public class ProfileController {
     /**
      * Отображает форму настроек пользователя.
      * <p>
-     * Этот метод подготавливает форму для изменения настроек пользователя (например, смены пароля).
+     * При передаче параметра {@code tab} можно открыть вкладки:
+     * {@code password} (по умолчанию), {@code evropost}, {@code notifications} и {@code automation}.
+     * Метод загружает необходимые данные в модель в зависимости от выбранной вкладки.
      * </p>
      *
-     * @param model модель для добавления данных в представление
-     * @return имя представления для части страницы с настройками
+     * @param tab    название вкладки
+     * @param model  модель для добавления данных в представление
+     * @param authentication текущая аутентификация
+     * @return имя представления для страницы профиля
      */
     @GetMapping("/settings")
     public String settings(
             @RequestParam(value = "tab", required = false, defaultValue = "password") String tab,
             Model model,
-            Authentication authentication) {
+            @AuthenticationPrincipal User user) {
 
-        User user = AuthUtils.getCurrentUser(authentication);
         Long userId = user.getId();
-        model.addAttribute("userSettingsDTO", new UserSettingsDTO());
+        UserSettingsDTO settingsDTO = new UserSettingsDTO();
+        settingsDTO.setShowBulkUpdateButton(userService.isShowBulkUpdateButton(userId));
+        settingsDTO.setTelegramNotificationsEnabled(userService.isTelegramNotificationsEnabled(userId));
+        model.addAttribute("userSettingsDTO", settingsDTO);
+        model.addAttribute("passwordChangeDTO", new PasswordChangeDTO());
 
-        if ("evropost".equals(tab)) {
-            model.addAttribute("evropostCredentialsDTO", userService.getEvropostCredentials(userId));
-            log.debug("Форма Европочты подготовлена для пользователя с ID: {}", userId);
-        } else {
-            log.debug("Открыта вкладка по умолчанию (пароль) для пользователя с ID: {}", userId);
+        switch (tab) {
+            case "evropost" -> {
+                model.addAttribute("evropostCredentialsDTO", userService.getEvropostCredentials(userId));
+                log.debug("Форма Европочты подготовлена для пользователя с ID: {}", userId);
+            }
+            case "notifications" -> {
+                List<Store> stores = storeService.getUserStoresWithSettings(userId);
+                model.addAttribute("stores", stores);
+                log.debug("Вкладка уведомлений открыта, загружено {} магазинов", stores.size());
+            }
+            case "automation" -> {
+                var userProfile = userService.getUserProfile(userId);
+                model.addAttribute("userProfile", userProfile);
+                model.addAttribute("planDetails", userProfile.getPlanDetails());
+                log.debug("Вкладка автоматизации открыта для пользователя с ID: {}", userId);
+            }
+            default -> log.debug("Открыта вкладка по умолчанию (пароль) для пользователя с ID: {}", userId);
         }
 
         return "profile";
     }
 
+    /**
+     * Обновляет данные доступа к API Европочты и связанные настройки.
+     *
+     * @param evropostCredentialsDTO новые учётные данные Европочты
+     * @param bindingResult           результат валидации формы
+     * @param model                   модель для передачи данных во фрагмент
+     * @param user                    текущий пользователь
+     * @return HTML-фрагмент блока Европочты
+     */
     @PostMapping("/settings/evropost")
     public String updateEvropostCredentials(
             @Valid @ModelAttribute("evropostCredentialsDTO") EvropostCredentialsDTO evropostCredentialsDTO,
-            BindingResult bindingResult, Model model, Authentication authentication) {
+            BindingResult bindingResult, Model model, @AuthenticationPrincipal User user) {
 
-        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+        Long userId = user.getId();
 
         if (bindingResult.hasErrors()) {
             model.addAttribute("evropostCredentialsDTO", evropostCredentialsDTO);
@@ -139,12 +173,19 @@ public class ProfileController {
         return "profile :: evropostFragment";
     }
 
+    /**
+     * Обновляет флаг использования собственных учетных данных Европочты.
+     *
+     * @param useCustomCredentials новое значение флага
+     * @param user                 текущий пользователь
+     * @return результат операции
+     */
     @PostMapping("/settings/use-custom-credentials")
     public ResponseEntity<?> updateUseCustomCredentials(
             @RequestParam(value = "useCustomCredentials", required = false) Boolean useCustomCredentials,
-            Authentication authentication) {
+            @AuthenticationPrincipal User user) {
 
-        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+        Long userId = user.getId();
 
         if (useCustomCredentials == null) {
             return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Не указан параметр useCustomCredentials");
@@ -160,6 +201,90 @@ public class ProfileController {
     }
 
     /**
+     * Изменяет настройку автообновления треков пользователя.
+     *
+     * @param enabled новое значение флага
+     * @param user    текущий пользователь
+     * @return результат операции
+     */
+    @PostMapping("/settings/auto-update")
+    public ResponseEntity<?> updateAutoUpdate(
+            @RequestParam(value = "enabled", required = false) Boolean enabled,
+            @AuthenticationPrincipal User user) {
+
+        Long userId = user.getId();
+
+        if (enabled == null) {
+            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Не указан параметр enabled");
+        }
+
+        try {
+            // проверяем доступность функции автообновления
+            if (!subscriptionService.canUseAutoUpdate(userId)) {
+                return ResponseBuilder.error(HttpStatus.FORBIDDEN,
+                        "Опция автообновления недоступна на текущем тарифе");
+            }
+            userService.updateAutoUpdateEnabled(userId, enabled);
+            return ResponseBuilder.ok("Настройки успешно обновлены.");
+        } catch (Exception e) {
+            log.error("Ошибка обновления автообновления для пользователя {}: {}", userId, e.getMessage(), e);
+            return ResponseBuilder.error(HttpStatus.INTERNAL_SERVER_ERROR, "Ошибка при обновлении настроек.");
+        }
+    }
+
+    /**
+     * Обновляет настройку отображения кнопки массового обновления.
+     *
+     * @param show новое значение флага
+     * @param user текущий пользователь
+     * @return результат операции
+     */
+    @PostMapping("/settings/bulk-button")
+    public ResponseEntity<?> updateBulkButton(
+            @RequestParam(value = "show", required = false) Boolean show,
+            @AuthenticationPrincipal User user) {
+        Long userId = user.getId();
+
+        if (show == null) {
+            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Не указан параметр show");
+        }
+
+        if (!subscriptionService.isFeatureEnabled(userId, FeatureKey.BULK_UPDATE)) {
+            log.warn("Пользователь {} попытался изменить флаг bulkButton без доступа", userId);
+            return ResponseBuilder.error(HttpStatus.FORBIDDEN, "Опция недоступна на текущем тарифе");
+        }
+
+        userService.updateShowBulkUpdateButton(userId, show);
+        return ResponseBuilder.ok("Настройки успешно обновлены.");
+    }
+
+    /**
+     * Обновляет глобальный флаг Telegram-уведомлений.
+     *
+     * @param enabled новое значение флага
+     * @param user    текущий пользователь
+     * @return результат операции
+     */
+    @PostMapping("/settings/telegram-notifications")
+    public ResponseEntity<?> updateTelegramNotifications(
+            @RequestParam(value = "enabled", required = false) Boolean enabled,
+            @AuthenticationPrincipal User user) {
+        Long userId = user.getId();
+
+        if (enabled == null) {
+            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Не указан параметр enabled");
+        }
+
+        if (!subscriptionService.isFeatureEnabled(userId, FeatureKey.TELEGRAM_NOTIFICATIONS)) {
+            log.warn("Пользователь {} попытался изменить флаг Telegram без доступа", userId);
+            return ResponseBuilder.error(HttpStatus.FORBIDDEN, "Опция недоступна на текущем тарифе");
+        }
+
+        userService.updateTelegramNotificationsEnabled(userId, enabled);
+        return ResponseBuilder.ok("Настройки успешно обновлены.");
+    }
+
+    /**
      * Обрабатывает запросы на изменение настроек пользователя, включая смену пароля.
      * <p>
      * Этот метод выполняет валидацию нового пароля, проверку совпадения паролей и изменение пароля через сервис.
@@ -167,26 +292,27 @@ public class ProfileController {
      * </p>
      *
      * @param model модель для добавления данных в представление
-     * @param userSettingsDTO DTO для ввода настроек пользователя (включая новый пароль)
+     * @param passwordChangeDTO DTO для ввода нового пароля
      * @param result результат валидации формы
+     * @param user текущий пользователь
      * @return имя представления для части страницы с настройками
      */
     @PostMapping("/settings/password")
     public String updatePassword(Model model,
-                                 @Valid @ModelAttribute("userSettingsDTO") UserSettingsDTO userSettingsDTO,
+                                 @Valid @ModelAttribute("passwordChangeDTO") PasswordChangeDTO passwordChangeDTO,
                                  BindingResult result,
-                                 Authentication authentication) {
-        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+                                 @AuthenticationPrincipal User user) {
+        Long userId = user.getId();
 
         if (result.hasErrors()) {
             return "profile :: passwordFragment";
         }
-        if (!userSettingsDTO.getNewPassword().equals(userSettingsDTO.getConfirmPassword())) {
+        if (!passwordChangeDTO.getNewPassword().equals(passwordChangeDTO.getConfirmPassword())) {
             result.rejectValue("confirmPassword", "password.mismatch", "Пароли не совпадают");
             return "profile :: passwordFragment";
         }
         try {
-            userService.changePassword(userId, userSettingsDTO);
+            userService.changePassword(userId, passwordChangeDTO);
             model.addAttribute("notification", "Пароль успешно изменен");
         } catch (IllegalArgumentException e) {
             result.rejectValue("currentPassword", "password.incorrect", e.getMessage());
@@ -204,17 +330,17 @@ public class ProfileController {
      *
      * @param request запрос для получения информации о текущей сессии
      * @param response ответ для выполнения выхода из системы
+     * @param user текущий пользователь
      * @return редирект на главную страницу
      */
     @PostMapping("/settings/delete")
-    public String delete(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
-        User user = AuthUtils.getCurrentUser(authentication);
+    public String delete(HttpServletRequest request, HttpServletResponse response, @AuthenticationPrincipal User user) {
         Long userId = user.getId();
         log.info("Запрос на удаление учетной записи пользователя с ID: {}", userId);
 
         userService.deleteUser(userId);
 
-        new SecurityContextLogoutHandler().logout(request, response, authentication);
+        new SecurityContextLogoutHandler().logout(request, response, null);
         log.info("Учетная запись пользователя с ID {} успешно удалена.", userId);
 
         return "redirect:/";
@@ -228,17 +354,21 @@ public class ProfileController {
      * </p>
      *
      * @param user текущий пользователь
-     * @return список магазинов пользователя
+     * @return список магазинов пользователя в виде DTO
      */
     @GetMapping("/stores")
     @ResponseBody
-    public List<Store> getUserStores(@AuthenticationPrincipal User user) {
+    public List<StoreDTO> getUserStores(@AuthenticationPrincipal User user) {
         storeService.getDefaultStoreId(user.getId());
-        return storeService.getUserStores(user.getId());
+        return storeService.getUserStoresDto(user.getId());
     }
 
     /**
-     * Создаёт новый магазин.
+     * Создаёт новый магазин пользователя.
+     *
+     * @param user    текущий пользователь
+     * @param request параметры запроса, содержащие название магазина
+     * @return созданный магазин либо сообщение об ошибке
      */
     @PostMapping("/stores")
     @ResponseBody
@@ -254,7 +384,12 @@ public class ProfileController {
     }
 
     /**
-     * Обновляет название магазина.
+     * Обновляет название указанного магазина.
+     *
+     * @param user    текущий пользователь
+     * @param storeId идентификатор магазина
+     * @param request параметры запроса с новым именем
+     * @return обновленный магазин либо сообщение об ошибке
      */
     @PutMapping("/stores/{storeId}")
     @ResponseBody
@@ -271,7 +406,11 @@ public class ProfileController {
     }
 
     /**
-     * Удаляет магазин.
+     * Удаляет магазин пользователя.
+     *
+     * @param user    текущий пользователь
+     * @param storeId идентификатор магазина
+     * @return результат удаления
      */
     @DeleteMapping("/stores/{storeId}")
     @ResponseBody
@@ -289,20 +428,26 @@ public class ProfileController {
     /**
      * Получает текущий лимит магазинов пользователя.
      *
-     * @param authentication Данные текущего пользователя.
+     * @param user Данные текущего пользователя.
      * @return Текущий лимит магазинов (использовано/доступно).
      */
     @GetMapping("/stores/limit")
     @ResponseBody
-    public String getStoreLimit(Authentication authentication) {
-        User user = AuthUtils.getCurrentUser(authentication);
+    public String getStoreLimit(@AuthenticationPrincipal User user) {
         return userService.getUserStoreLimit(user.getId());
     }
 
+    /**
+     * Устанавливает магазин по умолчанию для пользователя.
+     *
+     * @param user    текущий пользователь
+     * @param storeId идентификатор магазина
+     * @return результат операции
+     */
     @PostMapping("/stores/default/{storeId}")
     @ResponseBody
     public ResponseEntity<?> setDefaultStore(@AuthenticationPrincipal User user,
-                                                  @PathVariable Long storeId) {
+                                             @PathVariable Long storeId) {
         try {
             storeService.setDefaultStore(user.getId(), storeId);
             return ResponseBuilder.ok("Магазин по умолчанию установлен.");
@@ -316,15 +461,15 @@ public class ProfileController {
      * Возвращает HTML-фрагмент блока настроек Telegram для магазина.
      *
      * @param storeId        идентификатор магазина
-     * @param authentication текущая аутентификация
-     * @param model          модель для передачи данных во фрагмент
+     * @param user  текущий пользователь
+     * @param model модель для передачи данных во фрагмент
      * @return HTML-фрагмент блока магазина
      */
     @GetMapping("/stores/{storeId}/telegram-block")
     public String getTelegramBlock(@PathVariable Long storeId,
-                                   Authentication authentication,
+                                   @AuthenticationPrincipal User user,
                                    Model model) {
-        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+        Long userId = user.getId();
         Store store = storeService.getStore(storeId, userId);
         model.addAttribute("store", store);
         return "profile :: telegramStoreBlock";

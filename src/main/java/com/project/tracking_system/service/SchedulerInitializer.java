@@ -21,6 +21,7 @@ public class SchedulerInitializer {
     public static final long JWT_REFRESH_ID = 3L;
     public static final long SUBSCRIPTION_CHECK_ID = 4L;
     public static final long TOKEN_CLEANUP_ID = 5L;
+    public static final long AUTO_UPDATE_ID = 6L;
 
     private final DynamicSchedulerService schedulerService;
     private final StatsAggregationService statsAggregationService;
@@ -28,6 +29,7 @@ public class SchedulerInitializer {
     private final JwtTokenManager jwtTokenManager;
     private final SubscriptionExpirationScheduler subscriptionExpirationScheduler;
     private final TokenCleanupService tokenCleanupService;
+    private final com.project.tracking_system.service.track.TrackAutoUpdateScheduler trackAutoUpdateScheduler;
 
     /**
      * Регистрирует все задачи в динамическом планировщике.
@@ -39,5 +41,6 @@ public class SchedulerInitializer {
         schedulerService.registerTask(JWT_REFRESH_ID, jwtTokenManager::scheduledTokenRefresh);
         schedulerService.registerTask(SUBSCRIPTION_CHECK_ID, subscriptionExpirationScheduler::checkExpiredSubscriptions);
         schedulerService.registerTask(TOKEN_CLEANUP_ID, tokenCleanupService::cleanupExpiredTokens);
+        schedulerService.registerTask(AUTO_UPDATE_ID, trackAutoUpdateScheduler::updateAllUsersTracks);
     }
 }

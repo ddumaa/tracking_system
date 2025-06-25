@@ -6,7 +6,6 @@ import com.project.tracking_system.entity.SubscriptionLimits;
 import com.project.tracking_system.entity.SubscriptionPlan;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.SubscriptionPlanRepository;
-import com.project.tracking_system.service.SubscriptionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,8 +27,6 @@ class TariffServiceTest {
 
     @Mock
     private SubscriptionPlanRepository planRepository;
-    @Mock
-    private SubscriptionService subscriptionService;
     @InjectMocks
     private TariffService tariffService;
 
@@ -56,11 +53,15 @@ class TariffServiceTest {
         bulk.setFeatureKey(FeatureKey.BULK_UPDATE);
         bulk.setEnabled(true);
         bulk.setSubscriptionPlan(plan);
+        SubscriptionFeature auto = new SubscriptionFeature();
+        auto.setFeatureKey(FeatureKey.AUTO_UPDATE);
+        auto.setEnabled(true);
+        auto.setSubscriptionPlan(plan);
         SubscriptionFeature telegram = new SubscriptionFeature();
         telegram.setFeatureKey(FeatureKey.TELEGRAM_NOTIFICATIONS);
         telegram.setEnabled(true);
         telegram.setSubscriptionPlan(plan);
-        plan.setFeatures(List.of(bulk, telegram));
+        plan.setFeatures(List.of(bulk, auto, telegram));
     }
 
     @Test
@@ -98,6 +99,7 @@ class TariffServiceTest {
         assertEquals(5, dto.getMaxTracksPerFile());
         assertEquals(100, dto.getMaxSavedTracks());
         assertTrue(dto.isAllowBulkUpdate());
+        assertTrue(dto.isAllowAutoUpdate());
         assertTrue(dto.isAllowTelegramNotifications());
         assertEquals("15.00 BYN/мес", dto.getMonthlyPriceLabel());
         assertEquals("150.00 BYN/год", dto.getAnnualPriceLabel());
@@ -106,16 +108,23 @@ class TariffServiceTest {
     }
 
     @Test
-    void toViewDto_LimitsNull_ReturnsDtoWithDefaultValues() {
-        plan.setLimits(null);
+    void getPlanInfoByCode_ReturnsDto() {
+        when(planRepository.findByCode("PREMIUM")).thenReturn(java.util.Optional.of(plan));
 
-        SubscriptionPlanViewDTO dto = tariffService.toViewDto(plan);
+        SubscriptionPlanViewDTO dto = tariffService.getPlanInfoByCode("PREMIUM");
 
-        assertNull(dto.getMaxTracksPerFile());
-        assertNull(dto.getMaxSavedTracks());
-        assertNull(dto.getMaxTrackUpdates());
-        assertNull(dto.getMaxStores());
-        assertEquals("15.00 BYN/мес", dto.getMonthlyPriceLabel());
-        assertEquals("150.00 BYN/год", dto.getAnnualPriceLabel());
+        assertNotNull(dto);
+        assertEquals("PREMIUM", dto.getCode());
     }
+
+    @Test
+    void getPlanInfoByCode_NotFound_ReturnsNull() {
+        when(planRepository.findByCode("NONE")).thenReturn(java.util.Optional.empty());
+
+        SubscriptionPlanViewDTO dto = tariffService.getPlanInfoByCode("NONE");
+
+        assertNull(dto);
+
+    }
+  
 }

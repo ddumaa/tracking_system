@@ -17,6 +17,7 @@ public class SubscriptionLimitsDTO {
     private Integer maxSavedTracks;
     private Integer maxTrackUpdates;
     private boolean allowBulkUpdate;
+    private boolean allowAutoUpdate;
     private Integer maxStores;
     private boolean allowTelegramNotifications;
 }

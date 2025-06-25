@@ -8,6 +8,7 @@ import com.project.tracking_system.service.track.TrackProcessingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,6 +39,7 @@ public class AdminService {
     /**
      * Подсчитать общее количество покупателей.
      */
+    @Transactional(readOnly = true)
     public long countCustomers() {
         return customerRepository.count();
     }
@@ -45,6 +47,7 @@ public class AdminService {
     /**
      * Подсчитать количество ненадёжных покупателей.
      */
+    @Transactional(readOnly = true)
     public long countUnreliableCustomers() {
         return customerRepository.countByReputation(BuyerReputation.UNRELIABLE);
     }
@@ -52,6 +55,7 @@ public class AdminService {
     /**
      * Получить список ненадёжных покупателей.
      */
+    @Transactional(readOnly = true)
     public List<Customer> getUnreliableCustomers() {
         return customerRepository.findByReputation(BuyerReputation.UNRELIABLE);
     }
@@ -75,6 +79,7 @@ public class AdminService {
     /**
      * Количество покупателей с привязанным Telegram.
      */
+    @Transactional(readOnly = true)
     public long countTelegramBoundCustomers() {
         return customerRepository.countByTelegramChatIdNotNull();
     }
@@ -82,6 +87,7 @@ public class AdminService {
     /**
      * Количество магазинов с включёнными напоминаниями.
      */
+    @Transactional(readOnly = true)
     public long countStoresWithReminders() {
         return storeTelegramSettingsRepository.countByRemindersEnabledTrue();
     }
@@ -89,6 +95,7 @@ public class AdminService {
     /**
      * Получить последние уведомления.
      */
+    @Transactional(readOnly = true)
     public List<CustomerNotificationLog> getRecentLogs() {
         return notificationRepository.findTop10ByOrderBySentAtDesc();
     }
@@ -96,6 +103,7 @@ public class AdminService {
     /**
      * Список магазинов с настройками и планом подписки владельца.
      */
+    @Transactional(readOnly = true)
     public List<StoreAdminInfoDTO> getStoresInfo() {
         List<Store> stores = storeRepository.findAllWithSettingsAndSubscription();
         return stores.stream()
@@ -116,6 +124,7 @@ public class AdminService {
     /**
      * Список подписок пользователей.
      */
+    @Transactional(readOnly = true)
     public List<UserSubscription> getAllUserSubscriptions() {
         return userSubscriptionRepository.findAllWithUserAndPlan();
     }
@@ -123,6 +132,7 @@ public class AdminService {
     /**
      * Получить все планы подписки.
      */
+    @Transactional(readOnly = true)
     public List<SubscriptionPlanDTO> getPlans() {
         return subscriptionPlanService.getAllPlans();
     }
@@ -170,6 +180,7 @@ public class AdminService {
     /**
      * Подсчитать количество магазинов в системе.
      */
+    @Transactional(readOnly = true)
     public long countStores() {
         return storeRepository.count();
     }
@@ -181,6 +192,7 @@ public class AdminService {
      * @param size размер страницы
      * @return страница посылок для отображения в админ-панели
      */
+    @Transactional(readOnly = true)
     public org.springframework.data.domain.Page<TrackParcelAdminInfoDTO> getAllParcels(int page, int size) {
         // Создаём объект пагинации
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
@@ -210,6 +222,7 @@ public class AdminService {
      * @param subscription название плана подписки
      * @return список DTO с информацией о пользователях
      */
+    @Transactional(readOnly = true)
     public List<UserListAdminInfoDTO> getUsers(String search, String role, String subscription) {
         Role roleEnum = null;
         if (role != null && !role.isBlank()) {
@@ -251,6 +264,7 @@ public class AdminService {
      * @param number трек-номер
      * @return DTO с информацией о посылке или {@code null}
      */
+    @Transactional(readOnly = true)
     public TrackParcelAdminInfoDTO findParcelByNumber(String number) {
         TrackParcel parcel = trackParcelRepository.findByNumberWithStoreAndUser(number);
         if (parcel == null) {
@@ -275,6 +289,7 @@ public class AdminService {
      * @param id идентификатор посылки
      * @return DTO с информацией о посылке
      */
+    @Transactional(readOnly = true)
     public TrackParcelAdminInfoDTO getParcelById(Long id) {
         TrackParcel parcel = trackParcelRepository.findByIdWithStoreAndUser(id);
         if (parcel == null) {
@@ -341,7 +356,7 @@ public class AdminService {
      *
      * @param customerId идентификатор покупателя
      */
-    @org.springframework.transaction.annotation.Transactional
+    @Transactional
     public void deleteCustomer(Long customerId) {
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Покупатель не найден"));

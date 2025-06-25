@@ -542,12 +542,14 @@ public class AdminController {
     /**
      * Отображает страницу настроек администратора.
      *
+     * @param model модель представления для передачи параметров
      * @return имя шаблона настроек
      */
     @GetMapping("/settings")
     public String settings(Model model) {
         model.addAttribute("appVersion", appInfoService.getApplicationVersion());
         model.addAttribute("webhookEnabled", appInfoService.isTelegramWebhookEnabled());
+        // для таблицы тарифов используем DTO с лимитами и признаками функций
         model.addAttribute("plans", tariffService.getAllPlans());
 
         // Хлебные крошки

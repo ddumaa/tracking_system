@@ -72,6 +72,10 @@
                                 <span th:unless="${plan.allowBulkUpdate}" class="text-muted">❌ Массовое обновление</span>
                             </li>
                             <li>
+                                <span th:if="${plan.allowAutoUpdate}">♻️ Автообновление треков</span>
+                                <span th:unless="${plan.allowAutoUpdate}" class="text-muted">❌ Автообновление треков</span>
+                            </li>
+                            <li>
                                 <span th:if="${plan.allowTelegramNotifications}">📨 Telegram-уведомления</span>
                                 <span th:unless="${plan.allowTelegramNotifications}" class="text-muted">❌ Telegram-уведомления</span>
                             </li>
