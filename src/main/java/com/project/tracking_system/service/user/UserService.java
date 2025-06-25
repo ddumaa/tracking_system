@@ -383,6 +383,27 @@ public class UserService {
     }
 
     /**
+     * Проверяет, разрешены ли Telegram-уведомления у пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @return {@code true}, если уведомления включены
+     */
+    @Transactional(readOnly = true)
+    public boolean isTelegramNotificationsEnabled(Long userId) {
+        return userSettingsService.isTelegramNotificationsEnabled(userId);
+    }
+
+    /**
+     * Обновляет глобальный флаг Telegram-уведомлений пользователя.
+     *
+     * @param userId  идентификатор пользователя
+     * @param enabled новое значение флага
+     */
+    public void updateTelegramNotificationsEnabled(Long userId, boolean enabled) {
+        userSettingsService.updateTelegramNotificationsEnabled(userId, enabled);
+    }
+
+    /**
      * Получает сохранённые учётные данные Evropost пользователя.
      *
      * @param userId идентификатор пользователя

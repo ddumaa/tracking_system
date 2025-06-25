@@ -28,6 +28,18 @@ public class UserSettingsService {
     }
 
     /**
+     * Проверить, включены ли уведомления Telegram для пользователя.
+     *
+     * @param userId идентификатор пользователя
+     * @return {@code true}, если включены
+     */
+    @Transactional(readOnly = true)
+    public boolean isTelegramNotificationsEnabled(Long userId) {
+        UserSettings settings = getUserSettings(userId);
+        return settings == null || settings.isTelegramNotificationsEnabled();
+    }
+
+    /**
      * Обновить видимость кнопки массового обновления.
      *
      * @param userId идентификатор пользователя
@@ -39,6 +51,20 @@ public class UserSettingsService {
         settings.setShowBulkUpdateButton(value);
         settingsRepository.save(settings);
         log.info("Настройка showBulkUpdateButton обновлена для пользователя {}: {}", userId, value);
+    }
+
+    /**
+     * Обновить глобальный флаг Telegram-уведомлений.
+     *
+     * @param userId   идентификатор пользователя
+     * @param enabled  новое значение
+     */
+    @Transactional
+    public void updateTelegramNotificationsEnabled(Long userId, boolean enabled) {
+        UserSettings settings = getUserSettings(userId);
+        settings.setTelegramNotificationsEnabled(enabled);
+        settingsRepository.save(settings);
+        log.info("Флаг telegramNotificationsEnabled обновлен для пользователя {}: {}", userId, enabled);
     }
 
 }

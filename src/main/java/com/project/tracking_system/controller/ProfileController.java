@@ -84,6 +84,7 @@ public class ProfileController {
         // Добавляем настройки и другие данные пользователя в модель
         UserSettingsDTO settingsDTO = new UserSettingsDTO();
         settingsDTO.setShowBulkUpdateButton(userService.isShowBulkUpdateButton(userId));
+        settingsDTO.setTelegramNotificationsEnabled(userService.isTelegramNotificationsEnabled(userId));
         model.addAttribute("userSettingsDTO", settingsDTO);
         model.addAttribute("passwordChangeDTO", new PasswordChangeDTO());
         model.addAttribute("evropostCredentialsDTO", userService.getEvropostCredentials(userId));
@@ -113,6 +114,7 @@ public class ProfileController {
         Long userId = user.getId();
         UserSettingsDTO settingsDTO = new UserSettingsDTO();
         settingsDTO.setShowBulkUpdateButton(userService.isShowBulkUpdateButton(userId));
+        settingsDTO.setTelegramNotificationsEnabled(userService.isTelegramNotificationsEnabled(userId));
         model.addAttribute("userSettingsDTO", settingsDTO);
         model.addAttribute("passwordChangeDTO", new PasswordChangeDTO());
 
@@ -253,6 +255,32 @@ public class ProfileController {
         }
 
         userService.updateShowBulkUpdateButton(userId, show);
+        return ResponseBuilder.ok("Настройки успешно обновлены.");
+    }
+
+    /**
+     * Обновляет глобальный флаг Telegram-уведомлений.
+     *
+     * @param enabled новое значение флага
+     * @param user    текущий пользователь
+     * @return результат операции
+     */
+    @PostMapping("/settings/telegram-notifications")
+    public ResponseEntity<?> updateTelegramNotifications(
+            @RequestParam(value = "enabled", required = false) Boolean enabled,
+            @AuthenticationPrincipal User user) {
+        Long userId = user.getId();
+
+        if (enabled == null) {
+            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Не указан параметр enabled");
+        }
+
+        if (!subscriptionService.isFeatureEnabled(userId, FeatureKey.TELEGRAM_NOTIFICATIONS)) {
+            log.warn("Пользователь {} попытался изменить флаг Telegram без доступа", userId);
+            return ResponseBuilder.error(HttpStatus.FORBIDDEN, "Опция недоступна на текущем тарифе");
+        }
+
+        userService.updateTelegramNotificationsEnabled(userId, enabled);
         return ResponseBuilder.ok("Настройки успешно обновлены.");
     }
 
