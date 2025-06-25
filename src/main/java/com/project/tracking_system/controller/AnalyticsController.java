@@ -15,8 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.Authentication;
-import com.project.tracking_system.utils.AuthUtils;
 import com.project.tracking_system.utils.ResponseBuilder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -55,12 +53,10 @@ public class AnalyticsController {
             @RequestParam(name = "storeId", required = false) String rawStoreId,
             @RequestParam(defaultValue = "WEEKS") String interval,
             Model model,
-            Authentication authentication,
+            @AuthenticationPrincipal User user,
             HttpServletRequest request) {
 
         // 1) Проверяем аутентификацию
-        User user = AuthUtils.getCurrentUser(authentication);
-
         Long userId = user.getId();
         ZoneId userZone = ZoneId.of(user.getTimeZone());
         List<Store> stores = storeService.getUserStores(userId);
@@ -162,13 +158,12 @@ public class AnalyticsController {
      *
      * @param storeId        идентификатор магазина. Если не указан, обновляется
      *                       аналитика по всем магазинам пользователя
-     * @param authentication текущая аутентификация пользователя
+     * @param user           текущий пользователь
      * @return JSON-ответ с сообщением о результате обновления
      */
     @PostMapping("/update")
     public ResponseEntity<?> updateAnalytics(@RequestParam(required = false) Long storeId,
-                                             Authentication authentication) {
-        User user = AuthUtils.getCurrentUser(authentication);
+                                             @AuthenticationPrincipal User user) {
         Long userId = user.getId();
         log.info("Обновление timestamp аналитики (данные считаются инкрементально): userId={}, storeId={}", userId, storeId);
 
@@ -194,15 +189,14 @@ public class AnalyticsController {
      * @param storeId        идентификатор магазина. Если null, данные собираются
      *                       по всем магазинам пользователя
      * @param interval       интервал агрегации (DAYS/WEEKS/MONTHS/YEARS)
-     * @param authentication текущая аутентификация пользователя
+     * @param user       текущий пользователь
      * @return карта с данными для круговой диаграммы и статистикой по периодам
      */
     @GetMapping("/json")
     @ResponseBody
     public Map<String, Object> getAnalyticsJson(@RequestParam(required = false) Long storeId,
                                                 @RequestParam(defaultValue = "WEEKS") String interval,
-                                                Authentication authentication) {
-        User user = AuthUtils.getCurrentUser(authentication);
+                                                @AuthenticationPrincipal User user) {
         Long userId = user.getId();
         List<Store> stores = storeService.getUserStores(userId);
         List<StoreStatistics> visibleStats;

@@ -18,8 +18,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import com.project.tracking_system.utils.ResponseBuilder;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.Authentication;
-import com.project.tracking_system.utils.AuthUtils;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -28,7 +26,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-import java.security.Principal;
 
 
 /**
@@ -63,8 +60,7 @@ public class ProfileController {
      * @return имя представления страницы профиля
      */
     @GetMapping
-    public String profile(Model model, Authentication authentication) {
-        User user = AuthUtils.getCurrentUser(authentication);
+    public String profile(Model model, @AuthenticationPrincipal User user) {
         Long userId = user.getId();
         log.info("Получен запрос на отображение профиля для пользователя с ID: {}", userId);
 
@@ -111,9 +107,8 @@ public class ProfileController {
     public String settings(
             @RequestParam(value = "tab", required = false, defaultValue = "password") String tab,
             Model model,
-            Authentication authentication) {
+            @AuthenticationPrincipal User user) {
 
-        User user = AuthUtils.getCurrentUser(authentication);
         Long userId = user.getId();
         UserSettingsDTO settingsDTO = new UserSettingsDTO();
         settingsDTO.setShowBulkUpdateButton(userService.isShowBulkUpdateButton(userId));
@@ -148,15 +143,15 @@ public class ProfileController {
      * @param evropostCredentialsDTO новые учётные данные Европочты
      * @param bindingResult           результат валидации формы
      * @param model                   модель для передачи данных во фрагмент
-     * @param authentication          текущая аутентификация
+     * @param user                    текущий пользователь
      * @return HTML-фрагмент блока Европочты
      */
     @PostMapping("/settings/evropost")
     public String updateEvropostCredentials(
             @Valid @ModelAttribute("evropostCredentialsDTO") EvropostCredentialsDTO evropostCredentialsDTO,
-            BindingResult bindingResult, Model model, Authentication authentication) {
+            BindingResult bindingResult, Model model, @AuthenticationPrincipal User user) {
 
-        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+        Long userId = user.getId();
 
         if (bindingResult.hasErrors()) {
             model.addAttribute("evropostCredentialsDTO", evropostCredentialsDTO);
@@ -179,15 +174,15 @@ public class ProfileController {
      * Обновляет флаг использования собственных учетных данных Европочты.
      *
      * @param useCustomCredentials новое значение флага
-     * @param authentication       текущая аутентификация
+     * @param user                 текущий пользователь
      * @return результат операции
      */
     @PostMapping("/settings/use-custom-credentials")
     public ResponseEntity<?> updateUseCustomCredentials(
             @RequestParam(value = "useCustomCredentials", required = false) Boolean useCustomCredentials,
-            Authentication authentication) {
+            @AuthenticationPrincipal User user) {
 
-        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+        Long userId = user.getId();
 
         if (useCustomCredentials == null) {
             return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Не указан параметр useCustomCredentials");
@@ -205,16 +200,16 @@ public class ProfileController {
     /**
      * Изменяет настройку автообновления треков пользователя.
      *
-     * @param enabled        новое значение флага
-     * @param authentication текущая аутентификация
+     * @param enabled новое значение флага
+     * @param user    текущий пользователь
      * @return результат операции
      */
     @PostMapping("/settings/auto-update")
     public ResponseEntity<?> updateAutoUpdate(
             @RequestParam(value = "enabled", required = false) Boolean enabled,
-            Authentication authentication) {
+            @AuthenticationPrincipal User user) {
 
-        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+        Long userId = user.getId();
 
         if (enabled == null) {
             return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Не указан параметр enabled");
@@ -237,15 +232,15 @@ public class ProfileController {
     /**
      * Обновляет настройку отображения кнопки массового обновления.
      *
-     * @param show    новое значение флага
-     * @param authentication текущая аутентификация
+     * @param show новое значение флага
+     * @param user текущий пользователь
      * @return результат операции
      */
     @PostMapping("/settings/bulk-button")
     public ResponseEntity<?> updateBulkButton(
             @RequestParam(value = "show", required = false) Boolean show,
-            Authentication authentication) {
-        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+            @AuthenticationPrincipal User user) {
+        Long userId = user.getId();
 
         if (show == null) {
             return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Не указан параметр show");
@@ -270,14 +265,15 @@ public class ProfileController {
      * @param model модель для добавления данных в представление
      * @param passwordChangeDTO DTO для ввода нового пароля
      * @param result результат валидации формы
+     * @param user текущий пользователь
      * @return имя представления для части страницы с настройками
      */
     @PostMapping("/settings/password")
     public String updatePassword(Model model,
                                  @Valid @ModelAttribute("passwordChangeDTO") PasswordChangeDTO passwordChangeDTO,
                                  BindingResult result,
-                                 Authentication authentication) {
-        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+                                 @AuthenticationPrincipal User user) {
+        Long userId = user.getId();
 
         if (result.hasErrors()) {
             return "profile :: passwordFragment";
@@ -305,17 +301,17 @@ public class ProfileController {
      *
      * @param request запрос для получения информации о текущей сессии
      * @param response ответ для выполнения выхода из системы
+     * @param user текущий пользователь
      * @return редирект на главную страницу
      */
     @PostMapping("/settings/delete")
-    public String delete(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
-        User user = AuthUtils.getCurrentUser(authentication);
+    public String delete(HttpServletRequest request, HttpServletResponse response, @AuthenticationPrincipal User user) {
         Long userId = user.getId();
         log.info("Запрос на удаление учетной записи пользователя с ID: {}", userId);
 
         userService.deleteUser(userId);
 
-        new SecurityContextLogoutHandler().logout(request, response, authentication);
+        new SecurityContextLogoutHandler().logout(request, response, null);
         log.info("Учетная запись пользователя с ID {} успешно удалена.", userId);
 
         return "redirect:/";
@@ -403,13 +399,12 @@ public class ProfileController {
     /**
      * Получает текущий лимит магазинов пользователя.
      *
-     * @param authentication Данные текущего пользователя.
+     * @param user Данные текущего пользователя.
      * @return Текущий лимит магазинов (использовано/доступно).
      */
     @GetMapping("/stores/limit")
     @ResponseBody
-    public String getStoreLimit(Authentication authentication) {
-        User user = AuthUtils.getCurrentUser(authentication);
+    public String getStoreLimit(@AuthenticationPrincipal User user) {
         return userService.getUserStoreLimit(user.getId());
     }
 
@@ -437,15 +432,15 @@ public class ProfileController {
      * Возвращает HTML-фрагмент блока настроек Telegram для магазина.
      *
      * @param storeId        идентификатор магазина
-     * @param authentication текущая аутентификация
-     * @param model          модель для передачи данных во фрагмент
+     * @param user  текущий пользователь
+     * @param model модель для передачи данных во фрагмент
      * @return HTML-фрагмент блока магазина
      */
     @GetMapping("/stores/{storeId}/telegram-block")
     public String getTelegramBlock(@PathVariable Long storeId,
-                                   Authentication authentication,
+                                   @AuthenticationPrincipal User user,
                                    Model model) {
-        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+        Long userId = user.getId();
         Store store = storeService.getStore(storeId, userId);
         model.addAttribute("store", store);
         return "profile :: telegramStoreBlock";
