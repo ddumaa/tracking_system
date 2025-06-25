@@ -14,6 +14,7 @@ import com.project.tracking_system.dto.SubscriptionPlanViewDTO;
 import com.project.tracking_system.service.email.EmailService;
 import com.project.tracking_system.service.jsonEvropostService.JwtTokenManager;
 import com.project.tracking_system.service.store.StoreService;
+import com.project.tracking_system.service.user.UserSettingsService;
 import com.project.tracking_system.utils.EncryptionUtils;
 import com.project.tracking_system.utils.EmailUtils;
 import com.project.tracking_system.utils.UserCredentialsResolver;
@@ -65,6 +66,7 @@ public class UserService {
     private final TariffService tariffService;
     private final TrackParcelRepository trackParcelRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
+    private final UserSettingsService userSettingsService;
 
     /**
      * Значение таймзоны по умолчанию, используется при создании пользователя.
@@ -166,6 +168,8 @@ public class UserService {
         user.setSubscription(subscription);
 
         userRepository.save(user);
+        // Создаём настройки пользователя по умолчанию
+        userSettingsService.getUserSettings(user.getId());
         storeService.createDefaultStoreForUser(user);
         confirmationTokenRepository.deleteByEmail(userDTO.getEmail());
 
@@ -244,6 +248,9 @@ public class UserService {
 
         // Сохраняем пользователя вместе с созданной подпиской
         userRepository.save(user);
+
+        // Создаём настройки пользователя по умолчанию
+        userSettingsService.getUserSettings(user.getId());
 
         // Создаём магазин по умолчанию
         storeService.createDefaultStoreForUser(user);
