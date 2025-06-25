@@ -169,7 +169,7 @@ public class UserService {
 
         userRepository.save(user);
         // Создаём настройки пользователя по умолчанию
-        userSettingsService.getUserSettings(user.getId());
+        userSettingsService.getOrCreateSettings(user.getId());
         storeService.createDefaultStoreForUser(user);
         confirmationTokenRepository.deleteByEmail(userDTO.getEmail());
 
@@ -250,7 +250,7 @@ public class UserService {
         userRepository.save(user);
 
         // Создаём настройки пользователя по умолчанию
-        userSettingsService.getUserSettings(user.getId());
+        userSettingsService.getOrCreateSettings(user.getId());
 
         // Создаём магазин по умолчанию
         storeService.createDefaultStoreForUser(user);

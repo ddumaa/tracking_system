@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserSettingsService {
 
     private final UserSettingsRepository settingsRepository;
+    private final UserRepository userRepository;
 
     /**
      * Получить настройки пользователя. Если они отсутствуют, возвращается null.
@@ -25,6 +26,29 @@ public class UserSettingsService {
     @Transactional(readOnly = true)
     public UserSettings getUserSettings(Long userId) {
         return settingsRepository.findByUserId(userId);
+    }
+
+    /**
+     * Получить настройки пользователя или создать их при отсутствии.
+     *
+     * @param userId идентификатор пользователя
+     * @return существующие или новые настройки
+     */
+    @Transactional
+    public UserSettings getOrCreateSettings(Long userId) {
+        UserSettings settings = settingsRepository.findByUserId(userId);
+        if (settings != null) {
+            return settings;
+        }
+
+        // Получаем пользователя и создаём настройки с значениями по умолчанию
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+        settings = new UserSettings();
+        settings.setUser(user);
+        settingsRepository.save(settings);
+        log.info("Созданы новые настройки для пользователя {}", userId);
+        return settings;
     }
 
     /**
@@ -47,7 +71,7 @@ public class UserSettingsService {
      */
     @Transactional
     public void updateShowBulkUpdateButton(Long userId, boolean value) {
-        UserSettings settings = getUserSettings(userId);
+        UserSettings settings = getOrCreateSettings(userId);
         settings.setShowBulkUpdateButton(value);
         settingsRepository.save(settings);
         log.info("Настройка showBulkUpdateButton обновлена для пользователя {}: {}", userId, value);
@@ -61,7 +85,7 @@ public class UserSettingsService {
      */
     @Transactional
     public void updateTelegramNotificationsEnabled(Long userId, boolean enabled) {
-        UserSettings settings = getUserSettings(userId);
+        UserSettings settings = getOrCreateSettings(userId);
         settings.setTelegramNotificationsEnabled(enabled);
         settingsRepository.save(settings);
         log.info("Флаг telegramNotificationsEnabled обновлен для пользователя {}: {}", userId, enabled);

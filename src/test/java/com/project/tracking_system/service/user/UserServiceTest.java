@@ -117,6 +117,6 @@ class UserServiceTest {
         userService.createUserByAdmin("new@example.com", "pass", "ROLE_USER", "FREE");
 
         verify(userRepository).save(argThat(u -> "Europe/Minsk".equals(u.getTimeZone())));
-        verify(userSettingsService).getUserSettings(anyLong());
+        verify(userSettingsService).getOrCreateSettings(anyLong());
     }
 }
