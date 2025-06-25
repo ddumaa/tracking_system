@@ -4,6 +4,7 @@ import com.project.tracking_system.dto.EvropostCredentialsDTO;
 import com.project.tracking_system.dto.ResolvedCredentialsDTO;
 import com.project.tracking_system.dto.UserRegistrationDTO;
 import com.project.tracking_system.dto.UserSettingsDTO;
+import com.project.tracking_system.dto.PasswordChangeDTO;
 import com.project.tracking_system.dto.UserProfileDTO;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
@@ -353,6 +354,26 @@ public class UserService {
     }
 
     /**
+     * Проверяет, должна ли отображаться кнопка массового обновления треков.
+     *
+     * @param userId идентификатор пользователя
+     * @return {@code true}, если кнопка должна отображаться
+     */
+    public boolean isShowBulkUpdateButton(Long userId) {
+        return userSettingsService.getUserSettings(userId).isShowBulkUpdateButton();
+    }
+
+    /**
+     * Обновляет видимость кнопки массового обновления треков.
+     *
+     * @param userId идентификатор пользователя
+     * @param value  новое значение флага
+     */
+    public void updateShowBulkUpdateButton(Long userId, boolean value) {
+        userSettingsService.updateShowBulkUpdateButton(userId, value);
+    }
+
+    /**
      * Получает сохранённые учётные данные Evropost пользователя.
      *
      * @param userId идентификатор пользователя
@@ -467,20 +488,20 @@ public class UserService {
      * </p>
      *
      * @param email            Email пользователя.
-     * @param userSettingsDTO DTO с новыми данными пользователя.
+     * @param passwordChangeDTO DTO с новыми данными пользователя.
      * @throws IllegalArgumentException Если текущий пароль неверен или пользователь не найден.
      */
-    public void changePassword(Long userId, UserSettingsDTO userSettingsDTO) {
+    public void changePassword(Long userId, PasswordChangeDTO passwordChangeDTO) {
         log.info("Начало смены пароля пользователя ID={}", userId);
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден с ID: " + userId));
 
-        if (!passwordEncoder.matches(userSettingsDTO.getCurrentPassword(), user.getPassword())) {
+        if (!passwordEncoder.matches(passwordChangeDTO.getCurrentPassword(), user.getPassword())) {
             throw new IllegalArgumentException("Текущий пароль введён неверно");
         }
 
-        user.setPassword(passwordEncoder.encode(userSettingsDTO.getNewPassword()));
+        user.setPassword(passwordEncoder.encode(passwordChangeDTO.getNewPassword()));
         userRepository.save(user);
 
         log.info("Пароль пользователя с ID {} был успешно изменен.", userId);

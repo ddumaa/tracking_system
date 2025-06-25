@@ -308,7 +308,7 @@
     <div class="card p-3 shadow-sm rounded-4 mb-4">
         <div id="password-content" th:fragment="passwordFragment">
             <h5 class="mb-3">Изменение пароля</h5>
-            <form id="password-settings-form" th:action="@{/profile/settings/password}" th:object="${userSettingsDTO}" method="post">
+            <form id="password-settings-form" th:action="@{/profile/settings/password}" th:object="${passwordChangeDTO}" method="post">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                 <div class="form-floating mb-3 position-relative">
                     <input type="password" class="form-control password-input" id="currentPassword" name="currentPassword" th:field="*{currentPassword}" placeholder="Текущий пароль" autocomplete="off">
