@@ -37,6 +37,12 @@ public class StoreTelegramSettingsController {
 
     /**
      * Получить текущие настройки магазина.
+     * <p>
+     * Метод возвращает параметры Telegram для указанного магазина.
+     *
+     * @param storeId идентификатор магазина
+     * @param user    текущий пользователь
+     * @return {@link ResponseEntity} с {@link StoreTelegramSettingsDTO} в теле
      */
     @GetMapping
     @ResponseBody
