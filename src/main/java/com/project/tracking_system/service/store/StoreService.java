@@ -9,7 +9,6 @@ import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.repository.PostalServiceStatisticsRepository;
 import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
 import com.project.tracking_system.dto.StoreTelegramSettingsDTO;
-import com.project.tracking_system.dto.StoreDTO;
 import java.security.Principal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -459,35 +458,6 @@ public class StoreService {
                 settings.getTemplates().add(t);
             });
         }
-    }
-
-    /**
-     * Преобразует сущность магазина в {@link StoreDTO}.
-     *
-     * @param store сущность магазина
-     * @return DTO с необходимыми для профиля полями
-     */
-    public StoreDTO toDto(Store store) {
-        if (store == null) return null;
-        StoreDTO dto = new StoreDTO();
-        dto.setId(store.getId());
-        dto.setName(store.getName());
-        dto.setDefault(store.isDefault());
-        dto.setTelegramSettings(toDto(store.getTelegramSettings()));
-        return dto;
-    }
-
-    /**
-     * Возвращает список магазинов пользователя в виде DTO.
-     *
-     * @param userId идентификатор пользователя
-     * @return список магазинов с минимальным набором полей
-     */
-    @Transactional(readOnly = true)
-    public List<StoreDTO> getUserStoresDto(Long userId) {
-        return storeRepository.findByOwnerIdFetchSettings(userId).stream()
-                .map(this::toDto)
-                .toList();
     }
 
 

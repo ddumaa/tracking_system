@@ -4,7 +4,6 @@ import com.project.tracking_system.dto.EvropostCredentialsDTO;
 import com.project.tracking_system.dto.UserSettingsDTO;
 import com.project.tracking_system.dto.PasswordChangeDTO;
 import com.project.tracking_system.entity.Store;
-import com.project.tracking_system.dto.StoreDTO;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.UserService;
@@ -71,7 +70,7 @@ public class ProfileController {
         var userProfile = userService.getUserProfile(userId);
 
         // Загружаем магазины с настройками Telegram
-        List<StoreDTO> stores = storeService.getUserStoresDto(userId);
+        List<Store> stores = storeService.getUserStoresWithSettings(userId);
 
         // Добавляем данные профиля в модель
         model.addAttribute("username", user.getEmail());
@@ -326,13 +325,13 @@ public class ProfileController {
      * </p>
      *
      * @param user текущий пользователь
-     * @return список магазинов пользователя в виде DTO
+     * @return список магазинов пользователя
      */
     @GetMapping("/stores")
     @ResponseBody
-    public List<StoreDTO> getUserStores(@AuthenticationPrincipal User user) {
+    public List<Store> getUserStores(@AuthenticationPrincipal User user) {
         storeService.getDefaultStoreId(user.getId());
-        return storeService.getUserStoresDto(user.getId());
+        return storeService.getUserStores(user.getId());
     }
 
     /**
