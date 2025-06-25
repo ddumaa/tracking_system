@@ -41,8 +41,6 @@ public class TariffController {
         Integer userPlanPosition = null;
         if (userId != null) {
             // пользователь авторизован
-            model.addAttribute("authenticatedUser", userId);
-
             // загружаем профиль пользователя для отображения тарифа
             UserProfileDTO profile = userService.getUserProfile(userId);
             model.addAttribute("userProfile", profile);
