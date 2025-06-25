@@ -176,6 +176,7 @@ function initializeCustomCredentialsCheckbox() {
 function initAutoUpdateToggle() {
     const checkbox = document.getElementById("autoUpdateToggle");
     if (!checkbox) return;
+    // Переключатель может быть отключён сервером при бесплатном тарифе
 
     let debounceTimer;
     checkbox.addEventListener('change', function () {
@@ -203,8 +204,8 @@ function initAutoUpdateToggle() {
 function initBulkButtonToggle() {
     const checkbox = document.getElementById("showBulkUpdateButton");
     if (!checkbox) return;
+    // Форма может быть отключена на бесплатном тарифе
 
-    let debounceTimer;
     checkbox.addEventListener('change', function () {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
