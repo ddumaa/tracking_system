@@ -176,6 +176,11 @@ function initializeCustomCredentialsCheckbox() {
 function initAutoUpdateToggle() {
     const checkbox = document.getElementById("autoUpdateToggle");
     if (!checkbox) return;
+    // При недоступном тарифе переключатель заблокирован
+    if (checkbox.disabled) {
+        checkbox.checked = false; // визуально показываем выключенное состояние
+        return;
+    }
 
     let debounceTimer;
     checkbox.addEventListener('change', function () {
@@ -205,6 +210,10 @@ function initBulkButtonToggle() {
     if (!checkbox) return;
 
     // Форма может быть отключена на бесплатном тарифе
+    if (checkbox.disabled) {
+        checkbox.checked = false; // состояние всегда выключено
+        return;
+    }
     let debounceTimer;
     checkbox.addEventListener('change', function () {
         clearTimeout(debounceTimer);
