@@ -340,9 +340,11 @@ function initTelegramForms() {
                     // Уведомление придёт через WebSocket
                 } else {
                     const errorText = await response.text();
+                    // Показываем ошибку непосредственно в форме
                     showInlineNotification(form, errorText || 'Ошибка при сохранении', 'danger');
                 }
             } catch (e) {
+                // В случае сетевой ошибки также выводим сообщение в форме
                 showInlineNotification(form, 'Ошибка сети при сохранении', 'danger');
             }
         });
@@ -610,6 +612,32 @@ function showToast(message, type = "info") {
     toastElement.addEventListener("hidden.bs.toast", () => {
         toastElement.remove();
     });
+}
+
+/**
+ * Показывает встроенное уведомление в форме.
+ * Предыдущее уведомление удаляется, чтобы не дублировать сообщения.
+ * @param {HTMLFormElement} form - форма, в которую вставляется уведомление
+ * @param {string} message - текст уведомления
+ * @param {string} type - тип Bootstrap-алерта (success, danger, warning, ...)
+ */
+function showInlineNotification(form, message, type = 'danger') {
+    if (!form) return;
+
+    // Если в форме уже есть уведомление, удаляем его
+    const existing = form.querySelector('.inline-notification');
+    if (existing) existing.remove();
+
+    // Создаём элемент уведомления
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show inline-notification mb-2`;
+    alertDiv.role = 'alert';
+    alertDiv.innerHTML = `
+        <span class="alert-text">${message}</span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Закрыть"></button>`;
+
+    // Добавляем уведомление в начало формы
+    form.prepend(alertDiv);
 }
 
 let stompClient = null;
