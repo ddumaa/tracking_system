@@ -43,6 +43,7 @@ public class StoreService {
      * Возвращает `Store` по Id, проверяя, принадлежит ли он указанному пользователю.
      * Если магазин не найден или не принадлежит пользователю — выбрасывает исключение.
      */
+    @Transactional(readOnly = true)
     public Store getStore(Long storeId, Long userId) {
         Store store = storeRepository.findStoreById(storeId);
         if (store == null) {
@@ -63,6 +64,7 @@ public class StoreService {
      * @param principal текущий пользователь
      * @return найденный магазин
      */
+    @Transactional(readOnly = true)
     public Store findOwnedByUser(Long storeId, Principal principal) {
         String email = principal.getName();
         Long userId = userRepository.findByEmail(email)
@@ -77,6 +79,7 @@ public class StoreService {
      * @param userId идентификатор пользователя
      * @return список магазинов владельца
      */
+    @Transactional(readOnly = true)
     public List<Store> getUserStores(Long userId) {
         return storeRepository.findByOwnerId(userId);
     }
@@ -87,6 +90,7 @@ public class StoreService {
      * @param userId идентификатор пользователя
      * @return список магазинов с настройками
      */
+    @Transactional(readOnly = true)
     public List<Store> getUserStoresWithSettings(Long userId) {
         return storeRepository.findByOwnerIdFetchSettings(userId);
     }
@@ -97,6 +101,7 @@ public class StoreService {
      * @param userId идентификатор пользователя
      * @return список ID магазинов
      */
+    @Transactional(readOnly = true)
     public List<Long> getUserStoreIds(Long userId) {
         return storeRepository.findStoreIdsByOwnerId(userId);
     }
@@ -284,6 +289,7 @@ public class StoreService {
      * @param storeId идентификатор магазина
      * @param userId  идентификатор пользователя
      */
+    @Transactional(readOnly = true)
     public void checkStoreOwnership(Long storeId, Long userId) {
         if (!userOwnsStore(storeId, userId)) {
             throw new SecurityException("Вы не можете управлять этим магазином");
@@ -297,6 +303,7 @@ public class StoreService {
      * @param userId  идентификатор пользователя
      * @return {@code true}, если магазин принадлежит пользователю
      */
+    @Transactional(readOnly = true)
     public boolean userOwnsStore(Long storeId, Long userId) {
         return storeRepository.existsByIdAndOwnerId(storeId, userId);
     }
@@ -382,6 +389,7 @@ public class StoreService {
      * @param userId    ID пользователя
      * @return ID найденного магазина или null, если не найден
      */
+    @Transactional(readOnly = true)
     public Long findStoreIdByName(String storeName, Long userId) {
         return storeRepository.findByOwnerId(userId).stream()
                 .filter(store -> store.getName().equalsIgnoreCase(storeName))

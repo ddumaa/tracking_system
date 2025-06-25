@@ -31,6 +31,7 @@ public class SubscriptionPlanService {
      *
      * @return список планов в виде DTO
      */
+    @Transactional(readOnly = true)
     public List<SubscriptionPlanDTO> getAllPlans() {
         return planRepository.findAllByOrderByPositionAsc().stream()
                 .map(this::toDto)
@@ -177,6 +178,7 @@ public class SubscriptionPlanService {
      * @return бесплатный план
      * @throws IllegalStateException если план не найден в базе
      */
+    @Transactional(readOnly = true)
     public SubscriptionPlan getFreePlan() {
         return planRepository.findByCode("FREE")
                 .orElseGet(() -> planRepository.findAllByOrderByPositionAsc().stream()
@@ -191,6 +193,7 @@ public class SubscriptionPlanService {
      * @param code код тарифа
      * @return {@code true}, если стоимость плана больше нуля
      */
+    @Transactional(readOnly = true)
     public boolean isPaidPlan(String code) {
         return planRepository.findByCode(code)
                 .map(SubscriptionPlan::isPaid)

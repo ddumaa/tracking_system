@@ -62,6 +62,7 @@ public class DynamicSchedulerService {
      *
      * @return список конфигураций
      */
+    @Transactional(readOnly = true)
     public List<ScheduledTaskConfig> getAllConfigs() {
         return repository.findAll();
     }
