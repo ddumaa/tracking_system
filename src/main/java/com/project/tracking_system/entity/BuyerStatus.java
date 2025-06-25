@@ -35,13 +35,24 @@ public enum BuyerStatus {
     }
 
     /**
-     * Формирует сообщение на основе переданных данных.
+     * Формирует текст уведомления для покупателя.
+     * <p>
+     * Метод поддерживает два формата шаблонов: классический с {@code %s}
+     * и новый с плейсхолдерами {@code {track}} и {@code {store}}.
+     * Если в шаблоне присутствуют фигурные скобки, они будут заменены
+     * напрямую, иначе используется {@link String#format}.
+     * </p>
      *
      * @param track трек-номер посылки
      * @param store название магазина
-     * @return сформированное сообщение
+     * @return готовое сообщение
      */
     public String formatMessage(String track, String store) {
+        // Поддерживаем как шаблоны с %s, так и с {track}/{store}
+        if (messageTemplate.contains("{track}") || messageTemplate.contains("{store}")) {
+            return messageTemplate.replace("{track}", track)
+                    .replace("{store}", store);
+        }
         return String.format(messageTemplate, track, store);
     }
 }

@@ -68,10 +68,20 @@ class TelegramNotificationServiceTest {
         parcel.setCustomer(c);
 
         when(customerService.isNotifiable(any(), any())).thenReturn(true);
+        // Заменяем шаблон статуса на вариант с {track} и {store}
+        java.lang.reflect.Field field = BuyerStatus.class.getDeclaredField("messageTemplate");
+        field.setAccessible(true);
+        java.lang.reflect.Field modField = java.lang.reflect.Field.class.getDeclaredField("modifiers");
+        modField.setAccessible(true);
+        modField.setInt(field, field.getModifiers() & ~java.lang.reflect.Modifier.FINAL);
+        String original = (String) field.get(BuyerStatus.WAITING);
+        field.set(BuyerStatus.WAITING, "Test {track} {store}");
 
         service.sendStatusUpdate(parcel, GlobalStatus.WAITING_FOR_CUSTOMER);
 
-        String expected = BuyerStatus.WAITING.formatMessage("123", "Shop");
-        verify(telegramClient).execute(argThat(m -> ((SendMessage)m).getText().equals(expected)));
+        verify(telegramClient).execute(argThat(m -> ((SendMessage)m).getText().equals("Test 123 Shop")));
+
+        // Возвращаем исходный шаблон
+        field.set(BuyerStatus.WAITING, original);
     }
 }
