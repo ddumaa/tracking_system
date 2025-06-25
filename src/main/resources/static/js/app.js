@@ -760,9 +760,6 @@ async function loadStores() {
     // --- Инициализируем состояние блоков Telegram
     initTelegramToggle();
 
-
-
-
     console.info("✅ Магазины успешно загружены и отрисованы.");
 }
 
