@@ -2,11 +2,13 @@ package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.EvropostCredentialsDTO;
 import com.project.tracking_system.dto.UserSettingsDTO;
+import com.project.tracking_system.dto.PasswordChangeDTO;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.model.subscription.FeatureKey;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -83,7 +85,10 @@ public class ProfileController {
         log.debug("Данные профиля добавлены в модель для пользователя с ID: {}", userId);
 
         // Добавляем настройки и другие данные пользователя в модель
-        model.addAttribute("userSettingsDTO", new UserSettingsDTO());
+        UserSettingsDTO settingsDTO = new UserSettingsDTO();
+        settingsDTO.setShowBulkUpdateButton(userService.isShowBulkUpdateButton(userId));
+        model.addAttribute("userSettingsDTO", settingsDTO);
+        model.addAttribute("passwordChangeDTO", new PasswordChangeDTO());
         model.addAttribute("evropostCredentialsDTO", userService.getEvropostCredentials(userId));
 
         return "profile";
@@ -110,7 +115,10 @@ public class ProfileController {
 
         User user = AuthUtils.getCurrentUser(authentication);
         Long userId = user.getId();
-        model.addAttribute("userSettingsDTO", new UserSettingsDTO());
+        UserSettingsDTO settingsDTO = new UserSettingsDTO();
+        settingsDTO.setShowBulkUpdateButton(userService.isShowBulkUpdateButton(userId));
+        model.addAttribute("userSettingsDTO", settingsDTO);
+        model.addAttribute("passwordChangeDTO", new PasswordChangeDTO());
 
         switch (tab) {
             case "evropost" -> {
@@ -227,6 +235,32 @@ public class ProfileController {
     }
 
     /**
+     * Обновляет настройку отображения кнопки массового обновления.
+     *
+     * @param show    новое значение флага
+     * @param authentication текущая аутентификация
+     * @return результат операции
+     */
+    @PostMapping("/settings/bulk-button")
+    public ResponseEntity<?> updateBulkButton(
+            @RequestParam(value = "show", required = false) Boolean show,
+            Authentication authentication) {
+        Long userId = AuthUtils.getCurrentUser(authentication).getId();
+
+        if (show == null) {
+            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Не указан параметр show");
+        }
+
+        if (!subscriptionService.isFeatureEnabled(userId, FeatureKey.BULK_UPDATE)) {
+            log.warn("Пользователь {} попытался изменить флаг bulkButton без доступа", userId);
+            return ResponseBuilder.error(HttpStatus.FORBIDDEN, "Опция недоступна на текущем тарифе");
+        }
+
+        userService.updateShowBulkUpdateButton(userId, show);
+        return ResponseBuilder.ok("Настройки успешно обновлены.");
+    }
+
+    /**
      * Обрабатывает запросы на изменение настроек пользователя, включая смену пароля.
      * <p>
      * Этот метод выполняет валидацию нового пароля, проверку совпадения паролей и изменение пароля через сервис.
@@ -234,13 +268,13 @@ public class ProfileController {
      * </p>
      *
      * @param model модель для добавления данных в представление
-     * @param userSettingsDTO DTO для ввода настроек пользователя (включая новый пароль)
+     * @param passwordChangeDTO DTO для ввода нового пароля
      * @param result результат валидации формы
      * @return имя представления для части страницы с настройками
      */
     @PostMapping("/settings/password")
     public String updatePassword(Model model,
-                                 @Valid @ModelAttribute("userSettingsDTO") UserSettingsDTO userSettingsDTO,
+                                 @Valid @ModelAttribute("passwordChangeDTO") PasswordChangeDTO passwordChangeDTO,
                                  BindingResult result,
                                  Authentication authentication) {
         Long userId = AuthUtils.getCurrentUser(authentication).getId();
@@ -248,12 +282,12 @@ public class ProfileController {
         if (result.hasErrors()) {
             return "profile :: passwordFragment";
         }
-        if (!userSettingsDTO.getNewPassword().equals(userSettingsDTO.getConfirmPassword())) {
+        if (!passwordChangeDTO.getNewPassword().equals(passwordChangeDTO.getConfirmPassword())) {
             result.rejectValue("confirmPassword", "password.mismatch", "Пароли не совпадают");
             return "profile :: passwordFragment";
         }
         try {
-            userService.changePassword(userId, userSettingsDTO);
+            userService.changePassword(userId, passwordChangeDTO);
             model.addAttribute("notification", "Пароль успешно изменен");
         } catch (IllegalArgumentException e) {
             result.rejectValue("currentPassword", "password.incorrect", e.getMessage());
