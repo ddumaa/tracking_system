@@ -25,10 +25,6 @@ class ProfileControllerTest {
     @Mock
     private UserService userService;
     @Mock
-    private StoreService storeService;
-    @Mock
-    private WebSocketController webSocketController;
-    @Mock
     private SubscriptionService subscriptionService;
 
     @InjectMocks
