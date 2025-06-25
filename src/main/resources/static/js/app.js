@@ -204,6 +204,7 @@ function initBulkButtonToggle() {
     const checkbox = document.getElementById("showBulkUpdateButton");
     if (!checkbox) return;
 
+    // Форма может быть отключена на бесплатном тарифе
     let debounceTimer;
     checkbox.addEventListener('change', function () {
         clearTimeout(debounceTimer);
