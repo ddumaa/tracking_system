@@ -11,7 +11,6 @@ import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.track.TrackFacade;
 import com.project.tracking_system.service.store.StoreService;
-import com.project.tracking_system.dto.UserSettingsDTO;
 import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -135,7 +134,6 @@ public class DeparturesController {
         model.addAttribute("currentPage", trackParcelPage.getNumber());
         model.addAttribute("totalPages", trackParcelPage.getTotalPages());
         model.addAttribute("trackParcelNotification", trackParcelPage.isEmpty() ? "Отслеживаемых посылок нет" : null);
-        model.addAttribute("userSettings", new UserSettingsDTO(userService.isShowBulkUpdateButton(userId)));
 
         return "departures";
     }
