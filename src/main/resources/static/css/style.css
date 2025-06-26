@@ -1477,6 +1477,16 @@ body.loading {
   position: relative;
 }
 
+.bot-selector input[type=radio] + label {
+  opacity: 0.5;
+  transition: opacity 0.3s;
+}
+
+.bot-selector input[type=radio]:checked + label {
+  opacity: 1;
+  font-weight: 600;
+}
+
 .bot-selector label::after {
   content: "";
   position: absolute;
