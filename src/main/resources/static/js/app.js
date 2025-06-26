@@ -1323,7 +1323,10 @@ async function deleteCustomBot(storeId) {
                 systemRadio.checked = true;
                 systemRadio.dispatchEvent(new Event('change'));
             }
-            document.getElementById(`tg-token-${storeId}`)?.value = '';
+            const tokenEl = document.getElementById(`tg-token-${storeId}`);
+            if (tokenEl) {
+                tokenEl.value = '';
+            }
             notifyUser('Бот удалён', 'success');
         } else {
             const errorText = await response.text();
