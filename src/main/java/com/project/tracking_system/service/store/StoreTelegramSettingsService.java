@@ -62,17 +62,15 @@ public class StoreTelegramSettingsService {
 
         String token = dto.getBotToken();
         if (token != null && !token.isBlank()) {
-            if (!subscriptionService.isFeatureEnabled(userId, FeatureKey.CUSTOM_BOT)) {
-                throw new IllegalStateException("Использование собственного бота не разрешено на вашем тарифе");
-            }
             try {
-                String username = botValidationService.validateToken(token);
+                String username = connectCustomBot(store, token, userId);
                 dto.setBotUsername(username);
             } catch (Exception e) {
                 webSocketController.sendUpdateStatus(userId, "Неверный токен бота", false);
                 throw e;
             }
         } else {
+            removeCustomBot(store);
             dto.setBotUsername(null);
         }
 
@@ -97,15 +95,16 @@ public class StoreTelegramSettingsService {
     }
 
     /**
-     * Сохраняет токен и имя пользовательского Telegram-бота.
+     * Подключает собственного Telegram-бота к магазину.
      *
      * @param store    магазин
      * @param botToken токен бота
      * @param userId   идентификатор владельца магазина
+     * @return имя пользователя Telegram-бота
      */
     @Transactional
-    public void setCustomBot(Store store, String botToken, Long userId) {
-        if (!subscriptionService.isFeatureEnabled(userId, FeatureKey.CUSTOM_BOT)) {
+    public String connectCustomBot(Store store, String botToken, Long userId) {
+        if (!subscriptionService.canUseCustomBot(userId)) {
             throw new IllegalStateException("Использование собственного бота не разрешено на вашем тарифе");
         }
 
@@ -122,20 +121,16 @@ public class StoreTelegramSettingsService {
         settingsRepository.save(settings);
         store.setTelegramSettings(settings);
         log.info("Пользовательский бот сохранён для магазина ID={}", store.getId());
+        return username;
     }
 
     /**
-     * Удаляет пользовательского Telegram-бота из настроек магазина.
+     * Отключает собственного Telegram-бота от магазина.
      *
-     * @param store  магазин
-     * @param userId идентификатор владельца магазина
+     * @param store магазин
      */
     @Transactional
-    public void deleteCustomBot(Store store, Long userId) {
-        if (!subscriptionService.isFeatureEnabled(userId, FeatureKey.CUSTOM_BOT)) {
-            throw new IllegalStateException("Использование собственного бота не разрешено на вашем тарифе");
-        }
-
+    public void removeCustomBot(Store store) {
         StoreTelegramSettings settings = settingsRepository.findByStoreId(store.getId());
         if (settings == null) {
             return;
