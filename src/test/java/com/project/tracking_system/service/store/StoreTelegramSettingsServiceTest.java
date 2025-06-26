@@ -7,15 +7,12 @@ import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
 import com.project.tracking_system.repository.StoreTelegramTemplateRepository;
 import com.project.tracking_system.service.SubscriptionService;
-import com.project.tracking_system.service.telegram.TelegramClientFactory;
+import com.project.tracking_system.service.telegram.TelegramBotValidationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.telegram.telegrambots.meta.api.methods.GetMe;
-import org.telegram.telegrambots.meta.api.objects.User;
-import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -35,9 +32,7 @@ class StoreTelegramSettingsServiceTest {
     @Mock
     private StoreTelegramTemplateRepository templateRepository;
     @Mock
-    private TelegramClientFactory clientFactory;
-    @Mock
-    private TelegramClient telegramClient;
+    private TelegramBotValidationService validationService;
 
     @InjectMocks
     private StoreTelegramSettingsService service;
@@ -72,15 +67,32 @@ class StoreTelegramSettingsServiceTest {
         dto.setBotToken("token");
 
         when(subscriptionService.isFeatureEnabled(2L, FeatureKey.CUSTOM_BOT)).thenReturn(true);
-        when(clientFactory.create("token")).thenReturn(telegramClient);
-        User me = new User();
-        me.setUserName("bot");
-        when(telegramClient.execute(any(GetMe.class))).thenReturn(me);
+        when(validationService.validateToken("token")).thenReturn("bot");
 
         service.update(store, dto, 2L);
 
         verify(storeService).updateFromDto(eq(settings), eq(dto));
         verify(settingsRepository).save(settings);
+    }
+
+    @Test
+    void update_InvalidToken_Throws() {
+        Store store = new Store();
+        store.setId(3L);
+        StoreTelegramSettings settings = new StoreTelegramSettings();
+        when(settingsRepository.findByStoreId(3L)).thenReturn(settings);
+
+        StoreTelegramSettingsDTO dto = new StoreTelegramSettingsDTO();
+        dto.setEnabled(false);
+        dto.setBotToken("bad");
+
+        when(subscriptionService.isFeatureEnabled(3L, FeatureKey.CUSTOM_BOT)).thenReturn(true);
+        when(validationService.validateToken("bad")).thenThrow(new IllegalArgumentException());
+
+        assertThrows(IllegalArgumentException.class, () -> service.update(store, dto, 3L));
+
+        verify(storeService, never()).updateFromDto(any(), any());
+        verify(settingsRepository, never()).save(any());
     }
 
     @Test
