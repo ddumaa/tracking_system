@@ -404,15 +404,7 @@
             <div class="flex-grow-1">
                 <h5 class="mb-1" th:text="${store.name}">Название магазина</h5>
 
-                <p class="form-text mb-1" th:id="'tg-bot-info-' + ${store.id}">
-                    <span th:if="${store.telegramSettings?.botToken == null}">Бот: Системный</span>
-                    <span th:if="${store.telegramSettings?.botUsername != null}">
-                        Бот: @<span th:text="${store.telegramSettings.botUsername}"></span>
-                    </span>
-                </p>
-
                 <div th:if="${planDetails.allowCustomBot}" class="mb-1">
-                    <span class="form-label d-block">Выбор бота</span>
                     <div class="bot-selector">
                         <input type="radio"
                                th:id="'tg-bot-system-' + ${store.id}"
@@ -426,7 +418,7 @@
                                th:name="'tg-bot-type-' + ${store.id}"
                                value="custom"
                                th:checked="${store.telegramSettings?.botToken != null}">
-                        <label th:for="'tg-bot-custom-' + ${store.id}">Собственный бот</label>
+                        <label th:for="'tg-bot-custom-' + ${store.id}" th:id="'tg-custom-bot-label-' + ${store.id}">Собственный бот</label>
                     </div>
                     <button type="button" class="btn btn-link btn-sm p-0 ms-2 tg-edit-delete-btn"
                             th:id="'tg-edit-delete-bot-' + ${store.id}"
