@@ -61,7 +61,11 @@ class TariffServiceTest {
         telegram.setFeatureKey(FeatureKey.TELEGRAM_NOTIFICATIONS);
         telegram.setEnabled(true);
         telegram.setSubscriptionPlan(plan);
-        plan.setFeatures(List.of(bulk, auto, telegram));
+        SubscriptionFeature customBot = new SubscriptionFeature();
+        customBot.setFeatureKey(FeatureKey.CUSTOM_BOT);
+        customBot.setEnabled(true);
+        customBot.setSubscriptionPlan(plan);
+        plan.setFeatures(List.of(bulk, auto, telegram, customBot));
     }
 
     @Test
@@ -101,6 +105,7 @@ class TariffServiceTest {
         assertTrue(dto.isAllowBulkUpdate());
         assertTrue(dto.isAllowAutoUpdate());
         assertTrue(dto.isAllowTelegramNotifications());
+        assertTrue(dto.isAllowCustomBot());
         assertEquals("15.00 BYN/мес", dto.getMonthlyPriceLabel());
         assertEquals("150.00 BYN/год", dto.getAnnualPriceLabel());
         assertEquals("180.00 BYN", dto.getAnnualFullPriceLabel());

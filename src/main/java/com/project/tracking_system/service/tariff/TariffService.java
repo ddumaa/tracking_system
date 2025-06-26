@@ -126,6 +126,7 @@ public class TariffService {
                 plan.isFeatureEnabled(FeatureKey.AUTO_UPDATE),
                 limits.getMaxStores(),
                 plan.isFeatureEnabled(FeatureKey.TELEGRAM_NOTIFICATIONS),
+                plan.isFeatureEnabled(FeatureKey.CUSTOM_BOT),
                 monthlyLabel,
                 annualLabel,
                 fullAnnualPriceLabel,

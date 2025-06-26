@@ -18,7 +18,12 @@ public enum FeatureKey {
     /**
      * Автоматическое обновление треков.
      */
-    AUTO_UPDATE("autoUpdate");
+    AUTO_UPDATE("autoUpdate"),
+
+    /**
+     * Использование собственного Telegram-бота.
+     */
+    CUSTOM_BOT("customBot");
 
     private final String key;
 

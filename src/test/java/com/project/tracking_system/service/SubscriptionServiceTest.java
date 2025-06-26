@@ -173,6 +173,20 @@ class SubscriptionServiceTest {
     }
 
     @Test
+    void canUseCustomBot_DelegatesToFeatureCheck() {
+        when(userSubscriptionRepository.getSubscriptionPlanCode(5L)).thenReturn("PREMIUM");
+        SubscriptionFeature feature = new SubscriptionFeature();
+        feature.setFeatureKey(FeatureKey.CUSTOM_BOT);
+        feature.setEnabled(true);
+        SubscriptionPlan plan = new SubscriptionPlan();
+        plan.setCode("PREMIUM");
+        plan.setFeatures(List.of(feature));
+        when(subscriptionPlanRepository.findByCode("PREMIUM")).thenReturn(Optional.of(plan));
+
+        assertTrue(subscriptionService.canUseCustomBot(5L));
+    }
+
+    @Test
     void changeSubscription_ToPaidPlan_SetsEndDate() {
         UserSubscription subscription = new UserSubscription();
         subscription.setUser(new User());

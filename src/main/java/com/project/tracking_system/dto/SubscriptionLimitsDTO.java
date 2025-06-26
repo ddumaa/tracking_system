@@ -20,4 +20,5 @@ public class SubscriptionLimitsDTO {
     private boolean allowAutoUpdate;
     private Integer maxStores;
     private boolean allowTelegramNotifications;
+    private boolean allowCustomBot;
 }
