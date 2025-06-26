@@ -162,4 +162,55 @@ public class StoreTelegramSettingsController {
         return "redirect:/profile#v-pills-stores";
     }
 
+    /**
+     * Привязывает к магазину собственного Telegram-бота.
+     *
+     * @param storeId  идентификатор магазина
+     * @param botToken токен бота
+     * @param user     текущий пользователь
+     * @return обновлённые настройки Telegram
+     */
+    @PostMapping("/custom-bot")
+    @ResponseBody
+    public ResponseEntity<?> addCustomBot(@PathVariable Long storeId,
+                                          @RequestParam String botToken,
+                                          @AuthenticationPrincipal User user) {
+        Long userId = user.getId();
+        try {
+            Store store = storeService.getStore(storeId, userId);
+            telegramSettingsService.setCustomBot(store, botToken, userId);
+            webSocketController.sendUpdateStatus(userId, "Бот сохранён", true);
+            return ResponseBuilder.ok(storeService.toDto(store.getTelegramSettings()));
+        } catch (IllegalStateException e) {
+            log.warn("Ошибка сохранения бота: {}", e.getMessage());
+            return ResponseBuilder.error(HttpStatus.FORBIDDEN, e.getMessage());
+        } catch (Exception e) {
+            log.error("Ошибка валидации бота", e);
+            return ResponseBuilder.error(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+    }
+
+    /**
+     * Удаляет токен собственного бота из настроек магазина.
+     *
+     * @param storeId идентификатор магазина
+     * @param user    текущий пользователь
+     * @return статус выполнения операции
+     */
+    @PostMapping("/delete-custom-bot")
+    @ResponseBody
+    public ResponseEntity<?> deleteCustomBot(@PathVariable Long storeId,
+                                             @AuthenticationPrincipal User user) {
+        Long userId = user.getId();
+        try {
+            Store store = storeService.getStore(storeId, userId);
+            telegramSettingsService.deleteCustomBot(store, userId);
+            webSocketController.sendUpdateStatus(userId, "Бот удалён", true);
+            return ResponseBuilder.ok(storeService.toDto(store.getTelegramSettings()));
+        } catch (IllegalStateException e) {
+            log.warn("Ошибка удаления бота: {}", e.getMessage());
+            return ResponseBuilder.error(HttpStatus.FORBIDDEN, e.getMessage());
+        }
+    }
+
 }

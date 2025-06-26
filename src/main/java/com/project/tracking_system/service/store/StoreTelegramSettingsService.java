@@ -96,4 +96,56 @@ public class StoreTelegramSettingsService {
         }
     }
 
+    /**
+     * Сохраняет токен и имя пользовательского Telegram-бота.
+     *
+     * @param store    магазин
+     * @param botToken токен бота
+     * @param userId   идентификатор владельца магазина
+     */
+    @Transactional
+    public void setCustomBot(Store store, String botToken, Long userId) {
+        if (!subscriptionService.isFeatureEnabled(userId, FeatureKey.CUSTOM_BOT)) {
+            throw new IllegalStateException("Использование собственного бота не разрешено на вашем тарифе");
+        }
+
+        StoreTelegramSettings settings = settingsRepository.findByStoreId(store.getId());
+        if (settings == null) {
+            settings = new StoreTelegramSettings();
+            settings.setStore(store);
+        }
+
+        String username = botValidationService.validateToken(botToken);
+        settings.setBotToken(botToken);
+        settings.setBotUsername(username);
+
+        settingsRepository.save(settings);
+        store.setTelegramSettings(settings);
+        log.info("Пользовательский бот сохранён для магазина ID={}", store.getId());
+    }
+
+    /**
+     * Удаляет пользовательского Telegram-бота из настроек магазина.
+     *
+     * @param store  магазин
+     * @param userId идентификатор владельца магазина
+     */
+    @Transactional
+    public void deleteCustomBot(Store store, Long userId) {
+        if (!subscriptionService.isFeatureEnabled(userId, FeatureKey.CUSTOM_BOT)) {
+            throw new IllegalStateException("Использование собственного бота не разрешено на вашем тарифе");
+        }
+
+        StoreTelegramSettings settings = settingsRepository.findByStoreId(store.getId());
+        if (settings == null) {
+            return;
+        }
+
+        settings.setBotToken(null);
+        settings.setBotUsername(null);
+        settingsRepository.save(settings);
+        store.setTelegramSettings(settings);
+        log.info("Пользовательский бот удалён для магазина ID={}", store.getId());
+    }
+
 }
