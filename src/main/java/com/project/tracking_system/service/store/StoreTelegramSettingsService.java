@@ -9,13 +9,11 @@ import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.exception.InvalidTemplateException;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.service.store.StoreService;
-import com.project.tracking_system.service.telegram.TelegramClientFactory;
+import com.project.tracking_system.service.telegram.TelegramBotValidationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 /**
  * Сервис управления Telegram-настройками магазина.
@@ -30,7 +28,7 @@ public class StoreTelegramSettingsService {
     private final WebSocketController webSocketController;
     private final StoreService storeService;
     private final StoreTelegramTemplateRepository storeTelegramTemplateRepository;
-    private final TelegramClientFactory telegramClientFactory;
+    private final TelegramBotValidationService botValidationService;
 
     /**
      * Создать или обновить настройки Telegram магазина.
@@ -68,11 +66,11 @@ public class StoreTelegramSettingsService {
                 throw new IllegalStateException("Использование собственного бота не разрешено на вашем тарифе");
             }
             try {
-                var client = telegramClientFactory.create(token);
-                var me = client.execute(new org.telegram.telegrambots.meta.api.methods.GetMe());
-                dto.setBotUsername(me.getUserName());
+                String username = botValidationService.validateToken(token);
+                dto.setBotUsername(username);
             } catch (Exception e) {
-                throw new IllegalArgumentException("Неверный токен бота", e);
+                webSocketController.sendUpdateStatus(userId, "Неверный токен бота", false);
+                throw e;
             }
         } else {
             dto.setBotUsername(null);
