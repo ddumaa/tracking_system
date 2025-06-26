@@ -1506,4 +1506,12 @@ body.loading {
   width: 100%;
 }
 
+.custom-bot-fields {
+  margin: 0.5rem 0 1rem 1.5rem;
+  padding: 0.75rem;
+  background-color: var(--bs-light-bg-subtle);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.25rem;
+}
+
 /*# sourceMappingURL=style.css.map */
