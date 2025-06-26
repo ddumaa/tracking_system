@@ -203,6 +203,17 @@ public class SubscriptionService {
     }
 
     /**
+     * Проверяет, разрешено ли использование собственного Telegram-бота.
+     *
+     * @param userId идентификатор пользователя
+     * @return {@code true}, если функция включена в тарифе
+     */
+    @Transactional(readOnly = true)
+    public boolean canUseCustomBot(Long userId) {
+        return isFeatureEnabled(userId, FeatureKey.CUSTOM_BOT);
+    }
+
+    /**
      * Проверяет доступность функции для указанного пользователя.
      *
      * @param userId идентификатор пользователя

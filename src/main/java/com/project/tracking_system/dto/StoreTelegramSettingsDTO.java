@@ -28,6 +28,12 @@ public class StoreTelegramSettingsDTO {
     @Size(max = 200)
     private String customSignature;
 
+    /** Токен пользовательского Telegram-бота. */
+    private String botToken;
+
+    /** Имя пользовательского бота. */
+    private String botUsername;
+
 
     private boolean remindersEnabled = false;
 

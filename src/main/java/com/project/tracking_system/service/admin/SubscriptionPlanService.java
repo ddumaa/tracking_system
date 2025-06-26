@@ -57,6 +57,7 @@ public class SubscriptionPlanService {
         limitsDto.setAllowBulkUpdate(plan.isFeatureEnabled(FeatureKey.BULK_UPDATE));
         limitsDto.setAllowAutoUpdate(plan.isFeatureEnabled(FeatureKey.AUTO_UPDATE));
         limitsDto.setAllowTelegramNotifications(plan.isFeatureEnabled(FeatureKey.TELEGRAM_NOTIFICATIONS));
+        limitsDto.setAllowCustomBot(plan.isFeatureEnabled(FeatureKey.CUSTOM_BOT));
 
         SubscriptionPlanDTO dto = new SubscriptionPlanDTO();
         dto.setId(plan.getId());
@@ -98,6 +99,7 @@ public class SubscriptionPlanService {
             setFeature(plan, FeatureKey.BULK_UPDATE, l.isAllowBulkUpdate());
             setFeature(plan, FeatureKey.AUTO_UPDATE, l.isAllowAutoUpdate());
             setFeature(plan, FeatureKey.TELEGRAM_NOTIFICATIONS, l.isAllowTelegramNotifications());
+            setFeature(plan, FeatureKey.CUSTOM_BOT, l.isAllowCustomBot());
         }
 
         BigDecimal monthly = dto.getMonthlyPrice();

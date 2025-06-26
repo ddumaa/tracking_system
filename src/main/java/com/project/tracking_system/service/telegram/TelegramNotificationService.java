@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
+import com.project.tracking_system.service.telegram.TelegramClientFactory;
 
 /**
  * Сервис отправки уведомлений в Telegram-покупателям.
@@ -23,6 +24,7 @@ public class TelegramNotificationService {
 
     private final TelegramClient telegramClient;
     private final CustomerService customerService;
+    private final TelegramClientFactory telegramClientFactory;
 
     /**
      * Отправить уведомление о смене статуса посылки.
@@ -68,8 +70,13 @@ public class TelegramNotificationService {
 
         SendMessage message = new SendMessage(chatId.toString(), text);
 
+        TelegramClient client = telegramClient;
+        if (settings != null && settings.getBotToken() != null && !settings.getBotToken().isBlank()) {
+            client = telegramClientFactory.create(settings.getBotToken());
+        }
+
         try {
-            telegramClient.execute(message);
+            client.execute(message);
             log.info("📨 Уведомление отправлено: {} (статус {}) в чат {} для трека {}",
                     text, status, chatId, parcel.getNumber());
         } catch (TelegramApiException e) {
@@ -108,8 +115,13 @@ public class TelegramNotificationService {
 
         SendMessage message = new SendMessage(chatId.toString(), text);
 
+        TelegramClient client = telegramClient;
+        if (settings != null && settings.getBotToken() != null && !settings.getBotToken().isBlank()) {
+            client = telegramClientFactory.create(settings.getBotToken());
+        }
+
         try {
-            telegramClient.execute(message);
+            client.execute(message);
             log.info("✅ Напоминание отправлено в чат {} о треке {}", chatId, parcel.getNumber());
         } catch (TelegramApiException e) {
             log.error("❌ Ошибка отправки напоминания в чат {}: {}", chatId, e.getMessage(), e);
