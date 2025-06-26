@@ -27,6 +27,7 @@
 }
 
 .bot-selector {
+  margin-bottom: 1rem; // визуальный отступ после радиокнопок
   input[type=radio] {
     display: none;
   }
