@@ -59,6 +59,10 @@ public class TelegramNotificationService {
         }
 
         Long chatId = getChatId(parcel);
+        if (chatId == null) {
+            log.warn("⚠️ Чат покупателя не найден: уведомление не отправлено для трека {}", parcel.getNumber());
+            return;
+        }
         String text;
         if (settings != null && settings.getTemplatesMap().containsKey(buyerStatus)) {
             text = settings.getTemplatesMap().get(buyerStatus)
@@ -102,6 +106,10 @@ public class TelegramNotificationService {
         }
 
         Long chatId = getChatId(parcel);
+        if (chatId == null) {
+            log.warn("⚠️ Чат покупателя не найден: напоминание не отправлено для трека {}", parcel.getNumber());
+            return;
+        }
 
         String text = String.format(
                 "🔔 Не забудьте забрать посылку %s из магазина %s — она ждёт вас в пункте выдачи.",
