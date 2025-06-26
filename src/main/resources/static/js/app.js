@@ -524,6 +524,33 @@ function initTelegramCustomBotBlocks() {
     });
 }
 
+// Обработчики выбора режима бота для каждой формы магазина
+function initTelegramBotModeHandlers() {
+    const groups = {};
+    document.querySelectorAll('input[type="radio"][name^="botMode-"]').forEach(radio => {
+        const name = radio.name; // имя вида botMode-{storeId}
+        (groups[name] = groups[name] || []).push(radio);
+    });
+
+    Object.entries(groups).forEach(([name, radios]) => {
+        const storeId = name.replace('botMode-', '');
+        const fields = document.getElementById(`tg-custom-bot-fields-${storeId}`);
+        if (!fields) return;
+
+        const update = () => {
+            const selected = document.querySelector(`input[name="${name}"]:checked`);
+            if (selected && selected.value === 'CUSTOM') {
+                slideDown(fields);
+            } else {
+                slideUp(fields);
+            }
+        };
+
+        update();
+        radios.forEach(r => r.addEventListener('change', update));
+    });
+}
+
 let lastPage = window.location.pathname; // Запоминаем текущую страницу при загрузке
 let isInitialLoad = true;
 
@@ -952,6 +979,7 @@ async function appendTelegramBlock(store) {
     initTelegramReminderBlocks();
     initTelegramTemplateBlocks();
     initTelegramCustomBotBlocks();
+    initTelegramBotModeHandlers();
     initTelegramNotificationsToggle();
 }
 
@@ -1342,6 +1370,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initTelegramReminderBlocks();
     initTelegramTemplateBlocks();
     initTelegramCustomBotBlocks();
+    initTelegramBotModeHandlers();
     initTelegramNotificationsToggle();
 
     // Назначаем обработчик кнопки "Добавить магазин" - с проверкой на наличие
