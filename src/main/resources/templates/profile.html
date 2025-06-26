@@ -270,6 +270,10 @@
             <span th:if="${planDetails.allowTelegramNotifications}">📨 Telegram-уведомления</span>
             <span th:unless="${planDetails.allowTelegramNotifications}" class="text-muted">❌ Telegram-уведомления</span>
         </li>
+        <li>
+            <span th:if="${planDetails.allowCustomBot}">🤖 Собственный бот</span>
+            <span th:unless="${planDetails.allowCustomBot}" class="text-muted">❌ Собственный бот</span>
+        </li>
     </ul>
 </div>
 
