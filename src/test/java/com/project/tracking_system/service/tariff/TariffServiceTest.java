@@ -131,5 +131,27 @@ class TariffServiceTest {
         assertNull(dto);
 
     }
+
+    @Test
+    void getAllPlans_NullLimits_ReturnsDtoWithNullFields() {
+        SubscriptionPlan planWithoutLimits = new SubscriptionPlan();
+        planWithoutLimits.setCode("FREE");
+        planWithoutLimits.setName("Free");
+        planWithoutLimits.setMonthlyPrice(BigDecimal.ZERO);
+        planWithoutLimits.setAnnualPrice(BigDecimal.ZERO);
+        planWithoutLimits.setPosition(1);
+        planWithoutLimits.setLimits(null);
+
+        when(planRepository.findAllByOrderByPositionAsc()).thenReturn(List.of(planWithoutLimits));
+
+        List<SubscriptionPlanViewDTO> dtos = assertDoesNotThrow(() -> tariffService.getAllPlans());
+
+        assertEquals(1, dtos.size());
+        SubscriptionPlanViewDTO dto = dtos.get(0);
+        assertNull(dto.getMaxTracksPerFile());
+        assertNull(dto.getMaxSavedTracks());
+        assertNull(dto.getMaxTrackUpdates());
+        assertNull(dto.getMaxStores());
+    }
   
 }
