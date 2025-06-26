@@ -557,7 +557,7 @@ function initTelegramCustomBotBlocks() {
 function initTelegramBotModeHandlers() {
     const groups = {};
     // Находим все группы радиокнопок вида tg-bot-type-{storeId}
-    document.querySelectorAll('input[type="radio"][name^="tg-bot-type-"]').forEach(radio => {
+    document.querySelectorAll('.bot-selector input[type="radio"][name^="tg-bot-type-"]').forEach(radio => {
         const name = radio.name; // имя вида tg-bot-type-{storeId}
         (groups[name] = groups[name] || []).push(radio);
     });
@@ -568,7 +568,7 @@ function initTelegramBotModeHandlers() {
         if (!fields) return;
 
         const update = () => {
-            const selected = document.querySelector(`input[name="${name}"]:checked`);
+            const selected = document.querySelector(`.bot-selector input[name="${name}"]:checked`);
             if (selected && selected.value === 'custom') {
                 slideDown(fields);
             } else {

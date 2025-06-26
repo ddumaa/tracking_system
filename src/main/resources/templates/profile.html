@@ -413,25 +413,24 @@
 
                 <div th:if="${planDetails.allowCustomBot}" class="mb-1">
                     <span class="form-label d-block">Выбор бота</span>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio"
+                    <div class="bot-selector">
+                        <input type="radio"
                                th:id="'tg-bot-system-' + ${store.id}"
                                th:name="'tg-bot-type-' + ${store.id}"
                                value="system"
                                th:checked="${store.telegramSettings?.botToken == null}">
-                        <label class="form-check-label" th:for="'tg-bot-system-' + ${store.id}">Системный бот</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio"
+                        <label th:for="'tg-bot-system-' + ${store.id}">Системный бот</label>
+
+                        <input type="radio"
                                th:id="'tg-bot-custom-' + ${store.id}"
                                th:name="'tg-bot-type-' + ${store.id}"
                                value="custom"
                                th:checked="${store.telegramSettings?.botToken != null}">
-                        <label class="form-check-label" th:for="'tg-bot-custom-' + ${store.id}">Собственный бот</label>
-                        <button type="button" class="btn btn-link btn-sm p-0 ms-2 tg-edit-delete-btn"
-                                th:id="'tg-edit-delete-bot-' + ${store.id}"
-                                th:if="${store.telegramSettings?.botToken != null}">Изменить / Удалить</button>
+                        <label th:for="'tg-bot-custom-' + ${store.id}">Собственный бот</label>
                     </div>
+                    <button type="button" class="btn btn-link btn-sm p-0 ms-2 tg-edit-delete-btn"
+                            th:id="'tg-edit-delete-bot-' + ${store.id}"
+                            th:if="${store.telegramSettings?.botToken != null}">Изменить / Удалить</button>
 
                     <!-- Форма токена кастомного бота (показывается по JS при необходимости) -->
                     <div th:id="'tg-custom-bot-fields-' + ${store.id}" class="mb-2 ms-4 hidden custom-bot-fields">
