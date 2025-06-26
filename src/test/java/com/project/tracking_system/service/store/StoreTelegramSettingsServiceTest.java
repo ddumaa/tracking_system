@@ -111,4 +111,65 @@ class StoreTelegramSettingsServiceTest {
         verify(settingsRepository).save(settings);
         verify(subscriptionService, never()).isFeatureEnabled(anyLong(), eq(FeatureKey.CUSTOM_BOT));
     }
+
+    @Test
+    void setCustomBot_FeatureDisabled_Throws() {
+        Store store = new Store();
+        store.setId(7L);
+
+        when(subscriptionService.isFeatureEnabled(7L, FeatureKey.CUSTOM_BOT)).thenReturn(false);
+
+        assertThrows(IllegalStateException.class, () -> service.setCustomBot(store, "t", 7L));
+
+        verify(subscriptionService).isFeatureEnabled(7L, FeatureKey.CUSTOM_BOT);
+        verify(settingsRepository, never()).save(any());
+    }
+
+    @Test
+    void setCustomBot_ValidToken_Saves() {
+        Store store = new Store();
+        store.setId(8L);
+        StoreTelegramSettings settings = new StoreTelegramSettings();
+        when(settingsRepository.findByStoreId(8L)).thenReturn(settings);
+
+        when(subscriptionService.isFeatureEnabled(8L, FeatureKey.CUSTOM_BOT)).thenReturn(true);
+        when(validationService.validateToken("token")).thenReturn("bot");
+
+        service.setCustomBot(store, "token", 8L);
+
+        assertEquals("token", settings.getBotToken());
+        assertEquals("bot", settings.getBotUsername());
+        verify(settingsRepository).save(settings);
+    }
+
+    @Test
+    void deleteCustomBot_FeatureDisabled_Throws() {
+        Store store = new Store();
+        store.setId(9L);
+
+        when(subscriptionService.isFeatureEnabled(9L, FeatureKey.CUSTOM_BOT)).thenReturn(false);
+
+        assertThrows(IllegalStateException.class, () -> service.deleteCustomBot(store, 9L));
+
+        verify(subscriptionService).isFeatureEnabled(9L, FeatureKey.CUSTOM_BOT);
+        verify(settingsRepository, never()).save(any());
+    }
+
+    @Test
+    void deleteCustomBot_ClearsToken() {
+        Store store = new Store();
+        store.setId(10L);
+        StoreTelegramSettings settings = new StoreTelegramSettings();
+        settings.setBotToken("t");
+        settings.setBotUsername("b");
+        when(settingsRepository.findByStoreId(10L)).thenReturn(settings);
+
+        when(subscriptionService.isFeatureEnabled(10L, FeatureKey.CUSTOM_BOT)).thenReturn(true);
+
+        service.deleteCustomBot(store, 10L);
+
+        assertNull(settings.getBotToken());
+        assertNull(settings.getBotUsername());
+        verify(settingsRepository).save(settings);
+    }
 }
