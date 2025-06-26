@@ -1218,6 +1218,100 @@ function showResetModal(message) {
 }
 
 /**
+ * Обновляет текстовое отображение выбранного Telegram-бота.
+ * @param {string} storeId идентификатор магазина
+ * @param {string|null} username имя пользователя бота или null для системного
+ */
+function updateBotInfo(storeId, username) {
+    const infoEl = document.getElementById(`tg-bot-info-${storeId}`);
+    if (infoEl) {
+        infoEl.textContent = username ? `Бот: @${username}` : 'Бот: Системный';
+    }
+
+    const fields = document.getElementById(`tg-custom-bot-fields-${storeId}`);
+    if (!fields) return;
+
+    let p = fields.querySelector('.current-bot');
+    if (username) {
+        if (!p) {
+            p = document.createElement('p');
+            p.className = 'form-text current-bot';
+            p.innerHTML = 'Текущий бот: <span></span>';
+            const btnBlock = fields.querySelector('.d-flex');
+            fields.insertBefore(p, btnBlock);
+        }
+        p.querySelector('span').textContent = username;
+    } else if (p) {
+        p.remove();
+    }
+}
+
+/**
+ * Отправляет токен собственного Telegram-бота на сервер.
+ * @param {string} storeId идентификатор магазина
+ */
+async function saveCustomBot(storeId) {
+    const tokenInput = document.getElementById(`tg-token-${storeId}`);
+    const botToken = tokenInput?.value.trim();
+    if (!botToken) {
+        notifyUser('Укажите токен бота', 'warning');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/stores/${storeId}/telegram-settings/custom-bot`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                [window.csrfHeader]: window.csrfToken
+            },
+            body: new URLSearchParams({ botToken })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            updateBotInfo(storeId, data.botUsername);
+            document.querySelector(`#tg-bot-custom-${storeId}`)?.dispatchEvent(new Event('change'));
+            notifyUser('Бот сохранён', 'success');
+        } else {
+            const errorText = await response.text();
+            notifyUser(errorText || 'Ошибка при сохранении', 'danger');
+        }
+    } catch (e) {
+        notifyUser('Ошибка сети при сохранении', 'danger');
+    }
+}
+
+/**
+ * Отвязывает собственного Telegram-бота от магазина.
+ * @param {string} storeId идентификатор магазина
+ */
+async function deleteCustomBot(storeId) {
+    try {
+        const response = await fetch(`/stores/${storeId}/telegram-settings/delete-custom-bot`, {
+            method: 'POST',
+            headers: { [window.csrfHeader]: window.csrfToken }
+        });
+
+        if (response.ok) {
+            updateBotInfo(storeId, null);
+            const systemRadio = document.querySelector(`#tg-bot-system-${storeId}`);
+            if (systemRadio) {
+                systemRadio.checked = true;
+                systemRadio.dispatchEvent(new Event('change'));
+            }
+            document.getElementById(`tg-token-${storeId}`)?.value = '';
+            notifyUser('Бот удалён', 'success');
+        } else {
+            const errorText = await response.text();
+            notifyUser(errorText || 'Ошибка при удалении', 'danger');
+        }
+    } catch (e) {
+        notifyUser('Ошибка сети при удалении', 'danger');
+    }
+}
+
+/**
  * Обработчик выбора магазина по умолчанию (с проверкой наличия элемента)
  */
 const storeTableBody = document.getElementById("storeTableBody");
@@ -1424,6 +1518,21 @@ document.addEventListener("DOMContentLoaded", function () {
     if (confirmDeleteBtn) {
         confirmDeleteBtn.addEventListener("click", deleteStore);
     }
+
+    // === Собственный Telegram-бот ===
+    document.body.addEventListener('click', function (event) {
+        const saveBtn = event.target.closest('[id^="tg-save-bot-"]');
+        if (saveBtn) {
+            const storeId = saveBtn.id.replace('tg-save-bot-', '');
+            saveCustomBot(storeId);
+            return;
+        }
+        const deleteBtn = event.target.closest('[id^="tg-delete-bot-"]');
+        if (deleteBtn) {
+            const storeId = deleteBtn.id.replace('tg-delete-bot-', '');
+            deleteCustomBot(storeId);
+        }
+    });
 
     // === Управление аналитикой ===
     document.getElementById("resetAllAnalyticsBtn")?.addEventListener("click", () => {
