@@ -527,19 +527,20 @@ function initTelegramCustomBotBlocks() {
 // Обработчики выбора режима бота для каждой формы магазина
 function initTelegramBotModeHandlers() {
     const groups = {};
-    document.querySelectorAll('input[type="radio"][name^="botMode-"]').forEach(radio => {
-        const name = radio.name; // имя вида botMode-{storeId}
+    // Находим все группы радиокнопок вида tg-bot-type-{storeId}
+    document.querySelectorAll('input[type="radio"][name^="tg-bot-type-"]').forEach(radio => {
+        const name = radio.name; // имя вида tg-bot-type-{storeId}
         (groups[name] = groups[name] || []).push(radio);
     });
 
     Object.entries(groups).forEach(([name, radios]) => {
-        const storeId = name.replace('botMode-', '');
+        const storeId = name.replace('tg-bot-type-', '');
         const fields = document.getElementById(`tg-custom-bot-fields-${storeId}`);
         if (!fields) return;
 
         const update = () => {
             const selected = document.querySelector(`input[name="${name}"]:checked`);
-            if (selected && selected.value === 'CUSTOM') {
+            if (selected && selected.value === 'custom') {
                 slideDown(fields);
             } else {
                 slideUp(fields);
