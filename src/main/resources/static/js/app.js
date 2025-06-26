@@ -508,15 +508,39 @@ function initTelegramCustomBotBlocks() {
         const systemRadio = form.querySelector('input[id^="tg-bot-system-"]');
         const customRadio = form.querySelector('input[id^="tg-bot-custom-"]');
         const fields = form.querySelector('.custom-bot-fields');
+        const editBtn = form.querySelector('.tg-edit-delete-btn');
+        const tokenInput = form.querySelector('input[id^="tg-token-"]');
         if (!systemRadio || !customRadio || !fields) return;
 
-        const update = () => {
-            if (customRadio.checked) {
-                slideDown(fields);
-            } else {
-                slideUp(fields);
+        const showFields = () => {
+            slideDown(fields);
+            editBtn?.classList.add('hidden');
+        };
+
+        const hideFields = () => {
+            slideUp(fields);
+            if (editBtn) {
+                if (tokenInput && tokenInput.value.trim()) {
+                    editBtn.classList.remove('hidden');
+                } else {
+                    editBtn.classList.add('hidden');
+                }
             }
         };
+
+        const update = () => {
+            if (systemRadio.checked) {
+                hideFields();
+            } else if (customRadio.checked) {
+                if (tokenInput && tokenInput.value.trim()) {
+                    hideFields();
+                } else {
+                    showFields();
+                }
+            }
+        };
+
+        editBtn?.addEventListener('click', showFields);
 
         update();
         systemRadio.addEventListener('change', update);
@@ -980,7 +1004,6 @@ async function appendTelegramBlock(store) {
     initTelegramReminderBlocks();
     initTelegramTemplateBlocks();
     initTelegramCustomBotBlocks();
-    initTelegramBotModeHandlers();
     initTelegramNotificationsToggle();
 }
 
@@ -1465,7 +1488,6 @@ document.addEventListener("DOMContentLoaded", function () {
     initTelegramReminderBlocks();
     initTelegramTemplateBlocks();
     initTelegramCustomBotBlocks();
-    initTelegramBotModeHandlers();
     initTelegramNotificationsToggle();
 
     // Назначаем обработчик кнопки "Добавить магазин" - с проверкой на наличие
