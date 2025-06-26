@@ -54,6 +54,10 @@ class StoreTelegramSettingsServiceTest {
         when(settingsRepository.findByStoreId(null)).thenReturn(settings);
 
         assertThrows(IllegalStateException.class, () -> service.update(store, dto, 1L));
+
+        verify(subscriptionService).isFeatureEnabled(1L, FeatureKey.CUSTOM_BOT);
+        verify(storeService, never()).updateFromDto(any(), any());
+        verify(settingsRepository, never()).save(any());
     }
 
     @Test
@@ -77,5 +81,22 @@ class StoreTelegramSettingsServiceTest {
 
         verify(storeService).updateFromDto(eq(settings), eq(dto));
         verify(settingsRepository).save(settings);
+    }
+
+    @Test
+    void update_NoToken_FeatureDisabled_AllowsUpdate() {
+        Store store = new Store();
+        store.setId(5L);
+        StoreTelegramSettings settings = new StoreTelegramSettings();
+        when(settingsRepository.findByStoreId(5L)).thenReturn(settings);
+
+        StoreTelegramSettingsDTO dto = new StoreTelegramSettingsDTO();
+        dto.setEnabled(false);
+
+        service.update(store, dto, 5L);
+
+        verify(storeService).updateFromDto(eq(settings), eq(dto));
+        verify(settingsRepository).save(settings);
+        verify(subscriptionService, never()).isFeatureEnabled(anyLong(), eq(FeatureKey.CUSTOM_BOT));
     }
 }

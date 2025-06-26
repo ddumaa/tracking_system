@@ -327,6 +327,10 @@ function initTelegramForms() {
             event.preventDefault();
 
             const formData = new FormData(form);
+            const tokenInput = form.querySelector('input[name="botToken"]');
+            if (tokenInput) {
+                formData.set('botToken', tokenInput.value.trim());
+            }
             const csrfToken = form.querySelector('input[name="_csrf"]')?.value || '';
 
             try {

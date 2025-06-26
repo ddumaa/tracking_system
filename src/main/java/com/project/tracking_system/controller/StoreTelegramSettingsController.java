@@ -162,36 +162,4 @@ public class StoreTelegramSettingsController {
         return "redirect:/profile#v-pills-stores";
     }
 
-    /**
-     * Отображает форму ввода токена Telegram-бота.
-     * <p>
-     * Пользователи без соответствующей функции перенаправляются
-     * на страницу тарифов с сообщением о необходимости апгрейда.
-     * </p>
-     *
-     * @param storeId идентификатор магазина
-     * @param user    текущий пользователь
-     * @param model   модель представления
-     * @param redirectAttributes атрибуты для перенаправления
-     * @return имя шаблона формы или редирект на /tariffs
-     */
-    @GetMapping("/token-form")
-    public String tokenForm(@PathVariable("storeId") Long storeId,
-                            @AuthenticationPrincipal User user,
-                            org.springframework.ui.Model model,
-                            RedirectAttributes redirectAttributes) {
-        Long userId = user.getId();
-        if (!subscriptionService.canUseCustomBot(userId)) {
-            redirectAttributes.addFlashAttribute("errorMessage",
-                    "Функция собственного бота недоступна на вашем тарифе. " +
-                            "Перейдите на страницу тарифов для обновления.");
-            return "redirect:/tariffs";
-        }
-
-        Store store = storeService.getStore(storeId, userId);
-        StoreTelegramSettings settings = settingsRepository.findByStoreId(store.getId());
-        model.addAttribute("settings", storeService.toDto(settings));
-        model.addAttribute("storeId", storeId);
-        return "telegram/token-form";
-    }
 }
