@@ -488,6 +488,9 @@
                                value="custom"
                                th:checked="${store.telegramSettings?.botToken != null}">
                         <label class="form-check-label" th:for="'tg-bot-custom-' + ${store.id}">Собственный бот</label>
+                        <button type="button" class="btn btn-link btn-sm p-0 ms-2 tg-edit-delete-btn"
+                                th:id="'tg-edit-delete-bot-' + ${store.id}"
+                                th:if="${store.telegramSettings?.botToken != null}">Изменить / Удалить</button>
                     </div>
                 </div>
 
