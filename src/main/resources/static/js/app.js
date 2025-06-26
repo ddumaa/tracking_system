@@ -1251,9 +1251,10 @@ function showResetModal(message) {
  * @param {string|null} username имя пользователя бота или null для системного
  */
 function updateBotInfo(storeId, username) {
-    const infoEl = document.getElementById(`tg-bot-info-${storeId}`);
-    if (infoEl) {
-        infoEl.textContent = username ? `Бот: @${username}` : 'Бот: Системный';
+    // Обновляем подпись радиокнопки собственного бота
+    const labelEl = document.getElementById(`tg-custom-bot-label-${storeId}`);
+    if (labelEl) {
+        labelEl.textContent = username ? `@${username}` : 'Собственный бот';
     }
 
     const fields = document.getElementById(`tg-custom-bot-fields-${storeId}`);
