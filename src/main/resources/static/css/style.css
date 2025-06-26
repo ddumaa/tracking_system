@@ -1465,6 +1465,10 @@ body.loading {
   margin-left: 0.5rem;
 }
 
+.bot-selector {
+  margin-bottom: 1rem;
+}
+
 .bot-selector input[type=radio] {
   display: none;
 }
