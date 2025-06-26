@@ -505,10 +505,15 @@ function initTelegramTemplateBlocks() {
 // Инициализация выбора пользовательского Telegram-бота
 function initTelegramCustomBotBlocks() {
     document.querySelectorAll('.telegram-settings-form').forEach(form => {
-        const systemRadio = form.querySelector('input[id^="tg-bot-system-"]');
-        const customRadio = form.querySelector('input[id^="tg-bot-custom-"]');
+        const container = form.closest('[data-store-id]');
+        if (!container) return;
+        const storeId = container.getAttribute('data-store-id');
+
+        const parent = container.parentElement;
+        const systemRadio = parent.querySelector(`#tg-bot-system-${storeId}`);
+        const customRadio = parent.querySelector(`#tg-bot-custom-${storeId}`);
+        const editBtn = parent.querySelector(`#tg-edit-delete-bot-${storeId}`);
         const fields = form.querySelector('.custom-bot-fields');
-        const editBtn = form.querySelector('.tg-edit-delete-btn');
         const tokenInput = form.querySelector('input[id^="tg-token-"]');
         if (!systemRadio || !customRadio || !fields) return;
 
