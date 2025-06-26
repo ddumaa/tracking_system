@@ -432,7 +432,7 @@
                         <p class="form-text" th:if="${store.telegramSettings?.botUsername}">
                             Текущий бот: <span th:text="${store.telegramSettings.botUsername}"></span>
                         </p>
-                        <div class="d-flex">
+                        <div class="d-flex gap-2 mt-2">
                             <button type="button" class="btn btn-sm btn-outline-primary me-2"
                                     th:id="'tg-save-bot-' + ${store.id}">Сохранить</button>
                             <button type="button" class="btn btn-sm btn-outline-danger"
