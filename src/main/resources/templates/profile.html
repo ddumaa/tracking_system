@@ -466,13 +466,40 @@
                 </div>
 
                 <div th:if="${planDetails.allowCustomBot}" class="mb-2">
+                    <span class="form-label d-block">Выбор бота</span>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio"
+                               th:id="'tg-bot-system-' + ${store.id}"
+                               th:name="'tg-bot-type-' + ${store.id}"
+                               value="system"
+                               th:checked="${store.telegramSettings?.botToken == null}">
+                        <label class="form-check-label" th:for="'tg-bot-system-' + ${store.id}">Системный бот</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio"
+                               th:id="'tg-bot-custom-' + ${store.id}"
+                               th:name="'tg-bot-type-' + ${store.id}"
+                               value="custom"
+                               th:checked="${store.telegramSettings?.botToken != null}">
+                        <label class="form-check-label" th:for="'tg-bot-custom-' + ${store.id}">Собственный бот</label>
+                    </div>
+                </div>
+
+                <div th:id="'tg-custom-bot-fields-' + ${store.id}" class="mb-2 ms-4 hidden custom-bot-fields">
                     <label class="form-label" th:for="'tg-token-' + ${store.id}">Токен собственного бота</label>
                     <input type="text" class="form-control form-control-sm" th:id="'tg-token-' + ${store.id}"
                            name="botToken" th:value="${store.telegramSettings?.botToken}">
                     <p class="form-text" th:if="${store.telegramSettings?.botUsername}">
                         Текущий бот: <span th:text="${store.telegramSettings.botUsername}"></span>
                     </p>
+                    <div class="d-flex">
+                        <button type="button" class="btn btn-sm btn-outline-primary me-2"
+                                th:id="'tg-save-bot-' + ${store.id}">Сохранить</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                th:id="'tg-delete-bot-' + ${store.id}">Удалить</button>
+                    </div>
                 </div>
+
                 <p class="form-text text-danger ms-4" th:unless="${planDetails.allowCustomBot}">
                     Функция собственного бота доступна в тарифе "Команда" и выше
                 </p>

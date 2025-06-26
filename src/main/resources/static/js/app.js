@@ -502,6 +502,28 @@ function initTelegramTemplateBlocks() {
     });
 }
 
+// Инициализация выбора пользовательского Telegram-бота
+function initTelegramCustomBotBlocks() {
+    document.querySelectorAll('.telegram-settings-form').forEach(form => {
+        const systemRadio = form.querySelector('input[id^="tg-bot-system-"]');
+        const customRadio = form.querySelector('input[id^="tg-bot-custom-"]');
+        const fields = form.querySelector('.custom-bot-fields');
+        if (!systemRadio || !customRadio || !fields) return;
+
+        const update = () => {
+            if (customRadio.checked) {
+                slideDown(fields);
+            } else {
+                slideUp(fields);
+            }
+        };
+
+        update();
+        systemRadio.addEventListener('change', update);
+        customRadio.addEventListener('change', update);
+    });
+}
+
 let lastPage = window.location.pathname; // Запоминаем текущую страницу при загрузке
 let isInitialLoad = true;
 
@@ -929,6 +951,7 @@ async function appendTelegramBlock(store) {
     initTelegramToggle();
     initTelegramReminderBlocks();
     initTelegramTemplateBlocks();
+    initTelegramCustomBotBlocks();
     initTelegramNotificationsToggle();
 }
 
@@ -1318,6 +1341,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initTelegramToggle();
     initTelegramReminderBlocks();
     initTelegramTemplateBlocks();
+    initTelegramCustomBotBlocks();
     initTelegramNotificationsToggle();
 
     // Назначаем обработчик кнопки "Добавить магазин" - с проверкой на наличие
