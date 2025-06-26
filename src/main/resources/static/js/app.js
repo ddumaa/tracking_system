@@ -513,8 +513,8 @@ function initTelegramCustomBotBlocks() {
         const systemRadio = parent.querySelector(`#tg-bot-system-${storeId}`);
         const customRadio = parent.querySelector(`#tg-bot-custom-${storeId}`);
         const editBtn = parent.querySelector(`#tg-edit-delete-bot-${storeId}`);
-        const fields = form.querySelector('.custom-bot-fields');
-        const tokenInput = form.querySelector('input[id^="tg-token-"]');
+        const fields = parent.querySelector('.custom-bot-fields');
+        const tokenInput = fields?.querySelector('input[id^="tg-token-"]');
         if (!systemRadio || !customRadio || !fields) return;
 
         const showFields = () => {
