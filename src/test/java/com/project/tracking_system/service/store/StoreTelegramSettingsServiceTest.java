@@ -3,7 +3,6 @@ package com.project.tracking_system.service.store;
 import com.project.tracking_system.dto.StoreTelegramSettingsDTO;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.StoreTelegramSettings;
-import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
 import com.project.tracking_system.repository.StoreTelegramTemplateRepository;
 import com.project.tracking_system.service.SubscriptionService;
@@ -44,13 +43,13 @@ class StoreTelegramSettingsServiceTest {
         dto.setEnabled(false);
         dto.setBotToken("t");
 
-        when(subscriptionService.isFeatureEnabled(1L, FeatureKey.CUSTOM_BOT)).thenReturn(false);
+        when(subscriptionService.canUseCustomBot(1L)).thenReturn(false);
         StoreTelegramSettings settings = new StoreTelegramSettings();
         when(settingsRepository.findByStoreId(null)).thenReturn(settings);
 
         assertThrows(IllegalStateException.class, () -> service.update(store, dto, 1L));
 
-        verify(subscriptionService).isFeatureEnabled(1L, FeatureKey.CUSTOM_BOT);
+        verify(subscriptionService).canUseCustomBot(1L);
         verify(storeService, never()).updateFromDto(any(), any());
         verify(settingsRepository, never()).save(any());
     }
@@ -66,7 +65,7 @@ class StoreTelegramSettingsServiceTest {
         dto.setEnabled(false);
         dto.setBotToken("token");
 
-        when(subscriptionService.isFeatureEnabled(2L, FeatureKey.CUSTOM_BOT)).thenReturn(true);
+        when(subscriptionService.canUseCustomBot(2L)).thenReturn(true);
         when(validationService.validateToken("token")).thenReturn("bot");
 
         service.update(store, dto, 2L);
@@ -86,7 +85,7 @@ class StoreTelegramSettingsServiceTest {
         dto.setEnabled(false);
         dto.setBotToken("bad");
 
-        when(subscriptionService.isFeatureEnabled(3L, FeatureKey.CUSTOM_BOT)).thenReturn(true);
+        when(subscriptionService.canUseCustomBot(3L)).thenReturn(true);
         when(validationService.validateToken("bad")).thenThrow(new IllegalArgumentException());
 
         assertThrows(IllegalArgumentException.class, () -> service.update(store, dto, 3L));
@@ -109,33 +108,33 @@ class StoreTelegramSettingsServiceTest {
 
         verify(storeService).updateFromDto(eq(settings), eq(dto));
         verify(settingsRepository).save(settings);
-        verify(subscriptionService, never()).isFeatureEnabled(anyLong(), eq(FeatureKey.CUSTOM_BOT));
+        verify(subscriptionService, never()).canUseCustomBot(anyLong());
     }
 
     @Test
-    void setCustomBot_FeatureDisabled_Throws() {
+    void connectCustomBot_FeatureDisabled_Throws() {
         Store store = new Store();
         store.setId(7L);
 
-        when(subscriptionService.isFeatureEnabled(7L, FeatureKey.CUSTOM_BOT)).thenReturn(false);
+        when(subscriptionService.canUseCustomBot(7L)).thenReturn(false);
 
-        assertThrows(IllegalStateException.class, () -> service.setCustomBot(store, "t", 7L));
+        assertThrows(IllegalStateException.class, () -> service.connectCustomBot(store, "t", 7L));
 
-        verify(subscriptionService).isFeatureEnabled(7L, FeatureKey.CUSTOM_BOT);
+        verify(subscriptionService).canUseCustomBot(7L);
         verify(settingsRepository, never()).save(any());
     }
 
     @Test
-    void setCustomBot_ValidToken_Saves() {
+    void connectCustomBot_ValidToken_Saves() {
         Store store = new Store();
         store.setId(8L);
         StoreTelegramSettings settings = new StoreTelegramSettings();
         when(settingsRepository.findByStoreId(8L)).thenReturn(settings);
 
-        when(subscriptionService.isFeatureEnabled(8L, FeatureKey.CUSTOM_BOT)).thenReturn(true);
+        when(subscriptionService.canUseCustomBot(8L)).thenReturn(true);
         when(validationService.validateToken("token")).thenReturn("bot");
 
-        service.setCustomBot(store, "token", 8L);
+        service.connectCustomBot(store, "token", 8L);
 
         assertEquals("token", settings.getBotToken());
         assertEquals("bot", settings.getBotUsername());
@@ -143,20 +142,7 @@ class StoreTelegramSettingsServiceTest {
     }
 
     @Test
-    void deleteCustomBot_FeatureDisabled_Throws() {
-        Store store = new Store();
-        store.setId(9L);
-
-        when(subscriptionService.isFeatureEnabled(9L, FeatureKey.CUSTOM_BOT)).thenReturn(false);
-
-        assertThrows(IllegalStateException.class, () -> service.deleteCustomBot(store, 9L));
-
-        verify(subscriptionService).isFeatureEnabled(9L, FeatureKey.CUSTOM_BOT);
-        verify(settingsRepository, never()).save(any());
-    }
-
-    @Test
-    void deleteCustomBot_ClearsToken() {
+    void removeCustomBot_ClearsToken() {
         Store store = new Store();
         store.setId(10L);
         StoreTelegramSettings settings = new StoreTelegramSettings();
@@ -164,9 +150,7 @@ class StoreTelegramSettingsServiceTest {
         settings.setBotUsername("b");
         when(settingsRepository.findByStoreId(10L)).thenReturn(settings);
 
-        when(subscriptionService.isFeatureEnabled(10L, FeatureKey.CUSTOM_BOT)).thenReturn(true);
-
-        service.deleteCustomBot(store, 10L);
+        service.removeCustomBot(store);
 
         assertNull(settings.getBotToken());
         assertNull(settings.getBotUsername());

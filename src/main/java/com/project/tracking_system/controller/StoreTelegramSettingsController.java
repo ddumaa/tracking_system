@@ -178,7 +178,7 @@ public class StoreTelegramSettingsController {
         Long userId = user.getId();
         try {
             Store store = storeService.getStore(storeId, userId);
-            telegramSettingsService.setCustomBot(store, botToken, userId);
+            telegramSettingsService.connectCustomBot(store, botToken, userId);
             webSocketController.sendUpdateStatus(userId, "Бот сохранён", true);
             return ResponseBuilder.ok(storeService.toDto(store.getTelegramSettings()));
         } catch (IllegalStateException e) {
@@ -204,7 +204,7 @@ public class StoreTelegramSettingsController {
         Long userId = user.getId();
         try {
             Store store = storeService.getStore(storeId, userId);
-            telegramSettingsService.deleteCustomBot(store, userId);
+            telegramSettingsService.removeCustomBot(store);
             webSocketController.sendUpdateStatus(userId, "Бот удалён", true);
             return ResponseBuilder.ok(storeService.toDto(store.getTelegramSettings()));
         } catch (IllegalStateException e) {
