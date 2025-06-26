@@ -13,6 +13,8 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 import com.project.tracking_system.service.telegram.TelegramClientFactory;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Сервис отправки уведомлений в Telegram-покупателям.
@@ -25,6 +27,8 @@ public class TelegramNotificationService {
     private final TelegramClient telegramClient;
     private final CustomerService customerService;
     private final TelegramClientFactory telegramClientFactory;
+    /** Кэш клиентов Telegram для пользовательских ботов. */
+    private final Map<String, TelegramClient> clientCache = new ConcurrentHashMap<>();
 
     /**
      * Отправить уведомление о смене статуса посылки.
@@ -69,11 +73,7 @@ public class TelegramNotificationService {
         }
 
         SendMessage message = new SendMessage(chatId.toString(), text);
-
-        TelegramClient client = telegramClient;
-        if (settings != null && settings.getBotToken() != null && !settings.getBotToken().isBlank()) {
-            client = telegramClientFactory.create(settings.getBotToken());
-        }
+        TelegramClient client = resolveClient(settings);
 
         try {
             client.execute(message);
@@ -115,10 +115,7 @@ public class TelegramNotificationService {
 
         SendMessage message = new SendMessage(chatId.toString(), text);
 
-        TelegramClient client = telegramClient;
-        if (settings != null && settings.getBotToken() != null && !settings.getBotToken().isBlank()) {
-            client = telegramClientFactory.create(settings.getBotToken());
-        }
+        TelegramClient client = resolveClient(settings);
 
         try {
             client.execute(message);
@@ -126,6 +123,24 @@ public class TelegramNotificationService {
         } catch (TelegramApiException e) {
             log.error("❌ Ошибка отправки напоминания в чат {}: {}", chatId, e.getMessage(), e);
         }
+    }
+
+    // Получение TelegramClient с учётом пользовательского токена
+    private TelegramClient resolveClient(StoreTelegramSettings settings) {
+        if (settings == null) {
+            return telegramClient;
+        }
+
+        String token = settings.getBotToken();
+        String username = settings.getBotUsername();
+
+        // Считаем токен валидным, если он не пустой и для него сохранено имя бота
+        if (token == null || token.isBlank() || username == null) {
+            return telegramClient;
+        }
+
+        // Создаём или берём из кэша клиента для данного токена
+        return clientCache.computeIfAbsent(token, telegramClientFactory::create);
     }
 
     // Получение chatId покупателя из посылки
