@@ -432,6 +432,22 @@
                                 th:id="'tg-edit-delete-bot-' + ${store.id}"
                                 th:if="${store.telegramSettings?.botToken != null}">Изменить / Удалить</button>
                     </div>
+
+                    <!-- Форма токена кастомного бота (показывается по JS при необходимости) -->
+                    <div th:id="'tg-custom-bot-fields-' + ${store.id}" class="mb-2 ms-4 hidden custom-bot-fields">
+                        <label class="form-label" th:for="'tg-token-' + ${store.id}">Токен собственного бота</label>
+                        <input type="text" class="form-control form-control-sm" th:id="'tg-token-' + ${store.id}"
+                               name="botToken" th:value="${store.telegramSettings?.botToken}">
+                        <p class="form-text" th:if="${store.telegramSettings?.botUsername}">
+                            Текущий бот: <span th:text="${store.telegramSettings.botUsername}"></span>
+                        </p>
+                        <div class="d-flex">
+                            <button type="button" class="btn btn-sm btn-outline-primary me-2"
+                                    th:id="'tg-save-bot-' + ${store.id}">Сохранить</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    th:id="'tg-delete-bot-' + ${store.id}">Удалить</button>
+                        </div>
+                    </div>
                 </div>
 
                 <p class="form-text text-danger mb-1" th:unless="${planDetails.allowCustomBot}">
@@ -505,21 +521,6 @@
                            th:value="${store.telegramSettings?.customSignature}" maxlength="200">
                 </div>
 
-                <!-- Форма токена кастомного бота (показывается по JS при необходимости) -->
-                <div th:id="'tg-custom-bot-fields-' + ${store.id}" class="mb-2 ms-4 hidden custom-bot-fields">
-                    <label class="form-label" th:for="'tg-token-' + ${store.id}">Токен собственного бота</label>
-                    <input type="text" class="form-control form-control-sm" th:id="'tg-token-' + ${store.id}"
-                           name="botToken" th:value="${store.telegramSettings?.botToken}">
-                    <p class="form-text" th:if="${store.telegramSettings?.botUsername}">
-                        Текущий бот: <span th:text="${store.telegramSettings.botUsername}"></span>
-                    </p>
-                    <div class="d-flex">
-                        <button type="button" class="btn btn-sm btn-outline-primary me-2"
-                                th:id="'tg-save-bot-' + ${store.id}">Сохранить</button>
-                        <button type="button" class="btn btn-sm btn-outline-danger"
-                                th:id="'tg-delete-bot-' + ${store.id}">Удалить</button>
-                    </div>
-                </div>
 
                 <div class="form-check form-switch mb-2 ms-3">
                     <input class="form-check-input" type="checkbox" th:id="'tg-custom-templates-' + ${store.id}"
