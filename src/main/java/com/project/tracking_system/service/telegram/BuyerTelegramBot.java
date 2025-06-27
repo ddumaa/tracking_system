@@ -1,9 +1,11 @@
 package com.project.tracking_system.service.telegram;
 
 import com.project.tracking_system.entity.CustomerTelegramLink;
+import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsumer;
@@ -19,7 +21,6 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Telegram-бот для покупателей.
@@ -28,6 +29,8 @@ import java.util.Optional;
 @Slf4j
 public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
 
+    /** Магазин, к которому привязан бот. */
+    private final Store linkedStore;
     private final TelegramClient telegramClient;
     private final CustomerTelegramService telegramService;
     private final String botToken;
@@ -40,9 +43,33 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param token                токен бота (может отсутствовать)
      * @param telegramService      сервис привязки покупателей к Telegram
      */
+    /**
+     * Создаёт системного телеграм-бота для покупателей.
+     *
+     * @param telegramClient  клиент Telegram
+     * @param token           токен системного бота
+     * @param telegramService сервис привязки покупателей к Telegram
+     */
+    @Autowired
     public BuyerTelegramBot(TelegramClient telegramClient,
                             @Value("${telegram.bot.token:}") String token,
                             CustomerTelegramService telegramService) {
+        this(null, telegramClient, token, telegramService);
+    }
+
+    /**
+     * Создаёт телеграм-бота, привязанного к магазину.
+     *
+     * @param store           магазин, для которого создан бот
+     * @param telegramClient  клиент Telegram
+     * @param token           токен бота
+     * @param telegramService сервис привязки покупателей к Telegram
+     */
+    public BuyerTelegramBot(Store store,
+                            TelegramClient telegramClient,
+                            String token,
+                            CustomerTelegramService telegramService) {
+        this.linkedStore = store;
         this.telegramClient = telegramClient;
         this.botToken = token;
         this.telegramService = telegramService;
@@ -81,7 +108,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 }
                 if ("/stop".equals(text) || "/unsubscribe".equals(text)) {
                     log.info("🔕 Команда {} получена от {}", text, message.getChatId());
-                    boolean disabled = telegramService.disableNotifications(message.getChatId());
+                    boolean disabled = linkedStore != null
+                            ? telegramService.disableNotifications(message.getChatId(), linkedStore.getId())
+                            : telegramService.disableNotifications(message.getChatId());
                     if (disabled) {
                         SendMessage confirm = new SendMessage(message.getChatId().toString(),
                                 "🔕 Уведомления отключены. Чтобы возобновить их, снова отправьте /start.");
@@ -93,13 +122,17 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                     }
                 }
                 if ("🔕 Отключить уведомления".equals(text)) {
-                    boolean disabled = telegramService.disableNotifications(message.getChatId());
+                    boolean disabled = linkedStore != null
+                            ? telegramService.disableNotifications(message.getChatId(), linkedStore.getId())
+                            : telegramService.disableNotifications(message.getChatId());
                     if (disabled) {
                         sendNotificationsKeyboard(message.getChatId(), false);
                     }
                 }
                 if ("🔔 Включить уведомления".equals(text)) {
-                    boolean enabled = telegramService.enableNotifications(message.getChatId());
+                    boolean enabled = linkedStore != null
+                            ? telegramService.enableNotifications(message.getChatId(), linkedStore.getId())
+                            : telegramService.enableNotifications(message.getChatId());
                     if (enabled) {
                         sendNotificationsKeyboard(message.getChatId(), true);
                     }
@@ -155,7 +188,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         String phone = PhoneUtils.normalizePhone(rawPhone);
 
         try {
-            CustomerTelegramLink link = telegramService.linkTelegramToCustomer(phone, chatId);
+            CustomerTelegramLink link = (linkedStore != null)
+                    ? telegramService.linkTelegramToCustomer(phone, linkedStore, chatId)
+                    : telegramService.linkTelegramToCustomer(phone, chatId);
             if (!link.isTelegramConfirmed()) {
                 SendMessage confirm = new SendMessage(chatId.toString(), "✅ Номер сохранён. Спасибо!");
                 telegramClient.execute(confirm);

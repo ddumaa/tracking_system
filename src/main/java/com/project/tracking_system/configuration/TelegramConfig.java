@@ -1,5 +1,7 @@
 package com.project.tracking_system.configuration;
 
+import com.project.tracking_system.service.telegram.BuyerTelegramBot;
+import com.project.tracking_system.service.telegram.TelegramBotFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,6 +29,17 @@ public class TelegramConfig {
     @Bean
     public TelegramClient telegramClient() {
         return new OkHttpTelegramClient(botToken);
+    }
+
+    /**
+     * Создает системного Telegram-бота.
+     *
+     * @param factory фабрика ботов
+     * @return экземпляр {@link BuyerTelegramBot}
+     */
+    @Bean
+    public BuyerTelegramBot buyerTelegramBot(TelegramBotFactory factory) {
+        return factory.create(botToken);
     }
 
 }
