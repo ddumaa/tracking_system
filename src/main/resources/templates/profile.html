@@ -421,7 +421,9 @@
                                th:disabled="${!planDetails.allowCustomBot}"
                                th:attr="data-bs-toggle=${!planDetails.allowCustomBot} ? 'tooltip' : null,
                                     title=${!planDetails.allowCustomBot} ? 'Доступно в тарифе \'Бизнес\' и выше' : null">
-                              <label th:for="'tg-bot-custom-' + ${store.id}" th:id="'tg-custom-bot-label-' + ${store.id}">Собственный бот</label>
+                              <label th:for="'tg-bot-custom-' + ${store.id}" th:id="'tg-custom-bot-label-' + ${store.id}">
+                                  <span th:text="${store.telegramSettings?.botUsername != null ? '@' + store.telegramSettings.botUsername : 'Собственный бот'}"></span>
+                              </label>
                     </div>
                     <button type="button" class="btn btn-link btn-sm p-0 ms-2 tg-edit-delete-btn"
                             th:id="'tg-edit-delete-bot-' + ${store.id}"
@@ -432,7 +434,7 @@
                         <label class="form-label" th:for="'tg-token-' + ${store.id}">Токен собственного бота</label>
                         <input type="text" class="form-control form-control-sm" th:id="'tg-token-' + ${store.id}"
                                name="botToken" th:value="${store.telegramSettings?.botToken}">
-                        <p class="form-text" th:if="${store.telegramSettings?.botUsername}">
+                        <p class="form-text current-bot" th:if="${store.telegramSettings?.botUsername}">
                             Текущий бот: <span th:text="${store.telegramSettings.botUsername}"></span>
                         </p>
                         <div class="d-flex gap-2 mt-2">
