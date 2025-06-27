@@ -512,40 +512,26 @@ function initTelegramCustomBotBlocks() {
         const parent = container.parentElement;
         const systemRadio = parent.querySelector(`#tg-bot-system-${storeId}`);
         const customRadio = parent.querySelector(`#tg-bot-custom-${storeId}`);
-        const editBtn = parent.querySelector(`#tg-edit-delete-bot-${storeId}`);
         const fields = parent.querySelector('.custom-bot-fields');
         const systemLabel = parent.querySelector(`label[for="tg-bot-system-${storeId}"]`);
         const customLabel = parent.querySelector(`label[for="tg-bot-custom-${storeId}"]`);
-        const tokenInput = fields?.querySelector('input[id^="tg-token-"]');
         const username = fields?.querySelector('.current-bot span')?.textContent?.trim() || null;
         updateBotInfo(storeId, username);
         if (!systemRadio || !customRadio || !fields) return;
 
         const showFields = () => {
             slideDown(fields);
-            editBtn?.classList.add('hidden');
         };
 
         const hideFields = () => {
             slideUp(fields);
-            if (editBtn) {
-                if (tokenInput && tokenInput.value.trim()) {
-                    editBtn.classList.remove('hidden');
-                } else {
-                    editBtn.classList.add('hidden');
-                }
-            }
         };
 
         const update = () => {
             if (systemRadio.checked) {
                 hideFields();
             } else if (customRadio.checked) {
-                if (tokenInput && tokenInput.value.trim()) {
-                    hideFields();
-                } else {
-                    showFields();
-                }
+                showFields();
             }
 
             // Обновляем стили выбранной опции
@@ -564,7 +550,11 @@ function initTelegramCustomBotBlocks() {
             }
         };
 
-        editBtn?.addEventListener('click', showFields);
+        customRadio.addEventListener('click', () => {
+            if (customRadio.checked) {
+                showFields();
+            }
+        });
 
         update();
         systemRadio.addEventListener('change', update);
