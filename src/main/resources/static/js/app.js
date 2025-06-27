@@ -343,6 +343,8 @@ function initTelegramForms() {
                 if (response.ok) {
                     // Уведомление придёт через WebSocket
                     notifyUser('Настройки Telegram сохранены.', 'success');
+                    // Показываем уведомление прямо в форме на случай проблем с WebSocket
+                    showInlineNotification(form, 'Настройки Telegram сохранены.', 'success');
                 } else {
                     const errorText = await response.text();
                     // Показываем ошибку непосредственно в форме
