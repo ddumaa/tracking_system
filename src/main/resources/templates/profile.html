@@ -534,7 +534,8 @@
                                       th:text="${store.telegramSettings?.templates?.get(status.name())}"></textarea>
                         </div>
                     </div>
-                    <p class="form-text">Шаблоны должны содержать {track} и {store}</p>
+                    <p th:if="${usingSystemBot}" class="form-text text-muted">Шаблон должен содержать: {track} и {store}</p>
+                    <p th:if="${!usingSystemBot}" class="form-text text-muted">Шаблон должен содержать: {track}</p>
                 </div>
 
                 <button type="submit" class="btn btn-sm btn-primary w-100">Сохранить</button>
