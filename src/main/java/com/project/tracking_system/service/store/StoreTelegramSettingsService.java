@@ -151,4 +151,19 @@ public class StoreTelegramSettingsService {
         log.info("Пользовательский бот удалён для магазина ID={}", store.getId());
     }
 
+    /**
+     * Проверяет, используется ли системный Telegram-бот.
+     *
+     * @param settings текущие настройки магазина
+     * @return {@code true}, если токен бота не указан
+     */
+    @Transactional(readOnly = true)
+    public boolean isUsingSystemBot(StoreTelegramSettings settings) {
+        if (settings == null) {
+            return true;
+        }
+        String token = settings.getBotToken();
+        return token == null || token.isBlank();
+    }
+
 }
