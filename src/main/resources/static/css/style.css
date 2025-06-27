@@ -1270,8 +1270,9 @@ button:hover {
   margin: 0 !important;
 }
 .tg-settings-content.expanded {
-  max-height: 1000px;
+  max-height: none;
   opacity: 1;
+  overflow: visible;
 }
 
 .custom-template-fields textarea {
