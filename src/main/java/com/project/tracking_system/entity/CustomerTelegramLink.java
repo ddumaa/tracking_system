@@ -17,7 +17,8 @@ import java.time.ZonedDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "tb_customer_telegram_links")
+@Table(name = "tb_customer_telegram_links",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"customer_id", "store_id"}))
 public class CustomerTelegramLink {
 
     @Id
