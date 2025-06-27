@@ -572,7 +572,11 @@ function initTelegramCustomBotBlocks() {
             if (systemRadio.checked) {
                 hideFields();
             } else if (customRadio.checked) {
-                showFields();
+                if (fields.querySelector('.current-bot')) {
+                    hideFields();
+                } else {
+                    showFields();
+                }
             }
 
             // Обновляем стили выбранной опции
@@ -1338,7 +1342,7 @@ async function saveCustomBot(storeId) {
         if (response.ok) {
             const data = await response.json();
             updateBotInfo(storeId, data.botUsername);
-            document.querySelector(`#tg-bot-custom-${storeId}`)?.dispatchEvent(new Event('change'));
+            slideUp(document.getElementById(`tg-custom-bot-fields-${storeId}`));
             notifyUser('Бот сохранён', 'success');
         } else {
             const errorText = await response.text();
