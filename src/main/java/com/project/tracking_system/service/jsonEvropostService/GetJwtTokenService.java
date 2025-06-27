@@ -43,28 +43,7 @@ public class GetJwtTokenService {
                 jsonData.getLoginNameTypeId()
         );
 
-        JsonPacket packet = new JsonPacket(
-                null,
-                JsonMethodName.GET_JWT.toString(),
-                jsonPacket.getServiceNumber(),
-                data
-                );
-
-        JsonRequest request = new JsonRequest(
-                jsonRequest.getCrc(),
-                packet
-        );
-
-        // Делаем запрос
-        JsonNode response = jsonHandlerService.jsonRequest(request);
-
-        // Извлекаем JWT токен из ответа
-        JsonNode jwtNode = response.path("Table").path(0).path("JWT");
-        if (jwtNode.isMissingNode()) {
-            throw new RuntimeException("Токен JWT не найден в ответе при запросе системного JWT");
-        }
-
-        return jwtNode.asText();
+        return fetchJwtToken(data, jsonPacket.getServiceNumber());
     }
 
     /**
@@ -88,6 +67,19 @@ public class GetJwtTokenService {
                 jsonData.getLoginNameTypeId()
         );
 
+        return fetchJwtToken(data, serviceNumber);
+    }
+
+    /**
+     * Формирует запрос и извлекает JWT токен из ответа.
+     *
+     * @param data          данные для аутентификации
+     * @param serviceNumber номер сервиса ЕвроПочты
+     * @return JWT токен в виде строки
+     * @throws RuntimeException если токен отсутствует в ответе
+     */
+    private String fetchJwtToken(JsonDataAbstract data, String serviceNumber) {
+
         JsonPacket packet = new JsonPacket(
                 null,
                 JsonMethodName.GET_JWT.toString(),
@@ -106,7 +98,7 @@ public class GetJwtTokenService {
         // Извлекаем JWT токен из ответа
         JsonNode jwtNode = response.path("Table").path(0).path("JWT");
         if (jwtNode.isMissingNode()) {
-            throw new RuntimeException("Токен JWT не найден в ответе при запросе пользовательского JWT");
+            throw new RuntimeException("Токен JWT не найден в ответе");
         }
 
         return jwtNode.asText();
