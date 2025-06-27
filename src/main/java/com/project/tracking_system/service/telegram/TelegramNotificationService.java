@@ -36,6 +36,28 @@ public class TelegramNotificationService {
     private final Map<String, TelegramClient> clientCache = new ConcurrentHashMap<>();
 
     /**
+     * Удаляет клиента, связанный с указанным токеном, из кэша.
+     *
+     * @param token токен бота
+     */
+    public void invalidateClient(String token) {
+        if (token != null && !token.isBlank()) {
+            clientCache.remove(token);
+        }
+    }
+
+    /**
+     * Удаляет клиента из кэша по токену из настроек магазина.
+     *
+     * @param settings настройки Telegram магазина
+     */
+    public void invalidateClient(StoreTelegramSettings settings) {
+        if (settings != null) {
+            invalidateClient(settings.getBotToken());
+        }
+    }
+
+    /**
      * Отправить уведомление о смене статуса посылки.
      * <p>
      * Если в профиле магазина указана подпись, она будет добавлена
