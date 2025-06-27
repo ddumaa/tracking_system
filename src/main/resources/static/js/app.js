@@ -515,8 +515,6 @@ function initTelegramCustomBotBlocks() {
         const fields = parent.querySelector('.custom-bot-fields');
         const systemLabel = parent.querySelector(`label[for="tg-bot-system-${storeId}"]`);
         const customLabel = parent.querySelector(`label[for="tg-bot-custom-${storeId}"]`);
-        const username = fields?.querySelector('.current-bot span')?.textContent?.trim() || null;
-        updateBotInfo(storeId, username);
         if (!systemRadio || !customRadio || !fields) return;
 
         const showFields = () => {
@@ -1022,6 +1020,7 @@ async function appendTelegramBlock(store) {
     initTelegramReminderBlocks();
     initTelegramTemplateBlocks();
     initTelegramCustomBotBlocks();
+    initTelegramBotInfo();
     initTelegramNotificationsToggle();
 }
 
@@ -1258,6 +1257,19 @@ function updateBotInfo(storeId, username) {
     }
 }
 
+// Инициализация информации о пользовательском боте при загрузке страницы
+function initTelegramBotInfo() {
+    document.querySelectorAll('.telegram-settings-form').forEach(form => {
+        const container = form.closest('[data-store-id]');
+        if (!container) return;
+        const storeId = container.getAttribute('data-store-id');
+        const username = form.querySelector('.current-bot span')?.textContent?.trim();
+        if (username) {
+            updateBotInfo(storeId, username);
+        }
+    });
+}
+
 /**
  * Отправляет токен собственного Telegram-бота на сервер.
  * @param {string} storeId идентификатор магазина
@@ -1480,6 +1492,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initTelegramReminderBlocks();
     initTelegramTemplateBlocks();
     initTelegramCustomBotBlocks();
+    initTelegramBotInfo();
     initTelegramNotificationsToggle();
 
     // Назначаем обработчик кнопки "Добавить магазин" - с проверкой на наличие
