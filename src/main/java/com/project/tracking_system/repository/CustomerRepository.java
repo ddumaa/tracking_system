@@ -23,29 +23,6 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
      */
     Optional<Customer> findByPhone(String phone);
 
-    /**
-     * Найти покупателя по идентификатору чата Telegram.
-     *
-     * @param chatId идентификатор чата
-     * @return найденный покупатель или {@link java.util.Optional#empty()}
-     */
-    Optional<Customer> findByTelegramChatId(Long chatId);
-
-    /**
-     * Обновить статус уведомлений для покупателя по chatId.
-     *
-     * @param chatId  идентификатор Telegram-чата
-     * @param enabled новое значение флага
-     * @return количество обновлённых записей
-     */
-    @Modifying
-    @Transactional
-    @Query("""
-        UPDATE Customer c
-        SET c.notificationsEnabled = :enabled
-        WHERE c.telegramChatId = :chatId
-        """)
-    int updateNotificationsEnabled(@Param("chatId") Long chatId, @Param("enabled") boolean enabled);
 
     /**
      * Атомарно увеличить счётчик отправленных посылок.
@@ -108,10 +85,3 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
      */
     List<Customer> findByReputation(BuyerReputation reputation);
 
-    /**
-     * Подсчитать количество покупателей, привязавших Telegram.
-     *
-     * @return число покупателей с Telegram
-     */
-    long countByTelegramChatIdNotNull();
-}

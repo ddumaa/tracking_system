@@ -4,6 +4,7 @@ import com.project.tracking_system.entity.*;
 import com.project.tracking_system.mapper.BuyerStatusMapper;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.repository.CustomerRepository;
+import com.project.tracking_system.repository.CustomerTelegramLinkRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
 import java.time.ZoneOffset;
@@ -26,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CustomerTelegramService {
 
     private final CustomerRepository customerRepository;
+    private final CustomerTelegramLinkRepository linkRepository;
     private final CustomerService customerService;
     private final TrackParcelRepository trackParcelRepository;
     private final CustomerNotificationLogRepository notificationLogRepository;
@@ -42,59 +44,63 @@ public class CustomerTelegramService {
      *
      * @param phone  номер телефона в произвольном формате
      * @param chatId идентификатор чата Telegram
-     * @return сущность покупателя после обновления
+     * @return созданная привязка Telegram
      */
     @Transactional
-    public Customer linkTelegramToCustomer(String phone, Long chatId) {
+    public CustomerTelegramLink linkTelegramToCustomer(String phone, Long chatId) {
         String normalized = PhoneUtils.normalizePhone(phone);
         log.info("🔗 Попытка привязки телефона {} к чату {}", normalized, chatId);
 
         // Регистрируем покупателя при необходимости
         Customer customer = customerService.registerOrGetByPhone(normalized);
 
-        // Если чат уже привязан, повторная привязка игнорируется
-        if (customer.getTelegramChatId() != null) {
-            log.warn("⚠️ Покупатель {} уже привязан к чату {}", customer.getId(), customer.getTelegramChatId());
-            return customer;
+        // Проверяем существующую привязку
+        Optional<CustomerTelegramLink> existing = linkRepository.findByTelegramChatId(chatId);
+        if (existing.isPresent()) {
+            log.warn("⚠️ Чат {} уже привязан к покупателю {}", chatId, existing.get().getCustomer().getId());
+            return existing.get();
         }
 
-        customer.setTelegramChatId(chatId);
-        Customer saved = customerRepository.save(customer);
-        log.info("✅ Чат {} привязан к покупателю {}", chatId, saved.getId());
+        CustomerTelegramLink link = new CustomerTelegramLink();
+        link.setCustomer(customer);
+        link.setTelegramChatId(chatId);
+        link.setLinkedAt(ZonedDateTime.now(ZoneOffset.UTC));
+        CustomerTelegramLink saved = linkRepository.save(link);
+        log.info("✅ Чат {} привязан к покупателю {}", chatId, customer.getId());
         return saved;
     }
 
     /**
-     * Найти покупателя по идентификатору Telegram-чата.
+     * Найти привязку по идентификатору Telegram-чата.
      *
      * @param chatId идентификатор чата
-     * @return найденный покупатель или {@link java.util.Optional#empty()}
+     * @return найденная привязка или {@link java.util.Optional#empty()}
      */
     @Transactional(readOnly = true)
-    public Optional<Customer> findByChatId(Long chatId) {
+    public Optional<CustomerTelegramLink> findByChatId(Long chatId) {
         if (chatId == null) {
             return Optional.empty();
         }
-        return customerRepository.findByTelegramChatId(chatId);
+        return linkRepository.findByTelegramChatId(chatId);
     }
 
     /**
      * Подтвердить получение уведомления о привязке Telegram.
      *
-     * @param customer покупатель
-     * @return обновлённый покупатель
+     * @param link привязка Telegram
+     * @return обновлённая привязка
      */
     @Transactional
-    public Customer confirmTelegram(Customer customer) {
-        if (customer == null) {
-            throw new IllegalArgumentException("Покупатель не задан");
+    public CustomerTelegramLink confirmTelegram(CustomerTelegramLink link) {
+        if (link == null) {
+            throw new IllegalArgumentException("Привязка не задана");
         }
-        if (!customer.isTelegramConfirmed()) {
-            customer.setTelegramConfirmed(true);
-            customer = customerRepository.save(customer);
-            log.info("✅ Покупатель {} подтвердил Telegram", customer.getId());
+        if (!link.isTelegramConfirmed()) {
+            link.setTelegramConfirmed(true);
+            link = linkRepository.save(link);
+            log.info("✅ Покупатель {} подтвердил Telegram", link.getCustomer().getId());
         }
-        return customer;
+        return link;
     }
 
     /**
@@ -105,13 +111,15 @@ public class CustomerTelegramService {
      * были отправлены ранее.
      * </p>
      *
-     * @param customer покупатель, подтвердивший Telegram
+     * @param link привязка покупателя к Telegram
      */
     @Transactional
-    public void notifyActualStatuses(Customer customer) {
-        if (customer == null || customer.getTelegramChatId() == null) {
+    public void notifyActualStatuses(CustomerTelegramLink link) {
+        if (link == null || link.getTelegramChatId() == null) {
             return;
         }
+
+        Customer customer = link.getCustomer();
 
         List<TrackParcel> parcels = trackParcelRepository.findActiveByCustomerId(
                 customer.getId(),
@@ -155,12 +163,12 @@ public class CustomerTelegramService {
             return false;
         }
 
-        return customerRepository.findByTelegramChatId(chatId)
-                .filter(Customer::isNotificationsEnabled)
-                .map(customer -> {
-                    customer.setNotificationsEnabled(false);
-                    customerRepository.save(customer);
-                    log.info("🔕 Уведомления отключены для покупателя {}", customer.getId());
+        return linkRepository.findByTelegramChatId(chatId)
+                .filter(CustomerTelegramLink::isNotificationsEnabled)
+                .map(link -> {
+                    link.setNotificationsEnabled(false);
+                    linkRepository.save(link);
+                    log.info("🔕 Уведомления отключены для покупателя {}", link.getCustomer().getId());
                     return true;
                 })
                 .orElse(false);
@@ -178,12 +186,12 @@ public class CustomerTelegramService {
             return false;
         }
 
-        return customerRepository.findByTelegramChatId(chatId)
-                .filter(c -> !c.isNotificationsEnabled())
-                .map(customer -> {
-                    customer.setNotificationsEnabled(true);
-                    customerRepository.save(customer);
-                    log.info("🔔 Уведомления включены для покупателя {}", customer.getId());
+        return linkRepository.findByTelegramChatId(chatId)
+                .filter(link -> !link.isNotificationsEnabled())
+                .map(link -> {
+                    link.setNotificationsEnabled(true);
+                    linkRepository.save(link);
+                    log.info("🔔 Уведомления включены для покупателя {}", link.getCustomer().getId());
                     return true;
                 })
                 .orElse(false);

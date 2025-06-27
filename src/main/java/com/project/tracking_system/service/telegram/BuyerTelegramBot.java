@@ -1,6 +1,6 @@
 package com.project.tracking_system.service.telegram;
 
-import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.entity.CustomerTelegramLink;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -79,7 +79,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                     sendSharePhoneKeyboard(message.getChatId());
 
                     // 🔽 Добавить отображение текущих настроек, если юзер уже привязан
-                    Optional<Customer> optional = telegramService.findByChatId(message.getChatId());
+                    Optional<CustomerTelegramLink> optional = telegramService.findByChatId(message.getChatId());
                     if (optional.isPresent() && optional.get().isTelegramConfirmed()) {
                         boolean enabled = optional.get().isNotificationsEnabled();
                         sendNotificationsKeyboard(message.getChatId(), enabled);
@@ -161,12 +161,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         String phone = PhoneUtils.normalizePhone(rawPhone);
 
         try {
-            Customer customer = telegramService.linkTelegramToCustomer(phone, chatId);
-            if (!customer.isTelegramConfirmed()) {
+            CustomerTelegramLink link = telegramService.linkTelegramToCustomer(phone, chatId);
+            if (!link.isTelegramConfirmed()) {
                 SendMessage confirm = new SendMessage(chatId.toString(), "✅ Номер сохранён. Спасибо!");
                 telegramClient.execute(confirm);
-                telegramService.confirmTelegram(customer);
-                telegramService.notifyActualStatuses(customer);
+                telegramService.confirmTelegram(link);
+                telegramService.notifyActualStatuses(link);
                 sendNotificationsKeyboard(chatId, true);
             }
         } catch (Exception e) {
