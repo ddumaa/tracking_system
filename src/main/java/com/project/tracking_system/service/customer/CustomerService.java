@@ -221,7 +221,12 @@ public class CustomerService {
         Long customerId = customer.getId();
         Long storeId = store.getId();
         Optional<CustomerTelegramLink> linkOpt = linkRepository.findByCustomerIdAndStoreId(customerId, storeId);
-        if (linkOpt.isEmpty() || !linkOpt.get().isNotificationsEnabled()) {
+        if (linkOpt.isEmpty()) {
+            return false;
+        }
+
+        CustomerTelegramLink link = linkOpt.get();
+        if (!link.isNotificationsEnabled() || !link.isTelegramConfirmed()) {
             return false;
         }
 
