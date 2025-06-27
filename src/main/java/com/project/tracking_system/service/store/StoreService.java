@@ -438,8 +438,13 @@ public class StoreService {
         dto.setBotUsername(settings.getBotUsername());
         dto.setRemindersEnabled(settings.isRemindersEnabled());
         dto.setUseCustomTemplates(!settings.getTemplates().isEmpty());
-        dto.setTemplates(settings.getTemplatesMap().entrySet().stream()
-                .collect(java.util.stream.Collectors.toMap(e -> e.getKey().name(), Map.Entry::getValue)));
+        Map<String, String> map = settings.getTemplatesMap().entrySet().stream()
+                .collect(java.util.stream.Collectors.toMap(e -> e.getKey().name(), Map.Entry::getValue));
+        if (settings.getReminderTemplate() != null) {
+            map.put("reminderTemplate", settings.getReminderTemplate());
+        }
+        dto.setTemplates(map);
+        dto.setReminderTemplate(settings.getReminderTemplate());
         return dto;
     }
 
@@ -464,6 +469,7 @@ public class StoreService {
         settings.setBotToken(dto.getBotToken());
         settings.setBotUsername(dto.getBotUsername());
         settings.setRemindersEnabled(dto.isRemindersEnabled());
+        settings.setReminderTemplate(dto.getReminderTemplate());
 
         // Составляем карту существующих шаблонов для быстрого доступа
         Map<BuyerStatus, StoreTelegramTemplate> current = new EnumMap<>(BuyerStatus.class);
@@ -473,7 +479,12 @@ public class StoreService {
 
         if (dto.isUseCustomTemplates()) {
             // Обновляем или создаём шаблоны
-            dto.getTemplates().forEach((statusName, text) -> {
+            Map<String, String> map = new java.util.HashMap<>(dto.getTemplates());
+            String reminderText = map.remove("reminderTemplate");
+            if (reminderText != null) {
+                settings.setReminderTemplate(reminderText);
+            }
+            map.forEach((statusName, text) -> {
                 if (!isValidBuyerStatus(statusName)) {
                     log.warn("⚠ Неизвестный статус шаблона: {}", statusName);
                     throw new InvalidTemplateException("Неизвестный статус: " + statusName);

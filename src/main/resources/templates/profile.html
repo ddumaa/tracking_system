@@ -502,6 +502,15 @@
                                name="reminderRepeatIntervalDays"
                                th:value="${store.telegramSettings?.reminderRepeatIntervalDays ?: 2}" min="1" max="14">
                     </div>
+                    <div class="mb-2">
+                        <label class="form-label" th:for="'tg-remind-tpl-' + ${store.id}">Текст напоминания</label>
+                        <textarea class="form-control form-control-sm"
+                                  th:id="'tg-remind-tpl-' + ${store.id}"
+                                  name="reminderTemplate" rows="3"
+                                  th:text="${store.telegramSettings?.reminderTemplate}"></textarea>
+                        <p th:if="${usingSystemBot}" class="form-text text-muted">Шаблон должен содержать: {track} и {store}</p>
+                        <p th:if="${!usingSystemBot}" class="form-text text-muted">Шаблон должен содержать: {track}</p>
+                    </div>
                 </div>
 
                 <div class="mb-2">

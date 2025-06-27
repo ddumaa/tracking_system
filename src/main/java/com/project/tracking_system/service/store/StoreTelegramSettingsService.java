@@ -82,6 +82,9 @@ public class StoreTelegramSettingsService {
         if (dto.isUseCustomTemplates() && dto.getTemplates() != null) {
             dto.getTemplates().values().forEach(t -> validateTemplate(t, requireStorePlaceholder));
         }
+        if (dto.getReminderTemplate() != null && !dto.getReminderTemplate().isBlank()) {
+            validateTemplate(dto.getReminderTemplate(), requireStorePlaceholder);
+        }
 
         // Передаём обработку полей общему сервису
         storeService.updateFromDto(settings, dto);
