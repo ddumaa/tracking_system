@@ -10,6 +10,7 @@ import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
 import com.project.tracking_system.repository.StoreTelegramTemplateRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.telegram.TelegramBotValidationService;
+import com.project.tracking_system.service.telegram.TelegramNotificationService;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.store.StoreTelegramSettingsService;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +42,8 @@ class StoreTelegramSettingsServiceTest {
     private StoreTelegramTemplateRepository storeTelegramTemplateRepository;
     @Mock
     private TelegramBotValidationService botValidationService;
+    @Mock
+    private TelegramNotificationService telegramNotificationService;
 
     @InjectMocks
     private StoreTelegramSettingsService service;
@@ -123,5 +126,33 @@ class StoreTelegramSettingsServiceTest {
         assertDoesNotThrow(() -> service.update(store, dto, 1L));
         verify(settingsRepository).save(settings);
         org.junit.jupiter.api.Assertions.assertEquals("token", settings.getBotToken());
+    }
+
+    @Test
+    void connectCustomBot_ReplacesToken_InvalidatesOldClient() {
+        StoreTelegramSettings settings = new StoreTelegramSettings();
+        settings.setBotToken("old");
+        when(settingsRepository.findByStoreId(1L)).thenReturn(settings);
+        when(subscriptionService.canUseCustomBot(1L)).thenReturn(true);
+        when(botValidationService.validateToken("new")).thenReturn("bot");
+
+        service.connectCustomBot(store, "new", 1L);
+
+        verify(settingsRepository).save(settings);
+        verify(telegramNotificationService).invalidateClient("old");
+        org.junit.jupiter.api.Assertions.assertEquals("new", settings.getBotToken());
+    }
+
+    @Test
+    void removeCustomBot_InvalidatesOldClient() {
+        StoreTelegramSettings settings = new StoreTelegramSettings();
+        settings.setBotToken("old");
+        when(settingsRepository.findByStoreId(1L)).thenReturn(settings);
+
+        service.removeCustomBot(store);
+
+        verify(settingsRepository).save(settings);
+        verify(telegramNotificationService).invalidateClient("old");
+        org.junit.jupiter.api.Assertions.assertNull(settings.getBotToken());
     }
 }

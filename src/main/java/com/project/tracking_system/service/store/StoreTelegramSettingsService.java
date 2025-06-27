@@ -10,6 +10,7 @@ import com.project.tracking_system.exception.InvalidTemplateException;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.telegram.TelegramBotValidationService;
+import com.project.tracking_system.service.telegram.TelegramNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ public class StoreTelegramSettingsService {
     private final StoreService storeService;
     private final StoreTelegramTemplateRepository storeTelegramTemplateRepository;
     private final TelegramBotValidationService botValidationService;
+    private final TelegramNotificationService telegramNotificationService;
 
     /**
      * Создать или обновить настройки Telegram магазина.
@@ -142,11 +144,14 @@ public class StoreTelegramSettingsService {
             settings.setStore(store);
         }
 
+        String oldToken = settings.getBotToken();
+
         String username = botValidationService.validateToken(botToken);
         settings.setBotToken(botToken);
         settings.setBotUsername(username);
 
         settingsRepository.save(settings);
+        telegramNotificationService.invalidateClient(oldToken);
         store.setTelegramSettings(settings);
         log.info("Пользовательский бот сохранён для магазина ID={}", store.getId());
         return username;
@@ -164,9 +169,12 @@ public class StoreTelegramSettingsService {
             return;
         }
 
+        String oldToken = settings.getBotToken();
+
         settings.setBotToken(null);
         settings.setBotUsername(null);
         settingsRepository.save(settings);
+        telegramNotificationService.invalidateClient(oldToken);
         store.setTelegramSettings(settings);
         log.info("Пользовательский бот удалён для магазина ID={}", store.getId());
     }
