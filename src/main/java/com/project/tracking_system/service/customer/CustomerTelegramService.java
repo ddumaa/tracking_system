@@ -36,9 +36,11 @@ public class CustomerTelegramService {
     /**
      * Привязать чат Telegram к покупателю по номеру телефона.
      * <p>
-     * Номер телефона нормализуется до формата 375XXXXXXXXX. Если покупатель с
-     * таким номером существует и не имеет привязанного чата, чат будет сохранён.
-     * При отсутствии покупателя создаётся новая запись с нейтральной репутацией.
+     * Номер телефона нормализуется до формата 375XXXXXXXXX. Если покупатель
+     * с таким номером существует и не имеет привязанного чата, будет создана
+     * новая привязка. При отсутствии покупателя создаётся новая запись.
+     * Для новых связей флаги {@code telegramConfirmed} и
+     * {@code notificationsEnabled} устанавливаются в {@code true}.
      * Повторная привязка уже связанного покупателя игнорируется.
      * </p>
      *
@@ -65,6 +67,9 @@ public class CustomerTelegramService {
         link.setCustomer(customer);
         link.setTelegramChatId(chatId);
         link.setLinkedAt(ZonedDateTime.now(ZoneOffset.UTC));
+        link.setTelegramConfirmed(true);
+        link.setNotificationsEnabled(true);
+
         CustomerTelegramLink saved = linkRepository.save(link);
         log.info("✅ Чат {} привязан к покупателю {}", chatId, customer.getId());
         return saved;
@@ -74,7 +79,8 @@ public class CustomerTelegramService {
      * Создать или обновить привязку к магазину по номеру телефона.
      * <p>
      * Если привязка для указанного магазина уже существует, обновляется chatId
-     * и дата привязки. Иначе создаётся новая запись.
+     * и дата привязки. Иначе создаётся новая запись с подтверждённым Telegram
+     * и включёнными уведомлениями.
      * </p>
      *
      * @param phone  номер телефона покупателя
@@ -100,6 +106,12 @@ public class CustomerTelegramService {
         link.setStore(store);
         link.setTelegramChatId(chatId);
         link.setLinkedAt(ZonedDateTime.now(ZoneOffset.UTC));
+
+        if (existing.isEmpty()) {
+            link.setTelegramConfirmed(true);
+            link.setNotificationsEnabled(true);
+        }
+
         CustomerTelegramLink saved = linkRepository.save(link);
         log.info("✅ Привязка сохранена для покупателя {} и магазина {}", customer.getId(),
                 store != null ? store.getId() : null);
