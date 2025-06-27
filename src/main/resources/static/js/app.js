@@ -469,10 +469,31 @@ function initTelegramReminderBlocks() {
         if (!enabledCb) return;
 
         const updateVisibility = () => {
-            if (remindersBlock) toggleFieldsVisibility(enabledCb, remindersBlock);
+            if (remindersBlock) {
+                const wasHidden = remindersBlock.classList.contains('hidden');
+                toggleFieldsVisibility(enabledCb, remindersBlock);
+                if (enabledCb.checked && wasHidden) {
+                    setTimeout(() => {
+                        window.scrollTo({
+                            top: document.body.scrollHeight,
+                            behavior: 'smooth'
+                        });
+                    }, 100);
+                }
+            }
+
             if (reminderFields && remindersCb) {
                 if (enabledCb.checked) {
+                    const wasHidden = reminderFields.classList.contains('hidden');
                     toggleFieldsVisibility(remindersCb, reminderFields);
+                    if (remindersCb.checked && wasHidden) {
+                        setTimeout(() => {
+                            window.scrollTo({
+                                top: document.body.scrollHeight,
+                                behavior: 'smooth'
+                            });
+                        }, 100);
+                    }
                 } else {
                     reminderFields.classList.add('hidden');
                 }
@@ -484,7 +505,18 @@ function initTelegramReminderBlocks() {
 
         enabledCb.addEventListener('change', updateVisibility);
         remindersCb?.addEventListener('change', () => {
-            if (reminderFields) toggleFieldsVisibility(remindersCb, reminderFields);
+            if (reminderFields) {
+                const wasHidden = reminderFields.classList.contains('hidden');
+                toggleFieldsVisibility(remindersCb, reminderFields);
+                if (remindersCb.checked && wasHidden) {
+                    setTimeout(() => {
+                        window.scrollTo({
+                            top: document.body.scrollHeight,
+                            behavior: 'smooth'
+                        });
+                    }, 100);
+                }
+            }
         });
     });
 }
@@ -496,7 +528,18 @@ function initTelegramTemplateBlocks() {
         const fields = form.querySelector('.custom-template-fields');
         if (!cb || !fields) return;
 
-        const update = () => toggleFieldsVisibility(cb, fields);
+        const update = () => {
+            const wasHidden = fields.classList.contains('hidden');
+            toggleFieldsVisibility(cb, fields);
+            if (cb.checked && wasHidden) {
+                setTimeout(() => {
+                    window.scrollTo({
+                        top: document.body.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                }, 100);
+            }
+        };
         update();
         cb.addEventListener('change', update);
     });
