@@ -9,15 +9,13 @@ import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.repository.CustomerTelegramLinkRepository;
 import com.project.tracking_system.entity.CustomerTelegramLink;
 import com.project.tracking_system.service.store.StoreTelegramSettingsService;
+import com.project.tracking_system.service.telegram.TelegramBotResolverService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
-import com.project.tracking_system.service.telegram.TelegramClientFactory;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Сервис отправки уведомлений в Telegram-покупателям.
@@ -27,13 +25,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class TelegramNotificationService {
 
-    private final TelegramClient telegramClient;
     private final CustomerService customerService;
     private final CustomerTelegramLinkRepository linkRepository;
     private final StoreTelegramSettingsService telegramSettingsService;
-    private final TelegramClientFactory telegramClientFactory;
-    /** Кэш клиентов Telegram для пользовательских ботов. */
-    private final Map<String, TelegramClient> clientCache = new ConcurrentHashMap<>();
+    private final TelegramBotResolverService botResolverService;
 
     /**
      * Удаляет клиента, связанный с указанным токеном, из кэша.
@@ -41,9 +36,7 @@ public class TelegramNotificationService {
      * @param token токен бота
      */
     public void invalidateClient(String token) {
-        if (token != null && !token.isBlank()) {
-            clientCache.remove(token);
-        }
+        botResolverService.invalidateClient(token);
     }
 
     /**
@@ -52,9 +45,7 @@ public class TelegramNotificationService {
      * @param settings настройки Telegram магазина
      */
     public void invalidateClient(StoreTelegramSettings settings) {
-        if (settings != null) {
-            invalidateClient(settings.getBotToken());
-        }
+        botResolverService.invalidateClient(settings);
     }
 
     /**
@@ -104,7 +95,7 @@ public class TelegramNotificationService {
         }
 
         SendMessage message = new SendMessage(chatId.toString(), text);
-        TelegramClient client = resolveClient(settings);
+        TelegramClient client = botResolverService.resolveBotForStore(parcel.getStore());
 
         try {
             client.execute(message);
@@ -157,7 +148,7 @@ public class TelegramNotificationService {
 
         SendMessage message = new SendMessage(chatId.toString(), text);
 
-        TelegramClient client = resolveClient(settings);
+        TelegramClient client = botResolverService.resolveBotForStore(parcel.getStore());
 
         try {
             client.execute(message);
@@ -167,21 +158,6 @@ public class TelegramNotificationService {
         }
     }
 
-    // Получение TelegramClient с учётом пользовательского токена
-    private TelegramClient resolveClient(StoreTelegramSettings settings) {
-        if (settings == null || telegramSettingsService.isUsingSystemBot(settings)) {
-            return telegramClient; // Используем системного бота
-        }
-
-        String token = settings.getBotToken();
-
-        if (token == null || token.isBlank()) {
-            return telegramClient;
-        }
-
-        // Создаём или возвращаем из кэша клиента для указанного токена
-        return clientCache.computeIfAbsent(token, telegramClientFactory::create);
-    }
 
     // Получение chatId покупателя из привязки к магазину
     private Long getChatId(TrackParcel parcel) {
