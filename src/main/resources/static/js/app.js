@@ -470,30 +470,14 @@ function initTelegramReminderBlocks() {
 
         const updateVisibility = () => {
             if (remindersBlock) {
-                const wasHidden = remindersBlock.classList.contains('hidden');
                 toggleFieldsVisibility(enabledCb, remindersBlock);
-                if (enabledCb.checked && wasHidden) {
-                    setTimeout(() => {
-                        window.scrollTo({
-                            top: document.body.scrollHeight,
-                            behavior: 'smooth'
-                        });
-                    }, 100);
-                }
+                // Отображаем блок без прокрутки страницы
             }
 
             if (reminderFields && remindersCb) {
                 if (enabledCb.checked) {
-                    const wasHidden = reminderFields.classList.contains('hidden');
                     toggleFieldsVisibility(remindersCb, reminderFields);
-                    if (remindersCb.checked && wasHidden) {
-                        setTimeout(() => {
-                            window.scrollTo({
-                                top: document.body.scrollHeight,
-                                behavior: 'smooth'
-                            });
-                        }, 100);
-                    }
+                    // Отображаем поля напоминаний без прокрутки страницы
                 } else {
                     reminderFields.classList.add('hidden');
                 }
@@ -506,16 +490,8 @@ function initTelegramReminderBlocks() {
         enabledCb.addEventListener('change', updateVisibility);
         remindersCb?.addEventListener('change', () => {
             if (reminderFields) {
-                const wasHidden = reminderFields.classList.contains('hidden');
                 toggleFieldsVisibility(remindersCb, reminderFields);
-                if (remindersCb.checked && wasHidden) {
-                    setTimeout(() => {
-                        window.scrollTo({
-                            top: document.body.scrollHeight,
-                            behavior: 'smooth'
-                        });
-                    }, 100);
-                }
+                // Отображаем поля напоминаний без прокрутки страницы
             }
         });
     });
