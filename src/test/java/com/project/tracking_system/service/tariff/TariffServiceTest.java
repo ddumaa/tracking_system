@@ -65,7 +65,11 @@ class TariffServiceTest {
         customBot.setFeatureKey(FeatureKey.CUSTOM_BOT);
         customBot.setEnabled(true);
         customBot.setSubscriptionPlan(plan);
-        plan.setFeatures(List.of(bulk, auto, telegram, customBot));
+        SubscriptionFeature customNotifications = new SubscriptionFeature();
+        customNotifications.setFeatureKey(FeatureKey.CUSTOM_NOTIFICATIONS);
+        customNotifications.setEnabled(true);
+        customNotifications.setSubscriptionPlan(plan);
+        plan.setFeatures(List.of(bulk, auto, telegram, customBot, customNotifications));
     }
 
     @Test
@@ -82,6 +86,7 @@ class TariffServiceTest {
         assertEquals("150.00 BYN/год", dto.getAnnualPriceLabel());
         assertEquals("180.00 BYN", dto.getAnnualFullPriceLabel());
         assertEquals("выгода −17%", dto.getAnnualDiscountLabel());
+        assertTrue(dto.isAllowCustomNotifications());
     }
 
     @Test
@@ -106,6 +111,7 @@ class TariffServiceTest {
         assertTrue(dto.isAllowAutoUpdate());
         assertTrue(dto.isAllowTelegramNotifications());
         assertTrue(dto.isAllowCustomBot());
+        assertTrue(dto.isAllowCustomNotifications());
         assertEquals("15.00 BYN/мес", dto.getMonthlyPriceLabel());
         assertEquals("150.00 BYN/год", dto.getAnnualPriceLabel());
         assertEquals("180.00 BYN", dto.getAnnualFullPriceLabel());

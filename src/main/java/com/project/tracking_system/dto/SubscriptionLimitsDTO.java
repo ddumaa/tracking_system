@@ -21,4 +21,6 @@ public class SubscriptionLimitsDTO {
     private Integer maxStores;
     private boolean allowTelegramNotifications;
     private boolean allowCustomBot;
+    /** Возможность использовать собственные шаблоны уведомлений. */
+    private boolean allowCustomNotifications;
 }

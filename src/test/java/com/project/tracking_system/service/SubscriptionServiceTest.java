@@ -187,6 +187,20 @@ class SubscriptionServiceTest {
     }
 
     @Test
+    void canUseCustomNotifications_DelegatesToFeatureCheck() {
+        when(userSubscriptionRepository.getSubscriptionPlanCode(6L)).thenReturn("PREMIUM");
+        SubscriptionFeature feature = new SubscriptionFeature();
+        feature.setFeatureKey(FeatureKey.CUSTOM_NOTIFICATIONS);
+        feature.setEnabled(true);
+        SubscriptionPlan plan = new SubscriptionPlan();
+        plan.setCode("PREMIUM");
+        plan.setFeatures(List.of(feature));
+        when(subscriptionPlanRepository.findByCode("PREMIUM")).thenReturn(Optional.of(plan));
+
+        assertTrue(subscriptionService.canUseCustomNotifications(6L));
+    }
+
+    @Test
     void changeSubscription_ToPaidPlan_SetsEndDate() {
         UserSubscription subscription = new UserSubscription();
         subscription.setUser(new User());

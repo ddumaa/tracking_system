@@ -23,7 +23,12 @@ public enum FeatureKey {
     /**
      * Использование собственного Telegram-бота.
      */
-    CUSTOM_BOT("customBot");
+    CUSTOM_BOT("customBot"),
+
+    /**
+     * Использование собственных шаблонов уведомлений.
+     */
+    CUSTOM_NOTIFICATIONS("customNotifications");
 
     private final String key;
 

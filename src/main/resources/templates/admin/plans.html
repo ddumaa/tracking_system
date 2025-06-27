@@ -23,6 +23,7 @@
             <th>Автообновление</th>
             <th>Telegram-уведомления</th>
             <th>Собственный бот</th>
+            <th>Свои уведомления</th>
             <th>Активный</th>
             <th>Действия</th>
         </tr>
@@ -43,6 +44,7 @@
                 <td class="text-center"><input type="checkbox" name="limits.allowAutoUpdate" th:checked="${plan.limits.allowAutoUpdate}" /></td>
                 <td class="text-center"><input type="checkbox" name="limits.allowTelegramNotifications" th:checked="${plan.limits.allowTelegramNotifications}" /></td>
                 <td class="text-center"><input type="checkbox" name="limits.allowCustomBot" th:checked="${plan.limits.allowCustomBot}" /></td>
+                <td class="text-center"><input type="checkbox" name="limits.allowCustomNotifications" th:checked="${plan.limits.allowCustomNotifications}" /></td>
                 <td class="text-center"><input type="checkbox" name="active" th:checked="${plan.active}" /></td>
                 <td>
                     <button type="submit" class="btn btn-success btn-sm me-1">Сохранить</button>
@@ -112,6 +114,12 @@
             <div class="form-check">
                 <input id="plan-custom-bot" type="checkbox" name="limits.allowCustomBot" class="form-check-input" />
                 <label class="form-check-label" for="plan-custom-bot">Собственный бот</label>
+            </div>
+        </div>
+        <div class="col-md-1">
+            <div class="form-check">
+                <input id="plan-custom-notify" type="checkbox" name="limits.allowCustomNotifications" class="form-check-input" />
+                <label class="form-check-label" for="plan-custom-notify">Свои уведомления</label>
             </div>
         </div>
         <div class="col-md-1">

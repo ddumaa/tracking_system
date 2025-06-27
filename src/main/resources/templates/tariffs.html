@@ -83,6 +83,10 @@
                                 <span th:if="${plan.allowCustomBot}">🤖 Собственный бот</span>
                                 <span th:unless="${plan.allowCustomBot}" class="text-muted">❌ Собственный бот</span>
                             </li>
+                            <li>
+                                <span th:if="${plan.allowCustomNotifications}">✏️ Свои уведомления</span>
+                                <span th:unless="${plan.allowCustomNotifications}" class="text-muted">❌ Свои уведомления</span>
+                            </li>
                         </ul>
 
 
