@@ -87,6 +87,24 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
                                              @Param("finalStatuses") List<GlobalStatus> finalStatuses);
 
     /**
+     * Найти активные посылки покупателя в конкретном магазине.
+     *
+     * @param customerId идентификатор покупателя
+     * @param storeId    идентификатор магазина
+     * @param finalStatuses статусы, при которых посылка считается завершённой
+     * @return список посылок
+     */
+    @Query("""
+            SELECT t FROM TrackParcel t
+            WHERE t.customer.id = :customerId
+              AND t.store.id = :storeId
+              AND t.status NOT IN (:finalStatuses)
+            """)
+    List<TrackParcel> findActiveByCustomerIdAndStoreId(@Param("customerId") Long customerId,
+                                                      @Param("storeId") Long storeId,
+                                                      @Param("finalStatuses") List<GlobalStatus> finalStatuses);
+
+    /**
      * Получить все посылки с загруженными пользователем и магазином.
      *
      * @return список посылок
