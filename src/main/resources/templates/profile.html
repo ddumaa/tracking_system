@@ -510,6 +510,9 @@
                                   th:text="${store.telegramSettings?.reminderTemplate}"></textarea>
                         <p th:if="${usingSystemBot}" class="form-text text-muted">Шаблон должен содержать: {track} и {store}</p>
                         <p th:if="${!usingSystemBot}" class="form-text text-muted">Шаблон должен содержать: {track}</p>
+                        <p th:if="${#strings.isEmpty(store.telegramSettings?.reminderTemplate)}" class="form-text">
+                            Пример уведомления: "🔔 Не забудьте забрать посылку {track} из магазина {store} — она ждёт вас."
+                        </p>
                     </div>
                 </div>
 
