@@ -106,4 +106,22 @@ class StoreTelegramSettingsServiceTest {
 
         assertDoesNotThrow(() -> service.update(store, dto, 1L));
     }
+
+    @Test
+    void update_ExistingCustomBot_TokenNotProvided_BotRemains() {
+        StoreTelegramSettings settings = new StoreTelegramSettings();
+        settings.setBotToken("token");
+        settings.setBotUsername("bot");
+        when(settingsRepository.findByStoreId(1L)).thenReturn(settings);
+        when(subscriptionService.isFeatureEnabled(1L, FeatureKey.TELEGRAM_NOTIFICATIONS)).thenReturn(true);
+        when(subscriptionService.canUseCustomNotifications(1L)).thenReturn(true);
+
+        StoreTelegramSettingsDTO dto = new StoreTelegramSettingsDTO();
+        dto.setUseCustomTemplates(true);
+        dto.getTemplates().put("SENT", "Посылка {track}");
+
+        assertDoesNotThrow(() -> service.update(store, dto, 1L));
+        verify(settingsRepository).save(settings);
+        org.junit.jupiter.api.Assertions.assertEquals("token", settings.getBotToken());
+    }
 }
