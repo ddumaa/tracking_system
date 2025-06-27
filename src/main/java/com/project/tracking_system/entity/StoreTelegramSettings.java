@@ -57,6 +57,10 @@ public class StoreTelegramSettings {
     @Column(name = "reminders_enabled", nullable = false)
     private boolean remindersEnabled = false;
 
+    /** Шаблон напоминания покупателю. */
+    @Column(name = "reminder_template", columnDefinition = "text")
+    private String reminderTemplate;
+
     @OneToMany(mappedBy = "settings", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JsonIgnore
     private List<StoreTelegramTemplate> templates = new ArrayList<>();

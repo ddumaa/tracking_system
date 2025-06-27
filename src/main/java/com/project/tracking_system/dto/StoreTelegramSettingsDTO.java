@@ -42,4 +42,7 @@ public class StoreTelegramSettingsDTO {
 
     /** Статус → шаблон сообщения. */
     private Map<String, String> templates = new HashMap<>();
+
+    /** Шаблон напоминания. */
+    private String reminderTemplate;
 }

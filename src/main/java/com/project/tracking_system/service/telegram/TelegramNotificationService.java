@@ -111,11 +111,18 @@ public class TelegramNotificationService {
             return;
         }
 
-        String text = String.format(
-                "🔔 Не забудьте забрать посылку %s из магазина %s — она ждёт вас в пункте выдачи.",
-                parcel.getNumber(),
-                parcel.getStore().getName()
-        );
+        String text;
+        if (settings != null && settings.getReminderTemplate() != null && !settings.getReminderTemplate().isBlank()) {
+            text = settings.getReminderTemplate()
+                    .replace("{track}", parcel.getNumber())
+                    .replace("{store}", parcel.getStore().getName());
+        } else {
+            text = String.format(
+                    "🔔 Не забудьте забрать посылку %s из магазина %s — она ждёт вас в пункте выдачи.",
+                    parcel.getNumber(),
+                    parcel.getStore().getName()
+            );
+        }
 
         if (settings != null && settings.getCustomSignature() != null && !settings.getCustomSignature().isBlank()) {
             text += "\n\n" + settings.getCustomSignature();
