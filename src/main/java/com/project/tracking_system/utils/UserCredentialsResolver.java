@@ -21,6 +21,14 @@ public class UserCredentialsResolver {
     private final EncryptionUtils encryptionUtils;
     private final JsonPacket jsonPacket;
 
+    /**
+     * Определяет, какие учётные данные использовать для работы с API Evropost.
+     * Если пользовательские данные заданы и валидны, будут использованы они,
+     * иначе применяются системные данные.
+     *
+     * @param user пользователь, для которого подбираются данные
+     * @return объект с JWT и номером сервиса
+     */
     public ResolvedCredentialsDTO resolveCredentials(User user) {
         log.info("Начинается проверка использования данных для api evropost для пользователя: {}", user.getEmail());
 
@@ -63,6 +71,11 @@ public class UserCredentialsResolver {
         }
     }
 
+    /**
+     * Возвращает системные учётные данные для API Evropost.
+     *
+     * @return объект с системным JWT и номером сервиса
+     */
     public ResolvedCredentialsDTO getSystemCredentials() {
         return new ResolvedCredentialsDTO(
                 jwtTokenManager.getSystemToken(),

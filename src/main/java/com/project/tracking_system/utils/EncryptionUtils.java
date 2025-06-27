@@ -25,6 +25,13 @@ public class EncryptionUtils {
         this.secretKeySpec = new SecretKeySpec(key.getBytes(), ALGORITHM);
     }
 
+    /**
+     * Шифрует переданные данные алгоритмом AES.
+     *
+     * @param data исходная строка
+     * @return зашифрованная строка в формате Base64
+     * @throws Exception если произошла ошибка при шифровании
+     */
     public String encrypt(String data) throws Exception {
         Cipher cipher = Cipher.getInstance(TRANSFORMATION);
         cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec);
@@ -32,6 +39,13 @@ public class EncryptionUtils {
         return Base64.getEncoder().encodeToString(encryptedData);
     }
 
+    /**
+     * Расшифровывает строку, полученную после {@link #encrypt(String)}.
+     *
+     * @param encryptedData зашифрованная строка в формате Base64
+     * @return исходная строка или пустая строка, если входные данные пусты
+     * @throws Exception если произошла ошибка при расшифровке
+     */
     public String decrypt(String encryptedData) throws Exception {
         if (encryptedData == null || encryptedData.isBlank()) {
             return "";
