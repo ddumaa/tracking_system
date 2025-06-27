@@ -43,4 +43,21 @@ public interface CustomerTelegramLinkRepository extends JpaRepository<CustomerTe
      * @return найденная привязка или {@link java.util.Optional#empty()}
      */
     Optional<CustomerTelegramLink> findByCustomerIdAndStoreId(Long customerId, Long storeId);
+
+    /**
+     * Найти привязку Telegram по чату и магазину.
+     *
+     * @param chatId  идентификатор чата Telegram
+     * @param storeId идентификатор магазина
+     * @return найденная привязка или {@link java.util.Optional#empty()}
+     */
+    Optional<CustomerTelegramLink> findByTelegramChatIdAndStoreId(Long chatId, Long storeId);
+
+    /**
+     * Найти активные привязки покупателя (подтверждённые и с включёнными уведомлениями).
+     *
+     * @param customerId идентификатор покупателя
+     * @return список активных привязок
+     */
+    List<CustomerTelegramLink> findByCustomerIdAndTelegramConfirmedTrueAndNotificationsEnabledTrue(Long customerId);
 }
