@@ -72,6 +72,15 @@ public interface StoreRepository extends JpaRepository<Store, Long> {
     List<Store> findByOwnerIdFetchSettings(@Param("ownerId") Long ownerId);
 
     /**
+     * Найти магазин с указанным токеном бота.
+     *
+     * @param token токен Telegram-бота
+     * @return магазин, которому назначен этот бот
+     */
+    @Query("SELECT s FROM Store s LEFT JOIN FETCH s.telegramSettings ts WHERE ts.botToken = :token")
+    Optional<Store> findByAssignedBotToken(@Param("token") String token);
+
+    /**
      * Получить все магазины с Telegram-настройками и подпиской владельца.
      *
      * @return список магазинов
