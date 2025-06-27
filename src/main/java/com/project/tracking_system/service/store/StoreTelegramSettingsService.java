@@ -78,6 +78,12 @@ public class StoreTelegramSettingsService {
             requireStorePlaceholder = true; // токен отсутствует, используется системный бот
         }
 
+        // Проверяем доступность пользовательских шаблонов уведомлений
+        if ((dto.isUseCustomTemplates() || (dto.getReminderTemplate() != null && !dto.getReminderTemplate().isBlank()))
+                && !subscriptionService.canUseCustomNotifications(userId)) {
+            throw new IllegalStateException("Собственные уведомления недоступны на вашем тарифе");
+        }
+
         // Проверяем содержимое пользовательских шаблонов при их использовании
         if (dto.isUseCustomTemplates() && dto.getTemplates() != null) {
             dto.getTemplates().values().forEach(t -> validateTemplate(t, requireStorePlaceholder));

@@ -529,13 +529,16 @@
                 <div class="form-check form-switch mb-2 ms-3">
                     <input class="form-check-input" type="checkbox" th:id="'tg-custom-templates-' + ${store.id}"
                            name="useCustomTemplates"
-                           th:checked="${store.telegramSettings?.templates?.size() > 0}">
+                           th:checked="${store.telegramSettings?.templates?.size() > 0}"
+                           th:disabled="${!planDetails.allowCustomNotifications}"
+                           th:attr="data-bs-toggle=${!planDetails.allowCustomNotifications} ? 'tooltip' : null,
+                                    title=${!planDetails.allowCustomNotifications} ? 'Доступно в тарифе \'Бизнес\' и выше' : null">
                     <label class="form-check-label" th:for="'tg-custom-templates-' + ${store.id}">
                         Использовать собственные сообщения
                     </label>
                 </div>
 
-                <div th:id="'tg-custom-template-fields-' + ${store.id}" class="ms-4 hidden custom-template-fields">
+                <div th:id="'tg-custom-template-fields-' + ${store.id}" class="ms-4 hidden custom-template-fields" th:if="${planDetails.allowCustomNotifications}">
                     <div th:each="status : ${T(com.project.tracking_system.entity.BuyerStatus).values()}">
                         <div class="mb-2">
                             <label class="form-label" th:for="${'tpl-' + status.name() + '-' + store.id}" th:text="${status.displayName}"></label>
@@ -549,6 +552,10 @@
                     <p th:if="${usingSystemBot}" class="form-text text-muted">Шаблон должен содержать: {track} и {store}</p>
                     <p th:if="${!usingSystemBot}" class="form-text text-muted">Шаблон должен содержать: {track}</p>
                 </div>
+
+                <p class="form-text text-danger mb-1" th:unless="${planDetails.allowCustomNotifications}">
+                    Функция собственных уведомлений доступна в тарифе "Бизнес" и выше
+                </p>
 
                 <button type="submit" class="btn btn-sm btn-primary w-100">Сохранить</button>
             </form>
