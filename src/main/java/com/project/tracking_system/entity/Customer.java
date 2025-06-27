@@ -1,10 +1,14 @@
 package com.project.tracking_system.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Покупатель, оформляющий заказы в системе.
@@ -33,14 +37,9 @@ public class Customer {
     @Column(name = "returned_count", nullable = false)
     private int returnedCount = 0;
 
-    @Column(name = "telegram_chat_id")
-    private Long telegramChatId;
-
-    @Column(name = "telegram_confirmed", nullable = false)
-    private boolean telegramConfirmed = false;
-
-    @Column(name = "notifications_enabled", nullable = false)
-    private boolean notificationsEnabled = true;
+    @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<CustomerTelegramLink> telegramLinks = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(name = "reputation", nullable = false)

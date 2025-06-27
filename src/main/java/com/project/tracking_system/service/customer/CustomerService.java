@@ -4,6 +4,7 @@ import com.project.tracking_system.entity.*;
 import com.project.tracking_system.dto.CustomerInfoDTO;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
+import com.project.tracking_system.repository.CustomerTelegramLinkRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.user.UserSettingsService;
 import com.project.tracking_system.model.subscription.FeatureKey;
@@ -28,6 +29,7 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final TrackParcelRepository trackParcelRepository;
+    private final CustomerTelegramLinkRepository linkRepository;
     private final CustomerTransactionalService transactionalService;
     private final CustomerStatsService customerStatsService;
     private final SubscriptionService subscriptionService;
@@ -215,8 +217,11 @@ public class CustomerService {
             return false;
         }
 
-        // Проверяем наличие привязанного чата и разрешение на уведомления
-        if (customer.getTelegramChatId() == null || !customer.isNotificationsEnabled()) {
+        // Проверяем наличие привязки Telegram и разрешение на уведомления
+        Long customerId = customer.getId();
+        Long storeId = store.getId();
+        Optional<CustomerTelegramLink> linkOpt = linkRepository.findByCustomerIdAndStoreId(customerId, storeId);
+        if (linkOpt.isEmpty() || !linkOpt.get().isNotificationsEnabled()) {
             return false;
         }
 

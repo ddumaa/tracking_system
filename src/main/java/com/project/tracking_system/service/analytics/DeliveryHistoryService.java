@@ -15,6 +15,8 @@ import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.service.customer.CustomerStatsService;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
+import com.project.tracking_system.repository.CustomerTelegramLinkRepository;
+import com.project.tracking_system.entity.CustomerTelegramLink;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
@@ -57,6 +59,7 @@ public class DeliveryHistoryService {
     private final CustomerStatsService customerStatsService;
     private final TelegramNotificationService telegramNotificationService;
     private final CustomerNotificationLogRepository customerNotificationLogRepository;
+    private final CustomerTelegramLinkRepository linkRepository;
     private final SubscriptionService subscriptionService;
 
     /**
@@ -596,7 +599,15 @@ public class DeliveryHistoryService {
     // Проверить необходимость отправки уведомления покупателю
     private boolean shouldNotifyCustomer(TrackParcel parcel, GlobalStatus status) {
         Customer customer = parcel.getCustomer();
-        if (customer == null || customer.getTelegramChatId() == null) {
+        if (customer == null) {
+            return false;
+        }
+
+        Long customerId = customer.getId();
+        Long storeId = parcel.getStore() != null ? parcel.getStore().getId() : null;
+        CustomerTelegramLink link = linkRepository.findByCustomerIdAndStoreId(customerId, storeId)
+                .orElseGet(() -> linkRepository.findByCustomerId(customerId).stream().findFirst().orElse(null));
+        if (link == null || !link.isNotificationsEnabled()) {
             return false;
         }
 

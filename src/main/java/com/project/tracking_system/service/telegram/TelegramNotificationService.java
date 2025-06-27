@@ -6,6 +6,8 @@ import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.StoreTelegramSettings;
 import com.project.tracking_system.mapper.BuyerStatusMapper;
 import com.project.tracking_system.service.customer.CustomerService;
+import com.project.tracking_system.repository.CustomerTelegramLinkRepository;
+import com.project.tracking_system.entity.CustomerTelegramLink;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,7 @@ public class TelegramNotificationService {
 
     private final TelegramClient telegramClient;
     private final CustomerService customerService;
+    private final CustomerTelegramLinkRepository linkRepository;
     private final TelegramClientFactory telegramClientFactory;
     /** Кэш клиентов Telegram для пользовательских ботов. */
     private final Map<String, TelegramClient> clientCache = new ConcurrentHashMap<>();
@@ -163,7 +166,15 @@ public class TelegramNotificationService {
         if (parcel == null || parcel.getCustomer() == null) {
             return null;
         }
-        return parcel.getCustomer().getTelegramChatId();
+
+        Long customerId = parcel.getCustomer().getId();
+        Long storeId = parcel.getStore() != null ? parcel.getStore().getId() : null;
+        return linkRepository.findByCustomerIdAndStoreId(customerId, storeId)
+                .map(CustomerTelegramLink::getTelegramChatId)
+                .orElseGet(() -> linkRepository.findByCustomerId(customerId).stream()
+                        .findFirst()
+                        .map(CustomerTelegramLink::getTelegramChatId)
+                        .orElse(null));
     }
 
 }
