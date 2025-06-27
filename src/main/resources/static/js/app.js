@@ -507,10 +507,10 @@ function initTelegramTemplateBlocks() {
         const fields = form.querySelector('.custom-template-fields');
         if (!cb || !fields) return;
 
-        const update = () => {
+        const update = (scrollOnShow = false) => {
             const wasHidden = fields.classList.contains('hidden');
             toggleFieldsVisibility(cb, fields);
-            if (cb.checked && wasHidden) {
+            if (scrollOnShow && cb.checked && wasHidden) {
                 setTimeout(() => {
                     window.scrollTo({
                         top: document.body.scrollHeight,
@@ -519,8 +519,8 @@ function initTelegramTemplateBlocks() {
                 }, 100);
             }
         };
-        update();
-        cb.addEventListener('change', update);
+        update(false);
+        cb.addEventListener('change', () => update(true));
     });
 }
 
