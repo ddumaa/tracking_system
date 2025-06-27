@@ -61,10 +61,13 @@ public class StoreTelegramSettingsService {
         }
 
         String token = dto.getBotToken();
+        boolean requireStorePlaceholder = true; // системный бот по умолчанию
+
         if (token != null && !token.isBlank()) {
             try {
                 String username = connectCustomBot(store, token, userId);
                 dto.setBotUsername(username);
+                requireStorePlaceholder = false; // использован пользовательский бот
             } catch (Exception e) {
                 webSocketController.sendUpdateStatus(userId, "Неверный токен бота", false);
                 throw e;
@@ -72,11 +75,12 @@ public class StoreTelegramSettingsService {
         } else {
             removeCustomBot(store);
             dto.setBotUsername(null);
+            requireStorePlaceholder = true; // токен отсутствует, используется системный бот
         }
 
         // Проверяем содержимое пользовательских шаблонов при их использовании
         if (dto.isUseCustomTemplates() && dto.getTemplates() != null) {
-            dto.getTemplates().values().forEach(this::validateTemplate);
+            dto.getTemplates().values().forEach(t -> validateTemplate(t, requireStorePlaceholder));
         }
 
         // Передаём обработку полей общему сервису
@@ -88,9 +92,13 @@ public class StoreTelegramSettingsService {
     }
 
     // Проверяем наличие обязательных плейсхолдеров
-    private void validateTemplate(String template) {
-        if (!template.contains("{track}") || !template.contains("{store}")) {
-            throw new InvalidTemplateException("Шаблон должен содержать {track} и {store}");
+    private void validateTemplate(String template, boolean requireStore) {
+        boolean hasTrack = template.contains("{track}");
+        boolean hasStore = template.contains("{store}");
+
+        if (!hasTrack || (requireStore && !hasStore)) {
+            String placeholders = requireStore ? "{track} и {store}" : "{track}";
+            throw new InvalidTemplateException("Шаблон должен содержать " + placeholders);
         }
     }
 
