@@ -46,6 +46,7 @@ public class StoreTelegramSettingsService {
     @Transactional
     public void update(Store store, StoreTelegramSettingsDTO dto, Long userId) {
         boolean enableRequested = dto.isEnabled();
+        boolean remindersEnabled = dto.isRemindersEnabled();
 
         if (enableRequested && !subscriptionService.isFeatureEnabled(userId, FeatureKey.TELEGRAM_NOTIFICATIONS)) {
             String msg = "Telegram-уведомления недоступны на вашем тарифе.";
@@ -89,7 +90,7 @@ public class StoreTelegramSettingsService {
             final boolean placeholderRequired = requireStorePlaceholder;
             dto.getTemplates().values().forEach(t -> validateTemplate(t, placeholderRequired));
         }
-        if (dto.getReminderTemplate() != null && !dto.getReminderTemplate().isBlank()) {
+        if (remindersEnabled && dto.getReminderTemplate() != null && !dto.getReminderTemplate().isBlank()) {
             validateTemplate(dto.getReminderTemplate(), requireStorePlaceholder);
         }
 
