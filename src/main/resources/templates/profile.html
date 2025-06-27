@@ -503,17 +503,31 @@
                                th:value="${store.telegramSettings?.reminderRepeatIntervalDays ?: 2}" min="1" max="14">
                     </div>
                     <div class="mb-2">
-                        <label class="form-label" th:for="'tg-remind-tpl-' + ${store.id}">Текст напоминания</label>
-                        <textarea class="form-control form-control-sm"
-                                  th:id="'tg-remind-tpl-' + ${store.id}"
-                                  name="reminderTemplate" rows="3"
-                                  th:text="${store.telegramSettings?.reminderTemplate}"></textarea>
-                        <p th:if="${usingSystemBot}" class="form-text text-muted">Шаблон должен содержать: {track} и {store}</p>
-                        <p th:if="${!usingSystemBot}" class="form-text text-muted">Шаблон должен содержать: {track}</p>
-                        <p th:if="${#strings.isEmpty(store.telegramSettings?.reminderTemplate)}" class="form-text">
-                            Пример уведомления: "🔔 Не забудьте забрать посылку {track} из магазина {store} — она ждёт вас."
-                        </p>
-                    </div>
+    <label class="form-label" th:for="'tg-remind-tpl-' + ${store.id}">Текст напоминания</label>
+    <textarea class="form-control form-control-sm"
+              th:id="'tg-remind-tpl-' + ${store.id}"
+              name="reminderTemplate" rows="3"
+              th:text="${store.telegramSettings?.reminderTemplate}"></textarea>
+
+    <!-- Если используется системный бот (нет botToken) -->
+    <p th:if="${store.telegramSettings == null or store.telegramSettings.botToken == null}"
+       class="form-text text-muted">
+        Шаблон должен содержать: {track} и {store}
+    </p>
+
+    <!-- Если кастомный бот -->
+    <p th:if="${store.telegramSettings?.botToken != null}"
+       class="form-text text-muted">
+        Шаблон должен содержать: {track}
+    </p>
+
+    <!-- Пример уведомления -->
+    <p th:if="${#strings.isEmpty(store.telegramSettings?.reminderTemplate)}"
+       class="form-text">
+        Пример уведомления: "🔔 Не забудьте забрать посылку {track} из магазина {store} — она ждёт вас."
+    </p>
+</div>
+
                 </div>
 
                 <div class="mb-2">
