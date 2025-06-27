@@ -420,7 +420,7 @@
                                th:checked="${store.telegramSettings?.botToken != null}"
                                th:disabled="${!planDetails.allowCustomBot}"
                                th:attr="data-bs-toggle=${!planDetails.allowCustomBot} ? 'tooltip' : null,
-                                    title=${!planDetails.allowCustomBot} ? 'Доступно в тарифе \'Бизнес\' и выше' : null"
+                                    title=${!planDetails.allowCustomBot} ? 'Доступно в тарифе \'Бизнес\' и выше' : null">
                               <label th:for="'tg-bot-custom-' + ${store.id}" th:id="'tg-custom-bot-label-' + ${store.id}">Собственный бот</label>
                     </div>
                     <button type="button" class="btn btn-link btn-sm p-0 ms-2 tg-edit-delete-btn"
