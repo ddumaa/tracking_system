@@ -1048,6 +1048,7 @@ async function appendTelegramBlock(store) {
     initTelegramCustomBotBlocks();
     initTelegramBotInfo();
     initTelegramNotificationsToggle();
+    initCustomerNotificationToggles();
 }
 
 const baseUrl = "/profile/stores"; // Базовый URL для всех запросов
@@ -1293,6 +1294,31 @@ function initTelegramBotInfo() {
         if (username) {
             updateBotInfo(storeId, username);
         }
+    });
+}
+
+// Переключатели уведомлений покупателей
+function initCustomerNotificationToggles() {
+    document.querySelectorAll('.customer-notification-toggle').forEach(cb => {
+        if (cb.dataset.init) return;
+        cb.dataset.init = 'true';
+        cb.addEventListener('change', async function () {
+            const linkId = this.getAttribute('data-link-id');
+            const storeId = this.getAttribute('data-store-id');
+            const formData = new URLSearchParams({ enabled: this.checked });
+            try {
+                const response = await fetch(`/stores/${storeId}/telegram-settings/links/${linkId}/notifications`, {
+                    method: 'POST',
+                    headers: { [window.csrfHeader]: window.csrfToken, 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData
+                });
+                if (!response.ok) {
+                    this.checked = !this.checked;
+                }
+            } catch (e) {
+                this.checked = !this.checked;
+            }
+        });
     });
 }
 

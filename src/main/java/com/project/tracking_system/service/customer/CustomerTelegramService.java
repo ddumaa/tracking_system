@@ -298,7 +298,7 @@ public class CustomerTelegramService {
      * @return {@code true}, если хотя бы одна привязка была включена
      */
     @Transactional
-    public boolean enableNotifications(Long chatId) {
+public boolean enableNotifications(Long chatId) {
         if (chatId == null) {
             return false;
         }
@@ -311,6 +311,58 @@ public class CustomerTelegramService {
             result[0] = true;
         });
         return result[0];
+    }
+
+    /**
+     * Получить список привязок Telegram для магазина.
+     *
+     * @param storeId идентификатор магазина
+     * @return список DTO привязок
+     */
+    @Transactional(readOnly = true)
+    public List<CustomerTelegramLinkDTO> getLinksByStore(Long storeId) {
+        if (storeId == null) {
+            return List.of();
+        }
+        return linkRepository.findByStoreId(storeId).stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    /**
+     * Изменить состояние уведомлений по привязке.
+     *
+     * @param linkId  идентификатор привязки
+     * @param storeId идентификатор магазина
+     * @param enabled новое состояние уведомлений
+     * @return {@code true}, если обновление прошло успешно
+     */
+    @Transactional
+    public boolean setNotificationsEnabled(Long linkId, Long storeId, boolean enabled) {
+        if (linkId == null || storeId == null) {
+            return false;
+        }
+
+        return linkRepository.findById(linkId)
+                .filter(link -> link.getStore() != null && link.getStore().getId().equals(storeId))
+                .map(link -> {
+                    link.setNotificationsEnabled(enabled);
+                    linkRepository.save(link);
+                    log.info("{} уведомления для покупателя {} в магазине {}", enabled ? "🔔 Включены" : "🔕 Отключены",
+                            link.getCustomer().getId(), storeId);
+                    return true;
+                })
+                .orElse(false);
+    }
+
+    private CustomerTelegramLinkDTO toDto(CustomerTelegramLink link) {
+        CustomerTelegramLinkDTO dto = new CustomerTelegramLinkDTO();
+        dto.setId(link.getId());
+        dto.setPhone(link.getCustomer().getPhone());
+        dto.setTelegramChatId(link.getTelegramChatId());
+        dto.setTelegramConfirmed(link.isTelegramConfirmed());
+        dto.setNotificationsEnabled(link.isNotificationsEnabled());
+        return dto;
     }
 
 }

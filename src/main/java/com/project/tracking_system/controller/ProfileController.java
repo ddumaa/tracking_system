@@ -10,6 +10,8 @@ import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.store.StoreTelegramSettingsService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.service.customer.CustomerTelegramService;
+import com.project.tracking_system.dto.CustomerTelegramLinkDTO;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -51,6 +53,7 @@ public class ProfileController {
     private final WebSocketController webSocketController;
     private final SubscriptionService subscriptionService;
     private final StoreTelegramSettingsService telegramSettingsService;
+    private final CustomerTelegramService customerTelegramService;
 
     /**
      * Отображает страницу профиля пользователя.
@@ -474,8 +477,10 @@ public class ProfileController {
         Long userId = user.getId();
         Store store = storeService.getStore(storeId, userId);
         boolean usingSystemBot = telegramSettingsService.isUsingSystemBot(store.getTelegramSettings());
+        List<CustomerTelegramLinkDTO> links = customerTelegramService.getLinksByStore(storeId);
         model.addAttribute("store", store);
         model.addAttribute("usingSystemBot", usingSystemBot);
+        model.addAttribute("links", links);
         return "profile :: telegramStoreBlock";
     }
 

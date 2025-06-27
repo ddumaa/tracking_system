@@ -11,6 +11,8 @@ import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.exception.InvalidTemplateException;
 import com.project.tracking_system.utils.ResponseBuilder;
 import com.project.tracking_system.controller.WebSocketController;
+import com.project.tracking_system.dto.CustomerTelegramLinkDTO;
+import com.project.tracking_system.service.customer.CustomerTelegramService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import jakarta.validation.Valid;
@@ -36,6 +38,7 @@ public class StoreTelegramSettingsController {
     private final StoreTelegramSettingsService telegramSettingsService;
     private final WebSocketController webSocketController;
     private final SubscriptionService subscriptionService;
+    private final CustomerTelegramService customerTelegramService;
 
     /**
      * Получить текущие настройки магазина.
@@ -211,6 +214,46 @@ public class StoreTelegramSettingsController {
             log.warn("Ошибка удаления бота: {}", e.getMessage());
             return ResponseBuilder.error(HttpStatus.FORBIDDEN, e.getMessage());
         }
+    }
+
+    /**
+     * Возвращает список Telegram-подписчиков магазина.
+     *
+     * @param storeId идентификатор магазина
+     * @param user    текущий пользователь
+     * @return список привязок в виде DTO
+     */
+    @GetMapping("/links")
+    @ResponseBody
+    public List<CustomerTelegramLinkDTO> getCustomerLinks(@PathVariable Long storeId,
+                                                          @AuthenticationPrincipal User user) {
+        Long userId = user.getId();
+        storeService.getStore(storeId, userId); // проверяем права
+        return customerTelegramService.getLinksByStore(storeId);
+    }
+
+    /**
+     * Изменяет состояние уведомлений для привязки.
+     *
+     * @param storeId идентификатор магазина
+     * @param linkId  идентификатор привязки
+     * @param enabled новое состояние уведомлений
+     * @param user    текущий пользователь
+     * @return результат операции
+     */
+    @PostMapping("/links/{linkId}/notifications")
+    @ResponseBody
+    public ResponseEntity<?> toggleNotifications(@PathVariable Long storeId,
+                                                 @PathVariable Long linkId,
+                                                 @RequestParam boolean enabled,
+                                                 @AuthenticationPrincipal User user) {
+        Long userId = user.getId();
+        storeService.getStore(storeId, userId); // проверка владельца
+        boolean result = customerTelegramService.setNotificationsEnabled(linkId, storeId, enabled);
+        if (result) {
+            return ResponseBuilder.ok(null);
+        }
+        return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Привязка не найдена");
     }
 
 }

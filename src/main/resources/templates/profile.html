@@ -582,6 +582,35 @@
 
                 <button type="submit" class="btn btn-sm btn-primary w-100">Сохранить</button>
             </form>
+
+            <div class="mt-3" th:if="${links}" >
+                <h6>Покупатели, подписанные на Telegram</h6>
+                <table class="table table-sm">
+                    <thead>
+                    <tr>
+                        <th>Телефон</th>
+                        <th>Подтверждено</th>
+                        <th>Уведомления</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="link : ${links}">
+                        <td th:text="${link.phone}"></td>
+                        <td>
+                            <i class="bi" th:classappend="${link.telegramConfirmed} ? 'bi-check-lg text-success' : 'bi-x-lg text-danger'"></i>
+                        </td>
+                        <td>
+                            <input class="form-check-input customer-notification-toggle"
+                                   type="checkbox"
+                                   th:id="'link-toggle-' + ${link.id}"
+                                   th:data-link-id="${link.id}"
+                                   th:data-store-id="${store.id}"
+                                   th:checked="${link.notificationsEnabled}">
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </th:block>
