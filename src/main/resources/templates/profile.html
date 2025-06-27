@@ -404,7 +404,7 @@
             <div class="flex-grow-1">
                 <h5 class="mb-1" th:text="${store.name}">Название магазина</h5>
 
-                <div th:if="${planDetails.allowCustomBot}" class="mb-1">
+                <div class="mb-1">
                     <div class="bot-selector">
                         <input type="radio"
                                th:id="'tg-bot-system-' + ${store.id}"
@@ -417,15 +417,17 @@
                                th:id="'tg-bot-custom-' + ${store.id}"
                                th:name="'tg-bot-type-' + ${store.id}"
                                value="custom"
-                               th:checked="${store.telegramSettings?.botToken != null}">
+                               th:checked="${store.telegramSettings?.botToken != null}"
+                               th:disabled="${!planDetails.allowCustomBot}"
+                               th:attrappend="${!planDetails.allowCustomBot} ? ' data-bs-toggle=tooltip title=\'Доступно в тарифе \"Бизнес\" и выше\'' : ''">
                         <label th:for="'tg-bot-custom-' + ${store.id}" th:id="'tg-custom-bot-label-' + ${store.id}">Собственный бот</label>
                     </div>
                     <button type="button" class="btn btn-link btn-sm p-0 ms-2 tg-edit-delete-btn"
                             th:id="'tg-edit-delete-bot-' + ${store.id}"
-                            th:if="${store.telegramSettings?.botToken != null}">Изменить / Удалить</button>
+                            th:if="${planDetails.allowCustomBot and store.telegramSettings?.botToken != null}">Изменить / Удалить</button>
 
                     <!-- Форма токена кастомного бота (показывается по JS при необходимости) -->
-                    <div th:id="'tg-custom-bot-fields-' + ${store.id}" class="mb-2 ms-4 hidden custom-bot-fields">
+                    <div th:id="'tg-custom-bot-fields-' + ${store.id}" class="mb-2 ms-4 hidden custom-bot-fields" th:if="${planDetails.allowCustomBot}">
                         <label class="form-label" th:for="'tg-token-' + ${store.id}">Токен собственного бота</label>
                         <input type="text" class="form-control form-control-sm" th:id="'tg-token-' + ${store.id}"
                                name="botToken" th:value="${store.telegramSettings?.botToken}">
