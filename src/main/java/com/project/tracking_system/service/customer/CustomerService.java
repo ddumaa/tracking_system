@@ -200,11 +200,14 @@ public class CustomerService {
     }
 
     /**
-     * Проверяет, можно ли отправлять уведомления покупателю.
+     * Проверяет, можно ли отправлять Telegram-уведомления покупателю в рамках
+     * конкретного магазина.
      * <p>
-     * Уведомления разрешены, если у покупателя указан идентификатор Telegram-чатa,
-     * включены уведомления и владелец магазина имеет тариф, допускающий отправку
-     * Telegram-уведомлений.
+     * Метод ищет привязку {@link CustomerTelegramLink} к переданному магазину и
+     * возвращает {@code false}, если привязка отсутствует, ещё не подтверждена
+     * или уведомления по ней отключены. Затем дополнительно проверяется
+     * наличие подписки владельца магазина на функцию Telegram-уведомлений и
+     * её активность в пользовательских настройках.
      * </p>
      *
      * @param customer покупатель
@@ -217,16 +220,16 @@ public class CustomerService {
             return false;
         }
 
-        // Проверяем наличие привязки Telegram и разрешение на уведомления
+        // Получаем привязку Telegram к конкретному магазину
         Long customerId = customer.getId();
         Long storeId = store.getId();
-        Optional<CustomerTelegramLink> linkOpt = linkRepository.findByCustomerIdAndStoreId(customerId, storeId);
-        if (linkOpt.isEmpty()) {
+        Optional<CustomerTelegramLink> storeLinkOpt = linkRepository.findByCustomerIdAndStoreId(customerId, storeId);
+        if (storeLinkOpt.isEmpty()) {
             return false;
         }
 
-        CustomerTelegramLink link = linkOpt.get();
-        if (!link.isNotificationsEnabled() || !link.isTelegramConfirmed()) {
+        CustomerTelegramLink storeLink = storeLinkOpt.get();
+        if (!storeLink.isTelegramConfirmed() || !storeLink.isNotificationsEnabled()) {
             return false;
         }
 
