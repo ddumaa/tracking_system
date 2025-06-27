@@ -552,7 +552,11 @@ function initTelegramCustomBotBlocks() {
 
         customRadio.addEventListener('click', () => {
             if (customRadio.checked) {
-                showFields();
+                if (fields.classList.contains('hidden')) {
+                    slideDown(fields);
+                } else {
+                    slideUp(fields);
+                }
             }
         });
 
@@ -1019,41 +1023,6 @@ async function appendTelegramBlock(store) {
     initTelegramTemplateBlocks();
     initTelegramCustomBotBlocks();
     initTelegramNotificationsToggle();
-}
-
-/**
- * Включает/выключает редактирование для магазина
- */
-function toggleEditStore(storeId) {
-    const inputField = document.getElementById(`store-name-${storeId}`);
-    const editBtn = document.querySelector(`.edit-store-btn[data-store-id="${storeId}"]`);
-    const saveBtn = document.querySelector(`.save-store-btn[data-store-id="${storeId}"]`);
-    const deleteBtn = document.querySelector(`.delete-store-btn[data-store-id="${storeId}"], .cancel-edit-store-btn[data-store-id="${storeId}"]`);
-
-    if (inputField.disabled) {
-        // Включаем редактирование
-        inputField.disabled = false;
-        inputField.focus();
-
-        editBtn.classList.add('d-none');
-        saveBtn.classList.remove('d-none');
-
-        // Меняем "Удалить" на "Отменить"
-        deleteBtn.classList.remove("delete-store-btn");
-        deleteBtn.classList.add("cancel-edit-store-btn");
-        deleteBtn.innerHTML = `<i class="bi bi-x"></i>`;
-    } else {
-        // Выключаем редактирование
-        inputField.disabled = true;
-
-        editBtn.classList.remove('d-none');
-        saveBtn.classList.add('d-none');
-
-        // Возвращаем кнопку "Удалить"
-        deleteBtn.classList.remove("cancel-edit-store-btn");
-        deleteBtn.classList.add("delete-store-btn");
-        deleteBtn.innerHTML = `<i class="bi bi-trash"></i>`;
-    }
 }
 
 const baseUrl = "/profile/stores"; // Базовый URL для всех запросов
@@ -1537,17 +1506,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
             const storeId = button.dataset.storeId;
 
-            if (button.classList.contains("edit-store-btn")) {
-                toggleEditStore(storeId);
-            }
             if (button.classList.contains("save-store-btn")) {
                 saveStore(storeId);
             }
             if (button.classList.contains("delete-store-btn")) {
                 confirmDeleteStore(storeId);
-            }
-            if (button.classList.contains("cancel-edit-store-btn")) {
-                toggleEditStore(storeId);
             }
             if (button.classList.contains("save-new-store-btn")) {
                 saveNewStore(event);
