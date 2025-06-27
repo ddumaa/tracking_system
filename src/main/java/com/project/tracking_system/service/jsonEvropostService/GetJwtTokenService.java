@@ -26,13 +26,15 @@ public class GetJwtTokenService {
     private final JsonPacket jsonPacket;
 
     /**
-     * Получает JWT токен от внешнего API.
+     * Получает системный JWT токен от внешнего API.
      * <p>
-     * Метод выполняет запрос для получения JWT токена, извлекает его из ответа и сохраняет в объект {@link JsonPacket}.
-     * Если токен не найден, выбрасывается исключение {@link RuntimeException}.
+     * Метод выполняет запрос для получения JWT токена, извлекает его из ответа
+     * и сохраняет в объект {@link JsonPacket}. Если токен не найден,
+     * выбрасывается исключение {@link RuntimeException}.
      * </p>
+     *
+     * @return JWT токен в виде строки
      */
-    // Получение системного токена
     public String getSystemTokenFromApi() {
 
         JsonDataAbstract data = new JsonGetJWTData(
@@ -65,7 +67,19 @@ public class GetJwtTokenService {
         return jwtNode.asText();
     }
 
-    // Получение пользовательского токена
+    /**
+     * Получает пользовательский JWT токен от внешнего API.
+     * <p>
+     * Метод выполняет запрос для получения JWT токена на основе переданных
+     * учетных данных пользователя. Если токен не найден, выбрасывается
+     * исключение {@link RuntimeException}.
+     * </p>
+     *
+     * @param username логин пользователя
+     * @param password пароль пользователя
+     * @param serviceNumber номер сервиса
+     * @return JWT токен в виде строки
+     */
     public String getUserTokenFromApi(String username, String password, String serviceNumber) {
 
         JsonDataAbstract data = new JsonGetJWTData(
