@@ -99,7 +99,7 @@
             <!-- Контент вкладок -->
             <div class="col-lg-9 col-md-8 tab-content" id="v-pills-tabContent">
 
-<div class="tab-pane fade show active" id="v-pills-home" role="tabpanel">
+<div class="tab-pane fade show active" id="v-pills-home" role="tabpanel" aria-labelledby="v-pills-home-tab">
     <div class="card p-3 shadow-sm rounded-4 mb-4">
         <h5 class="mb-3">Об аккаунте</h5>
         <hr class="my-3">
@@ -125,7 +125,7 @@
     </div>
 </div>
 
-<div class="tab-pane fade" id="v-pills-stores" role="tabpanel">
+<div class="tab-pane fade" id="v-pills-stores" role="tabpanel" aria-labelledby="stores-settings-link">
 
                     <!-- Контейнер для уведомлений -->
                     <div id="storeNotificationContainer"></div>
@@ -174,7 +174,7 @@
 
                 </div>
 
-<div class="tab-pane fade" id="v-pills-notifications" role="tabpanel">
+<div class="tab-pane fade" id="v-pills-notifications" role="tabpanel" aria-labelledby="notifications-settings-link">
     <div class="card p-3 shadow-sm rounded-4 mb-4">
         <h5 class="mb-3">Уведомления (Telegram)</h5>
         <form id="telegram-notifications-form" class="mt-2">
@@ -209,7 +209,7 @@
     </div>
 </div>
 
-<div class="tab-pane fade" id="v-pills-automation" role="tabpanel">
+<div class="tab-pane fade" id="v-pills-automation" role="tabpanel" aria-labelledby="automation-settings-link">
     <div class="card p-3 shadow-sm rounded-4 mb-4">
         <h5 class="mb-3">Функции и автоматизация</h5>
         <form id="auto-update-form" class="mt-2">
@@ -240,7 +240,7 @@
     </div>
 </div>
 
-<div class="tab-pane fade card p-3 shadow-sm rounded-4 mb-4" id="v-pills-plan" role="tabpanel">
+<div class="tab-pane fade card p-3 shadow-sm rounded-4 mb-4" id="v-pills-plan" role="tabpanel" aria-labelledby="plan-settings-link">
     <h5 class="mb-3">Тариф и лимиты</h5>
     <p class="fw-semibold mb-2">Текущий тариф:
         <span class="badge bg-primary" th:text="${planDetails.name}"></span>
@@ -277,7 +277,7 @@
     </ul>
 </div>
 
-<div class="tab-pane fade" id="v-pills-integrations" role="tabpanel">
+<div class="tab-pane fade" id="v-pills-integrations" role="tabpanel" aria-labelledby="integrations-settings-link">
     <div class="card p-3 shadow-sm rounded-4 mb-4">
         <!-- Контейнер для уведомлений -->
         <div id="evropostNotificationContainer"></div>
@@ -324,7 +324,7 @@
     </div>
 </div>
 
-<div class="tab-pane fade" id="v-pills-security" role="tabpanel">
+<div class="tab-pane fade" id="v-pills-security" role="tabpanel" aria-labelledby="security-settings-link">
     <div class="card p-3 shadow-sm rounded-4 mb-4">
         <div id="password-content" th:fragment="passwordFragment">
             <h5 class="mb-3">Изменение пароля</h5>
