@@ -514,6 +514,8 @@ function initTelegramCustomBotBlocks() {
         const customRadio = parent.querySelector(`#tg-bot-custom-${storeId}`);
         const editBtn = parent.querySelector(`#tg-edit-delete-bot-${storeId}`);
         const fields = parent.querySelector('.custom-bot-fields');
+        const systemLabel = parent.querySelector(`label[for="tg-bot-system-${storeId}"]`);
+        const customLabel = parent.querySelector(`label[for="tg-bot-custom-${storeId}"]`);
         const tokenInput = fields?.querySelector('input[id^="tg-token-"]');
         const username = fields?.querySelector('.current-bot span')?.textContent?.trim() || null;
         updateBotInfo(storeId, username);
@@ -543,6 +545,21 @@ function initTelegramCustomBotBlocks() {
                     hideFields();
                 } else {
                     showFields();
+                }
+            }
+
+            // Обновляем стили выбранной опции
+            if (systemLabel && customLabel) {
+                if (systemRadio.checked) {
+                    systemLabel.classList.add('active-bot-option');
+                    systemLabel.classList.remove('inactive-bot-option');
+                    customLabel.classList.remove('active-bot-option');
+                    customLabel.classList.add('inactive-bot-option');
+                } else if (customRadio.checked) {
+                    customLabel.classList.add('active-bot-option');
+                    customLabel.classList.remove('inactive-bot-option');
+                    systemLabel.classList.remove('active-bot-option');
+                    systemLabel.classList.add('inactive-bot-option');
                 }
             }
         };

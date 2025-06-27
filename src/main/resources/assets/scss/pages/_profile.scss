@@ -64,3 +64,13 @@
   border: 1px solid var(--bs-border-color);
   border-radius: 0.25rem;
 }
+
+// Стили активной и неактивной опций выбора бота
+.active-bot-option {
+  font-weight: bold;
+  color: var(--bs-link-hover-color, #0a58ca);
+}
+
+.inactive-bot-option {
+  opacity: 0.6;
+}
