@@ -10,6 +10,8 @@ import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
 import com.project.tracking_system.repository.StoreTelegramTemplateRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.telegram.TelegramBotValidationService;
+import com.project.tracking_system.service.store.StoreService;
+import com.project.tracking_system.service.store.StoreTelegramSettingsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -89,6 +91,18 @@ class StoreTelegramSettingsServiceTest {
         when(settingsRepository.findByStoreId(1L)).thenReturn(new StoreTelegramSettings());
         when(subscriptionService.isFeatureEnabled(1L, FeatureKey.TELEGRAM_NOTIFICATIONS)).thenReturn(true);
         when(subscriptionService.canUseCustomNotifications(1L)).thenReturn(true);
+
+        assertDoesNotThrow(() -> service.update(store, dto, 1L));
+    }
+
+    @Test
+    void update_CustomTemplatesDisabled_TemplatesNotValidated() {
+        StoreTelegramSettingsDTO dto = new StoreTelegramSettingsDTO();
+        dto.setUseCustomTemplates(false);
+        dto.getTemplates().put("SENT", "Без треков");
+
+        when(settingsRepository.findByStoreId(1L)).thenReturn(new StoreTelegramSettings());
+        when(subscriptionService.isFeatureEnabled(1L, FeatureKey.TELEGRAM_NOTIFICATIONS)).thenReturn(true);
 
         assertDoesNotThrow(() -> service.update(store, dto, 1L));
     }

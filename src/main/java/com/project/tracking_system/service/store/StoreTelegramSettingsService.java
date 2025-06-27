@@ -102,8 +102,12 @@ public class StoreTelegramSettingsService {
         log.info("Настройки Telegram для магазина ID={} обновлены", store.getId());
     }
 
-    // Проверяем наличие обязательных плейсхолдеров
+    // Проверяем наличие обязательных плейсхолдеров и непустое значение
     private void validateTemplate(String template, boolean requireStore) {
+        if (template == null || template.isBlank()) {
+            throw new InvalidTemplateException("Шаблон не должен быть пустым");
+        }
+
         boolean hasTrack = template.contains("{track}");
         boolean hasStore = template.contains("{store}");
 
