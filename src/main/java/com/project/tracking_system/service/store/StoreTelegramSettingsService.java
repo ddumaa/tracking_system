@@ -62,7 +62,7 @@ public class StoreTelegramSettingsService {
         }
 
         String token = dto.getBotToken();
-        boolean requireStorePlaceholder = true; // системный бот по умолчанию
+        boolean requireStorePlaceholder;
 
         if (token != null && !token.isBlank()) {
             try {
@@ -73,10 +73,15 @@ public class StoreTelegramSettingsService {
                 webSocketController.sendUpdateStatus(userId, "Неверный токен бота", false);
                 throw e;
             }
+        } else if (settings.getBotToken() != null && !settings.getBotToken().isBlank()) {
+            // Токен не передан, но в настройках уже есть пользовательский бот
+            dto.setBotToken(settings.getBotToken());
+            dto.setBotUsername(settings.getBotUsername());
+            requireStorePlaceholder = false;
         } else {
             removeCustomBot(store);
             dto.setBotUsername(null);
-            requireStorePlaceholder = true; // токен отсутствует, используется системный бот
+            requireStorePlaceholder = true; // системный бот
         }
 
         // Проверяем доступность пользовательских шаблонов уведомлений
