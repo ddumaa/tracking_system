@@ -1,8 +1,6 @@
 package com.project.tracking_system.service.telegram;
 
 import com.project.tracking_system.entity.CustomerTelegramLink;
-import com.project.tracking_system.entity.Store;
-import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -22,8 +20,6 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Telegram-бот для покупателей.
@@ -34,11 +30,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
     private final TelegramClient telegramClient;
     private final CustomerTelegramService telegramService;
-    private final StoreRepository storeRepository;
     private final String botToken;
 
-    /** Связь чата и выбранного магазина для ожидания контакта. */
-    private final Map<Long, Long> chatStoreContext = new ConcurrentHashMap<>();
 
     /**
      * Создаёт телеграм-бота для покупателей.
@@ -49,12 +42,10 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      */
     public BuyerTelegramBot(TelegramClient telegramClient,
                             @Value("${telegram.bot.token:}") String token,
-                            CustomerTelegramService telegramService,
-                            StoreRepository storeRepository) {
+                            CustomerTelegramService telegramService) {
         this.telegramClient = telegramClient;
         this.botToken = token;
         this.telegramService = telegramService;
-        this.storeRepository = storeRepository;
     }
 
     /**
@@ -84,24 +75,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
             if (message.hasText()) {
                 String text = message.getText();
-                if (text.startsWith("/start")) {
-                    Long storeId = parseStoreId(text);
-                    if (storeId != null) {
-                        chatStoreContext.put(message.getChatId(), storeId);
-                    }
-
-                    log.info("✅ Команда /start получена от {} для магазина {}", message.getChatId(), storeId);
+                if ("/start".equals(text)) {
+                    log.info("✅ Команда /start получена от {}", message.getChatId());
                     sendSharePhoneKeyboard(message.getChatId());
-
-                    Optional<CustomerTelegramLink> optional =
-                            (storeId == null)
-                                    ? telegramService.findByChatId(message.getChatId())
-                                    : telegramService.findByChatIdAndStore(message.getChatId(), storeId);
-
-                    if (optional.isPresent() && optional.get().isTelegramConfirmed()) {
-                        boolean enabled = optional.get().isNotificationsEnabled();
-                        sendNotificationsKeyboard(message.getChatId(), enabled);
-                    }
                 }
                 if ("/stop".equals(text) || "/unsubscribe".equals(text)) {
                     log.info("🔕 Команда {} получена от {}", text, message.getChatId());
@@ -178,17 +154,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         String rawPhone = contact.getPhoneNumber();
         String phone = PhoneUtils.normalizePhone(rawPhone);
 
-        Long storeId = chatStoreContext.remove(chatId);
-        Store store = null;
-        if (storeId != null) {
-            store = storeRepository.findStoreById(storeId);
-        }
-
         try {
-            CustomerTelegramLink link =
-                    store != null
-                            ? telegramService.linkTelegramToCustomer(phone, store, chatId)
-                            : telegramService.linkTelegramToCustomer(phone, chatId);
+            CustomerTelegramLink link = telegramService.linkTelegramToCustomer(phone, chatId);
             if (!link.isTelegramConfirmed()) {
                 SendMessage confirm = new SendMessage(chatId.toString(), "✅ Номер сохранён. Спасибо!");
                 telegramClient.execute(confirm);
@@ -201,20 +168,4 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
     }
 
-    // Извлекаем идентификатор магазина из параметров команды /start
-    private Long parseStoreId(String text) {
-        if (text == null || !text.startsWith("/start")) {
-            return null;
-        }
-        String[] parts = text.split(" ", 2);
-        if (parts.length < 2) {
-            return null;
-        }
-        try {
-            return Long.parseLong(parts[1]);
-        } catch (NumberFormatException e) {
-            log.warn("⚠ Не удалось разобрать storeId из '{}'", text);
-            return null;
-        }
-    }
 }
