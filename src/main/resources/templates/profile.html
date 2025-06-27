@@ -563,8 +563,17 @@
                                       th:text="${store.telegramSettings?.templates?.get(status.name())}"></textarea>
                         </div>
                     </div>
-                    <p th:if="${usingSystemBot}" class="form-text text-muted">Шаблон должен содержать: {track} и {store}</p>
-                    <p th:if="${!usingSystemBot}" class="form-text text-muted">Шаблон должен содержать: {track}</p>
+                    <!-- Если системный бот -->
+<p th:if="${store.telegramSettings == null or store.telegramSettings.botToken == null}"
+   class="form-text text-muted">
+    Шаблон должен содержать: {track} и {store}
+</p>
+
+<!-- Если кастомный бот -->
+<p th:if="${store.telegramSettings?.botToken != null}"
+   class="form-text text-muted">
+    Шаблон должен содержать: {track}
+</p>
                 </div>
 
                 <p class="form-text text-danger mb-1" th:unless="${planDetails.allowCustomNotifications}">
