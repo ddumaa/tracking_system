@@ -15,10 +15,6 @@ import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.service.customer.CustomerStatsService;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
-import com.project.tracking_system.repository.CustomerTelegramLinkRepository;
-import com.project.tracking_system.entity.CustomerTelegramLink;
-import com.project.tracking_system.service.SubscriptionService;
-import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.entity.CustomerNotificationLog;
 import com.project.tracking_system.entity.NotificationType;
@@ -59,8 +55,6 @@ public class DeliveryHistoryService {
     private final CustomerStatsService customerStatsService;
     private final TelegramNotificationService telegramNotificationService;
     private final CustomerNotificationLogRepository customerNotificationLogRepository;
-    private final CustomerTelegramLinkRepository linkRepository;
-    private final SubscriptionService subscriptionService;
 
     /**
      * Обновляет или создаёт запись {@link DeliveryHistory}, когда меняется статус посылки.
@@ -133,8 +127,12 @@ public class DeliveryHistoryService {
         deliveryHistoryRepository.save(history);
         log.info("История доставки обновлена: {}", trackParcel.getNumber());
 
-        // Отправляем уведомление в Telegram при выполнении условий
-        if (shouldNotifyCustomer(trackParcel, newStatus)) {
+        // Отправляем уведомление, если покупатель подписан на конкретный магазин
+        boolean allowed = customerService.isNotifiable(trackParcel.getCustomer(), trackParcel.getStore());
+        // Убеждаемся, что уведомление по данному статусу ещё не отправлялось
+        boolean notSent = !customerNotificationLogRepository.existsByParcelIdAndStatusAndNotificationType(
+                trackParcel.getId(), newStatus, NotificationType.INSTANT);
+        if (allowed && notSent) {
             telegramNotificationService.sendStatusUpdate(trackParcel, newStatus);
             log.info("✅ Уведомление о статусе {} отправлено для трека {}", newStatus, trackParcel.getNumber());
             saveNotificationLog(trackParcel, newStatus);
@@ -596,33 +594,6 @@ public class DeliveryHistoryService {
         }
     }
 
-    // Проверить необходимость отправки уведомления покупателю
-    private boolean shouldNotifyCustomer(TrackParcel parcel, GlobalStatus status) {
-        Customer customer = parcel.getCustomer();
-        if (customer == null) {
-            return false;
-        }
-
-        Long customerId = customer.getId();
-        Long storeId = parcel.getStore() != null ? parcel.getStore().getId() : null;
-        CustomerTelegramLink link = linkRepository.findByCustomerIdAndStoreId(customerId, storeId)
-                .orElseGet(() -> linkRepository.findByCustomerId(customerId).stream().findFirst().orElse(null));
-        if (link == null || !link.isNotificationsEnabled()) {
-            return false;
-        }
-
-        Long ownerId = parcel.getStore().getOwner().getId();
-        boolean allowed = subscriptionService.isFeatureEnabled(ownerId, FeatureKey.TELEGRAM_NOTIFICATIONS);
-        if (!allowed) {
-            return false;
-        }
-
-        return !customerNotificationLogRepository.existsByParcelIdAndStatusAndNotificationType(
-                parcel.getId(),
-                status,
-                NotificationType.INSTANT
-        );
-    }
 
     // Сохранить лог отправленного уведомления
     private void saveNotificationLog(TrackParcel parcel, GlobalStatus status) {
