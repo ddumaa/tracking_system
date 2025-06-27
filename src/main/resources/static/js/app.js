@@ -515,6 +515,8 @@ function initTelegramCustomBotBlocks() {
         const editBtn = parent.querySelector(`#tg-edit-delete-bot-${storeId}`);
         const fields = parent.querySelector('.custom-bot-fields');
         const tokenInput = fields?.querySelector('input[id^="tg-token-"]');
+        const username = fields?.querySelector('.current-bot span')?.textContent?.trim() || null;
+        updateBotInfo(storeId, username);
         if (!systemRadio || !customRadio || !fields) return;
 
         const showFields = () => {
@@ -1254,7 +1256,12 @@ function updateBotInfo(storeId, username) {
     // Обновляем подпись радиокнопки собственного бота
     const labelEl = document.getElementById(`tg-custom-bot-label-${storeId}`);
     if (labelEl) {
-        labelEl.textContent = username ? `@${username}` : 'Собственный бот';
+        const span = labelEl.querySelector('span');
+        if (span) {
+            span.textContent = username ? `@${username}` : 'Собственный бот';
+        } else {
+            labelEl.textContent = username ? `@${username}` : 'Собственный бот';
+        }
     }
 
     const fields = document.getElementById(`tg-custom-bot-fields-${storeId}`);
