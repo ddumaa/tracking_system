@@ -8,6 +8,7 @@ import com.project.tracking_system.mapper.BuyerStatusMapper;
 import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.repository.CustomerTelegramLinkRepository;
 import com.project.tracking_system.entity.CustomerTelegramLink;
+import com.project.tracking_system.service.store.StoreTelegramSettingsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ public class TelegramNotificationService {
     private final TelegramClient telegramClient;
     private final CustomerService customerService;
     private final CustomerTelegramLinkRepository linkRepository;
+    private final StoreTelegramSettingsService telegramSettingsService;
     private final TelegramClientFactory telegramClientFactory;
     /** Кэш клиентов Telegram для пользовательских ботов. */
     private final Map<String, TelegramClient> clientCache = new ConcurrentHashMap<>();
@@ -145,36 +147,33 @@ public class TelegramNotificationService {
 
     // Получение TelegramClient с учётом пользовательского токена
     private TelegramClient resolveClient(StoreTelegramSettings settings) {
-        if (settings == null) {
-            return telegramClient;
+        if (settings == null || telegramSettingsService.isUsingSystemBot(settings)) {
+            return telegramClient; // Используем системного бота
         }
 
         String token = settings.getBotToken();
-        String username = settings.getBotUsername();
 
-        // Считаем токен валидным, если он не пустой и для него сохранено имя бота
-        if (token == null || token.isBlank() || username == null) {
+        if (token == null || token.isBlank()) {
             return telegramClient;
         }
 
-        // Создаём или берём из кэша клиента для данного токена
+        // Создаём или возвращаем из кэша клиента для указанного токена
         return clientCache.computeIfAbsent(token, telegramClientFactory::create);
     }
 
-    // Получение chatId покупателя из посылки
+    // Получение chatId покупателя из привязки к магазину
     private Long getChatId(TrackParcel parcel) {
-        if (parcel == null || parcel.getCustomer() == null) {
+        if (parcel == null || parcel.getCustomer() == null || parcel.getStore() == null) {
             return null;
         }
 
-        Long customerId = parcel.getCustomer().getId();
-        Long storeId = parcel.getStore() != null ? parcel.getStore().getId() : null;
-        return linkRepository.findByCustomerIdAndStoreId(customerId, storeId)
+        return linkRepository.findByCustomerIdAndStoreId(
+                        parcel.getCustomer().getId(),
+                        parcel.getStore().getId())
+                .filter(CustomerTelegramLink::isTelegramConfirmed)
+                .filter(CustomerTelegramLink::isNotificationsEnabled)
                 .map(CustomerTelegramLink::getTelegramChatId)
-                .orElseGet(() -> linkRepository.findByCustomerId(customerId).stream()
-                        .findFirst()
-                        .map(CustomerTelegramLink::getTelegramChatId)
-                        .orElse(null));
+                .orElse(null);
     }
 
 }
