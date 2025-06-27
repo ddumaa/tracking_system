@@ -86,7 +86,8 @@ public class StoreTelegramSettingsService {
 
         // Проверяем содержимое пользовательских шаблонов при их использовании
         if (dto.isUseCustomTemplates() && dto.getTemplates() != null) {
-            dto.getTemplates().values().forEach(t -> validateTemplate(t, requireStorePlaceholder));
+            final boolean placeholderRequired = requireStorePlaceholder;
+            dto.getTemplates().values().forEach(t -> validateTemplate(t, placeholderRequired));
         }
         if (dto.getReminderTemplate() != null && !dto.getReminderTemplate().isBlank()) {
             validateTemplate(dto.getReminderTemplate(), requireStorePlaceholder);
