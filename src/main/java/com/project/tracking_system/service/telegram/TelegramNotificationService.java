@@ -8,7 +8,6 @@ import com.project.tracking_system.mapper.BuyerStatusMapper;
 import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.repository.CustomerTelegramLinkRepository;
 import com.project.tracking_system.entity.CustomerTelegramLink;
-import com.project.tracking_system.service.store.StoreTelegramSettingsService;
 import com.project.tracking_system.service.telegram.TelegramBotResolverService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +26,6 @@ public class TelegramNotificationService {
 
     private final CustomerService customerService;
     private final CustomerTelegramLinkRepository linkRepository;
-    private final StoreTelegramSettingsService telegramSettingsService;
     private final TelegramBotResolverService botResolverService;
 
     /**
