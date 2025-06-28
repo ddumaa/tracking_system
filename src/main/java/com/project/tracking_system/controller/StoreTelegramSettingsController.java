@@ -7,10 +7,8 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
 import com.project.tracking_system.service.store.StoreTelegramSettingsService;
-import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.exception.InvalidTemplateException;
 import com.project.tracking_system.utils.ResponseBuilder;
-import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.dto.CustomerTelegramLinkDTO;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +21,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.validation.BindingResult;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+
+import java.util.List;
 
 /**
  * Управление Telegram-настройками магазина.
@@ -37,7 +37,6 @@ public class StoreTelegramSettingsController {
     private final StoreTelegramSettingsRepository settingsRepository;
     private final StoreTelegramSettingsService telegramSettingsService;
     private final WebSocketController webSocketController;
-    private final SubscriptionService subscriptionService;
     private final CustomerTelegramService customerTelegramService;
 
     /**

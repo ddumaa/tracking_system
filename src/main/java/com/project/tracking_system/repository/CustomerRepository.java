@@ -33,7 +33,8 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     @Modifying
     @Transactional
     @Query("""
-        UPDATE Customer c
+
+            UPDATE Customer c
         SET c.sentCount = c.sentCount + 1
         WHERE c.id = :id
         """)
@@ -94,4 +95,3 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     long countCustomersWithTelegram();
 
 }
-
