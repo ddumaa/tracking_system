@@ -7,6 +7,7 @@ import com.project.tracking_system.entity.StoreTelegramSettings;
 import com.project.tracking_system.mapper.BuyerStatusMapper;
 import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.repository.CustomerTelegramLinkRepository;
+import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.entity.CustomerTelegramLink;
 import com.project.tracking_system.service.telegram.TelegramBotResolverService;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
+import com.project.tracking_system.utils.PhoneUtils;
 
 /**
  * Сервис отправки уведомлений в Telegram-покупателям.
@@ -26,6 +28,7 @@ public class TelegramNotificationService {
 
     private final CustomerService customerService;
     private final CustomerTelegramLinkRepository linkRepository;
+    private final CustomerRepository customerRepository;
     private final TelegramBotResolverService botResolverService;
 
     /**
@@ -154,6 +157,63 @@ public class TelegramNotificationService {
         } catch (TelegramApiException e) {
             log.error("❌ Ошибка отправки напоминания в чат {}: {}", chatId, e.getMessage(), e);
         }
+    }
+
+    /**
+     * Отправить произвольное сообщение покупателю по номеру телефона.
+     *
+     * @param phone   номер телефона покупателя
+     * @param text    текст сообщения
+     * @param storeId идентификатор магазина или {@code null} для системного бота
+     * @return {@code true}, если сообщение отправлено хотя бы в один чат
+     */
+    public boolean sendCustomMessage(String phone, String text, Long storeId) {
+        if (phone == null || phone.isBlank() || text == null || text.isBlank()) {
+            return false;
+        }
+
+        String normalized;
+        try {
+            normalized = PhoneUtils.normalizePhone(phone);
+        } catch (IllegalArgumentException e) {
+            log.warn("Некорректный номер телефона {}", phone);
+            return false;
+        }
+
+        var customerOpt = customerRepository.findByPhone(normalized);
+        if (customerOpt.isEmpty()) {
+            log.warn("Покупатель с номером {} не найден", normalized);
+            return false;
+        }
+
+        var links = linkRepository.findActiveLinksByPhone(normalized);
+        if (storeId != null) {
+            // Фильтруем привязки по магазину или системному боту
+            links = links.stream()
+                    .filter(l -> storeId == 0
+                            ? l.getStore() == null
+                            : l.getStore() != null && l.getStore().getId().equals(storeId))
+                    .toList();
+        }
+        if (links.isEmpty()) {
+            log.warn("Нет активных Telegram привязок для номера {}", normalized);
+            return false;
+        }
+
+        boolean sent = false;
+        for (CustomerTelegramLink link : links) {
+            SendMessage message = new SendMessage(link.getTelegramChatId().toString(), text);
+            TelegramClient client = botResolverService.resolveBotForStore(link.getStore());
+            try {
+                client.execute(message);
+                sent = true;
+                log.info("📨 Сообщение отправлено в чат {}", link.getTelegramChatId());
+            } catch (TelegramApiException e) {
+                log.error("❌ Ошибка отправки сообщения в чат {}: {}", link.getTelegramChatId(), e.getMessage(), e);
+            }
+        }
+
+        return sent;
     }
 
 
