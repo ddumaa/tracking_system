@@ -81,7 +81,7 @@ public class AdminService {
      */
     @Transactional(readOnly = true)
     public long countTelegramBoundCustomers() {
-        return customerRepository.countByTelegramChatIdNotNull();
+        return customerRepository.countCustomersWithTelegram();
     }
 
     /**
