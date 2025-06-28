@@ -85,3 +85,13 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
      */
     List<Customer> findByReputation(BuyerReputation reputation);
 
+    /**
+     * Подсчитать число покупателей, имеющих привязку Telegram.
+     *
+     * @return количество покупателей с привязанным Telegram
+     */
+    @Query("SELECT COUNT(DISTINCT c.id) FROM Customer c JOIN c.telegramLinks l WHERE l.telegramChatId IS NOT NULL")
+    long countCustomersWithTelegram();
+
+}
+
