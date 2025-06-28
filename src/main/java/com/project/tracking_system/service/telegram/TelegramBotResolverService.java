@@ -2,7 +2,6 @@ package com.project.tracking_system.service.telegram;
 
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.StoreTelegramSettings;
-import com.project.tracking_system.service.store.StoreTelegramSettingsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,7 +20,6 @@ public class TelegramBotResolverService {
 
     private final TelegramClient systemTelegramClient;
     private final TelegramClientFactory telegramClientFactory;
-    private final StoreTelegramSettingsService telegramSettingsService;
 
     /** Кэш клиентов Telegram по токену пользовательского бота. */
     private final Map<String, TelegramClient> clientCache = new ConcurrentHashMap<>();
@@ -38,7 +36,7 @@ public class TelegramBotResolverService {
         }
 
         StoreTelegramSettings settings = store.getTelegramSettings();
-        if (settings == null || telegramSettingsService.isUsingSystemBot(settings)) {
+        if (settings == null) {
             return systemTelegramClient;
         }
 
