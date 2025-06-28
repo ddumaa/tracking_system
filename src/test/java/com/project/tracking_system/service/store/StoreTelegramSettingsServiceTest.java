@@ -11,6 +11,7 @@ import com.project.tracking_system.repository.StoreTelegramTemplateRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.telegram.TelegramBotValidationService;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
+import com.project.tracking_system.service.telegram.TelegramBotManager;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.store.StoreTelegramSettingsService;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +45,8 @@ class StoreTelegramSettingsServiceTest {
     private TelegramBotValidationService botValidationService;
     @Mock
     private TelegramNotificationService telegramNotificationService;
+    @Mock
+    private TelegramBotManager telegramBotManager;
 
     @InjectMocks
     private StoreTelegramSettingsService service;
@@ -140,6 +143,8 @@ class StoreTelegramSettingsServiceTest {
 
         verify(settingsRepository).save(settings);
         verify(telegramNotificationService).invalidateClient("old");
+        verify(telegramBotManager).unregisterBot("old");
+        verify(telegramBotManager).registerBot("new");
         org.junit.jupiter.api.Assertions.assertEquals("new", settings.getBotToken());
     }
 
@@ -153,6 +158,7 @@ class StoreTelegramSettingsServiceTest {
 
         verify(settingsRepository).save(settings);
         verify(telegramNotificationService).invalidateClient("old");
+        verify(telegramBotManager).unregisterBot("old");
         org.junit.jupiter.api.Assertions.assertNull(settings.getBotToken());
     }
 }

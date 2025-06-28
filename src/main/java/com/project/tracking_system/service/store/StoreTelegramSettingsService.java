@@ -11,6 +11,7 @@ import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.telegram.TelegramBotValidationService;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
+import com.project.tracking_system.service.telegram.TelegramBotManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ public class StoreTelegramSettingsService {
     private final StoreTelegramTemplateRepository storeTelegramTemplateRepository;
     private final TelegramBotValidationService botValidationService;
     private final TelegramNotificationService telegramNotificationService;
+    private final TelegramBotManager telegramBotManager;
 
     /**
      * Создать или обновить настройки Telegram магазина.
@@ -152,6 +154,8 @@ public class StoreTelegramSettingsService {
 
         settingsRepository.save(settings);
         telegramNotificationService.invalidateClient(oldToken);
+        telegramBotManager.unregisterBot(oldToken); // останавливаем старый бот
+        telegramBotManager.registerBot(botToken);  // запускаем новый
         store.setTelegramSettings(settings);
         log.info("Пользовательский бот сохранён для магазина ID={}", store.getId());
         return username;
@@ -175,6 +179,7 @@ public class StoreTelegramSettingsService {
         settings.setBotUsername(null);
         settingsRepository.save(settings);
         telegramNotificationService.invalidateClient(oldToken);
+        telegramBotManager.unregisterBot(oldToken); // останавливаем бота
         store.setTelegramSettings(settings);
         log.info("Пользовательский бот удалён для магазина ID={}", store.getId());
     }
