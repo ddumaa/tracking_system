@@ -9,6 +9,9 @@
 
 <main layout:fragment="content">
 
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}"></div>
+    <div th:if="${errorMessage}" class="alert alert-danger" th:text="${errorMessage}"></div>
+
     <div class="row mb-4">
         <div class="col-md-6">
             <div class="card shadow-sm custom-card">
@@ -47,5 +50,26 @@
         </tr>
         </tbody>
     </table>
+
+    <h4 class="mt-4">Отправить сообщение покупателю</h4>
+    <form th:action="@{/admin/telegram/send-message}" method="post" class="mb-3">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <div class="mb-3">
+            <label for="phone" class="form-label">Телефон</label>
+            <input type="text" id="phone" name="phone" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label for="storeId" class="form-label">Бот</label>
+            <select id="storeId" name="storeId" class="form-select">
+                <option value="0">Системный бот</option>
+                <option th:each="s : ${stores}" th:value="${s.id}" th:text="${s.name}"></option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="text" class="form-label">Текст сообщения</label>
+            <textarea id="text" name="text" rows="3" class="form-control" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Отправить</button>
+    </form>
 </main>
 </html>

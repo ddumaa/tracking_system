@@ -20,6 +20,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -390,6 +391,7 @@ public class AdminController {
         model.addAttribute("boundCustomers", adminService.countTelegramBoundCustomers());
         model.addAttribute("remindersEnabled", adminService.countStoresWithReminders());
         model.addAttribute("logs", adminService.getRecentLogs());
+        model.addAttribute("stores", adminService.getStoresInfo());
 
         // Хлебные крошки
         List<BreadcrumbItemDTO> breadcrumbs = List.of(
@@ -398,6 +400,28 @@ public class AdminController {
         );
         model.addAttribute("breadcrumbs", breadcrumbs);
         return "admin/telegram";
+    }
+
+    /**
+     * Отправить сообщение покупателю по номеру телефона.
+     *
+     * @param phone   номер телефона
+     * @param text    текст сообщения
+     * @param storeId идентификатор магазина или {@code null} для системного бота
+     * @return редирект на страницу Telegram статистики
+     */
+    @PostMapping("/telegram/send-message")
+    public String sendTelegramMessage(@RequestParam String phone,
+                                      @RequestParam String text,
+                                      @RequestParam(required = false) Long storeId,
+                                      RedirectAttributes redirectAttributes) {
+        boolean sent = adminService.sendTelegramMessage(phone, text, storeId);
+        if (sent) {
+            redirectAttributes.addFlashAttribute("successMessage", "Сообщение отправлено");
+        } else {
+            redirectAttributes.addFlashAttribute("errorMessage", "Не удалось отправить сообщение");
+        }
+        return "redirect:/admin/telegram";
     }
 
     /**

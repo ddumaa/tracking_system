@@ -35,6 +35,7 @@ public class AdminService {
     private final TrackProcessingService trackProcessingService;
     private final com.project.tracking_system.service.user.UserService userService;
     private final com.project.tracking_system.service.store.StoreService storeService;
+    private final com.project.tracking_system.service.telegram.TelegramNotificationService telegramNotificationService;
 
     /**
      * Подсчитать общее количество покупателей.
@@ -328,6 +329,18 @@ public class AdminService {
         TrackParcel parcel = trackParcelRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Посылка не найдена"));
         trackProcessingService.processTrack(parcel.getNumber(), parcel.getStore().getId(), parcel.getUser().getId(), true);
+    }
+
+    /**
+     * Отправить текстовое сообщение покупателю по телефону.
+     *
+     * @param phone   номер телефона покупателя
+     * @param text    текст сообщения
+     * @param storeId идентификатор магазина или {@code null} для системного бота
+     * @return {@code true}, если сообщение было отправлено
+     */
+    public boolean sendTelegramMessage(String phone, String text, Long storeId) {
+        return telegramNotificationService.sendCustomMessage(phone, text, storeId);
     }
 
     /**

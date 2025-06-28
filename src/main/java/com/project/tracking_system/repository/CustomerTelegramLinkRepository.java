@@ -2,6 +2,8 @@ package com.project.tracking_system.repository;
 
 import com.project.tracking_system.entity.CustomerTelegramLink;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -60,4 +62,19 @@ public interface CustomerTelegramLinkRepository extends JpaRepository<CustomerTe
      * @return список активных привязок
      */
     List<CustomerTelegramLink> findByCustomerIdAndTelegramConfirmedTrueAndNotificationsEnabledTrue(Long customerId);
+
+    /**
+     * Найти активные привязки по номеру телефона покупателя.
+     *
+     * @param phone телефон покупателя в формате 375XXXXXXXXX
+     * @return список активных привязок
+     */
+    @Query("""
+            SELECT l FROM CustomerTelegramLink l
+            JOIN l.customer c
+            WHERE c.phone = :phone
+              AND l.telegramConfirmed = true
+              AND l.notificationsEnabled = true
+            """)
+    List<CustomerTelegramLink> findActiveLinksByPhone(@Param("phone") String phone);
 }
