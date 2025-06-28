@@ -66,7 +66,8 @@ public class CustomerTelegramService {
         link.setCustomer(customer);
         link.setTelegramChatId(chatId);
         link.setLinkedAt(ZonedDateTime.now(ZoneOffset.UTC));
-        link.setTelegramConfirmed(true);
+        // подтверждение будет получено после передачи контакта
+        link.setTelegramConfirmed(false);
         link.setNotificationsEnabled(true);
 
         CustomerTelegramLink saved = linkRepository.save(link);
@@ -107,7 +108,8 @@ public class CustomerTelegramService {
         link.setLinkedAt(ZonedDateTime.now(ZoneOffset.UTC));
 
         if (existing.isEmpty()) {
-            link.setTelegramConfirmed(true);
+            // при создании новой связи ждём подтверждения от покупателя
+            link.setTelegramConfirmed(false);
             link.setNotificationsEnabled(true);
         }
 
