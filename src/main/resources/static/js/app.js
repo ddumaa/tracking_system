@@ -1054,6 +1054,28 @@ async function appendTelegramBlock(store) {
 const baseUrl = "/profile/stores"; // Базовый URL для всех запросов
 
 /**
+ * Переводит строку таблицы в режим редактирования
+ * @param storeId идентификатор магазина
+ */
+function enableStoreEditing(storeId) {
+    const inputField = document.getElementById(`store-name-${storeId}`);
+    if (!inputField) {
+        console.warn(`Не удалось найти поле ввода для магазина ${storeId}`);
+        return;
+    }
+
+    inputField.removeAttribute("disabled"); // Разрешаем редактирование
+
+    const editBtn = document.querySelector(`.edit-store-btn[data-store-id="${storeId}"]`);
+    const saveBtn = document.querySelector(`.save-store-btn[data-store-id="${storeId}"]`);
+
+    editBtn?.classList.add("d-none");
+    saveBtn?.classList.remove("d-none");
+
+    inputField.focus();
+}
+
+/**
  * Сохраняет обновленное название магазина
  */
 async function saveStore(storeId) {
@@ -1573,6 +1595,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (button.classList.contains("save-store-btn")) {
                 saveStore(storeId);
+            }
+            if (button.classList.contains("edit-store-btn")) {
+                enableStoreEditing(storeId);
             }
             if (button.classList.contains("delete-store-btn")) {
                 confirmDeleteStore(storeId);
