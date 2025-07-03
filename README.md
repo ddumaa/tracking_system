@@ -16,6 +16,8 @@ Belpost and Evropost
 
 Для работы OCR-сервиса в `application.properties` необходимо указать путь к каталогу с данными Tesseract через свойство `tesseract.datapath`. По умолчанию используется `/usr/local/share/tessdata`.
 
+Сервис `TrackNumberOcrService` инициализирует единый экземпляр Tesseract при запуске приложения, поэтому библиотека подготавливается один раз.
+
 ## Компиляция CSS
 
 Для генерации стилей используется Sass, исходный SCSS размещён в каталоге `src/main/resources/assets/scss`.
