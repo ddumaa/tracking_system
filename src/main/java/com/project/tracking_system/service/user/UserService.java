@@ -168,6 +168,12 @@ public class UserService {
         user.setSubscription(subscription);
 
         userRepository.save(user);
+
+        EvropostServiceCredential creds = new EvropostServiceCredential();
+        creds.setUser(user);
+        creds.setUseCustomCredentials(false);
+        evropostServiceCredentialRepository.save(creds);
+
         // Создаём настройки пользователя по умолчанию
         userSettingsService.getOrCreateSettings(user.getId());
         storeService.createDefaultStoreForUser(user);

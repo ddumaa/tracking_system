@@ -8,12 +8,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.project.tracking_system.repository.DeletableByStoreOrUser;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
-import java.math.BigDecimal;
 
 /**
  * Репозиторий для ежедневной статистики по почтовым службам.

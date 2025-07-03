@@ -8,10 +8,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-
-// Интерфейс для удаления записей
-import com.project.tracking_system.repository.DeletableByStoreOrUser;
 
 import java.util.List;
 import java.util.Optional;
