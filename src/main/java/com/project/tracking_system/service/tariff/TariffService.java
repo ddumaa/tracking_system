@@ -124,7 +124,7 @@ public class TariffService {
                 maxTrackUpdates,
                 plan.isFeatureEnabled(FeatureKey.BULK_UPDATE),
                 plan.isFeatureEnabled(FeatureKey.AUTO_UPDATE),
-                limits.getMaxStores(),
+                maxStores,
                 plan.isFeatureEnabled(FeatureKey.TELEGRAM_NOTIFICATIONS),
                 monthlyLabel,
                 annualLabel,

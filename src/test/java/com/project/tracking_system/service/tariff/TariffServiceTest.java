@@ -108,6 +108,13 @@ class TariffServiceTest {
     }
 
     @Test
+    void toViewDto_WithoutLimits_DoesNotThrow() {
+        plan.setLimits(null);
+
+        assertDoesNotThrow(() -> tariffService.toViewDto(plan));
+    }
+
+    @Test
     void getPlanInfoByCode_ReturnsDto() {
         when(planRepository.findByCode("PREMIUM")).thenReturn(java.util.Optional.of(plan));
 
