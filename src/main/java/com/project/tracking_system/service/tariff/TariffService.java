@@ -103,12 +103,25 @@ public class TariffService {
 
         SubscriptionLimits limits = plan.getLimits();
 
+        // при отсутствии лимитов возвращаем значения по умолчанию
+        Integer maxTracksPerFile = null;
+        Integer maxSavedTracks = null;
+        Integer maxTrackUpdates = null;
+        Integer maxStores = null;
+
+        if (limits != null) {
+            maxTracksPerFile = limits.getMaxTracksPerFile();
+            maxSavedTracks = limits.getMaxSavedTracks();
+            maxTrackUpdates = limits.getMaxTrackUpdates();
+            maxStores = limits.getMaxStores();
+        }
+
         return new SubscriptionPlanViewDTO(
                 plan.getCode(),
                 plan.getName(),
-                limits.getMaxTracksPerFile(),
-                limits.getMaxSavedTracks(),
-                limits.getMaxTrackUpdates(),
+                maxTracksPerFile,
+                maxSavedTracks,
+                maxTrackUpdates,
                 plan.isFeatureEnabled(FeatureKey.BULK_UPDATE),
                 plan.isFeatureEnabled(FeatureKey.AUTO_UPDATE),
                 limits.getMaxStores(),

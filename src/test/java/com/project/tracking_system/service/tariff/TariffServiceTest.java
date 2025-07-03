@@ -124,5 +124,7 @@ class TariffServiceTest {
         SubscriptionPlanViewDTO dto = tariffService.getPlanInfoByCode("NONE");
 
         assertNull(dto);
+
     }
+  
 }
