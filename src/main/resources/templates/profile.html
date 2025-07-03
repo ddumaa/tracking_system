@@ -468,6 +468,9 @@
                     <label class="form-check-label" th:for="'tg-custom-templates-' + ${store.id}">
                         Использовать собственные сообщения
                     </label>
+                    <p class="form-text text-danger ms-4" th:if="${!planDetails.allowCustomNotifications}">
+                        Функция доступна в тарифе "Команда" и выше
+                    </p>
                 </div>
 
                 <div th:id="'tg-custom-template-fields-' + ${store.id}" class="ms-4 hidden custom-template-fields">

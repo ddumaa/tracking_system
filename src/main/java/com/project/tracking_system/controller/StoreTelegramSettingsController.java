@@ -8,6 +8,8 @@ import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
 import com.project.tracking_system.service.store.StoreTelegramSettingsService;
 import com.project.tracking_system.exception.InvalidTemplateException;
+import com.project.tracking_system.model.subscription.FeatureKey;
+import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.utils.ResponseBuilder;
 import com.project.tracking_system.controller.WebSocketController;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +36,7 @@ public class StoreTelegramSettingsController {
     private final StoreTelegramSettingsRepository settingsRepository;
     private final StoreTelegramSettingsService telegramSettingsService;
     private final WebSocketController webSocketController;
+    private final SubscriptionService subscriptionService;
 
     /**
      * Получить текущие настройки магазина.
@@ -67,6 +70,12 @@ public class StoreTelegramSettingsController {
             if (binding.hasErrors()) {
                 return ResponseBuilder.error(HttpStatus.BAD_REQUEST,
                         binding.getAllErrors().get(0).getDefaultMessage());
+            }
+
+            if (dto.isUseCustomTemplates() &&
+                    !subscriptionService.canUseCustomNotifications(userId)) {
+                return ResponseBuilder.error(HttpStatus.FORBIDDEN,
+                        "Индивидуальные шаблоны недоступны на вашем тарифе");
             }
 
             Store store = storeService.getStore(storeId, userId);
@@ -109,6 +118,12 @@ public class StoreTelegramSettingsController {
                     .body(binding.getAllErrors().get(0).getDefaultMessage());
         }
 
+        if (dto.isUseCustomTemplates() &&
+                !subscriptionService.canUseCustomNotifications(userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Индивидуальные шаблоны недоступны на вашем тарифе");
+        }
+
         Store store = storeService.getStore(storeId, userId);
         try {
             telegramSettingsService.update(store, dto, userId);
@@ -142,6 +157,13 @@ public class StoreTelegramSettingsController {
         if (binding.hasErrors()) {
             redirectAttributes.addFlashAttribute("errorMessage",
                     binding.getAllErrors().get(0).getDefaultMessage());
+            return "redirect:/profile#v-pills-stores";
+        }
+
+        if (dto.isUseCustomTemplates() &&
+                !subscriptionService.canUseCustomNotifications(userId)) {
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "Индивидуальные шаблоны недоступны на вашем тарифе");
             return "redirect:/profile#v-pills-stores";
         }
         Store store = storeService.getStore(storeId, userId);

@@ -23,6 +23,8 @@ public class SubscriptionPlanViewDTO {
     private boolean allowAutoUpdate;
     private Integer maxStores;
     private boolean allowTelegramNotifications;
+    /** Возможность отправлять собственные уведомления. */
+    private boolean allowCustomNotifications;
     private String monthlyPriceLabel;
     private String annualPriceLabel;
 
