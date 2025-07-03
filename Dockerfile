@@ -26,8 +26,8 @@ RUN apt-get update && \
     rm -rf /tmp/chromedriver.zip /tmp/chromedriver-linux64 && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/
 
-ENV LANG C.UTF-8
-ENV LC_ALL C.UTF-8
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
 # Копируем собранное приложение из предыдущего шага
 WORKDIR /app
