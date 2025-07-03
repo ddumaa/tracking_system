@@ -3,12 +3,10 @@ package com.project.tracking_system.service.store;
 import com.project.tracking_system.dto.StoreTelegramSettingsDTO;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
-import com.project.tracking_system.repository.StoreTelegramTemplateRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.exception.InvalidTemplateException;
 import com.project.tracking_system.model.subscription.FeatureKey;
-import com.project.tracking_system.service.store.StoreService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,7 +26,6 @@ public class StoreTelegramSettingsService {
     private final SubscriptionService subscriptionService;
     private final WebSocketController webSocketController;
     private final StoreService storeService;
-    private final StoreTelegramTemplateRepository storeTelegramTemplateRepository;
 
     /**
      * Создать или обновить настройки Telegram магазина.

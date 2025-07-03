@@ -5,8 +5,8 @@ COPY pom.xml .
 COPY src ./src
 RUN mvn clean package -DskipTests
 
-# Слой с Ubuntu и Tesseract
-FROM ddumaa/tesseract:5.5
+# Слой с рантаймом Java
+FROM openjdk:17-jdk-slim
 
 # Устанавливаем Java и другие зависимости
 ENV CHROMEDRIVER_VERSION=131.0.6778.204
@@ -16,10 +16,7 @@ RUN apt-get update && \
       gnupg \
       software-properties-common \
       apt-transport-https \
-      openjdk-17-jdk \
-      unzip \
-      libopencv-dev \
-      python3-opencv && \
+      unzip && \
     wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
     apt-get install -y ./google-chrome-stable_current_amd64.deb && \
     wget -N "https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip" -O /tmp/chromedriver.zip && \
@@ -29,10 +26,8 @@ RUN apt-get update && \
     rm -rf /tmp/chromedriver.zip /tmp/chromedriver-linux64 && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/
 
-ENV LD_LIBRARY_PATH=/usr/lib/jni:$LD_LIBRARY_PATH
-ENV JAVA_OPTS="-Djava.library.path=/usr/lib/jni"
-ENV LANG C.UTF-8
-ENV LC_ALL C.UTF-8
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
 # Копируем собранное приложение из предыдущего шага
 WORKDIR /app

@@ -2,7 +2,6 @@ package com.project.tracking_system.repository;
 
 import com.project.tracking_system.entity.StoreMonthlyStatistics;
 import org.springframework.data.jpa.repository.JpaRepository;
-import com.project.tracking_system.repository.DeletableByStoreOrUser;
 import java.util.List;
 import java.util.Optional;
 

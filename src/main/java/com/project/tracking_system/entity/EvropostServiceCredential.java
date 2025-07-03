@@ -47,5 +47,4 @@ public class EvropostServiceCredential {
     @Column(name = "token_created_at")
     private ZonedDateTime tokenCreatedAt;
 
-
 }

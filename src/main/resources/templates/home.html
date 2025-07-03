@@ -82,14 +82,14 @@
                             <label for="file" class="form-label fw-semibold mb-0">
                                 Выберите файл:
                                 <i class="bi bi-info-circle text-primary" data-bs-toggle="tooltip"
-                                   data-bs-placement="right" title="Поддерживаются форматы: .xls, .xlsx, .jpg, .png (с изображениями точность работы не гарантируется)"></i>
+                                   data-bs-placement="right" title="Поддерживаются форматы: .xls, .xlsx"></i>
                             </label>
                             <!-- Ссылка-образец, оформленная как текстовая кнопка -->
                             <a th:href="@{/download-sample}" class="text-secondary link-hover">Образец</a>
                         </div>
 
                         <div class="input-group">
-                            <input type="file" id="file" name="file" class="form-control" accept=".xls,.xlsx,image/*" required>
+                            <input type="file" id="file" name="file" class="form-control" accept=".xls,.xlsx" required>
                             <button type="submit" class="btn btn-outline-primary btn-equal">Загрузить</button>
                         </div>
                     </form>

@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
  * Репозиторий конфигураций планировщика задач.
  */
 public interface ScheduledTaskConfigRepository extends JpaRepository<ScheduledTaskConfig, Long> {
+
 }

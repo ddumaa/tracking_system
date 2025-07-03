@@ -1,8 +1,6 @@
 package com.project.tracking_system.controller;
 
-import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.model.TrackingResponse;
-import com.project.tracking_system.service.track.TrackNumberOcrService;
 import com.project.tracking_system.service.track.TrackingNumberServiceXLS;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +12,6 @@ import org.springframework.web.multipart.MultipartFile;
 import com.project.tracking_system.entity.User;
 
 import java.io.IOException;
-import java.util.List;
 
 /**
  * Контроллер для загрузки файлов и распознавания номеров посылок.
@@ -26,10 +23,9 @@ import java.util.List;
 public class UploadController {
 
     private final TrackingNumberServiceXLS trackingNumberServiceXLS;
-    private final TrackNumberOcrService trackNumberOcrService;
 
     /**
-     * Обрабатывает загрузку файла (XLS, XLSX или изображения).
+     * Обрабатывает загрузку файла (XLS или XLSX).
      *
      * @param file загружаемый файл
      * @param storeId идентификатор магазина (может быть null)
@@ -49,7 +45,7 @@ public class UploadController {
         }
 
         if (file.isEmpty()) {
-            model.addAttribute("customError", "Пожалуйста, выберите XLS, XLSX или изображение для загрузки.");
+            model.addAttribute("customError", "Пожалуйста, выберите XLS или XLSX для загрузки.");
             return "home";
         }
 
@@ -67,14 +63,8 @@ public class UploadController {
 
                 model.addAttribute("trackingResults", trackingResponse.getTrackingResults());
                 model.addAttribute("limitExceededMessage", trackingResponse.getLimitExceededMessage());
-            } else if (contentType.startsWith("image/")) {
-                String recognizedText = trackNumberOcrService.processImage(file);
-                List<TrackingResultAdd> trackingResults = trackNumberOcrService.extractAndProcessTrackingNumbers(recognizedText, storeId, userId);
-                model.addAttribute("trackingResults", trackingResults);
-
-                return "home";
             } else {
-                model.addAttribute("customError", "Неподдерживаемый тип файла. Загрузите XLS, XLSX или изображение.");
+                model.addAttribute("customError", "Неподдерживаемый тип файла. Загрузите XLS или XLSX.");
                 return "home";
             }
         } catch (IOException e) {
