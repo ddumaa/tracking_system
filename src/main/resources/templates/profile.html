@@ -484,6 +484,7 @@
                                       th:name="${'templates[' + status.name() + ']'}"
                                       rows="3"
                                       th:text="${store.telegramSettings?.templates?.get(status.name())}"
+                                      th:placeholder="${status.formatMessage('{track}', '{store}')}"
                                       th:disabled="${!allowCustomTemplates}"></textarea>
                         </div>
                     </div>
