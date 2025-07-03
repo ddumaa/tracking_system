@@ -492,9 +492,21 @@ function initTelegramTemplateBlocks() {
         const fields = form.querySelector('.custom-template-fields');
         if (!cb || !fields) return;
 
-        const update = () => toggleFieldsVisibility(cb, fields);
+        const update = () => {
+            if (cb.disabled) {
+                cb.checked = false;
+                fields.querySelectorAll('textarea').forEach(t => t.disabled = true);
+                slideUp(fields);
+                return;
+            }
+            fields.querySelectorAll('textarea').forEach(t => t.disabled = !cb.checked);
+            toggleFieldsVisibility(cb, fields);
+        };
+
         update();
-        cb.addEventListener('change', update);
+        if (!cb.disabled) {
+            cb.addEventListener('change', update);
+        }
     });
 }
 
