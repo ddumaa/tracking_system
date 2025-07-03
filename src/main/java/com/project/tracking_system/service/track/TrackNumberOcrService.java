@@ -46,12 +46,24 @@ public class TrackNumberOcrService {
     @Value("${tesseract.datapath}")
     private String tesseractDataPath;
 
+    /** Tesseract OCR, инициализируемый после загрузки OpenCV. */
+    private Tesseract tesseract;
+
     /**
-     * Инициализация библиотеки OpenCV.
+     * Инициализация библиотек OpenCV и Tesseract.
+     * <p>
+     * Загружает нативную библиотеку OpenCV и создаёт настроенный экземпляр Tesseract.
+     * </p>
      */
     @PostConstruct
     public void init() {
         System.load(opencvLibPath);
+        tesseract = new Tesseract();
+        tesseract.setDatapath(tesseractDataPath);
+        tesseract.setLanguage("rus+eng");
+        tesseract.setVariable("user_defined_dpi", "300");
+        tesseract.setPageSegMode(3);
+        tesseract.setOcrEngineMode(1); // Только LSTM
     }
 
     /**
@@ -106,18 +118,15 @@ public class TrackNumberOcrService {
 
     /**
      * Распознает текст на изображении с использованием Tesseract OCR.
-     * @param image Изображение, с которого нужно распознать текст.
-     * @return Распознанный текст.
-     * @throws TesseractException Если возникла ошибка при распознавании текста.
+     * <p>
+     * Использует единый экземпляр {@link Tesseract}, созданный при инициализации сервиса.
+     * </p>
+     *
+     * @param image изображение, с которого нужно распознать текст
+     * @return распознанный текст
+     * @throws TesseractException если возникла ошибка при распознавании текста
      */
-    public String recognizeText(BufferedImage image) throws TesseractException {
-        Tesseract tesseract = new Tesseract();
-        tesseract.setDatapath(tesseractDataPath);
-        tesseract.setLanguage("rus+eng");
-        tesseract.setVariable("user_defined_dpi", "300");
-        tesseract.setPageSegMode(3);
-        tesseract.setOcrEngineMode(1); // Только LSTM
-
+    public synchronized String recognizeText(BufferedImage image) throws TesseractException {
         return tesseract.doOCR(image);
     }
 
