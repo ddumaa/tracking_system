@@ -1,1 +1,0 @@
-ALTER TABLE tb_customers ADD COLUMN returned_count INTEGER NOT NULL DEFAULT 0;

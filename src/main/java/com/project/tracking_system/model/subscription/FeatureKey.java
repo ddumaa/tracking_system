@@ -1,8 +1,11 @@
 package com.project.tracking_system.model.subscription;
 
+import lombok.Getter;
+
 /**
  * Перечисление ключей доступных функций тарифных планов.
  */
+@Getter
 public enum FeatureKey {
 
     /**
@@ -20,18 +23,16 @@ public enum FeatureKey {
      */
     AUTO_UPDATE("autoUpdate");
 
+    /**
+     * -- GETTER --
+     *  Возвращает строковое представление ключа.
+     *
+     * @return ключ функции
+     */
     private final String key;
 
     FeatureKey(String key) {
         this.key = key;
     }
 
-    /**
-     * Возвращает строковое представление ключа.
-     *
-     * @return ключ функции
-     */
-    public String getKey() {
-        return key;
-    }
 }

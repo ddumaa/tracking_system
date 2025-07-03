@@ -1,2 +1,0 @@
-ALTER TABLE tb_track_parcels
-    ADD COLUMN version BIGINT NOT NULL DEFAULT 0;
