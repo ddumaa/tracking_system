@@ -203,6 +203,17 @@ public class SubscriptionService {
     }
 
     /**
+     * Проверяет, разрешено ли использование собственных шаблонов уведомлений.
+     *
+     * @param userId идентификатор пользователя
+     * @return {@code true}, если функция доступна в тарифном плане
+     */
+    @Transactional(readOnly = true)
+    public boolean canUseCustomNotifications(Long userId) {
+        return isFeatureEnabled(userId, FeatureKey.CUSTOM_NOTIFICATIONS);
+    }
+
+    /**
      * Проверяет доступность функции для указанного пользователя.
      *
      * @param userId идентификатор пользователя

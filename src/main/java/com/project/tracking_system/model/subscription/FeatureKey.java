@@ -21,7 +21,12 @@ public enum FeatureKey {
     /**
      * Автоматическое обновление треков.
      */
-    AUTO_UPDATE("autoUpdate");
+    AUTO_UPDATE("autoUpdate"),
+
+    /**
+     * Индивидуальные уведомления с собственными шаблонами.
+     */
+    CUSTOM_NOTIFICATIONS("customNotifications");
 
     /**
      * -- GETTER --
