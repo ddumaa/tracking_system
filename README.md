@@ -10,7 +10,9 @@ Belpost and Evropost
 
 ## Конфигурация OpenCV
 
-В файле `application.properties` добавлено свойство `opencv.lib.path`, которое определяет путь к нативной библиотеке OpenCV. По умолчанию используется `/usr/lib/jni/libopencv_java4100.so`.
+Используется зависимость `org.bytedeco:opencv-platform`, которая содержит нативные библиотеки для различных платформ. 
+Путь к библиотеке можно задать через свойство `opencv.lib.path` в `application.properties`. 
+По умолчанию используется `/usr/lib/jni/libopencv_java4100.so`.
 
 ## Конфигурация Tesseract
 
