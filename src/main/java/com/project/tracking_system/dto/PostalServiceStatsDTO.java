@@ -22,13 +22,23 @@ public class PostalServiceStatsDTO {
     private double sumDeliveryDays;
     private double sumPickupTimeDays;
 
+    /**
+     * Среднее время доставки в днях.
+     *
+     * @return среднее количество дней доставки или 0, если доставленных нет
+     */
     public double getAvgDeliveryDays() {
         return delivered > 0 ? sumDeliveryDays / delivered : 0.0;
     }
 
+    /**
+     * Среднее время нахождения посылки на пункте выдачи в днях.
+     * Рассчитывается только по доставленным отправлениям.
+     *
+     * @return среднее время ожидания клиента или 0, если доставленных нет
+     */
     public double getAvgPickupTimeDays() {
-        int pickedUp = delivered + returned;
-        return pickedUp > 0 ? sumPickupTimeDays / pickedUp : 0.0;
+        return delivered > 0 ? sumPickupTimeDays / delivered : 0.0;
     }
 
 }
