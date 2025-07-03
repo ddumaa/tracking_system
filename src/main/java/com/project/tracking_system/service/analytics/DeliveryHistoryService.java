@@ -309,14 +309,11 @@ public class DeliveryHistoryService {
                     store.getId(),
                     1,
                     deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
-                    pickupDays != null ? pickupDays : BigDecimal.ZERO);
+                    BigDecimal.ZERO);
             if (stUpd == 0) {
                 stats.setTotalReturned(stats.getTotalReturned() + 1);
                 if (deliveryDays != null) {
                     stats.setSumDeliveryDays(stats.getSumDeliveryDays().add(deliveryDays));
-                }
-                if (pickupDays != null) {
-                    stats.setSumPickupDays(stats.getSumPickupDays().add(pickupDays));
                 }
                 stats.setUpdatedAt(ZonedDateTime.now());
                 storeAnalyticsRepository.save(stats);
@@ -327,14 +324,11 @@ public class DeliveryHistoryService {
                     history.getPostalService(),
                     1,
                     deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
-                    pickupDays != null ? pickupDays : BigDecimal.ZERO);
+                    BigDecimal.ZERO);
             if (psUpd == 0) {
                 psStats.setTotalReturned(psStats.getTotalReturned() + 1);
                 if (deliveryDays != null) {
                     psStats.setSumDeliveryDays(psStats.getSumDeliveryDays().add(deliveryDays));
-                }
-                if (pickupDays != null) {
-                    psStats.setSumPickupDays(psStats.getSumPickupDays().add(pickupDays));
                 }
                 psStats.setUpdatedAt(ZonedDateTime.now());
                 postalServiceStatisticsRepository.save(psStats);
@@ -442,7 +436,7 @@ public class DeliveryHistoryService {
                     eventDate,
                     1,
                     deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
-                    pickupDays != null ? pickupDays : BigDecimal.ZERO);
+                    BigDecimal.ZERO);
             if (sdUpdated == 0) {
                 StoreDailyStatistics daily = storeDailyStatisticsRepository
                         .findByStoreIdAndDate(store.getId(), eventDate)
@@ -456,9 +450,6 @@ public class DeliveryHistoryService {
                 if (deliveryDays != null) {
                     daily.setSumDeliveryDays(daily.getSumDeliveryDays().add(deliveryDays));
                 }
-                if (pickupDays != null) {
-                    daily.setSumPickupDays(daily.getSumPickupDays().add(pickupDays));
-                }
                 daily.setUpdatedAt(ZonedDateTime.now());
                 storeDailyStatisticsRepository.save(daily);
             }
@@ -469,7 +460,7 @@ public class DeliveryHistoryService {
                     eventDate,
                     1,
                     deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
-                    pickupDays != null ? pickupDays : BigDecimal.ZERO);
+                    BigDecimal.ZERO);
             if (psdUpdated == 0) {
                 PostalServiceDailyStatistics psDaily = postalServiceDailyStatisticsRepository
                         .findByStoreIdAndPostalServiceTypeAndDate(store.getId(), serviceType, eventDate)
@@ -483,9 +474,6 @@ public class DeliveryHistoryService {
                 psDaily.setReturned(psDaily.getReturned() + 1);
                 if (deliveryDays != null) {
                     psDaily.setSumDeliveryDays(psDaily.getSumDeliveryDays().add(deliveryDays));
-                }
-                if (pickupDays != null) {
-                    psDaily.setSumPickupDays(psDaily.getSumPickupDays().add(pickupDays));
                 }
                 psDaily.setUpdatedAt(ZonedDateTime.now());
                 postalServiceDailyStatisticsRepository.save(psDaily);
