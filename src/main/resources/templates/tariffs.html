@@ -79,6 +79,10 @@
                                 <span th:if="${plan.allowTelegramNotifications}">📨 Telegram-уведомления</span>
                                 <span th:unless="${plan.allowTelegramNotifications}" class="text-muted">❌ Telegram-уведомления</span>
                             </li>
+                            <li>
+                                <span th:if="${plan.allowCustomNotifications}">🔔 Свои уведомления</span>
+                                <span th:unless="${plan.allowCustomNotifications}" class="text-muted">❌ Свои уведомления</span>
+                            </li>
                         </ul>
 
 
