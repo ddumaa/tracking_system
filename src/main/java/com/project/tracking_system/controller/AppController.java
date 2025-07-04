@@ -26,8 +26,8 @@ import java.util.List;
 @RequiredArgsConstructor
 @Slf4j
 @Controller
-@RequestMapping("/")
-public class HomeController {
+@RequestMapping("/app")
+public class AppController {
 
     private final TrackFacade trackFacade;
     private final StoreService storeService;
@@ -44,7 +44,7 @@ public class HomeController {
             List<Store> stores = storeService.getUserStores(user.getId());
             model.addAttribute("stores", stores);
         }
-        return "home";
+        return "app/home";
     }
 
     /**
@@ -84,7 +84,7 @@ public class HomeController {
             if (trackInfo == null || trackInfo.getList().isEmpty()) {
                 model.addAttribute("customError", "Нет данных для указанного номера посылки.");
                 log.warn("Нет данных для номера: {}", number);
-                return "home";
+                return "app/home";
             }
 
             model.addAttribute("trackInfo", trackInfo);
@@ -95,19 +95,7 @@ public class HomeController {
             model.addAttribute("generalError", "Произошла ошибка при обработке запроса.");
             log.error("Общая ошибка: {}", e.getMessage(), e);
         }
-
-        return "home";
-    }
-
-
-    @GetMapping("/privacy-policy")
-    public String privacyPolicy() {
-        return "privacy-policy";
-    }
-
-    @GetMapping("/terms-of-use")
-    public String termsOfUse() {
-        return "terms-of-use";
+        return "app/home";
     }
 
 }
