@@ -1,0 +1,49 @@
+<div th:fragment="header">
+    <header class="bg-white shadow-sm">
+        <div class="container">
+            <!-- Бургер-кнопка (только для мобильных) -->
+            <button class="burger-menu" id="burgerMenu">
+                <i class="bi bi-list"></i>
+            </button>
+
+            <!-- Логотип -->
+            <div class="logo">
+                <a href="/admin" class="d-inline-flex link-body-emphasis text-decoration-none">
+                    <img th:src="@{/images/logo.svg}" alt="Logo">
+                </a>
+            </div>
+
+            <!-- Навигация (скрывается на мобильных) -->
+            <div class="nav-container">
+                <ul class="nav">
+                    <li><a href="/admin" class="nav-link px-2" data-path="/admin">Панель</a></li>
+                    <li><a href="/admin/users" class="nav-link px-2" data-path="/admin/users">Пользователи</a></li>
+                    <li><a href="/admin/parcels" class="nav-link px-2" data-path="/admin/parcels">Посылки</a></li>
+                    <li><a href="/admin/settings" class="nav-link px-2" data-path="/admin/settings">Настройки</a></li>
+                </ul>
+            </div>
+
+            <!-- Блок авторизации -->
+            <div class="auth-buttons">
+                <form th:action="@{/logout}" method="post">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                    <button type="submit" class="btn btn-danger btn-text">
+                        <i class="bi bi-box-arrow-right"></i> Выйти
+                    </button>
+                    <button type="submit" class="icon-btn logout">
+                        <i class="bi bi-box-arrow-right"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <nav id="mobileNav" class="mobile-nav">
+            <ul>
+                <li><a href="/admin" data-path="/admin">Панель</a></li>
+                <li><a href="/admin/users" data-path="/admin/users">Пользователи</a></li>
+                <li><a href="/admin/parcels" data-path="/admin/parcels">Посылки</a></li>
+                <li><a href="/admin/settings" data-path="/admin/settings">Настройки</a></li>
+            </ul>
+        </nav>
+    </header>
+</div>
