@@ -496,7 +496,8 @@ function initTelegramTemplateBlocks() {
             if (cb.disabled) {
                 cb.checked = false;
                 fields.querySelectorAll('textarea').forEach(t => t.disabled = true);
-                slideUp(fields);
+                // Показываем блок, но текстовые поля остаются недоступными
+                slideDown(fields);
                 return;
             }
             fields.querySelectorAll('textarea').forEach(t => t.disabled = !cb.checked);
