@@ -223,13 +223,15 @@ public class LoginAttemptService {
                                     String email, String ip) throws IOException {
         if (isIPBlocked(ip)) {
             log.warn("Блокировка по IP: {} (Попытка входа заблокирована)", ip);
-            response.sendRedirect("/login?blockedIP=true");
+            // Перенаправляем на страницу входа с сообщением о блокировке IP
+            response.sendRedirect("/auth/login?blockedIP=true");
             return true;
         }
 
         if (email != null && isEmailBlocked(email)) {
             log.warn("Блокировка по email: {} (Попытка входа заблокирована)", EmailUtils.maskEmail(email));
-            response.sendRedirect("/login?blocked=true");
+            // Перенаправляем на страницу входа с сообщением о блокировке аккаунта
+            response.sendRedirect("/auth/login?blocked=true");
             return true;
         }
 

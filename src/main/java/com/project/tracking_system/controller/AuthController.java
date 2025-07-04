@@ -28,7 +28,7 @@ import java.time.format.DateTimeFormatter;
 @Slf4j
 @RequiredArgsConstructor
 @Controller
-@RequestMapping("/")
+@RequestMapping("/auth")
 public class AuthController {
 
     private final LoginAttemptService loginAttemptService;
@@ -80,7 +80,7 @@ public class AuthController {
 
         try {
             registrationService.confirm(userDTO);
-            return "redirect:/login";
+            return "redirect:/auth/login";
         } catch (IllegalArgumentException e) {
             model.addAttribute("confirmCodRegistration", true);
             model.addAttribute("errorMessage", e.getMessage());
