@@ -83,10 +83,11 @@ public class SecurityConfiguration {
                                 .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN))
                 )
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests
-                        .requestMatchers("/", "/login", "/logout", "/registration", "/forgot-password", "/reset-password",
+                        .requestMatchers("/", "/features", "/pricing", "/login", "/logout", "/registration", "/forgot-password", "/reset-password",
                                 "/privacy-policy", "/terms-of-use", "/css/**", "/js/**", "/bootstrap/**", "/images/**",
                                 "/upload", "/ws/**", "/wss/**", "/sample/**", "/download-sample", "/tariffs", "/tariffs/**").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/app/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .formLogin(formLogin -> formLogin
@@ -107,7 +108,7 @@ public class SecurityConfiguration {
                                     return;
                                 }
                             }
-                            response.sendRedirect("/");
+                            response.sendRedirect("/app");
                         })
                         .failureHandler((request, response, exception) -> {
                             String email = request.getParameter("email");

@@ -149,7 +149,7 @@ public class AnalyticsController {
 
         model.addAttribute("nonce", request.getAttribute("nonce"));
 
-        return "analytics/dashboard";
+        return "app/analytics/dashboard";
     }
 
     /**
