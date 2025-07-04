@@ -88,6 +88,11 @@ public class CspNonceFilter extends OncePerRequestFilter {
             response.addHeader("Set-Cookie", "cookie_consent=not_set; Path=/; SameSite=None; Secure");
         }
 
+        if ("declined".equals(cookieConsent)) {
+            // Если пользователь отказался — очищаем сторонние куки, например аналитику
+            clearCookie(response, "analytics");
+        }
+
         // Продолжаем цепочку фильтров
         filterChain.doFilter(request, response);
     }
@@ -114,6 +119,22 @@ public class CspNonceFilter extends OncePerRequestFilter {
             }
         }
         return null;
+    }
+
+    /**
+     * Очищает указанную куку у клиента.
+     *
+     * @param response   HTTP-ответ
+     * @param cookieName имя куки
+     */
+    private void clearCookie(HttpServletResponse response, String cookieName) {
+        Cookie cookie = new Cookie(cookieName, null);
+        cookie.setMaxAge(0);
+        cookie.setPath("/");
+        cookie.setSecure(true);
+        cookie.setHttpOnly(true);
+        cookie.setAttribute("SameSite", "None");
+        response.addCookie(cookie);
     }
 
 }

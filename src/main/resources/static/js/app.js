@@ -1260,14 +1260,21 @@ document.addEventListener("DOMContentLoaded", function () {
      */
     const cookieModal = document.getElementById("cookieConsentModal");
     const acceptButton = document.getElementById("acceptCookies");
+    const declineButton = document.getElementById("declineCookies");
 
     if (!localStorage.getItem("cookiesAccepted")) {
-        cookieModal.classList.add("show");
+        setTimeout(() => cookieModal.classList.add("show"), 800);
     }
 
     acceptButton.addEventListener("click", function () {
         localStorage.setItem("cookiesAccepted", "true");
         setCookie("cookie_consent", "accepted", 365);
+        cookieModal.classList.remove("show");
+    });
+
+    declineButton.addEventListener("click", function () {
+        localStorage.setItem("cookiesAccepted", "false");
+        setCookie("cookie_consent", "declined", 365);
         cookieModal.classList.remove("show");
     });
 
@@ -1293,9 +1300,9 @@ document.addEventListener("DOMContentLoaded", function () {
         return null;
     }
 
-    // Если кука нет - показываем окно
+    // Если кука нет - показываем окно с задержкой
     if (!getCookie("cookie_consent")) {
-        cookieModal.classList.add("show");
+        setTimeout(() => cookieModal.classList.add("show"), 800);
     }
 
     /**
