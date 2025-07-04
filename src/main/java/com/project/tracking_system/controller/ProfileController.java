@@ -88,6 +88,7 @@ public class ProfileController {
         model.addAttribute("userSettingsDTO", settingsDTO);
         model.addAttribute("passwordChangeDTO", new PasswordChangeDTO());
         model.addAttribute("allowCustomTemplates", subscriptionService.canUseCustomNotifications(userId));
+        model.addAttribute("defaultReminderTemplate", com.project.tracking_system.service.telegram.TelegramNotificationService.DEFAULT_REMINDER_TEMPLATE);
         model.addAttribute("evropostCredentialsDTO", userService.getEvropostCredentials(userId));
 
         return "profile";
@@ -119,6 +120,7 @@ public class ProfileController {
         model.addAttribute("userSettingsDTO", settingsDTO);
         model.addAttribute("passwordChangeDTO", new PasswordChangeDTO());
         model.addAttribute("allowCustomTemplates", subscriptionService.canUseCustomNotifications(userId));
+        model.addAttribute("defaultReminderTemplate", com.project.tracking_system.service.telegram.TelegramNotificationService.DEFAULT_REMINDER_TEMPLATE);
 
         switch (tab) {
             case "evropost" -> {

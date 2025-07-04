@@ -67,8 +67,13 @@ public class StoreTelegramSettingsService {
         }
 
         // Проверяем содержимое пользовательских шаблонов при их использовании
-        if (dto.isUseCustomTemplates() && dto.getTemplates() != null) {
-            dto.getTemplates().values().forEach(this::validateTemplate);
+        if (dto.isUseCustomTemplates()) {
+            if (dto.getTemplates() != null) {
+                dto.getTemplates().values().forEach(this::validateTemplate);
+            }
+            if (dto.getReminderTemplate() != null) {
+                validateTemplate(dto.getReminderTemplate());
+            }
         }
 
         // Передаём обработку полей общему сервису

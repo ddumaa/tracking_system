@@ -7,6 +7,7 @@ import com.project.tracking_system.entity.StoreTelegramSettings;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.StoreTelegramSettingsRepository;
 import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.exception.InvalidTemplateException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -64,5 +65,21 @@ class StoreTelegramSettingsServiceTest {
 
         verify(storeService).updateFromDto(any(StoreTelegramSettings.class), eq(dto));
         verify(settingsRepository).save(any(StoreTelegramSettings.class));
+    }
+
+    @Test
+    void update_InvalidReminderTemplate_Throws() {
+        Store store = new Store();
+        store.setId(3L);
+        StoreTelegramSettingsDTO dto = new StoreTelegramSettingsDTO();
+        dto.setUseCustomTemplates(true);
+        dto.setReminderTemplate("Неверный шаблон");
+
+        when(subscriptionService.isFeatureEnabled(3L, FeatureKey.TELEGRAM_NOTIFICATIONS)).thenReturn(true);
+        when(subscriptionService.canUseCustomNotifications(3L)).thenReturn(true);
+        when(settingsRepository.findByStoreId(3L)).thenReturn(null);
+
+        assertThrows(InvalidTemplateException.class, () -> service.update(store, dto, 3L));
+        verify(settingsRepository, never()).save(any());
     }
 }
