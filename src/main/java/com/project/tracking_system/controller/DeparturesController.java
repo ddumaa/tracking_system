@@ -40,7 +40,7 @@ import java.util.List;
 @Slf4j
 @RequiredArgsConstructor
 @Controller
-@RequestMapping("/departures")
+@RequestMapping("/app/departures")
 public class DeparturesController {
 
     private final TrackParcelService trackParcelService;
@@ -93,7 +93,7 @@ public class DeparturesController {
             } catch (IllegalArgumentException e) {
                 log.warn("Некорректный статус посылки: {}", statusString);
                 model.addAttribute("trackParcelNotification", "Неверный статус посылки");
-                return "departures";
+                return "app/departures";
             }
         }
 
@@ -136,7 +136,7 @@ public class DeparturesController {
         model.addAttribute("bulkUpdateButtonDTO",
                 new BulkUpdateButtonDTO(userService.isShowBulkUpdateButton(user.getId())));
 
-        return "departures";
+        return "app/departures";
     }
 
     /**

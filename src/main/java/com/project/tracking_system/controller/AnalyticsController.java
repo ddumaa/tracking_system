@@ -33,7 +33,7 @@ import java.util.Map;
 @Slf4j
 @RequiredArgsConstructor
 @Controller
-@RequestMapping("/analytics")
+@RequestMapping("/app/analytics")
 public class AnalyticsController {
 
     private final PostalServiceStatisticsService postalStatisticsService;
@@ -149,7 +149,7 @@ public class AnalyticsController {
 
         model.addAttribute("nonce", request.getAttribute("nonce"));
 
-        return "analytics/dashboard";
+        return "app/analytics/dashboard";
     }
 
     /**

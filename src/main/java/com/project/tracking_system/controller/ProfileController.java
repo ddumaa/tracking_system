@@ -42,7 +42,7 @@ import java.util.Map;
 @Controller
 @RequiredArgsConstructor
 @Slf4j
-@RequestMapping("/profile")
+@RequestMapping("/app/profile")
 public class ProfileController {
 
     private final UserService userService;
@@ -91,7 +91,7 @@ public class ProfileController {
         model.addAttribute("defaultReminderTemplate", com.project.tracking_system.service.telegram.TelegramNotificationService.DEFAULT_REMINDER_TEMPLATE);
         model.addAttribute("evropostCredentialsDTO", userService.getEvropostCredentials(userId));
 
-        return "profile";
+        return "app/profile";
     }
 
     /**
@@ -141,7 +141,7 @@ public class ProfileController {
             default -> log.debug("Открыта вкладка по умолчанию (пароль) для пользователя с ID: {}", userId);
         }
 
-        return "profile";
+        return "app/profile";
     }
 
     /**
@@ -174,7 +174,7 @@ public class ProfileController {
             }
         }
 
-        return "profile :: evropostFragment";
+        return "app/profile :: evropostFragment";
     }
 
     /**
@@ -309,11 +309,11 @@ public class ProfileController {
         Long userId = user.getId();
 
         if (result.hasErrors()) {
-            return "profile :: passwordFragment";
+            return "app/profile :: passwordFragment";
         }
         if (!passwordChangeDTO.getNewPassword().equals(passwordChangeDTO.getConfirmPassword())) {
             result.rejectValue("confirmPassword", "password.mismatch", "Пароли не совпадают");
-            return "profile :: passwordFragment";
+            return "app/profile :: passwordFragment";
         }
         try {
             userService.changePassword(userId, passwordChangeDTO);
@@ -322,7 +322,7 @@ public class ProfileController {
             result.rejectValue("currentPassword", "password.incorrect", e.getMessage());
         }
 
-        return "profile :: passwordFragment";
+        return "app/profile :: passwordFragment";
     }
 
     /**
@@ -476,7 +476,7 @@ public class ProfileController {
         Long userId = user.getId();
         Store store = storeService.getStore(storeId, userId);
         model.addAttribute("store", store);
-        return "profile :: telegramStoreBlock";
+        return "app/profile :: telegramStoreBlock";
     }
 
 }

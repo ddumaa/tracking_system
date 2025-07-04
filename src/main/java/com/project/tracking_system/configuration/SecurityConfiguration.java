@@ -84,8 +84,9 @@ public class SecurityConfiguration {
                 )
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests
                         .requestMatchers("/", "/login", "/logout", "/registration", "/forgot-password", "/reset-password",
-                                "/privacy-policy", "/terms-of-use", "/css/**", "/js/**", "/bootstrap/**", "/images/**",
-                                "/upload", "/ws/**", "/wss/**", "/sample/**", "/download-sample", "/tariffs", "/tariffs/**").permitAll()
+                                "/privacy", "/terms", "/features", "/pricing",
+                                "/css/**", "/js/**", "/bootstrap/**", "/images/**",
+                                "/upload", "/ws/**", "/wss/**", "/sample/**", "/download-sample").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
