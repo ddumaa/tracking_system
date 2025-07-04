@@ -93,7 +93,7 @@ public class DeparturesController {
             } catch (IllegalArgumentException e) {
                 log.warn("Некорректный статус посылки: {}", statusString);
                 model.addAttribute("trackParcelNotification", "Неверный статус посылки");
-                return "app/departures";
+                return "departures";
             }
         }
 
@@ -136,7 +136,7 @@ public class DeparturesController {
         model.addAttribute("bulkUpdateButtonDTO",
                 new BulkUpdateButtonDTO(userService.isShowBulkUpdateButton(user.getId())));
 
-        return "app/departures";
+        return "departures";
     }
 
     /**
@@ -170,7 +170,7 @@ public class DeparturesController {
         model.addAttribute("trackInfo", trackInfo);
         model.addAttribute("itemNumber", itemNumber);
 
-        return "app/partials/track-info-departures";
+        return "partials/track-info-departures";
     }
 
     /**
