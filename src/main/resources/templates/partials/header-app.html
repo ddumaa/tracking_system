@@ -9,7 +9,7 @@
 
             <!-- Логотип -->
            <div class="logo">
-                <a href="/" class="d-inline-flex link-body-emphasis text-decoration-none">
+                <a href="/app" class="d-inline-flex link-body-emphasis text-decoration-none">
                     <img th:src="@{/images/logo.svg}" alt="Logo">
                 </a>
             </div>
@@ -17,29 +17,29 @@
             <!-- Навигация (скрывается на мобильных) -->
             <div class="nav-container">
                 <ul class="nav">
-                    <li><a href="/" class="nav-link px-2" data-path="/">Трекинг</a></li>
-                    <li><a href="/departures" class="nav-link px-2" data-path="/departures">Отправления</a></li>
-                    <li><a href="/profile" class="nav-link px-2" data-path="/profile">Профиль</a></li>
-                    <li><a href="/analytics" class="nav-link px-2" data-path="/analytics">Аналитика</a></li>
-                    <li><a href="/tariffs" class="nav-link px-2" data-path="/tariffs">Тарифы</a></li>
+                    <li><a href="/app" class="nav-link px-2" data-path="/app">Трекинг</a></li>
+                    <li><a href="/app/departures" class="nav-link px-2" data-path="/app/departures">Отправления</a></li>
+                    <li><a href="/app/profile" class="nav-link px-2" data-path="/app/profile">Профиль</a></li>
+                    <li><a href="/app/analytics" class="nav-link px-2" data-path="/app/analytics">Аналитика</a></li>
+                    <li><a href="/app/tariffs" class="nav-link px-2" data-path="/app/tariffs">Тарифы</a></li>
                 </ul>
             </div>
 
             <!-- Кнопки авторизации -->
             <div class="auth-buttons">
                 <!-- Вход -->
-                <a th:if="${authenticatedUser == null}" th:href="@{/login}" class="btn btn-outline-primary btn-text">
+                <a th:if="${authenticatedUser == null}" th:href="@{/auth/login}" class="btn btn-outline-primary btn-text">
                     <i class="bi bi-box-arrow-in-right"></i> Войти
                 </a>
-                <a th:if="${authenticatedUser == null}" th:href="@{/login}" class="icon-btn">
+                <a th:if="${authenticatedUser == null}" th:href="@{/auth/login}" class="icon-btn">
                     <i class="bi bi-box-arrow-in-right"></i>
                 </a>
 
                 <!-- Регистрация -->
-                <a th:if="${authenticatedUser == null}" th:href="@{/registration}" class="btn btn-primary btn-text">
+                <a th:if="${authenticatedUser == null}" th:href="@{/auth/registration}" class="btn btn-primary btn-text">
                     <i class="bi bi-person-plus"></i> Регистрация
                 </a>
-                <a th:if="${authenticatedUser == null}" th:href="@{/registration}" class="icon-btn">
+                <a th:if="${authenticatedUser == null}" th:href="@{/auth/registration}" class="icon-btn">
                     <i class="bi bi-person-plus"></i>
                 </a>
 
@@ -58,11 +58,11 @@
 
         <nav id="mobileNav" class="mobile-nav">
             <ul>
-                <li><a href="/" data-path="/">Трекинг</a></li>
-                <li><a href="/departures" data-path="/departures">Отправления</a></li>
-                <li><a href="/profile" data-path="/profile">Профиль</a></li>
-                <li><a href="/analytics" data-path="/analytics">Аналитика</a></li>
-                <li><a href="/tariffs" data-path="/tariffs">Тарифы</a></li>
+                <li><a href="/app" data-path="/app">Трекинг</a></li>
+                <li><a href="/app/departures" data-path="/app/departures">Отправления</a></li>
+                <li><a href="/app/profile" data-path="/app/profile">Профиль</a></li>
+                <li><a href="/app/analytics" data-path="/app/analytics">Аналитика</a></li>
+                <li><a href="/app/tariffs" data-path="/app/tariffs">Тарифы</a></li>
             </ul>
         </nav>
 

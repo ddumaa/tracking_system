@@ -1,0 +1,76 @@
+<div th:fragment="header">
+    <header class="bg-white shadow-sm">
+        <div class="container">
+            <!-- Бургер-кнопка для мобильных устройств -->
+            <button class="burger-menu" id="burgerMenu">
+                <i class="bi bi-list"></i>
+            </button>
+
+            <!-- Логотип -->
+            <div class="logo">
+                <a href="/" class="d-inline-flex link-body-emphasis text-decoration-none">
+                    <img th:src="@{/images/logo.svg}" alt="Logo">
+                </a>
+            </div>
+
+            <!-- Навигация для десктопа -->
+            <div class="nav-container">
+                <ul class="nav">
+                    <li><a href="/" class="nav-link px-2" data-path="/">Главная</a></li>
+                    <li><a href="/features" class="nav-link px-2" data-path="/features">Возможности</a></li>
+                    <li><a href="/pricing" class="nav-link px-2" data-path="/pricing">Тарифы</a></li>
+                    <li><a href="/faq" class="nav-link px-2" data-path="/faq">FAQ</a></li>
+                    <li><a href="/about" class="nav-link px-2" data-path="/about">О нас</a></li>
+                    <li><a href="/contacts" class="nav-link px-2" data-path="/contacts">Контакты</a></li>
+                </ul>
+            </div>
+
+            <!-- Блок кнопок авторизации -->
+            <div class="auth-buttons">
+                <!-- Для неавторизованных -->
+                <a th:if="${authenticatedUser == null}" th:href="@{/auth/login}" class="btn btn-outline-primary btn-text">
+                    <i class="bi bi-box-arrow-in-right"></i> Войти
+                </a>
+                <a th:if="${authenticatedUser == null}" th:href="@{/auth/login}" class="icon-btn">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                </a>
+                <a th:if="${authenticatedUser == null}" th:href="@{/auth/registration}" class="btn btn-primary btn-text">
+                    <i class="bi bi-person-plus"></i> Регистрация
+                </a>
+                <a th:if="${authenticatedUser == null}" th:href="@{/auth/registration}" class="icon-btn">
+                    <i class="bi bi-person-plus"></i>
+                </a>
+
+                <!-- Для авторизованных -->
+                <a th:if="${authenticatedUser != null}" href="/app" class="btn btn-success btn-text">
+                    <i class="bi bi-box-arrow-in-up-right"></i> В кабинет
+                </a>
+                <a th:if="${authenticatedUser != null}" href="/app" class="icon-btn">
+                    <i class="bi bi-box-arrow-in-up-right"></i>
+                </a>
+                <form th:if="${authenticatedUser != null}" th:action="@{/logout}" method="post">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                    <button type="submit" class="btn btn-danger btn-text">
+                        <i class="bi bi-box-arrow-right"></i> Выйти
+                    </button>
+                    <button type="submit" class="icon-btn logout">
+                        <i class="bi bi-box-arrow-right"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Меню для мобильных -->
+        <nav id="mobileNav" class="mobile-nav">
+            <ul>
+                <li><a href="/" data-path="/">Главная</a></li>
+                <li><a href="/features" data-path="/features">Возможности</a></li>
+                <li><a href="/pricing" data-path="/pricing">Тарифы</a></li>
+                <li><a href="/faq" data-path="/faq">FAQ</a></li>
+                <li><a href="/about" data-path="/about">О нас</a></li>
+                <li><a href="/contacts" data-path="/contacts">Контакты</a></li>
+            </ul>
+        </nav>
+
+    </header>
+</div>

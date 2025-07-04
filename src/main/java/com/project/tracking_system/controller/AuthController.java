@@ -28,7 +28,7 @@ import java.time.format.DateTimeFormatter;
 @Slf4j
 @RequiredArgsConstructor
 @Controller
-@RequestMapping("/")
+@RequestMapping("/auth")
 public class AuthController {
 
     private final LoginAttemptService loginAttemptService;
@@ -41,10 +41,10 @@ public class AuthController {
      * @param model модель для добавления данных в представление
      * @return имя представления страницы регистрации
      */
-    @GetMapping("/registration")
+    @GetMapping("/auth/registration")
     public String registration(@ModelAttribute("userDTO") UserRegistrationDTO userRegistrationDTO, Model model) {
         model.addAttribute("userDTO", new UserRegistrationDTO());
-        return "registration";
+        return "auth/registration";
     }
 
     /**
@@ -56,7 +56,7 @@ public class AuthController {
      * @param model модель для добавления данных в представление
      * @return имя представления для регистрации
      */
-    @PostMapping("/registration")
+    @PostMapping("/auth/registration")
     public String registration(@Valid @ModelAttribute("userDTO") UserRegistrationDTO userDTO,
                                BindingResult result, Model model) {
         if (registrationService.isInitialStep(userDTO)) {
@@ -70,22 +70,22 @@ public class AuthController {
             } catch (Exception e) {
                 model.addAttribute("errorMessage", "Ошибка регистрации пользователя: " + e.getMessage());
             }
-            return "registration";
+            return "auth/registration";
         }
 
         if (result.hasFieldErrors("confirmCodRegistration")) {
             model.addAttribute("confirmCodRegistration", true);
-            return "registration";
+            return "auth/registration";
         }
 
         try {
             registrationService.confirm(userDTO);
-            return "redirect:/login";
+            return "redirect:/auth/login";
         } catch (IllegalArgumentException e) {
             model.addAttribute("confirmCodRegistration", true);
             model.addAttribute("errorMessage", e.getMessage());
         }
-        return "registration";
+            return "auth/registration";
     }
 
     /**
@@ -127,6 +127,6 @@ public class AuthController {
             model.addAttribute("remainingAttempts", remainingAttempts);
         }
 
-        return "login";
+        return "auth/login";
     }
 }

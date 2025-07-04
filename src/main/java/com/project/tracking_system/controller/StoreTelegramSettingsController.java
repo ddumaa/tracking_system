@@ -29,7 +29,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 @Controller
 @RequiredArgsConstructor
 @Slf4j
-@RequestMapping("/stores/{storeId}/telegram-settings")
+@RequestMapping("/app/stores/{storeId}/telegram-settings")
 public class StoreTelegramSettingsController {
 
     private final StoreService storeService;
@@ -157,14 +157,14 @@ public class StoreTelegramSettingsController {
         if (binding.hasErrors()) {
             redirectAttributes.addFlashAttribute("errorMessage",
                     binding.getAllErrors().get(0).getDefaultMessage());
-            return "redirect:/profile#v-pills-stores";
+            return "redirect:/app/profile#v-pills-stores";
         }
 
         if (dto.isUseCustomTemplates() &&
                 !subscriptionService.canUseCustomNotifications(userId)) {
             redirectAttributes.addFlashAttribute("errorMessage",
                     "Индивидуальные шаблоны недоступны на вашем тарифе");
-            return "redirect:/profile#v-pills-stores";
+            return "redirect:/app/profile#v-pills-stores";
         }
         Store store = storeService.getStore(storeId, userId);
         try {
@@ -179,6 +179,7 @@ public class StoreTelegramSettingsController {
             log.warn("Ошибка обновления настроек Telegram: {}", e.getMessage());
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
-        return "redirect:/profile#v-pills-stores";
+        return "redirect:/app/profile#v-pills-stores";
     }
+
 }

@@ -6,6 +6,7 @@ import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.StoreTelegramSettings;
 import com.project.tracking_system.mapper.BuyerStatusMapper;
 import com.project.tracking_system.service.customer.CustomerService;
+import org.springframework.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,15 +22,15 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 @Slf4j
 public class TelegramNotificationService {
 
+    /** Стандартный шаблон напоминания. */
+    public static final String DEFAULT_REMINDER_TEMPLATE =
+            "\uD83D\uDD14 Не забудьте забрать посылку {track} из магазина {store} — она ждёт вас в пункте выдачи.";
+
     private final TelegramClient telegramClient;
     private final CustomerService customerService;
 
     /**
      * Отправить уведомление о смене статуса посылки.
-     * <p>
-     * Если в профиле магазина указана подпись, она будет добавлена
-     * в конец сообщения.
-     * </p>
      *
      * @param parcel посылка
      * @param status новый статус
@@ -62,9 +63,6 @@ public class TelegramNotificationService {
             text = buyerStatus.formatMessage(parcel.getNumber(), parcel.getStore().getName());
         }
 
-        if (settings != null && settings.getCustomSignature() != null && !settings.getCustomSignature().isBlank()) {
-            text += "\n\n" + settings.getCustomSignature();
-        }
 
         SendMessage message = new SendMessage(chatId.toString(), text);
 
@@ -96,15 +94,11 @@ public class TelegramNotificationService {
 
         Long chatId = getChatId(parcel);
 
-        String text = String.format(
-                "🔔 Не забудьте забрать посылку %s из магазина %s — она ждёт вас в пункте выдачи.",
-                parcel.getNumber(),
-                parcel.getStore().getName()
-        );
-
-        if (settings != null && settings.getCustomSignature() != null && !settings.getCustomSignature().isBlank()) {
-            text += "\n\n" + settings.getCustomSignature();
-        }
+        String template = (settings != null && StringUtils.hasText(settings.getReminderTemplate()))
+                ? settings.getReminderTemplate()
+                : DEFAULT_REMINDER_TEMPLATE;
+        String text = template.replace("{track}", parcel.getNumber())
+                .replace("{store}", parcel.getStore().getName());
 
         SendMessage message = new SendMessage(chatId.toString(), text);
 
