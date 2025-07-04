@@ -64,4 +64,34 @@ public class MarketingController {
     public String privacy() {
         return "marketing/privacy";
     }
+
+    /**
+     * Отображает страницу с часто задаваемыми вопросами.
+     *
+     * @return имя представления страницы с ответами на вопросы
+     */
+    @GetMapping("faq")
+    public String faq() {
+        return "marketing/faq";
+    }
+
+    /**
+     * Отображает страницу с информацией о компании.
+     *
+     * @return имя представления страницы "О нас"
+     */
+    @GetMapping("about")
+    public String about() {
+        return "marketing/about";
+    }
+
+    /**
+     * Отображает страницу с контактной информацией.
+     *
+     * @return имя представления страницы с контактами
+     */
+    @GetMapping("contacts")
+    public String contacts() {
+        return "marketing/contacts";
+    }
 }
