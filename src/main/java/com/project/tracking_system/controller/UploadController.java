@@ -46,13 +46,13 @@ public class UploadController {
 
         if (file.isEmpty()) {
             model.addAttribute("customError", "Пожалуйста, выберите XLS или XLSX для загрузки.");
-            return "app/home";
+            return "home";
         }
 
         String contentType = file.getContentType();
         if (contentType == null) {
             model.addAttribute("customError", "Не удалось определить тип файла.");
-            return "app/home";
+            return "home";
         }
 
         try {
@@ -65,7 +65,7 @@ public class UploadController {
                 model.addAttribute("limitExceededMessage", trackingResponse.getLimitExceededMessage());
             } else {
                 model.addAttribute("customError", "Неподдерживаемый тип файла. Загрузите XLS или XLSX.");
-                return "app/home";
+                return "home";
             }
         } catch (IOException e) {
             model.addAttribute("generalError", "Ошибка при обработке файла: " + e.getMessage());
@@ -75,6 +75,6 @@ public class UploadController {
             log.error("Ошибка при обработке файла: {}", e.getMessage(), e);
         }
 
-        return "app/home";
+        return "home";
     }
 }

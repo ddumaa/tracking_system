@@ -91,7 +91,7 @@ public class ProfileController {
         model.addAttribute("defaultReminderTemplate", com.project.tracking_system.service.telegram.TelegramNotificationService.DEFAULT_REMINDER_TEMPLATE);
         model.addAttribute("evropostCredentialsDTO", userService.getEvropostCredentials(userId));
 
-        return "app/profile";
+        return "profile";
     }
 
     /**
@@ -141,7 +141,7 @@ public class ProfileController {
             default -> log.debug("Открыта вкладка по умолчанию (пароль) для пользователя с ID: {}", userId);
         }
 
-        return "app/profile";
+        return "profile";
     }
 
     /**
@@ -174,7 +174,7 @@ public class ProfileController {
             }
         }
 
-        return "app/profile :: evropostFragment";
+        return "profile :: evropostFragment";
     }
 
     /**
@@ -309,11 +309,11 @@ public class ProfileController {
         Long userId = user.getId();
 
         if (result.hasErrors()) {
-            return "app/profile :: passwordFragment";
+            return "profile :: passwordFragment";
         }
         if (!passwordChangeDTO.getNewPassword().equals(passwordChangeDTO.getConfirmPassword())) {
             result.rejectValue("confirmPassword", "password.mismatch", "Пароли не совпадают");
-            return "app/profile :: passwordFragment";
+            return "profile :: passwordFragment";
         }
         try {
             userService.changePassword(userId, passwordChangeDTO);
@@ -322,7 +322,7 @@ public class ProfileController {
             result.rejectValue("currentPassword", "password.incorrect", e.getMessage());
         }
 
-        return "app/profile :: passwordFragment";
+        return "profile :: passwordFragment";
     }
 
     /**
@@ -476,7 +476,7 @@ public class ProfileController {
         Long userId = user.getId();
         Store store = storeService.getStore(storeId, userId);
         model.addAttribute("store", store);
-        return "app/profile :: telegramStoreBlock";
+        return "profile :: telegramStoreBlock";
     }
 
 }

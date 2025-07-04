@@ -36,7 +36,7 @@ public class CustomerController {
         model.addAttribute("customerInfo", dto);
         model.addAttribute("notFound", dto == null);
         model.addAttribute("trackId", parcelId);
-        return "app/partials/customer-info";
+        return "partials/customer-info";
     }
 
     /**
@@ -55,6 +55,6 @@ public class CustomerController {
         model.addAttribute("customerInfo", dto);
         model.addAttribute("notFound", dto == null);
         model.addAttribute("trackId", trackId);
-        return "app/partials/customer-info";
+        return "partials/customer-info";
     }
 }
