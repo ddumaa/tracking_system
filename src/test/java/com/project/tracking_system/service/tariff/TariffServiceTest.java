@@ -61,7 +61,11 @@ class TariffServiceTest {
         telegram.setFeatureKey(FeatureKey.TELEGRAM_NOTIFICATIONS);
         telegram.setEnabled(true);
         telegram.setSubscriptionPlan(plan);
-        plan.setFeatures(List.of(bulk, auto, telegram));
+        SubscriptionFeature custom = new SubscriptionFeature();
+        custom.setFeatureKey(FeatureKey.CUSTOM_NOTIFICATIONS);
+        custom.setEnabled(true);
+        custom.setSubscriptionPlan(plan);
+        plan.setFeatures(List.of(bulk, auto, telegram, custom));
     }
 
     @Test
@@ -100,11 +104,19 @@ class TariffServiceTest {
         assertEquals(100, dto.getMaxSavedTracks());
         assertTrue(dto.isAllowBulkUpdate());
         assertTrue(dto.isAllowAutoUpdate());
+        assertTrue(dto.isAllowCustomNotifications());
         assertTrue(dto.isAllowTelegramNotifications());
         assertEquals("15.00 BYN/мес", dto.getMonthlyPriceLabel());
         assertEquals("150.00 BYN/год", dto.getAnnualPriceLabel());
         assertEquals("180.00 BYN", dto.getAnnualFullPriceLabel());
         assertEquals("выгода −17%", dto.getAnnualDiscountLabel());
+    }
+
+    @Test
+    void toViewDto_WithoutLimits_DoesNotThrow() {
+        plan.setLimits(null);
+
+        assertDoesNotThrow(() -> tariffService.toViewDto(plan));
     }
 
     @Test

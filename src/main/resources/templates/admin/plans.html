@@ -22,6 +22,7 @@
             <th>Массовое обновление</th>
             <th>Автообновление</th>
             <th>Telegram-уведомления</th>
+            <th>Свои уведомления</th>
             <th>Активный</th>
             <th>Действия</th>
         </tr>
@@ -41,6 +42,7 @@
                 <td class="text-center"><input type="checkbox" name="limits.allowBulkUpdate" th:checked="${plan.limits.allowBulkUpdate}" /></td>
                 <td class="text-center"><input type="checkbox" name="limits.allowAutoUpdate" th:checked="${plan.limits.allowAutoUpdate}" /></td>
                 <td class="text-center"><input type="checkbox" name="limits.allowTelegramNotifications" th:checked="${plan.limits.allowTelegramNotifications}" /></td>
+                <td class="text-center"><input type="checkbox" name="limits.allowCustomNotifications" th:checked="${plan.limits.allowCustomNotifications}" /></td>
                 <td class="text-center"><input type="checkbox" name="active" th:checked="${plan.active}" /></td>
                 <td>
                     <button type="submit" class="btn btn-success btn-sm me-1">Сохранить</button>
@@ -104,6 +106,12 @@
             <div class="form-check">
                 <input id="plan-telegram" type="checkbox" name="limits.allowTelegramNotifications" class="form-check-input" />
                 <label class="form-check-label" for="plan-telegram">Telegram-уведомления</label>
+            </div>
+        </div>
+        <div class="col-md-1">
+            <div class="form-check">
+                <input id="plan-custom-notifications" type="checkbox" name="limits.allowCustomNotifications" class="form-check-input" />
+                <label class="form-check-label" for="plan-custom-notifications">Свои уведомления</label>
             </div>
         </div>
         <div class="col-md-1">

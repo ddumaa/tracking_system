@@ -51,6 +51,15 @@ public class StoreTelegramSettingsService {
             throw new IllegalStateException(msg);
         }
 
+        boolean customRequested = dto.isUseCustomTemplates() ||
+                (dto.getTemplates() != null && !dto.getTemplates().isEmpty());
+        if (customRequested && !subscriptionService.canUseCustomNotifications(userId)) {
+            String msg = "Индивидуальные шаблоны недоступны на вашем тарифе.";
+            webSocketController.sendUpdateStatus(userId, msg, false);
+            log.warn("⛔ Попытка сохранить пользовательские шаблоны магазином ID={}", store.getId());
+            throw new IllegalStateException(msg);
+        }
+
         StoreTelegramSettings settings = settingsRepository.findByStoreId(store.getId());
         if (settings == null) {
             settings = new StoreTelegramSettings();
