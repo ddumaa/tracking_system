@@ -21,7 +21,7 @@
 
                 <div th:if="${stores == null or #lists.isEmpty(stores)}">
                     <p class="text-muted">У вас пока нет магазинов. Добавьте магазин для просмотра аналитики.</p>
-                    <a href="/stores/add" class="btn btn-primary">Добавить магазин</a>
+                    <a href="/app/profile#v-pills-stores" class="btn btn-primary">Добавить магазин</a>
                 </div>
 
                 <div class="dashboard-container" th:if="${stores != null and not #lists.isEmpty(stores)}">
