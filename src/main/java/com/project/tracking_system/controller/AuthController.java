@@ -44,7 +44,7 @@ public class AuthController {
     @GetMapping("/registration")
     public String registration(@ModelAttribute("userDTO") UserRegistrationDTO userRegistrationDTO, Model model) {
         model.addAttribute("userDTO", new UserRegistrationDTO());
-        return "registration";
+        return "auth/registration";
     }
 
     /**
@@ -70,12 +70,12 @@ public class AuthController {
             } catch (Exception e) {
                 model.addAttribute("errorMessage", "Ошибка регистрации пользователя: " + e.getMessage());
             }
-            return "registration";
+            return "auth/registration";
         }
 
         if (result.hasFieldErrors("confirmCodRegistration")) {
             model.addAttribute("confirmCodRegistration", true);
-            return "registration";
+            return "auth/registration";
         }
 
         try {
@@ -85,7 +85,7 @@ public class AuthController {
             model.addAttribute("confirmCodRegistration", true);
             model.addAttribute("errorMessage", e.getMessage());
         }
-        return "registration";
+            return "auth/registration";
     }
 
     /**
@@ -127,6 +127,6 @@ public class AuthController {
             model.addAttribute("remainingAttempts", remainingAttempts);
         }
 
-        return "login";
+        return "auth/login";
     }
 }

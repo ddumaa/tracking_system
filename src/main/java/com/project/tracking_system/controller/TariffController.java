@@ -23,7 +23,7 @@ import java.util.List;
 @Controller
 @RequiredArgsConstructor
 @Slf4j
-@RequestMapping("/tariffs")
+@RequestMapping("/app/tariffs")
 public class TariffController {
 
     private final TariffService tariffService;
@@ -53,7 +53,7 @@ public class TariffController {
         List<SubscriptionPlanViewDTO> plans = tariffService.getAllPlans();
         model.addAttribute("plans", plans);
         model.addAttribute("userPlanPosition", userPlanPosition);
-        return "tariffs";
+        return "app/tariffs";
     }
 
     /**
@@ -74,7 +74,7 @@ public class TariffController {
             months = 1;
         }
         tariffService.upgradeUser(userId, months);
-        return "redirect:/profile";
+        return "redirect:/app/profile";
     }
 
     /**
@@ -97,6 +97,6 @@ public class TariffController {
             months = 1;
         }
         tariffService.buyPlan(userId, planCode, months);
-        return "redirect:/profile";
+        return "redirect:/app/profile";
     }
 }

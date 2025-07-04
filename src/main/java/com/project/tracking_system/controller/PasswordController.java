@@ -36,7 +36,7 @@ public class PasswordController {
     @GetMapping("/forgot-password")
     public String showForgotPasswordForm(Model model) {
         model.addAttribute("email", "");
-        return "forgot-password";
+        return "auth/forgot-password";
     }
 
     /**
@@ -51,7 +51,7 @@ public class PasswordController {
         Optional<User> byUser = userService.findByUserEmail(email);
         if (byUser.isEmpty()) {
             model.addAttribute("error", "Пользователь с таким адресом электронной почты не найден.");
-            return "forgot-password";
+            return "auth/forgot-password";
         }
         try {
             passwordResetService.createPasswordResetToken(email);
@@ -61,7 +61,7 @@ public class PasswordController {
         } catch (Exception e) {
             model.addAttribute("error", "Не удалось выполнить сброс пароля. Попробуйте снова.");
         }
-        return "forgot-password";
+        return "auth/forgot-password";
     }
 
     /**
@@ -78,10 +78,10 @@ public class PasswordController {
                                          Model model) {
         if (!passwordResetService.isTokenValid(token)) {
             model.addAttribute("error", "Неверный или просроченный токен.");
-            return "forgot-password";
+            return "auth/forgot-password";
         }
         model.addAttribute("token", token);
-        return "reset-password";
+        return "auth/reset-password";
     }
 
     /**
@@ -101,13 +101,13 @@ public class PasswordController {
 
         if (bindingResult.hasErrors()) {
             model.addAttribute("token", token);
-            return "reset-password";
+            return "auth/reset-password";
         }
 
         if (!passwordResetDTO.passwordsMatch()) {
             bindingResult.rejectValue("confirmPassword", "error.confirmPassword", "Пароли не совпадают");
             model.addAttribute("token", token);
-            return "reset-password";
+            return "auth/reset-password";
         }
 
         try {
@@ -116,7 +116,7 @@ public class PasswordController {
             return "login";
         } catch (IllegalArgumentException e) {
             model.addAttribute("error", "Токен сброса пароля недействителен или срок его действия истек.");
-            return "reset-password";
+            return "auth/reset-password";
         } catch (Exception e) {
             model.addAttribute("error", "Не удалось сбросить пароль. Попробуйте снова.");
             return "reset-password";
