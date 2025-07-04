@@ -113,13 +113,13 @@ public class PasswordController {
         try {
             passwordResetService.resetPassword(token, passwordResetDTO.getNewPassword());
             model.addAttribute("message", "Ваш пароль успешно сброшен. Пожалуйста, войдите с новым паролем.");
-            return "login";
+            return "auth/login";
         } catch (IllegalArgumentException e) {
             model.addAttribute("error", "Токен сброса пароля недействителен или срок его действия истек.");
             return "auth/reset-password";
         } catch (Exception e) {
             model.addAttribute("error", "Не удалось сбросить пароль. Попробуйте снова.");
-            return "reset-password";
+            return "auth/reset-password";
         }
     }
 }
