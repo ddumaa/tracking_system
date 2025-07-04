@@ -44,7 +44,10 @@ public class UserSubscription {
 
     @Column(name = "reset_date")
     private LocalDate resetDate;
-
+    /**
+     * Проверяет дату последнего сброса и при необходимости обнуляет лимиты обновлений.
+     * Метод не принимает параметров и ничего не возвращает.
+     */
     public void checkAndResetLimits() {
         LocalDate today = LocalDate.now();
         if (!today.equals(resetDate)) {
