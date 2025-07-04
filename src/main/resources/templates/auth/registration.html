@@ -24,7 +24,7 @@
         <p class="mb-0" th:text="${message}"></p>
     </div>
 
-    <form th:action="@{/registration}" th:object="${userDTO}" method="post">
+    <form th:action="@{/auth/registration}" th:object="${userDTO}" method="post">
         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
         <!-- Первый этап: Ввод email и паролей -->
         <div th:unless="${confirmCodRegistration}">
