@@ -19,7 +19,7 @@ import java.io.IOException;
 @Slf4j
 @RequiredArgsConstructor
 @Controller
-@RequestMapping("/")
+@RequestMapping("/app")
 public class UploadController {
 
     private final TrackingNumberServiceXLS trackingNumberServiceXLS;

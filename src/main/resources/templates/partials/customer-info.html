@@ -1,7 +1,7 @@
 <div id="customerInfoContainer">
     <div th:if="${notFound}">
         <p>Покупатель не найден</p>
-        <form id="assign-customer-form" th:action="@{/customers/assign}" method="post" class="mt-3">
+        <form id="assign-customer-form" th:action="@{/app/customers/assign}" method="post" class="mt-3">
             <input type="hidden" name="trackId" th:value="${trackId}">
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
             <div class="input-group mb-2">

@@ -1217,7 +1217,7 @@ document.addEventListener("DOMContentLoaded", function () {
     hideLoading();
 
     document.querySelector('form[action="/"]')?.addEventListener('submit', showLoading);
-    document.querySelector('form[action="/upload"]')?.addEventListener('submit', showLoading);
+    document.querySelector('form[action="/app/upload"]')?.addEventListener('submit', showLoading);
 
     // === Добавляем CSRF-токен ===
     const csrfToken = document.querySelector('meta[name="_csrf"]')?.content || "";

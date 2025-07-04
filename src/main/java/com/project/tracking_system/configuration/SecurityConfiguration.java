@@ -87,7 +87,7 @@ public class SecurityConfiguration {
                         .requestMatchers("/", "/features", "/pricing", "/terms", "/privacy",
                                 "/auth/**",
                                 "/css/**", "/js/**", "/bootstrap/**", "/images/**",
-                                "/upload", "/ws/**", "/wss/**", "/sample/**", "/download-sample").permitAll()
+                                "/app/upload", "/ws/**", "/wss/**", "/sample/**", "/app/download-sample").permitAll()
                         // Доступ к административному разделу только для ROLE_ADMIN
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         // Требуется аутентификация для пользовательской части приложения

@@ -25,7 +25,7 @@ public class FileDownloadController {
      *
      * @return ResponseEntity с файлом для скачивания
      */
-    @GetMapping("/download-sample")
+    @GetMapping("/app/download-sample")
     public ResponseEntity<?> downloadSample() {
         // Имя файла, которое должно использоваться при скачивании
         String filename = "Пример заполнения.XLSX";

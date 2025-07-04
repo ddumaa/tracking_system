@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Slf4j
 @RequiredArgsConstructor
 @Controller
-@RequestMapping("/customers")
+@RequestMapping("/app/customers")
 public class CustomerController {
 
     private final CustomerService customerService;
