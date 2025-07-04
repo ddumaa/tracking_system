@@ -368,7 +368,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             debugLog("Selected storeId =", storeId);
             document.body.classList.add("loading");
-            window.location.href = "/analytics?" + params.toString();
+            window.location.href = "/app/analytics?" + params.toString();
         });
     }
 
