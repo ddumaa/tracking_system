@@ -2,7 +2,6 @@ package com.project.tracking_system.dto;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Size;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.Getter;
@@ -25,8 +24,8 @@ public class StoreTelegramSettingsDTO {
     @Max(14)
     private int reminderRepeatIntervalDays = 2;
 
-    @Size(max = 200)
-    private String customSignature;
+
+    private String reminderTemplate;
 
 
     private boolean remindersEnabled = false;

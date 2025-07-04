@@ -44,8 +44,8 @@ public class StoreTelegramSettings {
     @Column(name = "reminder_repeat_interval_days", nullable = false)
     private int reminderRepeatIntervalDays = 2;
 
-    @Column(name = "custom_signature", length = 200)
-    private String customSignature;
+    @Column(name = "reminder_template", columnDefinition = "TEXT")
+    private String reminderTemplate;
 
 
     @Column(name = "reminders_enabled", nullable = false)

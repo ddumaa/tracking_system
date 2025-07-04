@@ -433,7 +433,7 @@ public class StoreService {
         dto.setEnabled(settings.isEnabled());
         dto.setReminderStartAfterDays(settings.getReminderStartAfterDays());
         dto.setReminderRepeatIntervalDays(settings.getReminderRepeatIntervalDays());
-        dto.setCustomSignature(settings.getCustomSignature());
+        dto.setReminderTemplate(settings.getReminderTemplate());
         dto.setRemindersEnabled(settings.isRemindersEnabled());
         dto.setUseCustomTemplates(!settings.getTemplates().isEmpty());
         dto.setTemplates(settings.getTemplatesMap().entrySet().stream()
@@ -458,7 +458,7 @@ public class StoreService {
         settings.setEnabled(dto.isEnabled());
         settings.setReminderStartAfterDays(dto.getReminderStartAfterDays());
         settings.setReminderRepeatIntervalDays(dto.getReminderRepeatIntervalDays());
-        settings.setCustomSignature(dto.getCustomSignature());
+        settings.setReminderTemplate(dto.getReminderTemplate());
         settings.setRemindersEnabled(dto.isRemindersEnabled());
 
         // Составляем карту существующих шаблонов для быстрого доступа
