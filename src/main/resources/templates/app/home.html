@@ -29,7 +29,7 @@
 
                 <!-- Форма поиска посылки и загрузка файла -->
                 <div class="card shadow-sm p-4 rounded-4">
-                    <form th:action="@{/}" method="post" class="w-100 mb-4">
+                    <form th:action="@{/app}" method="post" class="w-100 mb-4">
                         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
                         <!-- Блок выбора магазина, если их больше одного -->
@@ -74,7 +74,7 @@
 
                     <hr class="my-3">
 
-                    <form th:action="@{/upload}" method="post" enctype="multipart/form-data" class="w-100">
+                    <form th:action="@{/app/upload}" method="post" enctype="multipart/form-data" class="w-100">
                         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
                         <!-- Оборачиваем метку и ссылку в flex-контейнер для равномерного распределения -->
@@ -85,7 +85,7 @@
                                    data-bs-placement="right" title="Поддерживаются форматы: .xls, .xlsx"></i>
                             </label>
                             <!-- Ссылка-образец, оформленная как текстовая кнопка -->
-                            <a th:href="@{/download-sample}" class="text-secondary link-hover">Образец</a>
+                            <a th:href="@{/app/download-sample}" class="text-secondary link-hover">Образец</a>
                         </div>
 
                         <div class="input-group">

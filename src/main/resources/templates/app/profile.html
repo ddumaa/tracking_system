@@ -279,7 +279,7 @@
         <div id="evropostNotificationContainer"></div>
         <div id="evropost-content" th:fragment="evropostFragment">
             <h5 class="mb-3">Настройки Европочты</h5>
-            <form id="evropost-settings-form" th:action="@{/profile/settings/evropost}" th:object="${evropostCredentialsDTO}" method="post">
+            <form id="evropost-settings-form" th:action="@{/app/profile/settings/evropost}" th:object="${evropostCredentialsDTO}" method="post">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                 <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" id="useCustomCredentials" name="useCustomCredentials" th:field="*{useCustomCredentials}">
@@ -324,7 +324,7 @@
     <div class="card p-3 shadow-sm rounded-4 mb-4">
         <div id="password-content" th:fragment="passwordFragment">
             <h5 class="mb-3">Изменение пароля</h5>
-            <form id="password-settings-form" th:action="@{/profile/settings/password}" th:object="${passwordChangeDTO}" method="post">
+            <form id="password-settings-form" th:action="@{/app/profile/settings/password}" th:object="${passwordChangeDTO}" method="post">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                 <div class="form-floating mb-3 position-relative">
                     <input type="password" class="form-control password-input" id="currentPassword" name="currentPassword" th:field="*{currentPassword}" placeholder="Текущий пароль" autocomplete="off">
@@ -407,7 +407,7 @@
              class="tg-settings-content"
              th:attr="data-store-id=${store.id}"
              th:classappend="${first} ? ' expanded' : ' collapsed'">
-            <form class="telegram-settings-form" th:action="@{/stores/{id}/telegram-settings(id=${store.id})}"
+            <form class="telegram-settings-form" th:action="@{/app/stores/{id}/telegram-settings(id=${store.id})}"
                   method="post">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                 <div class="form-check form-switch mb-2">
@@ -519,7 +519,7 @@
                 </div>
                 <div class="modal-footer d-flex justify-content-between">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                    <form th:action="@{/profile/settings/delete}" method="post">
+                    <form th:action="@{/app/profile/settings/delete}" method="post">
                         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                         <button class="btn btn-danger">
                             <i class="bi bi-trash-fill"></i> Да, удалить

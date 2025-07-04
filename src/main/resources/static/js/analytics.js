@@ -292,7 +292,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         debugLog("loadAnalyticsData invoked!")
 
-        fetch("/analytics/json?" + params.toString())
+        fetch("/app/analytics/json?" + params.toString())
             .then(res => res.json())
             .then(freshData => {
                 debugLog("🚀 [Debug] Fetched data:", freshData);
@@ -328,7 +328,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 formData.append("storeId", storeId);
             }
 
-            fetch("/analytics/update", {
+            fetch("/app/analytics/update", {
                 method: "POST",
                 headers: { [csrfHeader]: csrfToken },
                 body: formData
