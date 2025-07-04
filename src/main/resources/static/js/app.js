@@ -62,7 +62,7 @@ document.getElementById("actionSelect")?.addEventListener("change", updateApplyB
 function loadModal(itemNumber) {
     if (!itemNumber) return;
 
-    fetch(`/departures/${itemNumber}`)
+    fetch(`/app/departures/${itemNumber}`)
         .then(response => {
             if (!response.ok) {
                 throw new Error('Ошибка при загрузке данных');
@@ -79,7 +79,7 @@ function loadModal(itemNumber) {
 
 function loadCustomerInfo(trackId) {
     if (!trackId) return;
-    fetch(`/customers/parcel/${trackId}`)
+    fetch(`/app/customers/parcel/${trackId}`)
         .then(response => {
             if (!response.ok) {
                 throw new Error('Ошибка при загрузке данных');
@@ -149,7 +149,7 @@ function initializeCustomCredentialsCheckbox() {
         checkbox.addEventListener('change', function () {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
-                fetch('/profile/settings/use-custom-credentials', {
+                fetch('/app/profile/settings/use-custom-credentials', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
@@ -186,7 +186,7 @@ function initAutoUpdateToggle() {
     checkbox.addEventListener('change', function () {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
-            fetch('/profile/settings/auto-update', {
+            fetch('/app/profile/settings/auto-update', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -218,7 +218,7 @@ function initBulkButtonToggle() {
     checkbox.addEventListener('change', function () {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
-            fetch('/profile/settings/bulk-button', {
+            fetch('/app/profile/settings/bulk-button', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -268,7 +268,7 @@ function initTelegramNotificationsToggle() {
             updateFormState();
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
-                fetch('/profile/settings/telegram-notifications', {
+                fetch('/app/profile/settings/telegram-notifications', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
@@ -723,7 +723,7 @@ function connectWebSocket() {
 function reloadParcelTable() {
     debugLog("🔄 AJAX-запрос для обновления таблицы...");
 
-    fetch("/departures", { method: "GET", cache: "no-store" })
+    fetch("/app/departures", { method: "GET", cache: "no-store" })
         .then(response => {
             if (!response.ok) {
                 throw new Error("Ошибка загрузки данных");
@@ -823,7 +823,7 @@ let analyticsActionUrl = null;
  * Загружает магазины пользователя и обновляет таблицу
  */
 async function loadStores() {
-    const response = await fetch('/profile/stores');
+    const response = await fetch('/app/profile/stores');
     if (!response.ok) {
         console.error("Ошибка загрузки магазинов:", await response.text());
         return;
@@ -879,7 +879,7 @@ async function loadStores() {
  * Загружает магазины и формирует кнопки для очистки аналитики.
  */
 async function loadAnalyticsButtons() {
-    const response = await fetch('/profile/stores');
+    const response = await fetch('/app/profile/stores');
     if (!response.ok) return;
 
     const stores = await response.json();
@@ -899,7 +899,7 @@ async function loadAnalyticsButtons() {
         btn.innerHTML = `<i class="bi bi-brush me-2"></i> Очистить аналитику — ${store.name}`;
 
         btn.addEventListener('click', () => {
-            analyticsActionUrl = `/analytics/reset/store/${store.id}`;
+            analyticsActionUrl = `/app/analytics/reset/store/${store.id}`;
             showResetModal(`Вы действительно хотите очистить аналитику магазина «${store.name}»?`);
         });
 
@@ -914,7 +914,7 @@ async function loadAnalyticsButtons() {
  * Формирует DOM-блок настроек Telegram для магазина
  */
 async function renderTelegramBlock(storeId) {
-    const response = await fetch(`/profile/stores/${storeId}/telegram-block`);
+    const response = await fetch(`/app/profile/stores/${storeId}/telegram-block`);
     if (!response.ok) return null;
 
     const html = await response.text();
@@ -976,7 +976,7 @@ function toggleEditStore(storeId) {
     }
 }
 
-const baseUrl = "/profile/stores"; // Базовый URL для всех запросов
+const baseUrl = "/app/profile/stores"; // Базовый URL для всех запросов
 
 /**
  * Сохраняет обновленное название магазина
@@ -1060,7 +1060,7 @@ async function saveNewStore(event) {
         return;
     }
 
-    const response = await fetch("/profile/stores", {
+    const response = await fetch("/app/profile/stores", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -1129,7 +1129,7 @@ async function deleteStore() {
  */
 async function updateStoreLimit() {
     try {
-        const response = await fetch('/profile/stores/limit');
+        const response = await fetch('/app/profile/stores/limit');
         if (!response.ok) {
             console.error("Ошибка при получении лимита магазинов:", response.status);
             return;
@@ -1186,7 +1186,7 @@ if (storeTableBody) {
         const storeId = radio.dataset.storeId;
 
         try {
-            const response = await fetch(`/profile/stores/default/${storeId}`, {
+            const response = await fetch(`/app/profile/stores/default/${storeId}`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -1389,14 +1389,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // === Управление аналитикой ===
     document.getElementById("resetAllAnalyticsBtn")?.addEventListener("click", () => {
-        analyticsActionUrl = "/analytics/reset/all";
+        analyticsActionUrl = "/app/analytics/reset/all";
         showResetModal("Вы уверены, что хотите удалить всю аналитику?");
     });
 
     document.body.addEventListener("click", function (event) {
         const btn = event.target.closest(".reset-store-analytics-btn");
         if (!btn) return;
-        analyticsActionUrl = `/analytics/reset/store/${btn.dataset.storeId}`;
+        analyticsActionUrl = `/app/analytics/reset/store/${btn.dataset.storeId}`;
         showResetModal(`Очистить аналитику магазина \u00AB${btn.dataset.storeName}\u00BB?`);
     });
 
@@ -1602,7 +1602,7 @@ document.addEventListener("DOMContentLoaded", function () {
         refreshBtn.disabled = true;
         refreshBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i>';
 
-        fetch("/departures/track-update", {
+        fetch("/app/departures/track-update", {
             method: "POST",
             headers: {
                 [csrfHeader]: csrfToken // CSRF-токен
@@ -1695,7 +1695,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const formData = new URLSearchParams();
         selectedNumbers.forEach(number => formData.append("selectedNumbers", number));
 
-        fetch("/departures/delete-selected", {
+        fetch("/app/departures/delete-selected", {
             method: "POST",
             headers: {
                 [csrfHeader]: csrfToken // CSRF-токен
@@ -1741,7 +1741,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const formData = new URLSearchParams();
         selectedNumbers.forEach(number => formData.append("selectedNumbers", number));
 
-        fetch("/departures/track-update", {
+        fetch("/app/departures/track-update", {
             method: "POST",
             headers: {
                 [csrfHeader]: csrfToken // CSRF-токен

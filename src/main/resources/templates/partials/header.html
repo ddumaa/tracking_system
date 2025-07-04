@@ -9,7 +9,7 @@
 
             <!-- Логотип -->
            <div class="logo">
-                <a href="/" class="d-inline-flex link-body-emphasis text-decoration-none">
+                <a href="/app" class="d-inline-flex link-body-emphasis text-decoration-none">
                     <img th:src="@{/images/logo.svg}" alt="Logo">
                 </a>
             </div>
@@ -28,10 +28,10 @@
             <!-- Кнопки авторизации -->
             <div class="auth-buttons">
                 <!-- Вход -->
-                <a th:if="${authenticatedUser == null}" th:href="@{/login}" class="btn btn-outline-primary btn-text">
+                <a th:if="${authenticatedUser == null}" th:href="@{/auth/login}" class="btn btn-outline-primary btn-text">
                     <i class="bi bi-box-arrow-in-right"></i> Войти
                 </a>
-                <a th:if="${authenticatedUser == null}" th:href="@{/login}" class="icon-btn">
+                <a th:if="${authenticatedUser == null}" th:href="@{/auth/login}" class="icon-btn">
                     <i class="bi bi-box-arrow-in-right"></i>
                 </a>
 
