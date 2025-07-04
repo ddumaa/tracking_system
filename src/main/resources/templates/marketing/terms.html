@@ -8,6 +8,10 @@
     <title layout:fragment="title">Пользовательское соглашение</title>
 </head>
 
+<div layout:fragment="header"
+     th:replace="~{partials/header-marketing :: header}">
+</div>
+
 <main layout:fragment="content" class="legal-container container py-4">
     <h1 class="legal-title mb-1">Пользовательское соглашение</h1>
     <p class="legal-date">Дата последнего обновления: 01.02.2025</p>

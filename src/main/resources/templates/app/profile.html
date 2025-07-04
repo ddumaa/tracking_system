@@ -8,6 +8,10 @@
     <title layout:fragment="title">Профиль</title>
 </head>
 
+<div layout:fragment="header"
+     th:replace="~{partials/header-app :: header}">
+</div>
+
 <main layout:fragment="content">
     <div class="container-xl">
         <div class="row">
@@ -203,7 +207,7 @@
                 в пункт выдачи» и др.).
             </p>
             <th:block th:each="store, iter : ${stores}">
-                <div th:replace="~{profile :: telegramStoreBlock(store=${store}, first=${iter.first})}"></div>
+                <div th:replace="~{app/profile :: telegramStoreBlock(store=${store}, first=${iter.first})}"></div>
             </th:block>
         </div>
     </div>

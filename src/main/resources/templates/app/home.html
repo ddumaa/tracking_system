@@ -9,6 +9,11 @@
 </head>
 
 <body>
+
+<div layout:fragment="header"
+     th:replace="~{partials/header-app :: header}">
+</div>
+
 <main layout:fragment="content">
     <div class="container-xl">
         <div class="row justify-content-center">

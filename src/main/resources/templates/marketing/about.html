@@ -3,6 +3,11 @@
 <head>
     <title layout:fragment="title">О нас</title>
 </head>
+
+<div layout:fragment="header"
+     th:replace="~{partials/header-marketing :: header}">
+</div>
+
 <main layout:fragment="content" class="container mt-4">
     <h1 class="text-center">О нас</h1>
     <p class="text-center">Страница в разработке.</p>

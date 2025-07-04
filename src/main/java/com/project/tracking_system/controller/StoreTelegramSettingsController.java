@@ -29,7 +29,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 @Controller
 @RequiredArgsConstructor
 @Slf4j
-@RequestMapping("/stores/{storeId}/telegram-settings")
+@RequestMapping("/app/stores/{storeId}/telegram-settings")
 public class StoreTelegramSettingsController {
 
     private final StoreService storeService;
@@ -181,4 +181,5 @@ public class StoreTelegramSettingsController {
         }
         return "redirect:/app/profile#v-pills-stores";
     }
+
 }

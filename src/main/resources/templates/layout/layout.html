@@ -28,17 +28,7 @@
 <body>
 <!-- Фрагмент header -->
 <div layout:fragment="header">
-    <!-- Для административной панели -->
-    <div th:if="${#request.requestURI.startsWith('/admin')}"
-         th:replace="~{partials/header-admin :: header}"></div>
 
-    <!-- Для приложения -->
-    <div th:if="${#request.requestURI.startsWith('/app')}"
-         th:replace="~{partials/header-app :: header}"></div>
-
-    <!-- Для маркетинговых страниц -->
-    <div th:if="${!(#request.requestURI.startsWith('/app') or #request.requestURI.startsWith('/admin'))}"
-         th:replace="~{partials/header-marketing :: header}"></div>
 </div>
 
 <!-- Фрагмент для дополнительного блока сразу после header -->

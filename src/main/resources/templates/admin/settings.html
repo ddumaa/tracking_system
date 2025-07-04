@@ -3,6 +3,11 @@
 <head>
     <title layout:fragment="title">Настройки</title>
 </head>
+
+<div layout:fragment="header"
+     th:replace="~{partials/header-admin :: header}">
+</div>
+
 <div layout:fragment="afterHeader">
     <div th:replace="~{partials/breadcrumbs :: breadcrumbs(items=${breadcrumbs})}"></div>
 </div>
