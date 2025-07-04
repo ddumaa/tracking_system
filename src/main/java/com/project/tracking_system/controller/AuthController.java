@@ -41,7 +41,7 @@ public class AuthController {
      * @param model модель для добавления данных в представление
      * @return имя представления страницы регистрации
      */
-    @GetMapping("/registration")
+    @GetMapping("/auth/registration")
     public String registration(@ModelAttribute("userDTO") UserRegistrationDTO userRegistrationDTO, Model model) {
         model.addAttribute("userDTO", new UserRegistrationDTO());
         return "auth/registration";
@@ -56,7 +56,7 @@ public class AuthController {
      * @param model модель для добавления данных в представление
      * @return имя представления для регистрации
      */
-    @PostMapping("/registration")
+    @PostMapping("/auth/registration")
     public String registration(@Valid @ModelAttribute("userDTO") UserRegistrationDTO userDTO,
                                BindingResult result, Model model) {
         if (registrationService.isInitialStep(userDTO)) {

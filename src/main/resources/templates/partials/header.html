@@ -36,10 +36,10 @@
                 </a>
 
                 <!-- Регистрация -->
-                <a th:if="${authenticatedUser == null}" th:href="@{/registration}" class="btn btn-primary btn-text">
+                <a th:if="${authenticatedUser == null}" th:href="@{/auth/registration}" class="btn btn-primary btn-text">
                     <i class="bi bi-person-plus"></i> Регистрация
                 </a>
-                <a th:if="${authenticatedUser == null}" th:href="@{/registration}" class="icon-btn">
+                <a th:if="${authenticatedUser == null}" th:href="@{/auth/registration}" class="icon-btn">
                     <i class="bi bi-person-plus"></i>
                 </a>
 
