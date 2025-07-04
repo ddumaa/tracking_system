@@ -83,17 +83,22 @@ public class SecurityConfiguration {
                                 .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN))
                 )
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests
-                        .requestMatchers("/", "/login", "/logout", "/registration", "/forgot-password", "/reset-password",
-                                "/privacy", "/terms", "/features", "/pricing",
+                        // Публичные маршруты и статические ресурсы
+                        .requestMatchers("/", "/features", "/pricing", "/terms", "/privacy",
+                                "/auth/**",
                                 "/css/**", "/js/**", "/bootstrap/**", "/images/**",
                                 "/upload", "/ws/**", "/wss/**", "/sample/**", "/download-sample").permitAll()
+                        // Доступ к административному разделу только для ROLE_ADMIN
                         .requestMatchers("/admin/**").hasRole("ADMIN")
+                        // Требуется аутентификация для пользовательской части приложения
+                        .requestMatchers("/app/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .formLogin(formLogin -> formLogin
-                        .loginPage("/login")
+                        .loginPage("/auth/login")
                         .usernameParameter("email")
                         .passwordParameter("password")
+                        .defaultSuccessUrl("/app", true)
                         .successHandler((request, response, authentication) -> {
                             String email = request.getParameter("email");
                             String ip = request.getRemoteAddr();
@@ -108,7 +113,8 @@ public class SecurityConfiguration {
                                     return;
                                 }
                             }
-                            response.sendRedirect("/");
+                            // Перенаправление на пользовательскую страницу по умолчанию
+                            response.sendRedirect("/app");
                         })
                         .failureHandler((request, response, exception) -> {
                             String email = request.getParameter("email");
@@ -120,7 +126,7 @@ public class SecurityConfiguration {
 
                             loginAttemptService.loginFailed(email, ip);
                             log.info("Неудачная попытка входа: email={}, IP={}", com.project.tracking_system.utils.EmailUtils.maskEmail(email), ip);
-                            response.sendRedirect("/login?error=true");
+                            response.sendRedirect("/auth/login?error=true");
                         })
                 )
                 .rememberMe(rememberMe -> rememberMe

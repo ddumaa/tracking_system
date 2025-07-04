@@ -68,7 +68,7 @@ public class TariffController {
                           @AuthenticationPrincipal User user) {
         Long userId = user.getId();
         if (userId == null) {
-            return "redirect:/login";
+            return "redirect:/auth/login";
         }
         if (months <= 0) {
             months = 1;
@@ -91,7 +91,7 @@ public class TariffController {
                       @AuthenticationPrincipal User user) {
         Long userId = user.getId();
         if (userId == null) {
-            return "redirect:/login";
+            return "redirect:/auth/login";
         }
         if (months <= 0) {
             months = 1;

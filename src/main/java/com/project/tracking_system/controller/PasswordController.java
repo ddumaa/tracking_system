@@ -21,7 +21,7 @@ import java.util.Optional;
 @Slf4j
 @RequiredArgsConstructor
 @Controller
-@RequestMapping("/")
+@RequestMapping("/auth")
 public class PasswordController {
 
     private final PasswordResetService passwordResetService;
