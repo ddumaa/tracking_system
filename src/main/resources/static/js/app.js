@@ -488,52 +488,31 @@ function initTelegramReminderBlocks() {
 // Инициализация блока пользовательских шаблонов
 function initTelegramTemplateBlocks() {
     document.querySelectorAll('.telegram-settings-form').forEach(form => {
-        const cb = form.querySelector('input[name="useCustomTemplates"]');
+        const radios = form.querySelectorAll('input[name="useCustomTemplates"]');
         const fields = form.querySelector('.custom-template-fields');
-        if (!cb || !fields) return;
+        if (!radios.length || !fields) return;
 
-        const update = () => {
-            const disabled = cb.disabled || !cb.checked;
-            fields.querySelectorAll('textarea').forEach(t => t.disabled = disabled);
+        const isCustom = () => {
+            const selected = form.querySelector('input[name="useCustomTemplates"]:checked');
+            return selected && selected.value === 'custom' && !selected.disabled;
         };
 
-        update();
-
-        if (cb.checked && !cb.disabled && fields.classList.contains('hidden')) {
-            slideDown(fields);
-        }
-
-        cb.addEventListener('change', update);
-    });
-}
-
-/**
- * Инициализирует показ/скрытие блока пользовательских шаблонов.
- * Для каждой кнопки `.toggle-template-btn` ищет блок `.custom-template-fields` по атрибуту `data-store-id`.
- * При клике открывает или скрывает блок с анимацией.
- */
-function initCustomTemplateToggle() {
-    document.querySelectorAll('.toggle-template-btn').forEach(btn => {
-        if (btn.dataset.toggleInit) return;
-        btn.dataset.toggleInit = 'true';
-
-        const storeId = btn.getAttribute('data-store-id');
-        const fields = document.querySelector(`.custom-template-fields[data-store-id="${storeId}"]`);
-        const icon = btn.querySelector('i');
-        if (!fields) return;
-
-        btn.addEventListener('click', () => {
-            const hidden = fields.classList.contains('hidden');
-            if (hidden) {
+        const update = () => {
+            const custom = isCustom();
+            fields.querySelectorAll('textarea').forEach(t => t.disabled = !custom);
+            if (custom) {
                 slideDown(fields);
             } else {
                 slideUp(fields);
             }
-            icon?.classList.toggle('bi-chevron-down', !hidden);
-            icon?.classList.toggle('bi-chevron-up', hidden);
-        });
+        };
+
+        update();
+
+        radios.forEach(r => r.addEventListener('change', update));
     });
 }
+
 
 let lastPage = window.location.pathname; // Запоминаем текущую страницу при загрузке
 let isInitialLoad = true;
@@ -962,7 +941,6 @@ async function appendTelegramBlock(store) {
     initTelegramToggle();
     initTelegramReminderBlocks();
     initTelegramTemplateBlocks();
-    initCustomTemplateToggle();
     initTelegramNotificationsToggle();
 }
 
@@ -1359,7 +1337,6 @@ document.addEventListener("DOMContentLoaded", function () {
     initTelegramToggle();
     initTelegramReminderBlocks();
     initTelegramTemplateBlocks();
-    initCustomTemplateToggle();
     initTelegramNotificationsToggle();
 
     // Назначаем обработчик кнопки "Добавить магазин" - с проверкой на наличие
