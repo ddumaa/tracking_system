@@ -14,3 +14,16 @@
   font-size: 0.875rem;
   margin-left: 0.5rem;
 }
+
+.recommended-label {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background-color: ui.$primary-color;
+  color: ui.$white;
+  font-weight: 500;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.75rem;
+  border-top-right-radius: ui.$border-radius;
+  border-bottom-left-radius: ui.$border-radius;
+}

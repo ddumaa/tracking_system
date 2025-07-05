@@ -110,6 +110,7 @@ class TariffServiceTest {
         assertEquals("150.00 BYN/год", dto.getAnnualPriceLabel());
         assertEquals("180.00 BYN", dto.getAnnualFullPriceLabel());
         assertEquals("выгода −17%", dto.getAnnualDiscountLabel());
+        assertFalse(dto.isRecommended());
     }
 
     @Test
@@ -137,6 +138,15 @@ class TariffServiceTest {
 
         assertNull(dto);
 
+    }
+
+    @Test
+    void recommendedFlagForBusinessPlan() {
+        plan.setCode("BUSINESS");
+
+        SubscriptionPlanViewDTO dto = tariffService.toViewDto(plan);
+
+        assertTrue(dto.isRecommended());
     }
   
 }
