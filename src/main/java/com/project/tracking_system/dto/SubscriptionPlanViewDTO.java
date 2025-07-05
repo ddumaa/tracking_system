@@ -32,6 +32,9 @@ public class SubscriptionPlanViewDTO {
     private String annualFullPriceLabel;     // "180 BYN"
     private String annualDiscountLabel;      // "выгода −16%"
 
+    /** Показывать ли плашку "Рекомендуем". */
+    private boolean recommended;
+
     /**
      * Позиция плана в общей иерархии.
      */
