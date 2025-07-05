@@ -248,21 +248,22 @@
             const icon = item.querySelector('.faq-toggle-icon');
 
             if (item.classList.contains('open')) {
-                // Плавное закрытие блока с ответом
+                
                 answer.style.maxHeight = answer.scrollHeight + 'px';
                 requestAnimationFrame(function () {
                     answer.style.maxHeight = '0';
                 });
                 icon.textContent = '+';
                 item.classList.remove('open');
+
                 answer.addEventListener('transitionend', function handler(event) {
                     if (event.propertyName === 'max-height') {
                         answer.style.maxHeight = '';
                         answer.removeEventListener('transitionend', handler);
                     }
                 });
+
             } else {
-                // Плавное открытие блока с ответом
                 answer.style.maxHeight = answer.scrollHeight + 'px';
                 item.classList.add('open');
                 icon.textContent = '–';

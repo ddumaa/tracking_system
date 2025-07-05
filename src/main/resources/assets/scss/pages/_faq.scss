@@ -22,7 +22,6 @@
   font-size: 1rem;
 }
 
-// Ответы скрыты по умолчанию, прозрачность позволяет анимировать плавное появление
 .faq-answer {
   max-height: 0;
   overflow: hidden;
@@ -43,7 +42,6 @@
   transform: rotate(45deg);
 }
 
-// Навигация по разделам FAQ на мобильных устройствах
 .faq-nav {
   @include ui.respond-to(sm) {
     overflow-x: auto;
