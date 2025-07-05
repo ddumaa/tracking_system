@@ -51,7 +51,7 @@ public class StoreTelegramSettingsService {
             throw new IllegalStateException(msg);
         }
 
-        boolean customRequested = dto.isUseCustomTemplates() ||
+        boolean customRequested = dto.isCustomTemplates() ||
                 (dto.getTemplates() != null && !dto.getTemplates().isEmpty());
         if (customRequested && !subscriptionService.canUseCustomNotifications(userId)) {
             String msg = "Индивидуальные шаблоны недоступны на вашем тарифе.";
@@ -67,7 +67,7 @@ public class StoreTelegramSettingsService {
         }
 
         // Проверяем содержимое пользовательских шаблонов при их использовании
-        if (dto.isUseCustomTemplates()) {
+        if (dto.isCustomTemplates()) {
             if (dto.getTemplates() != null) {
                 dto.getTemplates().values().forEach(this::validateTemplate);
             }

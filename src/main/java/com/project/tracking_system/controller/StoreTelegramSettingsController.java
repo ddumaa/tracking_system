@@ -72,7 +72,7 @@ public class StoreTelegramSettingsController {
                         binding.getAllErrors().get(0).getDefaultMessage());
             }
 
-            if (dto.isUseCustomTemplates() &&
+            if (dto.isCustomTemplates() &&
                     !subscriptionService.canUseCustomNotifications(userId)) {
                 return ResponseBuilder.error(HttpStatus.FORBIDDEN,
                         "Индивидуальные шаблоны недоступны на вашем тарифе");
@@ -118,7 +118,7 @@ public class StoreTelegramSettingsController {
                     .body(binding.getAllErrors().get(0).getDefaultMessage());
         }
 
-        if (dto.isUseCustomTemplates() &&
+        if (dto.isCustomTemplates() &&
                 !subscriptionService.canUseCustomNotifications(userId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body("Индивидуальные шаблоны недоступны на вашем тарифе");
@@ -160,7 +160,7 @@ public class StoreTelegramSettingsController {
             return "redirect:/app/profile#v-pills-stores";
         }
 
-        if (dto.isUseCustomTemplates() &&
+        if (dto.isCustomTemplates() &&
                 !subscriptionService.canUseCustomNotifications(userId)) {
             redirectAttributes.addFlashAttribute("errorMessage",
                     "Индивидуальные шаблоны недоступны на вашем тарифе");
