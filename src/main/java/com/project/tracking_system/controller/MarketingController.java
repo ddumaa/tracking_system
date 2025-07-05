@@ -1,8 +1,15 @@
 package com.project.tracking_system.controller;
 
+import com.project.tracking_system.dto.SubscriptionPlanViewDTO;
+import com.project.tracking_system.dto.UserProfileDTO;
+import com.project.tracking_system.entity.User;
+import com.project.tracking_system.service.tariff.TariffService;
+import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -14,6 +21,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @Controller
 @RequestMapping("/")
 public class MarketingController {
+
+    /** Сервис управления тарифами. */
+    private final TariffService tariffService;
+
+    /** Сервис пользователей для получения информации о текущем плане. */
+    private final UserService userService;
 
     /**
      * Отображает публичную домашнюю страницу.
@@ -36,12 +49,29 @@ public class MarketingController {
     }
 
     /**
-     * Отображает страницу с тарифами для гостей.
+     * Отображает страницу с тарифами.
      *
+     * @param model модель представления
+     * @param user  текущий пользователь (может быть {@code null})
      * @return имя представления маркетинговой страницы тарифов
      */
     @GetMapping("pricing")
-    public String pricing() {
+    public String pricing(Model model, @AuthenticationPrincipal User user) {
+        Long userId = user != null ? user.getId() : null;
+        Integer userPlanPosition = null;
+        if (userId != null) {
+            // Пользователь авторизован, получаем информацию о его подписке
+            UserProfileDTO profile = userService.getUserProfile(userId);
+            model.addAttribute("userProfile", profile);
+
+            if (profile.getSubscriptionCode() != null) {
+                userPlanPosition = tariffService.getPlanPositionByCode(profile.getSubscriptionCode());
+            }
+        }
+
+        List<SubscriptionPlanViewDTO> plans = tariffService.getAllPlans();
+        model.addAttribute("plans", plans);
+        model.addAttribute("userPlanPosition", userPlanPosition);
         return "marketing/pricing";
     }
 
