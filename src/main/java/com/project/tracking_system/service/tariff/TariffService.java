@@ -131,6 +131,7 @@ public class TariffService {
                 annualLabel,
                 fullAnnualPriceLabel,
                 discountLabel,
+                "BUSINESS".equals(plan.getCode()),
                 plan.getPosition()
         );
     }
