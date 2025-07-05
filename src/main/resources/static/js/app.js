@@ -492,13 +492,13 @@ function initTelegramTemplateBlocks() {
         const fields = form.querySelector('.custom-template-fields');
         if (!radios.length || !fields) return;
 
-        const isCustom = () => {
-            const selected = form.querySelector('input[name="useCustomTemplates"]:checked');
-            return selected && selected.value === 'custom' && !selected.disabled;
+        const getSelectedMode = () => {
+            const checked = form.querySelector('input[name="useCustomTemplates"]:checked');
+            return checked ? checked.value : 'system';
         };
 
         const update = () => {
-            const custom = isCustom();
+            const custom = getSelectedMode() === 'custom';
             fields.querySelectorAll('textarea').forEach(t => {
                 t.disabled = !custom;
             });
