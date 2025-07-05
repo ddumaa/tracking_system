@@ -26,12 +26,16 @@
   max-height: 0;
   overflow: hidden;
   opacity: 0;
-  transition: max-height 0.3s ease, opacity 0.3s ease;
+  transition: max-height 0.3s ease, opacity 0.3s ease, margin-top 0.3s ease;
 }
 
 .faq-item.open .faq-answer {
   margin-top: 0.5rem;
   opacity: 1;
+}
+
+.faq-item.closing .faq-answer {
+  margin-top: 0;
 }
 
 .faq-toggle-icon {
