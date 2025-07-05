@@ -497,7 +497,8 @@
                            th:checked="${store.telegramSettings?.templates?.size() > 0}"
                            th:disabled="${!allowCustomTemplates}">
                     <label class="btn btn-outline-secondary" th:for="'tg-templates-custom-' + ${store.id}"
-                           th:attrappend="${!allowCustomTemplates} ? 'data-bs-toggle=tooltip title=\'Доступно в тарифе Бизнес и выше\'' : ''">
+                           th:data-bs-toggle="${!allowCustomTemplates ? 'tooltip' : null}"
+                           th:title="${!allowCustomTemplates ? 'Доступно в тарифе Бизнес и выше' : null}">
                         Собственные
                     </label>
                 </div>
@@ -507,7 +508,8 @@
 
                 <div th:id="'tg-custom-template-fields-' + ${store.id}" class="ms-4 custom-template-fields"
                      th:attr="data-store-id=${store.id}"
-                     th:attrappend="${!allowCustomTemplates} ? 'data-bs-toggle=tooltip title=\'Доступно в тарифе Бизнес и выше\'' : ''">
+                     th:data-bs-toggle="${!allowCustomTemplates ? 'tooltip' : null}"
+                     th:title="${!allowCustomTemplates ? 'Доступно в тарифе Бизнес и выше' : null}">
                     <div th:each="status : ${T(com.project.tracking_system.entity.BuyerStatus).values()}">
                         <div class="mb-2">
                             <label class="form-label" th:for="${'tpl-' + status.name() + '-' + store.id}" th:text="${status.displayName}"></label>
@@ -533,7 +535,8 @@
                 </div>
                 <button type="submit" class="btn btn-sm btn-primary w-100"
                         th:disabled="${!allowCustomTemplates}"
-                        th:attrappend="${!allowCustomTemplates} ? 'data-bs-toggle=tooltip title=\'Доступно в тарифе Бизнес и выше\'' : ''">
+                        th:data-bs-toggle="${!allowCustomTemplates ? 'tooltip' : null}"
+                        th:title="${!allowCustomTemplates ? 'Доступно в тарифе Бизнес и выше' : null}">
                     Сохранить
                 </button>
             </form>
