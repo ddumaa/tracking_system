@@ -22,18 +22,17 @@
   font-size: 1rem;
 }
 
-  // Ответы скрыты по умолчанию, прозрачность позволяет анимировать плавное появление
-  .faq-answer {
-    max-height: 0;
-    overflow: hidden;
-    opacity: 0;
-    transition: max-height 0.3s ease, opacity 0.3s ease;
-  }
+.faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+}
 
-  .faq-item.open .faq-answer {
-    margin-top: 0.5rem;
-    opacity: 1;
-  }
+.faq-item.open .faq-answer {
+  margin-top: 0.5rem;
+  opacity: 1;
+}
 
 .faq-toggle-icon {
   transition: transform 0.3s;
@@ -43,7 +42,6 @@
   transform: rotate(45deg);
 }
 
-// Навигация по разделам FAQ на мобильных устройствах
 .faq-nav {
   @include ui.respond-to(sm) {
     overflow-x: auto;
