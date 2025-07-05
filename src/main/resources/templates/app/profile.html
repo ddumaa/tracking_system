@@ -277,6 +277,10 @@
             <span th:if="${planDetails.allowTelegramNotifications}">📨 Telegram-уведомления</span>
             <span th:unless="${planDetails.allowTelegramNotifications}" class="text-muted">❌ Telegram-уведомления</span>
         </li>
+        <li>
+            <span th:if="${planDetails.allowCustomNotifications}">🔔 Свои уведомления</span>
+            <span th:unless="${planDetails.allowCustomNotifications}" class="text-muted">❌ Свои уведомления</span>
+        </li>
     </ul>
     <div class="d-flex mt-3">
         <form th:if="${userProfile.subscriptionCode != 'FREE'}"
