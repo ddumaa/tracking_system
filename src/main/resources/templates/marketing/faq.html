@@ -248,14 +248,23 @@
             const icon = item.querySelector('.faq-toggle-icon');
 
             if (item.classList.contains('open')) {
-                answer.style.maxHeight = null;
-                icon.textContent = '+';
-            } else {
+                // Плавное закрытие блока с ответом
                 answer.style.maxHeight = answer.scrollHeight + 'px';
+                requestAnimationFrame(function () {
+                    answer.style.maxHeight = '0';
+                });
+                icon.textContent = '+';
+                item.classList.remove('open');
+            } else {
+                // Плавное открытие блока с ответом
+                answer.style.maxHeight = answer.scrollHeight + 'px';
+                item.classList.add('open');
                 icon.textContent = '–';
+                answer.addEventListener('transitionend', function handler() {
+                    answer.style.maxHeight = 'none';
+                    answer.removeEventListener('transitionend', handler);
+                });
             }
-
-            item.classList.toggle('open');
         }
 
         document.querySelectorAll('.faq-question').forEach(function (question) {
