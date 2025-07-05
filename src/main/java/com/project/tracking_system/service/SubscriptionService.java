@@ -8,6 +8,7 @@ import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.SubscriptionPlanRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
+import com.project.tracking_system.repository.UserRepository;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,7 @@ public class SubscriptionService {
     private final TrackParcelRepository trackParcelRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
+    private final UserRepository userRepository;
 
     /**
      * Рассчитывает, сколько треков можно загрузить в одном файле.
@@ -246,6 +248,24 @@ public class SubscriptionService {
         return subscriptionPlanRepository.findByCode(code)
                 .map(SubscriptionPlan::isPaid)
                 .orElse(false);
+    }
+
+    /**
+     * Продлевает текущий тарифный план пользователя на месяц.
+     *
+     * @param email электронная почта пользователя
+     */
+    @Transactional
+    public void renewCurrentSubscription(String email) {
+        userRepository.findByEmail(email)
+                .map(User::getId)
+                .ifPresentOrElse(
+                        id -> upgradeOrExtendSubscription(id, 1),
+                        () -> {
+                            log.warn("Пользователь с email {} не найден", email);
+                            throw new IllegalArgumentException("Пользователь не найден");
+                        }
+                );
     }
 
     /**

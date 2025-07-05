@@ -25,3 +25,12 @@
     resize: vertical;
   }
 }
+
+.toggle-template-btn {
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.5rem;
+
+  i {
+    transition: transform 0.3s;
+  }
+}

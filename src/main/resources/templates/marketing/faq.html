@@ -8,8 +8,283 @@
      th:replace="~{partials/header-marketing :: header}">
 </div>
 
-<main layout:fragment="content" class="container mt-4">
-    <h1 class="text-center">FAQ</h1>
-    <p class="text-center">Страница в разработке.</p>
+<main layout:fragment="content" class="container py-4 faq-container">
+    <h1 class="text-center fw-bold display-6 mb-5">Часто задаваемые вопросы (FAQ)</h1>
+    <div class="text-center mb-5">
+        <p class="text-muted small mb-2">Навигация по разделам</p>
+        <ul class="nav justify-content-center flex-wrap gap-2 faq-nav">
+            <li class="nav-item"><a class="btn btn-outline-secondary btn-sm" href="#faq-shipping">Отправления</a></li>
+            <li class="nav-item"><a class="btn btn-outline-secondary btn-sm" href="#faq-telegram">Telegram</a></li>
+            <li class="nav-item"><a class="btn btn-outline-secondary btn-sm" href="#faq-account">Аккаунт</a></li>
+            <li class="nav-item"><a class="btn btn-outline-secondary btn-sm" href="#faq-pricing">Тарифы</a></li>
+            <li class="nav-item"><a class="btn btn-outline-secondary btn-sm" href="#faq-security">Безопасность</a></li>
+        </ul>
+    </div>
+
+    <!-- Раздел: Работа с отправлениями -->
+    <section class="mb-5" id="faq-shipping">
+        <h3 class="fw-bold mb-4 text-primary">Работа с отправлениями</h3>
+
+        <div class="faq-item mb-3">
+            <div class="faq-question">
+                <span class="question-text">Как добавить посылки?</span>
+                <span class="faq-toggle-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                <p>Вы можете добавлять отправления вручную по трек-номеру или загрузить Excel-файл со списком треков. В платных тарифах увеличен лимит на количество треков в файле.</p>
+            </div>
+        </div>
+
+        <div class="faq-item mb-3">
+            <div class="faq-question">
+                <span class="question-text">Можно ли обновлять статусы автоматически?</span>
+                <span class="faq-toggle-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                <p>Да, начиная с тарифа «Команда» доступна функция <strong>автообновления</strong> треков. Также можно вручную обновлять один трек или все сразу (при наличии функции <strong>массового обновления</strong>).</p>
+            </div>
+        </div>
+
+        <div class="faq-item mb-3">
+            <div class="faq-question">
+                <span class="question-text">Как быстро обновляются статусы?</span>
+                <span class="faq-toggle-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                <p>При ручном обновлении — мгновенно. При автообновлении система проверяет треки по расписанию каждые несколько часов.</p>
+            </div>
+        </div>
+
+        <div class="faq-item mb-3">
+            <div class="faq-question">
+                <span class="question-text">Какие почтовые службы поддерживаются?</span>
+                <span class="faq-toggle-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                <p>Сейчас поддерживаются Белпочта и Европочта. Мы планируем расширять список служб.</p>
+            </div>
+        </div>
+
+        <div class="faq-item mb-3">
+            <div class="faq-question">
+                <span class="question-text">Можно ли отслеживать возвраты?</span>
+                <span class="faq-toggle-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                <p>Да. Система отображает статус возврата и ведёт аналитику по недоставленным и возвращённым отправлениям.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Раздел: Telegram и уведомления -->
+    <section class="mb-5" id="faq-telegram">
+        <h3 class="fw-bold mb-4 text-primary">Telegram и уведомления</h3>
+
+        <div class="faq-item mb-3">
+            <div class="faq-question">
+                <span class="question-text">Как клиенты получают уведомления?</span>
+                <span class="faq-toggle-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                <p>После активации уведомлений клиенты получают сообщения о статусах доставки от системного <strong>Telegram-бота</strong>. Для получения сообщений требуется согласие клиента в Telegram.</p>
+            </div>
+        </div>
+
+        <div class="faq-item mb-3">
+            <div class="faq-question">
+                <span class="question-text">Можно ли редактировать тексты уведомлений?</span>
+                <span class="faq-toggle-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                <p>Да, начиная с определённого тарифа доступна функция кастомизации сообщений: вы можете менять текст уведомлений, включая уведомления о прибытии, напоминания и возвраты. Поддерживаются шаблоны с переменными (например, {track}).</p>
+            </div>
+        </div>
+
+        <div class="faq-item mb-3">
+            <div class="faq-question">
+                <span class="question-text">Что делать, если клиент не забирает посылку?</span>
+                <span class="faq-toggle-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                <p>Система может отправлять напоминания в Telegram, если посылка долго находится в пункте выдачи. Вы можете включить или отключить эти напоминания в настройках магазина.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Раздел: Управление аккаунтом -->
+    <section class="mb-5" id="faq-account">
+        <h3 class="fw-bold mb-4 text-primary">Управление аккаунтом</h3>
+
+        <div class="faq-item mb-3">
+            <div class="faq-question">
+                <span class="question-text">Могу ли я подключить несколько магазинов?</span>
+                <span class="faq-toggle-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                <p>Да. В бесплатном тарифе доступен 1 магазин, в расширенных тарифах — больше. Количество зависит от выбранного тарифа.</p>
+            </div>
+        </div>
+
+        <div class="faq-item mb-3">
+            <div class="faq-question">
+                <span class="question-text">Есть ли доступ для сотрудников?</span>
+                <span class="faq-toggle-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                <p>Пока нет. В будущем планируется функция многопользовательского доступа с разграничением прав.</p>
+            </div>
+        </div>
+
+        <div class="faq-item mb-3">
+            <div class="faq-question">
+                <span class="question-text">Где посмотреть аналитику?</span>
+                <span class="faq-toggle-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                <p>На вкладке «Аналитика» отображается статистика по отправлениям, доставкам, возвратам и средней скорости получения.</p>
+            </div>
+        </div>
+
+        <div class="faq-item mb-3">
+            <div class="faq-question">
+                <span class="question-text">Можно ли следить за надёжностью покупателей?</span>
+                <span class="faq-toggle-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                <p>Да. Система формирует статистику по покупателям: сколько раз они забрали или не забрали посылки. Это поможет выявить ненадёжных клиентов.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Раздел: Тарифы и оплата -->
+    <section class="mb-5" id="faq-pricing">
+        <h3 class="fw-bold mb-4 text-primary">Тарифы и оплата</h3>
+
+        <div class="faq-item mb-3">
+            <div class="faq-question">
+                <span class="question-text">Какие ограничения у бесплатного тарифа?</span>
+                <span class="faq-toggle-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                <p>В бесплатном тарифе можно добавлять до 10 треков, один магазин, ограниченное количество обновлений. Расширенные функции доступны в платных планах.</p>
+            </div>
+        </div>
+
+        <div class="faq-item mb-3">
+            <div class="faq-question">
+                <span class="question-text">Как продлить или сменить тариф?</span>
+                <span class="faq-toggle-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                <p>Вы можете продлить текущий тариф в профиле или перейти на страницу «Прайсинг» для смены тарифного плана.</p>
+            </div>
+        </div>
+
+        <div class="faq-item mb-3">
+            <div class="faq-question">
+                <span class="question-text">Поддерживается ли безналичная оплата?</span>
+                <span class="faq-toggle-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                <p>Пока нет. Оплата производится через банковскую карту. В будущем планируется добавить безналичные счета для юрлиц.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Раздел: Безопасность и данные -->
+    <section class="mb-5" id="faq-security">
+        <h3 class="fw-bold mb-4 text-primary">Безопасность и данные</h3>
+
+        <div class="faq-item mb-3">
+            <div class="faq-question">
+                <span class="question-text">Кто видит мои данные?</span>
+                <span class="faq-toggle-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                <p>Ваши данные видны только вам. Мы не передаём их третьим лицам.</p>
+            </div>
+        </div>
+
+        <div class="faq-item mb-3">
+            <div class="faq-question">
+                <span class="question-text">Сохраняются ли номера клиентов?</span>
+                <span class="faq-toggle-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                <p>Да, номера используются только для идентификации покупателя в системе и уведомлений. Мы соблюдаем политику конфиденциальности.</p>
+            </div>
+        </div>
+
+        <div class="faq-item mb-3">
+            <div class="faq-question">
+                <span class="question-text">Можно ли удалить аккаунт?</span>
+                <span class="faq-toggle-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                <p>Да. Вы можете запросить удаление аккаунта и всех данных через форму поддержки.</p>
+            </div>
+        </div>
+
+        <div class="faq-item mb-3">
+            <div class="faq-question">
+                <span class="question-text">Насколько безопасны уведомления в Telegram?</span>
+                <span class="faq-toggle-icon">+</span>
+            </div>
+            <div class="faq-answer">
+                <p>Уведомления отправляются через защищённое соединение с Telegram. Клиенты сами подтверждают получение сообщений, поэтому доступ к данным полностью контролируемый.</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="text-center mt-5">
+        <p class="fw-semibold">Не нашли ответа на свой вопрос?</p>
+        <a href="marketing/contacts" class="btn btn-outline-primary">Связаться с нами</a>
+    </div>
+
+    <script th:attr="nonce=${nonce}">
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.faq-question').forEach(function (question) {
+                question.addEventListener('click', function () {
+                    const item = this.closest('.faq-item');
+                    const answer = item.querySelector('.faq-answer');
+                    const icon = item.querySelector('.faq-toggle-icon');
+
+                    const isOpen = item.classList.contains('open');
+
+                    // Сначала сбрасываем max-height, если вдруг оно осталось после прошлого цикла
+                    answer.style.transition = 'none';
+                    answer.style.maxHeight = isOpen ? answer.scrollHeight + 'px' : '0px';
+                    answer.offsetHeight; // reflow
+                    answer.style.transition = '';
+
+                    if (isOpen) {
+                        answer.style.maxHeight = answer.scrollHeight + 'px'; // установить фиксированную высоту
+                        requestAnimationFrame(() => {
+                            answer.style.maxHeight = '0px';
+                            icon.textContent = '+';
+                            item.classList.remove('open');
+                        });
+                    } else {
+                        item.classList.add('open');
+                        answer.style.maxHeight = '0px'; // начальная точка
+                        icon.textContent = '–';
+                        requestAnimationFrame(() => {
+                            answer.style.maxHeight = answer.scrollHeight + 'px';
+                        });
+
+                        // После окончания transition устанавливаем max-height: none
+                        const onTransitionEnd = function (e) {
+                            if (e.propertyName === 'max-height') {
+                                answer.style.maxHeight = 'none';
+                                answer.removeEventListener('transitionend', onTransitionEnd);
+                            }
+                        };
+                        answer.addEventListener('transitionend', onTransitionEnd);
+                    }
+                });
+            });
+        });
+    </script>
+
 </main>
 </html>

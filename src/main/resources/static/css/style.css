@@ -721,11 +721,13 @@ button:hover {
   position: fixed;
   bottom: 15px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateY(100px);
+  transition: all 0.4s ease-in-out;
   background: #ffffff;
-  padding: 14px 20px;
-  border-radius: 8px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  padding: 20px 26px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -743,6 +745,7 @@ button:hover {
   transition: opacity 0.3s ease-in-out;
 }
 .cookie-modal.show {
+  transform: translateX(-50%) translateY(0);
   opacity: 1;
   visibility: visible;
 }
@@ -1231,6 +1234,10 @@ button:hover {
     padding: 5px 10px;
     max-width: 120px;
   }
+  .history-controls {
+    /* Для группы выбора размера элементов оставляем горизонтальное
+       расположение кнопок на мобильных устройствах */
+  }
   .history-controls .filter-group {
     flex-direction: column;
     align-items: stretch;
@@ -1239,7 +1246,6 @@ button:hover {
   .history-controls .filter-group select {
     width: 100%;
   }
-  /* Специальное правило для кнопок выбора количества элементов */
   .history-controls .size-controls {
     flex-direction: row;
     align-items: center;
@@ -1274,6 +1280,14 @@ button:hover {
 .custom-template-fields textarea {
   min-height: 4rem;
   resize: vertical;
+}
+
+.toggle-template-btn {
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.5rem;
+}
+.toggle-template-btn i {
+  transition: transform 0.3s;
 }
 
 .legal-container {
@@ -1463,6 +1477,60 @@ body.loading {
   font-weight: 500;
   font-size: 0.875rem;
   margin-left: 0.5rem;
+}
+
+.faq-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.faq-item {
+  border: 1px solid #dee2e6;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.05);
+  padding: 1rem;
+  background-color: #fff;
+}
+
+.faq-question {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.4s ease, opacity 0.3s ease, margin-top 0.3s ease;
+  will-change: max-height, opacity, margin-top;
+}
+
+.faq-item.open .faq-answer {
+  margin-top: 0.5rem;
+  opacity: 1;
+}
+
+.faq-toggle-icon {
+  transition: transform 0.3s;
+}
+
+@media (max-width: 576px) {
+  .faq-nav {
+    overflow-x: auto;
+    white-space: nowrap;
+    flex-wrap: nowrap;
+  }
+}
+
+@media (max-width: 576px) {
+  .faq-item {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
 }
 
 /*# sourceMappingURL=style.css.map */

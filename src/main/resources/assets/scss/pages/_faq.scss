@@ -1,0 +1,55 @@
+@use '../ui' as ui;
+
+.faq-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.faq-item {
+  border: 1px solid #dee2e6;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.05);
+  padding: 1rem;
+  background-color: #fff;
+}
+
+.faq-question {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.4s ease, opacity 0.3s ease, margin-top 0.3s ease;
+  will-change: max-height, opacity, margin-top;
+}
+
+.faq-item.open .faq-answer {
+  margin-top: 0.5rem;
+  opacity: 1;
+}
+
+.faq-toggle-icon {
+  transition: transform 0.3s;
+}
+
+.faq-nav {
+  @include ui.respond-to(sm) {
+    overflow-x: auto;
+    white-space: nowrap;
+    flex-wrap: nowrap;
+  }
+}
+
+@include ui.respond-to(sm) {
+  .faq-item {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}
