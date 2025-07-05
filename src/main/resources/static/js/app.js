@@ -499,12 +499,11 @@ function initTelegramTemplateBlocks() {
 
         const update = () => {
             const custom = isCustom();
-            fields.querySelectorAll('textarea').forEach(t => t.disabled = !custom);
-            if (custom) {
-                slideDown(fields);
-            } else {
-                slideUp(fields);
-            }
+            fields.querySelectorAll('textarea').forEach(t => {
+                t.disabled = !custom;
+            });
+            fields.classList.toggle('bg-light', !custom);
+            fields.classList.toggle('text-muted', !custom);
         };
 
         update();
