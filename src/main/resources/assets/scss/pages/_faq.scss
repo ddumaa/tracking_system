@@ -22,15 +22,18 @@
   font-size: 1rem;
 }
 
-.faq-answer {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease;
-}
+  // Ответы скрыты по умолчанию, прозрачность позволяет анимировать плавное появление
+  .faq-answer {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+  }
 
-.faq-item.open .faq-answer {
-  margin-top: 0.5rem;
-}
+  .faq-item.open .faq-answer {
+    margin-top: 0.5rem;
+    opacity: 1;
+  }
 
 .faq-toggle-icon {
   transition: transform 0.3s;
