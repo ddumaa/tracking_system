@@ -249,6 +249,9 @@
     <p class="fw-semibold mb-2">Текущий тариф:
         <span class="badge bg-primary" th:text="${planDetails.name}"></span>
     </p>
+    <p class="mb-2 small" th:if="${userProfile.subscriptionEndDate != null}">
+        Подписка активна до: <strong th:text="${userProfile.subscriptionEndDate}"></strong>
+    </p>
     <ul class="list-unstyled">
         <li>📥 Треков в файле:
             <strong th:text="${planDetails.maxTracksPerFile != null ? planDetails.maxTracksPerFile : 'Без лимита'}"></strong>
@@ -275,6 +278,14 @@
             <span th:unless="${planDetails.allowTelegramNotifications}" class="text-muted">❌ Telegram-уведомления</span>
         </li>
     </ul>
+    <div class="d-flex mt-3">
+        <form th:if="${userProfile.subscriptionCode != 'FREE'}"
+              th:action="@{/subscription/renew}" method="post">
+            <input type="hidden" name="_csrf" th:value="${_csrf.token}"/>
+            <button class="btn btn-outline-success">Продлить</button>
+        </form>
+        <a href="/pricing" class="btn btn-primary ms-2">Сменить тариф</a>
+    </div>
 </div>
 
 <div class="tab-pane fade" id="v-pills-integrations" role="tabpanel">
