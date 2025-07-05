@@ -248,16 +248,17 @@
             const icon = item.querySelector('.faq-toggle-icon');
 
             if (item.classList.contains('open')) {
-                
+
+                item.classList.add('closing');
                 answer.style.maxHeight = answer.scrollHeight + 'px';
                 requestAnimationFrame(function () {
                     answer.style.maxHeight = '0';
                 });
                 icon.textContent = '+';
-                item.classList.remove('open');
 
                 answer.addEventListener('transitionend', function handler(event) {
                     if (event.propertyName === 'max-height') {
+                        item.classList.remove('open', 'closing');
                         answer.style.maxHeight = '';
                         answer.removeEventListener('transitionend', handler);
                     }

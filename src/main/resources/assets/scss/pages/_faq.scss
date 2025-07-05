@@ -34,6 +34,10 @@
   opacity: 1;
 }
 
+.faq-item.closing .faq-answer {
+  margin-top: 0;
+}
+
 .faq-toggle-icon {
   transition: transform 0.3s;
 }
