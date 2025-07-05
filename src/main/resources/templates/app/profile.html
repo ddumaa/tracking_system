@@ -284,7 +284,8 @@
             <input type="hidden" name="_csrf" th:value="${_csrf.token}"/>
             <button class="btn btn-outline-success">Продлить</button>
         </form>
-        <a href="/pricing" class="btn btn-primary ms-2">Сменить тариф</a>
+        <a th:if="${userProfile.subscriptionCode != 'ENTERPRISE'}"
+           href="/pricing" class="btn btn-primary ms-2">Сменить тариф</a>
     </div>
 </div>
 
