@@ -44,7 +44,7 @@ class StoreTelegramSettingsControllerTest {
         User user = new User();
         user.setId(1L);
         StoreTelegramSettingsDTO dto = new StoreTelegramSettingsDTO();
-        dto.setUseCustomTemplates(true);
+        dto.setCustomTemplates(true);
 
         BeanPropertyBindingResult binding = new BeanPropertyBindingResult(dto, "dto");
         when(subscriptionService.canUseCustomNotifications(1L)).thenReturn(false);

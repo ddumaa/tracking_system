@@ -40,7 +40,7 @@ class StoreTelegramSettingsServiceTest {
         Store store = new Store();
         store.setId(1L);
         StoreTelegramSettingsDTO dto = new StoreTelegramSettingsDTO();
-        dto.setUseCustomTemplates(true);
+        dto.setCustomTemplates(true);
 
         when(subscriptionService.isFeatureEnabled(1L, FeatureKey.TELEGRAM_NOTIFICATIONS)).thenReturn(true);
         when(subscriptionService.canUseCustomNotifications(1L)).thenReturn(false);
@@ -54,7 +54,7 @@ class StoreTelegramSettingsServiceTest {
         Store store = new Store();
         store.setId(2L);
         StoreTelegramSettingsDTO dto = new StoreTelegramSettingsDTO();
-        dto.setUseCustomTemplates(true);
+        dto.setCustomTemplates(true);
 
         when(subscriptionService.isFeatureEnabled(2L, FeatureKey.TELEGRAM_NOTIFICATIONS)).thenReturn(true);
         when(subscriptionService.canUseCustomNotifications(2L)).thenReturn(true);
@@ -72,7 +72,7 @@ class StoreTelegramSettingsServiceTest {
         Store store = new Store();
         store.setId(3L);
         StoreTelegramSettingsDTO dto = new StoreTelegramSettingsDTO();
-        dto.setUseCustomTemplates(true);
+        dto.setCustomTemplates(true);
         dto.setReminderTemplate("Неверный шаблон");
 
         when(subscriptionService.isFeatureEnabled(3L, FeatureKey.TELEGRAM_NOTIFICATIONS)).thenReturn(true);

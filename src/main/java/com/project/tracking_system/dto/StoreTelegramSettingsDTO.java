@@ -40,21 +40,21 @@ public class StoreTelegramSettingsDTO {
     private String useCustomTemplates = "system";
 
     /**
-     * Возвращает {@code true}, если выбран режим собственных шаблонов.
+     * Проверяет, активирован ли режим собственных шаблонов.
      *
-     * @return {@code true}, когда пользователь выбрал вариант {@code custom}
+     * @return {@code true}, если выбран вариант {@code custom}
      */
-    public boolean isUseCustomTemplates() {
+    public boolean isCustomTemplates() {
         return "custom".equalsIgnoreCase(useCustomTemplates);
     }
 
     /**
-     * Устанавливает режим использования шаблонов по булеву значению.
+     * Устанавливает режим шаблонов по булеву значению.
      *
-     * @param value {@code true} для режима {@code custom}, иначе {@code system}
+     * @param enabled {@code true} для режима {@code custom}, иначе {@code system}
      */
-    public void setUseCustomTemplates(boolean value) {
-        this.useCustomTemplates = value ? "custom" : "system";
+    public void setCustomTemplates(boolean enabled) {
+        this.useCustomTemplates = enabled ? "custom" : "system";
     }
 
     /** Статус → шаблон сообщения. */
