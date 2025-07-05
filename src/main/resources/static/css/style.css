@@ -1497,11 +1497,13 @@ body.loading {
 .faq-answer {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s ease;
+  opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
 }
 
 .faq-item.open .faq-answer {
   margin-top: 0.5rem;
+  opacity: 1;
 }
 
 .faq-toggle-icon {
