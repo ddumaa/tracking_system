@@ -482,23 +482,27 @@
                 </div>
 
 
-                <div class="form-check form-switch mb-2 ms-3">
-                    <input class="form-check-input" type="checkbox" th:id="'tg-custom-templates-' + ${store.id}"
-                           name="useCustomTemplates"
+                <div class="btn-group mb-2 ms-3 template-toggle-group" role="group">
+                    <input type="radio" class="btn-check" name="useCustomTemplates"
+                           th:id="'tg-templates-system-' + ${store.id}"
+                           value="system"
+                           th:checked="${store.telegramSettings?.templates?.size() == 0}">
+                    <label class="btn btn-outline-secondary" th:for="'tg-templates-system-' + ${store.id}">
+                        Системные
+                    </label>
+
+                    <input type="radio" class="btn-check" name="useCustomTemplates"
+                           th:id="'tg-templates-custom-' + ${store.id}"
+                           value="custom"
                            th:checked="${store.telegramSettings?.templates?.size() > 0}"
                            th:disabled="${!allowCustomTemplates}">
-                    <!-- Кнопка раскрытия блока с пользовательскими шаблонами -->
-                    <button type="button" class="btn btn-sm btn-outline-secondary toggle-template-btn ms-2"
-                            th:attr="data-store-id=${store.id}">
-                        <i class="bi bi-chevron-down"></i>
-                    </button>
-                    <label class="form-check-label" th:for="'tg-custom-templates-' + ${store.id}">
-                        Использовать собственные сообщения
+                    <label class="btn btn-outline-secondary" th:for="'tg-templates-custom-' + ${store.id}">
+                        Собственные
                     </label>
-                    <p class="form-text text-danger ms-4" th:if="${!allowCustomTemplates}">
-                        Функция доступна в тарифе "Бизнес" и выше
-                    </p>
                 </div>
+                <p class="form-text text-danger ms-4" th:if="${!allowCustomTemplates}">
+                    Доступно в тарифе Бизнес и выше
+                </p>
 
                 <div th:id="'tg-custom-template-fields-' + ${store.id}" class="ms-4 hidden custom-template-fields"
                      th:attr="data-store-id=${store.id}">

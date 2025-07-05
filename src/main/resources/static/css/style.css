@@ -1282,12 +1282,8 @@ button:hover {
   resize: vertical;
 }
 
-.toggle-template-btn {
-  margin-left: 0.5rem;
-  padding: 0.25rem 0.5rem;
-}
-.toggle-template-btn i {
-  transition: transform 0.3s;
+.template-toggle-group .btn {
+  padding: 0.25rem 0.75rem;
 }
 
 .legal-container {
