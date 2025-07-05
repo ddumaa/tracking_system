@@ -11,7 +11,9 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 /**
  * Контроллер маркетинговых страниц сайта.
@@ -73,6 +75,50 @@ public class MarketingController {
         model.addAttribute("plans", plans);
         model.addAttribute("userPlanPosition", userPlanPosition);
         return "marketing/pricing";
+    }
+
+    /**
+     * Выполняет апгрейд подписки пользователя до премиум-плана.
+     *
+     * @param months срок продления в месяцах
+     * @param user   текущий пользователь
+     * @return редирект на страницу профиля
+     */
+    @PostMapping("pricing/upgrade")
+    public String upgrade(@RequestParam(value = "months", defaultValue = "1") int months,
+                          @AuthenticationPrincipal User user) {
+        Long userId = user.getId();
+        if (userId == null) {
+            return "redirect:/auth/login";
+        }
+        if (months <= 0) {
+            months = 1;
+        }
+        tariffService.upgradeUser(userId, months);
+        return "redirect:/app/profile";
+    }
+
+    /**
+     * Покупает выбранный тарифный план для пользователя.
+     *
+     * @param planCode код тарифа
+     * @param months   срок в месяцах
+     * @param user     текущий пользователь
+     * @return редирект на страницу профиля
+     */
+    @PostMapping("pricing/buy")
+    public String buy(@RequestParam("plan") String planCode,
+                      @RequestParam(value = "months", defaultValue = "1") int months,
+                      @AuthenticationPrincipal User user) {
+        Long userId = user.getId();
+        if (userId == null) {
+            return "redirect:/auth/login";
+        }
+        if (months <= 0) {
+            months = 1;
+        }
+        tariffService.buyPlan(userId, planCode, months);
+        return "redirect:/app/profile";
     }
 
     /**

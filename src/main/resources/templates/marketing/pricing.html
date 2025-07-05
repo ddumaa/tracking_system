@@ -108,8 +108,8 @@
                         </div>
 
                         <!-- ✅ Покупка или улучшение -->
-                        <form th:if="${plan.code != 'FREE' && (userProfile == null || userPlanPosition == null || plan.position > userPlanPosition)}"
-                              th:action="@{/app/tariffs/buy}" method="post" class="mt-auto">
+                            <form th:if="${plan.code != 'FREE' && (userProfile == null || userPlanPosition == null || plan.position > userPlanPosition)}"
+                                  th:action="@{/pricing/buy}" method="post" class="mt-auto">
                             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                             <input type="hidden" id="monthsInput" name="months" value="1"/>
                             <input type="hidden" name="plan" th:value="${plan.code}"/>
