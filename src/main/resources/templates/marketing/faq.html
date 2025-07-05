@@ -8,8 +8,271 @@
      th:replace="~{partials/header-marketing :: header}">
 </div>
 
-<main layout:fragment="content" class="container mt-4">
-    <h1 class="text-center">FAQ</h1>
-    <p class="text-center">Страница в разработке.</p>
+<main layout:fragment="content" class="container py-4">
+    <h1 class="text-center mb-4">FAQ</h1>
+    <h2 class="mb-4">Часто задаваемые вопросы (FAQ)</h2>
+
+    <!-- Раздел: Работа с отправлениями -->
+    <section class="mb-5">
+        <h3 class="mb-3">Работа с отправлениями</h3>
+        <div class="accordion" id="shippingAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="shippingHeading1">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#shippingCollapse1" aria-expanded="false" aria-controls="shippingCollapse1">
+                        Как добавить посылки?
+                    </button>
+                </h2>
+                <div id="shippingCollapse1" class="accordion-collapse collapse" aria-labelledby="shippingHeading1" data-bs-parent="#shippingAccordion">
+                    <div class="accordion-body">
+                        Вы можете добавлять отправления вручную по трек-номеру или загрузить Excel-файл со списком треков. В платных тарифах увеличен лимит на количество треков в файле.
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="shippingHeading2">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#shippingCollapse2" aria-expanded="false" aria-controls="shippingCollapse2">
+                        Можно ли обновлять статусы автоматически?
+                    </button>
+                </h2>
+                <div id="shippingCollapse2" class="accordion-collapse collapse" aria-labelledby="shippingHeading2" data-bs-parent="#shippingAccordion">
+                    <div class="accordion-body">
+                        Да, начиная с тарифа «Команда» доступна функция автообновления треков. Также можно вручную обновлять один трек или все сразу (при наличии функции массового обновления).
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="shippingHeading3">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#shippingCollapse3" aria-expanded="false" aria-controls="shippingCollapse3">
+                        Как быстро обновляются статусы?
+                    </button>
+                </h2>
+                <div id="shippingCollapse3" class="accordion-collapse collapse" aria-labelledby="shippingHeading3" data-bs-parent="#shippingAccordion">
+                    <div class="accordion-body">
+                        При ручном обновлении — мгновенно. При автообновлении система проверяет треки по расписанию каждые несколько часов.
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="shippingHeading4">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#shippingCollapse4" aria-expanded="false" aria-controls="shippingCollapse4">
+                        Какие почтовые службы поддерживаются?
+                    </button>
+                </h2>
+                <div id="shippingCollapse4" class="accordion-collapse collapse" aria-labelledby="shippingHeading4" data-bs-parent="#shippingAccordion">
+                    <div class="accordion-body">
+                        Сейчас поддерживаются Белпочта и Европочта. Мы планируем расширять список служб.
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="shippingHeading5">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#shippingCollapse5" aria-expanded="false" aria-controls="shippingCollapse5">
+                        Можно ли отслеживать возвраты?
+                    </button>
+                </h2>
+                <div id="shippingCollapse5" class="accordion-collapse collapse" aria-labelledby="shippingHeading5" data-bs-parent="#shippingAccordion">
+                    <div class="accordion-body">
+                        Да. Система отображает статус возврата и ведёт аналитику по недоставленным и возвращённым отправлениям.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Раздел: Telegram и уведомления -->
+    <section class="mb-5">
+        <h3 class="mb-3">Telegram и уведомления</h3>
+        <div class="accordion" id="telegramAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="telegramHeading1">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#telegramCollapse1" aria-expanded="false" aria-controls="telegramCollapse1">
+                        Как клиенты получают уведомления?
+                    </button>
+                </h2>
+                <div id="telegramCollapse1" class="accordion-collapse collapse" aria-labelledby="telegramHeading1" data-bs-parent="#telegramAccordion">
+                    <div class="accordion-body">
+                        После активации уведомлений клиенты получают сообщения о статусах доставки от системного Telegram-бота. Для получения сообщений требуется согласие клиента в Telegram.
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="telegramHeading2">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#telegramCollapse2" aria-expanded="false" aria-controls="telegramCollapse2">
+                        Можно ли редактировать тексты уведомлений?
+                    </button>
+                </h2>
+                <div id="telegramCollapse2" class="accordion-collapse collapse" aria-labelledby="telegramHeading2" data-bs-parent="#telegramAccordion">
+                    <div class="accordion-body">
+                        Да, начиная с определённого тарифа доступна функция кастомизации сообщений: вы можете менять текст уведомлений, включая уведомления о прибытии, напоминания и возвраты. Поддерживаются шаблоны с переменными (например, {track}).
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="telegramHeading3">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#telegramCollapse3" aria-expanded="false" aria-controls="telegramCollapse3">
+                        Что делать, если клиент не забирает посылку?
+                    </button>
+                </h2>
+                <div id="telegramCollapse3" class="accordion-collapse collapse" aria-labelledby="telegramHeading3" data-bs-parent="#telegramAccordion">
+                    <div class="accordion-body">
+                        Система может отправлять напоминания в Telegram, если посылка долго находится в пункте выдачи. Вы можете включить или отключить эти напоминания в настройках магазина.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Раздел: Управление аккаунтом -->
+    <section class="mb-5">
+        <h3 class="mb-3">Управление аккаунтом</h3>
+        <div class="accordion" id="accountAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="accountHeading1">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accountCollapse1" aria-expanded="false" aria-controls="accountCollapse1">
+                        Могу ли я подключить несколько магазинов?
+                    </button>
+                </h2>
+                <div id="accountCollapse1" class="accordion-collapse collapse" aria-labelledby="accountHeading1" data-bs-parent="#accountAccordion">
+                    <div class="accordion-body">
+                        Да. В бесплатном тарифе доступен 1 магазин, в расширенных тарифах — больше. Количество зависит от выбранного тарифа.
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="accountHeading2">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accountCollapse2" aria-expanded="false" aria-controls="accountCollapse2">
+                        Есть ли доступ для сотрудников?
+                    </button>
+                </h2>
+                <div id="accountCollapse2" class="accordion-collapse collapse" aria-labelledby="accountHeading2" data-bs-parent="#accountAccordion">
+                    <div class="accordion-body">
+                        Пока нет. В будущем планируется функция многопользовательского доступа с разграничением прав.
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="accountHeading3">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accountCollapse3" aria-expanded="false" aria-controls="accountCollapse3">
+                        Где посмотреть аналитику?
+                    </button>
+                </h2>
+                <div id="accountCollapse3" class="accordion-collapse collapse" aria-labelledby="accountHeading3" data-bs-parent="#accountAccordion">
+                    <div class="accordion-body">
+                        На вкладке «Аналитика» отображается статистика по отправлениям, доставкам, возвратам и средней скорости получения.
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="accountHeading4">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accountCollapse4" aria-expanded="false" aria-controls="accountCollapse4">
+                        Можно ли следить за надёжностью покупателей?
+                    </button>
+                </h2>
+                <div id="accountCollapse4" class="accordion-collapse collapse" aria-labelledby="accountHeading4" data-bs-parent="#accountAccordion">
+                    <div class="accordion-body">
+                        Да. Система формирует статистику по покупателям: сколько раз они забрали или не забрали посылки. Это поможет выявить ненадёжных клиентов.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Раздел: Тарифы и оплата -->
+    <section class="mb-5">
+        <h3 class="mb-3">Тарифы и оплата</h3>
+        <div class="accordion" id="pricingAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="pricingHeading1">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pricingCollapse1" aria-expanded="false" aria-controls="pricingCollapse1">
+                        Какие ограничения у бесплатного тарифа?
+                    </button>
+                </h2>
+                <div id="pricingCollapse1" class="accordion-collapse collapse" aria-labelledby="pricingHeading1" data-bs-parent="#pricingAccordion">
+                    <div class="accordion-body">
+                        В бесплатном тарифе можно добавлять до 10 треков, один магазин, ограниченное количество обновлений. Расширенные функции доступны в платных планах.
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="pricingHeading2">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pricingCollapse2" aria-expanded="false" aria-controls="pricingCollapse2">
+                        Как продлить или сменить тариф?
+                    </button>
+                </h2>
+                <div id="pricingCollapse2" class="accordion-collapse collapse" aria-labelledby="pricingHeading2" data-bs-parent="#pricingAccordion">
+                    <div class="accordion-body">
+                        Вы можете продлить текущий тариф в профиле или перейти на страницу «Прайсинг» для смены тарифного плана.
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="pricingHeading3">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pricingCollapse3" aria-expanded="false" aria-controls="pricingCollapse3">
+                        Поддерживается ли безналичная оплата?
+                    </button>
+                </h2>
+                <div id="pricingCollapse3" class="accordion-collapse collapse" aria-labelledby="pricingHeading3" data-bs-parent="#pricingAccordion">
+                    <div class="accordion-body">
+                        Пока нет. Оплата производится через банковскую карту. В будущем планируется добавить безналичные счета для юрлиц.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Раздел: Безопасность и данные -->
+    <section class="mb-5">
+        <h3 class="mb-3">Безопасность и данные</h3>
+        <div class="accordion" id="securityAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="securityHeading1">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#securityCollapse1" aria-expanded="false" aria-controls="securityCollapse1">
+                        Кто видит мои данные?
+                    </button>
+                </h2>
+                <div id="securityCollapse1" class="accordion-collapse collapse" aria-labelledby="securityHeading1" data-bs-parent="#securityAccordion">
+                    <div class="accordion-body">
+                        Ваши данные видны только вам. Мы не передаём их третьим лицам.
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="securityHeading2">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#securityCollapse2" aria-expanded="false" aria-controls="securityCollapse2">
+                        Сохраняются ли номера клиентов?
+                    </button>
+                </h2>
+                <div id="securityCollapse2" class="accordion-collapse collapse" aria-labelledby="securityHeading2" data-bs-parent="#securityAccordion">
+                    <div class="accordion-body">
+                        Да, номера используются только для идентификации покупателя в системе и уведомлений. Мы соблюдаем политику конфиденциальности.
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="securityHeading3">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#securityCollapse3" aria-expanded="false" aria-controls="securityCollapse3">
+                        Можно ли удалить аккаунт?
+                    </button>
+                </h2>
+                <div id="securityCollapse3" class="accordion-collapse collapse" aria-labelledby="securityHeading3" data-bs-parent="#securityAccordion">
+                    <div class="accordion-body">
+                        Да. Вы можете запросить удаление аккаунта и всех данных через форму поддержки.
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="securityHeading4">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#securityCollapse4" aria-expanded="false" aria-controls="securityCollapse4">
+                        Насколько безопасны уведомления в Telegram?
+                    </button>
+                </h2>
+                <div id="securityCollapse4" class="accordion-collapse collapse" aria-labelledby="securityHeading4" data-bs-parent="#securityAccordion">
+                    <div class="accordion-body">
+                        Уведомления отправляются через защищённое соединение с Telegram. Клиенты сами подтверждают получение сообщений, поэтому доступ к данным полностью контролируемый.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 </main>
 </html>
