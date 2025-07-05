@@ -1472,4 +1472,17 @@ body.loading {
   margin-left: 0.5rem;
 }
 
+.accordion-button[aria-expanded="true"] {
+  background-color: #e8f0ff;
+  font-weight: 600;
+}
+
+@media (max-width: 576px) {
+  .faq-nav {
+    overflow-x: auto;
+    white-space: nowrap;
+    flex-wrap: nowrap;
+  }
+}
+
 /*# sourceMappingURL=style.css.map */

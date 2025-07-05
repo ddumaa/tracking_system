@@ -12,8 +12,18 @@
     <h1 class="text-center mb-4">FAQ</h1>
     <h2 class="mb-4">Часто задаваемые вопросы (FAQ)</h2>
 
+    <nav class="mb-4">
+        <ul class="nav nav-pills flex-wrap gap-2 faq-nav">
+            <li class="nav-item"><a class="nav-link btn btn-outline-secondary" href="#faq-shipping">Отправления</a></li>
+            <li class="nav-item"><a class="nav-link btn btn-outline-secondary" href="#faq-telegram">Telegram</a></li>
+            <li class="nav-item"><a class="nav-link btn btn-outline-secondary" href="#faq-account">Аккаунт</a></li>
+            <li class="nav-item"><a class="nav-link btn btn-outline-secondary" href="#faq-pricing">Тарифы</a></li>
+            <li class="nav-item"><a class="nav-link btn btn-outline-secondary" href="#faq-security">Безопасность</a></li>
+        </ul>
+    </nav>
+
     <!-- Раздел: Работа с отправлениями -->
-    <section class="mb-5">
+    <section class="mb-5" id="faq-shipping">
         <h3 class="mb-3">Работа с отправлениями</h3>
         <div class="accordion" id="shippingAccordion">
             <div class="accordion-item">
@@ -36,7 +46,7 @@
                 </h2>
                 <div id="shippingCollapse2" class="accordion-collapse collapse" aria-labelledby="shippingHeading2" data-bs-parent="#shippingAccordion">
                     <div class="accordion-body">
-                        Да, начиная с тарифа «Команда» доступна функция автообновления треков. Также можно вручную обновлять один трек или все сразу (при наличии функции массового обновления).
+                        Да, начиная с тарифа «Команда» доступна функция <strong>автообновления</strong> треков. Также можно вручную обновлять один трек или все сразу (при наличии функции <strong>массового обновления</strong>).
                     </div>
                 </div>
             </div>
@@ -80,7 +90,7 @@
     </section>
 
     <!-- Раздел: Telegram и уведомления -->
-    <section class="mb-5">
+    <section class="mb-5" id="faq-telegram">
         <h3 class="mb-3">Telegram и уведомления</h3>
         <div class="accordion" id="telegramAccordion">
             <div class="accordion-item">
@@ -91,7 +101,7 @@
                 </h2>
                 <div id="telegramCollapse1" class="accordion-collapse collapse" aria-labelledby="telegramHeading1" data-bs-parent="#telegramAccordion">
                     <div class="accordion-body">
-                        После активации уведомлений клиенты получают сообщения о статусах доставки от системного Telegram-бота. Для получения сообщений требуется согласие клиента в Telegram.
+                        После активации уведомлений клиенты получают сообщения о статусах доставки от системного <strong>Telegram-бота</strong>. Для получения сообщений требуется согласие клиента в Telegram.
                     </div>
                 </div>
             </div>
@@ -123,7 +133,7 @@
     </section>
 
     <!-- Раздел: Управление аккаунтом -->
-    <section class="mb-5">
+    <section class="mb-5" id="faq-account">
         <h3 class="mb-3">Управление аккаунтом</h3>
         <div class="accordion" id="accountAccordion">
             <div class="accordion-item">
@@ -178,7 +188,7 @@
     </section>
 
     <!-- Раздел: Тарифы и оплата -->
-    <section class="mb-5">
+    <section class="mb-5" id="faq-pricing">
         <h3 class="mb-3">Тарифы и оплата</h3>
         <div class="accordion" id="pricingAccordion">
             <div class="accordion-item">
@@ -221,7 +231,7 @@
     </section>
 
     <!-- Раздел: Безопасность и данные -->
-    <section class="mb-5">
+    <section class="mb-5" id="faq-security">
         <h3 class="mb-3">Безопасность и данные</h3>
         <div class="accordion" id="securityAccordion">
             <div class="accordion-item">
@@ -274,5 +284,10 @@
             </div>
         </div>
     </section>
+
+    <div class="text-center mt-5">
+        <p class="fw-semibold">Не нашли ответа на свой вопрос?</p>
+        <a href="/contact" class="btn btn-outline-primary">Связаться с нами</a>
+    </div>
 </main>
 </html>
