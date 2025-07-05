@@ -5,8 +5,8 @@ import jakarta.validation.constraints.Min;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * DTO настроек Telegram для магазина.
@@ -30,8 +30,32 @@ public class StoreTelegramSettingsDTO {
 
     private boolean remindersEnabled = false;
 
-    /** Использовать пользовательские шаблоны сообщений. */
-    private boolean useCustomTemplates = false;
+    /**
+     * Режим использования шаблонов уведомлений.
+     * <p>
+     * Возможные значения: {@code system} или {@code custom}. По умолчанию
+     * используется {@code system}.
+     * </p>
+     */
+    private String useCustomTemplates = "system";
+
+    /**
+     * Возвращает {@code true}, если выбран режим собственных шаблонов.
+     *
+     * @return {@code true}, когда пользователь выбрал вариант {@code custom}
+     */
+    public boolean isUseCustomTemplates() {
+        return "custom".equalsIgnoreCase(useCustomTemplates);
+    }
+
+    /**
+     * Устанавливает режим использования шаблонов по булеву значению.
+     *
+     * @param value {@code true} для режима {@code custom}, иначе {@code system}
+     */
+    public void setUseCustomTemplates(boolean value) {
+        this.useCustomTemplates = value ? "custom" : "system";
+    }
 
     /** Статус → шаблон сообщения. */
     private Map<String, String> templates = new HashMap<>();
