@@ -1475,12 +1475,16 @@ body.loading {
   margin-left: 0.5rem;
 }
 .recommended-label {
+  position: absolute;
+  top: 0;
+  right: 0;
   background-color: #0d6efd;
   color: #ffffff;
   font-weight: 500;
   font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  border-top-right-radius: 8px;
+  border-bottom-left-radius: 8px;
 }
 
 .faq-container {
