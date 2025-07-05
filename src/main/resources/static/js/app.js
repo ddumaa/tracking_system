@@ -935,6 +935,9 @@ async function appendTelegramBlock(store) {
     if (!block) return;
     document.getElementById('telegram-management').appendChild(block);
 
+    // Инициализируем подсказки в добавленном блоке
+    enableTooltips(block);
+
     // --- Инициализируем формы и collapse
     initTelegramForms();
     initTelegramToggle();

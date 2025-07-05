@@ -496,7 +496,8 @@
                            value="custom"
                            th:checked="${store.telegramSettings?.templates?.size() > 0}"
                            th:disabled="${!allowCustomTemplates}">
-                    <label class="btn btn-outline-secondary" th:for="'tg-templates-custom-' + ${store.id}">
+                    <label class="btn btn-outline-secondary" th:for="'tg-templates-custom-' + ${store.id}"
+                           th:attrappend="${!allowCustomTemplates} ? 'data-bs-toggle=tooltip title=\'Доступно в тарифе Бизнес и выше\'' : ''">
                         Собственные
                     </label>
                 </div>
@@ -531,7 +532,10 @@
                     <p class="form-text">Шаблоны должны содержать {track} и {store}</p>
                 </div>
                 <button type="submit" class="btn btn-sm btn-primary w-100"
-                        th:disabled="${!allowCustomTemplates}">Сохранить</button>
+                        th:disabled="${!allowCustomTemplates}"
+                        th:attrappend="${!allowCustomTemplates} ? 'data-bs-toggle=tooltip title=\'Доступно в тарифе Бизнес и выше\'' : ''">
+                    Сохранить
+                </button>
             </form>
         </div>
     </div>
