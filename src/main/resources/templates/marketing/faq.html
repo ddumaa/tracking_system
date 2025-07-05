@@ -242,46 +242,49 @@
     </div>
 
     <script th:attr="nonce=${nonce}">
-        function toggleFaq(el) {
-            const item = el.closest('.faq-item');
-            const answer = item.querySelector('.faq-answer');
-            const icon = item.querySelector('.faq-toggle-icon');
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.faq-question').forEach(function (question) {
+                question.addEventListener('click', function () {
+                    const item = this.closest('.faq-item');
+                    const answer = item.querySelector('.faq-answer');
+                    const icon = item.querySelector('.faq-toggle-icon');
 
-            if (item.classList.contains('open')) {
+                    const isOpen = item.classList.contains('open');
 
-                item.classList.add('closing');
-                answer.style.maxHeight = answer.scrollHeight + 'px';
-                requestAnimationFrame(function () {
-                    answer.style.maxHeight = '0';
-                });
-                icon.textContent = '+';
+                    // Сначала сбрасываем max-height, если вдруг оно осталось после прошлого цикла
+                    answer.style.transition = 'none';
+                    answer.style.maxHeight = isOpen ? answer.scrollHeight + 'px' : '0px';
+                    answer.offsetHeight; // reflow
+                    answer.style.transition = '';
 
-                answer.addEventListener('transitionend', function handler(event) {
-                    if (event.propertyName === 'max-height') {
-                        item.classList.remove('open', 'closing');
-                        answer.style.maxHeight = '';
-                        answer.removeEventListener('transitionend', handler);
+                    if (isOpen) {
+                        answer.style.maxHeight = answer.scrollHeight + 'px'; // установить фиксированную высоту
+                        requestAnimationFrame(() => {
+                            answer.style.maxHeight = '0px';
+                            icon.textContent = '+';
+                            item.classList.remove('open');
+                        });
+                    } else {
+                        item.classList.add('open');
+                        answer.style.maxHeight = '0px'; // начальная точка
+                        icon.textContent = '–';
+                        requestAnimationFrame(() => {
+                            answer.style.maxHeight = answer.scrollHeight + 'px';
+                        });
+
+                        // После окончания transition устанавливаем max-height: none
+                        const onTransitionEnd = function (e) {
+                            if (e.propertyName === 'max-height') {
+                                answer.style.maxHeight = 'none';
+                                answer.removeEventListener('transitionend', onTransitionEnd);
+                            }
+                        };
+                        answer.addEventListener('transitionend', onTransitionEnd);
                     }
                 });
-
-            } else {
-                answer.style.maxHeight = answer.scrollHeight + 'px';
-                item.classList.add('open');
-                icon.textContent = '–';
-                answer.addEventListener('transitionend', function handler(event) {
-                    if (event.propertyName === 'max-height') {
-                        answer.style.maxHeight = 'none';
-                        answer.removeEventListener('transitionend', handler);
-                    }
-                });
-            }
-        }
-
-        document.querySelectorAll('.faq-question').forEach(function (question) {
-            question.addEventListener('click', function () {
-                toggleFaq(this);
             });
         });
     </script>
+
 </main>
 </html>
