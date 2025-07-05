@@ -504,8 +504,9 @@
                     Доступно в тарифе Бизнес и выше
                 </p>
 
-                <div th:id="'tg-custom-template-fields-' + ${store.id}" class="ms-4 hidden custom-template-fields"
-                     th:attr="data-store-id=${store.id}">
+                <div th:id="'tg-custom-template-fields-' + ${store.id}" class="ms-4 custom-template-fields"
+                     th:attr="data-store-id=${store.id}"
+                     th:attrappend="${!allowCustomTemplates} ? 'data-bs-toggle=tooltip title=\'Доступно в тарифе Бизнес и выше\'' : ''">
                     <div th:each="status : ${T(com.project.tracking_system.entity.BuyerStatus).values()}">
                         <div class="mb-2">
                             <label class="form-label" th:for="${'tpl-' + status.name() + '-' + store.id}" th:text="${status.displayName}"></label>
