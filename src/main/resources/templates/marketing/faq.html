@@ -241,7 +241,7 @@
         <a href="marketing/contacts" class="btn btn-outline-primary">Связаться с нами</a>
     </div>
 
-    <script>
+    <script th:attr="nonce=${nonce}">
         function toggleFaq(el) {
             const item = el.closest('.faq-item');
             const answer = item.querySelector('.faq-answer');
