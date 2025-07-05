@@ -1275,6 +1275,13 @@ button:hover {
   min-height: 4rem;
   resize: vertical;
 }
+.toggle-template-btn {
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.5rem;
+}
+.toggle-template-btn i {
+  transition: transform 0.3s;
+}
 
 .legal-container {
   font-family: "Inter", sans-serif;
