@@ -1,0 +1,14 @@
+@use '../ui' as ui;
+.accordion-button[aria-expanded="true"] {
+  background-color: #e8f0ff;
+  font-weight: 600;
+}
+
+// Навигация по разделам FAQ на мобильных устройствах
+.faq-nav {
+  @include ui.respond-to(sm) {
+    overflow-x: auto;
+    white-space: nowrap;
+    flex-wrap: nowrap;
+  }
+}
