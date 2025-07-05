@@ -242,7 +242,6 @@
     </div>
 
     <script th:attr="nonce=${nonce}">
-        // Функция раскрывает или сворачивает блок ответа
         function toggleFaq(el) {
             const item = el.closest('.faq-item');
             const answer = item.querySelector('.faq-answer');
@@ -259,7 +258,6 @@
             item.classList.toggle('open');
         }
 
-        // Добавляем обработчики кликов без inline-скриптов
         document.querySelectorAll('.faq-question').forEach(function (question) {
             question.addEventListener('click', function () {
                 toggleFaq(this);
