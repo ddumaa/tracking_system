@@ -435,7 +435,7 @@ public class StoreService {
         dto.setReminderRepeatIntervalDays(settings.getReminderRepeatIntervalDays());
         dto.setReminderTemplate(settings.getReminderTemplate());
         dto.setRemindersEnabled(settings.isRemindersEnabled());
-        dto.setUseCustomTemplates(!settings.getTemplates().isEmpty());
+        dto.setCustomTemplates(!settings.getTemplates().isEmpty());
         dto.setTemplates(settings.getTemplatesMap().entrySet().stream()
                 .collect(java.util.stream.Collectors.toMap(e -> e.getKey().name(), Map.Entry::getValue)));
         return dto;
@@ -467,7 +467,7 @@ public class StoreService {
             current.put(template.getStatus(), template);
         }
 
-        if (dto.isUseCustomTemplates()) {
+        if (dto.isCustomTemplates()) {
             // Обновляем или создаём шаблоны
             dto.getTemplates().forEach((statusName, text) -> {
                 if (!isValidBuyerStatus(statusName)) {

@@ -462,7 +462,7 @@
                     </label>
                 </div>
 
-                <div th:id="'tg-reminder-fields-' + ${store.id}" class="ms-4 hidden reminder-fields">
+                <div th:id="'tg-reminder-fields-' + ${store.id}" class="mb-3 ms-4 hidden reminder-fields">
                     <div class="mb-2">
                         <label class="form-label" th:for="'tg-start-' + ${store.id}">
                             Через сколько дней после прибытия посылки отправить первое напоминание
@@ -481,27 +481,36 @@
                     </div>
                 </div>
 
+                <h6 class="mt-3">Тип уведомлений</h6>
+                <p class="form-text ms-3">Выберите, какие уведомления отправлять: системные или собственные.</p>
+                <div class="btn-group mb-2 ms-3 template-toggle-group" role="group">
+                    <input type="radio" class="btn-check" name="useCustomTemplates"
+                           th:id="'tg-templates-system-' + ${store.id}"
+                           value="system"
+                           th:checked="${store.telegramSettings?.templates?.size() == 0}">
+                    <label class="btn btn-outline-secondary" th:for="'tg-templates-system-' + ${store.id}">
+                        Системные
+                    </label>
 
-                <div class="form-check form-switch mb-2 ms-3">
-                    <input class="form-check-input" type="checkbox" th:id="'tg-custom-templates-' + ${store.id}"
-                           name="useCustomTemplates"
+                    <input type="radio" class="btn-check" name="useCustomTemplates"
+                           th:id="'tg-templates-custom-' + ${store.id}"
+                           value="custom"
                            th:checked="${store.telegramSettings?.templates?.size() > 0}"
                            th:disabled="${!allowCustomTemplates}">
-                    <!-- Кнопка раскрытия блока с пользовательскими шаблонами -->
-                    <button type="button" class="btn btn-sm btn-outline-secondary toggle-template-btn ms-2"
-                            th:attr="data-store-id=${store.id}">
-                        <i class="bi bi-chevron-down"></i>
-                    </button>
-                    <label class="form-check-label" th:for="'tg-custom-templates-' + ${store.id}">
-                        Использовать собственные сообщения
+                    <label class="btn btn-outline-secondary" th:for="'tg-templates-custom-' + ${store.id}"
+                           th:data-bs-toggle="${!allowCustomTemplates ? 'tooltip' : null}"
+                           th:title="${!allowCustomTemplates ? 'Доступно в тарифе Бизнес и выше' : null}">
+                        Собственные
                     </label>
-                    <p class="form-text text-danger ms-4" th:if="${!allowCustomTemplates}">
-                        Функция доступна в тарифе "Бизнес" и выше
-                    </p>
                 </div>
+                <p class="form-text text-danger ms-4" th:if="${!allowCustomTemplates}">
+                    Доступно в тарифе Бизнес и выше
+                </p>
 
-                <div th:id="'tg-custom-template-fields-' + ${store.id}" class="ms-4 hidden custom-template-fields"
-                     th:attr="data-store-id=${store.id}">
+                <div th:id="'tg-custom-template-fields-' + ${store.id}" class="ms-4 custom-template-fields"
+                     th:attr="data-store-id=${store.id}"
+                     th:data-bs-toggle="${!allowCustomTemplates ? 'tooltip' : null}"
+                     th:title="${!allowCustomTemplates ? 'Доступно в тарифе Бизнес и выше' : null}">
                     <div th:each="status : ${T(com.project.tracking_system.entity.BuyerStatus).values()}">
                         <div class="mb-2">
                             <label class="form-label" th:for="${'tpl-' + status.name() + '-' + store.id}" th:text="${status.displayName}"></label>
@@ -526,7 +535,11 @@
                     <p class="form-text">Шаблоны должны содержать {track} и {store}</p>
                 </div>
                 <button type="submit" class="btn btn-sm btn-primary w-100"
-                        th:disabled="${!allowCustomTemplates}">Сохранить</button>
+                        th:disabled="${!allowCustomTemplates}"
+                        th:data-bs-toggle="${!allowCustomTemplates ? 'tooltip' : null}"
+                        th:title="${!allowCustomTemplates ? 'Доступно в тарифе Бизнес и выше' : null}">
+                    Сохранить
+                </button>
             </form>
         </div>
     </div>
