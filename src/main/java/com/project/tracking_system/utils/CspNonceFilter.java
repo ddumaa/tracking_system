@@ -27,12 +27,20 @@ public class CspNonceFilter extends OncePerRequestFilter {
     private final String[] allowedConnectOrigins;
 
     /**
-     * Создаёт фильтр с разрешёнными источниками connect-src.
-     *
-     * @param allowedConnectOrigins список разрешённых адресов
+     * Разрешённые адреса для директивы form-action.
      */
-    public CspNonceFilter(@Value("${csp.allowed-connect-origins}") String[] allowedConnectOrigins) {
+    private final String[] allowedFormActionOrigins;
+
+    /**
+     * Создаёт фильтр с разрешёнными источниками connect-src и form-action.
+     *
+     * @param allowedConnectOrigins     список разрешённых адресов для connect-src
+     * @param allowedFormActionOrigins  список разрешённых адресов для form-action
+     */
+    public CspNonceFilter(@Value("${csp.allowed-connect-origins}") String[] allowedConnectOrigins,
+                          @Value("${csp.allowed-form-action-origins:}") String[] allowedFormActionOrigins) {
         this.allowedConnectOrigins = allowedConnectOrigins;
+        this.allowedFormActionOrigins = allowedFormActionOrigins;
     }
 
     @Override
@@ -50,6 +58,7 @@ public class CspNonceFilter extends OncePerRequestFilter {
 
         // Формируем заголовок CSP
         String connectSrc = String.join(" ", allowedConnectOrigins);
+        String formAction = String.join(" ", allowedFormActionOrigins);
 
         String cspPolicy = "default-src 'self'; " +
                 "script-src 'self' 'nonce-" + nonce + "' https://code.jquery.com https://cdn.jsdelivr.net; " +
@@ -62,7 +71,7 @@ public class CspNonceFilter extends OncePerRequestFilter {
                 "object-src 'none'; " +
                 "frame-ancestors 'none'; " +
                 "base-uri 'self'; " +
-                "form-action 'self';";
+                "form-action 'self'" + (formAction.isBlank() ? "" : " " + formAction) + ";";
 
         // Устанавливаем заголовки безопасности
         response.setHeader("Content-Security-Policy", cspPolicy);
