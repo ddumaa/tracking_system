@@ -69,10 +69,7 @@ public class SecurityConfiguration {
             log.warn("Используется значение по умолчанию для security.remember-me-key. Задайте уникальное значение в application.properties!");
         }
         http
-                .requiresChannel(channel -> channel
-                        .anyRequest().requiresSecure()
-                )
-                .addFilterBefore(cspNonceFilter, SecurityContextPersistenceFilter.class)
+                //.addFilterBefore(cspNonceFilter, SecurityContextPersistenceFilter.class)
                 .headers(h -> h
                         .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
                         .httpStrictTransportSecurity(hsts -> hsts
