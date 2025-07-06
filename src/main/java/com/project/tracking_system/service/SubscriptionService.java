@@ -10,6 +10,7 @@ import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
 import com.project.tracking_system.repository.UserRepository;
 import org.springframework.transaction.annotation.Transactional;
+import com.project.tracking_system.utils.EmailUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -262,7 +263,8 @@ public class SubscriptionService {
                 .ifPresentOrElse(
                         id -> upgradeOrExtendSubscription(id, 1),
                         () -> {
-                            log.warn("Пользователь с email {} не найден", email);
+                            log.warn("Пользователь с email {} не найден",
+                                    EmailUtils.maskEmail(email));
                             throw new IllegalArgumentException("Пользователь не найден");
                         }
                 );

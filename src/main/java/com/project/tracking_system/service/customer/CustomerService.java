@@ -47,7 +47,8 @@ public class CustomerService {
      */
     public Customer registerOrGetByPhone(String rawPhone) {
         String phone = PhoneUtils.normalizePhone(rawPhone);
-        log.info("🔍 Начало поиска/регистрации покупателя по телефону {}", phone);
+        log.info("🔍 Начало поиска/регистрации покупателя по телефону {}",
+                PhoneUtils.maskPhone(phone));
         // Первый поиск выполняем отдельно, чтобы не создавать дубликаты
         Optional<Customer> existing = transactionalService.findByPhone(phone);
         if (existing.isPresent()) {
@@ -58,10 +59,12 @@ public class CustomerService {
         customer.setPhone(phone);
         try {
             Customer saved = transactionalService.saveCustomer(customer);
-            log.info("Создан новый покупатель с номером {}", phone);
+            log.info("Создан новый покупатель с номером {}",
+                    PhoneUtils.maskPhone(phone));
             return saved;
         } catch (DataIntegrityViolationException e) {
-            log.warn("Покупатель с номером {} уже существует, выполняем повторный поиск", phone);
+            log.warn("Покупатель с номером {} уже существует, выполняем повторный поиск",
+                    PhoneUtils.maskPhone(phone));
             // Несколько раз пытаемся прочитать покупателя, ожидая завершения транзакции сохранения
             for (int attempt = 0; attempt < 3; attempt++) {
                 Optional<Customer> byPhone = transactionalService.findByPhone(phone);
@@ -169,7 +172,8 @@ public class CustomerService {
         log.debug("🔍 Поиск посылки ID={} для привязки покупателя", parcelId);
         TrackParcel parcel = trackParcelRepository.findById(parcelId)
                 .orElseThrow(() -> new IllegalArgumentException("Посылка не найдена"));
-        log.debug("📞 Привязываем телефон {} к посылке ID={}", rawPhone, parcelId);
+        log.debug("📞 Привязываем телефон {} к посылке ID={}",
+                PhoneUtils.maskPhone(rawPhone), parcelId);
         Customer newCustomer = registerOrGetByPhone(rawPhone);
 
         Customer current = parcel.getCustomer();

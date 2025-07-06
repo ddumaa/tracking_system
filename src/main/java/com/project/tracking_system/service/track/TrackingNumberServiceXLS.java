@@ -182,7 +182,8 @@ public class TrackingNumberServiceXLS {
                     try {
                         phone = PhoneUtils.normalizePhone(phone);
                     } catch (Exception e) {
-                        log.warn("Некорректный телефон '{}' в строке {}", phone, rowIndex + 1);
+                        log.warn("Некорректный телефон '{}' в строке {}",
+                                PhoneUtils.maskPhone(phone), rowIndex + 1);
                         phone = null;
                     }
                 }

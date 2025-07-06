@@ -4,6 +4,7 @@ import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.project.tracking_system.utils.PhoneUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +29,8 @@ public class CustomerTransactionalService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Customer saveCustomer(Customer customer) {
-        log.debug("💾 Сохранение покупателя с телефоном {}", customer.getPhone());
+        log.debug("💾 Сохранение покупателя с телефоном {}",
+                PhoneUtils.maskPhone(customer.getPhone()));
         return customerRepository.save(customer);
     }
 
@@ -40,7 +42,8 @@ public class CustomerTransactionalService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
     public Optional<Customer> findByPhone(String phone) {
-        log.debug("🔍 Поиск покупателя по телефону {}", phone);
+        log.debug("🔍 Поиск покупателя по телефону {}",
+                PhoneUtils.maskPhone(phone));
         return customerRepository.findByPhone(phone);
     }
 }

@@ -6,6 +6,7 @@ import com.project.tracking_system.repository.PasswordResetTokenRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.service.email.EmailService;
 import com.project.tracking_system.utils.EmailUtils;
+import com.project.tracking_system.utils.TokenUtils;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -98,7 +99,7 @@ public class PasswordResetService {
      * Сбрасывает пароль пользователя с использованием токена для восстановления.
      * <p>
      * Этот метод проверяет действительность токена, находит пользователя и обновляет его пароль, после чего
-     * удаляет токен из базы данных.
+     * удаляет токен из базы данных. Полный токен в логах не выводится, чтобы предотвратить его утечку.
      * </p>
      *
      * @param token токен для сброса пароля
@@ -107,7 +108,8 @@ public class PasswordResetService {
      */
     @Transactional
     public void resetPassword(String token, String newPassword) {
-        log.info("Начало сброса пароля по токену {}", token);
+        // Логируем только первые символы токена из соображений безопасности
+        log.info("Начало сброса пароля по токену {}", TokenUtils.maskToken(token));
         if (!isTokenValid(token)) {
             throw new IllegalArgumentException("Срок действия токена истек");
         }

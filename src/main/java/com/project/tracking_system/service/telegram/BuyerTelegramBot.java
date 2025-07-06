@@ -170,7 +170,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 sendNotificationsKeyboard(chatId, true);
             }
         } catch (Exception e) {
-            log.error("❌ Ошибка регистрации телефона {} для чата {}", phone, chatId, e);
+            log.error("❌ Ошибка регистрации телефона {} для чата {}",
+                    PhoneUtils.maskPhone(phone), chatId, e);
         }
     }
 }
