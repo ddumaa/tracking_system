@@ -44,4 +44,20 @@ public final class PhoneUtils {
 
         throw new IllegalArgumentException("Некорректный формат номера телефона");
     }
+
+    /**
+     * Маскирует номер телефона, скрывая последние четыре цифры.
+     * <p>
+     * Например, из {@code 375291234567} получится {@code 37529123***}.
+     * </p>
+     *
+     * @param phone номер телефона в произвольном формате
+     * @return маскированный номер или исходная строка, если номер слишком короткий
+     */
+    public static String maskPhone(String phone) {
+        if (phone == null || phone.length() <= 4) {
+            return phone;
+        }
+        return phone.substring(0, phone.length() - 4) + "***";
+    }
 }

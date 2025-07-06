@@ -47,7 +47,8 @@ public class CustomerTelegramService {
     @Transactional
     public Customer linkTelegramToCustomer(String phone, Long chatId) {
         String normalized = PhoneUtils.normalizePhone(phone);
-        log.info("🔗 Попытка привязки телефона {} к чату {}", normalized, chatId);
+        log.info("🔗 Попытка привязки телефона {} к чату {}",
+                PhoneUtils.maskPhone(normalized), chatId);
 
         // Регистрируем покупателя при необходимости
         Customer customer = customerService.registerOrGetByPhone(normalized);
