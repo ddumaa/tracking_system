@@ -4,6 +4,7 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.model.evropost.jsonRequestModel.JsonPacket;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.utils.EncryptionUtils;
+import com.project.tracking_system.utils.EmailUtils;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -114,8 +115,15 @@ public class JwtTokenManager {
         return systemToken;
     }
 
+    /**
+     * Возвращает JWT токен пользователя, при необходимости обновляя его.
+     *
+     * @param user пользователь, для которого запрашивается токен
+     * @return актуальный JWT токен
+     */
     public synchronized String getUserToken(User user) {
-        log.info("Получение пользовательского токена для пользователя: {}", user.getEmail());
+        log.info("Получение пользовательского токена для пользователя: {}",
+                EmailUtils.maskEmail(user.getEmail()));
         if (user.getEvropostServiceCredential().getJwtToken() == null || isUserTokenExpired(user)) {
             try {
                 log.debug("JWT токен отсутствует или истёк. Генерация нового токена...");
@@ -131,23 +139,32 @@ public class JwtTokenManager {
                 user.getEvropostServiceCredential().setJwtToken(newToken);
                 user.getEvropostServiceCredential().setTokenCreatedAt(ZonedDateTime.now(ZoneOffset.UTC));
                 userRepository.save(user);
-                log.info("Новый пользовательский токен успешно создан и сохранён для пользователя: {}", user.getEmail());
+                log.info("Новый пользовательский токен успешно создан и сохранён для пользователя: {}",
+                        EmailUtils.maskEmail(user.getEmail()));
             } catch (Exception e) {
                 log.error("Не удалось получить пользовательский JWT токен для пользователя: {}. Причина: {}",
-                        user.getEmail(), e.getMessage());
+                        EmailUtils.maskEmail(user.getEmail()), e.getMessage());
                 return null;
             }
         }
-        log.debug("Действующий JWT токен найден для пользователя: {}", user.getEmail());
+        log.debug("Действующий JWT токен найден для пользователя: {}",
+                EmailUtils.maskEmail(user.getEmail()));
         return user.getEvropostServiceCredential().getJwtToken();
     }
 
+    /**
+     * Проверяет срок действия пользовательского токена.
+     *
+     * @param user пользователь, чей токен проверяется
+     * @return {@code true}, если токен истёк
+     */
     private boolean isUserTokenExpired(User user) {
         ZonedDateTime createdAt = user.getEvropostServiceCredential().getTokenCreatedAt();
         boolean expired = createdAt == null ||
                 createdAt.plusDays(TOKEN_LIFETIME_DAYS).isBefore(ZonedDateTime.now(ZoneOffset.UTC));
         if (expired) {
-            log.debug("Пользовательский токен для {} истёк.", user.getEmail());
+            log.debug("Пользовательский токен для {} истёк.",
+                    EmailUtils.maskEmail(user.getEmail()));
         }
         return expired;
     }
@@ -170,7 +187,8 @@ public class JwtTokenManager {
             List<User> users = userRepository.findUsersForTokenRefresh(threshold);
 
             for (User user : users) {
-                log.info("Обновление токена для пользователя: {}", user.getEmail());
+                log.info("Обновление токена для пользователя: {}",
+                        EmailUtils.maskEmail(user.getEmail()));
                 try {
                     String decryptedPassword = encryptionUtils.decrypt(user.getEvropostServiceCredential().getPassword());
                     String decryptedServiceNumber = encryptionUtils.decrypt(user.getEvropostServiceCredential().getServiceNumber());
@@ -183,9 +201,11 @@ public class JwtTokenManager {
                     user.getEvropostServiceCredential().setJwtToken(newToken);
                     user.getEvropostServiceCredential().setTokenCreatedAt(ZonedDateTime.now(ZoneOffset.UTC));
                     userRepository.save(user);
-                    log.info("Токен для пользователя {} успешно обновлён.", user.getEmail());
+                    log.info("Токен для пользователя {} успешно обновлён.",
+                            EmailUtils.maskEmail(user.getEmail()));
                 } catch (Exception e) {
-                    log.error("Не удалось обновить токен для пользователя: {}", user.getEmail());
+                    log.error("Не удалось обновить токен для пользователя: {}",
+                            EmailUtils.maskEmail(user.getEmail()));
                 }
             }
             log.info("Плановое обновление токенов завершено.");
