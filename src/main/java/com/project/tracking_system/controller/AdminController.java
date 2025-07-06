@@ -13,6 +13,7 @@ import com.project.tracking_system.service.admin.SubscriptionPlanService;
 import com.project.tracking_system.service.tariff.TariffService;
 import com.project.tracking_system.service.DynamicSchedulerService;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
+import com.project.tracking_system.utils.EmailUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -161,7 +162,8 @@ public class AdminController {
             return "redirect:/admin/users";
         } catch (UserAlreadyExistsException e) {
             // Пользователь с таким email уже существует
-            log.warn("Не удалось создать пользователя: {} уже существует", email);
+            log.warn("Не удалось создать пользователя: {} уже существует",
+                    EmailUtils.maskEmail(email));
             model.addAttribute("errorMessage", e.getMessage());
         } catch (IllegalArgumentException e) {
             // Переданы некорректные параметры
