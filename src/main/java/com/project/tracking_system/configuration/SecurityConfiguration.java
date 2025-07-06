@@ -85,7 +85,7 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests
                         // Публичные маршруты и статические ресурсы
                         .requestMatchers("/", "/features", "/pricing", "/terms", "/privacy",
-                                "/auth/**",
+                                "/auth/**", "/favicon.ico",
                                 "/css/**", "/js/**", "/bootstrap/**", "/images/**",
                                 "/app/upload", "/ws/**", "/wss/**", "/sample/**", "/app/download-sample",
                                 "/faq", "/about", "/contacts").permitAll()
