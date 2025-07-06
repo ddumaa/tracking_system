@@ -140,7 +140,6 @@ public class ProfileController {
             }
             default -> log.debug("Открыта вкладка по умолчанию (пароль) для пользователя с ID: {}", userId);
         }
-
         return "app/profile";
     }
 
@@ -173,7 +172,6 @@ public class ProfileController {
                 webSocketController.sendUpdateStatus(userId, "Ошибка обновления Европочты!", false);
             }
         }
-
         return "app/profile :: evropostFragment";
     }
 
@@ -321,7 +319,6 @@ public class ProfileController {
         } catch (IllegalArgumentException e) {
             result.rejectValue("currentPassword", "password.incorrect", e.getMessage());
         }
-
         return "app/profile :: passwordFragment";
     }
 
