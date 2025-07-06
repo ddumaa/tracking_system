@@ -106,6 +106,12 @@ public class CspNonceFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
+    /**
+     * Извлекает значение куки {@code XSRF-TOKEN} из запроса.
+     *
+     * @param request HTTP-запрос
+     * @return значение токена или {@code null}, если кука отсутствует
+     */
     private String getTokenFromRequest(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
@@ -115,7 +121,7 @@ public class CspNonceFilter extends OncePerRequestFilter {
                 }
             }
         }
-        return "";
+        return null;
     }
 
     private String getCookieValue(HttpServletRequest request, String cookieName) {
