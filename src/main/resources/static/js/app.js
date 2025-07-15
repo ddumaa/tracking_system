@@ -844,6 +844,7 @@ async function loadStores() {
     stores.forEach(store => {
         const row = document.createElement("tr");
         row.innerHTML = `
+            <td>${store.id}</td>
             <td class="d-flex align-items-center">
                 <input type="radio" name="defaultStore"
                        class="default-store-radio me-2"
@@ -1021,6 +1022,7 @@ function addNewStore() {
 
     const row = document.createElement("tr");
     row.innerHTML = `
+        <td>—</td>
         <td>
             <input type="text" class="form-control store-name-input" id="store-name-${tempId}" placeholder="Введите название">
         </td>

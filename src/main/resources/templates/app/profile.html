@@ -129,6 +129,14 @@
             <div class="col-sm-4 text-muted">Часовой пояс</div>
             <div class="col-sm-8" th:text="${userProfile.timezone}"></div>
         </div>
+        <div class="row mb-2">
+            <div class="col-sm-4 text-muted">Мои магазины</div>
+            <div class="col-sm-8">
+                <ul class="list-unstyled mb-0">
+                    <li th:each="store : ${stores}" th:text="${store.name + ' (ID: ' + store.id + ')'}"></li>
+                </ul>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -147,6 +155,7 @@
                             <table class="table">
                                 <thead>
                                 <tr>
+                                    <th>ID</th>
                                     <th>Название магазина</th>
                                     <th>Действия</th>
                                 </tr>
