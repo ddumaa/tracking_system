@@ -8,8 +8,59 @@
      th:replace="~{partials/header-marketing :: header}">
 </div>
 
-<main layout:fragment="content" class="container mt-4">
-    <h1 class="text-center">Belivery</h1>
-    <p class="text-center">Добро пожаловать в систему отслеживания посылок.</p>
+<!-- Основное содержимое маркетинговой страницы -->
+<main layout:fragment="content" class="container py-4">
+
+    <!-- === Hero-блок: краткая презентация сервиса === -->
+    <!-- Раскрывает ценность Belivery и предлагает начать работу -->
+    <section class="text-center py-5 bg-light rounded">
+        <h1 class="display-4 fw-bold">Belivery</h1>
+        <p class="lead mt-3">Единая система отслеживания и аналитики посылок для магазинов и бизнеса</p>
+        <div class="mt-4">
+            <a class="btn btn-primary btn-lg me-2" th:href="@{/auth/registration}">Начать бесплатно</a>
+            <a class="btn btn-outline-secondary btn-lg" th:href="@{/auth/login}">Войти</a>
+        </div>
+    </section>
+
+    <!-- === Блок преимуществ сервиса === -->
+    <!-- Показывает, почему Belivery лучше ручного отслеживания -->
+    <section class="row text-center mt-5">
+        <div class="col-md-4 mb-4">
+            <i class="bi bi-bar-chart-line display-6 text-primary"></i>
+            <h5 class="mt-3">Аналитика по доставке</h5>
+            <p>Следите за скоростью доставки и вовлечённостью покупателей</p>
+        </div>
+        <div class="col-md-4 mb-4">
+            <i class="bi bi-robot display-6 text-primary"></i>
+            <h5 class="mt-3">Автоматизация</h5>
+            <p>Обновление треков и уведомления Telegram без вашего участия</p>
+        </div>
+        <div class="col-md-4 mb-4">
+            <i class="bi bi-building display-6 text-primary"></i>
+            <h5 class="mt-3">Магазины и сотрудники</h5>
+            <p>Управляйте несколькими магазинами и отслеживайте эффективность</p>
+        </div>
+    </section>
+
+    <!-- === Как работает сервис (3 шага) === -->
+    <!-- Наглядная инструкция для новых пользователей -->
+    <section class="mt-5">
+        <h3 class="text-center mb-4">Как это работает?</h3>
+        <div class="row text-center">
+            <div class="col-md-4">
+                <span class="badge bg-primary rounded-circle p-3 fs-4">1</span>
+                <p class="mt-2">Зарегистрируйтесь и добавьте магазин</p>
+            </div>
+            <div class="col-md-4">
+                <span class="badge bg-primary rounded-circle p-3 fs-4">2</span>
+                <p class="mt-2">Вносите треки вручную или через файл</p>
+            </div>
+            <div class="col-md-4">
+                <span class="badge bg-primary rounded-circle p-3 fs-4">3</span>
+                <p class="mt-2">Получайте обновления и аналитику</p>
+            </div>
+        </div>
+    </section>
+
 </main>
 </html>
