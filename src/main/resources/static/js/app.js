@@ -41,6 +41,16 @@ function hideLoading() {
 }
 
 /**
+ * Копирует текст в буфер обмена и показывает уведомление о результате.
+ * @param {string} text - копируемый текст
+ */
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text)
+        .then(() => notifyUser('Ссылка скопирована в буфер обмена', 'success'))
+        .catch(() => notifyUser('Не удалось скопировать ссылку', 'danger'));
+}
+
+/**
  * Устанавливает активную вкладку профиля во всех меню.
  * @param {string} href - Идентификатор вкладки (href вида '#v-pills-home').
  */

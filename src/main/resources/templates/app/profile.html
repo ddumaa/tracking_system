@@ -210,10 +210,17 @@
             <p class="form-text text-danger" th:if="${!planDetails.allowTelegramNotifications}">
                 Функция доступна в тарифе "Команда" и выше
             </p>
-            <p class="text-muted mb-3">
+            <p class="form-text text-muted mb-3">
                 Настройки уведомлений для покупателей в Telegram. Если включено, покупатели будут
                 получать автоматические уведомления о статусах посылок (например, «отправлена», «прибыла
-                в пункт выдачи» и др.).
+                в пункт выдачи» и др.). Попросите покупателей запустить
+                <a th:href='@{${@environment.getProperty("telegram.bot.link")}}' target="_blank">бота Belivery</a>
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-1"
+                        title="Скопировать ссылку"
+                        onclick="copyToClipboard([[${@environment.getProperty('telegram.bot.link')}]]);">
+                    <i class="bi bi-clipboard"></i>
+                </button>
+                и поделиться номером, чтобы получать уведомления.
             </p>
             <th:block th:each="store, iter : ${stores}">
                 <div th:replace="~{app/profile :: telegramStoreBlock(store=${store}, first=${iter.first})}"></div>
