@@ -1,5 +1,6 @@
 package com.project.tracking_system.configuration;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -23,6 +24,13 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 public class GlobalControllerAdvice {
 
     /**
+     * Ссылка на Telegram-бота, получаемая из конфигурации приложения.
+     * Используется для отображения единого URL в шаблонах.
+     */
+    @Value("${telegram.bot.link}")
+    private String telegramBotLink;
+
+    /**
      * Добавляет имя аутентифицированного пользователя в модель.
      * <p>
      * Если пользователь аутентифицирован, его имя извлекается из {@link Authentication} и добавляется в модель как атрибут
@@ -39,5 +47,19 @@ public class GlobalControllerAdvice {
             return authentication.getName();
         }
         return null;
+    }
+
+    /**
+     * Добавляет в модель ссылку на нашего Telegram-бота.
+     * <p>
+     * Благодаря этому атрибуту шаблоны могут обращаться к одинаковой ссылке,
+     * не хардкодя URL в каждом месте.
+     * </p>
+     *
+     * @return ссылка на бота
+     */
+    @ModelAttribute("telegramBotLink")
+    public String getTelegramBotLink() {
+        return telegramBotLink;
     }
 }
