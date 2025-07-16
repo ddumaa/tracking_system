@@ -11,6 +11,8 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import com.project.tracking_system.dto.CustomerStatisticsDTO;
+
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -188,6 +190,30 @@ public class CustomerTelegramService {
                     return true;
                 })
                 .orElse(false);
+    }
+
+    /**
+     * Получить статистику покупателя по идентификатору Telegram-чата.
+     * <p>
+     * Возвращает количество забранных и возвращённых посылок,
+     * список магазинов, где покупатель делал заказы, и его репутацию.
+     * </p>
+     *
+     * @param chatId идентификатор чата Telegram
+     * @return опциональная статистика покупателя
+     */
+    @Transactional(readOnly = true)
+    public Optional<CustomerStatisticsDTO> getStatistics(Long chatId) {
+        return customerRepository.findByTelegramChatId(chatId)
+                .map(customer -> {
+                    List<String> stores = trackParcelRepository.findDistinctStoreNamesByCustomerId(customer.getId());
+                    return new CustomerStatisticsDTO(
+                            customer.getPickedUpCount(),
+                            customer.getReturnedCount(),
+                            stores,
+                            customer.getReputation()
+                    );
+                });
     }
 
 }

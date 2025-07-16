@@ -110,6 +110,31 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                         sendNotificationsKeyboard(message.getChatId(), true);
                     }
                 }
+                // Покупатель запросил статистику о своих посылках
+                if ("/stats".equals(text) || "📊 Моя статистика".equals(text)) {
+                    telegramService.getStatistics(message.getChatId())
+                            .ifPresent(stats -> {
+                                String stores = stats.getStoreNames().isEmpty()
+                                        ? "-" : String.join(", ", stats.getStoreNames());
+                                String reply = String.format(
+                                        "\uD83D\uDCCA Ваша статистика:\n" +
+                                                "Забрано: %d\n" +
+                                                "Не забрано: %d\n" +
+                                                "Магазины: %s\n" +
+                                                "Репутация: %s",
+                                        stats.getPickedUpCount(),
+                                        stats.getReturnedCount(),
+                                        stores,
+                                        stats.getReputation().getDisplayName()
+                                );
+                                SendMessage msg = new SendMessage(message.getChatId().toString(), reply);
+                                try {
+                                    telegramClient.execute(msg);
+                                } catch (TelegramApiException e) {
+                                    log.error("❌ Ошибка отправки статистики", e);
+                                }
+                            });
+                }
             }
 
             if (message.hasContact()) {
@@ -118,6 +143,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
     }
 
+    /**
+     * Попросить покупателя отправить номер телефона для привязки Telegram.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
     private void sendSharePhoneKeyboard(Long chatId) {
         KeyboardButton button = new KeyboardButton("📱 Поделиться номером");
         button.setRequestContact(true);
@@ -136,13 +166,21 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
     }
 
+    /**
+     * Отправить клавиатуру для управления уведомлениями и просмотра статистики.
+     *
+     * @param chatId  идентификатор чата Telegram
+     * @param enabled включены ли уведомления в данный момент
+     */
     private void sendNotificationsKeyboard(Long chatId, boolean enabled) {
         String buttonText = enabled ? "🔕 Отключить уведомления"
                 : "🔔 Включить уведомления";
 
-        KeyboardButton button = new KeyboardButton(buttonText);
-        KeyboardRow row = new KeyboardRow(List.of(button));
-        ReplyKeyboardMarkup markup = new ReplyKeyboardMarkup(List.of(row));
+        KeyboardButton notifyButton = new KeyboardButton(buttonText);
+        KeyboardButton statsButton = new KeyboardButton("📊 Моя статистика");
+        KeyboardRow firstRow = new KeyboardRow(List.of(notifyButton));
+        KeyboardRow secondRow = new KeyboardRow(List.of(statsButton));
+        ReplyKeyboardMarkup markup = new ReplyKeyboardMarkup(List.of(firstRow, secondRow));
         markup.setResizeKeyboard(true);
         markup.setOneTimeKeyboard(true);
 
@@ -156,6 +194,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
     }
 
+    /**
+     * Обработать контакт с номером телефона от пользователя.
+     * Привязывает номер к покупателю и отправляет подтверждение.
+     *
+     * @param chatId  идентификатор чата Telegram
+     * @param contact объект контакта с номером телефона
+     */
     private void handleContact(Long chatId, Contact contact) {
         String rawPhone = contact.getPhoneNumber();
         String phone = PhoneUtils.normalizePhone(rawPhone);
