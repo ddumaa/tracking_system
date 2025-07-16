@@ -197,8 +197,18 @@
                 <input class="form-check-input" type="checkbox" id="telegramNotificationsToggle"
                        th:checked="${planDetails.allowTelegramNotifications and userSettingsDTO.telegramNotificationsEnabled}"
                        th:disabled="${!planDetails.allowTelegramNotifications}">
-                <label class="form-check-label" for="telegramNotificationsToggle">Получать уведомления о статусах посылок</label>
+                <label class="form-check-label" for="telegramNotificationsToggle">Отправлять уведомления о статусах посылок</label>
             </div>
+                <p class="form-text text-muted ms-4">
+                    Попросите покупателей запустить
+                    <a th:href='@{${@environment.getProperty("telegram.bot.link")}}' target="_blank">бота Belivery</a>
+                    <button type="button" class="btn btn-sm btn-outline-secondary ms-1"
+                            title="Скопировать ссылку"
+                            onclick="copyToClipboard([[${@environment.getProperty('telegram.bot.link')}]]);">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                    и поделиться номером, чтобы получать уведомления.
+                </p>
             <p class="form-text text-danger ms-4" th:if="${!planDetails.allowTelegramNotifications}">
                 Функция доступна в тарифе "Команда" и выше
             </p>
@@ -213,14 +223,7 @@
             <p class="form-text text-muted mb-3">
                 Настройки уведомлений для покупателей в Telegram. Если включено, покупатели будут
                 получать автоматические уведомления о статусах посылок (например, «отправлена», «прибыла
-                в пункт выдачи» и др.). Попросите покупателей запустить
-                <a th:href='@{${@environment.getProperty("telegram.bot.link")}}' target="_blank">бота Belivery</a>
-                <button type="button" class="btn btn-sm btn-outline-secondary ms-1"
-                        title="Скопировать ссылку"
-                        onclick="copyToClipboard([[${@environment.getProperty('telegram.bot.link')}]]);">
-                    <i class="bi bi-clipboard"></i>
-                </button>
-                и поделиться номером, чтобы получать уведомления.
+                в пункт выдачи» и др.).
             </p>
             <th:block th:each="store, iter : ${stores}">
                 <div th:replace="~{app/profile :: telegramStoreBlock(store=${store}, first=${iter.first})}"></div>
