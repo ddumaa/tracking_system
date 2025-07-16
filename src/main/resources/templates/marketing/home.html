@@ -11,9 +11,9 @@
 <!-- Основное содержимое маркетинговой страницы -->
 <main layout:fragment="content" class="container py-4">
 
-    <!-- === Hero-блок: краткая презентация сервиса === -->
-    <!-- Раскрывает ценность Belivery и предлагает начать работу -->
-    <section class="text-center py-5 bg-light rounded">
+    <!-- === Hero-блок === -->
+    <!-- Презентация сервиса и основные призывы к действию -->
+    <section class="text-center py-5 bg-light rounded shadow-sm">
         <h1 class="display-4 fw-bold">Belivery</h1>
         <p class="lead mt-3">Единая система отслеживания и аналитики посылок для магазинов и бизнеса</p>
         <div class="mt-4">
@@ -22,8 +22,15 @@
         </div>
     </section>
 
-    <!-- === Блок преимуществ сервиса === -->
-    <!-- Показывает, почему Belivery лучше ручного отслеживания -->
+    <!-- === Проблема → Решение === -->
+    <!-- Коротко описываем типичную проблему и предлагаем Belivery как решение -->
+    <section class="mt-5 text-center">
+        <h2 class="fw-bold">Следить за посылками вручную — неудобно</h2>
+        <p class="lead text-muted mt-2">Belivery автоматизирует трекинг, аналитику и уведомления — экономьте часы и нервы.</p>
+    </section>
+
+    <!-- === Преимущества (иконки) === -->
+    <!-- Три ключевых преимущества сервиса, представленные иконками -->
     <section class="row text-center mt-5">
         <div class="col-md-4 mb-4">
             <i class="bi bi-bar-chart-line display-6 text-primary"></i>
@@ -43,7 +50,7 @@
     </section>
 
     <!-- === Как работает сервис (3 шага) === -->
-    <!-- Наглядная инструкция для новых пользователей -->
+    <!-- Простая инструкция для новых пользователей -->
     <section class="mt-5">
         <h3 class="text-center mb-4">Как это работает?</h3>
         <div class="row text-center">
@@ -60,6 +67,56 @@
                 <p class="mt-2">Получайте обновления и аналитику</p>
             </div>
         </div>
+    </section>
+
+    <!-- === Интерфейс: Список отправлений === -->
+    <!-- Демонстрация списка треков и удобных инструментов работы с ними -->
+    <section class="row align-items-center mt-5">
+        <div class="col-md-6">
+            <h3>Все отправления в одном месте</h3>
+            <p>Список треков, статусы, поиск и фильтры. Удобно, понятно, быстро.</p>
+        </div>
+        <div class="col-md-6 text-center">
+            <div class="bg-light border rounded shadow-sm" style="height:300px;">
+                <span class="text-muted d-inline-block mt-5">[Скриншот: список отправлений]</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- === Интерфейс: Аналитика === -->
+    <!-- Блок с описанием аналитики и примером отчёта -->
+    <section class="row align-items-center flex-md-row-reverse mt-5">
+        <div class="col-md-6">
+            <h3>Аналитика по доставке и клиентам</h3>
+            <p>Понимайте, где задержки, какие магазины эффективнее, и кто из клиентов забирает заказы.</p>
+        </div>
+        <div class="col-md-6 text-center">
+            <div class="bg-light border rounded shadow-sm" style="height:300px;">
+                <span class="text-muted d-inline-block mt-5">[Скриншот: аналитика]</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- === Telegram уведомления === -->
+    <!-- Рассказываем об автоматических напоминаниях в Telegram -->
+    <section class="row align-items-center mt-5">
+        <div class="col-md-6">
+            <h3>Telegram-напоминания клиентам</h3>
+            <p>Уведомления о доставке и напоминания о заборе приходят прямо в Telegram — автоматом.</p>
+        </div>
+        <div class="col-md-6 text-center">
+            <div class="bg-light border rounded shadow-sm" style="height:300px;">
+                <span class="text-muted d-inline-block mt-5">[Скриншот: настройки Telegram]</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- === CTA к тарифам === -->
+    <!-- Призыв изучить тарифы и подобрать подходящий план -->
+    <section class="text-center mt-5">
+        <h4>Гибкие тарифы — от бесплатного до бизнес-плана</h4>
+        <p class="text-muted">Подходит для магазинов любого масштаба</p>
+        <a class="btn btn-outline-primary btn-lg mt-2" th:href="@{/tariffs}">Сравнить тарифы</a>
     </section>
 
 </main>
