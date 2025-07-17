@@ -2,6 +2,7 @@ package com.project.tracking_system.service.belpost;
 
 import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
+import com.project.tracking_system.utils.RateLimiter;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
@@ -22,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
  * Сервис для автоматизации процесса отслеживания посылок на сайте BelPost.
  * <p>
  * Этот сервис используется для автоматического отслеживания посылок на сайте BelPost с использованием {@link Selenium WebDriver}.
+ * Запросы к сайту выполняются с паузой 2–3 секунды, чтобы не превышать допустимую частоту.
  * В процессе отслеживания извлекается информация о статусах посылки.
  * </p>
  *
@@ -34,6 +36,8 @@ import java.util.concurrent.CompletableFuture;
 public class WebBelPost {
 
     private final WebDriverPool webDriverPool;
+    /** Лимитер запросов к Belpost с интервалом 2–3 секунды. */
+    private final RateLimiter rateLimiter;
 
     /**
      * Асинхронно выполняет процесс отслеживания посылки на сайте BelPost.
@@ -60,8 +64,13 @@ public class WebBelPost {
         WebDriver driver = null;
         TrackInfoListDTO trackInfoListDTO = new TrackInfoListDTO();
         try {
+            // При каждом запросе делаем паузу 2–3 секунды (настройка — в RateLimiter)
+            rateLimiter.acquire();
             // Берём драйвер из пула
             driver = webDriverPool.borrowDriver();
+
+            // Ограничиваем частоту переходов на сайт Belpost
+            rateLimiter.acquire();
 
             // передаём ссылку + номер
             String url = "https://belpost.by/Otsleditotpravleniye?number=" + number;
