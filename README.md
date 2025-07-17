@@ -33,3 +33,13 @@ java -jar app.jar --webdriver.chrome.driver=/path/to/chromedriver
 ## Автообновление треков
 
 Функция автообновления использует лимит `maxTrackUpdates` тарифного плана. Количество обновлений в сутки не может превышать этот показатель.
+
+## Версия приложения
+
+Актуальная версия задаётся в `application.properties` свойством `application.version`.
+Получить её можно через REST-эндпоинт `/app/version`, который возвращает JSON
+следующего вида:
+
+```json
+{ "version": "0.0.1-SNAPSHOT" }
+```
