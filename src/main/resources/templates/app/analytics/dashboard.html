@@ -78,9 +78,12 @@
                     </div>
                     </div>
 
-                    <div class="card p-3 shadow-sm rounded-4 mb-4">
                     <!-- Детальная аналитика по магазинам -->
-                    <div class="mt-4" th:if="${selectedStoreId == null}">
+                    <div class="card p-3 shadow-sm rounded-4 mb-4" th:if="${selectedStoreId == null}">
+                    <!-- Этот блок выводит статистику по каждому магазину.
+                         Он скрывается, когда выбран конкретный магазин, 
+                         чтобы не показывать пустую карту. -->
+                    <div class="mt-4">
                         <h5>Детально по магазинам</h5>
                         <div th:each="stat : ${statistics}" class="mb-5"
                              th:if="${selectedStoreId == null or stat.store.id == selectedStoreId}">

@@ -129,6 +129,14 @@
             <div class="col-sm-4 text-muted">Часовой пояс</div>
             <div class="col-sm-8" th:text="${userProfile.timezone}"></div>
         </div>
+        <div class="row mb-2">
+            <div class="col-sm-4 text-muted">Мои магазины</div>
+            <div class="col-sm-8">
+                <ul class="list-unstyled mb-0">
+                    <li th:each="store : ${stores}" th:text="${store.name + ' (ID: ' + store.id + ')'}"></li>
+                </ul>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -147,6 +155,7 @@
                             <table class="table">
                                 <thead>
                                 <tr>
+                                    <th>ID</th>
                                     <th>Название магазина</th>
                                     <th>Действия</th>
                                 </tr>
@@ -188,8 +197,18 @@
                 <input class="form-check-input" type="checkbox" id="telegramNotificationsToggle"
                        th:checked="${planDetails.allowTelegramNotifications and userSettingsDTO.telegramNotificationsEnabled}"
                        th:disabled="${!planDetails.allowTelegramNotifications}">
-                <label class="form-check-label" for="telegramNotificationsToggle">Получать уведомления о статусах посылок</label>
+                <label class="form-check-label" for="telegramNotificationsToggle">Отправлять уведомления о статусах посылок</label>
             </div>
+                <p class="form-text text-muted ms-4">
+                    Попросите покупателей запустить
+                    <a th:href='@{${@environment.getProperty("telegram.bot.link")}}' target="_blank">бота Belivery</a>
+                    <button type="button" class="btn btn-sm btn-outline-secondary ms-1"
+                            title="Скопировать ссылку"
+                            onclick="copyToClipboard([[${@environment.getProperty('telegram.bot.link')}]]);">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                    и поделиться номером, чтобы получать уведомления.
+                </p>
             <p class="form-text text-danger ms-4" th:if="${!planDetails.allowTelegramNotifications}">
                 Функция доступна в тарифе "Команда" и выше
             </p>
@@ -201,7 +220,7 @@
             <p class="form-text text-danger" th:if="${!planDetails.allowTelegramNotifications}">
                 Функция доступна в тарифе "Команда" и выше
             </p>
-            <p class="text-muted mb-3">
+            <p class="form-text text-muted mb-3">
                 Настройки уведомлений для покупателей в Telegram. Если включено, покупатели будут
                 получать автоматические уведомления о статусах посылок (например, «отправлена», «прибыла
                 в пункт выдачи» и др.).

@@ -40,7 +40,7 @@ public class DeliveryAnalyticsService {
                                                    ZonedDateTime from,
                                                    ZonedDateTime to,
                                                    ZoneId userZone) {
-        // Delegate to resolver which chooses optimal data source
+        // Делегируем резолверу выбор оптимального источника данных
         return periodDataResolver.resolve(storeIds, interval, from, to, userZone);
     }
 

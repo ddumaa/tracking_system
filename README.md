@@ -18,6 +18,28 @@ Belpost and Evropost
 
 Скомпилированный `style.css` располагается в `src/main/resources/static/css` и подключается приложением при запуске.
 
+## Конфигурация ChromeDriver
+
+Для запуска веб-драйвера в файле `application.properties` используется свойство
+`webdriver.chrome.driver`, которое определяет путь к исполняемому файлу
+ChromeDriver. В контейнере по умолчанию применяется путь
+`/usr/local/bin/chromedriver`, задаваемый в `Dockerfile`. При локальном запуске
+приложения значение можно изменить, передав параметр JVM:
+
+```bash
+java -jar app.jar --webdriver.chrome.driver=/path/to/chromedriver
+```
+
 ## Автообновление треков
 
 Функция автообновления использует лимит `maxTrackUpdates` тарифного плана. Количество обновлений в сутки не может превышать этот показатель.
+
+## Версия приложения
+
+Актуальная версия задаётся в `application.properties` свойством `application.version`.
+Получить её можно через REST-эндпоинт `/app/version`, который возвращает JSON
+следующего вида:
+
+```json
+{ "version": "0.0.1-SNAPSHOT" }
+```

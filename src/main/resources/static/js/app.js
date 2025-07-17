@@ -41,6 +41,16 @@ function hideLoading() {
 }
 
 /**
+ * Копирует текст в буфер обмена и показывает уведомление о результате.
+ * @param {string} text - копируемый текст
+ */
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text)
+        .then(() => notifyUser('Ссылка скопирована в буфер обмена', 'success'))
+        .catch(() => notifyUser('Не удалось скопировать ссылку', 'danger'));
+}
+
+/**
  * Устанавливает активную вкладку профиля во всех меню.
  * @param {string} href - Идентификатор вкладки (href вида '#v-pills-home').
  */
@@ -844,6 +854,7 @@ async function loadStores() {
     stores.forEach(store => {
         const row = document.createElement("tr");
         row.innerHTML = `
+            <td>${store.id}</td>
             <td class="d-flex align-items-center">
                 <input type="radio" name="defaultStore"
                        class="default-store-radio me-2"
@@ -1021,6 +1032,7 @@ function addNewStore() {
 
     const row = document.createElement("tr");
     row.innerHTML = `
+        <td>—</td>
         <td>
             <input type="text" class="form-control store-name-input" id="store-name-${tempId}" placeholder="Введите название">
         </td>

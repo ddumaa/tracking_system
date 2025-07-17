@@ -132,4 +132,13 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
     @Query("UPDATE TrackParcel t SET t.customer = null WHERE t.customer.id = :customerId")
     void clearCustomer(@Param("customerId") Long customerId);
 
+    /**
+     * Получить уникальные названия магазинов для покупателя.
+     *
+     * @param customerId идентификатор покупателя
+     * @return список названий магазинов
+     */
+    @Query("SELECT DISTINCT t.store.name FROM TrackParcel t WHERE t.customer.id = :customerId")
+    List<String> findDistinctStoreNamesByCustomerId(@Param("customerId") Long customerId);
+
 }

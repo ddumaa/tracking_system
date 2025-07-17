@@ -209,7 +209,7 @@ public class DeliveryHistoryService {
     public void registerFinalStatus(DeliveryHistory history, GlobalStatus status) {
         TrackParcel trackParcel = history.getTrackParcel();
 
-        // Skip analytics update for UNKNOWN postal service
+        // Пропускаем обновление аналитики для неизвестной почтовой службы
         if (history.getPostalService() == PostalServiceType.UNKNOWN) {
             log.warn("⛔ Skipping analytics update for UNKNOWN service: {}", trackParcel.getNumber());
             return;
@@ -369,7 +369,7 @@ public class DeliveryHistoryService {
                                   GlobalStatus status,
                                   BigDecimal deliveryDays,
                                   BigDecimal pickupDays) {
-        // Skip updates for UNKNOWN postal service
+        // Пропускаем обновление статистики для неизвестной почтовой службы
         if (serviceType == PostalServiceType.UNKNOWN) {
             log.warn("⛔ Skipping daily stats update for UNKNOWN service: {}", store.getId());
             return;
