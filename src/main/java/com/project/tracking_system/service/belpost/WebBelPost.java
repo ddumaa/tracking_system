@@ -3,11 +3,14 @@ package com.project.tracking_system.service.belpost;
 import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.utils.RateLimiter;
+import com.project.tracking_system.utils.RetryUtils;
+import com.project.tracking_system.webdriver.WebDriverPool;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
-import com.project.tracking_system.webdriver.WebDriverPool;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.scheduling.annotation.Async;
@@ -39,6 +42,11 @@ public class WebBelPost {
     /** Лимитер запросов к Belpost с интервалом 2–3 секунды. */
     private final RateLimiter rateLimiter;
 
+    /** Максимальное число попыток выполнения веб-автоматизации. */
+    private static final int MAX_ATTEMPTS = 3;
+    /** Базовая задержка между попытками в миллисекундах. */
+    private static final long BASE_DELAY_MS = 1000L;
+
     /**
      * Асинхронно выполняет процесс отслеживания посылки на сайте BelPost.
      *
@@ -61,8 +69,37 @@ public class WebBelPost {
      * @return TrackInfoListDTO объект, содержащий список статусов посылки.
      */
     public TrackInfoListDTO webAutomation(String number) {
+        try {
+            // Выполняем автоматизацию с повторными попытками при неудаче
+            return RetryUtils.runWithRetry(
+                    () -> performAutomation(number),
+                    MAX_ATTEMPTS,
+                    BASE_DELAY_MS,
+                    TimeoutException.class,
+                    WebDriverException.class
+            );
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("Поток прерван во время веб-автоматизации: {}", e.getMessage(), e);
+            return new TrackInfoListDTO();
+        } catch (Exception e) {
+            log.error("Ошибка веб-автоматизации BelPost: {}", e.getMessage(), e);
+            return new TrackInfoListDTO();
+        }
+    }
+
+    /**
+     * Выполняет одну попытку автоматизации отслеживания на сайте BelPost.
+     * <p>
+     * Создаёт драйвер, подготавливает страницу и собирает статусы посылки.
+     * </p>
+     *
+     * @param number номер посылки
+     * @return список статусов посылки
+     * @throws InterruptedException если поток был прерван при ожидании лимитера
+     */
+    private TrackInfoListDTO performAutomation(String number) throws InterruptedException {
         WebDriver driver = null;
-        TrackInfoListDTO trackInfoListDTO = new TrackInfoListDTO();
         try {
             // При каждом запросе делаем паузу 2–3 секунды (настройка — в RateLimiter)
             rateLimiter.acquire();
@@ -72,35 +109,40 @@ public class WebBelPost {
             // Ограничиваем частоту переходов на сайт Belpost
             rateLimiter.acquire();
 
-            // передаём ссылку + номер
+            // Передаём ссылку + номер
             String url = "https://belpost.by/Otsleditotpravleniye?number=" + number;
             driver.get(url);
 
             // Ожидание загрузки страницы с результатами отслеживания
-            WebDriverWait wait2 = new WebDriverWait(driver, Duration.ofSeconds(10));
-            wait2.until(ExpectedConditions.titleContains("Отследить отправление"));
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+            wait.until(ExpectedConditions.titleContains("Отследить отправление"));
 
             // Ожидание появления информации о статусе посылки
-            WebElement trackItem = wait2.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("article.track-item")));
+            WebElement trackItem = wait.until(
+                    ExpectedConditions.visibilityOfElementLocated(By.cssSelector("article.track-item"))
+            );
 
             // Ожидание и развертывание заголовка информации о посылке
             WebElement trackItemHeader = driver.findElement(By.cssSelector("app-track-item header"));
-            if (!trackItemHeader.getAttribute("aria-expanded").equals("true")) {
+            if (!"true".equals(trackItemHeader.getAttribute("aria-expanded"))) {
                 JavascriptExecutor js = (JavascriptExecutor) driver;
-                js.executeScript("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", trackItemHeader);
+                js.executeScript(
+                        "arguments[0].scrollIntoView({block: 'center', inline: 'center'});",
+                        trackItemHeader
+                );
 
-                wait2.until(ExpectedConditions.elementToBeClickable(trackItemHeader));
+                wait.until(ExpectedConditions.elementToBeClickable(trackItemHeader));
                 js.executeScript("arguments[0].click();", trackItemHeader);
 
-                WebDriverWait wait3 = new WebDriverWait(driver, Duration.ofSeconds(10));
-                wait3.until(ExpectedConditions.attributeToBe(trackItemHeader, "aria-expanded", "true"));
+                WebDriverWait waitExpand = new WebDriverWait(driver, Duration.ofSeconds(10));
+                waitExpand.until(ExpectedConditions.attributeToBe(trackItemHeader, "aria-expanded", "true"));
             }
 
             // Извлечение информации о статусах посылки
             WebElement trackDetails = trackItem.findElement(By.cssSelector("dl.track-item__details"));
             List<WebElement> trackItems = trackDetails.findElements(By.cssSelector("div.track-details__item"));
 
-            // Парсинг статусов и добавление их в DTO
+            TrackInfoListDTO result = new TrackInfoListDTO();
             for (WebElement trackItemElement : trackItems) {
                 String title = trackItemElement.findElement(By.cssSelector("dt")).getText();
                 WebElement contentElement = trackItemElement.findElement(By.cssSelector("dd"));
@@ -108,18 +150,13 @@ public class WebBelPost {
                 WebElement dateElement = contentElement.findElement(By.cssSelector("li.text-secondary"));
                 String dateContent = dateElement.getText();
                 TrackInfoDTO trackInfoDTO = new TrackInfoDTO(dateContent, title);
-                trackInfoListDTO.addTrackInfo(trackInfoDTO);
+                result.addTrackInfo(trackInfoDTO);
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.error("Поток прерван при получении WebDriver: {}", e.getMessage(), e);
-        } catch (Exception e) {
-            log.error("Ошибка веб-автоматизации BelPost: {}", e.getMessage(), e);
+            return result;
         } finally {
             if (driver != null) {
                 webDriverPool.returnDriver(driver);
             }
         }
-        return trackInfoListDTO;
     }
 }
