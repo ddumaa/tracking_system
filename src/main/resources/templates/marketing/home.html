@@ -11,70 +11,65 @@
 <!-- Основное содержимое маркетинговой страницы -->
 <main layout:fragment="content" class="container py-4">
 
-    <!-- === Hero-блок === -->
-    <!-- Презентация сервиса и основные призывы к действию -->
+    <!-- Hero-блок -->
     <section class="text-center py-5 bg-light rounded shadow-sm">
         <h1 class="display-4 fw-bold">Belivery</h1>
-        <p class="lead mt-3">Единая система отслеживания и аналитики посылок для магазинов и бизнеса</p>
+        <p class="lead mt-3">Сервис для отслеживания посылок и анализа доставки для магазинов</p>
         <div class="mt-4">
-            <a class="btn btn-primary btn-lg me-2" th:href="@{/auth/registration}">Начать бесплатно</a>
-            <a class="btn btn-outline-secondary btn-lg" th:href="@{/auth/login}">Войти</a>
+            <a class="btn btn-primary btn-lg me-2" th:href="@{/auth/registration}">Попробовать</a>
         </div>
     </section>
 
-    <!-- === Проблема → Решение === -->
-    <!-- Коротко описываем типичную проблему и предлагаем Belivery как решение -->
+    <!-- Проблема → Решение -->
     <section class="mt-5 text-center">
         <h2 class="fw-bold">Следить за посылками вручную — неудобно</h2>
-        <p class="lead text-muted mt-2">Belivery автоматизирует трекинг, аналитику и уведомления — экономьте часы и нервы.</p>
+        <p class="lead text-muted mt-2">Belivery автоматизирует трекинг, аналитику и упрощает контроль доставки.</p>
     </section>
 
-    <!-- === Преимущества (иконки) === -->
-    <!-- Три ключевых преимущества сервиса, представленные иконками -->
+    <!-- Преимущества -->
     <section class="row text-center mt-5">
         <div class="col-md-4 mb-4">
             <i class="bi bi-bar-chart-line display-6 text-primary"></i>
             <h5 class="mt-3">Аналитика по доставке</h5>
-            <p>Следите за скоростью доставки и вовлечённостью покупателей</p>
+            <p>Понимайте, где задержки и как быстро доходят ваши посылки</p>
         </div>
         <div class="col-md-4 mb-4">
             <i class="bi bi-robot display-6 text-primary"></i>
-            <h5 class="mt-3">Автоматизация</h5>
-            <p>Обновление треков и уведомления Telegram без вашего участия</p>
+            <h5 class="mt-3">Автоматизация трекинга</h5>
+            <p>Обновление треков и напоминания клиентам — без ручной работы</p>
         </div>
         <div class="col-md-4 mb-4">
             <i class="bi bi-building display-6 text-primary"></i>
-            <h5 class="mt-3">Магазины и сотрудники</h5>
-            <p>Управляйте несколькими магазинами и отслеживайте эффективность</p>
+            <h5 class="mt-3">Несколько магазинов</h5>
+            <p>Создавайте и управляйте своими магазинами в одном аккаунте</p>
         </div>
     </section>
 
-    <!-- === Как работает сервис (3 шага) === -->
-    <!-- Простая инструкция для новых пользователей -->
+    <!-- Как работает -->
     <section class="mt-5">
         <h3 class="text-center mb-4">Как это работает?</h3>
         <div class="row text-center">
             <div class="col-md-4">
                 <span class="badge bg-primary rounded-circle p-3 fs-4">1</span>
-                <p class="mt-2">Зарегистрируйтесь и добавьте магазин</p>
+                <p class="mt-2">Зарегистрируйтесь — магазин создаётся автоматически</p>
             </div>
             <div class="col-md-4">
                 <span class="badge bg-primary rounded-circle p-3 fs-4">2</span>
-                <p class="mt-2">Вносите треки вручную или через файл</p>
+                <p class="mt-2">Добавляйте треки вручную или загружайте Excel-файлом</p>
             </div>
             <div class="col-md-4">
                 <span class="badge bg-primary rounded-circle p-3 fs-4">3</span>
-                <p class="mt-2">Получайте обновления и аналитику</p>
+                <p class="mt-2">Смотрите статусы и аналитику, управляйте отправлениями</p>
             </div>
         </div>
     </section>
 
-    <!-- === Интерфейс: Список отправлений === -->
-    <!-- Демонстрация списка треков и удобных инструментов работы с ними -->
+    <!-- Список отправлений -->
     <section class="row align-items-center mt-5">
         <div class="col-md-6">
-            <h3>Все отправления в одном месте</h3>
-            <p>Список треков, статусы, поиск и фильтры. Удобно, понятно, быстро.</p>
+            <h3>Все отправления — под контролем</h3>
+            <p>Единый список треков, статусы, поиск, фильтры, массовое обновление.
+                Удобно, понятно, быстро.</p>
         </div>
         <div class="col-md-6 text-center">
             <div class="bg-light border rounded shadow-sm" style="height:300px;">
@@ -83,12 +78,12 @@
         </div>
     </section>
 
-    <!-- === Интерфейс: Аналитика === -->
-    <!-- Блок с описанием аналитики и примером отчёта -->
+    <!-- Аналитика по доставке -->
     <section class="row align-items-center flex-md-row-reverse mt-5">
         <div class="col-md-6">
-            <h3>Аналитика по доставке и клиентам</h3>
-            <p>Понимайте, где задержки, какие магазины эффективнее, и кто из клиентов забирает заказы.</p>
+            <h3>Аналитика по доставке и магазинам</h3>
+            <p>Отслеживайте скорость доставки, возвраты, сравнивайте эффективность магазинов.
+                Увидьте, где узкие места, и принимайте решения на основе данных.</p>
         </div>
         <div class="col-md-6 text-center">
             <div class="bg-light border rounded shadow-sm" style="height:300px;">
@@ -97,12 +92,26 @@
         </div>
     </section>
 
-    <!-- === Telegram уведомления === -->
-    <!-- Рассказываем об автоматических напоминаниях в Telegram -->
+    <!-- Аналитика по покупателям -->
     <section class="row align-items-center mt-5">
         <div class="col-md-6">
-            <h3>Telegram-напоминания клиентам</h3>
-            <p>Уведомления о доставке и напоминания о заборе приходят прямо в Telegram — автоматом.</p>
+            <h3>Аналитика по покупателям</h3>
+            <p>Отслеживайте, какие клиенты регулярно забирают заказы, а какие — отказываются.
+                Это помогает выявлять надёжных и проблемных покупателей.</p>
+        </div>
+        <div class="col-md-6 text-center">
+            <div class="bg-light border rounded shadow-sm" style="height:300px;">
+                <span class="text-muted d-inline-block mt-5">[Функция в разработке]</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Telegram уведомления -->
+    <section class="row align-items-center mt-5">
+        <div class="col-md-6">
+            <h3>Telegram-уведомления клиентам</h3>
+            <p>Ваши покупатели получают уведомления об отправке и поступлении посылки,
+                а также автоматические напоминания, если забыли забрать заказ.</p>
         </div>
         <div class="col-md-6 text-center">
             <div class="bg-light border rounded shadow-sm" style="height:300px;">
@@ -111,13 +120,13 @@
         </div>
     </section>
 
-    <!-- === CTA к тарифам === -->
-    <!-- Призыв изучить тарифы и подобрать подходящий план -->
+    <!-- CTA к тарифам -->
     <section class="text-center mt-5">
-        <h4>Гибкие тарифы — от бесплатного до бизнес-плана</h4>
-        <p class="text-muted">Подходит для магазинов любого масштаба</p>
+        <h4>Тарифы под любые задачи</h4>
+        <p class="text-muted">От базового тестирования до расширенного бизнес-функционала</p>
         <a class="btn btn-outline-primary btn-lg mt-2" th:href="@{/tariffs}">Сравнить тарифы</a>
     </section>
 
 </main>
+
 </html>

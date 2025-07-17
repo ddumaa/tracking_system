@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.project</groupId>
     <artifactId>tracking_system</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.5.0</version>
     <packaging>jar</packaging>
     <name>tracking_system</name>
     <description>tracking_system</description>
