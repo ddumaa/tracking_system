@@ -7,6 +7,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import com.project.tracking_system.webdriver.WebDriverFactory;
 import com.project.tracking_system.webdriver.ChromeWebDriverFactory;
+import com.project.tracking_system.webdriver.WebDriverPool;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.client.RestTemplate;
@@ -34,6 +35,12 @@ public class AppConfiguration {
      */
     @Value("${webdriver.chrome.driver}")
     private String chromeDriverPath;
+
+    /**
+     * Размер пула WebDriver.
+     */
+    @Value("${webdriver.pool.size:2}")
+    private int webDriverPoolSize;
 
     /**
      * Создает бин {@link RestTemplate} для выполнения HTTP-запросов.
@@ -99,6 +106,17 @@ public class AppConfiguration {
     @Bean
     public WebDriverFactory webDriverFactory() {
         return new ChromeWebDriverFactory(chromeDriverPath);
+    }
+
+    /**
+     * Создаёт пул {@link WebDriver} фиксированного размера.
+     *
+     * @param webDriverFactory фабрика для создания экземпляров драйвера
+     * @return инициализированный пул
+     */
+    @Bean
+    public WebDriverPool webDriverPool(WebDriverFactory webDriverFactory) {
+        return new WebDriverPool(webDriverFactory, webDriverPoolSize);
     }
 
 }
