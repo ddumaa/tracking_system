@@ -246,15 +246,35 @@ public class TrackingNumberServiceXLS {
     }
 
 
+    /**
+     * Выполняет обработку одного трек-номера и возвращает результат.
+     * <p>
+     * Метод используется в асинхронных задачах при чтении XLS-файла.
+     * </p>
+     *
+     * @param trackingNumber номер трека
+     * @param storeId        идентификатор магазина
+     * @param userId         идентификатор пользователя
+     * @param canSave        можно ли сохранять результат
+     * @param phone          телефон получателя (опционально)
+     * @return информация о треке с последним статусом
+     */
     private TrackingResultAdd processSingleTracking(String trackingNumber,
                                                     Long storeId,
                                                     Long userId,
                                                     boolean canSave,
                                                     String phone) {
         try {
-            // Используем processTrack для получения данных и сохранения, если необходимо
+            // Получаем информацию о треке и при необходимости сохраняем её
             TrackInfoListDTO trackInfo = trackFacade.processTrack(trackingNumber, storeId, userId, canSave, phone);
 
+            // Если список пуст, данных нет. Возвращаем соответствующий результат
+            if (trackInfo.getList().isEmpty()) {
+                log.warn("Для трека {} не получено данных", trackingNumber);
+                return new TrackingResultAdd(trackingNumber, "Нет данных");
+            }
+
+            // Берём статус первого (и единственного) элемента
             String lastStatus = trackInfo.getList().get(0).getInfoTrack();
             log.debug("Трек-номер: {}, последний статус: {}", trackingNumber, lastStatus);
 
