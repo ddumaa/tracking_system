@@ -1,5 +1,7 @@
 package com.project.tracking_system.configuration;
 
+import com.project.tracking_system.service.admin.AppInfoService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
  * @date 07.01.2025
  */
 @ControllerAdvice
+@RequiredArgsConstructor
 public class GlobalControllerAdvice {
 
     /**
@@ -29,6 +32,11 @@ public class GlobalControllerAdvice {
      */
     @Value("${telegram.bot.link}")
     private String telegramBotLink;
+
+    /**
+     * Сервис системной информации приложения.
+     */
+    private final AppInfoService appInfoService;
 
     /**
      * Добавляет имя аутентифицированного пользователя в модель.
@@ -61,5 +69,15 @@ public class GlobalControllerAdvice {
     @ModelAttribute("telegramBotLink")
     public String getTelegramBotLink() {
         return telegramBotLink;
+    }
+
+    /**
+     * Добавляет в модель текущую версию приложения.
+     *
+     * @return версия приложения
+     */
+    @ModelAttribute("appVersion")
+    public String getApplicationVersion() {
+        return appInfoService.getApplicationVersion();
     }
 }
