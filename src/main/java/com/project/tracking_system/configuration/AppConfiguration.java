@@ -10,6 +10,7 @@ import com.project.tracking_system.webdriver.ChromeWebDriverFactory;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.beans.factory.annotation.Value;
 
 /**
  * Конфигурационный класс для приложения.
@@ -24,6 +25,15 @@ import org.springframework.web.client.RestTemplate;
 @ComponentScan(basePackages = "com.project.tracking_system")
 @Configuration
 public class AppConfiguration {
+
+    /**
+     * Путь к исполняемому файлу chromedriver.
+     * <p>
+     * Инжектируется из конфигурации приложения и передаётся в фабрику драйверов.
+     * </p>
+     */
+    @Value("${webdriver.chrome.driver}")
+    private String chromeDriverPath;
 
     /**
      * Создает бин {@link RestTemplate} для выполнения HTTP-запросов.
@@ -79,12 +89,16 @@ public class AppConfiguration {
 
     /**
      * Предоставляет фабрику {@link WebDriverFactory} для создания драйверов.
+     * <p>
+     * Путь к исполняемому файлу драйвера передаётся в конструктор, что позволяет
+     * избежать проблем с правами доступа при запуске браузера.
+     * </p>
      *
      * @return реализация фабрики для браузера Chrome
      */
     @Bean
     public WebDriverFactory webDriverFactory() {
-        return new ChromeWebDriverFactory();
+        return new ChromeWebDriverFactory(chromeDriverPath);
     }
 
 }
