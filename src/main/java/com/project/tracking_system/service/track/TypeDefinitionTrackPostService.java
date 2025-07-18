@@ -38,7 +38,8 @@ public class TypeDefinitionTrackPostService {
     private final Map<String, Object> trackLocks = new ConcurrentHashMap<>();
 
     /**
-     * Определяет тип почтовой службы по номеру посылки.
+     * Определяет почтовую службу на основе формата трек-номера.
+     * <p>Возвращает {@link PostalServiceType#UNKNOWN}, если шаблон не подходит.</p>
      */
     public PostalServiceType detectPostalService(String number) {
         if (number.matches("^PC\\d{9}BY$") || number.matches("^BV\\d{9}BY$") || number.matches("^BP\\d{9}BY$")) {
@@ -59,34 +60,35 @@ public class TypeDefinitionTrackPostService {
      */
     @Async("Post")
     public CompletableFuture<TrackInfoListDTO> getTypeDefinitionTrackPostServiceAsync(Long userId, String number) {
-        return CompletableFuture.supplyAsync(() -> {
+        // Аннотация @Async выполняет метод в отдельном потоке, поэтому дополнительный supplyAsync не требуется.
+        PostalServiceType postalService = detectPostalService(number);
 
+        log.info("📦 Запрос информации по треку: {} (Пользователь ID={})", number, userId);
+        log.debug("🔎 Определяем почтовую службу: {} → {}", number, postalService);
 
-            PostalServiceType postalService = detectPostalService(number);
-
-            log.info("📦 Запрос информации по треку: {} (Пользователь ID={})", number, userId);
-            log.debug("🔎 Определяем почтовую службу: {} → {}", number, postalService);
-
-            try {
-                switch (postalService) {
-                    case BELPOST:
-                        log.info("📨 Запрос к Белпочте для номера: {}", number);
-                        return belPostSessionParser.parseTrack(number);
-
-                    case EVROPOST:
-                        log.info("📨 Запрос к Европочте для номера: {}", number);
-                        JsonEvroTrackingResponse json = jsonEvroTrackingService.getJson(userId, number);
-                        return jsonEvroTrackingResponseMapper.mapJsonEvroTrackingResponseToDTO(json);
-
-                    default:
-                        log.warn("⚠️ Неизвестный формат трек-номера: {} (UNKNOWN)", number);
-                        throw new IllegalArgumentException("Указан некорректный код посылки: " + number);
-                }
-            } catch (Exception e) {
-                log.error("Ошибка при обработке трек-номера {} для пользователя с ID {}: {}", number, userId, e.getMessage(), e);
-                return new TrackInfoListDTO();
+        TrackInfoListDTO result;
+        try {
+            switch (postalService) {
+                case BELPOST:
+                    log.info("📨 Запрос к Белпочте для номера: {}", number);
+                    result = belPostSessionParser.parseTrack(number);
+                    break;
+                case EVROPOST:
+                    log.info("📨 Запрос к Европочте для номера: {}", number);
+                    JsonEvroTrackingResponse json = jsonEvroTrackingService.getJson(userId, number);
+                    result = jsonEvroTrackingResponseMapper.mapJsonEvroTrackingResponseToDTO(json);
+                    break;
+                default:
+                    log.warn("⚠️ Неизвестный формат трек-номера: {} (UNKNOWN)", number);
+                    throw new IllegalArgumentException("Указан некорректный код посылки: " + number);
             }
-        });
+        } catch (Exception e) {
+            log.error("Ошибка при обработке трек-номера {} для пользователя с ID {}: {}", number, userId, e.getMessage(), e);
+            result = new TrackInfoListDTO();
+        }
+
+        // Возвращаем результат как уже завершённый CompletableFuture
+        return CompletableFuture.completedFuture(result);
     }
 
 
@@ -101,6 +103,7 @@ public class TypeDefinitionTrackPostService {
      * @throws IllegalArgumentException если номер отслеживания имеет некорректный формат
      */
     public TrackInfoListDTO getTypeDefinitionTrackPostService(Long userId, String number) {
+        // Используем лок для предотвращения одновременных запросов к одному треку
         Object lock = trackLocks.computeIfAbsent(number, key -> new Object());
 
         synchronized (lock) {
