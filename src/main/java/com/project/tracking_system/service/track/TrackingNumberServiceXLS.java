@@ -7,8 +7,8 @@ import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.track.TrackFacade;
 import com.project.tracking_system.utils.PhoneUtils;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.apache.poi.ss.usermodel.*;
 import jakarta.annotation.PreDestroy;
 import org.springframework.stereotype.Service;
@@ -19,8 +19,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -34,7 +33,6 @@ import java.util.concurrent.TimeUnit;
  * @date Добавлено 07.01.2025
  */
 @Slf4j
-@RequiredArgsConstructor
 @Service
 public class TrackingNumberServiceXLS {
 
@@ -42,7 +40,19 @@ public class TrackingNumberServiceXLS {
     private final TrackFacade trackFacade;
     private final SubscriptionService subscriptionService;
     private final StoreService storeService;
-    private final ExecutorService executor = Executors.newFixedThreadPool(5);
+    private final ThreadPoolTaskExecutor executor;
+
+    public TrackingNumberServiceXLS(TrackParcelService trackParcelService,
+                                   TrackFacade trackFacade,
+                                   SubscriptionService subscriptionService,
+                                   StoreService storeService,
+                                   @Qualifier("xlsExecutor") ThreadPoolTaskExecutor executor) {
+        this.trackParcelService = trackParcelService;
+        this.trackFacade = trackFacade;
+        this.subscriptionService = subscriptionService;
+        this.storeService = storeService;
+        this.executor = executor;
+    }
 
     /**
      * Обрабатывает номера отслеживания, загруженные в формате XLS.
@@ -299,12 +309,13 @@ public class TrackingNumberServiceXLS {
     public void shutdownExecutor() {
         executor.shutdown();
         try {
-            if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
-                executor.shutdownNow();
+            if (executor.getThreadPoolExecutor() != null &&
+                    !executor.getThreadPoolExecutor().awaitTermination(10, TimeUnit.SECONDS)) {
+                executor.shutdown();
                 log.warn("⏳ Executor завершался принудительно.");
             }
         } catch (InterruptedException e) {
-            executor.shutdownNow();
+            executor.shutdown();
             Thread.currentThread().interrupt();
             log.error("❌ Ожидание завершения executor было прервано", e);
         }
