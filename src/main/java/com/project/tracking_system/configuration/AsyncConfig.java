@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.concurrent.Executor;
 
@@ -23,6 +24,18 @@ import java.util.concurrent.Executor;
 @Configuration
 @EnableAsync
 public class AsyncConfig {
+
+    /** Пул потоков для обработки XLS-файлов. */
+    @Value("${xls.executor.core-pool-size:5}")
+    private int xlsCorePoolSize;
+
+    /** Максимальное число потоков для пула XLS. */
+    @Value("${xls.executor.max-pool-size:10}")
+    private int xlsMaxPoolSize;
+
+    /** Размер очереди задач для пула XLS. */
+    @Value("${xls.executor.queue-capacity:100}")
+    private int xlsQueueCapacity;
 
     /**
      * Создает и настраивает {@link Executor} для асинхронных задач.
@@ -62,6 +75,25 @@ public class AsyncConfig {
         executor.setMaxPoolSize(10); // максимальное количество потоков
         executor.setQueueCapacity(100); // размер очереди задач
         executor.setThreadNamePrefix("TrackUpdate-"); // префикс для имен потоков
+        executor.initialize();
+        return executor;
+    }
+
+    /**
+     * Создаёт пул потоков для {@link com.project.tracking_system.service.track.TrackingNumberServiceXLS}.
+     * <p>
+     * Размер пула и очередь задач задаются через свойства приложения, что обеспечивает гибкость конфигурации.
+     * </p>
+     *
+     * @return настроенный {@link TaskExecutor} для чтения XLS-файлов
+     */
+    @Bean(name = "xlsExecutor")
+    public TaskExecutor xlsExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(xlsCorePoolSize);
+        executor.setMaxPoolSize(xlsMaxPoolSize);
+        executor.setQueueCapacity(xlsQueueCapacity);
+        executor.setThreadNamePrefix("XlsProcessing-");
         executor.initialize();
         return executor;
     }
