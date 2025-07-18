@@ -11,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import jakarta.annotation.PreDestroy;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -19,8 +22,6 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -42,7 +43,12 @@ public class TrackingNumberServiceXLS {
     private final TrackFacade trackFacade;
     private final SubscriptionService subscriptionService;
     private final StoreService storeService;
-    private final ExecutorService executor = Executors.newFixedThreadPool(5);
+    /**
+     * Исполнитель задач для асинхронной обработки треков.
+     * Используем бин {@code trackExecutor} из конфигурации.
+     */
+    @Qualifier("trackExecutor")
+    private final TaskExecutor taskExecutor;
 
     /**
      * Обрабатывает номера отслеживания, загруженные в формате XLS.
@@ -218,7 +224,7 @@ public class TrackingNumberServiceXLS {
                         // Возвращаем объект с сообщением об ошибке, передавая статус как строку
                         return new TrackingResultAdd(trackingNumber, "ERROR: " + e.getMessage());
                     }
-                }, executor);
+                }, taskExecutor);
 
                 futures.add(future);
                 checkedCount++;
@@ -277,16 +283,18 @@ public class TrackingNumberServiceXLS {
      */
     @PreDestroy
     public void shutdownExecutor() {
-        executor.shutdown();
-        try {
-            if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
-                executor.shutdownNow();
-                log.warn("⏳ Executor завершался принудительно.");
+        if (taskExecutor instanceof ThreadPoolTaskExecutor executor) {
+            executor.shutdown();
+            try {
+                if (!executor.getThreadPoolExecutor().awaitTermination(10, TimeUnit.SECONDS)) {
+                    executor.getThreadPoolExecutor().shutdownNow();
+                    log.warn("⏳ Executor завершался принудительно.");
+                }
+            } catch (InterruptedException e) {
+                executor.getThreadPoolExecutor().shutdownNow();
+                Thread.currentThread().interrupt();
+                log.error("❌ Ожидание завершения executor было прервано", e);
             }
-        } catch (InterruptedException e) {
-            executor.shutdownNow();
-            Thread.currentThread().interrupt();
-            log.error("❌ Ожидание завершения executor было прервано", e);
         }
     }
 
