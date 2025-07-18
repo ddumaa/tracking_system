@@ -100,64 +100,66 @@ public class TrackUpdateService {
     @Transactional
     public void processAllTrackUpdatesAsync(Long userId, List<TrackParcelDTO> parcelsToUpdate) {
         try {
+            // Количество успешно обновлённых треков
             AtomicInteger successfulUpdates = new AtomicInteger(0);
+            // Счётчик оставшихся задач. Когда достигает нуля, отправляем финальный статус
+            AtomicInteger remainingTasks = new AtomicInteger(parcelsToUpdate.size());
 
-            // Создаем задачи для каждого трека и выполняем их через taskExecutor
-            List<CompletableFuture<Void>> futures = parcelsToUpdate.stream()
-                    .map(trackParcelDTO -> {
-                        CompletableFuture<Void> future = new CompletableFuture<>();
-                        taskExecutor.execute(() -> {
-                            try {
-                                TrackInfoListDTO trackInfo = trackProcessingService.processTrack(
-                                        trackParcelDTO.getNumber(),
-                                        trackParcelDTO.getStoreId(),
-                                        userId,
-                                        true
-                                );
+            // Каждую посылку обновляем в отдельном потоке из пула trackExecutor
+            parcelsToUpdate.forEach(trackParcelDTO ->
+                    taskExecutor.execute(() -> {
+                        try {
+                            TrackInfoListDTO trackInfo = trackProcessingService.processTrack(
+                                    trackParcelDTO.getNumber(),
+                                    trackParcelDTO.getStoreId(),
+                                    userId,
+                                    true
+                            );
 
-                                if (trackInfo != null && !trackInfo.getList().isEmpty()) {
-                                    successfulUpdates.incrementAndGet();
-                                    log.debug("Трек {} обновлён для пользователя ID={}", trackParcelDTO.getNumber(), userId);
-                                } else {
-                                    log.warn("Нет данных по треку {} (userId={})", trackParcelDTO.getNumber(), userId);
-                                }
-
-                            } catch (IllegalArgumentException e) {
-                                log.warn("Ошибка обновления трека {}: {}", trackParcelDTO.getNumber(), e.getMessage());
-                            } catch (Exception e) {
-                                log.error("Ошибка обработки трека {}: {}", trackParcelDTO.getNumber(), e.getMessage(), e);
-                            } finally {
-                                future.complete(null);
+                            if (trackInfo != null && !trackInfo.getList().isEmpty()) {
+                                successfulUpdates.incrementAndGet();
+                                log.debug("Трек {} обновлён для пользователя ID={}", trackParcelDTO.getNumber(), userId);
+                            } else {
+                                log.warn("Нет данных по треку {} (userId={})", trackParcelDTO.getNumber(), userId);
                             }
-                        });
-                        return future;
+
+                        } catch (IllegalArgumentException e) {
+                            log.warn("Ошибка обновления трека {}: {}", trackParcelDTO.getNumber(), e.getMessage());
+                        } catch (Exception e) {
+                            log.error("Ошибка обработки трека {}: {}", trackParcelDTO.getNumber(), e.getMessage(), e);
+                        } finally {
+                            if (remainingTasks.decrementAndGet() == 0) {
+                                sendAllTracksUpdateResult(userId, successfulUpdates.get(), parcelsToUpdate.size());
+                            }
+                        }
                     })
-                    .toList();
-
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> {
-                int updatedCount = successfulUpdates.get();
-                int totalCount = parcelsToUpdate.size();
-
-                log.info("Итог обновления всех треков для userId={}: {} обновлено, {} не изменено",
-                        userId, updatedCount, totalCount - updatedCount);
-
-                String message;
-                if (updatedCount == 0) {
-                    message = "Обновление завершено, но все треки уже были в финальном статусе.";
-                } else {
-                    message = "Обновление завершено! " + updatedCount + " из " + totalCount + " треков обновлено.";
-                }
-
-                webSocketController.sendDetailUpdateStatus(
-                        userId,
-                        new UpdateResult(true, updatedCount, totalCount, message)
-                );
-            });
+            );
 
         } catch (Exception e) {
             log.error("Ошибка при обновлении всех треков для пользователя {}: {}", userId, e.getMessage());
             webSocketController.sendUpdateStatus(userId, "Ошибка при обновлении всех треков: " + e.getMessage(), false);
         }
+    }
+
+    /**
+     * Отправляет пользователю результат массового обновления треков.
+     * Вызывается при завершении последней задачи.
+     */
+    private void sendAllTracksUpdateResult(Long userId, int updatedCount, int totalCount) {
+        log.info("Итог обновления всех треков для userId={}: {} обновлено, {} не изменено",
+                userId, updatedCount, totalCount - updatedCount);
+
+        String message;
+        if (updatedCount == 0) {
+            message = "Обновление завершено, но все треки уже были в финальном статусе.";
+        } else {
+            message = "Обновление завершено! " + updatedCount + " из " + totalCount + " треков обновлено.";
+        }
+
+        webSocketController.sendDetailUpdateStatus(
+                userId,
+                new UpdateResult(true, updatedCount, totalCount, message)
+        );
     }
 
     /**
