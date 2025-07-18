@@ -37,6 +37,10 @@ public class AsyncConfig {
     @Value("${xls.executor.queue-capacity:100}")
     private int xlsQueueCapacity;
 
+    /** Размер пула потоков для создания WebDriver. */
+    @Value("${webdriver.executor.pool-size:1}")
+    private int webDriverExecutorPoolSize;
+
     /**
      * Создает и настраивает {@link Executor} для асинхронных задач.
      * <p>
@@ -75,6 +79,26 @@ public class AsyncConfig {
         executor.setMaxPoolSize(10); // максимальное количество потоков
         executor.setQueueCapacity(100); // размер очереди задач
         executor.setThreadNamePrefix("TrackUpdate-"); // префикс для имен потоков
+        executor.initialize();
+        return executor;
+    }
+
+    /**
+     * Создаёт пул потоков для асинхронного заполнения {@link com.project.tracking_system.webdriver.WebDriverPool}.
+     * <p>
+     * Размер пула регулируется свойством {@code webdriver.executor.pool-size}, что обеспечивает
+     * гибкую настройку в зависимости от ресурсов приложения.
+     * </p>
+     *
+     * @return настроенный {@link TaskExecutor} для создания WebDriver
+     */
+    @Bean(name = "webDriverExecutor")
+    public TaskExecutor webDriverExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(webDriverExecutorPoolSize);
+        executor.setMaxPoolSize(webDriverExecutorPoolSize);
+        executor.setQueueCapacity(webDriverExecutorPoolSize);
+        executor.setThreadNamePrefix("WebDriver-");
         executor.initialize();
         return executor;
     }
