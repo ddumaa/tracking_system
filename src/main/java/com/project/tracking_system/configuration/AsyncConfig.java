@@ -3,8 +3,11 @@ package com.project.tracking_system.configuration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.AsyncConfigurer;
+import org.springframework.aop.interceptor.AsyncUncaughtExceptionHandler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.core.task.TaskExecutor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.Executor;
 
@@ -20,7 +23,8 @@ import java.util.concurrent.Executor;
  */
 @Configuration
 @EnableAsync
-public class AsyncConfig {
+@Slf4j
+public class AsyncConfig implements AsyncConfigurer {
 
     /**
      * Создает и настраивает {@link Executor} для асинхронных задач.
@@ -80,5 +84,31 @@ public class AsyncConfig {
         executor.setThreadNamePrefix("TrackUpdate-"); // префикс для имен потоков
         executor.initialize();
         return executor;
+    }
+
+    /**
+     * Возвращает основной executor для асинхронных методов.
+     * <p>
+     * Метод переопределяет {@link AsyncConfigurer#getAsyncExecutor()} и
+     * обеспечивает использование стандартного пула "Post" для всех
+     * асинхронных вызовов без явного указания executor.
+     * </p>
+     *
+     * @return основной {@link Executor} приложения
+     */
+    @Override
+    public Executor getAsyncExecutor() {
+        return asyncExecutor();
+    }
+
+    /**
+     * Обработчик для логирования неперехваченных исключений из асинхронных методов.
+     *
+     * @return {@link AsyncUncaughtExceptionHandler} с логированием ошибки
+     */
+    @Override
+    public AsyncUncaughtExceptionHandler getAsyncUncaughtExceptionHandler() {
+        return (ex, method, params) ->
+                log.error("Ошибка в асинхронном методе {}", method.getName(), ex);
     }
 }
