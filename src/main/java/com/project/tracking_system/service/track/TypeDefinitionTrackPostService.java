@@ -4,7 +4,7 @@ import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.mapper.JsonEvroTrackingResponseMapper;
 import com.project.tracking_system.model.evropost.jsonResponseModel.JsonEvroTrackingResponse;
-import com.project.tracking_system.service.belpost.WebBelPost;
+import com.project.tracking_system.service.belpost.BelPostSessionParser;
 import com.project.tracking_system.service.jsonEvropostService.JsonEvroTrackingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,7 +20,7 @@ import java.util.concurrent.ExecutionException;
  * Сервис для получения информации о статусе почтовых отправлений.
  * <p>
  * Этот сервис предоставляет методы для получения информации о посылках на основе номера отслеживания.
- * Включает асинхронную обработку запросов для различных типов кодов посылок и интеграцию с сервисами WebBelPost и EuroPost.
+ * Включает асинхронную обработку запросов для различных типов кодов посылок и интеграцию с сервисами BelPostSessionParser и EuroPost.
  * </p>
  *
  * @author Dmitriy Anisimov
@@ -31,7 +31,7 @@ import java.util.concurrent.ExecutionException;
 @Service
 public class TypeDefinitionTrackPostService {
 
-    private final WebBelPost webBelPost;
+    private final BelPostSessionParser belPostSessionParser;
     private final JsonEvroTrackingService jsonEvroTrackingService;
     private final JsonEvroTrackingResponseMapper jsonEvroTrackingResponseMapper;
 
@@ -71,7 +71,7 @@ public class TypeDefinitionTrackPostService {
                 switch (postalService) {
                     case BELPOST:
                         log.info("📨 Запрос к Белпочте для номера: {}", number);
-                        return webBelPost.webAutomation(number);
+                        return belPostSessionParser.parseTrack(number);
 
                     case EVROPOST:
                         log.info("📨 Запрос к Европочте для номера: {}", number);
