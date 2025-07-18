@@ -102,29 +102,36 @@ public class TrackUpdateService {
         try {
             AtomicInteger successfulUpdates = new AtomicInteger(0);
 
+            // Создаем задачи для каждого трека и выполняем их через taskExecutor
             List<CompletableFuture<Void>> futures = parcelsToUpdate.stream()
-                    .map(trackParcelDTO -> CompletableFuture.runAsync(() -> {
-                        try {
-                            TrackInfoListDTO trackInfo = trackProcessingService.processTrack(
-                                    trackParcelDTO.getNumber(),
-                                    trackParcelDTO.getStoreId(),
-                                    userId,
-                                    true
-                            );
+                    .map(trackParcelDTO -> {
+                        CompletableFuture<Void> future = new CompletableFuture<>();
+                        taskExecutor.execute(() -> {
+                            try {
+                                TrackInfoListDTO trackInfo = trackProcessingService.processTrack(
+                                        trackParcelDTO.getNumber(),
+                                        trackParcelDTO.getStoreId(),
+                                        userId,
+                                        true
+                                );
 
-                            if (trackInfo != null && !trackInfo.getList().isEmpty()) {
-                                successfulUpdates.incrementAndGet();
-                                log.debug("Трек {} обновлён для пользователя ID={}", trackParcelDTO.getNumber(), userId);
-                            } else {
-                                log.warn("Нет данных по треку {} (userId={})", trackParcelDTO.getNumber(), userId);
+                                if (trackInfo != null && !trackInfo.getList().isEmpty()) {
+                                    successfulUpdates.incrementAndGet();
+                                    log.debug("Трек {} обновлён для пользователя ID={}", trackParcelDTO.getNumber(), userId);
+                                } else {
+                                    log.warn("Нет данных по треку {} (userId={})", trackParcelDTO.getNumber(), userId);
+                                }
+
+                            } catch (IllegalArgumentException e) {
+                                log.warn("Ошибка обновления трека {}: {}", trackParcelDTO.getNumber(), e.getMessage());
+                            } catch (Exception e) {
+                                log.error("Ошибка обработки трека {}: {}", trackParcelDTO.getNumber(), e.getMessage(), e);
+                            } finally {
+                                future.complete(null);
                             }
-
-                        } catch (IllegalArgumentException e) {
-                            log.warn("Ошибка обновления трека {}: {}", trackParcelDTO.getNumber(), e.getMessage());
-                        } catch (Exception e) {
-                            log.error("Ошибка обработки трека {}: {}", trackParcelDTO.getNumber(), e.getMessage(), e);
-                        }
-                    }, taskExecutor))
+                        });
+                        return future;
+                    })
                     .toList();
 
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> {
@@ -207,17 +214,24 @@ public class TrackUpdateService {
 
             log.info("Начато обновление {} треков для userId={}", parcelsToUpdate.size(), userId);
 
+            // Выполняем каждую задачу через taskExecutor и контролируем завершение через CompletableFuture
             List<CompletableFuture<Void>> futures = parcelsToUpdate.stream()
-                    .map(parcel -> CompletableFuture.runAsync(() -> {
-                        try {
-                            TrackInfoListDTO trackInfo = trackProcessingService.processTrack(parcel.getNumber(), parcel.getStore().getId(), userId, true);
-                            if (trackInfo != null && !trackInfo.getList().isEmpty()) {
-                                successfulUpdates.incrementAndGet();
+                    .map(parcel -> {
+                        CompletableFuture<Void> future = new CompletableFuture<>();
+                        taskExecutor.execute(() -> {
+                            try {
+                                TrackInfoListDTO trackInfo = trackProcessingService.processTrack(parcel.getNumber(), parcel.getStore().getId(), userId, true);
+                                if (trackInfo != null && !trackInfo.getList().isEmpty()) {
+                                    successfulUpdates.incrementAndGet();
+                                }
+                            } catch (Exception e) {
+                                log.error("Ошибка обновления трека {}: {}", parcel.getNumber(), e.getMessage());
+                            } finally {
+                                future.complete(null);
                             }
-                        } catch (Exception e) {
-                            log.error("Ошибка обновления трека {}: {}", parcel.getNumber(), e.getMessage());
-                        }
-                    }, taskExecutor))
+                        });
+                        return future;
+                    })
                     .toList();
 
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> {
