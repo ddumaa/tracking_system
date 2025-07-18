@@ -6,6 +6,9 @@ import com.project.tracking_system.model.TrackingResponse;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.utils.PhoneUtils;
+import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
+import com.project.tracking_system.entity.PostalServiceType;
+import com.project.tracking_system.service.belpost.WebBelPostBatchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
@@ -17,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -41,6 +45,8 @@ public class TrackingNumberServiceXLS {
     private final TrackFacade trackFacade;
     private final SubscriptionService subscriptionService;
     private final StoreService storeService;
+    private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
+    private final WebBelPostBatchService webBelPostBatchService;
     private final ExecutorService executor = Executors.newFixedThreadPool(5);
 
     /**
@@ -113,9 +119,11 @@ public class TrackingNumberServiceXLS {
 
             // Обрабатываем строки асинхронно
             List<CompletableFuture<TrackingResultAdd>> futures = new ArrayList<>();
-            int checkedCount = 0;           // Счетчик обработанных треков
-            int savedNewCount = 0;          // Счетчик успешно сохраненных новых треков
+            int checkedCount = 0;           // Счётчик обработанных треков
+            int savedNewCount = 0;          // Счётчик успешно сохранённых новых треков
             List<String> skippedSaves = new ArrayList<>(); // Треки, которые не удалось сохранить из-за ограничения
+            List<TrackMeta> belPostTracks = new ArrayList<>();
+            List<TrackMeta> evropostTracks = new ArrayList<>();
 
             // Цикл начинается со второй строки (индекс 1), так как первая строка – заголовок
             for (int rowIndex = 1; rowIndex < rowsToProcess + 1; rowIndex++) {
@@ -205,23 +213,45 @@ public class TrackingNumberServiceXLS {
                     canSaveThis = true;
                 }
 
-                // Создаем финальные копии для использования в лямбда-выражении
-                final Long finalStoreId = storeId;
-                final String finalPhone = phone;
+                // Сохраняем метаданные трека для дальнейшей обработки
+                TrackMeta meta = new TrackMeta(trackingNumber, storeId, phone, canSaveThis);
+                PostalServiceType serviceType = typeDefinitionTrackPostService.detectPostalService(trackingNumber);
 
-                // Асинхронно обрабатываем трек с обработкой исключений
-                CompletableFuture<TrackingResultAdd> future = CompletableFuture.supplyAsync(() -> {
-                    try {
-                        Thread.sleep(200);
-                        return processSingleTracking(trackingNumber, finalStoreId, userId, canSaveThis, finalPhone);                    } catch (Exception e) {
-                        log.error("Ошибка обработки трека {}: {}", trackingNumber, e.getMessage());
-                        // Возвращаем объект с сообщением об ошибке, передавая статус как строку
-                        return new TrackingResultAdd(trackingNumber, "ERROR: " + e.getMessage());
+                switch (serviceType) {
+                    case BELPOST -> belPostTracks.add(meta);
+                    case EVROPOST -> {
+                        evropostTracks.add(meta);
+                        final Long finalStoreId = storeId;
+                        final String finalPhone = phone;
+                        CompletableFuture<TrackingResultAdd> future = CompletableFuture.supplyAsync(() -> {
+                            try {
+                                Thread.sleep(200);
+                                return processSingleTracking(trackingNumber, finalStoreId, userId, canSaveThis, finalPhone);
+                            } catch (Exception e) {
+                                log.error("Ошибка обработки трека {}: {}", trackingNumber, e.getMessage());
+                                return new TrackingResultAdd(trackingNumber, "ERROR: " + e.getMessage());
+                            }
+                        }, executor);
+                        futures.add(future);
                     }
-                }, executor);
+                    default -> log.warn("Пропускаем трек {}: неизвестный сервис", trackingNumber);
+                }
 
-                futures.add(future);
                 checkedCount++;
+            }
+
+            // Обрабатываем треки Белпочты одним сеансом Selenium
+            if (!belPostTracks.isEmpty()) {
+                Map<String, TrackInfoListDTO> belpostInfo = webBelPostBatchService.processBatch(
+                        belPostTracks.stream().map(TrackMeta::number).toList());
+                for (TrackMeta meta : belPostTracks) {
+                    TrackInfoListDTO info = belpostInfo.getOrDefault(meta.number(), new TrackInfoListDTO());
+                    if (userId != null && meta.canSave()) {
+                        trackFacade.saveTrackInfo(meta.number(), info, meta.storeId(), userId, meta.phone());
+                    }
+                    String status = info.getList().isEmpty() ? "Нет данных" : info.getList().get(0).getInfoTrack();
+                    trackingResult.add(new TrackingResultAdd(meta.number(), status));
+                }
             }
 
             // Ждем завершения всех асинхронных задач
@@ -288,6 +318,13 @@ public class TrackingNumberServiceXLS {
             Thread.currentThread().interrupt();
             log.error("❌ Ожидание завершения executor было прервано", e);
         }
+    }
+
+    /**
+     * Внутренняя модель для хранения параметров трека,
+     * собранных из файла перед последующей обработкой.
+     */
+    private record TrackMeta(String number, Long storeId, String phone, boolean canSave) {
     }
 
 }
