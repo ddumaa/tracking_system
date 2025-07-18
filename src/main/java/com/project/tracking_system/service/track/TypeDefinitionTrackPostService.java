@@ -71,7 +71,7 @@ public class TypeDefinitionTrackPostService {
                 switch (postalService) {
                     case BELPOST:
                         log.info("📨 Запрос к Белпочте для номера: {}", number);
-                        return webBelPost.webAutomationAsync(number).join();
+                        return webBelPost.webAutomation(number);
 
                     case EVROPOST:
                         log.info("📨 Запрос к Европочте для номера: {}", number);

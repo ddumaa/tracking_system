@@ -5,7 +5,6 @@ import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.model.TrackingResponse;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.store.StoreService;
-import com.project.tracking_system.service.track.TrackFacade;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -213,6 +212,7 @@ public class TrackingNumberServiceXLS {
                 // Асинхронно обрабатываем трек с обработкой исключений
                 CompletableFuture<TrackingResultAdd> future = CompletableFuture.supplyAsync(() -> {
                     try {
+                        Thread.sleep(200);
                         return processSingleTracking(trackingNumber, finalStoreId, userId, canSaveThis, finalPhone);                    } catch (Exception e) {
                         log.error("Ошибка обработки трека {}: {}", trackingNumber, e.getMessage());
                         // Возвращаем объект с сообщением об ошибке, передавая статус как строку

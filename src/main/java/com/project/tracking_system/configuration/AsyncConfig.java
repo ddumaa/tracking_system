@@ -42,6 +42,17 @@ public class AsyncConfig {
         return executor;
     }
 
+    @Bean(name = "BelPost")
+    public Executor postExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(2);
+        executor.setQueueCapacity(100);
+        executor.setThreadNamePrefix("Bel-");
+        executor.initialize();
+        return executor;
+    }
+
     /**
      * Создаёт пул потоков для {@link com.project.tracking_system.service.track.TrackUpdateService}.
      * <p>
