@@ -1,36 +1,32 @@
 package com.project.tracking_system.service.track;
 
-import com.project.tracking_system.dto.TrackInfoListDTO;
-import com.project.tracking_system.dto.TrackingResultAdd;
-import com.project.tracking_system.model.TrackingResponse;
+import com.project.tracking_system.service.track.TrackBatchData;
+import com.project.tracking_system.service.track.TrackMeta;
 import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.utils.PhoneUtils;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import com.project.tracking_system.entity.PostalServiceType;
-import com.project.tracking_system.service.belpost.WebBelPostBatchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
-import jakarta.annotation.PreDestroy;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 /**
- * Сервис для обработки номеров отслеживания из XLS-файлов.
+ * Сервис чтения XLS-файлов с трек-номерами.
  * <p>
- * Этот сервис позволяет загружать файлы с номерами отслеживания и асинхронно обрабатывать каждый номер,
- * получая информацию о нем и сохраняем её в систему.
+ * Отвечает только за разбора файла и формирование структуры,
+ * необходимой для последующей пакетной обработки.
+ * Сохранение и обращения к почтовым сервисам выполняет {@link TrackBatchProcessingService}.
  * </p>
  *
  * @author Dmitriy Anisimov
@@ -42,12 +38,9 @@ import java.util.concurrent.TimeUnit;
 public class TrackingNumberServiceXLS {
 
     private final TrackParcelService trackParcelService;
-    private final TrackFacade trackFacade;
     private final SubscriptionService subscriptionService;
     private final StoreService storeService;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
-    private final WebBelPostBatchService webBelPostBatchService;
-    private final ExecutorService executor = Executors.newFixedThreadPool(5);
 
     /**
      * Обрабатывает номера отслеживания, загруженные в формате XLS.
@@ -65,12 +58,10 @@ public class TrackingNumberServiceXLS {
      *
      * @param file   XLS-файл с данными
      * @param userId ID авторизованного пользователя (null, если гость)
-     * @return TrackingResponse с результатом обработки (список успешно/неуспешно обработанных треков)
+     * @return результат разбора файла
      * @throws IOException при ошибках чтения файла
      */
-    public TrackingResponse processTrackingNumber(MultipartFile file, Long userId) throws IOException {
-        // Результаты обработки для каждого трека
-        List<TrackingResultAdd> trackingResult = new ArrayList<>();
+    public TrackBatchData processTrackingNumber(MultipartFile file, Long userId) throws IOException {
         // Сообщение для уведомления пользователя об ограничениях или ошибках
         StringBuilder messageBuilder = new StringBuilder();
 
@@ -97,6 +88,11 @@ public class TrackingNumberServiceXLS {
                 ? storeService.getDefaultStoreId(userId)
                 : null;
 
+        Map<PostalServiceType, List<TrackMeta>> grouped = new EnumMap<>(PostalServiceType.class);
+        int checkedCount = 0;
+        int savedNewCount = 0;
+        List<String> skippedSaves = new ArrayList<>();
+
         try (InputStream in = file.getInputStream(); Workbook workbook = WorkbookFactory.create(in)) {
             Sheet sheet = workbook.getSheetAt(0); // Берём первый лист
 
@@ -117,11 +113,6 @@ public class TrackingNumberServiceXLS {
                 ));
             }
 
-            // Обрабатываем строки асинхронно
-            List<CompletableFuture<TrackingResultAdd>> futures = new ArrayList<>();
-            int checkedCount = 0;           // Счётчик обработанных треков
-            int savedNewCount = 0;          // Счётчик успешно сохранённых новых треков
-            List<String> skippedSaves = new ArrayList<>(); // Треки, которые не удалось сохранить из-за ограничения
             List<TrackMeta> belPostTracks = new ArrayList<>();
             List<TrackMeta> evropostTracks = new ArrayList<>();
 
@@ -219,46 +210,19 @@ public class TrackingNumberServiceXLS {
 
                 switch (serviceType) {
                     case BELPOST -> belPostTracks.add(meta);
-                    case EVROPOST -> {
-                        evropostTracks.add(meta);
-                        final Long finalStoreId = storeId;
-                        final String finalPhone = phone;
-                        CompletableFuture<TrackingResultAdd> future = CompletableFuture.supplyAsync(() -> {
-                            try {
-                                Thread.sleep(200);
-                                return processSingleTracking(trackingNumber, finalStoreId, userId, canSaveThis, finalPhone);
-                            } catch (Exception e) {
-                                log.error("Ошибка обработки трека {}: {}", trackingNumber, e.getMessage());
-                                return new TrackingResultAdd(trackingNumber, "ERROR: " + e.getMessage());
-                            }
-                        }, executor);
-                        futures.add(future);
-                    }
+                    case EVROPOST -> evropostTracks.add(meta);
                     default -> log.warn("Пропускаем трек {}: неизвестный сервис", trackingNumber);
                 }
 
                 checkedCount++;
             }
 
-            // Обрабатываем треки Белпочты одним сеансом Selenium
             if (!belPostTracks.isEmpty()) {
-                Map<String, TrackInfoListDTO> belpostInfo = webBelPostBatchService.processBatch(
-                        belPostTracks.stream().map(TrackMeta::number).toList());
-                for (TrackMeta meta : belPostTracks) {
-                    TrackInfoListDTO info = belpostInfo.getOrDefault(meta.number(), new TrackInfoListDTO());
-                    if (userId != null && meta.canSave()) {
-                        trackFacade.saveTrackInfo(meta.number(), info, meta.storeId(), userId, meta.phone());
-                    }
-                    String status = info.getList().isEmpty() ? "Нет данных" : info.getList().get(0).getInfoTrack();
-                    trackingResult.add(new TrackingResultAdd(meta.number(), status));
-                }
+                grouped.put(PostalServiceType.BELPOST, belPostTracks);
             }
-
-            // Ждем завершения всех асинхронных задач
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-
-            // Собираем результаты обработки
-            futures.forEach(f -> trackingResult.add(f.join()));
+            if (!evropostTracks.isEmpty()) {
+                grouped.put(PostalServiceType.EVROPOST, evropostTracks);
+            }
 
             // Если некоторые треки не удалось сохранить из-за лимита, формируем соответствующее сообщение
             if (!skippedSaves.isEmpty()) {
@@ -271,60 +235,9 @@ public class TrackingNumberServiceXLS {
             String limitExceededMessage = !messageBuilder.isEmpty() ? messageBuilder.toString().trim() : null;
             log.info("📋 Итоговое сообщение: {}", limitExceededMessage);
 
-            return new TrackingResponse(trackingResult, limitExceededMessage);
+            return new TrackBatchData(grouped, limitExceededMessage);
         }
     }
 
-
-    private TrackingResultAdd processSingleTracking(String trackingNumber,
-                                                    Long storeId,
-                                                    Long userId,
-                                                    boolean canSave,
-                                                    String phone) {
-        try {
-            // Используем processTrack для получения данных и сохранения, если необходимо
-            TrackInfoListDTO trackInfo = trackFacade.processTrack(trackingNumber, storeId, userId, canSave, phone);
-
-            String lastStatus = trackInfo.getList().get(0).getInfoTrack();
-            log.debug("Трек-номер: {}, последний статус: {}", trackingNumber, lastStatus);
-
-            return new TrackingResultAdd(trackingNumber, lastStatus);
-        } catch (IllegalArgumentException e) {
-            log.warn("Ошибка обработки {}: {}", trackingNumber, e.getMessage());
-            return new TrackingResultAdd(trackingNumber, "Нет данных");
-        } catch (Exception e) {
-            log.error("Ошибка обработки {}: {}", trackingNumber, e.getMessage(), e);
-            return new TrackingResultAdd(trackingNumber, "Ошибка обработки");
-        }
-    }
-
-    /**
-     * Завершает пул потоков при остановке приложения.
-     * <p>
-     * Метод вызывается контейнером Spring перед уничтожением бина
-     * для корректного завершения всех задач в очереди.
-     * </p>
-     */
-    @PreDestroy
-    public void shutdownExecutor() {
-        executor.shutdown();
-        try {
-            if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
-                executor.shutdownNow();
-                log.warn("⏳ Executor завершался принудительно.");
-            }
-        } catch (InterruptedException e) {
-            executor.shutdownNow();
-            Thread.currentThread().interrupt();
-            log.error("❌ Ожидание завершения executor было прервано", e);
-        }
-    }
-
-    /**
-     * Внутренняя модель для хранения параметров трека,
-     * собранных из файла перед последующей обработкой.
-     */
-    private record TrackMeta(String number, Long storeId, String phone, boolean canSave) {
-    }
 
 }
