@@ -56,6 +56,27 @@ public class TrackFacade {
     }
 
     /**
+     * Сохраняет информацию о треке без повторного запроса к почтовому сервису.
+     * <p>
+     * Предполагается, что данные уже получены ранее и нужно лишь
+     * записать их в базу. Метод делегирует сохранение {@link TrackProcessingService}.
+     * </p>
+     *
+     * @param number      номер трека
+     * @param trackInfo   данные о треке
+     * @param storeId     идентификатор магазина
+     * @param userId      идентификатор пользователя
+     * @param phone       телефон покупателя (может быть {@code null})
+     */
+    public void saveTrackInfo(String number,
+                              TrackInfoListDTO trackInfo,
+                              Long storeId,
+                              Long userId,
+                              String phone) {
+        trackProcessingService.save(number, trackInfo, storeId, userId, phone);
+    }
+
+    /**
      * Запускает обновление всех треков пользователя.
      *
      * @param userId идентификатор пользователя
