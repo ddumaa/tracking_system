@@ -41,7 +41,7 @@ public class WebBelPost {
      * @param number Номер посылки для отслеживания.
      * @return CompletableFuture с объектом TrackInfoListDTO, содержащим информацию о статусе посылки.
      */
-    @Async("Post")
+    @Async("BelPost")
     public CompletableFuture<TrackInfoListDTO> webAutomationAsync(String number) {
         TrackInfoListDTO trackInfoListDTO = webAutomation(number);
         return CompletableFuture.completedFuture(trackInfoListDTO);
@@ -56,7 +56,7 @@ public class WebBelPost {
      * @param number Номер посылки для отслеживания.
      * @return TrackInfoListDTO объект, содержащий список статусов посылки.
      */
-    public TrackInfoListDTO webAutomation(String number) {
+    public synchronized TrackInfoListDTO webAutomation(String number) {
         WebDriver driver = null;
         TrackInfoListDTO trackInfoListDTO = new TrackInfoListDTO();
         try {
