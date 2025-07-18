@@ -7,6 +7,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import com.project.tracking_system.webdriver.WebDriverFactory;
 import com.project.tracking_system.webdriver.ChromeWebDriverFactory;
+import com.project.tracking_system.webdriver.WebDriverPool;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.client.RestTemplate;
@@ -99,6 +100,21 @@ public class AppConfiguration {
     @Bean
     public WebDriverFactory webDriverFactory() {
         return new ChromeWebDriverFactory(chromeDriverPath);
+    }
+
+    /**
+     * Создает пул для управления экземплярами {@link org.openqa.selenium.WebDriver}.
+     * <p>
+     * Пул позволяет переиспользовать драйверы и корректно завершает их работу
+     * при остановке приложения.
+     * </p>
+     *
+     * @param webDriverFactory фабрика для создания новых драйверов
+     * @return бин {@link WebDriverPool}
+     */
+    @Bean
+    public WebDriverPool webDriverPool(WebDriverFactory webDriverFactory) {
+        return new WebDriverPool(webDriverFactory);
     }
 
 }

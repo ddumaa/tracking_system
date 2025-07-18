@@ -6,7 +6,7 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
-import com.project.tracking_system.webdriver.WebDriverFactory;
+import com.project.tracking_system.webdriver.WebDriverPool;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.scheduling.annotation.Async;
@@ -33,7 +33,8 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 public class WebBelPost {
 
-    private final WebDriverFactory webDriverFactory;
+    /** Пул для работы с WebDriver, позволяющий переиспользовать экземпляры. */
+    private final WebDriverPool webDriverPool;
 
     /**
      * Асинхронно выполняет процесс отслеживания посылки на сайте BelPost.
@@ -60,8 +61,9 @@ public class WebBelPost {
         WebDriver driver = null;
         TrackInfoListDTO trackInfoListDTO = new TrackInfoListDTO();
         try {
-            // Создаём драйвер через фабрику
-            driver = webDriverFactory.create();
+            // Получаем драйвер из пула, чтобы избежать затрат на постоянное
+            // создание новых экземпляров
+            driver = webDriverPool.borrowDriver();
 
             // передаём ссылку + номер
             String url = "https://belpost.by/Otsleditotpravleniye?number=" + number;
@@ -104,9 +106,8 @@ public class WebBelPost {
         } catch (Exception e) {
             log.error("Ошибка веб-автоматизации BelPost: {}", e.getMessage(), e);
         } finally {
-            if (driver != null) {
-                driver.quit();
-            }
+            // Возвращаем драйвер в пул независимо от исхода
+            webDriverPool.returnDriver(driver);
         }
         return trackInfoListDTO;
     }
