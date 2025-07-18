@@ -1,6 +1,8 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.model.TrackingResponse;
+import com.project.tracking_system.service.track.TrackBatchData;
+import com.project.tracking_system.service.track.TrackBatchProcessingService;
 import com.project.tracking_system.service.track.TrackingNumberServiceXLS;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +25,7 @@ import java.io.IOException;
 public class UploadController {
 
     private final TrackingNumberServiceXLS trackingNumberServiceXLS;
+    private final TrackBatchProcessingService trackBatchProcessingService;
 
     /**
      * Обрабатывает загрузку файла (XLS или XLSX).
@@ -57,7 +60,10 @@ public class UploadController {
 
         try {
             if (contentType.equals("application/vnd.ms-excel") || contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
-                TrackingResponse trackingResponse = trackingNumberServiceXLS.processTrackingNumber(file, userId);
+                TrackBatchData data = trackingNumberServiceXLS.processTrackingNumber(file, userId);
+                TrackingResponse trackingResponse = new TrackingResponse(
+                        trackBatchProcessingService.processBatch(data.tracksByService(), userId),
+                        data.limitExceededMessage());
 
                 log.info("Передаём в модель limitExceededMessage: {}", trackingResponse.getLimitExceededMessage());
 
