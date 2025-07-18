@@ -7,7 +7,7 @@ import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.track.TrackFacade;
 import com.project.tracking_system.utils.PhoneUtils;
-import lombok.RequiredArgsConstructor;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import jakarta.annotation.PreDestroy;
@@ -35,7 +35,6 @@ import java.util.concurrent.TimeUnit;
  * @date Добавлено 07.01.2025
  */
 @Slf4j
-@RequiredArgsConstructor
 @Service
 public class TrackingNumberServiceXLS {
 
@@ -47,8 +46,27 @@ public class TrackingNumberServiceXLS {
      * Исполнитель задач для асинхронной обработки треков.
      * Используем бин {@code trackExecutor} из конфигурации.
      */
-    @Qualifier("trackExecutor")
     private final TaskExecutor taskExecutor;
+
+    /**
+     * Создаёт сервис с явным указанием используемого пула потоков.
+     * <p>
+     * Конструктор используется для внедрения зависимостей через Spring
+     * и позволяет однозначно определить {@link TaskExecutor} с помощью
+     * аннотации {@link Qualifier}.
+     * </p>
+     */
+    public TrackingNumberServiceXLS(TrackParcelService trackParcelService,
+                                   TrackFacade trackFacade,
+                                   SubscriptionService subscriptionService,
+                                   StoreService storeService,
+                                   @Qualifier("trackExecutor") TaskExecutor taskExecutor) {
+        this.trackParcelService = trackParcelService;
+        this.trackFacade = trackFacade;
+        this.subscriptionService = subscriptionService;
+        this.storeService = storeService;
+        this.taskExecutor = taskExecutor;
+    }
 
     /**
      * Обрабатывает номера отслеживания, загруженные в формате XLS.
