@@ -43,6 +43,26 @@ public class AsyncConfig {
     }
 
     /**
+     * Создает пул потоков для отправки email.
+     * <p>
+     * Выделенный executor гарантирует, что отправка писем не будет блокировать
+     * другие асинхронные операции приложения.
+     * </p>
+     *
+     * @return настроенный {@link TaskExecutor} для email-уведомлений
+     */
+    @Bean(name = "emailExecutor")
+    public TaskExecutor emailExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(5);
+        executor.setMaxPoolSize(10);
+        executor.setQueueCapacity(100);
+        executor.setThreadNamePrefix("Email-");
+        executor.initialize();
+        return executor;
+    }
+
+    /**
      * Создаёт пул потоков для {@link com.project.tracking_system.service.track.TrackUpdateService}.
      * <p>
      * Используется только для обновления треков, чтобы разграничить нагрузку от других

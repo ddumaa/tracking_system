@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Service;
 import com.project.tracking_system.utils.EmailUtils;
 
@@ -31,6 +32,12 @@ public class EmailService {
 
     private final JavaMailSender emailSender;
     private final HtmlEmailTemplateService templateService;
+    /**
+     * Исполнитель задач, используемый для асинхронной отправки email.
+     * Инъекция позволяет легко заменить реализацию и соответствует принципу
+     * инверсии зависимостей.
+     */
+    private final TaskExecutor emailExecutor;
 
     @Value("${spring.mail.username}")
     private String senderEmail;
@@ -85,12 +92,17 @@ public class EmailService {
 
     /**
      * Асинхронно отправляет HTML email сообщение.
+     * <p>
+     * Метод запускается в отдельном потоке из {@code emailExecutor}, что
+     * позволяет не блокировать основной поток приложения во время отправки
+     * писем.
+     * </p>
      *
      * @param to      адрес получателя.
      * @param subject тема письма.
      * @param content HTML-содержимое письма.
      */
-    @Async
+    @Async("emailExecutor")
     public void sendHtmlEmailAsync(String to, String subject, String content) {
         log.info("📧 Начинаем отправку email на {}", EmailUtils.maskEmail(to));
 
