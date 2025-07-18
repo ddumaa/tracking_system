@@ -73,37 +73,36 @@ public class TypeDefinitionTrackPostService {
             return CompletableFuture.completedFuture(cached);
         }
 
-        return CompletableFuture.supplyAsync(() -> {
-            PostalServiceType postalService = detectPostalService(number);
+        PostalServiceType postalService = detectPostalService(number);
 
-            log.info("📦 Запрос информации по треку: {} (Пользователь ID={})", number, userId);
-            log.debug("🔎 Определяем почтовую службу: {} → {}", number, postalService);
+        log.info("📦 Запрос информации по треку: {} (Пользователь ID={})", number, userId);
+        log.debug("🔎 Определяем почтовую службу: {} → {}", number, postalService);
 
-            try {
-                TrackInfoListDTO result;
-                switch (postalService) {
-                    case BELPOST:
-                        log.info("📨 Запрос к Белпочте для номера: {}", number);
-                        result = webBelPost.webAutomationAsync(number).join();
-                        break;
+        try {
+            TrackInfoListDTO result;
+            switch (postalService) {
+                case BELPOST:
+                    log.info("📨 Запрос к Белпочте для номера: {}", number);
+                    // Запускаем selenium на Post-исполнителе, выполняя синхронный метод
+                    result = webBelPost.webAutomation(number);
+                    break;
 
-                    case EVROPOST:
-                        log.info("📨 Запрос к Европочте для номера: {}", number);
-                        JsonEvroTrackingResponse json = jsonEvroTrackingService.getJson(userId, number);
-                        result = jsonEvroTrackingResponseMapper.mapJsonEvroTrackingResponseToDTO(json);
-                        break;
+                case EVROPOST:
+                    log.info("📨 Запрос к Европочте для номера: {}", number);
+                    JsonEvroTrackingResponse json = jsonEvroTrackingService.getJson(userId, number);
+                    result = jsonEvroTrackingResponseMapper.mapJsonEvroTrackingResponseToDTO(json);
+                    break;
 
-                    default:
-                        log.warn("⚠️ Неизвестный формат трек-номера: {} (UNKNOWN)", number);
-                        throw new IllegalArgumentException("Указан некорректный код посылки: " + number);
-                }
-                trackInfoCache.put(number, result);
-                return result;
-            } catch (Exception e) {
-                log.error("Ошибка при обработке трек-номера {} для пользователя с ID {}: {}", number, userId, e.getMessage(), e);
-                return new TrackInfoListDTO();
+                default:
+                    log.warn("⚠️ Неизвестный формат трек-номера: {} (UNKNOWN)", number);
+                    throw new IllegalArgumentException("Указан некорректный код посылки: " + number);
             }
-        });
+            trackInfoCache.put(number, result);
+            return CompletableFuture.completedFuture(result);
+        } catch (Exception e) {
+            log.error("Ошибка при обработке трек-номера {} для пользователя с ID {}: {}", number, userId, e.getMessage(), e);
+            return CompletableFuture.completedFuture(new TrackInfoListDTO());
+        }
     }
 
 
