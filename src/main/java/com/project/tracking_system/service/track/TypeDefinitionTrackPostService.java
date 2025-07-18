@@ -52,12 +52,15 @@ public class TypeDefinitionTrackPostService {
 
     /**
      * Асинхронный метод для получения информации о статусе посылки по номеру отслеживания.
-     * Метод использует аннотацию {@code @Async} для выполнения в отдельном потоке
-     * и возвращает завершённый {@link CompletableFuture}.
+     * <p>
+     * Метод выполняется в отдельном потоке благодаря аннотации {@code @Async} и
+     * возвращает {@link CompletableFuture}, который будет завершён после получения
+     * ответа от соответствующей почтовой службы.
+     * </p>
      *
      * @param userId идентификатор пользователя
      * @param number номер отслеживания посылки
-     * @return объект {@link CompletableFuture} с результатом обработки запроса
+     * @return {@link CompletableFuture} с результатом обработки запроса
      * @throws IllegalArgumentException если номер отслеживания имеет некорректный формат
      */
     @Async("Post")
@@ -67,28 +70,34 @@ public class TypeDefinitionTrackPostService {
         log.info("📦 Запрос информации по треку: {} (Пользователь ID={})", number, userId);
         log.debug("🔎 Определяем почтовую службу: {} → {}", number, postalService);
 
-        TrackInfoListDTO result;
+        CompletableFuture<TrackInfoListDTO> future;
         try {
             switch (postalService) {
                 case BELPOST:
                     log.info("📨 Запрос к Белпочте для номера: {}", number);
-                    result = webBelPost.webAutomationAsync(number).join();
+                    future = webBelPost.webAutomationAsync(number);
                     break;
                 case EVROPOST:
                     log.info("📨 Запрос к Европочте для номера: {}", number);
-                    JsonEvroTrackingResponse json = jsonEvroTrackingService.getJson(userId, number);
-                    result = jsonEvroTrackingResponseMapper.mapJsonEvroTrackingResponseToDTO(json);
+                    future = CompletableFuture
+                            .supplyAsync(() -> jsonEvroTrackingService.getJson(userId, number))
+                            .thenApply(jsonEvroTrackingResponseMapper::mapJsonEvroTrackingResponseToDTO);
                     break;
                 default:
                     log.warn("⚠️ Неизвестный формат трек-номера: {} (UNKNOWN)", number);
-                    throw new IllegalArgumentException("Указан некорректный код посылки: " + number);
+                    future = CompletableFuture.failedFuture(
+                            new IllegalArgumentException("Указан некорректный код посылки: " + number)
+                    );
             }
         } catch (Exception e) {
             log.error("Ошибка при обработке трек-номера {} для пользователя с ID {}: {}", number, userId, e.getMessage(), e);
-            result = new TrackInfoListDTO();
+            future = CompletableFuture.completedFuture(new TrackInfoListDTO());
         }
 
-        return CompletableFuture.completedFuture(result);
+        return future.exceptionally(ex -> {
+            log.error("Ошибка обработки трек-номера {} для пользователя с ID {}: {}", number, userId, ex.getMessage(), ex);
+            return new TrackInfoListDTO();
+        });
     }
 
 
