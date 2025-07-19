@@ -1,15 +1,8 @@
 package com.project.tracking_system.service.track;
 
-import com.project.tracking_system.dto.TrackInfoListDTO;
-import com.project.tracking_system.dto.TrackingResultAdd;
-import com.project.tracking_system.service.track.TrackBatchData;
-import com.project.tracking_system.service.track.TrackMeta;
 import com.project.tracking_system.service.SubscriptionService;
-import com.project.tracking_system.service.track.TrackParcelService;
-import com.project.tracking_system.service.track.TrackFacade;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.utils.PhoneUtils;
-import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import com.project.tracking_system.entity.PostalServiceType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,7 +37,6 @@ public class TrackingNumberServiceXLS {
     private final SubscriptionService subscriptionService;
     private final StoreService storeService;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
-    private final TrackFacade trackFacade;
 
     /**
      * Обрабатывает номера отслеживания, загруженные в формате XLS.
@@ -93,7 +85,6 @@ public class TrackingNumberServiceXLS {
                 : null;
 
         Map<PostalServiceType, List<TrackMeta>> grouped = new EnumMap<>(PostalServiceType.class);
-        int checkedCount = 0;
         int savedNewCount = 0;
         List<String> skippedSaves = new ArrayList<>();
 
@@ -223,7 +214,6 @@ public class TrackingNumberServiceXLS {
 
                 // Учитываем успешно обработанный трек
                 processedCount++;
-                checkedCount++;
             }
 
             if (!belPostTracks.isEmpty()) {
@@ -257,42 +247,5 @@ public class TrackingNumberServiceXLS {
             return new TrackBatchData(grouped, limitExceededMessage);
         }
     }
-
-    /**
-     * Processes a single tracking number using {@link TrackFacade} and
-     * returns the last known status.
-     *
-     * @param trackingNumber номер отслеживания
-     * @param storeId        идентификатор магазина
-     * @param userId         идентификатор пользователя
-     * @param canSave        признак необходимости сохранения
-     * @param phone          телефон получателя
-     * @return результат обработки трека
-     */
-    private TrackingResultAdd processSingleTracking(String trackingNumber,
-                                                    Long storeId,
-                                                    Long userId,
-                                                    boolean canSave,
-                                                    String phone) {
-        try {
-            TrackInfoListDTO trackInfo = trackFacade.processTrack(trackingNumber, storeId, userId, canSave, phone);
-
-            if (trackInfo.getList().isEmpty()) {
-                return new TrackingResultAdd(trackingNumber, "Нет данных");
-            }
-
-            String lastStatus = trackInfo.getList().get(0).getInfoTrack();
-            log.debug("Трек-номер: {}, последний статус: {}", trackingNumber, lastStatus);
-
-            return new TrackingResultAdd(trackingNumber, lastStatus);
-        } catch (IllegalArgumentException e) {
-            log.warn("Ошибка обработки {}: {}", trackingNumber, e.getMessage());
-            return new TrackingResultAdd(trackingNumber, "Нет данных");
-        } catch (Exception e) {
-            log.error("Ошибка обработки {}: {}", trackingNumber, e.getMessage(), e);
-            return new TrackingResultAdd(trackingNumber, "Ошибка обработки");
-        }
-    }
-
 
 }
