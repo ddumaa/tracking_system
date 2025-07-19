@@ -23,13 +23,13 @@ class TrackUploadProcessorServiceTest {
     @Mock
     private TrackMetaValidator validator;
     @Mock
-    private TrackUpdateCoordinatorService coordinator;
+    private TrackUpdateService trackUpdateService;
 
     private TrackUploadProcessorService processor;
 
     @BeforeEach
     void setUp() {
-        processor = new TrackUploadProcessorService(parser, validator, coordinator);
+        processor = new TrackUploadProcessorService(parser, validator, trackUpdateService);
     }
 
     @Test
@@ -39,7 +39,7 @@ class TrackUploadProcessorServiceTest {
         TrackMeta meta = new TrackMeta("A1", null, null, true);
         when(validator.validate(anyList(), any())).thenReturn(new TrackMetaValidationResult(List.of(meta), null));
         List<TrackingResultAdd> results = List.of(new TrackingResultAdd("A1", "ok"));
-        when(coordinator.process(anyList(), eq(1L))).thenReturn(results);
+        when(trackUpdateService.process(anyList(), eq(1L))).thenReturn(results);
 
         TrackingResponse response = processor.process(file, 1L);
 
