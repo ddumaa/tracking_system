@@ -100,30 +100,26 @@ public class TrackingNumberServiceXLS {
         try (InputStream in = file.getInputStream(); Workbook workbook = WorkbookFactory.create(in)) {
             Sheet sheet = workbook.getSheetAt(0); // Берём первый лист
 
-            int physicalRows = sheet.getPhysicalNumberOfRows();
-            // Проверяем, что в файле есть хотя бы заголовок
-            if (physicalRows < 1) {
+            // Индекс последней строки с данными. Значение "0" соответствует
+            // заголовку, поэтому отсутствие данных проверяем через < 1
+            int lastRowIndex = sheet.getLastRowNum();
+            if (lastRowIndex < 1) {
                 throw new IOException("Файл не содержит данных.");
             }
-            // Вычисляем количество треков (без учета заголовка)
-            int rowsToProcess = Math.min(physicalRows - 1, maxTrackingLimit);
 
-            // Если треков больше, чем лимит, формируем сообщение о пропуске
-            if (physicalRows - 1 > maxTrackingLimit) {
-                int skipped = (physicalRows - 1) - maxTrackingLimit;
-                messageBuilder.append(String.format(
-                        "Вы загрузили %d треков, но можете проверить только %d. Пропущено %d треков.%n",
-                        physicalRows - 1, rowsToProcess, skipped
-                ));
-            }
+            // Счётчик всех найденных треков и количества реально обработанных
+            int totalTracks = 0;
+            int processedCount = 0;
 
             List<TrackMeta> belPostTracks = new ArrayList<>();
             List<TrackMeta> evropostTracks = new ArrayList<>();
 
             // Цикл начинается со второй строки (индекс 1), так как первая строка – заголовок
-            for (int rowIndex = 1; rowIndex < rowsToProcess + 1; rowIndex++) {
+            for (int rowIndex = 1; rowIndex <= lastRowIndex; rowIndex++) {
                 Row row = sheet.getRow(rowIndex);
-                if (row == null) continue;
+                if (row == null) {
+                    continue;
+                }
 
                 // Первый столбец: номер трека (обязателен)
                 Cell trackCell = row.getCell(0);
@@ -131,12 +127,19 @@ public class TrackingNumberServiceXLS {
                 Cell storeCell = row.getCell(1);
                 // Третий столбец: телефон получателя (необязательный)
                 Cell phoneCell = row.getCell(2);
-                if (trackCell == null) continue; // Если ячейка с треком отсутствует, пропускаем
+                if (trackCell == null) {
+                    continue; // Если ячейка с треком отсутствует, пропускаем
+                }
 
                 String trackingNumber = trackCell.getStringCellValue().trim();
                 if (trackingNumber.isEmpty()) {
                     log.warn("⚠ Пустой номер трека в строке {}", rowIndex + 1);
                     continue;
+                }
+
+                totalTracks++;
+                if (processedCount >= maxTrackingLimit) {
+                    continue; // превышен лимит на обработку
                 }
 
                 // Если пользователь авторизован, обрабатываем магазин, иначе оставляем storeId равным null
@@ -218,6 +221,8 @@ public class TrackingNumberServiceXLS {
                     default -> log.warn("Пропускаем трек {}: неизвестный сервис", trackingNumber);
                 }
 
+                // Учитываем успешно обработанный трек
+                processedCount++;
                 checkedCount++;
             }
 
@@ -228,14 +233,24 @@ public class TrackingNumberServiceXLS {
                 grouped.put(PostalServiceType.EVROPOST, evropostTracks);
             }
 
-            // Если некоторые треки не удалось сохранить из-за лимита, формируем соответствующее сообщение
-            if (!skippedSaves.isEmpty()) {
+            // Сообщение об отказе в обработке части треков при превышении лимита
+            if (totalTracks > maxTrackingLimit) {
+                int skipped = totalTracks - maxTrackingLimit;
                 messageBuilder.append(String.format(
-                        "Из %d обработанных треков не удалось сохранить %d из-за лимита подписки: %s%n",
-                        checkedCount, skippedSaves.size(), skippedSaves
+                        "Вы загрузили %d треков, но можете проверить только %d. Пропущено %d треков.%n",
+                        totalTracks, maxTrackingLimit, skipped
                 ));
             }
 
+            // Если некоторые треки не удалось сохранить из-за лимита, добавляем дополнительное сообщение
+            if (!skippedSaves.isEmpty()) {
+                messageBuilder.append(String.format(
+                        "Из %d обработанных треков не удалось сохранить %d из-за лимита подписки: %s%n",
+                        processedCount, skippedSaves.size(), skippedSaves
+                ));
+            }
+
+            // Финальное сообщение для пользователя, если есть нарушения лимитов
             String limitExceededMessage = !messageBuilder.isEmpty() ? messageBuilder.toString().trim() : null;
             log.info("📋 Итоговое сообщение: {}", limitExceededMessage);
 
