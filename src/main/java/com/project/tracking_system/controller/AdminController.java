@@ -516,8 +516,10 @@ public class AdminController {
      * @return редирект на страницу деталей
      */
     @PostMapping("/parcels/{id}/force-update")
-    public String forceUpdateParcel(@PathVariable Long id) {
-        adminService.forceUpdateParcel(id);
+    public String forceUpdateParcel(@PathVariable Long id,
+                                    org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes) {
+        var result = adminService.forceUpdateParcel(id);
+        redirectAttributes.addFlashAttribute("updateStatus", result.getStatus());
         return "redirect:/admin/parcels/" + id;
     }
 

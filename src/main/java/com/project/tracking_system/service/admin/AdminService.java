@@ -3,9 +3,11 @@ package com.project.tracking_system.service.admin;
 import com.project.tracking_system.dto.*;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.*;
+import com.project.tracking_system.dto.TrackingResultAdd;
+import com.project.tracking_system.service.track.TrackConstants;
 import com.project.tracking_system.service.track.TrackDeletionService;
-import com.project.tracking_system.service.track.TrackUpdateCoordinatorService;
 import com.project.tracking_system.service.track.TrackMeta;
+import com.project.tracking_system.service.track.TrackUpdateCoordinatorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -325,11 +327,23 @@ public class AdminService {
      *
      * @param id идентификатор посылки
      */
-    public void forceUpdateParcel(Long id) {
+    public TrackingResultAdd forceUpdateParcel(Long id) {
         TrackParcel parcel = trackParcelRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Посылка не найдена"));
-        TrackMeta meta = new TrackMeta(parcel.getNumber(), parcel.getStore().getId(), null, true);
-        trackUpdateCoordinatorService.process(List.of(meta), parcel.getUser().getId());
+
+        TrackMeta meta = new TrackMeta(
+                parcel.getNumber(),
+                parcel.getStore().getId(),
+                null,
+                true
+        );
+
+        // Обновляем трек через координатор и берём первый результат
+        List<TrackingResultAdd> results =
+                trackUpdateCoordinatorService.process(List.of(meta), parcel.getUser().getId());
+        return results.isEmpty()
+                ? new TrackingResultAdd(meta.number(), TrackConstants.NO_DATA_STATUS)
+                : results.get(0);
     }
 
     /**
