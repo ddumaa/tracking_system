@@ -2,21 +2,35 @@ package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.entity.PostalServiceType;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Распределяет сгруппированные треки между специализированными процессорами.
  */
 @Service
-@RequiredArgsConstructor
 public class TrackUpdateDispatcherService {
 
-    private final List<TrackUpdateProcessor> processors;
+    /**
+     * Карта соответствия типа почтовой службы его процессору.
+     */
+    private final Map<PostalServiceType, TrackUpdateProcessor> processorMap;
+
+    /**
+     * Создает сервис и инициализирует карту процессоров.
+     *
+     * @param processors список доступных процессоров
+     */
+    public TrackUpdateDispatcherService(List<TrackUpdateProcessor> processors) {
+        this.processorMap = processors.stream()
+                .collect(Collectors.toUnmodifiableMap(TrackUpdateProcessor::supportedType,
+                        Function.identity()));
+    }
 
     /**
      * Передает каждую группу треков своему процессору.
@@ -31,10 +45,10 @@ public class TrackUpdateDispatcherService {
             return results;
         }
         for (Map.Entry<PostalServiceType, List<TrackMeta>> entry : grouped.entrySet()) {
-            processors.stream()
-                    .filter(p -> p.supportedType() == entry.getKey())
-                    .findFirst()
-                    .ifPresent(p -> results.addAll(p.process(entry.getValue(), userId)));
+            TrackUpdateProcessor processor = processorMap.get(entry.getKey());
+            if (processor != null) {
+                results.addAll(processor.process(entry.getValue(), userId));
+            }
         }
         return results;
     }
