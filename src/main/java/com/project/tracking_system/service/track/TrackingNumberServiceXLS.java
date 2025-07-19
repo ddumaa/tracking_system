@@ -27,7 +27,9 @@ import java.util.Map;
  *
  * @author Dmitriy Anisimov
  * @date Добавлено 07.01.2025
+ * @deprecated Используйте {@link TrackExcelParser} вместо этого метода.
  */
+@Deprecated
 @Slf4j
 @RequiredArgsConstructor
 @Service
