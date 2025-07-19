@@ -2,6 +2,7 @@ package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.entity.PostalServiceType;
+import com.project.tracking_system.service.track.TrackUpdateDispatcherService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,13 +26,13 @@ class TrackUpdateCoordinatorServiceTest {
     @Mock
     private TrackUploadGroupingService groupingService;
     @Mock
-    private TrackBatchProcessingService batchProcessingService;
+    private TrackUpdateDispatcherService dispatcherService;
 
     private TrackUpdateCoordinatorService service;
 
     @BeforeEach
     void setUp() {
-        service = new TrackUpdateCoordinatorService(groupingService, batchProcessingService);
+        service = new TrackUpdateCoordinatorService(groupingService, dispatcherService);
     }
 
     @Test
@@ -40,7 +41,7 @@ class TrackUpdateCoordinatorServiceTest {
         Map<PostalServiceType, List<TrackMeta>> grouped = Map.of(PostalServiceType.BELPOST, List.of(meta));
         when(groupingService.group(anyList())).thenReturn(grouped);
         List<TrackingResultAdd> expected = List.of(new TrackingResultAdd("A1", "ok"));
-        when(batchProcessingService.processBatch(grouped, 5L)).thenReturn(expected);
+        when(dispatcherService.dispatch(grouped, 5L)).thenReturn(expected);
 
         List<TrackingResultAdd> actual = service.process(List.of(meta), 5L);
 
