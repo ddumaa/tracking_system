@@ -3,6 +3,7 @@ package com.project.tracking_system.service.track;
 import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
 import com.project.tracking_system.service.user.UserService;
@@ -30,6 +31,21 @@ public class TrackParcelService {
     private final UserService userService;
     private final TrackParcelRepository trackParcelRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
+
+    /**
+     * Возвращает тип почтовой службы для сохранённой посылки.
+     *
+     * @param number номер посылки
+     * @return тип службы или {@code null}, если посылка не найдена
+     */
+    @Transactional(readOnly = true)
+    public PostalServiceType getPostalServiceType(String number) {
+        TrackParcel parcel = trackParcelRepository.findByNumberWithStoreAndUser(number);
+        if (parcel != null && parcel.getDeliveryHistory() != null) {
+            return parcel.getDeliveryHistory().getPostalService();
+        }
+        return null;
+    }
 
     /**
      * Проверяет, принадлежит ли посылка пользователю.
