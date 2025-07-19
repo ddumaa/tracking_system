@@ -22,6 +22,16 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class TrackMetaValidator {
 
+    /**
+     * Временное представление трека в процессе валидации.
+     * <p>
+     * Хранит данные, необходимые для проверки и нормализации,
+     * до применения лимитов на сохранение новых треков.
+     * </p>
+     */
+    private static record TempMeta(String number, Long storeId, String phone, boolean isNew) {
+    }
+
     private final TrackParcelService trackParcelService;
     private final SubscriptionService subscriptionService;
     private final StoreService storeService;
@@ -49,8 +59,6 @@ public class TrackMetaValidator {
         int maxLimit = subscriptionService.canUploadTracks(userId, validRows.size());
 
         // Временная структура для подготовки данных
-        record TempMeta(String number, Long storeId, String phone, boolean isNew) {}
-
         List<TempMeta> tempMetaList = new ArrayList<>();
         int processed = 0;
 
