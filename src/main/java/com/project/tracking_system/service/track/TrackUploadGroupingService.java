@@ -19,15 +19,25 @@ public class TrackUploadGroupingService {
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
 
     /**
-     * Раскладывает треки по типам почтовых служб.
+     * Раскладывает треки по типам почтовых служб, пропуская неопределённые.
+     * <p>
+     * Если {@link TypeDefinitionTrackPostService#detectPostalService(String)}
+     * возвращает {@link PostalServiceType#UNKNOWN}, такой трек не попадает в
+     * итоговую карту. Это позволяет избежать дальнейшей обработки
+     * неподдерживаемых номеров.
+     * </p>
      *
      * @param tracks валидированные трек-метаданные
-     * @return отображение "служба → список треков"
+     * @return отображение «служба → список треков» без UNKNOWN
      */
     public Map<PostalServiceType, List<TrackMeta>> group(List<TrackMeta> tracks) {
         Map<PostalServiceType, List<TrackMeta>> grouped = new EnumMap<>(PostalServiceType.class);
         for (TrackMeta meta : tracks) {
             PostalServiceType type = typeDefinitionTrackPostService.detectPostalService(meta.number());
+            if (type == PostalServiceType.UNKNOWN) {
+                // UNKNOWN сервисы пропускаем
+                continue;
+            }
             grouped.computeIfAbsent(type, k -> new ArrayList<>()).add(meta);
         }
         return grouped;
