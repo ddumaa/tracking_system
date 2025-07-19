@@ -1,8 +1,6 @@
 package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.controller.WebSocketController;
-import com.project.tracking_system.dto.TrackInfoDTO;
-import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.Store;
@@ -12,6 +10,8 @@ import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.service.track.TrackUpdateCoordinatorService;
+import com.project.tracking_system.dto.TrackingResultAdd;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,7 +22,6 @@ import org.springframework.scheduling.concurrent.ConcurrentTaskExecutor;
 
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -41,7 +40,7 @@ class TrackUpdateServiceTest {
     @Mock
     private WebSocketController webSocketController;
     @Mock
-    private TrackProcessingService trackProcessingService;
+    private TrackUpdateCoordinatorService coordinatorService;
     @Mock
     private SubscriptionService subscriptionService;
     @Mock
@@ -58,7 +57,7 @@ class TrackUpdateServiceTest {
     void setUp() {
         executor = new ConcurrentTaskExecutor(Executors.newFixedThreadPool(2));
         service = new TrackUpdateService(webSocketController,
-                trackProcessingService,
+                coordinatorService,
                 subscriptionService,
                 storeRepository,
                 trackParcelRepository,
@@ -77,7 +76,7 @@ class TrackUpdateServiceTest {
 
         assertFalse(result.isSuccess());
         verify(webSocketController).sendUpdateStatus(eq(1L), anyString(), eq(false));
-        verifyNoInteractions(trackProcessingService);
+        verifyNoInteractions(coordinatorService);
     }
 
     /**
@@ -95,10 +94,8 @@ class TrackUpdateServiceTest {
         );
         when(trackParcelService.findAllByUserTracks(1L)).thenReturn(parcels);
 
-        TrackInfoListDTO dto = new TrackInfoListDTO();
-        dto.addTrackInfo(new TrackInfoDTO("t", "info"));
-        when(trackProcessingService.processTrack(anyString(), anyLong(), eq(1L), eq(true)))
-                .thenReturn(dto);
+        List<TrackingResultAdd> results = List.of(new TrackingResultAdd("A1", "ok"));
+        when(coordinatorService.process(anyList(), eq(1L))).thenReturn(results);
 
         CountDownLatch latch = new CountDownLatch(1);
         doAnswer(inv -> { latch.countDown(); return null; })
@@ -110,7 +107,7 @@ class TrackUpdateServiceTest {
         assertEquals(2, start.getRequestedCount());
 
         assertTrue(latch.await(1, TimeUnit.SECONDS), "Notification should be sent");
-        verify(trackProcessingService).processTrack("A1", 22L, 1L, true);
+        verify(coordinatorService).process(anyList(), eq(1L));
         verify(webSocketController).sendUpdateStatus(eq(1L), contains("запущено"), eq(true));
         verify(webSocketController).sendDetailUpdateStatus(eq(1L), any(UpdateResult.class));
     }
@@ -127,10 +124,8 @@ class TrackUpdateServiceTest {
                 .thenReturn(List.of(finalParcel, first, second));
         when(subscriptionService.canUpdateTracks(1L, 2)).thenReturn(1);
 
-        TrackInfoListDTO dto = new TrackInfoListDTO();
-        dto.addTrackInfo(new TrackInfoDTO("t", "info"));
-        when(trackProcessingService.processTrack(anyString(), anyLong(), eq(1L), eq(true)))
-                .thenReturn(dto);
+        List<TrackingResultAdd> resultList = List.of(new TrackingResultAdd("A1", "ok"));
+        when(coordinatorService.process(anyList(), eq(1L))).thenReturn(resultList);
 
         CountDownLatch latch = new CountDownLatch(1);
         doAnswer(inv -> { latch.countDown(); return null; })
@@ -141,8 +136,8 @@ class TrackUpdateServiceTest {
         assertEquals(1, result.getUpdateCount());
 
         assertTrue(latch.await(1, TimeUnit.SECONDS), "Notification should be sent");
-        verify(trackProcessingService).processTrack("A1", 22L, 1L, true);
-        verify(trackProcessingService, times(1)).processTrack(anyString(), anyLong(), eq(1L), eq(true));
+        verify(coordinatorService).process(anyList(), eq(1L));
+        verify(coordinatorService, times(1)).process(anyList(), eq(1L));
         verify(trackParcelService).incrementUpdateCount(1L, 1);
         verify(webSocketController).sendDetailUpdateStatus(eq(1L), any(UpdateResult.class));
         verify(webSocketController, never()).sendUpdateStatus(eq(1L), anyString(), anyBoolean());
