@@ -26,7 +26,6 @@ import java.util.Map;
 public class TrackUpdateService {
 
     private final WebSocketController webSocketController;
-    private final TrackUpdateCoordinatorService trackUpdateCoordinatorService;
     private final SubscriptionService subscriptionService;
     private final StoreRepository storeRepository;
     private final TrackParcelRepository trackParcelRepository;
@@ -35,7 +34,6 @@ public class TrackUpdateService {
     private final TrackUpdateDispatcherService dispatcherService;
 
     public TrackUpdateService(WebSocketController webSocketController,
-                              TrackUpdateCoordinatorService trackUpdateCoordinatorService,
                               SubscriptionService subscriptionService,
                               StoreRepository storeRepository,
                               TrackParcelRepository trackParcelRepository,
@@ -43,7 +41,6 @@ public class TrackUpdateService {
                               TrackUploadGroupingService groupingService,
                               TrackUpdateDispatcherService dispatcherService) {
         this.webSocketController = webSocketController;
-        this.trackUpdateCoordinatorService = trackUpdateCoordinatorService;
         this.subscriptionService = subscriptionService;
         this.storeRepository = storeRepository;
         this.trackParcelRepository = trackParcelRepository;
@@ -108,7 +105,7 @@ public class TrackUpdateService {
                             parcel.getDeliveryHistory() != null ? parcel.getDeliveryHistory().getPostalService() : null))
                     .toList();
 
-            List<TrackingResultAdd> results = trackUpdateCoordinatorService.process(metas, userId);
+            List<TrackingResultAdd> results = process(metas, userId);
 
             int updatedCount = (int) results.stream()
                     .filter(r -> !TrackConstants.NO_DATA_STATUS.equals(r.getStatus()))
@@ -198,7 +195,7 @@ public class TrackUpdateService {
                             parcel.getDeliveryHistory() != null ? parcel.getDeliveryHistory().getPostalService() : null))
                     .toList();
 
-            List<TrackingResultAdd> results = trackUpdateCoordinatorService.process(metas, userId);
+            List<TrackingResultAdd> results = process(metas, userId);
 
             int updatedCount = (int) results.stream()
                     .filter(r -> !TrackConstants.NO_DATA_STATUS.equals(r.getStatus()))
@@ -242,7 +239,7 @@ public class TrackUpdateService {
      * @param userId идентификатор пользователя
      * @return список объединенных результатов
      */
-    public List<TrackingResultAdd> process(List<TrackMeta> tracks, Long userId) {
+    private List<TrackingResultAdd> process(List<TrackMeta> tracks, Long userId) {
         Map<PostalServiceType, List<TrackMeta>> grouped = groupingService.group(tracks);
         return dispatcherService.dispatch(grouped, userId);
     }
