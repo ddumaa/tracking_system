@@ -3,6 +3,7 @@ package com.project.tracking_system.service.track;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.entity.PostalServiceType;
+import com.project.tracking_system.service.track.TrackConstants;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
@@ -45,5 +46,18 @@ public class EvropostTrackUpdateProcessor implements TrackUpdateProcessor {
                 .toList();
         futures.forEach(f -> results.add(f.join()));
         return results;
+    }
+
+    @Override
+    public TrackingResultAdd process(TrackMeta meta) {
+        if (meta == null) {
+            return new TrackingResultAdd(null, TrackConstants.NO_DATA_STATUS, new TrackInfoListDTO());
+        }
+        TrackInfoListDTO info = trackFacade.processTrack(
+                meta.number(), meta.storeId(), null, meta.canSave(), meta.phone());
+        String status = info.getList().isEmpty()
+                ? TrackConstants.NO_DATA_STATUS
+                : info.getList().get(0).getInfoTrack();
+        return new TrackingResultAdd(meta.number(), status, info);
     }
 }

@@ -1,12 +1,14 @@
 package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.dto.TrackingResultAdd;
+import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.entity.PostalServiceType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.project.tracking_system.service.track.TrackServiceClassifier;
 
 import java.util.List;
 import java.util.Map;
@@ -24,6 +26,8 @@ class TrackUpdateDispatcherServiceTest {
     private TrackUpdateProcessor belpostProcessor;
     @Mock
     private TrackUpdateProcessor evropostProcessor;
+    @Mock
+    private TrackServiceClassifier classifier;
 
     private TrackUpdateDispatcherService dispatcher;
 
@@ -31,7 +35,7 @@ class TrackUpdateDispatcherServiceTest {
     void setUp() {
         when(belpostProcessor.supportedType()).thenReturn(PostalServiceType.BELPOST);
         when(evropostProcessor.supportedType()).thenReturn(PostalServiceType.EVROPOST);
-        dispatcher = new TrackUpdateDispatcherService(List.of(belpostProcessor, evropostProcessor));
+        dispatcher = new TrackUpdateDispatcherService(List.of(belpostProcessor, evropostProcessor), classifier);
     }
 
     @Test
@@ -48,5 +52,16 @@ class TrackUpdateDispatcherServiceTest {
         List<TrackingResultAdd> result = dispatcher.dispatch(map, 5L);
 
         assertEquals(2, result.size());
+    }
+
+    @Test
+    void dispatchSingle_ResolvesServiceAndCallsProcessor() {
+        TrackMeta meta = new TrackMeta("B1", null, null, false);
+        when(classifier.detect("B1")).thenReturn(PostalServiceType.BELPOST);
+        when(belpostProcessor.process(meta)).thenReturn(new TrackingResultAdd("B1", "ok", new TrackInfoListDTO()));
+
+        TrackingResultAdd result = dispatcher.dispatch(meta);
+
+        assertEquals("B1", result.getTrackingNumber());
     }
 }
