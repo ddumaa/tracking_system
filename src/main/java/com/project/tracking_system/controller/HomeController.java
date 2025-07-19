@@ -1,10 +1,12 @@
 package com.project.tracking_system.controller;
 
-import com.project.tracking_system.dto.TrackInfoListDTO;
+import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.store.StoreService;
-import com.project.tracking_system.service.track.TrackFacade;
+import com.project.tracking_system.service.track.TrackConstants;
+import com.project.tracking_system.service.track.TrackMeta;
+import com.project.tracking_system.service.track.TrackUpdateCoordinatorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -29,7 +31,7 @@ import java.util.List;
 @RequestMapping("/app")
 public class HomeController {
 
-    private final TrackFacade trackFacade;
+    private final TrackUpdateCoordinatorService trackUpdateCoordinatorService;
     private final StoreService storeService;
 
     /**
@@ -48,16 +50,18 @@ public class HomeController {
     }
 
     /**
-     * Обрабатывает POST-запросы на главной странице.
+     * Обрабатывает POST-запрос от формы отслеживания.
      * <p>
-     * Выполняет отслеживание посылки по номеру, а также связывает её с покупателем при указании телефона.
+     * На основе введённых данных формирует {@link TrackMeta} и передаёт его
+     * в {@link TrackUpdateCoordinatorService}, что обеспечивает единый механизм
+     * детектирования почтовой службы и сохранения трека.
      * </p>
      *
      * @param number  номер посылки
      * @param storeId идентификатор магазина
      * @param phone   телефон покупателя
      * @param model   модель представления
-     * @param user    аутентифицированный пользователь
+     * @param user    текущий пользователь
      * @return имя представления домашней страницы
      */
     @PostMapping
@@ -78,16 +82,19 @@ public class HomeController {
         model.addAttribute("stores", stores);
 
         try {
-            // trackParcelService реализует логику с посылкой!
-            TrackInfoListDTO trackInfo = trackFacade.processTrack(number, storeId, userId, canSave, phone);
+            // Используем общий механизм обновления, как и при пакетной загрузке
+            TrackMeta meta = new TrackMeta(number.toUpperCase(), storeId, phone, canSave);
+            List<TrackingResultAdd> results =
+                    trackUpdateCoordinatorService.process(List.of(meta), userId);
 
-            if (trackInfo == null || trackInfo.getList().isEmpty()) {
+            if (results.isEmpty() ||
+                    results.get(0).getStatus().equals(TrackConstants.NO_DATA_STATUS)) {
                 model.addAttribute("customError", "Нет данных для указанного номера посылки.");
                 log.warn("Нет данных для номера: {}", number);
                 return "app/home";
             }
 
-            model.addAttribute("trackInfo", trackInfo);
+            model.addAttribute("trackingResults", results);
         } catch (IllegalArgumentException e) {
             model.addAttribute("customError", e.getMessage());
             log.warn("Ошибка: {}", e.getMessage());
