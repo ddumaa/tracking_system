@@ -1421,26 +1421,20 @@ document.addEventListener("DOMContentLoaded", function () {
      * Отправления - модальное окно каждого трека с информацией
      */
     document.body.addEventListener("click", function (event) {
-        if (event.target.closest(".open-modal")) {
-            const button = event.target.closest(".open-modal");
-            const itemNumber = button.getAttribute("data-itemnumber");
-            loadModal(itemNumber);
-        }
-    });
+        const target = event.target;
 
-    document.body.addEventListener("click", function (event) {
-        if (event.target.closest(".customer-icon")) {
-            const icon = event.target.closest(".customer-icon");
-            const trackId = icon.getAttribute("data-trackid");
-            loadCustomerInfo(trackId);
+        const openModalButton = target.closest(".open-modal, .btn-link");
+        if (openModalButton) {
+            const itemNumber = openModalButton.getAttribute("data-itemnumber");
+            if (itemNumber) loadModal(itemNumber);
+            return;
         }
-    });
 
-    document.body.addEventListener("click", function (event) {
-        if (event.target.closest(".btn-link")) {
-            const button = event.target.closest(".btn-link");
-            const itemNumber = button.getAttribute("data-itemnumber");
-            loadModal(itemNumber);
+        const customerIcon = target.closest(".customer-icon");
+        if (customerIcon) {
+            const trackId = customerIcon.getAttribute("data-trackid");
+            if (trackId) loadCustomerInfo(trackId);
+            return;
         }
     });
 
