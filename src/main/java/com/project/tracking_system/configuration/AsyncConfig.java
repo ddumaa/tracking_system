@@ -72,4 +72,25 @@ public class AsyncConfig {
         executor.initialize();
         return executor;
     }
+
+    /**
+     * Отдельный пул потоков для пакетной загрузки треков.
+     * <p>
+     * Используется при {@link com.project.tracking_system.service.track.TrackBatchProcessingService}
+     * для выполнения запросов Европочты параллельно. Ограничения по потокам
+     * задают верхнюю границу нагрузки от одновременных загрузок.
+     * </p>
+     *
+     * @return executor для задач пакетной загрузки
+     */
+    @Bean(name = "batchUploadExecutor")
+    public TaskExecutor batchUploadExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2); // минимально 2 потока
+        executor.setMaxPoolSize(4); // не более 4 одновременных задач
+        executor.setQueueCapacity(50); // очередь на 50 задач
+        executor.setThreadNamePrefix("BatchUpload-");
+        executor.initialize();
+        return executor;
+    }
 }

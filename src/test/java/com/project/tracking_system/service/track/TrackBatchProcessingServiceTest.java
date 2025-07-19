@@ -10,6 +10,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.concurrent.ConcurrentTaskExecutor;
+
+import java.util.concurrent.Executors;
 
 import java.util.List;
 import java.util.Map;
@@ -29,10 +33,12 @@ class TrackBatchProcessingServiceTest {
     private WebBelPostBatchService webBelPostBatchService;
 
     private TrackBatchProcessingService service;
+    private TaskExecutor executor;
 
     @BeforeEach
     void setUp() {
-        service = new TrackBatchProcessingService(trackFacade, webBelPostBatchService);
+        executor = new ConcurrentTaskExecutor(Executors.newFixedThreadPool(2));
+        service = new TrackBatchProcessingService(trackFacade, webBelPostBatchService, executor);
     }
 
     @Test
