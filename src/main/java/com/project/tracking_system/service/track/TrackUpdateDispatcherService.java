@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Dispatches grouped track batches to appropriate processors.
+ * Распределяет сгруппированные треки между специализированными процессорами.
  */
 @Service
 @RequiredArgsConstructor
@@ -19,11 +19,11 @@ public class TrackUpdateDispatcherService {
     private final List<TrackUpdateProcessor> processors;
 
     /**
-     * Routes each group of tracks to its dedicated processor.
+     * Передает каждую группу треков своему процессору.
      *
-     * @param grouped tracks grouped by postal service
-     * @param userId  identifier of the user performing update
-     * @return list of aggregated results from all processors
+     * @param grouped карта «служба → список треков»
+     * @param userId  идентификатор пользователя
+     * @return список собранных результатов обработки
      */
     public List<TrackingResultAdd> dispatch(Map<PostalServiceType, List<TrackMeta>> grouped, Long userId) {
         List<TrackingResultAdd> results = new ArrayList<>();
