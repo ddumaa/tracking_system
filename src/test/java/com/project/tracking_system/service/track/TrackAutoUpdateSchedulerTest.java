@@ -8,6 +8,8 @@ import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.user.UserService;
+import com.project.tracking_system.dto.TrackingResultAdd;
+import com.project.tracking_system.service.track.TrackUpdateCoordinatorService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,6 +21,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.*;
 
 /**
@@ -32,7 +35,7 @@ class TrackAutoUpdateSchedulerTest {
     @Mock
     private TrackParcelRepository trackParcelRepository;
     @Mock
-    private TrackProcessingService trackProcessingService;
+    private TrackUpdateCoordinatorService coordinatorService;
     @Mock
     private SubscriptionService subscriptionService;
     @Mock
@@ -45,7 +48,7 @@ class TrackAutoUpdateSchedulerTest {
         scheduler = new TrackAutoUpdateScheduler(
                 userSubscriptionRepository,
                 trackParcelRepository,
-                trackProcessingService,
+                coordinatorService,
                 subscriptionService,
                 userService
         );
@@ -67,11 +70,14 @@ class TrackAutoUpdateSchedulerTest {
         when(trackParcelRepository.findByUserId(1L)).thenReturn(List.of(parcel));
         when(subscriptionService.canUpdateTracks(1L, 1)).thenReturn(1);
 
+        when(coordinatorService.process(anyList(), eq(1L)))
+                .thenReturn(List.of(new TrackingResultAdd("A1", "ok")));
+
         scheduler.updateAllUsersTracks();
 
         verify(trackParcelRepository).findByUserId(1L);
         verify(trackParcelRepository, never()).findByUserId(2L);
-        verify(trackProcessingService).processTrack("A1", 10L, 1L, true);
+        verify(coordinatorService).process(anyList(), eq(1L));
     }
 
     /**
@@ -88,10 +94,12 @@ class TrackAutoUpdateSchedulerTest {
         when(trackParcelRepository.findByUserId(1L)).thenReturn(List.of(finished, active));
         when(subscriptionService.canUpdateTracks(1L, 1)).thenReturn(1);
 
+        when(coordinatorService.process(anyList(), eq(1L)))
+                .thenReturn(List.of(new TrackingResultAdd("A1", "ok")));
+
         scheduler.updateAllUsersTracks();
 
-        verify(trackProcessingService).processTrack("A1", 10L, 1L, true);
-        verify(trackProcessingService, never()).processTrack("F1", 10L, 1L, true);
+        verify(coordinatorService).process(anyList(), eq(1L));
     }
 
     /**
@@ -109,7 +117,7 @@ class TrackAutoUpdateSchedulerTest {
 
         scheduler.updateAllUsersTracks();
 
-        verify(trackProcessingService, never()).processTrack(any(), anyLong(), anyLong(), anyBoolean());
+        verify(coordinatorService, never()).process(any(), anyLong());
     }
 
     /**
