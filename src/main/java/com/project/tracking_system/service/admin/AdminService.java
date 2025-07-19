@@ -4,10 +4,13 @@ import com.project.tracking_system.dto.*;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.*;
 import com.project.tracking_system.dto.TrackingResultAdd;
+import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.track.TrackConstants;
 import com.project.tracking_system.service.track.TrackDeletionService;
 import com.project.tracking_system.service.track.TrackMeta;
-import com.project.tracking_system.service.track.TrackUpdateCoordinatorService;
+//import com.project.tracking_system.service.track.TrackUpdateCoordinatorService;
+import com.project.tracking_system.service.track.TrackUpdateService;
+import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -35,9 +38,10 @@ public class AdminService {
     private final TrackParcelRepository trackParcelRepository;
     private final UserRepository userRepository;
     private final TrackDeletionService trackDeletionService;
-    private final TrackUpdateCoordinatorService trackUpdateCoordinatorService;
-    private final com.project.tracking_system.service.user.UserService userService;
-    private final com.project.tracking_system.service.store.StoreService storeService;
+    //private final TrackUpdateCoordinatorService trackUpdateCoordinatorService;
+    private final UserService userService;
+    private final StoreService storeService;
+    private final TrackUpdateService trackUpdateService;
 
     /**
      * Подсчитать общее количество покупателей.
@@ -340,7 +344,7 @@ public class AdminService {
 
         // Обновляем трек через координатор и берём первый результат
         List<TrackingResultAdd> results =
-                trackUpdateCoordinatorService.process(List.of(meta), parcel.getUser().getId());
+                trackUpdateService.process(List.of(meta), parcel.getUser().getId());
         return results.isEmpty()
                 ? new TrackingResultAdd(meta.number(), TrackConstants.NO_DATA_STATUS)
                 : results.get(0);
