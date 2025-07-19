@@ -18,7 +18,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 /**
- * Tests for {@link TrackUpdateCoordinatorService}.
+ * Тесты для {@link TrackUpdateCoordinatorService}.
  */
 @ExtendWith(MockitoExtension.class)
 class TrackUpdateCoordinatorServiceTest {

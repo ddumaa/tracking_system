@@ -6,21 +6,21 @@ import com.project.tracking_system.entity.PostalServiceType;
 import java.util.List;
 
 /**
- * Contract for processing track updates for a specific postal service.
+ * Контракт обработчика обновлений для конкретной почтовой службы.
  */
 public interface TrackUpdateProcessor {
 
     /**
-     * @return postal service type that this processor handles
+     * @return тип почтовой службы, которую обрабатывает процессор
      */
     PostalServiceType supportedType();
 
     /**
-     * Processes the provided tracks.
+     * Обрабатывает переданные треки.
      *
-     * @param tracks tracks to process
-     * @param userId identifier of the user performing update (may be {@code null})
-     * @return list of processing results
+     * @param tracks список треков
+     * @param userId идентификатор пользователя, может быть {@code null}
+     * @return список результатов обработки
      */
     List<TrackingResultAdd> process(List<TrackMeta> tracks, Long userId);
 }

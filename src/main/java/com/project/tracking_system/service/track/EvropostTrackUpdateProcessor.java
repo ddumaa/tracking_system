@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Processor for updating tracks served by Evropost postal service.
+ * Процессор обновления треков для службы Европочты.
  */
 @Service
 @RequiredArgsConstructor

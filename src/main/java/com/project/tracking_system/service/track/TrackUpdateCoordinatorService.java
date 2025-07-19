@@ -9,11 +9,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Coordinates update of track numbers for different postal services.
+ * Координирует обновление треков различных почтовых служб.
  * <p>
- * Service groups provided {@link TrackMeta} objects by {@link PostalServiceType}
- * and delegates processing to {@link TrackUpdateDispatcherService}.
- * It is used both for file uploads and manual update flows.
+ * Сервис группирует переданные {@link TrackMeta} по {@link PostalServiceType}
+ * и передает их в {@link TrackUpdateDispatcherService}.
+ * Используется как при загрузке из файла, так и в ручных сценариях.
  * </p>
  */
 @Service
@@ -24,11 +24,11 @@ public class TrackUpdateCoordinatorService {
     private final TrackUpdateDispatcherService dispatcherService;
 
     /**
-     * Processes the given tracks for the specified user.
+     * Обрабатывает набор треков для указанного пользователя.
      *
-     * @param tracks list of track metadata
-     * @param userId id of the user performing the update
-     * @return list of aggregated processing results
+     * @param tracks список метаданных треков
+     * @param userId идентификатор пользователя
+     * @return список объединенных результатов
      */
     public List<TrackingResultAdd> process(List<TrackMeta> tracks, Long userId) {
         Map<PostalServiceType, List<TrackMeta>> grouped = groupingService.group(tracks);

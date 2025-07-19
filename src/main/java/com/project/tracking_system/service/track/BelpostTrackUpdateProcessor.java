@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Processor for updating tracks served by Belpost postal service.
+ * Процессор обновления треков для службы Белпочты.
  */
 @Service
 @RequiredArgsConstructor
