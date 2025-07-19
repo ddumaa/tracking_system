@@ -8,9 +8,10 @@ import com.project.tracking_system.entity.UpdateResult;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.service.track.StatusTrackService;
-import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.track.TrackFacade;
+import com.project.tracking_system.service.track.TrackUpdateDispatcherService;
+import com.project.tracking_system.service.track.TrackMeta;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +48,7 @@ public class DeparturesController {
     private final TrackFacade trackFacade;
     private final StatusTrackService statusTrackService;
     private final StoreService storeService;
-    private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
+    private final TrackUpdateDispatcherService trackUpdateDispatcherService;
     private final WebSocketController webSocketController;
     private final UserService userService;
 
@@ -163,8 +164,10 @@ public class DeparturesController {
             throw new RuntimeException("Ошибка доступа: Посылка не принадлежит пользователю.");
         }
 
-        // Получаем информацию о посылке
-        TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(userId, itemNumber);
+        // Собираем метаданные и передаём в общий диспетчер
+        TrackMeta meta = new TrackMeta(itemNumber, null, null, false,
+                trackParcelService.getPostalServiceType(itemNumber));
+        TrackInfoListDTO trackInfo = trackUpdateDispatcherService.dispatch(meta).getTrackInfo();
         log.info("🎯 Передача в шаблон: {} записей для трека {}", trackInfo.getList().size(), itemNumber);
 
         model.addAttribute("trackInfo", trackInfo);
