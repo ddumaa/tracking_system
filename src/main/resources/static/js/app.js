@@ -1427,6 +1427,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (openModalButton) {
             const itemNumber = openModalButton.getAttribute("data-itemnumber");
             if (itemNumber) loadModal(itemNumber);
+            console.log('loadModal called:', itemNumber)
             return;
         }
 
