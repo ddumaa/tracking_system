@@ -121,6 +121,33 @@ class TrackAutoUpdateSchedulerTest {
     }
 
     /**
+     * Убеждаемся, что ошибка обновления одного пользователя не влияет на других.
+     */
+    @Test
+    void updateAllUsersTracks_ContinueOnUserError() {
+        when(userSubscriptionRepository.findUserIdsByFeature(FeatureKey.AUTO_UPDATE))
+                .thenReturn(List.of(1L, 2L));
+        when(userService.isAutoUpdateEnabled(anyLong())).thenReturn(true);
+
+        TrackParcel parcel1 = buildParcel("A1", GlobalStatus.IN_TRANSIT, 10L);
+        TrackParcel parcel2 = buildParcel("A2", GlobalStatus.IN_TRANSIT, 11L);
+        when(trackParcelRepository.findByUserId(1L)).thenReturn(List.of(parcel1));
+        when(trackParcelRepository.findByUserId(2L)).thenReturn(List.of(parcel2));
+
+        when(subscriptionService.canUpdateTracks(anyLong(), eq(1))).thenReturn(1);
+
+        when(coordinatorService.process(anyList(), eq(1L)))
+                .thenThrow(new RuntimeException("fail"));
+        when(coordinatorService.process(anyList(), eq(2L)))
+                .thenReturn(List.of(new TrackingResultAdd("A2", "ok")));
+
+        scheduler.updateAllUsersTracks();
+
+        verify(coordinatorService).process(anyList(), eq(1L));
+        verify(coordinatorService).process(anyList(), eq(2L));
+    }
+
+    /**
      * Создаёт посылку с заданными параметрами.
      */
     private TrackParcel buildParcel(String number, GlobalStatus status, Long storeId) {
