@@ -85,7 +85,12 @@ public class TrackAutoUpdateScheduler {
 
         List<TrackMeta> metas = toUpdate.stream()
                 .limit(Math.min(allowed, toUpdate.size()))
-                .map(p -> new TrackMeta(p.getNumber(), p.getStore().getId(), null, true))
+                .map(p -> new TrackMeta(
+                        p.getNumber(),
+                        p.getStore().getId(),
+                        null,
+                        true,
+                        p.getDeliveryHistory() != null ? p.getDeliveryHistory().getPostalService() : null))
                 .toList();
 
         List<TrackingResultAdd> results = trackUpdateCoordinatorService.process(metas, userId);

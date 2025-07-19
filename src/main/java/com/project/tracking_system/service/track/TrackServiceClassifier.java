@@ -33,7 +33,7 @@ public class TrackServiceClassifier {
     public Map<PostalServiceType, List<TrackMeta>> classify(List<TrackMeta> tracks) {
         Map<PostalServiceType, List<TrackMeta>> grouped = new EnumMap<>(PostalServiceType.class);
         for (TrackMeta meta : tracks) {
-            PostalServiceType type = typeDefinitionTrackPostService.detectPostalService(meta.number());
+            PostalServiceType type = detect(meta.number());
             if (type == PostalServiceType.UNKNOWN) {
                 // Номера с неопределённым форматом пропускаем
                 continue;
@@ -41,5 +41,15 @@ public class TrackServiceClassifier {
             grouped.computeIfAbsent(type, k -> new ArrayList<>()).add(meta);
         }
         return grouped;
+    }
+
+    /**
+     * Detects postal service type for a single track number.
+     *
+     * @param number track number
+     * @return detected postal service type
+     */
+    public PostalServiceType detect(String number) {
+        return typeDefinitionTrackPostService.detectPostalService(number);
     }
 }

@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.EnumMap;
 
 /**
  * Сервис группировки валидированных треков по почтовым службам.
@@ -27,6 +29,17 @@ public class TrackUploadGroupingService {
      * @return карта «служба → список треков» без UNKNOWN
      */
     public Map<PostalServiceType, List<TrackMeta>> group(List<TrackMeta> tracks) {
-        return trackServiceClassifier.classify(tracks);
+        Map<PostalServiceType, List<TrackMeta>> grouped = new EnumMap<>(PostalServiceType.class);
+        for (TrackMeta meta : tracks) {
+            PostalServiceType type = meta.postalServiceType();
+            if (type == null) {
+                type = trackServiceClassifier.detect(meta.number());
+            }
+            if (type == PostalServiceType.UNKNOWN) {
+                continue;
+            }
+            grouped.computeIfAbsent(type, k -> new ArrayList<>()).add(meta);
+        }
+        return grouped;
     }
 }

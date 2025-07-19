@@ -1,7 +1,6 @@
 package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.controller.WebSocketController;
-import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.TrackParcel;
@@ -88,11 +87,9 @@ class TrackUpdateServiceTest {
         when(subscriptionService.isFeatureEnabled(1L, FeatureKey.BULK_UPDATE)).thenReturn(true);
         when(storeRepository.countByOwnerId(1L)).thenReturn(1);
 
-        List<TrackParcelDTO> parcels = List.of(
-                new TrackParcelDTO(1L, "F1", GlobalStatus.DELIVERED.getDescription(), null, null, 11L),
-                new TrackParcelDTO(2L, "A1", GlobalStatus.IN_TRANSIT.getDescription(), null, null, 22L)
-        );
-        when(trackParcelService.findAllByUserTracks(1L)).thenReturn(parcels);
+        TrackParcel finished = buildParcel("F1", GlobalStatus.DELIVERED, 11L);
+        TrackParcel active = buildParcel("A1", GlobalStatus.IN_TRANSIT, 22L);
+        when(trackParcelRepository.findByUserId(1L)).thenReturn(List.of(finished, active));
 
         List<TrackingResultAdd> results = List.of(new TrackingResultAdd("A1", "ok"));
         when(coordinatorService.process(anyList(), eq(1L))).thenReturn(results);
