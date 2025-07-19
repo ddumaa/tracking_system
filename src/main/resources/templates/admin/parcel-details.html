@@ -28,6 +28,10 @@
             </div>
         </div>
 
+        <div th:if="${updateStatus}" class="alert alert-info">
+            Статус обновлён: <span th:text="${updateStatus}"></span>
+        </div>
+
         <form th:action="@{/admin/parcels/{id}/force-update(id=${parcel.id})}" method="post" class="mb-3">
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
             <button type="submit" class="btn btn-success">Обновить статус</button>
