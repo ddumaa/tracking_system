@@ -105,7 +105,7 @@ public class TrackUpdateService {
             List<TrackingResultAdd> results = trackUpdateCoordinatorService.process(metas, userId);
 
             int updatedCount = (int) results.stream()
-                    .filter(r -> !"Нет данных".equals(r.getStatus()))
+                    .filter(r -> !TrackConstants.NO_DATA_STATUS.equals(r.getStatus()))
                     .count();
 
             int totalCount = parcelsToUpdate.size();
@@ -190,7 +190,7 @@ public class TrackUpdateService {
             List<TrackingResultAdd> results = trackUpdateCoordinatorService.process(metas, userId);
 
             int updatedCount = (int) results.stream()
-                    .filter(r -> !"Нет данных".equals(r.getStatus()))
+                    .filter(r -> !TrackConstants.NO_DATA_STATUS.equals(r.getStatus()))
                     .count();
 
             log.info("Итог обновления для userId={}: {} обновлено, {} в финальном статусе",
