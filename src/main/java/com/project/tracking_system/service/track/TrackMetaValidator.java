@@ -34,26 +34,30 @@ public class TrackMetaValidator {
      * @return результат валидации
      */
     public TrackMetaValidationResult validate(List<TrackExcelRow> rows, Long userId) {
-        // Загрузка файлов доступна только авторизованным пользователям,
-        // поэтому идентификатор пользователя обязателен
-        Objects.requireNonNull(userId, "User ID Не может быть null");
+        Objects.requireNonNull(userId, "User ID не может быть null");
         StringBuilder messageBuilder = new StringBuilder();
 
-        int maxLimit = subscriptionService.canUploadTracks(userId, Integer.MAX_VALUE);
-        int saveSlots = subscriptionService.canSaveMoreTracks(userId, Integer.MAX_VALUE);
         Long defaultStoreId = storeService.getDefaultStoreId(userId);
 
-        int processed = 0;
-        int savedNew = 0;
-        List<String> skipped = new ArrayList<>();
-        List<TrackMeta> result = new ArrayList<>();
+        // Шаг 1: фильтруем строки с непустыми номерами
+        List<TrackExcelRow> validRows = rows.stream()
+                .filter(row -> row.number() != null && !row.number().isBlank())
+                .toList();
 
-        for (TrackExcelRow row : rows) {
-            if (processed >= maxLimit) {
-                break;
-            }
+        int maxLimit = subscriptionService.canUploadTracks(userId, validRows.size());
+
+        // Временная структура для подготовки данных
+        record TempMeta(String number, Long storeId, String phone, boolean isNew) {}
+
+        List<TempMeta> tempMetaList = new ArrayList<>();
+        int processed = 0;
+
+        for (TrackExcelRow row : validRows) {
+            if (processed >= maxLimit) break;
+
             String number = row.number().toUpperCase();
             Long storeId = defaultStoreId;
+
             if (row.store() != null && !row.store().isBlank()) {
                 try {
                     storeId = Long.parseLong(row.store());
@@ -66,10 +70,12 @@ public class TrackMetaValidator {
                     }
                 }
             }
-            if (storeId != null && !storeService.userOwnsStore(storeId, userId)) {
+
+            if (!storeService.userOwnsStore(storeId, userId)) {
                 log.warn("Магазин ID={} не принадлежит пользователю ID={}", storeId, userId);
                 storeId = defaultStoreId;
             }
+
             String phone = row.phone();
             if (phone != null && !phone.isBlank()) {
                 try {
@@ -79,29 +85,44 @@ public class TrackMetaValidator {
                     phone = null;
                 }
             }
+
             boolean isNew = trackParcelService.isNewTrack(number, storeId);
-            boolean canSave;
-            if (isNew) {
-                if (savedNew < saveSlots) {
-                    canSave = true;
-                    savedNew++;
-                } else {
-                    canSave = false;
-                    skipped.add(number);
-                }
-            } else {
-                canSave = true;
-            }
-            result.add(new TrackMeta(number, storeId, phone, canSave));
+            tempMetaList.add(new TempMeta(number, storeId, phone, isNew));
             processed++;
         }
 
+        // Шаг 2: запрашиваем лимит сохранения только для новых треков
+        long totalNew = tempMetaList.stream().filter(TempMeta::isNew).count();
+        int saveSlots = subscriptionService.canSaveMoreTracks(userId, (int) totalNew);
+
+        // Шаг 3: формируем финальный список TrackMeta с учётом лимита
+        List<TrackMeta> result = new ArrayList<>();
+        List<String> skipped = new ArrayList<>();
+        int savedNew = 0;
+
+        for (TempMeta meta : tempMetaList) {
+            boolean canSave = true;
+
+            if (meta.isNew()) {
+                if (savedNew < saveSlots) {
+                    savedNew++;
+                } else {
+                    canSave = false;
+                    skipped.add(meta.number());
+                }
+            }
+
+            result.add(new TrackMeta(meta.number(), meta.storeId(), meta.phone(), canSave));
+        }
+
+        // Сообщения о превышениях
         if (rows.size() > maxLimit) {
             int skippedRows = rows.size() - maxLimit;
             messageBuilder.append(String.format(
                     "Вы загрузили %d треков, но можете проверить только %d. Пропущено %d треков.%n",
                     rows.size(), maxLimit, skippedRows));
         }
+
         if (!skipped.isEmpty()) {
             messageBuilder.append(String.format(
                     "Из %d обработанных треков не удалось сохранить %d из-за лимита подписки: %s%n",

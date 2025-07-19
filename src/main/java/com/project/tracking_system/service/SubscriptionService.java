@@ -108,7 +108,6 @@ public class SubscriptionService {
         return allowedToSave;
     }
 
-
     /**
      * Определяет, сколько обновлений треков доступно пользователю сегодня.
      * <p>
