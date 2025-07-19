@@ -21,7 +21,7 @@ public class TrackUploadProcessorService {
 
     private final TrackExcelParser parser;
     private final TrackMetaValidator validator;
-    private final TrackUpdateService service;
+    private final TrackUpdateService trackUpdateService;
 
     /**
      * Обрабатывает загруженный файл и возвращает агрегированные результаты.
@@ -34,7 +34,7 @@ public class TrackUploadProcessorService {
     public TrackingResponse process(MultipartFile file, Long userId) throws IOException {
         List<TrackExcelRow> rows = parser.parse(file);
         TrackMetaValidationResult validationResult = validator.validate(rows, userId);
-        List<TrackingResultAdd> results = service.process(validationResult.validTracks(), userId);
+        List<TrackingResultAdd> results = trackUpdateService.process(validationResult.validTracks(), userId);
         return new TrackingResponse(results, validationResult.limitExceededMessage());
     }
 

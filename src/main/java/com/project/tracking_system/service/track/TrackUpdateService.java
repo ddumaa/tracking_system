@@ -6,6 +6,7 @@ import com.project.tracking_system.repository.*;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.dto.TrackingResultAdd;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ import java.util.Map;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class TrackUpdateService {
 
     private final WebSocketController webSocketController;
@@ -32,22 +34,6 @@ public class TrackUpdateService {
     private final TrackParcelService trackParcelService;
     private final TrackUploadGroupingService groupingService;
     private final TrackUpdateDispatcherService dispatcherService;
-
-    public TrackUpdateService(WebSocketController webSocketController,
-                              SubscriptionService subscriptionService,
-                              StoreRepository storeRepository,
-                              TrackParcelRepository trackParcelRepository,
-                              TrackParcelService trackParcelService,
-                              TrackUploadGroupingService groupingService,
-                              TrackUpdateDispatcherService dispatcherService) {
-        this.webSocketController = webSocketController;
-        this.subscriptionService = subscriptionService;
-        this.storeRepository = storeRepository;
-        this.trackParcelRepository = trackParcelRepository;
-        this.trackParcelService = trackParcelService;
-        this.groupingService = groupingService;
-        this.dispatcherService = dispatcherService;
-    }
 
     /**
      * Обновляет историю всех посылок пользователя.
