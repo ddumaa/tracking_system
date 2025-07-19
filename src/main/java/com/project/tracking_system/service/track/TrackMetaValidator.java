@@ -28,8 +28,10 @@ public class TrackMetaValidator {
 
     /**
      * Валидирует сырые строки и преобразует их в {@link TrackMeta}.
+     * Метод выступает в роли координатора, собирая данные,
+     * применяя лимиты и формируя итоговый {@link TrackMetaValidationResult}.
      *
-     * @param rows  строки из XLS-файла
+     * @param rows   строки из XLS-файла
      * @param userId идентификатор пользователя, не {@code null}
      * @return результат валидации
      */
@@ -56,35 +58,8 @@ public class TrackMetaValidator {
             if (processed >= maxLimit) break;
 
             String number = row.number().toUpperCase();
-            Long storeId = defaultStoreId;
-
-            if (row.store() != null && !row.store().isBlank()) {
-                try {
-                    storeId = Long.parseLong(row.store());
-                } catch (NumberFormatException e) {
-                    Long byName = storeService.findStoreIdByName(row.store(), userId);
-                    if (byName != null) {
-                        storeId = byName;
-                    } else {
-                        log.warn("Магазин '{}' не найден, используем дефолтный", row.store());
-                    }
-                }
-            }
-
-            if (!storeService.userOwnsStore(storeId, userId)) {
-                log.warn("Магазин ID={} не принадлежит пользователю ID={}", storeId, userId);
-                storeId = defaultStoreId;
-            }
-
-            String phone = row.phone();
-            if (phone != null && !phone.isBlank()) {
-                try {
-                    phone = PhoneUtils.normalizePhone(phone);
-                } catch (Exception e) {
-                    log.warn("Некорректный телефон '{}' пропущен", phone);
-                    phone = null;
-                }
-            }
+            Long storeId = parseStoreId(row.store(), defaultStoreId, userId);
+            String phone = normalizePhone(row.phone());
 
             boolean isNew = trackParcelService.isNewTrack(number, storeId);
             tempMetaList.add(new TempMeta(number, storeId, phone, isNew));
@@ -96,24 +71,8 @@ public class TrackMetaValidator {
         int saveSlots = subscriptionService.canSaveMoreTracks(userId, (int) totalNew);
 
         // Шаг 3: формируем финальный список TrackMeta с учётом лимита
-        List<TrackMeta> result = new ArrayList<>();
         List<String> skipped = new ArrayList<>();
-        int savedNew = 0;
-
-        for (TempMeta meta : tempMetaList) {
-            boolean canSave = true;
-
-            if (meta.isNew()) {
-                if (savedNew < saveSlots) {
-                    savedNew++;
-                } else {
-                    canSave = false;
-                    skipped.add(meta.number());
-                }
-            }
-
-            result.add(new TrackMeta(meta.number(), meta.storeId(), meta.phone(), canSave));
-        }
+        List<TrackMeta> result = applySaveLimit(tempMetaList, saveSlots, skipped);
 
         // Сообщения о превышениях
         if (rows.size() > maxLimit) {
@@ -131,6 +90,74 @@ public class TrackMetaValidator {
 
         String message = messageBuilder.isEmpty() ? null : messageBuilder.toString().trim();
         return new TrackMetaValidationResult(result, message);
+    }
+
+    /**
+     * Разбирает значение магазина из файла и возвращает корректный ID магазина.
+     * Если магазин не найден или не принадлежит пользователю, возвращается ID магазина по умолчанию.
+     */
+    private Long parseStoreId(String rawStore, Long defaultStoreId, Long userId) {
+        Long storeId = defaultStoreId;
+        if (rawStore != null && !rawStore.isBlank()) {
+            try {
+                storeId = Long.parseLong(rawStore);
+            } catch (NumberFormatException e) {
+                Long byName = storeService.findStoreIdByName(rawStore, userId);
+                if (byName != null) {
+                    storeId = byName;
+                } else {
+                    log.warn("Магазин '{}' не найден, используем дефолтный", rawStore);
+                }
+            }
+        }
+
+        if (storeId != null && !storeService.userOwnsStore(storeId, userId)) {
+            log.warn("Магазин ID={} не принадлежит пользователю ID={}", storeId, userId);
+            storeId = defaultStoreId;
+        }
+        return storeId;
+    }
+
+    /**
+     * Нормализует телефонный номер получателя.
+     * В случае ошибки возвращает {@code null} и пишет предупреждение в лог.
+     */
+    private String normalizePhone(String phone) {
+        if (phone == null || phone.isBlank()) {
+            return null;
+        }
+        try {
+            return PhoneUtils.normalizePhone(phone);
+        } catch (Exception e) {
+            log.warn("Некорректный телефон '{}' пропущен", phone);
+            return null;
+        }
+    }
+
+    /**
+     * Применяет лимит сохранения новых треков.
+     * Возвращает итоговый список метаданных и заполняет список пропущенных номеров.
+     */
+    private List<TrackMeta> applySaveLimit(List<TempMeta> metaList, int saveSlots, List<String> skipped) {
+        List<TrackMeta> result = new ArrayList<>();
+        int savedNew = 0;
+
+        for (TempMeta meta : metaList) {
+            boolean canSave = true;
+
+            if (meta.isNew()) {
+                if (savedNew < saveSlots) {
+                    savedNew++;
+                } else {
+                    canSave = false;
+                    skipped.add(meta.number());
+                }
+            }
+
+            result.add(new TrackMeta(meta.number(), meta.storeId(), meta.phone(), canSave));
+        }
+
+        return result;
     }
 
 }
