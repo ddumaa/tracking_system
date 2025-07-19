@@ -38,8 +38,8 @@ public class ChromeWebDriverFactory implements WebDriverFactory {
         System.setProperty("webdriver.chrome.driver", driverPath);
 
         ChromeOptions options = new ChromeOptions();
-        options.addArguments("--headless=chrome");
-        options.addArguments("--disable-gpu");
+        //options.addArguments("--headless=chrome");
+        //options.addArguments("--disable-gpu");
         options.addArguments("--window-size=1920,1080");
         //options.addArguments("--ignore-certificate-errors");
         //options.addArguments("--no-sandbox");
