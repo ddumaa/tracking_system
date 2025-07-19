@@ -75,10 +75,10 @@ public class TrackUpdateService {
             return new UpdateResult(false, 0, 0, "У вас нет магазинов с посылками.");
         }
 
-        List<TrackParcelDTO> allParcels = trackParcelService.findAllByUserTracks(userId);
+        List<TrackParcel> allParcels = trackParcelRepository.findByUserId(userId);
 
-        List<TrackParcelDTO> parcelsToUpdate = allParcels.stream()
-                .filter(dto -> !GlobalStatus.fromDescription(dto.getStatus()).isFinal())
+        List<TrackParcel> parcelsToUpdate = allParcels.stream()
+                .filter(parcel -> !parcel.getStatus().isFinal())
                 .toList();
 
         log.info("📦 Запущено обновление всех {} треков для userId={}", parcelsToUpdate.size(), userId);
@@ -96,10 +96,15 @@ public class TrackUpdateService {
      */
     @Async("trackExecutor")
     @Transactional
-    public void processAllTrackUpdatesAsync(Long userId, List<TrackParcelDTO> parcelsToUpdate) {
+    public void processAllTrackUpdatesAsync(Long userId, List<TrackParcel> parcelsToUpdate) {
         try {
             List<TrackMeta> metas = parcelsToUpdate.stream()
-                    .map(dto -> new TrackMeta(dto.getNumber(), dto.getStoreId(), null, true))
+                    .map(parcel -> new TrackMeta(
+                            parcel.getNumber(),
+                            parcel.getStore().getId(),
+                            null,
+                            true,
+                            parcel.getDeliveryHistory() != null ? parcel.getDeliveryHistory().getPostalService() : null))
                     .toList();
 
             List<TrackingResultAdd> results = trackUpdateCoordinatorService.process(metas, userId);
@@ -184,7 +189,12 @@ public class TrackUpdateService {
             log.info("Начато обновление {} треков для userId={}", parcelsToUpdate.size(), userId);
 
             List<TrackMeta> metas = parcelsToUpdate.stream()
-                    .map(parcel -> new TrackMeta(parcel.getNumber(), parcel.getStore().getId(), null, true))
+                    .map(parcel -> new TrackMeta(
+                            parcel.getNumber(),
+                            parcel.getStore().getId(),
+                            null,
+                            true,
+                            parcel.getDeliveryHistory() != null ? parcel.getDeliveryHistory().getPostalService() : null))
                     .toList();
 
             List<TrackingResultAdd> results = trackUpdateCoordinatorService.process(metas, userId);
