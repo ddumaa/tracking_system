@@ -76,7 +76,7 @@ public class AsyncConfig {
     /**
      * Отдельный пул потоков для пакетной загрузки треков.
      * <p>
-     * Используется при {@link com.project.tracking_system.service.track.TrackBatchProcessingService}
+     * Используется при {@link com.project.tracking_system.service.track.EvropostTrackUpdateProcessor}
      * для выполнения запросов Европочты параллельно. Ограничения по потокам
      * задают верхнюю границу нагрузки от одновременных загрузок.
      * </p>

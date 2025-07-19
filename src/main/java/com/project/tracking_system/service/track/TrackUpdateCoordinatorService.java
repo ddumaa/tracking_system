@@ -12,7 +12,7 @@ import java.util.Map;
  * Coordinates update of track numbers for different postal services.
  * <p>
  * Service groups provided {@link TrackMeta} objects by {@link PostalServiceType}
- * and delegates processing to {@link TrackBatchProcessingService}.
+ * and delegates processing to {@link TrackUpdateDispatcherService}.
  * It is used both for file uploads and manual update flows.
  * </p>
  */
@@ -21,7 +21,7 @@ import java.util.Map;
 public class TrackUpdateCoordinatorService {
 
     private final TrackUploadGroupingService groupingService;
-    private final TrackBatchProcessingService batchProcessingService;
+    private final TrackUpdateDispatcherService dispatcherService;
 
     /**
      * Processes the given tracks for the specified user.
@@ -32,6 +32,6 @@ public class TrackUpdateCoordinatorService {
      */
     public List<TrackingResultAdd> process(List<TrackMeta> tracks, Long userId) {
         Map<PostalServiceType, List<TrackMeta>> grouped = groupingService.group(tracks);
-        return batchProcessingService.processBatch(grouped, userId);
+        return dispatcherService.dispatch(grouped, userId);
     }
 }
