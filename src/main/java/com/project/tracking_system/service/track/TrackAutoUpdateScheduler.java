@@ -45,11 +45,20 @@ public class TrackAutoUpdateScheduler {
 
         for (Long userId : userIds) {
             if (userService.isAutoUpdateEnabled(userId)) {
-                updateUserTracks(userId);
+                try {
+                    updateUserTracks(userId);
+                } catch (Exception e) {
+                    log.error("Не удалось автообновить треки для userId={}", userId, e);
+                }
             }
         }
     }
 
+    /**
+     * Обновляет треки для одного пользователя.
+     *
+     * @param userId идентификатор пользователя
+     */
     private void updateUserTracks(Long userId) {
         List<TrackParcel> parcels = trackParcelRepository.findByUserId(userId);
         List<TrackParcel> toUpdate = parcels.stream()
