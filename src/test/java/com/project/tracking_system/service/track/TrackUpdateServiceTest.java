@@ -9,7 +9,6 @@ import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.SubscriptionService;
-import com.project.tracking_system.service.track.TrackUpdateCoordinatorService;
 import com.project.tracking_system.dto.TrackingResultAdd;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,8 +37,6 @@ class TrackUpdateServiceTest {
     @Mock
     private WebSocketController webSocketController;
     @Mock
-    private TrackUpdateCoordinatorService coordinatorService;
-    @Mock
     private SubscriptionService subscriptionService;
     @Mock
     private StoreRepository storeRepository;
@@ -58,7 +55,6 @@ class TrackUpdateServiceTest {
     void setUp() {
         service = new TrackUpdateService(
                 webSocketController,
-                coordinatorService,
                 subscriptionService,
                 storeRepository,
                 trackParcelRepository,
@@ -79,7 +75,7 @@ class TrackUpdateServiceTest {
 
         assertFalse(result.isSuccess());
         verify(webSocketController).sendUpdateStatus(eq(1L), anyString(), eq(false));
-        verifyNoInteractions(coordinatorService);
+        verifyNoInteractions(groupingService, dispatcherService);
     }
 
     /**
@@ -96,7 +92,8 @@ class TrackUpdateServiceTest {
         when(trackParcelRepository.findByUserId(1L)).thenReturn(List.of(finished, active));
 
         List<TrackingResultAdd> results = List.of(new TrackingResultAdd("A1", "ok"));
-        when(coordinatorService.process(anyList(), eq(1L))).thenReturn(results);
+        when(groupingService.group(anyList())).thenReturn(java.util.Collections.emptyMap());
+        when(dispatcherService.dispatch(anyMap(), eq(1L))).thenReturn(results);
 
         CountDownLatch latch = new CountDownLatch(1);
         doAnswer(inv -> { latch.countDown(); return null; })
@@ -108,7 +105,8 @@ class TrackUpdateServiceTest {
         assertEquals(2, start.getRequestedCount());
 
         assertTrue(latch.await(1, TimeUnit.SECONDS), "Notification should be sent");
-        verify(coordinatorService).process(anyList(), eq(1L));
+        verify(groupingService).group(anyList());
+        verify(dispatcherService).dispatch(anyMap(), eq(1L));
         verify(webSocketController).sendUpdateStatus(eq(1L), contains("запущено"), eq(true));
         verify(webSocketController).sendDetailUpdateStatus(eq(1L), any(UpdateResult.class));
     }
@@ -126,7 +124,8 @@ class TrackUpdateServiceTest {
         when(subscriptionService.canUpdateTracks(1L, 2)).thenReturn(1);
 
         List<TrackingResultAdd> resultList = List.of(new TrackingResultAdd("A1", "ok"));
-        when(coordinatorService.process(anyList(), eq(1L))).thenReturn(resultList);
+        when(groupingService.group(anyList())).thenReturn(java.util.Collections.emptyMap());
+        when(dispatcherService.dispatch(anyMap(), eq(1L))).thenReturn(resultList);
 
         CountDownLatch latch = new CountDownLatch(1);
         doAnswer(inv -> { latch.countDown(); return null; })
@@ -137,8 +136,8 @@ class TrackUpdateServiceTest {
         assertEquals(1, result.getUpdateCount());
 
         assertTrue(latch.await(1, TimeUnit.SECONDS), "Notification should be sent");
-        verify(coordinatorService).process(anyList(), eq(1L));
-        verify(coordinatorService, times(1)).process(anyList(), eq(1L));
+        verify(groupingService).group(anyList());
+        verify(dispatcherService).dispatch(anyMap(), eq(1L));
         verify(trackParcelService).incrementUpdateCount(1L, 1);
         verify(webSocketController).sendDetailUpdateStatus(eq(1L), any(UpdateResult.class));
         verify(webSocketController, never()).sendUpdateStatus(eq(1L), anyString(), anyBoolean());
