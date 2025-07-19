@@ -50,9 +50,34 @@ public class TrackBatchProcessingService {
             return results;
         }
 
-        // Обработка Европочты параллельными задачами
+        Map<PostalServiceType, List<TrackMeta>> evroMap = Map.of(
+                PostalServiceType.EVROPOST,
+                tracksByService.getOrDefault(PostalServiceType.EVROPOST, List.of()));
+        Map<PostalServiceType, List<TrackMeta>> belMap = Map.of(
+                PostalServiceType.BELPOST,
+                tracksByService.getOrDefault(PostalServiceType.BELPOST, List.of()));
+
+        results.addAll(processEvropost(evroMap, userId));
+        results.addAll(processBelpost(belMap, userId));
+        return results;
+    }
+
+    /**
+     * Обработка треков Европочты.
+     * <p>
+     * Использует {@link CompletableFuture} для параллельных запросов,
+     * что повышает скорость при большом количестве номеров.
+     * </p>
+     */
+    private List<TrackingResultAdd> processEvropost(Map<PostalServiceType, List<TrackMeta>> tracksByService,
+                                                    Long userId) {
+        List<TrackingResultAdd> results = new ArrayList<>();
         List<TrackMeta> evroTracks = tracksByService.getOrDefault(PostalServiceType.EVROPOST, List.of());
-        List<CompletableFuture<TrackingResultAdd>> evroFutures = evroTracks.stream()
+        if (evroTracks.isEmpty()) {
+            return results;
+        }
+
+        List<CompletableFuture<TrackingResultAdd>> futures = evroTracks.stream()
                 .map(meta -> CompletableFuture.supplyAsync(() -> {
                     TrackInfoListDTO info = trackFacade.processTrack(
                             meta.number(), meta.storeId(), userId, meta.canSave(), meta.phone());
@@ -63,22 +88,38 @@ public class TrackBatchProcessingService {
                 }))
                 .toList();
 
-        evroFutures.forEach(f -> results.add(f.join()));
+        futures.forEach(f -> results.add(f.join()));
+        return results;
+    }
 
-        // Обработка Белпочты пакетным запросом
+    /**
+     * Обработка треков Белпочты пакетным запросом.
+     * <p>
+     * Для каждого номера выполняется сохранение данных при наличии пользователя
+     * и разрешении {@link TrackMeta#canSave()}.
+     * </p>
+     */
+    private List<TrackingResultAdd> processBelpost(Map<PostalServiceType, List<TrackMeta>> tracksByService,
+                                                   Long userId) {
+        List<TrackingResultAdd> results = new ArrayList<>();
         List<TrackMeta> belTracks = tracksByService.getOrDefault(PostalServiceType.BELPOST, List.of());
-        if (!belTracks.isEmpty()) {
-            Map<String, TrackInfoListDTO> infoMap = webBelPostBatchService.processBatch(
-                    belTracks.stream().map(TrackMeta::number).toList());
-            for (TrackMeta meta : belTracks) {
-                TrackInfoListDTO info = infoMap.getOrDefault(meta.number(), new TrackInfoListDTO());
-                if (userId != null && meta.canSave()) {
-                    trackFacade.saveTrackInfo(meta.number(), info, meta.storeId(), userId, meta.phone());
-                }
-                String status = info.getList().isEmpty() ? "Нет данных" : info.getList().get(0).getInfoTrack();
-                results.add(new TrackingResultAdd(meta.number(), status));
-            }
+        if (belTracks.isEmpty()) {
+            return results;
         }
+
+        Map<String, TrackInfoListDTO> infoMap = webBelPostBatchService.processBatch(
+                belTracks.stream().map(TrackMeta::number).toList());
+        for (TrackMeta meta : belTracks) {
+            TrackInfoListDTO info = infoMap.getOrDefault(meta.number(), new TrackInfoListDTO());
+            if (userId != null && meta.canSave()) {
+                trackFacade.saveTrackInfo(meta.number(), info, meta.storeId(), userId, meta.phone());
+            }
+            String status = info.getList().isEmpty()
+                    ? "Нет данных"
+                    : info.getList().get(0).getInfoTrack();
+            results.add(new TrackingResultAdd(meta.number(), status));
+        }
+
         return results;
     }
 }
