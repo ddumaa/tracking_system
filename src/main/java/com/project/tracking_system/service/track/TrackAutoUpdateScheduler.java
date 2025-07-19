@@ -83,7 +83,7 @@ public class TrackAutoUpdateScheduler {
         List<TrackingResultAdd> results = trackUpdateCoordinatorService.process(metas, userId);
 
         long updated = results.stream()
-                .filter(r -> !"Нет данных".equals(r.getStatus()))
+                .filter(r -> !TrackConstants.NO_DATA_STATUS.equals(r.getStatus()))
                 .count();
 
         if (updated > 0) {
