@@ -1,7 +1,11 @@
 package com.project.tracking_system.service.track;
 
-import com.project.tracking_system.dto.TrackInfoListDTO;
-import com.project.tracking_system.dto.TrackingResultAdd;
+import com.project.tracking_system.entity.PostalServiceType;
+import com.project.tracking_system.service.track.TrackBatchData;
+import com.project.tracking_system.service.track.TrackMeta;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.mock.web.MockMultipartFile;
+import java.io.ByteArrayOutputStream;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.track.TrackParcelService;
@@ -45,24 +49,26 @@ class TrackingNumberServiceXLSTest {
     }
 
     @Test
-    void processSingleTracking_EmptyInfo_ReturnsNoData() throws Exception {
-        TrackInfoListDTO dto = new TrackInfoListDTO();
-        when(trackFacade.processTrack(anyString(), any(), any(), anyBoolean(), any())).thenReturn(dto);
+    void processTrackingNumber_GuestUser_ParsesTracks() throws Exception {
+        XSSFWorkbook workbook = new XSSFWorkbook();
+        var sheet = workbook.createSheet();
+        sheet.createRow(0).createCell(0).setCellValue("num");
+        sheet.createRow(1).createCell(0).setCellValue("AA111");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        workbook.write(out);
 
-        var method = TrackingNumberServiceXLS.class.getDeclaredMethod(
-                "processSingleTracking",
-                String.class,
-                Long.class,
-                Long.class,
-                boolean.class,
-                String.class
-        );
-        method.setAccessible(true);
+        MockMultipartFile file = new MockMultipartFile("file", out.toByteArray());
 
-        TrackingResultAdd result = (TrackingResultAdd) method.invoke(service,
-                "AA111", null, 1L, true, null);
+        when(typeDefinitionTrackPostService.detectPostalService("AA111"))
+                .thenReturn(PostalServiceType.BELPOST);
 
-        assertEquals("AA111", result.getTrackingNumber());
-        assertEquals("Нет данных", result.getStatus());
+        TrackBatchData result = service.processTrackingNumber(file, null);
+
+        assertNull(result.limitExceededMessage());
+        assertEquals(1, result.tracksByService().get(PostalServiceType.BELPOST).size());
+
+        TrackMeta meta = result.tracksByService().get(PostalServiceType.BELPOST).get(0);
+        assertEquals("AA111", meta.number());
+        assertNull(meta.storeId());
     }
 }
