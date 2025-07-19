@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Проверяет и нормализует сырые данные треков.
@@ -29,19 +30,18 @@ public class TrackMetaValidator {
      * Валидирует сырые строки и преобразует их в {@link TrackMeta}.
      *
      * @param rows  строки из XLS-файла
-     * @param userId идентификатор пользователя (может быть {@code null})
+     * @param userId идентификатор пользователя, не {@code null}
      * @return результат валидации
      */
     public TrackMetaValidationResult validate(List<TrackExcelRow> rows, Long userId) {
+        // Загрузка файлов доступна только авторизованным пользователям,
+        // поэтому идентификатор пользователя обязателен
+        Objects.requireNonNull(userId, "User ID Не может быть null");
         StringBuilder messageBuilder = new StringBuilder();
-        boolean authorized = userId != null;
-        int maxLimit = authorized
-                ? subscriptionService.canUploadTracks(userId, Integer.MAX_VALUE)
-                : 5;
-        int saveSlots = authorized
-                ? subscriptionService.canSaveMoreTracks(userId, Integer.MAX_VALUE)
-                : 0;
-        Long defaultStoreId = authorized ? storeService.getDefaultStoreId(userId) : null;
+
+        int maxLimit = subscriptionService.canUploadTracks(userId, Integer.MAX_VALUE);
+        int saveSlots = subscriptionService.canSaveMoreTracks(userId, Integer.MAX_VALUE);
+        Long defaultStoreId = storeService.getDefaultStoreId(userId);
 
         int processed = 0;
         int savedNew = 0;
@@ -53,25 +53,22 @@ public class TrackMetaValidator {
                 break;
             }
             String number = row.number().toUpperCase();
-            Long storeId = null;
-            if (authorized) {
-                storeId = defaultStoreId;
-                if (row.store() != null && !row.store().isBlank()) {
-                    try {
-                        storeId = Long.parseLong(row.store());
-                    } catch (NumberFormatException e) {
-                        Long byName = storeService.findStoreIdByName(row.store(), userId);
-                        if (byName != null) {
-                            storeId = byName;
-                        } else {
-                            log.warn("Магазин '{}' не найден, используем дефолтный", row.store());
-                        }
+            Long storeId = defaultStoreId;
+            if (row.store() != null && !row.store().isBlank()) {
+                try {
+                    storeId = Long.parseLong(row.store());
+                } catch (NumberFormatException e) {
+                    Long byName = storeService.findStoreIdByName(row.store(), userId);
+                    if (byName != null) {
+                        storeId = byName;
+                    } else {
+                        log.warn("Магазин '{}' не найден, используем дефолтный", row.store());
                     }
                 }
-                if (storeId != null && !storeService.userOwnsStore(storeId, userId)) {
-                    log.warn("Магазин ID={} не принадлежит пользователю ID={}", storeId, userId);
-                    storeId = defaultStoreId;
-                }
+            }
+            if (storeId != null && !storeService.userOwnsStore(storeId, userId)) {
+                log.warn("Магазин ID={} не принадлежит пользователю ID={}", storeId, userId);
+                storeId = defaultStoreId;
             }
             String phone = row.phone();
             if (phone != null && !phone.isBlank()) {
@@ -82,7 +79,7 @@ public class TrackMetaValidator {
                     phone = null;
                 }
             }
-            boolean isNew = authorized && trackParcelService.isNewTrack(number, storeId);
+            boolean isNew = trackParcelService.isNewTrack(number, storeId);
             boolean canSave;
             if (isNew) {
                 if (savedNew < saveSlots) {
@@ -114,4 +111,5 @@ public class TrackMetaValidator {
         String message = messageBuilder.isEmpty() ? null : messageBuilder.toString().trim();
         return new TrackMetaValidationResult(result, message);
     }
+
 }
