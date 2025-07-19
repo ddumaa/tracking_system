@@ -152,7 +152,7 @@
                         <ul class="pagination" th:if="${totalPages > 1}">
                             <!-- Кнопка "Назад" -->
                             <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled'">
-                                <a class="page-link" th:href="@{/departures(storeId=${storeId}, status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size})}"
+                                <a class="page-link" th:href="@{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size})}"
                                    aria-label="Предыдущая страница">
                                     <i class="bi bi-chevron-left"></i>
                                 </a>
@@ -161,14 +161,14 @@
                             <!-- Номера страниц -->
                             <li class="page-item" th:each="i : ${#numbers.sequence(0, totalPages - 1)}"
                                 th:classappend="${i == currentPage} ? 'active'">
-                                <a class="page-link" th:href="@{/departures(storeId=${storeId}, status=${statusString}, page=${i}, size=${size})}"
+                                <a class="page-link" th:href="@{/app/departures(storeId=${storeId}, status=${statusString}, page=${i}, size=${size})}"
                                    th:text="${i + 1}" aria-label="Страница ${i + 1}">
                                 </a>
                             </li>
 
                             <!-- Кнопка "Вперёд" -->
                             <li class="page-item" th:classappend="${currentPage == totalPages - 1} ? 'disabled'">
-                                <a class="page-link" th:href="@{/departures(storeId=${storeId}, status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size})}"
+                                <a class="page-link" th:href="@{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size})}"
                                    aria-label="Следующая страница">
                                     <i class="bi bi-chevron-right"></i>
                                 </a>
