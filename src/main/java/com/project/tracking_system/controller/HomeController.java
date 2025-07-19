@@ -5,6 +5,8 @@ import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.track.TrackFacade;
+import com.project.tracking_system.service.track.TrackMeta;
+import com.project.tracking_system.service.track.TrackUpdateDispatcherService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -31,6 +33,7 @@ public class HomeController {
 
     private final TrackFacade trackFacade;
     private final StoreService storeService;
+    private final TrackUpdateDispatcherService trackUpdateDispatcherService;
 
     /**
      * Обрабатывает запросы на главной странице. Отображает домашнюю страницу.
@@ -78,8 +81,8 @@ public class HomeController {
         model.addAttribute("stores", stores);
 
         try {
-            // trackParcelService реализует логику с посылкой!
-            TrackInfoListDTO trackInfo = trackFacade.processTrack(number, storeId, userId, canSave, phone);
+            TrackMeta meta = new TrackMeta(number, storeId, phone, canSave);
+            TrackInfoListDTO trackInfo = trackUpdateDispatcherService.dispatch(meta).getTrackInfo();
 
             if (trackInfo == null || trackInfo.getList().isEmpty()) {
                 model.addAttribute("customError", "Нет данных для указанного номера посылки.");
