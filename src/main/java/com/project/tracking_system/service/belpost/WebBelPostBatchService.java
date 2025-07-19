@@ -1,5 +1,6 @@
 package com.project.tracking_system.service.belpost;
 
+import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.webdriver.WebDriverFactory;
 import lombok.RequiredArgsConstructor;
@@ -42,7 +43,6 @@ public class WebBelPostBatchService {
 
         WebDriver driver = webDriverFactory.create();
         try {
-            driver.get("https://belpost.by/Otsleditotpravleniye");
             for (String number : trackNumbers) {
                 result.put(number, parseTrack(driver, number));
             }
@@ -52,43 +52,88 @@ public class WebBelPostBatchService {
         return result;
     }
 
+    private TrackInfoListDTO parseTrack(WebDriver driver, String number) {
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            try {
+                return tryParseTrack(driver, number);
+            } catch (RateLimitException e) {
+                log.warn("⏳ Лимит запросов — ждём 60 секунд перед повтором ({}): {}", number, e.getMessage());
+                sleep(60_000);
+            } catch (TimeoutException e) {
+                log.warn("⏳ TimeoutException на {} попытке для {}. Ждём 60 секунд...", attempt, number);
+                sleep(60_000);
+            } catch (Exception e) {
+                log.error("❌ Ошибка при парсинге {} на попытке {}: {}", number, attempt, e.getMessage(), e);
+            }
+        }
+
+        return new TrackInfoListDTO();
+    }
+
     /**
      * Парсит один трек-номер, используя уже инициализированный драйвер.
      */
-    private TrackInfoListDTO parseTrack(WebDriver driver, String number) {
-        TrackInfoListDTO trackInfoListDTO = new TrackInfoListDTO();
-        try {
-            WebElement input = driver.findElement(By.cssSelector("input[name='barcode']"));
-            input.clear();
-            input.sendKeys(number);
-            input.sendKeys(Keys.ENTER);
+    private TrackInfoListDTO tryParseTrack(WebDriver driver, String number) throws Exception {
+        TrackInfoListDTO dto = new TrackInfoListDTO();
 
-            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-            WebElement trackItem = wait.until(
-                    ExpectedConditions.visibilityOfElementLocated(By.cssSelector("article.track-item")));
+        String url = "https://belpost.by/Otsleditotpravleniye?number=" + number;
+        driver.get(url);
 
-            WebElement trackItemHeader = driver.findElement(By.cssSelector("app-track-item header"));
-            if (!"true".equals(trackItemHeader.getAttribute("aria-expanded"))) {
-                JavascriptExecutor js = (JavascriptExecutor) driver;
-                js.executeScript("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", trackItemHeader);
-                wait.until(ExpectedConditions.elementToBeClickable(trackItemHeader));
-                js.executeScript("arguments[0].click();", trackItemHeader);
-                new WebDriverWait(driver, Duration.ofSeconds(10))
-                        .until(ExpectedConditions.attributeToBe(trackItemHeader, "aria-expanded", "true"));
-            }
-
-            WebElement trackDetails = trackItem.findElement(By.cssSelector("dl.track-item__details"));
-            List<WebElement> trackItems = trackDetails.findElements(By.cssSelector("div.track-details__item"));
-            for (WebElement trackItemElement : trackItems) {
-                String title = trackItemElement.findElement(By.cssSelector("dt")).getText();
-                WebElement contentElement = trackItemElement.findElement(By.cssSelector("dd"));
-                WebElement dateElement = contentElement.findElement(By.cssSelector("li.text-secondary"));
-                String dateContent = dateElement.getText();
-                trackInfoListDTO.addTrackInfo(new com.project.tracking_system.dto.TrackInfoDTO(dateContent, title));
-            }
-        } catch (Exception e) {
-            log.error("Ошибка при парсинге BelPost для {}: {}", number, e.getMessage(), e);
+        // СРАЗУ проверяем ошибку лимита
+        if (isRateLimitErrorDisplayed(driver)) {
+            throw new RateLimitException("Превышено количество запросов");
         }
-        return trackInfoListDTO;
+
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(12));
+        WebElement trackItem = wait.until(ExpectedConditions.visibilityOfElementLocated(
+                By.cssSelector("article.track-item")));
+
+        WebElement trackItemHeader = trackItem.findElement(By.cssSelector("header"));
+        if (!"true".equals(trackItemHeader.getAttribute("aria-expanded"))) {
+            JavascriptExecutor js = (JavascriptExecutor) driver;
+            js.executeScript("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", trackItemHeader);
+            wait.until(ExpectedConditions.elementToBeClickable(trackItemHeader));
+            js.executeScript("arguments[0].click();", trackItemHeader);
+            wait.until(ExpectedConditions.attributeToBe(trackItemHeader, "aria-expanded", "true"));
+        }
+
+        wait.until(ExpectedConditions.visibilityOfElementLocated(
+                By.cssSelector("dl.track-item__details .track-details__item")));
+
+        WebElement trackDetails = trackItem.findElement(By.cssSelector("dl.track-item__details"));
+        List<WebElement> trackItems = trackDetails.findElements(By.cssSelector("div.track-details__item"));
+
+        for (WebElement item : trackItems) {
+            String title = item.findElement(By.cssSelector("dt")).getText().trim();
+            String date = item.findElement(By.cssSelector("dd li.text-secondary")).getText().trim();
+            dto.addTrackInfo(new TrackInfoDTO(date, title));
+        }
+
+        return dto;
     }
+
+    private boolean isRateLimitErrorDisplayed(WebDriver driver) {
+        try {
+            WebElement errorPopup = driver.findElement(By.cssSelector(".swal2-title"));
+            WebElement errorText = driver.findElement(By.cssSelector("#swal2-content"));
+            return errorPopup.isDisplayed() && errorText.getText().contains("Превышено количество запросов");
+        } catch (NoSuchElementException e) {
+            return false;
+        }
+    }
+
+    public class RateLimitException extends Exception {
+        public RateLimitException(String message) {
+            super(message);
+        }
+    }
+
+    private void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
 }
