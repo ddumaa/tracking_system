@@ -6,8 +6,7 @@ import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.user.UserService;
-import com.project.tracking_system.dto.TrackInfoListDTO;
-import com.project.tracking_system.service.track.TrackProcessingService;
+import com.project.tracking_system.dto.TrackingResultAdd;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,7 +28,7 @@ public class TrackAutoUpdateScheduler {
 
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final TrackParcelRepository trackParcelRepository;
-    private final TrackProcessingService trackProcessingService;
+    private final TrackUpdateCoordinatorService trackUpdateCoordinatorService;
     private final SubscriptionService subscriptionService;
     private final UserService userService;
 
@@ -67,23 +66,16 @@ public class TrackAutoUpdateScheduler {
             return;
         }
 
-        int updated = 0;
-        for (int i = 0; i < Math.min(allowed, toUpdate.size()); i++) {
-            TrackParcel parcel = toUpdate.get(i);
-            try {
-                TrackInfoListDTO info = trackProcessingService.processTrack(
-                        parcel.getNumber(),
-                        parcel.getStore().getId(),
-                        userId,
-                        true
-                );
-                if (info != null && !info.getList().isEmpty()) {
-                    updated++;
-                }
-            } catch (Exception e) {
-                log.error("Ошибка автообновления трека {}: {}", parcel.getNumber(), e.getMessage());
-            }
-        }
+        List<TrackMeta> metas = toUpdate.stream()
+                .limit(Math.min(allowed, toUpdate.size()))
+                .map(p -> new TrackMeta(p.getNumber(), p.getStore().getId(), null, true))
+                .toList();
+
+        List<TrackingResultAdd> results = trackUpdateCoordinatorService.process(metas, userId);
+
+        long updated = results.stream()
+                .filter(r -> !"Нет данных".equals(r.getStatus()))
+                .count();
 
         if (updated > 0) {
             log.info("♻️ Автообновление: {} из {} треков обновлено для userId={}", updated, toUpdate.size(), userId);

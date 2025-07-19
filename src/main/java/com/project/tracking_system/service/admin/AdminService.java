@@ -4,7 +4,8 @@ import com.project.tracking_system.dto.*;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.*;
 import com.project.tracking_system.service.track.TrackDeletionService;
-import com.project.tracking_system.service.track.TrackProcessingService;
+import com.project.tracking_system.service.track.TrackUpdateCoordinatorService;
+import com.project.tracking_system.service.track.TrackMeta;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,7 +33,7 @@ public class AdminService {
     private final TrackParcelRepository trackParcelRepository;
     private final UserRepository userRepository;
     private final TrackDeletionService trackDeletionService;
-    private final TrackProcessingService trackProcessingService;
+    private final TrackUpdateCoordinatorService trackUpdateCoordinatorService;
     private final com.project.tracking_system.service.user.UserService userService;
     private final com.project.tracking_system.service.store.StoreService storeService;
 
@@ -327,7 +328,8 @@ public class AdminService {
     public void forceUpdateParcel(Long id) {
         TrackParcel parcel = trackParcelRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Посылка не найдена"));
-        trackProcessingService.processTrack(parcel.getNumber(), parcel.getStore().getId(), parcel.getUser().getId(), true);
+        TrackMeta meta = new TrackMeta(parcel.getNumber(), parcel.getStore().getId(), null, true);
+        trackUpdateCoordinatorService.process(List.of(meta), parcel.getUser().getId());
     }
 
     /**
