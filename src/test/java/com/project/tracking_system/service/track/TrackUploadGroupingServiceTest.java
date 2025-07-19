@@ -43,4 +43,22 @@ class TrackUploadGroupingServiceTest {
         assertEquals(1, map.get(PostalServiceType.BELPOST).size());
         assertEquals(1, map.get(PostalServiceType.EVROPOST).size());
     }
+
+    @Test
+    void group_SkipsUnknownService() {
+        when(typeDefinitionTrackPostService.detectPostalService(anyString()))
+                .thenReturn(PostalServiceType.BELPOST)
+                .thenReturn(PostalServiceType.UNKNOWN);
+
+        List<TrackMeta> list = List.of(
+                new TrackMeta("B1", 1L, null, true),
+                new TrackMeta("U1", 1L, null, true)
+        );
+
+        Map<PostalServiceType, List<TrackMeta>> map = service.group(list);
+
+        assertEquals(1, map.get(PostalServiceType.BELPOST).size());
+        // Для UNKNOWN не должно быть записей
+        assertEquals(null, map.get(PostalServiceType.UNKNOWN));
+    }
 }
