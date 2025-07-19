@@ -16,13 +16,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.core.task.TaskExecutor;
-import org.springframework.scheduling.concurrent.ConcurrentTaskExecutor;
+import com.project.tracking_system.service.track.TrackUploadGroupingService;
+import com.project.tracking_system.service.track.TrackUpdateDispatcherService;
 
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -48,20 +47,25 @@ class TrackUpdateServiceTest {
     private TrackParcelRepository trackParcelRepository;
     @Mock
     private TrackParcelService trackParcelService;
+    @Mock
+    private TrackUploadGroupingService groupingService;
+    @Mock
+    private TrackUpdateDispatcherService dispatcherService;
 
-    private TaskExecutor executor;
     private TrackUpdateService service;
 
     @BeforeEach
     void setUp() {
-        executor = new ConcurrentTaskExecutor(Executors.newFixedThreadPool(2));
-        service = new TrackUpdateService(webSocketController,
+        service = new TrackUpdateService(
+                webSocketController,
                 coordinatorService,
                 subscriptionService,
                 storeRepository,
                 trackParcelRepository,
                 trackParcelService,
-                executor);
+                groupingService,
+                dispatcherService
+        );
     }
     /**
      * Проверяем, что при отключённой функции массового обновления
