@@ -34,8 +34,11 @@ public class TrackAutoUpdateScheduler {
 
     /**
      * Запускает автообновление треков для всех подходящих пользователей.
+     *
+     * <p>Метод не оборачивается в транзакцию, чтобы не держать
+     * одну длительную сессию на всех пользователей. Каждое обновление
+     * выполняется в собственной транзакции внутри {@link #updateUserTracks(Long)}.</p>
      */
-    @Transactional
     public void updateAllUsersTracks() {
         List<Long> userIds = userSubscriptionRepository.findUserIdsByFeature(FeatureKey.AUTO_UPDATE);
         if (userIds.isEmpty()) {
@@ -57,8 +60,13 @@ public class TrackAutoUpdateScheduler {
     /**
      * Обновляет треки для одного пользователя.
      *
+     * <p>Все операции выполняются в отдельной транзакции,
+     * чтобы ошибки конкретного пользователя не влияли на остальных
+     * и не блокировали долгосрочную транзакцию.</p>
+     *
      * @param userId идентификатор пользователя
      */
+    @Transactional
     private void updateUserTracks(Long userId) {
         List<TrackParcel> parcels = trackParcelRepository.findByUserId(userId);
         List<TrackParcel> toUpdate = parcels.stream()

@@ -10,6 +10,7 @@ import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.service.track.TrackUpdateCoordinatorService;
+import org.springframework.transaction.annotation.Transactional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +24,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Тесты для {@link TrackAutoUpdateScheduler}.
@@ -52,6 +54,19 @@ class TrackAutoUpdateSchedulerTest {
                 subscriptionService,
                 userService
         );
+    }
+
+    /**
+     * Проверяем, что метод не помечен как транзакционный,
+     * чтобы обновление каждого пользователя выполнялось
+     * в собственной транзакции.
+     */
+    @Test
+    void updateAllUsersTracks_NotTransactional() throws Exception {
+        Transactional tx = TrackAutoUpdateScheduler.class
+                .getMethod("updateAllUsersTracks")
+                .getAnnotation(Transactional.class);
+        assertNull(tx, "Метод updateAllUsersTracks не должен быть транзакционным");
     }
 
     /**
