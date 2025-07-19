@@ -14,21 +14,24 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+/**
+ * Тесты для {@link TrackServiceClassifier}.
+ */
 @ExtendWith(MockitoExtension.class)
-class TrackUploadGroupingServiceTest {
+class TrackServiceClassifierTest {
 
     @Mock
     private TypeDefinitionTrackPostService typeDefinitionTrackPostService;
 
-    private TrackUploadGroupingService service;
+    private TrackServiceClassifier classifier;
 
     @BeforeEach
     void setUp() {
-        service = new TrackUploadGroupingService(typeDefinitionTrackPostService);
+        classifier = new TrackServiceClassifier(typeDefinitionTrackPostService);
     }
 
     @Test
-    void group_SplitsByService() {
+    void classify_SplitsByService() {
         when(typeDefinitionTrackPostService.detectPostalService(anyString()))
                 .thenReturn(PostalServiceType.BELPOST)
                 .thenReturn(PostalServiceType.EVROPOST);
@@ -38,14 +41,14 @@ class TrackUploadGroupingServiceTest {
                 new TrackMeta("E1", 1L, null, true)
         );
 
-        Map<PostalServiceType, List<TrackMeta>> map = service.group(list);
+        Map<PostalServiceType, List<TrackMeta>> map = classifier.classify(list);
 
         assertEquals(1, map.get(PostalServiceType.BELPOST).size());
         assertEquals(1, map.get(PostalServiceType.EVROPOST).size());
     }
 
     @Test
-    void group_SkipsUnknownService() {
+    void classify_SkipsUnknownService() {
         when(typeDefinitionTrackPostService.detectPostalService(anyString()))
                 .thenReturn(PostalServiceType.BELPOST)
                 .thenReturn(PostalServiceType.UNKNOWN);
@@ -55,7 +58,7 @@ class TrackUploadGroupingServiceTest {
                 new TrackMeta("U1", 1L, null, true)
         );
 
-        Map<PostalServiceType, List<TrackMeta>> map = service.group(list);
+        Map<PostalServiceType, List<TrackMeta>> map = classifier.classify(list);
 
         assertEquals(1, map.get(PostalServiceType.BELPOST).size());
         // Для UNKNOWN не должно быть записей
