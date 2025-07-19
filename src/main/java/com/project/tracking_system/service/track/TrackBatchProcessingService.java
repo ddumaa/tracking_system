@@ -66,15 +66,13 @@ public class TrackBatchProcessingService {
             return results;
         }
 
-        Map<PostalServiceType, List<TrackMeta>> evroMap = Map.of(
-                PostalServiceType.EVROPOST,
-                tracksByService.getOrDefault(PostalServiceType.EVROPOST, List.of()));
-        Map<PostalServiceType, List<TrackMeta>> belMap = Map.of(
-                PostalServiceType.BELPOST,
-                tracksByService.getOrDefault(PostalServiceType.BELPOST, List.of()));
+        List<TrackMeta> evroTracks =
+                tracksByService.getOrDefault(PostalServiceType.EVROPOST, List.of());
+        List<TrackMeta> belTracks =
+                tracksByService.getOrDefault(PostalServiceType.BELPOST, List.of());
 
-        results.addAll(processEvropost(evroMap, userId));
-        results.addAll(processBelpost(belMap, userId));
+        results.addAll(processEvropostTracks(evroTracks, userId));
+        results.addAll(processBelpostTracks(belTracks, userId));
         return results;
     }
 
@@ -86,11 +84,21 @@ public class TrackBatchProcessingService {
      * обработку большого количества номеров.
      * </p>
      */
-    private List<TrackingResultAdd> processEvropost(Map<PostalServiceType, List<TrackMeta>> tracksByService,
-                                                    Long userId) {
+    /**
+     * Обрабатывает треки Европочты.
+     * <p>
+     * Запросы выполняются параллельно с использованием {@link CompletableFuture}
+     * и {@code batchUploadExecutor}, что ускоряет обработку большого количества номеров.
+     * </p>
+     *
+     * @param evroTracks список треков Европочты
+     * @param userId     идентификатор пользователя
+     * @return список результатов обработки
+     */
+    private List<TrackingResultAdd> processEvropostTracks(List<TrackMeta> evroTracks,
+                                                          Long userId) {
         List<TrackingResultAdd> results = new ArrayList<>();
-        List<TrackMeta> evroTracks = tracksByService.getOrDefault(PostalServiceType.EVROPOST, List.of());
-        if (evroTracks.isEmpty()) {
+        if (evroTracks == null || evroTracks.isEmpty()) {
             return results;
         }
 
@@ -110,17 +118,20 @@ public class TrackBatchProcessingService {
     }
 
     /**
-     * Обработка треков Белпочты пакетным запросом.
+     * Пакетная обработка треков Белпочты.
      * <p>
      * Для каждого номера выполняется сохранение данных при наличии пользователя
      * и разрешении {@link TrackMeta#canSave()}.
      * </p>
+     *
+     * @param belTracks список треков Белпочты
+     * @param userId    идентификатор пользователя
+     * @return список результатов обработки
      */
-    private List<TrackingResultAdd> processBelpost(Map<PostalServiceType, List<TrackMeta>> tracksByService,
-                                                   Long userId) {
+    private List<TrackingResultAdd> processBelpostTracks(List<TrackMeta> belTracks,
+                                                         Long userId) {
         List<TrackingResultAdd> results = new ArrayList<>();
-        List<TrackMeta> belTracks = tracksByService.getOrDefault(PostalServiceType.BELPOST, List.of());
-        if (belTracks.isEmpty()) {
+        if (belTracks == null || belTracks.isEmpty()) {
             return results;
         }
 
