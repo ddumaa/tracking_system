@@ -4,8 +4,9 @@ import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.service.belpost.WebBelPostBatchService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -23,11 +24,26 @@ import java.util.concurrent.CompletableFuture;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class TrackBatchProcessingService {
 
     private final TrackFacade trackFacade;
     private final WebBelPostBatchService webBelPostBatchService;
+    private final TaskExecutor batchUploadExecutor;
+
+    /**
+     * Создает сервис пакетной обработки треков.
+     *
+     * @param trackFacade           фасад для взаимодействия с почтовыми сервисами
+     * @param webBelPostBatchService сервис обработки Белпочты
+     * @param batchUploadExecutor   пул потоков для параллельной загрузки
+     */
+    public TrackBatchProcessingService(TrackFacade trackFacade,
+                                       WebBelPostBatchService webBelPostBatchService,
+                                       @Qualifier("batchUploadExecutor") TaskExecutor batchUploadExecutor) {
+        this.trackFacade = trackFacade;
+        this.webBelPostBatchService = webBelPostBatchService;
+        this.batchUploadExecutor = batchUploadExecutor;
+    }
 
     /**
      * Обрабатывает сгруппированные трек-номера.
@@ -65,8 +81,9 @@ public class TrackBatchProcessingService {
     /**
      * Обработка треков Европочты.
      * <p>
-     * Использует {@link CompletableFuture} для параллельных запросов,
-     * что повышает скорость при большом количестве номеров.
+     * Запросы выполняются параллельно через {@link CompletableFuture}
+     * с использованием {@code batchUploadExecutor}, что ускоряет
+     * обработку большого количества номеров.
      * </p>
      */
     private List<TrackingResultAdd> processEvropost(Map<PostalServiceType, List<TrackMeta>> tracksByService,
@@ -85,7 +102,7 @@ public class TrackBatchProcessingService {
                             ? "Нет данных"
                             : info.getList().get(0).getInfoTrack();
                     return new TrackingResultAdd(meta.number(), status);
-                }))
+                }, batchUploadExecutor))
                 .toList();
 
         futures.forEach(f -> results.add(f.join()));
