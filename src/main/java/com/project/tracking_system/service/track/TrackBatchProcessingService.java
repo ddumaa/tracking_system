@@ -99,7 +99,7 @@ public class TrackBatchProcessingService {
                     TrackInfoListDTO info = trackFacade.processTrack(
                             meta.number(), meta.storeId(), userId, meta.canSave(), meta.phone());
                     String status = info.getList().isEmpty()
-                            ? "Нет данных"
+                            ? TrackConstants.NO_DATA_STATUS
                             : info.getList().get(0).getInfoTrack();
                     return new TrackingResultAdd(meta.number(), status);
                 }, batchUploadExecutor))
@@ -132,7 +132,7 @@ public class TrackBatchProcessingService {
                 trackFacade.saveTrackInfo(meta.number(), info, meta.storeId(), userId, meta.phone());
             }
             String status = info.getList().isEmpty()
-                    ? "Нет данных"
+                    ? TrackConstants.NO_DATA_STATUS
                     : info.getList().get(0).getInfoTrack();
             results.add(new TrackingResultAdd(meta.number(), status));
         }
