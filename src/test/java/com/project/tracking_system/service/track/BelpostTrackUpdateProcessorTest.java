@@ -4,7 +4,7 @@ import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.service.belpost.WebBelPostBatchService;
 import com.project.tracking_system.service.track.TrackMeta;
-import com.project.tracking_system.service.track.TrackFacade;
+import com.project.tracking_system.service.track.TrackProcessingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,7 +24,7 @@ import static org.mockito.Mockito.*;
 class BelpostTrackUpdateProcessorTest {
 
     @Mock
-    private TrackFacade trackFacade;
+    private TrackProcessingService trackProcessingService;
     @Mock
     private WebBelPostBatchService webService;
 
@@ -32,7 +32,7 @@ class BelpostTrackUpdateProcessorTest {
 
     @BeforeEach
     void setUp() {
-        processor = new BelpostTrackUpdateProcessor(trackFacade, webService);
+        processor = new BelpostTrackUpdateProcessor(trackProcessingService, webService);
     }
 
     @Test
@@ -43,7 +43,7 @@ class BelpostTrackUpdateProcessorTest {
 
         TrackingResultAdd result = processor.process(meta);
 
-        verify(trackFacade).saveTrackInfo("B1", info, 1L, null, null);
+        verify(trackProcessingService).save("B1", info, 1L, null, null);
         assertEquals(info, result.getTrackInfo());
     }
 }

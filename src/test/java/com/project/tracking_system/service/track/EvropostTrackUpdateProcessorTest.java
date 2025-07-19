@@ -2,7 +2,7 @@ package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.TrackingResultAdd;
-import com.project.tracking_system.service.track.TrackFacade;
+import com.project.tracking_system.service.track.TrackProcessingService;
 import com.project.tracking_system.service.track.TrackMeta;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,24 +21,24 @@ import static org.mockito.Mockito.*;
 class EvropostTrackUpdateProcessorTest {
 
     @Mock
-    private TrackFacade trackFacade;
+    private TrackProcessingService trackProcessingService;
 
     private EvropostTrackUpdateProcessor processor;
 
     @BeforeEach
     void setUp() {
-        processor = new EvropostTrackUpdateProcessor(trackFacade, new SyncTaskExecutor());
+        processor = new EvropostTrackUpdateProcessor(trackProcessingService, new SyncTaskExecutor());
     }
 
     @Test
     void processSingle_ReturnsInfo() {
         TrackMeta meta = new TrackMeta("E1", 1L, null, false);
         TrackInfoListDTO info = new TrackInfoListDTO();
-        when(trackFacade.processTrack("E1", 1L, null, false, null)).thenReturn(info);
+        when(trackProcessingService.processTrack("E1", 1L, null, false, null)).thenReturn(info);
 
         TrackingResultAdd result = processor.process(meta);
 
-        verify(trackFacade).processTrack("E1", 1L, null, false, null);
+        verify(trackProcessingService).processTrack("E1", 1L, null, false, null);
         assertEquals(info, result.getTrackInfo());
     }
 }
