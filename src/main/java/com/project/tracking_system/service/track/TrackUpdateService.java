@@ -239,7 +239,7 @@ public class TrackUpdateService {
      * @param userId идентификатор пользователя
      * @return список объединенных результатов
      */
-    private List<TrackingResultAdd> process(List<TrackMeta> tracks, Long userId) {
+    public List<TrackingResultAdd> process(List<TrackMeta> tracks, Long userId) {
         Map<PostalServiceType, List<TrackMeta>> grouped = groupingService.group(tracks);
         return dispatcherService.dispatch(grouped, userId);
     }

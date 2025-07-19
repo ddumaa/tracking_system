@@ -7,7 +7,6 @@ import com.project.tracking_system.repository.UserSubscriptionRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.dto.TrackingResultAdd;
-import com.project.tracking_system.service.track.TrackConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,9 +28,9 @@ public class TrackAutoUpdateScheduler {
 
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final TrackParcelRepository trackParcelRepository;
-    private final TrackUpdateCoordinatorService trackUpdateCoordinatorService;
     private final SubscriptionService subscriptionService;
     private final UserService userService;
+    private final TrackUpdateService trackUpdateService;
 
     /**
      * Запускает автообновление треков для всех подходящих пользователей.
@@ -68,7 +67,7 @@ public class TrackAutoUpdateScheduler {
      * @param userId идентификатор пользователя
      */
     @Transactional
-    private void updateUserTracks(Long userId) {
+    protected void updateUserTracks(Long userId) {
         List<TrackParcel> parcels = trackParcelRepository.findByUserId(userId);
         List<TrackParcel> toUpdate = parcels.stream()
                 .filter(p -> !p.getStatus().isFinal())
@@ -94,7 +93,7 @@ public class TrackAutoUpdateScheduler {
                         p.getDeliveryHistory() != null ? p.getDeliveryHistory().getPostalService() : null))
                 .toList();
 
-        List<TrackingResultAdd> results = trackUpdateCoordinatorService.process(metas, userId);
+        List<TrackingResultAdd> results = trackUpdateService.process(metas, userId);
 
         long updated = results.stream()
                 .filter(r -> !TrackConstants.NO_DATA_STATUS.equals(r.getStatus()))
