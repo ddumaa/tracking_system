@@ -6,15 +6,13 @@ import com.project.tracking_system.repository.*;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.dto.TrackingResultAdd;
-import com.project.tracking_system.service.track.TrackConstants;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Сервис обновления треков пользователей.
@@ -33,7 +31,8 @@ public class TrackUpdateService {
     private final StoreRepository storeRepository;
     private final TrackParcelRepository trackParcelRepository;
     private final TrackParcelService trackParcelService;
-    private final TaskExecutor taskExecutor;
+    private final TrackUploadGroupingService groupingService;
+    private final TrackUpdateDispatcherService dispatcherService;
 
     public TrackUpdateService(WebSocketController webSocketController,
                               TrackUpdateCoordinatorService trackUpdateCoordinatorService,
@@ -41,14 +40,16 @@ public class TrackUpdateService {
                               StoreRepository storeRepository,
                               TrackParcelRepository trackParcelRepository,
                               TrackParcelService trackParcelService,
-                              @Qualifier("trackExecutor") TaskExecutor taskExecutor) {
+                              TrackUploadGroupingService groupingService,
+                              TrackUpdateDispatcherService dispatcherService) {
         this.webSocketController = webSocketController;
         this.trackUpdateCoordinatorService = trackUpdateCoordinatorService;
         this.subscriptionService = subscriptionService;
         this.storeRepository = storeRepository;
         this.trackParcelRepository = trackParcelRepository;
         this.trackParcelService = trackParcelService;
-        this.taskExecutor = taskExecutor;
+        this.groupingService = groupingService;
+        this.dispatcherService = dispatcherService;
     }
 
     /**
@@ -232,6 +233,18 @@ public class TrackUpdateService {
             log.error("Ошибка при обновлении посылок для пользователя {}: {}", userId, e.getMessage());
             webSocketController.sendUpdateStatus(userId, "Ошибка обновления: " + e.getMessage(), false);
         }
+    }
+
+    /**
+     * Обрабатывает набор треков для указанного пользователя.
+     *
+     * @param tracks список метаданных треков
+     * @param userId идентификатор пользователя
+     * @return список объединенных результатов
+     */
+    public List<TrackingResultAdd> process(List<TrackMeta> tracks, Long userId) {
+        Map<PostalServiceType, List<TrackMeta>> grouped = groupingService.group(tracks);
+        return dispatcherService.dispatch(grouped, userId);
     }
 
 }
