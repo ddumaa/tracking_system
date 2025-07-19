@@ -4,42 +4,29 @@ import com.project.tracking_system.entity.PostalServiceType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Группировка валидированных треков по типу почтовой службы.
+ * Сервис группировки валидированных треков по почтовым службам.
+ * <p>
+ * Логика определения служб вынесена в {@link TrackServiceClassifier},
+ * что упрощает тестирование и поддерживает принцип единственной ответственности.
+ * </p>
  */
 @Service
 @RequiredArgsConstructor
 public class TrackUploadGroupingService {
 
-    private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
+    private final TrackServiceClassifier trackServiceClassifier;
 
     /**
-     * Раскладывает треки по типам почтовых служб, пропуская неопределённые.
-     * <p>
-     * Если {@link TypeDefinitionTrackPostService#detectPostalService(String)}
-     * возвращает {@link PostalServiceType#UNKNOWN}, такой трек не попадает в
-     * итоговую карту. Это позволяет избежать дальнейшей обработки
-     * неподдерживаемых номеров.
-     * </p>
+     * Делегирует классификацию треков сервису {@link TrackServiceClassifier}.
      *
-     * @param tracks валидированные трек-метаданные
-     * @return отображение «служба → список треков» без UNKNOWN
+     * @param tracks список валидированных трек-метаданных
+     * @return карта «служба → список треков» без UNKNOWN
      */
     public Map<PostalServiceType, List<TrackMeta>> group(List<TrackMeta> tracks) {
-        Map<PostalServiceType, List<TrackMeta>> grouped = new EnumMap<>(PostalServiceType.class);
-        for (TrackMeta meta : tracks) {
-            PostalServiceType type = typeDefinitionTrackPostService.detectPostalService(meta.number());
-            if (type == PostalServiceType.UNKNOWN) {
-                // UNKNOWN сервисы пропускаем
-                continue;
-            }
-            grouped.computeIfAbsent(type, k -> new ArrayList<>()).add(meta);
-        }
-        return grouped;
+        return trackServiceClassifier.classify(tracks);
     }
 }
