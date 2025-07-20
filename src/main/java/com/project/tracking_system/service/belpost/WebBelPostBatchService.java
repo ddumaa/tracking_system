@@ -52,6 +52,21 @@ public class WebBelPostBatchService {
         return result;
     }
 
+    /**
+     * Загружает информацию по одному трек-номеру.
+     * <p>
+     * Для каждого вызова создаётся отдельный {@link WebDriver},
+     * который закрывается после завершения парсинга.
+     * </p>
+     *
+     * @param trackNumber номер Белпочты
+     * @return данные о треке или пустой DTO при ошибке
+     */
+    public TrackInfoListDTO parseTrack(String trackNumber) {
+        Map<String, TrackInfoListDTO> map = processBatch(List.of(trackNumber));
+        return map.getOrDefault(trackNumber, new TrackInfoListDTO());
+    }
+
     private TrackInfoListDTO parseTrack(WebDriver driver, String number) {
         for (int attempt = 1; attempt <= 2; attempt++) {
             try {
