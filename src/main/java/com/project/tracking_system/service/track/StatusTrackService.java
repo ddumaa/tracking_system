@@ -25,6 +25,14 @@ public class StatusTrackService {
      */
     private static final Map<Pattern, GlobalStatus> statusPatterns = new HashMap<>();
 
+    /**
+     * Шаблон для промежуточных статусов, после которых возможен возврат отправителю.
+     */
+    private static final Pattern RETURN_PATTERN = Pattern.compile(
+            "^Почтовое отправление подготовлено в ОПС к доставке на сортировочный пункт$|" +
+            "^Почтовое отправление прибыло на сортировочный пункт$|" +
+            "^Почтовое отправление подготовлено в сортировочном пункте к доставке на ОПС отправителя$");
+
     static {
         // Инициализация карты регулярных выражений и статусов
         statusPatterns.put(Pattern.compile("^Почтовое отправление выдано|^Вручено"), GlobalStatus.DELIVERED);
@@ -68,11 +76,7 @@ public class StatusTrackService {
 
             if (entry.getKey().matcher(lastStatus).find()) {
                 // Если последний статус соответствует определенному паттерну
-                Pattern returnPattern = Pattern.compile("^Почтовое отправление подготовлено в ОПС к доставке на сортировочный пункт$|" +
-                        "^Почтовое отправление прибыло на сортировочный пункт$|" +
-                        "^Почтовое отправление подготовлено в сортировочном пункте к доставке на ОПС отправителя$");
-
-                if (returnPattern.matcher(lastStatus).find()) {
+                if (RETURN_PATTERN.matcher(lastStatus).find()) {
                     // Проверяем историю на наличие статуса возврата
                     for (TrackInfoDTO trackInfoDTO : trackInfoDTOList) {
                         if (trackInfoDTO.getInfoTrack().equals("Почтовое отправление готово к возврату")) {
