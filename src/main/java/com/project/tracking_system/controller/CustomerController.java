@@ -51,6 +51,34 @@ public class CustomerController {
     public String assignCustomer(@RequestParam Long trackId,
                                  @RequestParam String phone,
                                  Model model) {
+        return updateCustomer(trackId, phone, model);
+    }
+
+    /**
+     * Изменяет номер телефона покупателя, связанного с посылкой.
+     * <p>
+     * Метод используется при редактировании существующей привязки. После
+     * сохранения возвращается тот же Thymeleaf-фрагмент с обновлёнными данными.
+     * </p>
+     *
+     * @param trackId идентификатор посылки
+     * @param phone   новый номер телефона
+     * @param model   модель для передачи данных во фрагмент
+     * @return HTML-фрагмент с актуальной информацией о покупателе
+     */
+    @PostMapping("/change")
+    public String changeCustomer(@RequestParam Long trackId,
+                                 @RequestParam String phone,
+                                 Model model) {
+        return updateCustomer(trackId, phone, model);
+    }
+
+    /**
+     * Выполняет привязку покупателя к посылке и формирует модель представления.
+     * Выделено в отдельный метод для повторного использования в разных
+     * обработчиках.
+     */
+    private String updateCustomer(Long trackId, String phone, Model model) {
         CustomerInfoDTO dto = customerService.assignCustomerToParcel(trackId, phone);
         model.addAttribute("customerInfo", dto);
         model.addAttribute("notFound", dto == null);
