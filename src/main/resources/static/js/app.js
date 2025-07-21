@@ -100,6 +100,10 @@ function loadCustomerInfo(trackId) {
             document.querySelector('#customerModal .modal-body').innerHTML = data;
             let modal = new bootstrap.Modal(document.getElementById('customerModal'));
             modal.show();
+            // После загрузки контента назначаем обработчики форм
+            initAssignCustomerFormHandler();
+            initEditCustomerPhoneFormHandler();
+            initPhoneEditToggle();
         })
         .catch(() => notifyUser('Ошибка при загрузке данных', 'danger'));
 }
@@ -315,6 +319,38 @@ function initializePhoneToggle() {
 // Инициализация формы привязки покупателя к посылке
 function initAssignCustomerFormHandler() {
     ajaxSubmitForm('assign-customer-form', 'customerInfoContainer', [initAssignCustomerFormHandler]);
+}
+
+/**
+ * Инициализирует отправку формы изменения телефона покупателя.
+ * После успешного запроса перечитывает данные покупателя и
+ * повторно настраивает обработчики формы и кнопки редактирования.
+ */
+function initEditCustomerPhoneFormHandler() {
+    const reloadCallback = () => {
+        const idInput = document.querySelector('#edit-phone-form input[name="trackId"]');
+        if (idInput) loadCustomerInfo(idInput.value);
+    };
+    ajaxSubmitForm('edit-phone-form', 'customerInfoContainer', [
+        reloadCallback,
+        initEditCustomerPhoneFormHandler,
+        initAssignCustomerFormHandler,
+        initPhoneEditToggle
+    ]);
+}
+
+/**
+ * Назначает обработчик кнопке редактирования телефона,
+ * который показывает или скрывает форму ввода номера.
+ */
+function initPhoneEditToggle() {
+    const editBtn = document.getElementById('editPhoneBtn');
+    const form = document.getElementById('edit-phone-form');
+
+    if (editBtn && form && !editBtn.dataset.initialized) {
+        editBtn.dataset.initialized = 'true';
+        editBtn.addEventListener('click', () => form.classList.toggle('hidden'));
+    }
 }
 
 // Инициализация форм настроек Telegram
@@ -1347,6 +1383,8 @@ document.addEventListener("DOMContentLoaded", function () {
     initBulkButtonToggle();
     initializePhoneToggle();
     initAssignCustomerFormHandler();
+    initEditCustomerPhoneFormHandler();
+    initPhoneEditToggle();
     initTelegramForms();
     initTelegramToggle();
     initTelegramReminderBlocks();
