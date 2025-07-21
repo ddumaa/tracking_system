@@ -4,7 +4,7 @@ import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.entity.GlobalStatus;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -23,7 +23,9 @@ public class StatusTrackService {
     /**
      * Карта, которая сопоставляет регулярные выражения для статусов с их соответствующими значениями.
      */
-    private static final Map<Pattern, GlobalStatus> statusPatterns = new HashMap<>();
+    // LinkedHashMap обеспечивает стабильный порядок перебора,
+    // поэтому специфичные шаблоны должны добавляться первыми
+    private static final Map<Pattern, GlobalStatus> statusPatterns = new LinkedHashMap<>();
 
     /**
      * Шаблон для промежуточных статусов, после которых возможен возврат отправителю.
@@ -37,7 +39,7 @@ public class StatusTrackService {
         // Инициализация карты регулярных выражений и статусов
         statusPatterns.put(Pattern.compile("^Почтовое отправление выдано|^Вручено"), GlobalStatus.DELIVERED);
         statusPatterns.put(Pattern.compile("^Почтовое отправление прибыло на ОПС выдачи|^Добрый день\\. Срок бесплатного хранения|" +
-                "^Поступило в учреждение доставки"), GlobalStatus.WAITING_FOR_CUSTOMER);
+                "^Поступило в учреждение доставки.*"), GlobalStatus.WAITING_FOR_CUSTOMER);
         statusPatterns.put(Pattern.compile("^Почтовое отправление принято на ОПС|" +
                         "^Оплачено на ОПС|^Отправлено|^Принято от отправителя|" +
                         "^Поступило в обработку|" +
