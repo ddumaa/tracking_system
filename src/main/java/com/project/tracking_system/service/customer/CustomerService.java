@@ -123,19 +123,35 @@ public class CustomerService {
         if (track == null || track.getCustomer() == null) {
             return;
         }
+
         Customer customer = track.getCustomer();
         int beforeSent = customer.getSentCount();
         int beforePicked = customer.getPickedUpCount();
+        int beforeReturned = customer.getReturnedCount();
+
         if (customer.getSentCount() > 0) {
             customer.setSentCount(customer.getSentCount() - 1);
         }
-        if (track.getStatus() != null && track.getStatus().isFinal() && customer.getPickedUpCount() > 0) {
+
+        if (track.getStatus() == GlobalStatus.DELIVERED && customer.getPickedUpCount() > 0) {
             customer.setPickedUpCount(customer.getPickedUpCount() - 1);
+        } else if (track.getStatus() == GlobalStatus.RETURNED && customer.getReturnedCount() > 0) {
+            customer.setReturnedCount(customer.getReturnedCount() - 1);
         }
+
         customer.recalculateReputation();
         customerRepository.save(customer);
-        log.debug("↩️ [rollbackStatsOnTrackDelete] ID={} sent: {} -> {}, picked: {} -> {}",
-                customer.getId(), beforeSent, customer.getSentCount(), beforePicked, customer.getPickedUpCount());
+
+        log.debug(
+                "↩️ [rollbackStatsOnTrackDelete] ID={} sent: {} -> {}, picked: {} -> {}, returned: {} -> {}",
+                customer.getId(),
+                beforeSent,
+                customer.getSentCount(),
+                beforePicked,
+                customer.getPickedUpCount(),
+                beforeReturned,
+                customer.getReturnedCount()
+        );
     }
 
     /**
@@ -189,15 +205,22 @@ public class CustomerService {
             rollbackStatsOnTrackDelete(parcel);
         }
 
-        // Привязываем нового покупателя
+        // Привязываем нового покупателя и сохраняем изменения
         parcel.setCustomer(newCustomer);
         trackParcelRepository.save(parcel);
 
         log.debug("📦 Посылка ID={} привязана к покупателю ID={}", parcelId, newCustomer.getId());
 
-        // Статистику увеличиваем только при фактическом добавлении нового покупателя
+        // Обновляем статистику покупателя в зависимости от статуса посылки
         customerStatsService.incrementSent(newCustomer);
-        log.debug("📈 Статистика покупателя ID={} обновлена после привязки посылки ID={}", newCustomer.getId(), parcelId);
+        if (parcel.getStatus() == GlobalStatus.DELIVERED) {
+            customerStatsService.incrementPickedUp(newCustomer);
+        } else if (parcel.getStatus() == GlobalStatus.RETURNED) {
+            customerStatsService.incrementReturned(newCustomer);
+        }
+
+        log.debug("📈 Статистика покупателя ID={} обновлена после привязки посылки ID={}",
+                newCustomer.getId(), parcelId);
         return toInfoDto(newCustomer);
     }
 
