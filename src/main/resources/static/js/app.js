@@ -69,8 +69,15 @@ document.body.addEventListener("change", function (event) {
 
 document.getElementById("actionSelect")?.addEventListener("change", updateApplyButtonState);
 
+/**
+ * Загружает данные по одной отправке и открывает модальное окно.
+ * Отображает оверлей загрузки на время запроса.
+ * @param {string} itemNumber - номер отправления
+ */
 function loadModal(itemNumber) {
     if (!itemNumber) return;
+
+    showLoading(); // показываем индикатор для операций с одной посылкой
 
     fetch(`/app/departures/${itemNumber}`)
         .then(response => {
@@ -81,10 +88,11 @@ function loadModal(itemNumber) {
         })
         .then(data => {
             document.querySelector('#infoModal .modal-body').innerHTML = data;
-            let modal = new bootstrap.Modal(document.getElementById('infoModal'));
+            const modal = new bootstrap.Modal(document.getElementById('infoModal'));
             modal.show();
         })
-        .catch(() => notifyUser('Ошибка при загрузке данных', "danger"));
+        .catch(() => notifyUser('Ошибка при загрузке данных', "danger"))
+        .finally(() => hideLoading()); // скрываем индикатор в любом случае
 }
 
 function loadCustomerInfo(trackId) {
@@ -1271,6 +1279,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     document.querySelector('form[action="/"]')?.addEventListener('submit', showLoading);
     document.querySelector('form[action="/app/upload"]')?.addEventListener('submit', showLoading);
+    // форма проверки одной посылки также должна показывать индикатор загрузки
+    document.querySelector('form[action="/app"]')?.addEventListener('submit', showLoading);
 
     // === Добавляем CSRF-токен ===
     const csrfToken = document.querySelector('meta[name="_csrf"]')?.content || "";
