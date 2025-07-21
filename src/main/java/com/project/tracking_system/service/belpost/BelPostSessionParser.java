@@ -78,7 +78,8 @@ public class BelPostSessionParser {
             List<WebElement> trackItems = trackDetails.findElements(By.cssSelector("div.track-details__item"));
 
             for (WebElement trackItemElement : trackItems) {
-                String title = trackItemElement.findElement(By.cssSelector("dt")).getText();
+                // Тримим пробелы, чтобы регулярные выражения корректно распознавали статус
+                String title = trackItemElement.findElement(By.cssSelector("dt")).getText().trim();
                 WebElement contentElement = trackItemElement.findElement(By.cssSelector("dd"));
                 WebElement dateElement = contentElement.findElement(By.cssSelector("li.text-secondary"));
                 String dateContent = dateElement.getText();
