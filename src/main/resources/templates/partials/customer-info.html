@@ -22,7 +22,7 @@
                         <i class="bi bi-pencil"></i>
                     </button>
                 </div>
-                <form id="edit-phone-form" th:action="@{/app/customers/assign}" method="post"
+                <form id="edit-phone-form" th:action="@{/app/customers/change}" method="post"
                       class="mt-2 hidden">
                     <input type="hidden" name="trackId" th:value="${trackId}">
                     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
