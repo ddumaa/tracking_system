@@ -1,11 +1,12 @@
 package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.dto.TrackProcessingStartedDTO;
-import com.project.tracking_system.model.queue.QueuedTrack;
 import com.project.tracking_system.controller.WebSocketController;
+import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
+import com.project.tracking_system.service.belpost.QueuedTrack;
 import com.project.tracking_system.service.track.TrackExcelParser;
 import com.project.tracking_system.service.track.TrackExcelRow;
-import com.project.tracking_system.service.track.BelPostTrackQueueService;
+import com.project.tracking_system.service.store.StoreService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class TrackUploadProcessorService {
     private final TrackExcelParser parser;
     private final BelPostTrackQueueService belPostTrackQueueService;
     private final WebSocketController webSocketController;
+    private final StoreService storeService;
 
     /**
      * Принимает Excel-файл, конвертирует строки в {@link QueuedTrack} и
@@ -41,10 +43,17 @@ public class TrackUploadProcessorService {
      */
     public void process(MultipartFile file, Long userId) throws IOException {
         List<TrackExcelRow> rows = parser.parse(file);
-        String batchId = UUID.randomUUID().toString();
+        long batchId = System.currentTimeMillis();
+
+        Long defaultStoreId = userId != null ? storeService.getDefaultStoreId(userId) : null;
 
         List<QueuedTrack> queued = rows.stream()
-                .map(r -> new QueuedTrack(r.number(), r.store(), r.phone(), userId, batchId, "EXCEL"))
+                .map(r -> new QueuedTrack(
+                        r.number(),
+                        userId,
+                        parseStoreId(r.store(), defaultStoreId, userId),
+                        "EXCEL",
+                        batchId))
                 .toList();
 
         belPostTrackQueueService.enqueue(queued);
@@ -56,4 +65,30 @@ public class TrackUploadProcessorService {
                 new TrackProcessingStartedDTO(queued.size(), eta));
     }
 
+    /**
+     * Converts raw store value from Excel into a valid store ID.
+     * If parsing fails or the store is not owned by the user,
+     * the default ID is returned.
+     */
+    private Long parseStoreId(String rawStore, Long defaultStoreId, Long userId) {
+        Long storeId = defaultStoreId;
+        if (rawStore != null && !rawStore.isBlank()) {
+            try {
+                storeId = Long.parseLong(rawStore);
+            } catch (NumberFormatException e) {
+                Long byName = userId != null ? storeService.findStoreIdByName(rawStore, userId) : null;
+                if (byName != null) {
+                    storeId = byName;
+                } else {
+                    log.warn("\uD83D\uDD0D Магазин '{}' не найден, используется магазин по умолчанию", rawStore);
+                }
+            }
+        }
+
+        if (storeId != null && userId != null && !storeService.userOwnsStore(storeId, userId)) {
+            log.warn("\u26A0\uFE0F Магазин ID={} не принадлежит пользователю ID={}", storeId, userId);
+            storeId = defaultStoreId;
+        }
+        return storeId;
+    }
 }
