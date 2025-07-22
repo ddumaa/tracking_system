@@ -449,9 +449,9 @@ header .mobile-nav.active {
   color: #6c757d;
   width: 100%;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
-  flex-wrap: wrap;
   gap: 8px;
 }
 .footer .footer-contacts .contact-group .footer-bottom .footer-links {
@@ -461,6 +461,7 @@ header .mobile-nav.active {
 .footer .footer-contacts .contact-group .footer-bottom a {
   text-decoration: none;
   color: #6c757d;
+  white-space: nowrap;
 }
 .footer .footer-contacts .contact-group .footer-bottom a:hover {
   color: #0d6efd;

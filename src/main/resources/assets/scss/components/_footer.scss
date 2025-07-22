@@ -96,32 +96,33 @@
         margin: 0 auto;
       }
 
-      .footer-bottom {
-        margin-top: 20px;
-        text-align: center;
-        font-size: 12px;
-        color: #6c757d;
-        width: 100%; // Гарантируем, что занимает всю ширину
-        display: flex;
-        justify-content: center; // Центрируем содержимое
-        align-items: center;
-        flex-wrap: wrap; // Элементы могут переноситься
-        gap: 8px; // Отступы между элементами
-
-        .footer-links {
-          display: flex;
-          gap: 4px; // Расстояние между ссылками
-        }
-
-        a {
-          text-decoration: none;
+        .footer-bottom {
+          margin-top: 20px;
+          text-align: center;
+          font-size: 12px;
           color: #6c757d;
+          width: 100%; // Гарантируем, что занимает всю ширину
+          display: flex;
+          flex-direction: column; // Элементы располагаются вертикально
+          justify-content: center; // Центрируем содержимое
+          align-items: center;
+          gap: 8px; // Отступы между блоками
 
-          &:hover {
-            color: ui.$primary-color;
+          .footer-links {
+            display: flex;
+            gap: 4px; // Расстояние между ссылками
+          }
+
+          a {
+            text-decoration: none;
+            color: #6c757d;
+            white-space: nowrap; // Не переносить длинные фразы
+
+            &:hover {
+              color: ui.$primary-color;
+            }
           }
         }
-      }
     }
   }
 }
