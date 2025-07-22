@@ -2,6 +2,9 @@ package com.project.tracking_system.service.belpost;
 
 import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.dto.TrackInfoListDTO;
+import com.project.tracking_system.dto.BelPostBatchStartedDTO;
+import com.project.tracking_system.dto.BelPostTrackProcessedDTO;
+import com.project.tracking_system.dto.BelPostBatchFinishedDTO;
 import com.project.tracking_system.service.track.TrackProcessingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,7 +53,8 @@ public class BelPostTrackQueueService {
             return;
         }
         queue.offer(track);
-        progressMap.computeIfAbsent(track.batchId(), id -> new BatchProgress());
+        BatchProgress progress = progressMap.computeIfAbsent(track.batchId(), id -> new BatchProgress());
+        progress.total.incrementAndGet();
     }
 
     /** Добавляет список треков в очередь. */
@@ -82,7 +86,14 @@ public class BelPostTrackQueueService {
         }
 
         BatchProgress progress = progressMap.computeIfAbsent(task.batchId(), id -> new BatchProgress());
-        progress.processed.incrementAndGet();
+        int processedBefore = progress.processed.get();
+        int currentProcessed = progress.processed.incrementAndGet();
+
+        if (processedBefore == 0) {
+            webSocketController.sendBelPostBatchStarted(
+                    task.userId(),
+                    new BelPostBatchStartedDTO(task.batchId(), progress.getTotal()));
+        }
 
         try {
             TrackInfoListDTO info = webBelPostBatchService.parseTrack(task.trackNumber());
@@ -102,18 +113,39 @@ public class BelPostTrackQueueService {
             progress.failed.incrementAndGet();
         }
 
-        String msg = String.format("Пакет %d: обработано %d, успех %d, ошибок %d", task.batchId(),
-                progress.processed.get(), progress.success.get(), progress.failed.get());
-        webSocketController.sendUpdateStatus(task.userId(), msg, true);
+        webSocketController.sendBelPostTrackProcessed(
+                task.userId(),
+                new BelPostTrackProcessedDTO(
+                        task.batchId(),
+                        task.trackNumber(),
+                        progress.getProcessed(),
+                        progress.getSuccess(),
+                        progress.getFailed()));
+
+        if (currentProcessed >= progress.getTotal()) {
+            webSocketController.sendBelPostBatchFinished(
+                    task.userId(),
+                    new BelPostBatchFinishedDTO(
+                            task.batchId(),
+                            progress.getProcessed(),
+                            progress.getSuccess(),
+                            progress.getFailed()));
+            progressMap.remove(task.batchId());
+        }
     }
 
     /**
      * Контейнер статистики выполнения для одной партии треков.
      */
     public static class BatchProgress {
+        private final AtomicInteger total = new AtomicInteger();
         private final AtomicInteger processed = new AtomicInteger();
         private final AtomicInteger success = new AtomicInteger();
         private final AtomicInteger failed = new AtomicInteger();
+
+        public int getTotal() {
+            return total.get();
+        }
 
         public int getProcessed() {
             return processed.get();
