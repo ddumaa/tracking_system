@@ -456,6 +456,11 @@ header .mobile-nav.active {
   align-items: center;
   gap: 8px;
 }
+.footer .footer-bottom .footer-info {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+}
 .footer .footer-bottom .footer-links {
   display: flex;
   gap: 4px;
