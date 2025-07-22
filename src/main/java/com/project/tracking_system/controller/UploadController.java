@@ -1,6 +1,5 @@
 package com.project.tracking_system.controller;
 
-import com.project.tracking_system.model.TrackingResponse;
 import com.project.tracking_system.service.track.TrackUploadProcessorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,12 +24,14 @@ public class UploadController {
     private final TrackUploadProcessorService trackUploadProcessorService;
 
     /**
-     * Обрабатывает загрузку файла (XLS или XLSX).
+     * Обрабатывает загрузку Excel-файла с треками.
+     * После успешной передачи файла запускается фоновая обработка,
+     * о ходе которой пользователь уведомляется через WebSocket.
      *
-     * @param file загружаемый файл
+     * @param file   загружаемый файл
      * @param storeId идентификатор магазина (может быть null)
-     * @param model модель для добавления данных в представление
-     * @param user текущий пользователь
+     * @param model  модель представления
+     * @param user   текущий пользователь
      * @return имя представления домашней страницы
      */
     @PostMapping("/upload")
@@ -57,12 +58,8 @@ public class UploadController {
 
         try {
             if (contentType.equals("application/vnd.ms-excel") || contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
-                TrackingResponse trackingResponse = trackUploadProcessorService.process(file, userId);
-
-                log.info("Передаём в модель limitExceededMessage: {}", trackingResponse.getLimitExceededMessage());
-
-                model.addAttribute("trackingResults", trackingResponse.getTrackingResults());
-                model.addAttribute("limitExceededMessage", trackingResponse.getLimitExceededMessage());
+                trackUploadProcessorService.process(file, userId);
+                model.addAttribute("successMessage", "Файл принят, обработка начата.");
             } else {
                 model.addAttribute("customError", "Неподдерживаемый тип файла. Загрузите XLS или XLSX.");
                 return "app/home";

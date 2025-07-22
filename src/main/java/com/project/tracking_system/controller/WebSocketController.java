@@ -1,6 +1,7 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.entity.UpdateResult;
+import com.project.tracking_system.dto.TrackProcessingStartedDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -45,6 +46,17 @@ public class WebSocketController {
     public void sendDetailUpdateStatus(Long userId, UpdateResult updateResult) {
         getDebug(userId, updateResult);
         messagingTemplate.convertAndSend("/topic/status/" + userId, updateResult);
+    }
+
+    /**
+     * Уведомляет пользователя о начале пакетной обработки треков.
+     *
+     * @param userId     идентификатор пользователя
+     * @param startedDto информация о количестве треков и ориентировочном ETA
+     */
+    public void sendTrackProcessingStarted(Long userId, TrackProcessingStartedDTO startedDto) {
+        log.debug("\uD83D\uDCE1 WebSocket старт обработки для {}: {}", userId, startedDto);
+        messagingTemplate.convertAndSend("/topic/track-processing-started/" + userId, startedDto);
     }
 
     private static void getDebug(Long userId, UpdateResult updateResult) {
