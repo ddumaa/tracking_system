@@ -2,6 +2,9 @@ package com.project.tracking_system.controller;
 
 import com.project.tracking_system.entity.UpdateResult;
 import com.project.tracking_system.dto.TrackProcessingStartedDTO;
+import com.project.tracking_system.dto.BelPostBatchStartedDTO;
+import com.project.tracking_system.dto.BelPostTrackProcessedDTO;
+import com.project.tracking_system.dto.BelPostBatchFinishedDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -57,6 +60,39 @@ public class WebSocketController {
     public void sendTrackProcessingStarted(Long userId, TrackProcessingStartedDTO startedDto) {
         log.debug("\uD83D\uDCE1 WebSocket старт обработки для {}: {}", userId, startedDto);
         messagingTemplate.convertAndSend("/topic/track-processing-started/" + userId, startedDto);
+    }
+
+    /**
+     * Отправляет событие о начале обработки партии треков Белпочты.
+     *
+     * @param userId идентификатор пользователя
+     * @param dto    данные о партии
+     */
+    public void sendBelPostBatchStarted(Long userId, BelPostBatchStartedDTO dto) {
+        log.debug("\uD83D\uDCE1 WebSocket партия {} начата для {}: {}", dto.batchId(), userId, dto);
+        messagingTemplate.convertAndSend("/topic/belpost/batch-started/" + userId, dto);
+    }
+
+    /**
+     * Отправляет информацию о результате обработки одного трека Белпочты.
+     *
+     * @param userId идентификатор пользователя
+     * @param dto    информация об обработанном треке
+     */
+    public void sendBelPostTrackProcessed(Long userId, BelPostTrackProcessedDTO dto) {
+        log.debug("\uD83D\uDCE1 WebSocket обработан трек {} партии {}: {}", dto.trackNumber(), dto.batchId(), dto);
+        messagingTemplate.convertAndSend("/topic/belpost/track-processed/" + userId, dto);
+    }
+
+    /**
+     * Отправляет сообщение о завершении обработки партии треков Белпочты.
+     *
+     * @param userId идентификатор пользователя
+     * @param dto    финальная статистика по партии
+     */
+    public void sendBelPostBatchFinished(Long userId, BelPostBatchFinishedDTO dto) {
+        log.debug("\uD83D\uDCE1 WebSocket партия {} завершена для {}: {}", dto.batchId(), userId, dto);
+        messagingTemplate.convertAndSend("/topic/belpost/batch-finished/" + userId, dto);
     }
 
     private static void getDebug(Long userId, UpdateResult updateResult) {
