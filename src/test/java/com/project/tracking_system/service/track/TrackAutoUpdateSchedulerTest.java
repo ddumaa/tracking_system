@@ -9,6 +9,10 @@ import com.project.tracking_system.repository.UserSubscriptionRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.dto.TrackingResultAdd;
+import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
+import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
+import com.project.tracking_system.entity.PostalServiceType;
+import com.project.tracking_system.service.track.TrackUpdateService;
 import org.springframework.transaction.annotation.Transactional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,6 +45,10 @@ class TrackAutoUpdateSchedulerTest {
     private UserService userService;
     @Mock
     private TrackUpdateService trackUpdateService;
+    @Mock
+    private BelPostTrackQueueService belPostTrackQueueService;
+    @Mock
+    private TypeDefinitionTrackPostService typeDefinitionTrackPostService;
 
     private TrackAutoUpdateScheduler scheduler;
 
@@ -51,7 +59,9 @@ class TrackAutoUpdateSchedulerTest {
                 trackParcelRepository,
                 subscriptionService,
                 userService,
-                trackUpdateService
+                trackUpdateService,
+                belPostTrackQueueService,
+                typeDefinitionTrackPostService
         );
     }
 
@@ -159,6 +169,27 @@ class TrackAutoUpdateSchedulerTest {
 
         verify(trackUpdateService).process(anyList(), eq(1L));
         verify(trackUpdateService).process(anyList(), eq(2L));
+    }
+
+    /**
+     * Проверяем, что номера Белпочты ставятся в очередь, а не обновляются напрямую.
+     */
+    @Test
+    void updateAllUsersTracks_EnqueuesBelpost() {
+        when(userSubscriptionRepository.findUserIdsByFeature(FeatureKey.AUTO_UPDATE))
+                .thenReturn(List.of(1L));
+        when(userService.isAutoUpdateEnabled(1L)).thenReturn(true);
+
+        TrackParcel parcel = buildParcel("PC123456789BY", GlobalStatus.IN_TRANSIT, 10L);
+        when(trackParcelRepository.findByUserId(1L)).thenReturn(List.of(parcel));
+        when(subscriptionService.canUpdateTracks(1L, 1)).thenReturn(1);
+        when(typeDefinitionTrackPostService.detectPostalService("PC123456789BY"))
+                .thenReturn(PostalServiceType.BELPOST);
+
+        scheduler.updateAllUsersTracks();
+
+        verify(belPostTrackQueueService).enqueue(anyList());
+        verify(trackUpdateService, never()).process(anyList(), anyLong());
     }
 
     /**
