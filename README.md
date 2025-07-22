@@ -43,3 +43,31 @@ java -jar app.jar --webdriver.chrome.driver=/path/to/chromedriver
 ```json
 { "version": "0.0.1-SNAPSHOT" }
 ```
+
+## Очередь Белпочты
+
+Для трек-номеров службы Белпочты используется отдельная очередь `BelPostTrackQueueService`.
+Она обеспечивает последовательную обработку пачек треков и отправляет события через WebSocket.
+
+- **Планирование.** Метод `processQueue()` помечен `@Scheduled(fixedDelay = 15000)`,
+  поэтому каждые 15 секунд из очереди берётся один трек.
+  При ошибке Selenium обработка приостанавливается на минуту.
+- **Параметры.** Задержку и период можно изменить в коде сервиса,
+  либо переопределить аннотацию при необходимости.
+
+### Примеры событий WebSocket
+
+```json
+// belpost/batch-started/{userId}
+{ "batchId": 1, "totalCount": 5 }
+
+// belpost/track-processed/{userId}
+{ "batchId": 1, "trackNumber": "RR123", "processed": 1, "success": 1, "failed": 0 }
+
+// belpost/batch-finished/{userId}
+{ "batchId": 1, "processed": 5, "success": 4, "failed": 1 }
+```
+
+После загрузки файла с треками пользователь может следить за прогрессом
+в веб-интерфейсе: уведомления по WebSocket отображаются в правом верхнем углу
+страницы и обновляют таблицу по мере завершения обработки.
