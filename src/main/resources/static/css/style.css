@@ -1549,4 +1549,10 @@ body.loading {
   }
 }
 
+/* Center the store ID in the store settings table */
+.store-id {
+  text-align: center;
+  vertical-align: middle;
+}
+
 /*# sourceMappingURL=style.css.map */

@@ -37,14 +37,19 @@ public class ChromeWebDriverFactory implements WebDriverFactory {
     public WebDriver create() {
         System.setProperty("webdriver.chrome.driver", driverPath);
 
+        //
+        // Configure ChromeDriver for headless execution on a server.
+        // These options allow running inside environments without a display
+        // manager (e.g. Docker containers) while maintaining stable behavior.
+        //
         ChromeOptions options = new ChromeOptions();
-        //options.addArguments("--headless=chrome");
-        //options.addArguments("--disable-gpu");
+        options.addArguments("--headless=new");
+        options.addArguments("--disable-gpu");
         options.addArguments("--window-size=1920,1080");
-        //options.addArguments("--ignore-certificate-errors");
-        //options.addArguments("--no-sandbox");
-        //options.addArguments("--disable-dev-shm-usage");
-        //options.addArguments("--remote-debugging-port=9222");
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--ignore-certificate-errors");
+
         return new ChromeDriver(options);
     }
 
