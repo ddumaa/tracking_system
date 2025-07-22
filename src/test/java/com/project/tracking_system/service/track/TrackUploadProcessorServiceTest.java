@@ -1,7 +1,8 @@
 package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.controller.WebSocketController;
-import com.project.tracking_system.service.track.BelPostTrackQueueService;
+import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
+import com.project.tracking_system.service.store.StoreService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,13 +24,15 @@ class TrackUploadProcessorServiceTest {
     @Mock
     private BelPostTrackQueueService queueService;
     @Mock
+    private StoreService storeService;
+    @Mock
     private WebSocketController webSocketController;
 
     private TrackUploadProcessorService processor;
 
     @BeforeEach
     void setUp() {
-        processor = new TrackUploadProcessorService(parser, queueService, webSocketController);
+        processor = new TrackUploadProcessorService(parser, queueService, webSocketController, storeService);
     }
 
     @Test
