@@ -1,7 +1,7 @@
 package com.project.tracking_system.service.track;
 
-import com.project.tracking_system.dto.TrackingResultAdd;
-import com.project.tracking_system.model.TrackingResponse;
+import com.project.tracking_system.controller.WebSocketController;
+import com.project.tracking_system.service.track.BelPostTrackQueueService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,8 +11,8 @@ import org.springframework.mock.web.MockMultipartFile;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -21,28 +21,25 @@ class TrackUploadProcessorServiceTest {
     @Mock
     private TrackExcelParser parser;
     @Mock
-    private TrackMetaValidator validator;
+    private BelPostTrackQueueService queueService;
     @Mock
-    private TrackUpdateService trackUpdateService;
+    private WebSocketController webSocketController;
 
     private TrackUploadProcessorService processor;
 
     @BeforeEach
     void setUp() {
-        processor = new TrackUploadProcessorService(parser, validator, trackUpdateService);
+        processor = new TrackUploadProcessorService(parser, queueService, webSocketController);
     }
 
     @Test
-    void process_ReturnsResponse() throws Exception {
+    void process_EnqueuesTracks() throws Exception {
         MockMultipartFile file = new MockMultipartFile("f", new byte[0]);
-        when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("A1", null, null)));
-        TrackMeta meta = new TrackMeta("A1", null, null, true);
-        when(validator.validate(anyList(), any())).thenReturn(new TrackMetaValidationResult(List.of(meta), null));
-        List<TrackingResultAdd> results = List.of(new TrackingResultAdd("A1", "ok"));
-        when(trackUpdateService.process(anyList(), eq(1L))).thenReturn(results);
+        when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("A1", "1", "p")));
 
-        TrackingResponse response = processor.process(file, 1L);
+        processor.process(file, 1L);
 
-        assertEquals(results, response.getTrackingResults());
+        verify(queueService).enqueue(anyList());
+        verify(webSocketController).sendTrackProcessingStarted(eq(1L), any());
     }
 }
