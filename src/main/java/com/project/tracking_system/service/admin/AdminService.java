@@ -8,7 +8,6 @@ import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.track.TrackConstants;
 import com.project.tracking_system.service.track.TrackDeletionService;
 import com.project.tracking_system.service.track.TrackMeta;
-//import com.project.tracking_system.service.track.TrackUpdateCoordinatorService;
 import com.project.tracking_system.service.track.TrackUpdateService;
 import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
@@ -38,9 +37,11 @@ public class AdminService {
     private final TrackParcelRepository trackParcelRepository;
     private final UserRepository userRepository;
     private final TrackDeletionService trackDeletionService;
-    //private final TrackUpdateCoordinatorService trackUpdateCoordinatorService;
     private final UserService userService;
     private final StoreService storeService;
+    /**
+     * Service for performing manual or forced parcel updates.
+     */
     private final TrackUpdateService trackUpdateService;
 
     /**
