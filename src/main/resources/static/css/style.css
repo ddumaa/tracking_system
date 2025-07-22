@@ -451,6 +451,12 @@ header .mobile-nav.active {
   display: flex;
   justify-content: center;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.footer .footer-contacts .contact-group .footer-bottom .footer-links {
+  display: flex;
+  gap: 4px;
 }
 .footer .footer-contacts .contact-group .footer-bottom a {
   text-decoration: none;

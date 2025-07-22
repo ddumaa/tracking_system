@@ -105,6 +105,13 @@
         display: flex;
         justify-content: center; // Центрируем содержимое
         align-items: center;
+        flex-wrap: wrap; // Элементы могут переноситься
+        gap: 8px; // Отступы между элементами
+
+        .footer-links {
+          display: flex;
+          gap: 4px; // Расстояние между ссылками
+        }
 
         a {
           text-decoration: none;
