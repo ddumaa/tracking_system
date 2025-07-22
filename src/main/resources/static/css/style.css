@@ -1126,6 +1126,13 @@ button:hover {
   transform: scale(1.1);
 }
 
+/* Иконка покупателя рядом с номером посылки */
+.customer-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.25rem;
+}
+
 .pagination {
   display: flex;
   justify-content: center;
