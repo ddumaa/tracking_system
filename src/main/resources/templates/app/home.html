@@ -31,6 +31,9 @@
                 <div th:if="${generalError}" class="alert alert-danger mb-4">
                     <p th:text="${generalError}" class="mb-0"></p>
                 </div>
+                <div th:if="${successMessage}" class="alert alert-success mb-4">
+                    <p th:text="${successMessage}" class="mb-0"></p>
+                </div>
 
                 <!-- Форма поиска посылки и загрузка файла -->
                 <div class="card shadow-sm p-4 rounded-4">
