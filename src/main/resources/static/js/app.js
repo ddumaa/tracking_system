@@ -897,8 +897,9 @@ async function loadStores() {
 
     stores.forEach(store => {
         const row = document.createElement("tr");
+        // Первый столбец содержит идентификатор магазина и выравнивается по центру
         row.innerHTML = `
-            <td>${store.id}</td>
+            <td class="text-center store-id">${store.id}</td>
             <td class="d-flex align-items-center">
                 <input type="radio" name="defaultStore"
                        class="default-store-radio me-2"
@@ -1075,8 +1076,9 @@ function addNewStore() {
     const tempId = `new-${Date.now()}`; // Уникальный ID для нового магазина
 
     const row = document.createElement("tr");
+    // Строка новой записи с центровкой ID для согласованности с таблицей
     row.innerHTML = `
-        <td>—</td>
+        <td class="text-center store-id">—</td>
         <td>
             <input type="text" class="form-control store-name-input" id="store-name-${tempId}" placeholder="Введите название">
         </td>
