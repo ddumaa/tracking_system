@@ -435,14 +435,14 @@ header .mobile-nav.active {
 .footer .footer-contacts .contact-group a i {
   font-size: 16px;
 }
-.footer .footer-contacts .contact-group .footer-description {
+.footer .footer-description {
   text-align: center;
   font-size: 14px;
   color: #6c757d;
   max-width: 300px;
   margin: 0 auto;
 }
-.footer .footer-contacts .contact-group .footer-bottom {
+.footer .footer-bottom {
   margin-top: 20px;
   text-align: center;
   font-size: 12px;
@@ -454,16 +454,16 @@ header .mobile-nav.active {
   align-items: center;
   gap: 8px;
 }
-.footer .footer-contacts .contact-group .footer-bottom .footer-links {
+.footer .footer-bottom .footer-links {
   display: flex;
   gap: 4px;
 }
-.footer .footer-contacts .contact-group .footer-bottom a {
+.footer .footer-bottom a {
   text-decoration: none;
   color: #6c757d;
   white-space: nowrap;
 }
-.footer .footer-contacts .contact-group .footer-bottom a:hover {
+.footer .footer-bottom a:hover {
   color: #0d6efd;
 }
 
