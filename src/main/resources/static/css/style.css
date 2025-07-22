@@ -1140,7 +1140,6 @@ button:hover {
   transform: scale(1.1);
 }
 
-/* Иконка покупателя рядом с номером посылки */
 .customer-icon {
   display: inline-flex;
   align-items: center;
@@ -1305,6 +1304,11 @@ button:hover {
 
 .template-toggle-group .btn {
   padding: 0.25rem 0.75rem;
+}
+
+.store-id {
+  text-align: center;
+  vertical-align: middle;
 }
 
 .legal-container {
@@ -1561,12 +1565,6 @@ body.loading {
     padding-left: 0.5rem;
     padding-right: 0.5rem;
   }
-}
-
-/* Center the store ID in the store settings table */
-.store-id {
-  text-align: center;
-  vertical-align: middle;
 }
 
 /*# sourceMappingURL=style.css.map */
