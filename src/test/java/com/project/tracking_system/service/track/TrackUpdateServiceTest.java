@@ -9,6 +9,9 @@ import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
+import com.project.tracking_system.service.track.TrackMeta;
+import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.dto.TrackingResultAdd;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,6 +49,8 @@ class TrackUpdateServiceTest {
     private TrackUploadGroupingService groupingService;
     @Mock
     private TrackUpdateDispatcherService dispatcherService;
+    @Mock
+    private BelPostTrackQueueService belPostTrackQueueService;
 
     private TrackUpdateService service;
 
@@ -58,7 +63,8 @@ class TrackUpdateServiceTest {
                 trackParcelRepository,
                 trackParcelService,
                 groupingService,
-                dispatcherService
+                dispatcherService,
+                belPostTrackQueueService
         );
     }
     /**
@@ -139,6 +145,22 @@ class TrackUpdateServiceTest {
         verify(trackParcelService).incrementUpdateCount(1L, 1);
         verify(webSocketController).sendDetailUpdateStatus(eq(1L), any(UpdateResult.class));
         verify(webSocketController, never()).sendUpdateStatus(eq(1L), anyString(), anyBoolean());
+    }
+
+    /**
+     * Убеждаемся, что Белпочта отправляется в очередь,
+     * а не напрямую через dispatcherService.
+     */
+    @Test
+    void process_EnqueuesBelpostTracks() {
+        TrackMeta meta = new TrackMeta("RR1", 1L, null, true, PostalServiceType.BELPOST);
+        when(groupingService.group(anyList()))
+                .thenReturn(java.util.Map.of(PostalServiceType.BELPOST, java.util.List.of(meta)));
+
+        service.process(java.util.List.of(meta), 1L);
+
+        verify(belPostTrackQueueService).enqueue(anyList());
+        verifyNoInteractions(dispatcherService);
     }
 
     private static TrackParcel buildParcel(String number, GlobalStatus status, Long storeId) {

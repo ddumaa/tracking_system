@@ -4,8 +4,11 @@ import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.*;
 import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
+import com.project.tracking_system.service.belpost.QueuedTrack;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.dto.TrackingResultAdd;
+import com.project.tracking_system.entity.PostalServiceType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -34,6 +37,8 @@ public class TrackUpdateService {
     private final TrackParcelService trackParcelService;
     private final TrackUploadGroupingService groupingService;
     private final TrackUpdateDispatcherService dispatcherService;
+    /** Очередь Белпочты для централизованной обработки. */
+    private final BelPostTrackQueueService belPostTrackQueueService;
 
     /**
      * Обновляет историю всех посылок пользователя.
@@ -227,6 +232,25 @@ public class TrackUpdateService {
      */
     public List<TrackingResultAdd> process(List<TrackMeta> tracks, Long userId) {
         Map<PostalServiceType, List<TrackMeta>> grouped = groupingService.group(tracks);
+
+        // Отдельно обрабатываем номера Белпочты через централизованную очередь
+        List<TrackMeta> belpost = grouped.remove(PostalServiceType.BELPOST);
+        if (belpost != null && !belpost.isEmpty()) {
+            List<QueuedTrack> queued = belpost.stream()
+                    .map(m -> new QueuedTrack(
+                            m.number(),
+                            userId,
+                            m.storeId(),
+                            "UPDATE",
+                            System.currentTimeMillis()))
+                    .toList();
+            belPostTrackQueueService.enqueue(queued);
+        }
+
+        if (grouped.isEmpty()) {
+            return List.of();
+        }
+
         return dispatcherService.dispatch(grouped, userId);
     }
 
