@@ -103,7 +103,10 @@
 
   // Нижняя часть футера (копирайт и ссылки)
   .footer-bottom {
-    margin-top: 20px;
+    margin-top: 10px;
+    // Разделительная линия между содержимым и нижней частью футера
+    border-top: 1px solid #dee2e6;
+    padding-top: 10px;
     text-align: center;
     font-size: 12px;
     color: #6c757d;
