@@ -1,7 +1,8 @@
 package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.dto.TrackStatusUpdateDTO;
-import org.springframework.beans.factory.annotation.Value;
+import com.project.tracking_system.service.admin.ApplicationSettingsService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -19,20 +20,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * </p>
  */
 @Service
+@RequiredArgsConstructor
 public class TrackingResultCacheService {
 
-    /** Время жизни результатов в кэше (мс). */
-    private final long expirationMs;
-
-    /**
-     * Конструктор, принимающий значение таймаута из конфигурации.
-     *
-     * @param expirationMs время жизни данных в миллисекундах
-     */
-    public TrackingResultCacheService(
-            @Value("${tracking.result-cache.expiration-ms:60000}") long expirationMs) {
-        this.expirationMs = expirationMs;
-    }
+    /** Сервис получения настроек приложения. */
+    private final ApplicationSettingsService applicationSettingsService;
 
     /** Карта вида userId -> (batchId -> результаты с отметкой времени). */
     private final Map<Long, Map<Long, BatchEntry>> cache = new ConcurrentHashMap<>();
@@ -104,10 +96,12 @@ public class TrackingResultCacheService {
     /**
      * Периодически удаляет устаревшие записи из кэша.
      * <p>Выполняется каждые 30 секунд.</p>
+     * Значение TTL считывается из {@link ApplicationSettingsService} при каждом вызове.
      */
     @Scheduled(fixedDelay = 30_000)
     public void removeExpired() {
-        long threshold = System.currentTimeMillis() - expirationMs;
+        long expiration = applicationSettingsService.getResultCacheExpirationMs();
+        long threshold = System.currentTimeMillis() - expiration;
         cache.entrySet().removeIf(userEntry -> {
             Map<Long, BatchEntry> byBatch = userEntry.getValue();
             byBatch.entrySet().removeIf(e -> e.getValue().expired(threshold));

@@ -556,6 +556,7 @@ public class AdminController {
         model.addAttribute("appVersion", appInfoService.getApplicationVersion());
         model.addAttribute("webhookEnabled", appInfoService.isTelegramWebhookEnabled());
         model.addAttribute("interval", applicationSettingsService.getTrackUpdateIntervalHours());
+        model.addAttribute("cacheTtl", applicationSettingsService.getResultCacheExpirationMs());
         // для таблицы тарифов используем DTO с лимитами и признаками функций
         model.addAttribute("plans", tariffService.getAllPlans());
 
@@ -574,6 +575,7 @@ public class AdminController {
     @GetMapping("/settings/track-interval")
     public String trackIntervalForm(Model model) {
         model.addAttribute("interval", applicationSettingsService.getTrackUpdateIntervalHours());
+        model.addAttribute("cacheTtl", applicationSettingsService.getResultCacheExpirationMs());
         List<BreadcrumbItemDTO> breadcrumbs = List.of(
                 new BreadcrumbItemDTO("Админ Панель", "/admin"),
                 new BreadcrumbItemDTO("Интервал обновления", "")
@@ -588,6 +590,30 @@ public class AdminController {
     @PostMapping("/settings/track-interval")
     public String updateTrackInterval(@RequestParam int interval) {
         applicationSettingsService.updateTrackUpdateIntervalHours(interval);
+        return "redirect:/admin/settings";
+    }
+
+    /**
+     * Страница изменения времени хранения результатов в кэше.
+     */
+    @GetMapping("/settings/cache-ttl")
+    public String cacheTtlForm(Model model) {
+        model.addAttribute("interval", applicationSettingsService.getTrackUpdateIntervalHours());
+        model.addAttribute("cacheTtl", applicationSettingsService.getResultCacheExpirationMs());
+        List<BreadcrumbItemDTO> breadcrumbs = List.of(
+                new BreadcrumbItemDTO("Админ Панель", "/admin"),
+                new BreadcrumbItemDTO("TTL кэша", "")
+        );
+        model.addAttribute("breadcrumbs", breadcrumbs);
+        return "admin/settings";
+    }
+
+    /**
+     * Сохранение нового TTL для кэша результатов.
+     */
+    @PostMapping("/settings/cache-ttl")
+    public String updateCacheTtl(@RequestParam("ttl") long ttl) {
+        applicationSettingsService.updateResultCacheExpirationMs(ttl);
         return "redirect:/admin/settings";
     }
 
