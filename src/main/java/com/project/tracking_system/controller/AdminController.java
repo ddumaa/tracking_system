@@ -10,6 +10,7 @@ import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.admin.AdminService;
 import com.project.tracking_system.service.admin.AppInfoService;
 import com.project.tracking_system.service.admin.SubscriptionPlanService;
+import com.project.tracking_system.service.admin.ApplicationSettingsService;
 import com.project.tracking_system.service.tariff.TariffService;
 import com.project.tracking_system.service.DynamicSchedulerService;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
@@ -51,6 +52,7 @@ public class AdminController {
     private final AppInfoService appInfoService;
     private final DynamicSchedulerService dynamicSchedulerService;
     private final TariffService tariffService;
+    private final ApplicationSettingsService applicationSettingsService;
 
     /**
      * Отображает дашборд администратора.
@@ -553,6 +555,7 @@ public class AdminController {
     public String settings(Model model) {
         model.addAttribute("appVersion", appInfoService.getApplicationVersion());
         model.addAttribute("webhookEnabled", appInfoService.isTelegramWebhookEnabled());
+        model.addAttribute("interval", applicationSettingsService.getTrackUpdateIntervalHours());
         // для таблицы тарифов используем DTO с лимитами и признаками функций
         model.addAttribute("plans", tariffService.getAllPlans());
 
@@ -563,6 +566,29 @@ public class AdminController {
         );
         model.addAttribute("breadcrumbs", breadcrumbs);
         return "admin/settings";
+    }
+
+    /**
+     * Страница изменения интервала автообновления треков.
+     */
+    @GetMapping("/settings/track-interval")
+    public String trackIntervalForm(Model model) {
+        model.addAttribute("interval", applicationSettingsService.getTrackUpdateIntervalHours());
+        List<BreadcrumbItemDTO> breadcrumbs = List.of(
+                new BreadcrumbItemDTO("Админ Панель", "/admin"),
+                new BreadcrumbItemDTO("Интервал обновления", "")
+        );
+        model.addAttribute("breadcrumbs", breadcrumbs);
+        return "admin/settings";
+    }
+
+    /**
+     * Сохранение нового интервала автообновления треков.
+     */
+    @PostMapping("/settings/track-interval")
+    public String updateTrackInterval(@RequestParam int interval) {
+        applicationSettingsService.updateTrackUpdateIntervalHours(interval);
+        return "redirect:/admin/settings";
     }
 
     /**
