@@ -5,9 +5,9 @@ import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.BelPostBatchStartedDTO;
 import com.project.tracking_system.dto.TrackStatusUpdateDTO;
 import com.project.tracking_system.dto.BelPostBatchFinishedDTO;
-import com.project.tracking_system.dto.TrackProcessingProgressDTO;
 import com.project.tracking_system.service.track.TrackProcessingService;
 import com.project.tracking_system.service.track.TrackConstants;
+import com.project.tracking_system.service.track.ProgressAggregatorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.WebDriverException;
@@ -40,6 +40,8 @@ public class BelPostTrackQueueService {
     private final WebBelPostBatchService webBelPostBatchService;
     private final TrackProcessingService trackProcessingService;
     private final WebSocketController webSocketController;
+    /** Aggregates overall progress from different services. */
+    private final ProgressAggregatorService progressAggregatorService;
 
     /** Хранилище заданий на обработку. */
     private final BlockingQueue<QueuedTrack> queue = new LinkedBlockingQueue<>();
@@ -136,14 +138,7 @@ public class BelPostTrackQueueService {
                         progress.getProcessed(),
                         progress.getTotal()));
 
-        webSocketController.sendProgress(
-                task.userId(),
-                new TrackProcessingProgressDTO(
-                        task.batchId(),
-                        progress.getProcessed(),
-                        progress.getTotal(),
-                        progress.getElapsed()
-                ));
+        progressAggregatorService.trackProcessed(task.batchId());
 
         if (currentProcessed >= progress.getTotal()) {
             webSocketController.sendBelPostBatchFinished(

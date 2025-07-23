@@ -4,6 +4,7 @@ import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.service.track.TrackProcessingService;
+import com.project.tracking_system.service.track.ProgressAggregatorService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +34,8 @@ class BelPostTrackQueueServiceTest {
     private TrackProcessingService trackProcessingService;
     @Mock
     private WebSocketController webSocketController;
+    @Mock
+    private ProgressAggregatorService progressAggregatorService;
 
     private BelPostTrackQueueService queueService;
 
@@ -41,7 +44,8 @@ class BelPostTrackQueueServiceTest {
         queueService = new BelPostTrackQueueService(
                 webBelPostBatchService,
                 trackProcessingService,
-                webSocketController
+                webSocketController,
+                progressAggregatorService
         );
     }
 
@@ -79,12 +83,12 @@ class BelPostTrackQueueServiceTest {
         verify(webSocketController).sendBelPostBatchStarted(eq(1L), any());
         verify(webSocketController).sendBelPostTrackProcessed(eq(1L), argThat(dto ->
                 "info".equals(dto.status()) && dto.completed() == 1 && dto.total() == 2));
-        verify(webSocketController).sendProgress(eq(1L), any());
+        verify(progressAggregatorService).trackProcessed(10L);
 
         queueService.processQueue();
         assertNull(queueService.getProgress(10L));
         verify(webSocketController).sendBelPostBatchFinished(eq(1L), any());
-        verify(webSocketController, times(2)).sendProgress(eq(1L), any());
+        verify(progressAggregatorService, times(2)).trackProcessed(10L);
     }
 
     /**
@@ -104,6 +108,8 @@ class BelPostTrackQueueServiceTest {
         assertTrue(pauseUntil >= before + 60_000L);
         verify(webSocketController)
                 .sendUpdateStatus(2L, "Белпочта временно недоступна", false);
+
+        verify(progressAggregatorService).trackProcessed(20L);
 
         BelPostTrackQueueService.BatchProgress p = queueService.getProgress(20L);
         assertEquals(1, p.getFailed());
