@@ -51,6 +51,21 @@ function copyToClipboard(text) {
 }
 
 /**
+ * Инициализирует кнопку копирования ссылки на Telegram-бота.
+ * Находит кнопку по ID, читает URL из атрибута data-link
+ * и регистрирует обработчик, вызывающий {@link copyToClipboard}.
+ */
+function initTelegramLinkCopy() {
+    const copyBtn = document.getElementById('telegramLinkCopyBtn');
+    if (!copyBtn) return;
+
+    const link = copyBtn.dataset.link;
+    if (!link) return;
+
+    copyBtn.addEventListener('click', () => copyToClipboard(link));
+}
+
+/**
  * Устанавливает активную вкладку профиля во всех меню.
  * @param {string} href - Идентификатор вкладки (href вида '#v-pills-home').
  */
@@ -1300,6 +1315,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // === Всплывающие подсказки (tooltips) ===
     enableTooltips();
+
+    // Кнопка копирования ссылки на Telegram-бота
+    initTelegramLinkCopy();
 
     /// Авто-скрытие уведомлений
     setTimeout(() => {
