@@ -8,6 +8,7 @@ import com.project.tracking_system.dto.BelPostBatchFinishedDTO;
 import com.project.tracking_system.service.track.TrackProcessingService;
 import com.project.tracking_system.service.track.TrackConstants;
 import com.project.tracking_system.service.track.ProgressAggregatorService;
+import com.project.tracking_system.service.track.TrackingResultCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.WebDriverException;
@@ -40,8 +41,10 @@ public class BelPostTrackQueueService {
     private final WebBelPostBatchService webBelPostBatchService;
     private final TrackProcessingService trackProcessingService;
     private final WebSocketController webSocketController;
-    /** Aggregates overall progress from different services. */
+    /** Сервис агрегирования прогресса из различных источников. */
     private final ProgressAggregatorService progressAggregatorService;
+    /** Кэш результатов трекинга для восстановления состояния страницы. */
+    private final TrackingResultCacheService trackingResultCacheService;
 
     /** Хранилище заданий на обработку. */
     private final BlockingQueue<QueuedTrack> queue = new LinkedBlockingQueue<>();
@@ -129,14 +132,14 @@ public class BelPostTrackQueueService {
         String status = info.getList().isEmpty()
                 ? TrackConstants.NO_DATA_STATUS
                 : info.getList().get(0).getInfoTrack();
-        webSocketController.sendBelPostTrackProcessed(
-                task.userId(),
-                new TrackStatusUpdateDTO(
-                        task.batchId(),
-                        task.trackNumber(),
-                        status,
-                        progress.getProcessed(),
-                        progress.getTotal()));
+        TrackStatusUpdateDTO dto = new TrackStatusUpdateDTO(
+                task.batchId(),
+                task.trackNumber(),
+                status,
+                progress.getProcessed(),
+                progress.getTotal());
+        webSocketController.sendBelPostTrackProcessed(task.userId(), dto);
+        trackingResultCacheService.addResult(task.userId(), dto);
 
         progressAggregatorService.trackProcessed(task.batchId());
 

@@ -64,6 +64,8 @@
         }
         const container = document.getElementById("progressContainer");
         progressPopup = document.getElementById("progressPopup");
+        attachResultsCloseHandler();
+        attachUnloadHandler();
 
         fetch("/app/progress/latest", {cache: "no-store"})
             .then(r => r.ok ? r.json() : null)
@@ -74,6 +76,11 @@
                 }
             })
             .finally(() => connectSocket(userId, container));
+
+        // Загружаем сохранённые результаты последней партии
+        fetch("/app/results/latest", {cache: "no-store"})
+            .then(r => r.ok ? r.json() : [])
+            .then(list => list.forEach(item => updateTrackingRow(item.trackingNumber, item.status)));
     }
 
     /**
@@ -342,6 +349,9 @@
         const table = ensureResultsTable();
         if (!table) return;
 
+        // При добавлении результатов показываем контейнер
+        document.getElementById("tracking-results-container")?.classList.remove("d-none");
+
         let row = table.querySelector(`tr[data-track-number="${trackNumber}"]`);
         if (!row) {
             row = table.insertRow(-1);
@@ -426,5 +436,35 @@
         if (!progressPopup) return;
         progressPopup.innerHTML = "";
         progressPopup.classList.add("d-none");
+    }
+
+    /**
+     * Назначает обработчик кнопки закрытия блока результатов трекинга.
+     * При нажатии очищает таблицу и скрывает контейнер.
+     */
+    function attachResultsCloseHandler() {
+        const container = document.getElementById("tracking-results-container");
+        if (!container) return;
+
+        const closeBtn = container.querySelector("#tracking-results-close");
+        if (!closeBtn) return;
+
+        closeBtn.addEventListener("click", () => {
+            const tbody = container.querySelector("#tracking-results-body");
+            if (tbody) {
+                tbody.innerHTML = "";
+            }
+            container.classList.add("d-none");
+            fetch("/app/results/clear", {method: "POST"});
+        });
+    }
+
+    /**
+     * Отправляет запрос на очистку кэша результатов при уходе со страницы.
+     */
+    function attachUnloadHandler() {
+        window.addEventListener("beforeunload", () => {
+            navigator.sendBeacon("/app/results/clear");
+        });
     }
 })();
