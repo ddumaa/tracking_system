@@ -128,7 +128,9 @@
                 </div>
 
                 <!-- Результаты загрузки -->
-                <div class="card shadow-sm p-4 rounded-4">
+                <div id="tracking-results-container"
+                     class="card shadow-sm p-4 rounded-4"
+                     th:classappend="${trackingResults}? '' : ' d-none'">
                     <h4 class="text-center">Последние обновления</h4>
                     <div class="table-responsive">
                         <!-- Таблица содержит последние обновления по загруженным трекам -->
