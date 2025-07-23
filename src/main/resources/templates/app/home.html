@@ -131,14 +131,15 @@
                 <div th:if="${trackingResults}" class="card shadow-sm p-4 rounded-4">
                     <h4 class="text-center">Последние обновления</h4>
                     <div class="table-responsive">
-                        <table class="table table-striped">
+                        <!-- Таблица содержит последние обновления по загруженным трекам -->
+                        <table id="tracking-results-table" class="table table-striped">
                             <thead>
                             <tr>
                                 <th>Номер посылки</th>
                                 <th>Статус</th>
                             </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="tracking-results-body">
                             <tr th:each="result : ${trackingResults}">
                                 <td th:text="${result.trackingNumber}" class="fw-bold"></td>
                                 <td th:text="${result.status}" class="fw-semibold"></td>
