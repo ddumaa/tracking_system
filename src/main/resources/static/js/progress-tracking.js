@@ -30,8 +30,8 @@
         if (!userId) {
             return; // Пользователь не авторизован
         }
-        const placeholder = document.getElementById("progressPlaceholder");
-        connectSocket(userId, placeholder);
+        const container = document.getElementById("progressContainer");
+        connectSocket(userId, container);
     }
 
     /**
@@ -39,9 +39,9 @@
      * В случае ошибки запускает периодический опрос REST.
      *
      * @param {string} userId идентификатор пользователя
-     * @param {HTMLElement|null} placeholder блок для прогресс-бара
+     * @param {HTMLElement|null} container блок для прогресс-бара
      */
-    function connectSocket(userId, placeholder) {
+    function connectSocket(userId, container) {
         const protocol = window.location.protocol === "https:" ? "wss" : "ws";
         stompClient = new StompJs.Client({
             brokerURL: `${protocol}://${window.location.host}/ws`,
@@ -52,11 +52,11 @@
             stompClient.subscribe(`/topic/progress/${userId}`, message => {
                 const data = JSON.parse(message.body);
                 lastBatchId = data.batchId;
-                updateDisplay(data, placeholder);
+                updateDisplay(data, container);
             });
         };
 
-        const fallback = () => startPolling(placeholder);
+        const fallback = () => startPolling(container);
         stompClient.onWebSocketError = fallback;
         stompClient.onStompError = fallback;
 
@@ -67,9 +67,9 @@
      * Запускает циклический опрос REST контроллера.
      * Используется, если WebSocket недоступен.
      *
-     * @param {HTMLElement|null} placeholder блок для прогресс-бара
+     * @param {HTMLElement|null} container блок для прогресс-бара
      */
-    function startPolling(placeholder) {
+    function startPolling(container) {
         if (pollingTimer || !lastBatchId) {
             return; // Уже запущено или неизвестен batchId
         }
@@ -77,7 +77,7 @@
             fetch(`/app/progress/${lastBatchId}`, {cache: "no-store"})
                 .then(r => r.ok ? r.json() : Promise.reject(r.status))
                 .then(data => {
-                    updateDisplay(data, placeholder);
+                    updateDisplay(data, container);
                     if (data.processed >= data.total) {
                         stopPolling();
                     }
@@ -99,17 +99,17 @@
      * Также скрывает элементы при завершении.
      *
      * @param {{batchId:number,processed:number,total:number,elapsed:string}} data
-     * @param {HTMLElement|null} placeholder контейнер прогресс-бара
+     * @param {HTMLElement|null} container контейнер прогресс-бара
      */
-    function updateDisplay(data, placeholder) {
+    function updateDisplay(data, container) {
         if (!data || data.total === 0) return;
-        if (placeholder) {
-            renderBar(placeholder, data);
+        if (container) {
+            renderBar(container, data);
         } else {
             showProgressToast(data);
         }
         if (data.processed >= data.total) {
-            hideDisplay(placeholder);
+            hideDisplay(container);
         }
     }
 
@@ -120,6 +120,7 @@
      * @param {{processed:number,total:number,elapsed:string}} data данные прогресса
      */
     function renderBar(container, data) {
+        container.classList.remove("d-none");
         let bar = container.querySelector(".progress-bar");
         let info = container.querySelector(".progress-info");
         if (!bar) {
@@ -160,10 +161,11 @@
     }
 
     /** Скрывает прогресс-бар и прекращает опрос. */
-    function hideDisplay(placeholder) {
+    function hideDisplay(container) {
         stopPolling();
-        if (placeholder) {
-            placeholder.innerHTML = "";
+        if (container) {
+            container.innerHTML = "";
+            container.classList.add("d-none");
         }
     }
 })();
