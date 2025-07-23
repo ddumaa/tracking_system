@@ -71,5 +71,16 @@
             <button type="submit" class="btn btn-primary">Сохранить</button>
         </div>
     </form>
+
+    <h4 class="mt-4">TTL кэша результатов (мс)</h4>
+    <form th:action="@{/admin/settings/cache-ttl}" method="post" class="row g-2">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+        <div class="col-auto">
+            <input type="number" min="1" class="form-control" name="ttl" th:value="${cacheTtl}" required>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary">Сохранить</button>
+        </div>
+    </form>
 </main>
 </html>

@@ -22,6 +22,9 @@ public class ApplicationSettingsService {
 
     private final ApplicationSettingsRepository repository;
 
+    /** Значение TTL кэша по умолчанию (мс). */
+    public static final long DEFAULT_CACHE_EXPIRATION_MS = 60_000L;
+
     /**
      * Получить текущий интервал автообновления треков в часах.
      * Если запись отсутствует, возвращается значение по умолчанию.
@@ -55,5 +58,39 @@ public class ApplicationSettingsService {
         settings.setTrackUpdateIntervalHours(hours);
         repository.save(settings);
         log.info("Интервал автообновления треков изменён на {} ч", hours);
+    }
+
+    /**
+     * Получить время хранения результатов в кэше.
+     * Возвращает значение по умолчанию, если запись не найдена.
+     */
+    @Transactional(readOnly = true)
+    public long getResultCacheExpirationMs() {
+        return repository.findById(SETTINGS_ID)
+                .map(ApplicationSettings::getResultCacheExpirationMs)
+                .orElse(DEFAULT_CACHE_EXPIRATION_MS);
+    }
+
+    /**
+     * Обновить TTL кэша результатов.
+     *
+     * @param ms новое значение TTL в миллисекундах, должно быть положительным
+     * @throws IllegalArgumentException если значение {@code ms} не положительно
+     */
+    @Transactional
+    public void updateResultCacheExpirationMs(long ms) {
+        if (ms <= 0) {
+            throw new IllegalArgumentException("TTL должен быть положительным");
+        }
+        ApplicationSettings settings = repository
+                .findById(SETTINGS_ID)
+                .orElseGet(() -> {
+                    ApplicationSettings s = new ApplicationSettings();
+                    s.setId(SETTINGS_ID);
+                    return s;
+                });
+        settings.setResultCacheExpirationMs(ms);
+        repository.save(settings);
+        log.info("Время жизни кэша результатов изменено на {} мс", ms);
     }
 }

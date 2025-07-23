@@ -37,4 +37,18 @@ class ApplicationSettingsServiceTest {
                 () -> service.updateTrackUpdateIntervalHours(-5));
         verify(repository, never()).save(any());
     }
+
+    @Test
+    void updateResultCacheExpirationMs_ZeroValue_ThrowsException() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.updateResultCacheExpirationMs(0));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void updateResultCacheExpirationMs_NegativeValue_ThrowsException() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.updateResultCacheExpirationMs(-10));
+        verify(repository, never()).save(any());
+    }
 }
