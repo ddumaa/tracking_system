@@ -219,14 +219,19 @@
      */
     function renderPopup(data) {
         if (!progressPopup) return;
+
+        // Прогресс отображаем внутри всплывающего блока без создания toast
         progressPopup.classList.remove("d-none");
 
         const percent = Math.floor(data.processed / data.total * 100);
         progressPopup.innerHTML =
-            `<div class="progress">
-                 <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${data.total}" style="width: ${percent}%" aria-valuenow="${data.processed}"></div>
+            `<div class="progress-text">
+                 <span>Обработано ${data.processed} из ${data.total}</span>
+                 <span class="progress-time">| ${data.elapsed}</span>
              </div>
-             <div class="progress-info small text-center mt-1">Обработано ${data.processed} из ${data.total} | ${data.elapsed}</div>`;
+             <div class="progress-track">
+                 <div class="progress-bar" style="width: ${percent}%;"></div>
+             </div>`;
     }
 
     /**
