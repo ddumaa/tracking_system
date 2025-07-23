@@ -41,7 +41,7 @@ java -jar app.jar --webdriver.chrome.driver=/path/to/chromedriver
 следующего вида:
 
 ```json
-{ "version": "0.0.1-SNAPSHOT" }
+{ "version": "0.6.0" }
 ```
 
 ## Очередь Белпочты
