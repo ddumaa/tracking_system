@@ -65,6 +65,7 @@
         const container = document.getElementById("progressContainer");
         progressPopup = document.getElementById("progressPopup");
         attachResultsCloseHandler();
+        attachUnloadHandler();
 
         fetch("/app/progress/latest", {cache: "no-store"})
             .then(r => r.ok ? r.json() : null)
@@ -75,6 +76,11 @@
                 }
             })
             .finally(() => connectSocket(userId, container));
+
+        // Загружаем сохранённые результаты последней партии
+        fetch("/app/results/latest", {cache: "no-store"})
+            .then(r => r.ok ? r.json() : [])
+            .then(list => list.forEach(item => updateTrackingRow(item.trackingNumber, item.status)));
     }
 
     /**
@@ -449,6 +455,16 @@
                 tbody.innerHTML = "";
             }
             container.classList.add("d-none");
+            fetch("/app/results/clear", {method: "POST"});
+        });
+    }
+
+    /**
+     * Sends a request to clear cached results when the user leaves the page.
+     */
+    function attachUnloadHandler() {
+        window.addEventListener("beforeunload", () => {
+            navigator.sendBeacon("/app/results/clear");
         });
     }
 })();

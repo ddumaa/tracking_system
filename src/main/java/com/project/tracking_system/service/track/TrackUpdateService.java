@@ -7,6 +7,9 @@ import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
 import com.project.tracking_system.service.belpost.QueuedTrack;
 import com.project.tracking_system.service.track.ProgressAggregatorService;
+import com.project.tracking_system.service.track.TrackingResultCacheService;
+import com.project.tracking_system.dto.TrackProcessingProgressDTO;
+import com.project.tracking_system.dto.TrackStatusUpdateDTO;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.entity.PostalServiceType;
@@ -42,6 +45,8 @@ public class TrackUpdateService {
     private final BelPostTrackQueueService belPostTrackQueueService;
     /** Сервис агрегации прогресса обработки. */
     private final ProgressAggregatorService progressAggregatorService;
+    /** Cache storing tracking results for restoring page state. */
+    private final TrackingResultCacheService trackingResultCacheService;
 
     /**
      * Обновляет историю всех посылок пользователя.
@@ -257,7 +262,19 @@ public class TrackUpdateService {
         }
 
         List<TrackingResultAdd> results = dispatcherService.dispatch(grouped, userId);
-        results.forEach(r -> progressAggregatorService.trackProcessed(batchId));
+
+        for (TrackingResultAdd r : results) {
+            progressAggregatorService.trackProcessed(batchId);
+            TrackProcessingProgressDTO p = progressAggregatorService.getProgress(batchId);
+            TrackStatusUpdateDTO dto = new TrackStatusUpdateDTO(
+                    batchId,
+                    r.getTrackingNumber(),
+                    r.getStatus(),
+                    p.processed(),
+                    p.total());
+            trackingResultCacheService.addResult(userId, dto);
+        }
+
         return results;
     }
 
