@@ -132,6 +132,22 @@ public class TrackParcelService {
     }
 
     /**
+     * Возвращает посылку по номеру и пользователю.
+     * <p>
+     * Используется для проверки времени последнего обновления
+     * и извлечения связанных данных.
+     * </p>
+     *
+     * @param number номер посылки
+     * @param userId идентификатор пользователя
+     * @return посылка или {@code null}, если не найдена
+     */
+    @Transactional(readOnly = true)
+    public TrackParcel findByNumberAndUserId(String number, Long userId) {
+        return trackParcelRepository.findByNumberAndUserId(number, userId);
+    }
+
+    /**
      * Возвращает все посылки указанного магазина.
      *
      * @param storeId идентификатор магазина
