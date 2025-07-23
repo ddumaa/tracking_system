@@ -9,6 +9,7 @@ import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.admin.ApplicationSettingsService;
 import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
+import com.project.tracking_system.service.user.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,6 +52,8 @@ class TrackUpdateServiceTest {
     private TrackingResultCacheService trackingResultCacheService;
     @Mock
     private ApplicationSettingsService applicationSettingsService;
+    @Mock
+    private UserService userService;
 
     private TrackUpdateService service;
 
@@ -67,7 +70,8 @@ class TrackUpdateServiceTest {
                 belPostTrackQueueService,
                 progressAggregatorService,
                 trackingResultCacheService,
-                applicationSettingsService
+                applicationSettingsService,
+                userService
         );
     }
 
@@ -90,5 +94,29 @@ class TrackUpdateServiceTest {
 
         assertEquals(0, result.getUpdateCount());
         verify(spy, never()).processAllTrackUpdatesAsync(anyLong(), anyList());
+    }
+
+    /**
+     * Проверяем, что при выборе одного трека с недавним обновлением
+     * возвращается сообщение о времени следующего обновления.
+     */
+    @Test
+    void updateSelectedParcels_ReturnsNextAllowedTime() {
+        when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(3);
+
+        TrackParcel parcel = new TrackParcel();
+        parcel.setNumber("A1");
+        parcel.setStatus(GlobalStatus.IN_TRANSIT);
+        parcel.setLastUpdate(ZonedDateTime.now(ZoneOffset.UTC).minusHours(1));
+        when(trackParcelRepository.findByNumberInAndUserId(List.of("A1"), 5L))
+                .thenReturn(List.of(parcel));
+        when(userService.getUserZone(5L)).thenReturn(ZoneOffset.UTC);
+
+        TrackUpdateService spy = spy(service);
+        UpdateResult result = spy.updateSelectedParcels(5L, List.of("A1"));
+
+        assertEquals(0, result.getUpdateCount());
+        verify(spy, never()).processTrackUpdatesAsync(anyLong(), anyList(), anyInt(), anyInt());
+        verify(webSocketController).sendUpdateStatus(eq(5L), contains("следующее обновление"), eq(false));
     }
 }

@@ -9,6 +9,7 @@ import com.project.tracking_system.service.belpost.QueuedTrack;
 import com.project.tracking_system.service.track.ProgressAggregatorService;
 import com.project.tracking_system.service.track.TrackingResultCacheService;
 import com.project.tracking_system.service.admin.ApplicationSettingsService;
+import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.dto.TrackProcessingProgressDTO;
 import com.project.tracking_system.dto.TrackStatusUpdateDTO;
 import com.project.tracking_system.model.subscription.FeatureKey;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
@@ -52,6 +54,8 @@ public class TrackUpdateService {
     private final TrackingResultCacheService trackingResultCacheService;
     /** Сервис глобальных настроек приложения. */
     private final ApplicationSettingsService applicationSettingsService;
+    /** Сервис управления пользователями для получения часового пояса. */
+    private final UserService userService;
 
     /**
      * Обновляет историю всех посылок пользователя.
@@ -144,6 +148,12 @@ public class TrackUpdateService {
 
     /**
      * Обновляет выбранные посылки пользователя.
+     * <p>
+     * Если выбран только один номер и его последнее обновление произошло
+     * менее чем за {@code interval} часов до текущего момента, метод не
+     * запускает обновление. Пользователю отправляется сообщение о том,
+     * когда будет доступно следующее обновление с учётом его часового пояса.
+     * </p>
      */
     @Transactional
     public UpdateResult updateSelectedParcels(Long userId, List<String> selectedNumbers) {
@@ -151,6 +161,22 @@ public class TrackUpdateService {
 
         int interval = applicationSettingsService.getTrackUpdateIntervalHours();
         ZonedDateTime threshold = ZonedDateTime.now(ZoneOffset.UTC).minusHours(interval);
+
+        if (selectedNumbers.size() == 1 && !selectedParcels.isEmpty()) {
+            TrackParcel parcel = selectedParcels.get(0);
+            if (!parcel.getStatus().isFinal() && parcel.getLastUpdate() != null) {
+                ZonedDateTime nextAllowed = parcel.getLastUpdate().plusHours(interval);
+                if (nextAllowed.isAfter(ZonedDateTime.now(ZoneOffset.UTC))) {
+                    String formatted = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss")
+                            .withZone(userService.getUserZone(userId))
+                            .format(nextAllowed);
+                    String msg = "Трек " + parcel.getNumber() + " обновлялся недавно, " +
+                            "следующее обновление возможно после " + formatted;
+                    webSocketController.sendUpdateStatus(userId, msg, false);
+                    return new UpdateResult(false, 0, 1, msg);
+                }
+            }
+        }
 
         int totalRequested = selectedParcels.size();
         List<TrackParcel> updatableParcels = selectedParcels.stream()
