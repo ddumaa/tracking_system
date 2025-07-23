@@ -59,6 +59,8 @@ public class UploadController {
         try {
             if (contentType.equals("application/vnd.ms-excel") || contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
                 trackUploadProcessorService.process(file, userId);
+                // Таблица с результатами появится после получения первых данных
+                // по WebSocket. На этом этапе её не заполняем.
                 model.addAttribute("successMessage", "Файл принят, обработка начата.");
             } else {
                 model.addAttribute("customError", "Неподдерживаемый тип файла. Загрузите XLS или XLSX.");
