@@ -37,6 +37,7 @@ public class ApplicationSettingsService {
      *
      * @param hours новое значение интервала в часах. Значение должно быть больше нуля,
      *              иначе будет сгенерировано {@link IllegalArgumentException}.
+     * @throws IllegalArgumentException если значение {@code hours} не положительно
      */
     @Transactional
     public void updateTrackUpdateIntervalHours(int hours) {
