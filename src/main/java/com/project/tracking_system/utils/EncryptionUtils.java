@@ -18,6 +18,12 @@ public class EncryptionUtils {
     private static final String TRANSFORMATION = "AES/ECB/PKCS5Padding";
     private final SecretKeySpec secretKeySpec;
 
+    /**
+     * Создает экземпляр утилиты шифрования с указанным ключом.
+     *
+     * @param key ключ длиной 16 символов для инициализации алгоритма AES
+     * @throws IllegalArgumentException если длина ключа не равна 16 символам
+     */
     public EncryptionUtils(@Value("${encryption.key}") String key) {
         if (key == null || key.length() !=16) {
             throw new IllegalArgumentException("Ключ шифрования должен быть длиной 16 символов.");
@@ -25,6 +31,13 @@ public class EncryptionUtils {
         this.secretKeySpec = new SecretKeySpec(key.getBytes(), ALGORITHM);
     }
 
+    /**
+     * Шифрует переданную строку.
+     *
+     * @param data исходные данные для шифрования
+     * @return зашифрованная строка в формате Base64
+     * @throws Exception если возникает ошибка при шифровании
+     */
     public String encrypt(String data) throws Exception {
         Cipher cipher = Cipher.getInstance(TRANSFORMATION);
         cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec);
@@ -32,6 +45,13 @@ public class EncryptionUtils {
         return Base64.getEncoder().encodeToString(encryptedData);
     }
 
+    /**
+     * Расшифровывает указанную строку.
+     *
+     * @param encryptedData строка, зашифрованная методом {@link #encrypt(String)}
+     * @return исходная строка или пустая строка, если {@code encryptedData} пустая
+     * @throws Exception если возникает ошибка при расшифровке
+     */
     public String decrypt(String encryptedData) throws Exception {
         if (encryptedData == null || encryptedData.isBlank()) {
             return "";
