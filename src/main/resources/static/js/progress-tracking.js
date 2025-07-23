@@ -455,7 +455,12 @@
                 tbody.innerHTML = "";
             }
             container.classList.add("d-none");
-            fetch("/app/results/clear", {method: "POST"});
+            // Отправляем запрос на очистку сохранённых результатов трекинга
+            // Используем глобально заданные CSRF-заголовок и токен из app.js
+            fetch("/app/results/clear", {
+                method: "POST",
+                headers: { [window.csrfHeader]: window.csrfToken }
+            });
         });
     }
 
@@ -464,7 +469,13 @@
      */
     function attachUnloadHandler() {
         window.addEventListener("beforeunload", () => {
-            navigator.sendBeacon("/app/results/clear");
+            // Используем fetch с keepalive, чтобы гарантировать отправку запроса
+            // даже при закрытии страницы
+            fetch("/app/results/clear", {
+                method: "POST",
+                headers: { [window.csrfHeader]: window.csrfToken },
+                keepalive: true
+            });
         });
     }
 })();
