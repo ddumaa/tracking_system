@@ -252,12 +252,13 @@
 
     /**
      * Обновляет или создаёт строку в таблице результатов трекинга.
+     * Таблица создаётся динамически при первом обращении.
      *
      * @param {string} trackNumber номер трек-отправления
      * @param {string} statusText текст статуса
      */
     function updateTrackingRow(trackNumber, statusText) {
-        const table = document.getElementById("tracking-results-table");
+        const table = ensureResultsTable();
         if (!table) return;
 
         let row = table.querySelector(`tr[data-track-number="${trackNumber}"]`);
@@ -269,6 +270,33 @@
         } else {
             row.cells[1].textContent = statusText;
         }
+    }
+
+    /**
+     * Гарантирует наличие таблицы результатов на странице и показывает её.
+     * Если таблицы нет, она создаётся вместе с контейнером.
+     *
+     * @returns {HTMLTableElement|null} найденная или созданная таблица
+     */
+    function ensureResultsTable() {
+        const container = document.getElementById("tracking-results-container");
+        if (!container) return null;
+
+        container.classList.remove("d-none");
+        let table = container.querySelector("#tracking-results-table");
+        if (!table) {
+            container.innerHTML =
+                `<div class="table-responsive">
+                     <table id="tracking-results-table" class="table table-striped">
+                         <thead>
+                         <tr><th>Номер посылки</th><th>Статус</th></tr>
+                         </thead>
+                         <tbody id="tracking-results-body"></tbody>
+                     </table>
+                 </div>`;
+            table = container.querySelector("#tracking-results-table");
+        }
+        return table;
     }
 
     /**
