@@ -11,6 +11,7 @@ import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
+import com.project.tracking_system.service.admin.ApplicationSettingsService;
 import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.service.track.TrackUpdateService;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 
 import java.util.List;
 
@@ -49,6 +53,8 @@ class TrackAutoUpdateSchedulerTest {
     private BelPostTrackQueueService belPostTrackQueueService;
     @Mock
     private TypeDefinitionTrackPostService typeDefinitionTrackPostService;
+    @Mock
+    private ApplicationSettingsService applicationSettingsService;
 
     private TrackAutoUpdateScheduler scheduler;
 
@@ -61,7 +67,8 @@ class TrackAutoUpdateSchedulerTest {
                 userService,
                 trackUpdateService,
                 belPostTrackQueueService,
-                typeDefinitionTrackPostService
+                typeDefinitionTrackPostService,
+                applicationSettingsService
         );
     }
 
@@ -124,6 +131,26 @@ class TrackAutoUpdateSchedulerTest {
         scheduler.updateAllUsersTracks();
 
         verify(trackUpdateService).process(anyList(), eq(1L));
+    }
+
+    /**
+     * Треки с последним обновлением позднее заданного интервала не должны обновляться.
+     */
+    @Test
+    void updateAllUsersTracks_SkipsRecentUpdates() {
+        when(userSubscriptionRepository.findUserIdsByFeature(FeatureKey.AUTO_UPDATE))
+                .thenReturn(List.of(1L));
+        when(userService.isAutoUpdateEnabled(1L)).thenReturn(true);
+        when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(3);
+
+        TrackParcel parcel = buildParcel("A1", GlobalStatus.IN_TRANSIT, 10L);
+        parcel.setLastUpdate(ZonedDateTime.now(ZoneOffset.UTC).minusHours(1));
+        when(trackParcelRepository.findByUserId(1L)).thenReturn(List.of(parcel));
+
+        scheduler.updateAllUsersTracks();
+
+        verify(trackUpdateService, never()).process(anyList(), anyLong());
+        verify(belPostTrackQueueService, never()).enqueue(anyList());
     }
 
     /**

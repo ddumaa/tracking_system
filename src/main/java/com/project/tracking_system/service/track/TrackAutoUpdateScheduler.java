@@ -13,12 +13,15 @@ import com.project.tracking_system.service.belpost.QueuedTrack;
 import com.project.tracking_system.service.track.TrackMeta;
 import com.project.tracking_system.service.track.TrackUpdateService;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
+import com.project.tracking_system.service.admin.ApplicationSettingsService;
 import java.util.ArrayList;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 /**
@@ -40,6 +43,7 @@ public class TrackAutoUpdateScheduler {
     private final TrackUpdateService trackUpdateService;
     private final BelPostTrackQueueService belPostTrackQueueService;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
+    private final ApplicationSettingsService applicationSettingsService;
 
     /**
      * Запускает автообновление треков для всех подходящих пользователей.
@@ -78,8 +82,12 @@ public class TrackAutoUpdateScheduler {
     @Transactional
     protected void updateUserTracks(Long userId) {
         List<TrackParcel> parcels = trackParcelRepository.findByUserId(userId);
+        int interval = applicationSettingsService.getTrackUpdateIntervalHours();
+        ZonedDateTime threshold = ZonedDateTime.now(ZoneOffset.UTC).minusHours(interval);
+
         List<TrackParcel> active = parcels.stream()
                 .filter(p -> !p.getStatus().isFinal())
+                .filter(p -> p.getLastUpdate() == null || p.getLastUpdate().isBefore(threshold))
                 .toList();
 
         if (active.isEmpty()) {

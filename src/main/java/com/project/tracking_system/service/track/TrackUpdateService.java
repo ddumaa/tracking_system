@@ -8,6 +8,7 @@ import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
 import com.project.tracking_system.service.belpost.QueuedTrack;
 import com.project.tracking_system.service.track.ProgressAggregatorService;
 import com.project.tracking_system.service.track.TrackingResultCacheService;
+import com.project.tracking_system.service.admin.ApplicationSettingsService;
 import com.project.tracking_system.dto.TrackProcessingProgressDTO;
 import com.project.tracking_system.dto.TrackStatusUpdateDTO;
 import com.project.tracking_system.model.subscription.FeatureKey;
@@ -19,6 +20,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -47,6 +50,8 @@ public class TrackUpdateService {
     private final ProgressAggregatorService progressAggregatorService;
     /** Кэш результатов трекинга для восстановления состояния страницы. */
     private final TrackingResultCacheService trackingResultCacheService;
+    /** Сервис глобальных настроек приложения. */
+    private final ApplicationSettingsService applicationSettingsService;
 
     /**
      * Обновляет историю всех посылок пользователя.
@@ -74,8 +79,12 @@ public class TrackUpdateService {
 
         List<TrackParcel> allParcels = trackParcelRepository.findByUserId(userId);
 
+        int interval = applicationSettingsService.getTrackUpdateIntervalHours();
+        ZonedDateTime threshold = ZonedDateTime.now(ZoneOffset.UTC).minusHours(interval);
+
         List<TrackParcel> parcelsToUpdate = allParcels.stream()
-                .filter(parcel -> !parcel.getStatus().isFinal())
+                .filter(p -> !p.getStatus().isFinal())
+                .filter(p -> p.getLastUpdate() == null || p.getLastUpdate().isBefore(threshold))
                 .toList();
 
         log.info("📦 Запущено обновление всех {} треков для userId={}", parcelsToUpdate.size(), userId);
@@ -140,9 +149,13 @@ public class TrackUpdateService {
     public UpdateResult updateSelectedParcels(Long userId, List<String> selectedNumbers) {
         List<TrackParcel> selectedParcels = trackParcelRepository.findByNumberInAndUserId(selectedNumbers, userId);
 
+        int interval = applicationSettingsService.getTrackUpdateIntervalHours();
+        ZonedDateTime threshold = ZonedDateTime.now(ZoneOffset.UTC).minusHours(interval);
+
         int totalRequested = selectedParcels.size();
         List<TrackParcel> updatableParcels = selectedParcels.stream()
-                .filter(parcel -> !parcel.getStatus().isFinal())
+                .filter(p -> !p.getStatus().isFinal())
+                .filter(p -> p.getLastUpdate() == null || p.getLastUpdate().isBefore(threshold))
                 .toList();
         int nonUpdatableCount = totalRequested - updatableParcels.size();
 

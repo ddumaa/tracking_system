@@ -184,6 +184,8 @@ public class TrackProcessingService {
         ZoneId userZone = userService.getUserZone(userId);
         ZonedDateTime zonedDateTime = DateParserUtils.parse(lastDate, userZone);
         trackParcel.setTimestamp(zonedDateTime);
+        // фиксируем время обновления в UTC
+        trackParcel.setLastUpdate(ZonedDateTime.now(ZoneOffset.UTC));
 
         // Привязываем покупателя, если указан телефон
         Customer customer = null;
