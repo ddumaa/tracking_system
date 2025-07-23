@@ -24,6 +24,7 @@ public class ApplicationSettingsService {
 
     /**
      * Получить текущий интервал автообновления треков в часах.
+     * Если запись отсутствует, возвращается значение по умолчанию.
      */
     @Transactional(readOnly = true)
     public int getTrackUpdateIntervalHours() {
@@ -42,7 +43,7 @@ public class ApplicationSettingsService {
     @Transactional
     public void updateTrackUpdateIntervalHours(int hours) {
         if (hours <= 0) {
-            throw new IllegalArgumentException("Interval must be positive");
+            throw new IllegalArgumentException("Интервал должен быть положительным");
         }
         ApplicationSettings settings = repository
                 .findById(SETTINGS_ID)
