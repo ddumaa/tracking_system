@@ -49,6 +49,12 @@
      * @type {HTMLElement|null}
      */
     let progressPopup = null;
+    /**
+     * Флаг окончания обработки текущей партии.
+     * Используется чтобы не показывать уведомление несколько раз.
+     * @type {boolean}
+     */
+    let batchFinished = false;
 
     document.addEventListener("DOMContentLoaded", initProgressTracking);
 
@@ -100,6 +106,10 @@
         stompClient.onConnect = () => {
             stompClient.subscribe(`/topic/progress/${userId}`, message => {
                 const data = JSON.parse(message.body);
+                // При получении сообщения другой партии сбрасываем флаг окончания
+                if (data.batchId !== lastBatchId) {
+                    batchFinished = false;
+                }
                 lastBatchId = data.batchId;
                 updateDisplay(data, container);
             });
@@ -175,8 +185,8 @@
         if (timerId === null && typeof data.elapsed === "string") {
             startTimer(parseElapsed(data.elapsed));
         }
-        if (data.processed >= data.total) {
-            // Если обработка завершена, показываем итоговое уведомление
+        if (!batchFinished && data.processed >= data.total) {
+            // Уведомляем о завершении только один раз
             handleBatchFinished(container);
             return;
         }
@@ -275,6 +285,11 @@
      * @param {HTMLElement|null} container контейнер прогресс-бара
      */
     function handleBatchFinished(container) {
+        // Если уведомление уже показано, повторно не выполняем действия
+        if (batchFinished) {
+            return;
+        }
+        batchFinished = true;
         // Останавливаем локальный таймер и уведомляем пользователя
         stopTimer();
         showBatchFinishedToast();
