@@ -113,27 +113,52 @@ public class TrackingResultCacheService {
      * Контейнер для списка результатов одной партии и времени последнего доступа.
      */
     private static class BatchEntry {
+        /** Сохранённые результаты партии. */
         private final List<TrackStatusUpdateDTO> results = Collections.synchronizedList(new ArrayList<>());
+
+        /** Момент последнего доступа к данным. */
         private volatile long lastAccess;
 
+        /**
+         * Создаёт контейнер и фиксирует момент создания как время последнего доступа.
+         */
         BatchEntry() {
             refresh();
         }
 
+        /**
+         * Добавляет результат в контейнер и обновляет время последнего доступа.
+         *
+         * @param dto результат обработки трека
+         */
         void add(TrackStatusUpdateDTO dto) {
             results.add(dto);
             refresh();
         }
 
+        /**
+         * Возвращает текущую копию результатов и обновляет время доступа.
+         *
+         * @return список сохранённых результатов
+         */
         List<TrackStatusUpdateDTO> snapshot() {
             refresh();
             return new ArrayList<>(results);
         }
 
+        /**
+         * Обновляет время последнего доступа текущим моментом.
+         */
         void refresh() {
             lastAccess = System.currentTimeMillis();
         }
 
+        /**
+         * Проверяет, истекло ли время хранения относительно переданного порога.
+         *
+         * @param threshold момент времени, с которым сверяется {@code lastAccess}
+         * @return {@code true}, если запись устарела
+         */
         boolean expired(long threshold) {
             return lastAccess < threshold;
         }
