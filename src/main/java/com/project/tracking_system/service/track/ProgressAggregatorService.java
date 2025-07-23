@@ -12,8 +12,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Aggregates progress from different track processing services and
- * sends unified progress updates to the client via {@link WebSocketController}.
+ * Сервис агрегирует прогресс обработки треков от различных подсервисов
+ * и отправляет единые обновления клиенту через {@link WebSocketController}.
  */
 @Service
 @RequiredArgsConstructor
@@ -22,15 +22,15 @@ public class ProgressAggregatorService {
 
     private final WebSocketController webSocketController;
 
-    /** Progress state for each batch. */
+    /** Состояние прогресса для каждой партии. */
     private final Map<Long, BatchProgress> progressMap = new ConcurrentHashMap<>();
 
     /**
-     * Registers a new batch for progress tracking.
+     * Регистрирует новую партию для отслеживания прогресса.
      *
-     * @param batchId unique batch identifier
-     * @param total   total tracks to process
-     * @param userId  identifier of the user that owns the batch
+     * @param batchId уникальный идентификатор партии
+     * @param total   сколько треков нужно обработать
+     * @param userId  идентификатор владельца партии
      */
     public void registerBatch(long batchId, int total, Long userId) {
         progressMap.put(batchId, new BatchProgress(total, userId));
@@ -38,9 +38,9 @@ public class ProgressAggregatorService {
     }
 
     /**
-     * Marks one track in the batch as processed and emits a progress event.
+     * Помечает один трек в партии обработанным и отправляет событие прогресса.
      *
-     * @param batchId identifier of the batch
+     * @param batchId идентификатор партии
      */
     public void trackProcessed(long batchId) {
         BatchProgress progress = progressMap.get(batchId);
@@ -55,10 +55,10 @@ public class ProgressAggregatorService {
     }
 
     /**
-     * Returns current progress for the requested batch.
+     * Возвращает текущий прогресс для указанной партии.
      *
-     * @param batchId batch identifier
-     * @return DTO with progress data
+     * @param batchId идентификатор партии
+     * @return DTO с данными о прогрессе
      */
     public TrackProcessingProgressDTO getProgress(long batchId) {
         BatchProgress progress = progressMap.get(batchId);
@@ -68,7 +68,24 @@ public class ProgressAggregatorService {
         return buildDto(batchId, progress);
     }
 
-    /** Sends current progress to the client via WebSocket. */
+    /**
+     * Определяет идентификатор самой последней активной партии пользователя.
+     * <p>
+     * Если активных партий нет, возвращается {@code null}.
+     * </p>
+     *
+     * @param userId идентификатор пользователя
+     * @return id последней партии или {@code null}
+     */
+    public Long getLatestBatchId(Long userId) {
+        return progressMap.entrySet().stream()
+                .filter(e -> e.getValue().userId == (userId != null ? userId : 0L))
+                .max((a, b) -> Long.compare(a.getValue().startTime, b.getValue().startTime))
+                .map(Map.Entry::getKey)
+                .orElse(null);
+    }
+
+    /** Отправляет текущий прогресс клиенту через WebSocket. */
     private void sendProgress(long batchId) {
         BatchProgress progress = progressMap.get(batchId);
         if (progress == null) {
@@ -87,7 +104,7 @@ public class ProgressAggregatorService {
         return String.format("%d:%02d", d.toMinutes(), d.toSecondsPart());
     }
 
-    /** Container with counters for a single batch. */
+    /** Контейнер с счётчиками одной партии. */
     private static class BatchProgress {
         final int total;
         final AtomicInteger processed = new AtomicInteger();

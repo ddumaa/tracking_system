@@ -49,6 +49,8 @@
 
     /**
      * Точка входа: инициализируем соединение и отображение прогресса.
+     * Запрашиваем актуальный прогресс через REST до подключения к WebSocket,
+     * чтобы отобразить его сразу после загрузки страницы.
      */
     function initProgressTracking() {
         const userId = document.getElementById("userId")?.value;
@@ -56,7 +58,16 @@
             return; // Пользователь не авторизован
         }
         const container = document.getElementById("progressContainer");
-        connectSocket(userId, container);
+
+        fetch("/app/progress/latest", {cache: "no-store"})
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+                if (data && data.total > 0) {
+                    lastBatchId = data.batchId;
+                    updateDisplay(data, container);
+                }
+            })
+            .finally(() => connectSocket(userId, container));
     }
 
     /**

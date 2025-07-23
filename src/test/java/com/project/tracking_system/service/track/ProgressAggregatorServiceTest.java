@@ -13,7 +13,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
- * Tests for {@link ProgressAggregatorService}.
+ * Тесты для {@link ProgressAggregatorService}.
  */
 @ExtendWith(MockitoExtension.class)
 class ProgressAggregatorServiceTest {
@@ -44,5 +44,21 @@ class ProgressAggregatorServiceTest {
         verify(webSocketController, times(2)).sendProgress(eq(7L), any());
         TrackProcessingProgressDTO dto = service.getProgress(2L);
         assertEquals(0, dto.total());
+    }
+
+    @Test
+    void getLatestBatchId_ReturnsMostRecent() throws InterruptedException {
+        service.registerBatch(1L, 1, 5L);
+        Thread.sleep(2);
+        service.registerBatch(2L, 1, 5L);
+
+        Long latest = service.getLatestBatchId(5L);
+
+        assertEquals(2L, latest);
+    }
+
+    @Test
+    void getLatestBatchId_ReturnsNullWhenNothing() {
+        assertNull(service.getLatestBatchId(99L));
     }
 }
