@@ -3,7 +3,7 @@ package com.project.tracking_system.controller;
 import com.project.tracking_system.entity.UpdateResult;
 import com.project.tracking_system.dto.TrackProcessingStartedDTO;
 import com.project.tracking_system.dto.BelPostBatchStartedDTO;
-import com.project.tracking_system.dto.BelPostTrackProcessedDTO;
+import com.project.tracking_system.dto.TrackStatusUpdateDTO;
 import com.project.tracking_system.dto.BelPostBatchFinishedDTO;
 import com.project.tracking_system.dto.TrackProcessingProgressDTO;
 import lombok.RequiredArgsConstructor;
@@ -80,8 +80,8 @@ public class WebSocketController {
      * @param userId идентификатор пользователя
      * @param dto    информация об обработанном треке
      */
-    public void sendBelPostTrackProcessed(Long userId, BelPostTrackProcessedDTO dto) {
-        log.debug("\uD83D\uDCE1 WebSocket обработан трек {} партии {}: {}", dto.trackNumber(), dto.batchId(), dto);
+    public void sendBelPostTrackProcessed(Long userId, TrackStatusUpdateDTO dto) {
+        log.debug("\uD83D\uDCE1 WebSocket обработан трек {} партии {}: {}", dto.trackingNumber(), dto.batchId(), dto);
         messagingTemplate.convertAndSend("/topic/belpost/track-processed/" + userId, dto);
     }
 
