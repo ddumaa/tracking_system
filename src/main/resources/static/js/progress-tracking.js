@@ -141,13 +141,17 @@
 
     /**
      * Обновляет отображение прогресса: прогресс-бар или toast.
-     * Также скрывает элементы при завершении.
+     * Также скрывает элементы при завершении и синхронизирует локальный таймер.
      *
-     * @param {{batchId:number,processed:number,total:number,elapsed:string}} data
+     * @param {{batchId:number,processed:number,total:number,elapsed:string}} data данные прогресса
      * @param {HTMLElement|null} container контейнер прогресс-бара
      */
     function updateDisplay(data, container) {
         if (!data || data.total === 0) return;
+        // Первое сообщение задаёт базовую точку времени для локального таймера
+        if (timerStart === null && typeof data.elapsed === "string") {
+            timerStart = Date.now() - parseElapsed(data.elapsed);
+        }
         if (container) {
             renderBar(container, data);
         } else {
@@ -208,10 +212,15 @@
     /**
      * Запускает локальный таймер отображения прогресса.
      * Таймер перерисовывает прогресс каждую секунду.
+     *
+     * @param {number} [offsetMs=0] сколько миллисекунд прошло с начала обработки
      */
-    function startTimer() {
+    function startTimer(offsetMs = 0) {
         if (timerId) return;
-        timerStart = Date.now();
+        // Если старт не был синхронизирован ранее, вычисляем его на основе смещения
+        if (timerStart === null) {
+            timerStart = Date.now() - offsetMs;
+        }
         timerId = setInterval(() => updateProgressBar(lastCompleted, lastTotal), 1000);
     }
 
@@ -320,6 +329,20 @@
         const minutes = Math.floor(seconds / 60);
         const secs = seconds % 60;
         return `${minutes}:${secs.toString().padStart(2, "0")}`;
+    }
+
+    /**
+     * Преобразует строку времени вида "m:ss" в миллисекунды.
+     * Используется для синхронизации локального таймера с серверным.
+     *
+     * @param {string} text время в формате m:ss
+     * @returns {number} количество миллисекунд
+     */
+    function parseElapsed(text) {
+        const parts = text.split(":");
+        const minutes = parseInt(parts[0], 10) || 0;
+        const seconds = parseInt(parts[1], 10) || 0;
+        return (minutes * 60 + seconds) * 1000;
     }
 
     /** Скрывает прогресс-бар и прекращает опрос. */
