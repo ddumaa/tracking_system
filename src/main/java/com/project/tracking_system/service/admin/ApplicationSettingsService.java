@@ -35,10 +35,14 @@ public class ApplicationSettingsService {
     /**
      * Обновить интервал автообновления треков.
      *
-     * @param hours новое значение интервала в часах
+     * @param hours новое значение интервала в часах. Значение должно быть больше нуля,
+     *              иначе будет сгенерировано {@link IllegalArgumentException}.
      */
     @Transactional
     public void updateTrackUpdateIntervalHours(int hours) {
+        if (hours <= 0) {
+            throw new IllegalArgumentException("Interval must be positive");
+        }
         ApplicationSettings settings = repository
                 .findById(SETTINGS_ID)
                 .orElseGet(() -> {
