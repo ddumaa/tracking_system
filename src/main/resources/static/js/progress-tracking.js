@@ -99,6 +99,11 @@
                 updateProgressBar(data.completed, data.total);
                 updateTrackingRow(data.trackingNumber, data.status);
             });
+
+            // Подписка на событие завершения партии треков Белпочты
+            stompClient.subscribe(`/topic/belpost/batch-finished/${userId}`, () => {
+                handleBatchFinished(container);
+            });
         };
 
         const fallback = () => startPolling(container);
@@ -154,9 +159,8 @@
             timerStart = Date.now() - parseElapsed(data.elapsed);
         }
         if (data.processed >= data.total) {
-            // Если обработка завершена, сразу показываем итоговое уведомление
-            showProgressToast(data);
-            hideDisplay(container);
+            // Если обработка завершена, показываем итоговое уведомление
+            handleBatchFinished(container);
             return;
         }
 
@@ -193,16 +197,16 @@
     }
 
     /**
-     * Показывает уведомление в виде toast с информацией о прогрессе.
-     * @param {{processed:number,total:number,elapsed:string}} data
+     * Показывает универсальный toast с произвольным текстом.
+     * @param {string} message текст уведомления
+     * @param {string} [bgClass="text-bg-info"] CSS-класс для цвета
      */
-    function showProgressToast(data) {
+    function showToast(message, bgClass = "text-bg-info") {
         const container = document.getElementById("globalToastContainer");
         if (!container) return;
-        const toastId = `progress-toast-${Date.now()}`;
-        const message = `Обработано ${data.processed}/${data.total} | ${data.elapsed}`;
+        const toastId = `toast-${Date.now()}`;
         container.insertAdjacentHTML("beforeend",
-            `<div id="${toastId}" class="toast align-items-center text-bg-info border-0 mb-2" role="alert" aria-live="assertive" aria-atomic="true">
+            `<div id="${toastId}" class="toast align-items-center ${bgClass} border-0 mb-2" role="alert" aria-live="assertive" aria-atomic="true">
                 <div class="d-flex">
                     <div class="toast-body">${message}</div>
                     <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
@@ -212,6 +216,29 @@
         const toast = new bootstrap.Toast(toastEl, {delay: 5000});
         toast.show();
         toastEl.addEventListener("hidden.bs.toast", () => toastEl.remove());
+    }
+
+    /**
+     * Показывает уведомление в виде toast с информацией о прогрессе.
+     * @param {{processed:number,total:number,elapsed:string}} data
+     */
+    function showProgressToast(data) {
+        const message = `Обработано ${data.processed}/${data.total} | ${data.elapsed}`;
+        showToast(message, "text-bg-info");
+    }
+
+    /** Показывает сообщение о завершении обработки всех треков. */
+    function showBatchFinishedToast() {
+        showToast("Все треки обработаны", "text-bg-success");
+    }
+
+    /**
+     * Обрабатывает окончание партии: уведомляет пользователя и скрывает прогресс.
+     * @param {HTMLElement|null} container контейнер прогресс-бара
+     */
+    function handleBatchFinished(container) {
+        showBatchFinishedToast();
+        hideDisplay(container);
     }
 
     /**
