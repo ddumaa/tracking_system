@@ -9,8 +9,7 @@ import com.project.tracking_system.service.track.TrackFacade;
 import com.project.tracking_system.service.track.TrackMeta;
 import com.project.tracking_system.service.track.TrackUpdateDispatcherService;
 import com.project.tracking_system.service.track.TrackServiceClassifier;
-import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
-import com.project.tracking_system.service.belpost.QueuedTrack;
+import com.project.tracking_system.service.track.BelPostManualService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -40,8 +39,8 @@ public class HomeController {
     private final TrackUpdateDispatcherService trackUpdateDispatcherService;
     /** Сервис классификации трек-номеров по типу почтовой службы. */
     private final TrackServiceClassifier trackServiceClassifier;
-    /** Очередь асинхронной обработки треков Белпочты. */
-    private final BelPostTrackQueueService belPostTrackQueueService;
+    /** Сервис постановки в очередь треков Белпочты. */
+    private final BelPostManualService belPostManualService;
 
     /**
      * Обрабатывает запросы на главной странице. Отображает домашнюю страницу.
@@ -63,8 +62,8 @@ public class HomeController {
      * <p>
      * Выполняет отслеживание посылки по номеру.
      * <p>
-     * Номера Белпочты помещаются в очередь {@link BelPostTrackQueueService} и
-     * обрабатываются асинхронно. Для остальных номеров информация
+     * Номера Белпочты помещаются в очередь через {@link BelPostManualService}
+     * и обрабатываются асинхронно. Для остальных номеров информация
      * загружается синхронно через {@link TrackUpdateDispatcherService}.
      * При указании телефона трек связывается с покупателем.
      * </p>
@@ -98,15 +97,12 @@ public class HomeController {
             PostalServiceType type = trackServiceClassifier.detect(number);
 
             if (type == PostalServiceType.BELPOST && userId != null) {
-                // Для номеров Белпочты выполняем асинхронную обработку через очередь
-                belPostTrackQueueService.enqueue(new QueuedTrack(
-                        number,
-                        userId,
-                        storeId,
-                        "MANUAL",
-                        System.currentTimeMillis()
-                ));
-                model.addAttribute("successMessage", "Номер добавлен в очередь обработки.");
+                boolean queued = belPostManualService.enqueueIfAllowed(number, storeId, userId);
+                if (queued) {
+                    model.addAttribute("successMessage", "Номер добавлен в очередь обработки.");
+                } else {
+                    model.addAttribute("customError", "Трек уже обновлялся недавно или имеет финальный статус.");
+                }
                 return "app/home";
             }
 
