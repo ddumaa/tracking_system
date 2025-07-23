@@ -89,7 +89,7 @@ public class BelPostTrackQueueService {
      * После обработки каждого трека пользователю отправляется
      * обновление прогресса через WebSocket.
      */
-    @Scheduled(fixedDelay = 0)
+    @Scheduled(fixedDelay = 10)
     public void processQueue() {
         if (Instant.now().toEpochMilli() < pauseUntil) {
             return; // временно приостановлено
