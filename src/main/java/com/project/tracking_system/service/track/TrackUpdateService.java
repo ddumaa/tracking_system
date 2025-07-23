@@ -6,6 +6,7 @@ import com.project.tracking_system.repository.*;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
 import com.project.tracking_system.service.belpost.QueuedTrack;
+import com.project.tracking_system.service.track.ProgressAggregatorService;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.entity.PostalServiceType;
@@ -39,6 +40,8 @@ public class TrackUpdateService {
     private final TrackUpdateDispatcherService dispatcherService;
     /** Очередь Белпочты для централизованной обработки. */
     private final BelPostTrackQueueService belPostTrackQueueService;
+    /** Сервис агрегации прогресса обработки. */
+    private final ProgressAggregatorService progressAggregatorService;
 
     /**
      * Обновляет историю всех посылок пользователя.
@@ -231,6 +234,8 @@ public class TrackUpdateService {
      * @return список объединенных результатов
      */
     public List<TrackingResultAdd> process(List<TrackMeta> tracks, Long userId) {
+        long batchId = System.currentTimeMillis();
+        progressAggregatorService.registerBatch(batchId, tracks.size(), userId);
         Map<PostalServiceType, List<TrackMeta>> grouped = groupingService.group(tracks);
 
         // Отдельно обрабатываем номера Белпочты через централизованную очередь
@@ -242,7 +247,7 @@ public class TrackUpdateService {
                             userId,
                             m.storeId(),
                             "UPDATE",
-                            System.currentTimeMillis()))
+                            batchId))
                     .toList();
             belPostTrackQueueService.enqueue(queued);
         }
@@ -251,7 +256,9 @@ public class TrackUpdateService {
             return List.of();
         }
 
-        return dispatcherService.dispatch(grouped, userId);
+        List<TrackingResultAdd> results = dispatcherService.dispatch(grouped, userId);
+        results.forEach(r -> progressAggregatorService.trackProcessed(batchId));
+        return results;
     }
 
 }
