@@ -10,23 +10,23 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * In-memory cache for storing tracking results per user and batch.
+ * Сервис-кэш для временного хранения результатов обработки по пользователям и партиям.
  * <p>
- * The cache is used to restore the table of processed tracks on page reload.
- * Results are grouped by user id and batch id.
+ * Используется для восстановления таблицы результатов после перезагрузки страницы.
+ * Результаты группируются по идентификатору пользователя и идентификатору партии.
  * </p>
  */
 @Service
 public class TrackingResultCacheService {
 
-    /** Map userId -&gt; (batchId -&gt; list of results). */
+    /** Карта вида userId -> (batchId -> список результатов). */
     private final Map<Long, Map<Long, List<TrackStatusUpdateDTO>>> cache = new ConcurrentHashMap<>();
 
     /**
-     * Adds a single tracking result to the cache.
+     * Добавляет один результат обработки в кэш.
      *
-     * @param userId identifier of the user
-     * @param dto    result of track processing
+     * @param userId идентификатор пользователя
+     * @param dto    результат обработки трека
      */
     public void addResult(Long userId, TrackStatusUpdateDTO dto) {
         if (userId == null || dto == null) {
@@ -39,11 +39,11 @@ public class TrackingResultCacheService {
     }
 
     /**
-     * Returns stored results for the given batch of the user.
+     * Возвращает сохранённые результаты для указанной партии пользователя.
      *
-     * @param userId  user identifier
-     * @param batchId batch identifier
-     * @return list of results, possibly empty
+     * @param userId  идентификатор пользователя
+     * @param batchId идентификатор партии
+     * @return список результатов, может быть пустым
      */
     public List<TrackStatusUpdateDTO> getResults(Long userId, Long batchId) {
         if (userId == null || batchId == null) {
@@ -58,10 +58,10 @@ public class TrackingResultCacheService {
     }
 
     /**
-     * Returns results of the latest batch for the user.
+     * Получает результаты последней партии пользователя.
      *
-     * @param userId user identifier
-     * @return list of results or empty list if none
+     * @param userId идентификатор пользователя
+     * @return список результатов либо пустой список
      */
     public List<TrackStatusUpdateDTO> getLatestResults(Long userId) {
         Map<Long, List<TrackStatusUpdateDTO>> byBatch = cache.get(userId);
@@ -76,9 +76,9 @@ public class TrackingResultCacheService {
     }
 
     /**
-     * Clears cached results for a user.
+     * Очищает кэш результатов пользователя.
      *
-     * @param userId user identifier
+     * @param userId идентификатор пользователя
      */
     public void clearResults(Long userId) {
         if (userId != null) {

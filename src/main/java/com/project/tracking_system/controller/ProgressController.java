@@ -58,10 +58,10 @@ public class ProgressController {
     }
 
     /**
-     * Returns cached tracking results for the latest batch of the current user.
+     * Возвращает сохранённые результаты последней партии текущего пользователя.
      *
-     * @param user authenticated user
-     * @return list of cached updates
+     * @param user аутентифицированный пользователь
+     * @return список сохранённых обновлений
      */
     @GetMapping("/app/results/latest")
     public ResponseEntity<List<TrackStatusUpdateDTO>> getLatestResults(@AuthenticationPrincipal User user) {
@@ -72,7 +72,7 @@ public class ProgressController {
     }
 
     /**
-     * Clears cached results for the current user.
+     * Очищает кэш результатов текущего пользователя.
      */
     @PostMapping("/app/results/clear")
     public ResponseEntity<String> clearResults(@AuthenticationPrincipal User user) {

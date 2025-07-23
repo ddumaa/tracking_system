@@ -45,7 +45,7 @@ public class TrackUpdateService {
     private final BelPostTrackQueueService belPostTrackQueueService;
     /** Сервис агрегации прогресса обработки. */
     private final ProgressAggregatorService progressAggregatorService;
-    /** Cache storing tracking results for restoring page state. */
+    /** Кэш результатов трекинга для восстановления состояния страницы. */
     private final TrackingResultCacheService trackingResultCacheService;
 
     /**
