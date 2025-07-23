@@ -41,9 +41,9 @@ public class BelPostTrackQueueService {
     private final WebBelPostBatchService webBelPostBatchService;
     private final TrackProcessingService trackProcessingService;
     private final WebSocketController webSocketController;
-    /** Aggregates overall progress from different services. */
+    /** Сервис агрегирования прогресса из различных источников. */
     private final ProgressAggregatorService progressAggregatorService;
-    /** Cache for tracking results to restore page state. */
+    /** Кэш результатов трекинга для восстановления состояния страницы. */
     private final TrackingResultCacheService trackingResultCacheService;
 
     /** Хранилище заданий на обработку. */
