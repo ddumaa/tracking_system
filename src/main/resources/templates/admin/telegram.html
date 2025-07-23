@@ -48,7 +48,8 @@
             <td th:text="${log.customer.phone}"></td>
             <td th:text="${log.parcel.number}"></td>
             <td th:text="${log.notificationType}"></td>
-            <td th:text="${#dates.format(log.sentAt,'dd.MM.yyyy HH:mm')}"></td>
+            <!-- Форматируем дату отправки уведомления с помощью #temporals -->
+            <td th:text="${#temporals.format(log.sentAt,'dd.MM.yyyy HH:mm')}"></td>
         </tr>
         </tbody>
     </table>
