@@ -60,5 +60,16 @@
         </tr>
         </tbody>
     </table>
+
+    <h4 class="mt-4">Интервал автообновления треков</h4>
+    <form th:action="@{/admin/settings/track-interval}" method="post" class="row g-2">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+        <div class="col-auto">
+            <input type="number" min="1" class="form-control" name="interval" th:value="${interval}" required>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary">Сохранить</button>
+        </div>
+    </form>
 </main>
 </html>
