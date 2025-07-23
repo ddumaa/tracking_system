@@ -103,6 +103,7 @@
                     </form>
 
                 </div>
+                <div id="progressPlaceholder" class="my-3"></div>
 
                 <!-- Информация о посылке -->
                 <div th:if="${trackInfo}" class="card shadow-sm p-4 rounded-4 mb-4">
@@ -157,5 +158,8 @@
         </div>
     </div>
 </main>
+<div layout:fragment="afterFooter">
+    <script src="/js/progress-tracking.js"></script>
+</div>
 </body>
 </html>
