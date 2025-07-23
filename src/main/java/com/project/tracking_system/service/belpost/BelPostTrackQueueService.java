@@ -3,10 +3,11 @@ package com.project.tracking_system.service.belpost;
 import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.BelPostBatchStartedDTO;
-import com.project.tracking_system.dto.BelPostTrackProcessedDTO;
+import com.project.tracking_system.dto.TrackStatusUpdateDTO;
 import com.project.tracking_system.dto.BelPostBatchFinishedDTO;
 import com.project.tracking_system.dto.TrackProcessingProgressDTO;
 import com.project.tracking_system.service.track.TrackProcessingService;
+import com.project.tracking_system.service.track.TrackConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.WebDriverException;
@@ -104,8 +105,9 @@ public class BelPostTrackQueueService {
                     new BelPostBatchStartedDTO(task.batchId(), progress.getTotal()));
         }
 
+        TrackInfoListDTO info = new TrackInfoListDTO();
         try {
-            TrackInfoListDTO info = webBelPostBatchService.parseTrack(task.trackNumber());
+            info = webBelPostBatchService.parseTrack(task.trackNumber());
             if (!info.getList().isEmpty()) {
                 trackProcessingService.save(task.trackNumber(), info, task.storeId(), task.userId());
                 progress.success.incrementAndGet();
@@ -122,14 +124,17 @@ public class BelPostTrackQueueService {
             progress.failed.incrementAndGet();
         }
 
+        String status = info.getList().isEmpty()
+                ? TrackConstants.NO_DATA_STATUS
+                : info.getList().get(0).getInfoTrack();
         webSocketController.sendBelPostTrackProcessed(
                 task.userId(),
-                new BelPostTrackProcessedDTO(
+                new TrackStatusUpdateDTO(
                         task.batchId(),
                         task.trackNumber(),
+                        status,
                         progress.getProcessed(),
-                        progress.getSuccess(),
-                        progress.getFailed()));
+                        progress.getTotal()));
 
         webSocketController.sendProgress(
                 task.userId(),
