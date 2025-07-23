@@ -18,6 +18,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 /**
@@ -76,7 +77,8 @@ class BelPostTrackQueueServiceTest {
         assertEquals(1, p.getSuccess());
         assertEquals(0, p.getFailed());
         verify(webSocketController).sendBelPostBatchStarted(eq(1L), any());
-        verify(webSocketController).sendBelPostTrackProcessed(eq(1L), any());
+        verify(webSocketController).sendBelPostTrackProcessed(eq(1L), argThat(dto ->
+                "info".equals(dto.status()) && dto.completed() == 1 && dto.total() == 2));
         verify(webSocketController).sendProgress(eq(1L), any());
 
         queueService.processQueue();
