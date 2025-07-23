@@ -20,6 +20,31 @@
      */
     let lastBatchId = null;
 
+    /**
+     * Начальная отметка времени для локального таймера.
+     * @type {number|null}
+     */
+    let timerStart = null;
+
+    /**
+     * Идентификатор интервала обновления таймера.
+     * @type {number|null}
+     */
+    let timerId = null;
+
+    /**
+     * Последние значения прогресса.
+     * Хранятся для перерисовки бара при тике таймера.
+     */
+    let lastCompleted = 0;
+    let lastTotal = 0;
+    /**
+     * Контейнер текущего прогресс-бара.
+     * Хранится чтобы таймер мог обновлять его без WebSocket сообщений.
+     * @type {HTMLElement|null}
+     */
+    let progressContainer = null;
+
     document.addEventListener("DOMContentLoaded", initProgressTracking);
 
     /**
@@ -53,6 +78,15 @@
                 const data = JSON.parse(message.body);
                 lastBatchId = data.batchId;
                 updateDisplay(data, container);
+            });
+
+            // Подписка на события обработки трека Белпочты
+            stompClient.subscribe(`/topic/belpost/track-processed/${userId}`, message => {
+                progressContainer = container;
+                const data = JSON.parse(message.body);
+                startTimer();
+                updateProgressBar(data.completed, data.total);
+                updateTrackingRow(data.trackingNumber, data.status);
             });
         };
 
@@ -158,6 +192,95 @@
         const toast = new bootstrap.Toast(toastEl, {delay: 5000});
         toast.show();
         toastEl.addEventListener("hidden.bs.toast", () => toastEl.remove());
+    }
+
+    /**
+     * Запускает локальный таймер отображения прогресса.
+     * Таймер перерисовывает прогресс каждую секунду.
+     */
+    function startTimer() {
+        if (timerId) return;
+        timerStart = Date.now();
+        timerId = setInterval(() => updateProgressBar(lastCompleted, lastTotal), 1000);
+    }
+
+    /**
+     * Останавливает таймер прогресса.
+     */
+    function stopTimer() {
+        if (timerId) {
+            clearInterval(timerId);
+            timerId = null;
+        }
+    }
+
+    /**
+     * Обновляет визуальный прогресс-бар текущими значениями.
+     * Также выводит прошедшее время с момента запуска таймера.
+     *
+     * @param {number} completed сколько элементов обработано
+     * @param {number} total общее количество элементов
+     */
+    function updateProgressBar(completed, total) {
+        if (!progressContainer) return;
+        lastCompleted = completed;
+        lastTotal = total;
+
+        progressContainer.classList.remove("d-none");
+        let bar = progressContainer.querySelector(".progress-bar");
+        let info = progressContainer.querySelector(".progress-info");
+        if (!bar) {
+            progressContainer.innerHTML =
+                `<div class="progress my-3">
+                     <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${total}"></div>
+                 </div>
+                 <div class="progress-info small text-center"></div>`;
+            bar = progressContainer.querySelector(".progress-bar");
+            info = progressContainer.querySelector(".progress-info");
+        }
+
+        const percent = total > 0 ? Math.floor(completed / total * 100) : 0;
+        bar.style.width = percent + "%";
+        bar.setAttribute("aria-valuenow", String(completed));
+        const elapsed = timerStart ? formatElapsed(Date.now() - timerStart) : "0:00";
+        info.textContent = `Обработано ${completed} из ${total} | ${elapsed}`;
+
+        if (completed >= total && total > 0) {
+            stopTimer();
+        }
+    }
+
+    /**
+     * Обновляет или создаёт строку в таблице результатов трекинга.
+     *
+     * @param {string} trackNumber номер трек-отправления
+     * @param {string} statusText текст статуса
+     */
+    function updateTrackingRow(trackNumber, statusText) {
+        const table = document.getElementById("tracking-results-table");
+        if (!table) return;
+
+        let row = table.querySelector(`tr[data-track-number="${trackNumber}"]`);
+        if (!row) {
+            row = table.insertRow(-1);
+            row.setAttribute("data-track-number", trackNumber);
+            row.insertCell(0).textContent = trackNumber;
+            row.insertCell(1).textContent = statusText;
+        } else {
+            row.cells[1].textContent = statusText;
+        }
+    }
+
+    /**
+     * Форматирует прошедшее время в mm:ss.
+     * @param {number} ms миллисекунды
+     * @returns {string} строка вида "m:ss"
+     */
+    function formatElapsed(ms) {
+        const seconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${minutes}:${secs.toString().padStart(2, "0")}`;
     }
 
     /** Скрывает прогресс-бар и прекращает опрос. */
