@@ -5,6 +5,7 @@ import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.BelPostBatchStartedDTO;
 import com.project.tracking_system.dto.BelPostTrackProcessedDTO;
 import com.project.tracking_system.dto.BelPostBatchFinishedDTO;
+import com.project.tracking_system.dto.TrackProcessingProgressDTO;
 import com.project.tracking_system.service.track.TrackProcessingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.time.Duration;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -65,7 +67,12 @@ public class BelPostTrackQueueService {
         tracks.forEach(this::enqueue);
     }
 
-    /** Возвращает текущий прогресс для указанной пачки. */
+    /**
+     * Возвращает текущий прогресс для указанной партии.
+     *
+     * @param batchId идентификатор партии
+     * @return объект {@link BatchProgress} или {@code null}, если партия не найденa
+     */
     public BatchProgress getProgress(long batchId) {
         return progressMap.get(batchId);
     }
@@ -73,6 +80,8 @@ public class BelPostTrackQueueService {
     /**
      * Периодически извлекает из очереди один трек и обрабатывает его.
      * Между итерациями выдерживается пауза 15 секунд.
+     * После обработки каждого трека пользователю отправляется
+     * обновление прогресса через WebSocket.
      */
     @Scheduled(fixedDelay = 15000)
     public void processQueue() {
@@ -122,6 +131,15 @@ public class BelPostTrackQueueService {
                         progress.getSuccess(),
                         progress.getFailed()));
 
+        webSocketController.sendProgress(
+                task.userId(),
+                new TrackProcessingProgressDTO(
+                        task.batchId(),
+                        progress.getProcessed(),
+                        progress.getTotal(),
+                        progress.getElapsed()
+                ));
+
         if (currentProcessed >= progress.getTotal()) {
             webSocketController.sendBelPostBatchFinished(
                     task.userId(),
@@ -142,6 +160,8 @@ public class BelPostTrackQueueService {
         private final AtomicInteger processed = new AtomicInteger();
         private final AtomicInteger success = new AtomicInteger();
         private final AtomicInteger failed = new AtomicInteger();
+        /** Время начала обработки партии. */
+        private final long startTime = System.currentTimeMillis();
 
         public int getTotal() {
             return total.get();
@@ -157,6 +177,14 @@ public class BelPostTrackQueueService {
 
         public int getFailed() {
             return failed.get();
+        }
+
+        /**
+         * Возвращает строковое представление прошедшего времени с начала партии.
+         */
+        public String getElapsed() {
+            Duration d = Duration.ofMillis(System.currentTimeMillis() - startTime);
+            return String.format("%d:%02d", d.toMinutes(), d.toSecondsPart());
         }
     }
 }

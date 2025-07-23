@@ -77,10 +77,12 @@ class BelPostTrackQueueServiceTest {
         assertEquals(0, p.getFailed());
         verify(webSocketController).sendBelPostBatchStarted(eq(1L), any());
         verify(webSocketController).sendBelPostTrackProcessed(eq(1L), any());
+        verify(webSocketController).sendProgress(eq(1L), any());
 
         queueService.processQueue();
         assertNull(queueService.getProgress(10L));
         verify(webSocketController).sendBelPostBatchFinished(eq(1L), any());
+        verify(webSocketController, times(2)).sendProgress(eq(1L), any());
     }
 
     /**
