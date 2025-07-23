@@ -1,6 +1,6 @@
 package com.project.tracking_system.controller;
 
-import com.project.tracking_system.dto.TrackInfoListDTO;
+import com.project.tracking_system.dto.TrackViewResult;
 import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.dto.BulkUpdateButtonDTO;
 import com.project.tracking_system.entity.Store;
@@ -10,8 +10,8 @@ import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.service.track.StatusTrackService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.track.TrackFacade;
-import com.project.tracking_system.service.track.TrackUpdateDispatcherService;
-import com.project.tracking_system.service.track.TrackMeta;
+
+import com.project.tracking_system.service.track.TrackViewService;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
@@ -48,9 +48,9 @@ public class DeparturesController {
     private final TrackFacade trackFacade;
     private final StatusTrackService statusTrackService;
     private final StoreService storeService;
-    private final TrackUpdateDispatcherService trackUpdateDispatcherService;
     private final WebSocketController webSocketController;
     private final UserService userService;
+    private final TrackViewService trackViewService;
 
     /**
      * Метод для отображения списка отслеживаемых посылок пользователя с возможностью фильтрации по магазину и статусу.
@@ -157,21 +157,12 @@ public class DeparturesController {
         Long userId = user.getId();
         log.info("🔍 Запрос информации о посылке {} для пользователя ID={}", itemNumber, userId);
 
-        // Проверяем, принадлежит ли посылка пользователю
-        boolean ownsParcel = trackParcelService.userOwnsParcel(itemNumber, userId);
-        if (!ownsParcel) {
-            log.warn("❌ Пользователь ID={} попытался получить доступ к чужой посылке {}", userId, itemNumber);
-            throw new RuntimeException("Ошибка доступа: Посылка не принадлежит пользователю.");
-        }
-
-        // Собираем метаданные и передаём в общий диспетчер
-        TrackMeta meta = new TrackMeta(itemNumber, null, null, false,
-                trackParcelService.getPostalServiceType(itemNumber));
-        TrackInfoListDTO trackInfo = trackUpdateDispatcherService.dispatch(meta).getTrackInfo();
-        log.info("🎯 Передача в шаблон: {} записей для трека {}", trackInfo.getList().size(), itemNumber);
-
-        model.addAttribute("trackInfo", trackInfo);
+        TrackViewResult result = trackViewService.getTrackDetails(itemNumber, userId);
+        model.addAttribute("trackInfo", result.trackInfo());
         model.addAttribute("itemNumber", itemNumber);
+        if (result.nextUpdateTime() != null) {
+            model.addAttribute("nextUpdateTime", result.nextUpdateTime());
+        }
 
         return "partials/track-info-departures";
     }
