@@ -5,6 +5,7 @@ import com.project.tracking_system.dto.TrackProcessingStartedDTO;
 import com.project.tracking_system.dto.BelPostBatchStartedDTO;
 import com.project.tracking_system.dto.BelPostTrackProcessedDTO;
 import com.project.tracking_system.dto.BelPostBatchFinishedDTO;
+import com.project.tracking_system.dto.TrackProcessingProgressDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -93,6 +94,17 @@ public class WebSocketController {
     public void sendBelPostBatchFinished(Long userId, BelPostBatchFinishedDTO dto) {
         log.debug("\uD83D\uDCE1 WebSocket партия {} завершена для {}: {}", dto.batchId(), userId, dto);
         messagingTemplate.convertAndSend("/topic/belpost/batch-finished/" + userId, dto);
+    }
+
+    /**
+     * Передаёт текущий прогресс обработки партии треков.
+     *
+     * @param userId идентификатор пользователя
+     * @param dto    данные о прогрессе обработки
+     */
+    public void sendProgress(Long userId, TrackProcessingProgressDTO dto) {
+        log.debug("\uD83D\uDCE1 WebSocket прогресс партии {} для {}: {}", dto.batchId(), userId, dto);
+        messagingTemplate.convertAndSend("/topic/progress/" + userId, dto);
     }
 
     private static void getDebug(Long userId, UpdateResult updateResult) {
