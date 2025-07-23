@@ -30,4 +30,10 @@ public class ApplicationSettings {
      */
     @Column(name = "track_update_interval_hours", nullable = false)
     private int trackUpdateIntervalHours;
+
+    /**
+     * Время хранения результатов обработки в кэше в миллисекундах.
+     */
+    @Column(name = "result_cache_expiration_ms", nullable = false)
+    private long resultCacheExpirationMs;
 }
