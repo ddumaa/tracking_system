@@ -8,6 +8,7 @@ import com.project.tracking_system.service.track.TrackExcelParser;
 import com.project.tracking_system.service.track.TrackExcelRow;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.track.ProgressAggregatorService;
+import com.project.tracking_system.service.track.TrackUpdateEligibilityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,8 +32,10 @@ public class TrackUploadProcessorService {
     private final BelPostTrackQueueService belPostTrackQueueService;
     private final WebSocketController webSocketController;
     private final StoreService storeService;
-    /** Service aggregating progress from different processors. */
+    /** Сервис агрегации прогресса разных обработчиков. */
     private final ProgressAggregatorService progressAggregatorService;
+    /** Проверяет возможность обновления треков перед постановкой в очередь. */
+    private final TrackUpdateEligibilityService trackUpdateEligibilityService;
 
     /**
      * Принимает Excel-файл, конвертирует строки в {@link QueuedTrack} и
@@ -57,6 +60,7 @@ public class TrackUploadProcessorService {
                         parseStoreId(r.store(), defaultStoreId, userId),
                         "EXCEL",
                         batchId))
+                .filter(q -> trackUpdateEligibilityService.canUpdate(q.trackNumber(), q.userId()))
                 .toList();
 
         progressAggregatorService.registerBatch(batchId, queued.size(), userId);
@@ -70,9 +74,9 @@ public class TrackUploadProcessorService {
     }
 
     /**
-     * Converts raw store value from Excel into a valid store ID.
-     * If parsing fails or the store is not owned by the user,
-     * the default ID is returned.
+     * Преобразует значение магазина из Excel в корректный идентификатор.
+     * Если парсинг не удался или магазин не принадлежит пользователю,
+     * возвращается идентификатор магазина по умолчанию.
      */
     private Long parseStoreId(String rawStore, Long defaultStoreId, Long userId) {
         Long storeId = defaultStoreId;
