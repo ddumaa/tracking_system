@@ -95,7 +95,7 @@
             stompClient.subscribe(`/topic/belpost/track-processed/${userId}`, message => {
                 progressContainer = container;
                 const data = JSON.parse(message.body);
-                startTimer();
+                // Progress updates come with elapsed time, timer is started in updateDisplay
                 updateProgressBar(data.completed, data.total);
                 updateTrackingRow(data.trackingNumber, data.status);
             });
@@ -157,6 +157,10 @@
         // Первое сообщение задаёт базовую точку времени для локального таймера
         if (timerStart === null && typeof data.elapsed === "string") {
             timerStart = Date.now() - parseElapsed(data.elapsed);
+        }
+        // Запускаем таймер при первом сообщении о прогрессе
+        if (timerId === null && typeof data.elapsed === "string") {
+            startTimer(parseElapsed(data.elapsed));
         }
         if (data.processed >= data.total) {
             // Если обработка завершена, показываем итоговое уведомление
@@ -237,6 +241,8 @@
      * @param {HTMLElement|null} container контейнер прогресс-бара
      */
     function handleBatchFinished(container) {
+        // Останавливаем локальный таймер и уведомляем пользователя
+        stopTimer();
         showBatchFinishedToast();
         hideDisplay(container);
     }
