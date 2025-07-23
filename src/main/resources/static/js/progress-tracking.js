@@ -119,7 +119,8 @@
             return; // Уже запущено или неизвестен batchId
         }
         pollingTimer = setInterval(() => {
-            fetch(`/app/progress/${lastBatchId}`, {cache: "no-store"})
+            // Используем новый эндпоинт для получения прогресса
+            fetch(`/app/progress/latest`, {cache: "no-store"})
                 .then(r => r.ok ? r.json() : Promise.reject(r.status))
                 .then(data => {
                     updateDisplay(data, container);
@@ -152,13 +153,17 @@
         if (timerStart === null && typeof data.elapsed === "string") {
             timerStart = Date.now() - parseElapsed(data.elapsed);
         }
+        if (data.processed >= data.total) {
+            // Если обработка завершена, сразу показываем итоговое уведомление
+            showProgressToast(data);
+            hideDisplay(container);
+            return;
+        }
+
         if (container) {
             renderBar(container, data);
         } else {
             showProgressToast(data);
-        }
-        if (data.processed >= data.total) {
-            hideDisplay(container);
         }
     }
 
@@ -345,9 +350,13 @@
         return (minutes * 60 + seconds) * 1000;
     }
 
-    /** Скрывает прогресс-бар и прекращает опрос. */
+    /**
+     * Скрывает прогресс-бар и сбрасывает локальные таймеры/опросы.
+     * Вызывается после завершения обработки.
+     */
     function hideDisplay(container) {
         stopPolling();
+        stopTimer();
         if (container) {
             container.innerHTML = "";
             container.classList.add("d-none");
