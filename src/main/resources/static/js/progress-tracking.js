@@ -460,7 +460,7 @@
     }
 
     /**
-     * Sends a request to clear cached results when the user leaves the page.
+     * Отправляет запрос на очистку кэша результатов при уходе со страницы.
      */
     function attachUnloadHandler() {
         window.addEventListener("beforeunload", () => {
