@@ -16,6 +16,7 @@
 @use 'components/modals';
 @use 'components/alerts';
 @use 'components/loading';
+@use 'components/progress-popup';
 
 // Подключаем layout
 @use 'layouts/sidebar';
