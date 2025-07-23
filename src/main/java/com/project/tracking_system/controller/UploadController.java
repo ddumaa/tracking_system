@@ -11,6 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.project.tracking_system.entity.User;
 
 import java.io.IOException;
+import java.util.Collections;
 
 /**
  * Контроллер для загрузки файлов и распознавания номеров посылок.
@@ -59,6 +60,10 @@ public class UploadController {
         try {
             if (contentType.equals("application/vnd.ms-excel") || contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
                 trackUploadProcessorService.process(file, userId);
+                // После успешной передачи файла и запуска обработки
+                // добавляем пустой список результатов, чтобы таблица могла
+                // появиться на странице и наполняться через WebSocket.
+                model.addAttribute("trackingResults", Collections.emptyList());
                 // Таблица с результатами появится после получения первых данных
                 // по WebSocket. На этом этапе её не заполняем.
                 model.addAttribute("successMessage", "Файл принят, обработка начата.");
