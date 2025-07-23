@@ -1567,4 +1567,16 @@ body.loading {
   }
 }
 
+.progress-popup {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1250;
+  min-width: 220px;
+  padding: 1rem;
+  background-color: #0d6efd;
+  color: #fff;
+  border-radius: 0.25rem;
+}
+
 /*# sourceMappingURL=style.css.map */

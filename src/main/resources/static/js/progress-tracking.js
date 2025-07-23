@@ -44,6 +44,11 @@
      * @type {HTMLElement|null}
      */
     let progressContainer = null;
+    /**
+     * DOM-элемент всплывающего окна с прогрессом.
+     * @type {HTMLElement|null}
+     */
+    let progressPopup = null;
 
     document.addEventListener("DOMContentLoaded", initProgressTracking);
 
@@ -58,6 +63,7 @@
             return; // Пользователь не авторизован
         }
         const container = document.getElementById("progressContainer");
+        progressPopup = document.getElementById("progressPopup");
 
         fetch("/app/progress/latest", {cache: "no-store"})
             .then(r => r.ok ? r.json() : null)
@@ -171,7 +177,7 @@
         if (container) {
             renderBar(container, data);
         } else {
-            showProgressToast(data);
+            renderPopup(data);
         }
     }
 
@@ -198,6 +204,22 @@
         bar.style.width = percent + "%";
         bar.setAttribute("aria-valuenow", String(data.processed));
         info.textContent = `Обработано ${data.processed} из ${data.total} | ${data.elapsed}`;
+    }
+
+    /**
+     * Отображает прогресс во всплывающем окне, не создавая новые toast.
+     * @param {{processed:number,total:number,elapsed:string}} data данные прогресса
+     */
+    function renderPopup(data) {
+        if (!progressPopup) return;
+        progressPopup.classList.remove("d-none");
+
+        const percent = Math.floor(data.processed / data.total * 100);
+        progressPopup.innerHTML =
+            `<div class="progress">
+                 <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${data.total}" style="width: ${percent}%" aria-valuenow="${data.processed}"></div>
+             </div>
+             <div class="progress-info small text-center mt-1">Обработано ${data.processed} из ${data.total} | ${data.elapsed}</div>`;
     }
 
     /**
@@ -245,6 +267,7 @@
         stopTimer();
         showBatchFinishedToast();
         hideDisplay(container);
+        hidePopup();
     }
 
     /**
@@ -394,5 +417,14 @@
             container.innerHTML = "";
             container.classList.add("d-none");
         }
+    }
+
+    /**
+     * Скрывает всплывающий блок прогресса и очищает его содержимое.
+     */
+    function hidePopup() {
+        if (!progressPopup) return;
+        progressPopup.innerHTML = "";
+        progressPopup.classList.add("d-none");
     }
 })();
