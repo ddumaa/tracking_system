@@ -7,6 +7,7 @@ import com.project.tracking_system.service.belpost.QueuedTrack;
 import com.project.tracking_system.service.track.TrackExcelParser;
 import com.project.tracking_system.service.track.TrackExcelRow;
 import com.project.tracking_system.service.store.StoreService;
+import com.project.tracking_system.service.track.ProgressAggregatorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,8 @@ public class TrackUploadProcessorService {
     private final BelPostTrackQueueService belPostTrackQueueService;
     private final WebSocketController webSocketController;
     private final StoreService storeService;
+    /** Service aggregating progress from different processors. */
+    private final ProgressAggregatorService progressAggregatorService;
 
     /**
      * Принимает Excel-файл, конвертирует строки в {@link QueuedTrack} и
@@ -56,6 +59,7 @@ public class TrackUploadProcessorService {
                         batchId))
                 .toList();
 
+        progressAggregatorService.registerBatch(batchId, queued.size(), userId);
         belPostTrackQueueService.enqueue(queued);
 
         long seconds = queued.size() * 2L; // условно 2 секунды на трек
