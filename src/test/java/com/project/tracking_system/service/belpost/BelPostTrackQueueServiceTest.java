@@ -10,6 +10,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.openqa.selenium.WebDriverException;
 import org.springframework.scheduling.annotation.Scheduled;
 
@@ -28,7 +36,9 @@ import static org.mockito.Mockito.*;
 /**
  * Тесты для {@link BelPostTrackQueueService}.
  */
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, SpringExtension.class})
+@ContextConfiguration(classes = BelPostTrackQueueServiceTest.PropertyConfig.class)
+@TestPropertySource("classpath:application.properties")
 class BelPostTrackQueueServiceTest {
 
     @Mock
@@ -42,6 +52,10 @@ class BelPostTrackQueueServiceTest {
 
     private BelPostTrackQueueService queueService;
 
+    /** Значение задержки между обработками, извлечённое из конфигурации. */
+    @Value("${belpost.queue.delay-ms}")
+    private long configuredDelayMs;
+
     @BeforeEach
     void setUp() {
         queueService = new BelPostTrackQueueService(
@@ -53,16 +67,17 @@ class BelPostTrackQueueServiceTest {
     }
 
     /**
-     * Проверяем аннотацию планировщика: метод должен выполняться практически
-     * без паузы (минимальный {@code fixedDelay=1}).
+     * Проверяем аннотацию планировщика: метод должен использовать значение
+     * задержки из конфигурации приложения.
      */
     @Test
-    void processQueue_HasMinimalFixedDelay() throws Exception {
+    void processQueue_HasConfigurableFixedDelay() throws Exception {
         Scheduled scheduled = BelPostTrackQueueService.class
                 .getMethod("processQueue")
                 .getAnnotation(Scheduled.class);
         assertNotNull(scheduled, "Аннотация @Scheduled отсутствует");
-        assertEquals(1, scheduled.fixedDelay());
+        assertEquals("${belpost.queue.delay-ms:100}", scheduled.fixedDelayString());
+        assertEquals(100L, configuredDelayMs);
     }
 
     /**
@@ -131,5 +146,17 @@ class BelPostTrackQueueServiceTest {
         Field f = BelPostTrackQueueService.class.getDeclaredField("pauseUntil");
         f.setAccessible(true);
         return f.getLong(service);
+    }
+
+    /**
+     * Конфигурация для загрузки свойств приложения в тесты.
+     */
+    @Configuration
+    @PropertySource("classpath:application.properties")
+    static class PropertyConfig {
+        @Bean
+        static PropertySourcesPlaceholderConfigurer propertySourcesPlaceholderConfigurer() {
+            return new PropertySourcesPlaceholderConfigurer();
+        }
     }
 }
