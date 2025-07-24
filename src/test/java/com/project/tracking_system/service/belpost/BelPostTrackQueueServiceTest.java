@@ -2,6 +2,7 @@ package com.project.tracking_system.service.belpost;
 
 import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
+import com.project.tracking_system.dto.BelPostBatchFinishedDTO;
 import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.service.track.TrackProcessingService;
 import com.project.tracking_system.service.track.ProgressAggregatorService;
@@ -31,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.Mockito.*;
 
 /**
@@ -93,20 +95,30 @@ class BelPostTrackQueueServiceTest {
         QueuedTrack t2 = new QueuedTrack("T2", 1L, 1L, TrackSource.MANUAL, 10L);
         queueService.enqueue(List.of(t1, t2));
 
+        // Обрабатываем первый трек и проверяем, что статистика партии корректно обновилась
         queueService.processQueue();
-        BelPostTrackQueueService.BatchProgress p = queueService.getProgress(10L);
-        assertEquals(2, p.getTotal());
-        assertEquals(1, p.getProcessed());
-        assertEquals(1, p.getSuccess());
-        assertEquals(0, p.getFailed());
+        BelPostTrackQueueService.BatchProgress progress = queueService.getProgress(10L);
+        assertEquals(2, progress.getTotal());
+        assertEquals(1, progress.getProcessed());
+        assertEquals(1, progress.getSuccess());
+        assertEquals(0, progress.getFailed());
+
+        // Проверяем отправку событий о старте партии и обработке трека
         verify(webSocketController).sendBelPostBatchStarted(eq(1L), any());
         verify(webSocketController).sendBelPostTrackProcessed(eq(1L), argThat(dto ->
                 "info".equals(dto.status()) && dto.completed() == 1 && dto.total() == 2));
         verify(progressAggregatorService).trackProcessed(10L);
 
+        // Обработка второго трека приводит к завершению партии
         queueService.processQueue();
         assertNull(queueService.getProgress(10L));
-        verify(webSocketController).sendBelPostBatchFinished(eq(1L), any());
+
+        // Фиксируем отправленные данные о завершении и сравниваем время обработки
+        ArgumentCaptor<BelPostBatchFinishedDTO> captor = ArgumentCaptor.forClass(BelPostBatchFinishedDTO.class);
+        verify(webSocketController).sendBelPostBatchFinished(eq(1L), captor.capture());
+        BelPostBatchFinishedDTO finishedDto = captor.getValue();
+        assertEquals(progress.getElapsed(), finishedDto.elapsed());
+
         verify(progressAggregatorService, times(2)).trackProcessed(10L);
     }
 
