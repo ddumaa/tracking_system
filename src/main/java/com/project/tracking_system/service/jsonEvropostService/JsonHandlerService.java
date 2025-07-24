@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.tracking_system.model.evropost.jsonRequestModel.JsonRequest;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -21,18 +21,15 @@ import org.springframework.web.client.RestTemplate;
  * @author Dmitriy Anisimov
  * @date 07.01.2025
  */
+
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class JsonHandlerService {
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
-    @Autowired
-    public JsonHandlerService(RestTemplate restTemplate, ObjectMapper objectMapper) {
-        this.restTemplate = restTemplate;
-        this.objectMapper = objectMapper;
-    }
 
     @Value("${evro.jwt.ApiUrl}")
     private String URL;
