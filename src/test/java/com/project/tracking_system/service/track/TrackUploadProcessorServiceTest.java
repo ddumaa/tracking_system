@@ -42,11 +42,12 @@ class TrackUploadProcessorServiceTest {
     void process_EnqueuesTracks() throws Exception {
         MockMultipartFile file = new MockMultipartFile("f", new byte[0]);
         when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("A1", "1", "p")));
+        when(queueService.estimateWaitTime(1L)).thenReturn(java.time.Duration.ofSeconds(4));
 
         processor.process(file, 1L);
 
         verify(queueService).enqueue(anyList());
-        verify(webSocketController).sendUpdateStatus(eq(1L), anyString(), eq(true));
+        verify(webSocketController).sendUpdateStatus(eq(1L), contains("Белпочты"), eq(true));
         verify(webSocketController).sendTrackProcessingStarted(eq(1L), any());
         verify(progressAggregatorService).registerBatch(anyLong(), eq(1), eq(1L));
     }

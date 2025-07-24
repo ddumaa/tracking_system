@@ -38,9 +38,12 @@ public class BelPostManualService {
             ));
 
             Duration wait = belPostTrackQueueService.estimateWaitTime(userId);
-            String eta = DurationUtils.formatMinutesSeconds(wait);
-            webSocketController.sendUpdateStatus(userId,
-                    "Трек добавлен в очередь. Начало через " + eta, true);
+            if (wait != null && !wait.isZero()) {
+                String eta = DurationUtils.formatMinutesSeconds(wait);
+                webSocketController.sendUpdateStatus(userId,
+                        "Треки Белпочты в очереди. Ожидание до начала обработки: " + eta,
+                        true);
+            }
 
             return true;
         }
