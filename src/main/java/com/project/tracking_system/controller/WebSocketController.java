@@ -56,7 +56,8 @@ public class WebSocketController {
      * Уведомляет пользователя о начале пакетной обработки треков.
      *
      * @param userId     идентификатор пользователя
-     * @param startedDto информация о количестве треков и ориентировочном ETA
+     * @param startedDto информация о количестве треков,
+     *                   предполагаемом времени обработки и времени ожидания
      */
     public void sendTrackProcessingStarted(Long userId, TrackProcessingStartedDTO startedDto) {
         log.debug("\uD83D\uDCE1 WebSocket старт обработки для {}: {}", userId, startedDto);
