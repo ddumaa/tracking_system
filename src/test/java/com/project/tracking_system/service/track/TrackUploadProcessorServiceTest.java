@@ -4,6 +4,7 @@ import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.track.ProgressAggregatorService;
+import com.project.tracking_system.service.track.TrackUpdateEligibilityService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,8 +15,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class TrackUploadProcessorServiceTest {
@@ -30,12 +30,15 @@ class TrackUploadProcessorServiceTest {
     private WebSocketController webSocketController;
     @Mock
     private ProgressAggregatorService progressAggregatorService;
+    @Mock
+    private TrackUpdateEligibilityService trackUpdateEligibilityService;
 
     private TrackUploadProcessorService processor;
 
     @BeforeEach
     void setUp() {
-        processor = new TrackUploadProcessorService(parser, queueService, webSocketController, storeService, progressAggregatorService);
+        processor = new TrackUploadProcessorService(parser, queueService, webSocketController, storeService,
+                progressAggregatorService, trackUpdateEligibilityService);
     }
 
     @Test
@@ -50,5 +53,19 @@ class TrackUploadProcessorServiceTest {
         verify(webSocketController, times(2)).sendUpdateStatus(eq(1L), contains("Белпочты"), eq(true));
         verify(webSocketController).sendTrackProcessingStarted(eq(1L), any());
         verify(progressAggregatorService).registerBatch(anyLong(), eq(1), eq(1L));
+    }
+
+    @Test
+    void process_NoEligibleTracks_ReturnsEarly() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("f", new byte[0]);
+        when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("A1", "1", "p")));
+        when(trackUpdateEligibilityService.canUpdate(anyString(), any())).thenReturn(false);
+
+        processor.process(file, 1L);
+
+        verify(progressAggregatorService, never()).registerBatch(anyLong(), anyInt(), any());
+        verify(queueService, never()).enqueue(anyList());
+        verify(webSocketController, never()).sendTrackProcessingStarted(anyLong(), any());
+        verify(webSocketController).sendUpdateStatus(eq(1L), contains("нет"), eq(false));
     }
 }
