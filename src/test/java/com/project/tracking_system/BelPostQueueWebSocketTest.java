@@ -5,6 +5,7 @@ import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
 import com.project.tracking_system.service.belpost.QueuedTrack;
+import com.project.tracking_system.service.track.TrackSource;
 import com.project.tracking_system.service.belpost.WebBelPostBatchService;
 import com.project.tracking_system.service.track.ProgressAggregatorService;
 import com.project.tracking_system.service.track.TrackProcessingService;
@@ -64,7 +65,7 @@ class BelPostQueueWebSocketTest {
      */
     @Test
     void processQueueSendsProgressAndTrackProcessed() {
-        queueService.enqueue(new QueuedTrack("RR123", 1L, 1L, "EXCEL", 1L));
+        queueService.enqueue(new QueuedTrack("RR123", 1L, 1L, TrackSource.EXCEL, 1L));
 
         queueService.processQueue();
 
