@@ -69,8 +69,11 @@ public class TrackUploadProcessorService {
 
         Duration wait = belPostTrackQueueService.estimateWaitTime(userId);
         String waitEta = DurationUtils.formatMinutesSeconds(wait);
-        webSocketController.sendUpdateStatus(userId,
-                "Партия поставлена в очередь. Начало через " + waitEta, true);
+        if (wait != null && !wait.isZero()) {
+            webSocketController.sendUpdateStatus(userId,
+                    "Треки Белпочты в очереди. Ожидание до начала обработки: " + waitEta,
+                    true);
+        }
 
         long seconds = queued.size() * BelPostTrackQueueService.PROCESSING_DELAY_SECONDS;
         Duration duration = Duration.ofSeconds(seconds);
