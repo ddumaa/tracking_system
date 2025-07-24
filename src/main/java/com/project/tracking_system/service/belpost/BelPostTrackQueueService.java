@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.time.Duration;
+import com.project.tracking_system.utils.DurationUtils;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -37,6 +38,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 @RequiredArgsConstructor
 @Slf4j
 public class BelPostTrackQueueService {
+
+    /** Среднее время обработки одного трека в секундах. */
+    public static final long PROCESSING_DELAY_SECONDS = 2L;
 
     private final WebBelPostBatchService webBelPostBatchService;
     private final TrackProcessingService trackProcessingService;
@@ -84,12 +88,33 @@ public class BelPostTrackQueueService {
     }
 
     /**
-     * Периодически извлекает из очереди один трек и обрабатывает его.
-     * Между итерациями выдерживается пауза 15 секунд.
-     * После обработки каждого трека пользователю отправляется
-     * обновление прогресса через WebSocket.
+     * Оценивает время ожидания до начала обработки следующего трека указанного пользователя.
+     * <p>
+     * Расчет основан на количестве задач в очереди перед первым треком пользователя
+     * и средней задержке {@link #PROCESSING_DELAY_SECONDS} между обработками.
+     * </p>
+     *
+     * @param userId идентификатор пользователя
+     * @return примерная длительность ожидания
      */
-    @Scheduled(fixedDelay = 10)
+    public Duration estimateWaitTime(Long userId) {
+        if (userId == null) {
+            return Duration.ZERO;
+        }
+        long ahead = queue.stream()
+                .takeWhile(q -> !userId.equals(q.userId()))
+                .count();
+        return Duration.ofSeconds(ahead * PROCESSING_DELAY_SECONDS);
+    }
+
+    /**
+     * Периодически извлекает из очереди один трек и обрабатывает его.
+     * Метод вызывается практически без задержки, что обеспечивает
+     * быструю обработку элементов очереди. После каждого трека
+     * пользователю отправляется обновление прогресса через WebSocket.
+     */
+    // минимальная задержка между итерациями в миллисекундах
+    @Scheduled(fixedDelay = 1)
     public void processQueue() {
         if (Instant.now().toEpochMilli() < pauseUntil) {
             return; // временно приостановлено
@@ -187,7 +212,7 @@ public class BelPostTrackQueueService {
          */
         public String getElapsed() {
             Duration d = Duration.ofMillis(System.currentTimeMillis() - startTime);
-            return String.format("%d:%02d", d.toMinutes(), d.toSecondsPart());
+            return DurationUtils.formatMinutesSeconds(d);
         }
     }
 }
