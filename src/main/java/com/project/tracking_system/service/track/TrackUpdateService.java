@@ -8,6 +8,7 @@ import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
 import com.project.tracking_system.service.belpost.QueuedTrack;
 import com.project.tracking_system.service.track.ProgressAggregatorService;
 import com.project.tracking_system.service.track.TrackingResultCacheService;
+import com.project.tracking_system.service.track.TrackSource;
 import com.project.tracking_system.service.admin.ApplicationSettingsService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.dto.TrackProcessingProgressDTO;
@@ -285,12 +286,14 @@ public class TrackUpdateService {
         // Отдельно обрабатываем номера Белпочты через централизованную очередь
         List<TrackMeta> belpost = grouped.remove(PostalServiceType.BELPOST);
         if (belpost != null && !belpost.isEmpty()) {
+            // Для последующей обработки фиксируем источник как UPDATE
+            // чтобы различать треки, добавленные при ручном обновлении
             List<QueuedTrack> queued = belpost.stream()
                     .map(m -> new QueuedTrack(
                             m.number(),
                             userId,
                             m.storeId(),
-                            "UPDATE",
+                            TrackSource.UPDATE,
                             batchId))
                     .toList();
             belPostTrackQueueService.enqueue(queued);

@@ -7,9 +7,16 @@ import com.project.tracking_system.entity.UpdateResult;
 import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.service.admin.ApplicationSettingsService;
 import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
 import com.project.tracking_system.service.user.UserService;
+import com.project.tracking_system.service.track.TrackParcelService;
+import com.project.tracking_system.service.track.TrackUploadGroupingService;
+import com.project.tracking_system.service.track.TrackUpdateDispatcherService;
+import com.project.tracking_system.service.track.ProgressAggregatorService;
+import com.project.tracking_system.service.track.TrackingResultCacheService;
+import com.project.tracking_system.service.track.TrackMeta;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,7 +26,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Map;
 
+import com.project.tracking_system.entity.PostalServiceType;
+import com.project.tracking_system.service.belpost.QueuedTrack;
+import com.project.tracking_system.service.track.TrackSource;
+import org.mockito.ArgumentCaptor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -118,5 +130,23 @@ class TrackUpdateServiceTest {
         assertEquals(0, result.getUpdateCount());
         verify(spy, never()).processTrackUpdatesAsync(anyLong(), anyList(), anyInt(), anyInt());
         verify(webSocketController).sendUpdateStatus(eq(5L), contains("следующее обновление"), eq(false));
+    }
+
+    /**
+     * Убеждаемся, что при обработке треков Белпочты
+     * они ставятся в очередь с источником UPDATE.
+     */
+    @Test
+    void process_EnqueuesBelpostTracksWithUpdateSource() {
+        TrackMeta meta = new TrackMeta("B1", 1L, null, true, PostalServiceType.BELPOST);
+        when(groupingService.group(anyList()))
+                .thenReturn(Map.of(PostalServiceType.BELPOST, List.of(meta)));
+        when(dispatcherService.dispatch(anyMap(), anyLong())).thenReturn(List.of());
+
+        service.process(List.of(meta), 3L);
+
+        ArgumentCaptor<List<QueuedTrack>> captor = ArgumentCaptor.forClass(List.class);
+        verify(belPostTrackQueueService).enqueue(captor.capture());
+        assertEquals(TrackSource.UPDATE, captor.getValue().get(0).source());
     }
 }
