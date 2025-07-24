@@ -349,7 +349,7 @@ public class TrackUpdateService {
      * @param ready    количество треков, которые будут обновлены
      * @param finalStatus сколько треков имеют финальный статус
      * @param recent   сколько треков пропущено из-за таймаута
-     * @return текст уведомления с эмодзи для пользователя
+     * @return текст уведомления для пользователя без использования эмодзи
      */
     private String buildUpdateMessage(int ready, int finalStatus, int recent) {
         int total = ready + finalStatus + recent;
@@ -364,12 +364,12 @@ public class TrackUpdateService {
                     .append(" треков");
         }
         if (finalStatus > 0) {
-            sb.append("\n▪ ")
+            sb.append("\n- ")
                     .append(finalStatus)
                     .append(" треков уже в финальном статусе");
         }
         if (recent > 0) {
-            sb.append("\n▪ ")
+            sb.append("\n- ")
                     .append(recent)
                     .append(" треков недавно обновлялись и пропущены");
         }
