@@ -65,6 +65,16 @@ public class TrackUploadProcessorService {
                 .filter(q -> trackUpdateEligibilityService.canUpdate(q.trackNumber(), q.userId()))
                 .toList();
 
+        // Если после фильтрации не осталось треков, уведомляем пользователя и завершаем обработку
+        if (queued.isEmpty()) {
+            webSocketController.sendUpdateStatus(
+                    userId,
+                    "Файл не содержит подходящих треков для обработки",
+                    false
+            );
+            return;
+        }
+
         progressAggregatorService.registerBatch(batchId, queued.size(), userId);
         belPostTrackQueueService.enqueue(queued);
 
