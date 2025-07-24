@@ -8,18 +8,6 @@ import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.UpdateResult;
-import com.project.tracking_system.repository.StoreRepository;
-import com.project.tracking_system.repository.TrackParcelRepository;
-import com.project.tracking_system.service.SubscriptionService;
-import com.project.tracking_system.service.admin.ApplicationSettingsService;
-import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
-import com.project.tracking_system.service.track.ProgressAggregatorService;
-import com.project.tracking_system.service.track.TrackParcelService;
-import com.project.tracking_system.service.track.TrackUpdateDispatcherService;
-import com.project.tracking_system.service.track.TrackUploadGroupingService;
-import com.project.tracking_system.service.user.UserService;
-import com.project.tracking_system.service.track.TrackUpdateService;
-import com.project.tracking_system.service.track.TrackConstants;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,27 +35,7 @@ class TrackUpdateServiceTest {
     @Mock
     private WebSocketController webSocketController;
     @Mock
-    private SubscriptionService subscriptionService;
-    @Mock
-    private StoreRepository storeRepository;
-    @Mock
-    private TrackParcelRepository trackParcelRepository;
-    @Mock
     private TrackParcelService trackParcelService;
-    @Mock
-    private TrackUploadGroupingService groupingService;
-    @Mock
-    private TrackUpdateDispatcherService dispatcherService;
-    @Mock
-    private BelPostTrackQueueService belPostTrackQueueService;
-    @Mock
-    private ProgressAggregatorService progressAggregatorService;
-    @Mock
-    private TrackingResultCacheService trackingResultCacheService;
-    @Mock
-    private ApplicationSettingsService applicationSettingsService;
-    @Mock
-    private UserService userService;
 
     @Spy
     @InjectMocks
@@ -140,4 +108,3 @@ class TrackUpdateServiceTest {
         return parcel;
     }
 }
-
