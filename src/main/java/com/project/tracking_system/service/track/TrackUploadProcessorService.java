@@ -67,6 +67,12 @@ public class TrackUploadProcessorService {
         progressAggregatorService.registerBatch(batchId, queued.size(), userId);
         belPostTrackQueueService.enqueue(queued);
 
+        webSocketController.sendUpdateStatus(
+                userId,
+                "В очередь Белпочты поставлено " + queued.size() + " треков",
+                true
+        );
+
         Duration wait = belPostTrackQueueService.estimateWaitTime(userId);
         String waitEta = DurationUtils.formatMinutesSeconds(wait);
         if (wait != null && !wait.isZero()) {
