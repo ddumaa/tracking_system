@@ -46,6 +46,7 @@ class TrackUploadProcessorServiceTest {
         processor.process(file, 1L);
 
         verify(queueService).enqueue(anyList());
+        verify(webSocketController).sendUpdateStatus(eq(1L), anyString(), eq(true));
         verify(webSocketController).sendTrackProcessingStarted(eq(1L), any());
         verify(progressAggregatorService).registerBatch(anyLong(), eq(1), eq(1L));
     }

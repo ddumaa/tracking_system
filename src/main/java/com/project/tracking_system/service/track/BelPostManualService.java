@@ -2,6 +2,9 @@ package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
 import com.project.tracking_system.service.belpost.QueuedTrack;
+import com.project.tracking_system.controller.WebSocketController;
+import com.project.tracking_system.utils.DurationUtils;
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -14,6 +17,7 @@ public class BelPostManualService {
 
     private final BelPostTrackQueueService belPostTrackQueueService;
     private final TrackUpdateEligibilityService trackUpdateEligibilityService;
+    private final WebSocketController webSocketController;
 
     /**
      * Добавляет трек в очередь, если разрешено его обновлять.
@@ -32,6 +36,12 @@ public class BelPostManualService {
                     "MANUAL",
                     System.currentTimeMillis()
             ));
+
+            Duration wait = belPostTrackQueueService.estimateWaitTime(userId);
+            String eta = DurationUtils.formatMinutesSeconds(wait);
+            webSocketController.sendUpdateStatus(userId,
+                    "Трек добавлен в очередь. Начало через " + eta, true);
+
             return true;
         }
         return false;
