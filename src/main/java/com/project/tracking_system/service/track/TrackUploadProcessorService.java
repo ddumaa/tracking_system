@@ -76,7 +76,7 @@ public class TrackUploadProcessorService {
         Duration duration = Duration.ofSeconds(seconds);
         String eta = DurationUtils.formatMinutesSeconds(duration);
         webSocketController.sendTrackProcessingStarted(userId,
-                new TrackProcessingStartedDTO(queued.size(), eta));
+                new TrackProcessingStartedDTO(queued.size(), eta, waitEta));
     }
 
     /**
