@@ -17,6 +17,7 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.time.Duration;
 import com.project.tracking_system.service.belpost.QueuedTrack;
+import com.project.tracking_system.service.track.TrackSource;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -73,8 +74,8 @@ class BelPostTrackQueueServiceTest {
         dto.addTrackInfo(new TrackInfoDTO("d", "info"));
         when(webBelPostBatchService.parseTrack(anyString())).thenReturn(dto);
 
-        QueuedTrack t1 = new QueuedTrack("T1", 1L, 1L, "src", 10L);
-        QueuedTrack t2 = new QueuedTrack("T2", 1L, 1L, "src", 10L);
+        QueuedTrack t1 = new QueuedTrack("T1", 1L, 1L, TrackSource.MANUAL, 10L);
+        QueuedTrack t2 = new QueuedTrack("T2", 1L, 1L, TrackSource.MANUAL, 10L);
         queueService.enqueue(List.of(t1, t2));
 
         queueService.processQueue();
@@ -102,7 +103,7 @@ class BelPostTrackQueueServiceTest {
     void processQueue_PausesOnWebDriverFailure() throws Exception {
         when(webBelPostBatchService.parseTrack(anyString()))
                 .thenThrow(new WebDriverException("fail"));
-        queueService.enqueue(new QueuedTrack("T1", 2L, 1L, "src", 20L));
+        queueService.enqueue(new QueuedTrack("T1", 2L, 1L, TrackSource.MANUAL, 20L));
 
         long before = System.currentTimeMillis();
         queueService.processQueue();
@@ -120,8 +121,8 @@ class BelPostTrackQueueServiceTest {
 
     @Test
     void estimateWaitTime_ReturnsDurationBasedOnPosition() {
-        queueService.enqueue(new QueuedTrack("T1", 1L, 1L, "src", 10L));
-        queueService.enqueue(new QueuedTrack("T2", 2L, 1L, "src", 20L));
+        queueService.enqueue(new QueuedTrack("T1", 1L, 1L, TrackSource.MANUAL, 10L));
+        queueService.enqueue(new QueuedTrack("T2", 2L, 1L, TrackSource.MANUAL, 20L));
 
         assertEquals(Duration.ofSeconds(2), queueService.estimateWaitTime(2L));
     }
