@@ -90,7 +90,7 @@ public class WebSocketController {
      * Отправляет сообщение о завершении обработки партии треков Белпочты.
      *
      * @param userId идентификатор пользователя
-     * @param dto    финальная статистика по партии
+     * @param dto    финальная статистика по партии, включая время обработки
      */
     public void sendBelPostBatchFinished(Long userId, BelPostBatchFinishedDTO dto) {
         log.debug("\uD83D\uDCE1 WebSocket партия {} завершена для {}: {}", dto.batchId(), userId, dto);

@@ -175,7 +175,8 @@ public class BelPostTrackQueueService {
                             task.batchId(),
                             progress.getProcessed(),
                             progress.getSuccess(),
-                            progress.getFailed()));
+                            progress.getFailed(),
+                            progress.getElapsed()));
             progressMap.remove(task.batchId());
         }
     }
@@ -208,7 +209,7 @@ public class BelPostTrackQueueService {
         }
 
         /**
-         * Возвращает строковое представление прошедшего времени с начала партии.
+         * Возвращает прошедшее время с начала обработки в формате mm:ss.
          */
         public String getElapsed() {
             Duration d = Duration.ofMillis(System.currentTimeMillis() - startTime);
