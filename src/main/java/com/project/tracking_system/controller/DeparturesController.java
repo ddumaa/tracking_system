@@ -4,7 +4,7 @@ import com.project.tracking_system.dto.TrackViewResult;
 import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.dto.BulkUpdateButtonDTO;
 import com.project.tracking_system.entity.Store;
-import com.project.tracking_system.entity.UpdateResult;
+import com.project.tracking_system.dto.TrackUpdateResponse;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.service.track.StatusTrackService;
@@ -180,7 +180,7 @@ public class DeparturesController {
         Long userId = user.getId();
         log.info("🔄 Запрос на обновление посылок: userId={}", userId);
 
-        UpdateResult result;
+        TrackUpdateResponse result;
         try {
             if (selectedNumbers != null && !selectedNumbers.isEmpty()) {
                 result = trackFacade.updateSelectedParcels(userId, selectedNumbers);
@@ -189,7 +189,7 @@ public class DeparturesController {
             }
 
             // Отправляем WebSocket-уведомление
-            webSocketController.sendDetailUpdateStatus(userId, result);
+            webSocketController.sendUpdateStatus(userId, result.message(), result.readyToUpdate() > 0);
             return ResponseBuilder.ok(result);
 
         } catch (Exception e) {

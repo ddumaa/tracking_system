@@ -1,7 +1,7 @@
 package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
-import com.project.tracking_system.entity.UpdateResult;
+import com.project.tracking_system.dto.TrackUpdateResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -82,7 +82,7 @@ public class TrackFacade {
      * @param userId идентификатор пользователя
      * @return результат обновления
      */
-    public UpdateResult updateAllParcels(Long userId) {
+    public TrackUpdateResponse updateAllParcels(Long userId) {
         return trackUpdateService.updateAllParcels(userId);
     }
 
@@ -93,7 +93,7 @@ public class TrackFacade {
      * @param selectedNumbers список номеров треков
      * @return результат обновления
      */
-    public UpdateResult updateSelectedParcels(Long userId, List<String> selectedNumbers) {
+    public TrackUpdateResponse updateSelectedParcels(Long userId, List<String> selectedNumbers) {
         return trackUpdateService.updateSelectedParcels(userId, selectedNumbers);
     }
 
