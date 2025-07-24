@@ -355,9 +355,9 @@ public class TrackUpdateService {
         int total = ready + finalStatus + recent;
         StringBuilder sb = new StringBuilder();
         if (ready == 0) {
-            sb.append("🚫 Обновление не выполнено.");
+            sb.append("Обновление не выполнено.");
         } else {
-            sb.append("🔄 Запущено обновление ")
+            sb.append("Запущено обновление ")
                     .append(ready)
                     .append(" из ")
                     .append(total)
