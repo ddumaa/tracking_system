@@ -4,6 +4,7 @@ import com.project.tracking_system.dto.TrackProcessingStartedDTO;
 import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
 import com.project.tracking_system.service.belpost.QueuedTrack;
+import com.project.tracking_system.service.track.TrackSource;
 import com.project.tracking_system.service.track.TrackExcelParser;
 import com.project.tracking_system.service.track.TrackExcelRow;
 import com.project.tracking_system.service.store.StoreService;
@@ -59,7 +60,7 @@ public class TrackUploadProcessorService {
                         r.number(),
                         userId,
                         parseStoreId(r.store(), defaultStoreId, userId),
-                        "EXCEL",
+                        TrackSource.EXCEL,
                         batchId))
                 .filter(q -> trackUpdateEligibilityService.canUpdate(q.trackNumber(), q.userId()))
                 .toList();

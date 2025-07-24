@@ -2,6 +2,7 @@ package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
 import com.project.tracking_system.service.belpost.QueuedTrack;
+import com.project.tracking_system.service.track.TrackSource;
 import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.utils.DurationUtils;
 import java.time.Duration;
@@ -33,7 +34,7 @@ public class BelPostManualService {
                     number,
                     userId,
                     storeId,
-                    "MANUAL",
+                    TrackSource.MANUAL,
                     System.currentTimeMillis()
             ));
 

@@ -10,6 +10,7 @@ import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
 import com.project.tracking_system.service.belpost.QueuedTrack;
+import com.project.tracking_system.service.track.TrackSource;
 import com.project.tracking_system.service.track.TrackMeta;
 import com.project.tracking_system.service.track.TrackUpdateService;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
@@ -116,7 +117,7 @@ public class TrackAutoUpdateScheduler {
                         parcel.getNumber(),
                         userId,
                         parcel.getStore().getId(),
-                        "AUTO",
+                        TrackSource.AUTO,
                         batchId
                 ));
             } else {
