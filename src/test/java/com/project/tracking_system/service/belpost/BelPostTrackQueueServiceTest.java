@@ -15,6 +15,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 
 import java.lang.reflect.Field;
 import java.util.List;
+import java.time.Duration;
+import com.project.tracking_system.service.belpost.QueuedTrack;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -50,15 +52,16 @@ class BelPostTrackQueueServiceTest {
     }
 
     /**
-     * Проверяем аннотацию планировщика: метод должен выполняться раз в 15 секунд.
+     * Проверяем аннотацию планировщика: метод должен выполняться практически
+     * без паузы (минимальный {@code fixedDelay=1}).
      */
     @Test
-    void processQueue_HasFixedDelayOf15Seconds() throws Exception {
+    void processQueue_HasMinimalFixedDelay() throws Exception {
         Scheduled scheduled = BelPostTrackQueueService.class
                 .getMethod("processQueue")
                 .getAnnotation(Scheduled.class);
         assertNotNull(scheduled, "Аннотация @Scheduled отсутствует");
-        assertEquals(15000, scheduled.fixedDelay());
+        assertEquals(1, scheduled.fixedDelay());
     }
 
     /**
@@ -113,6 +116,14 @@ class BelPostTrackQueueServiceTest {
 
         BelPostTrackQueueService.BatchProgress p = queueService.getProgress(20L);
         assertEquals(1, p.getFailed());
+    }
+
+    @Test
+    void estimateWaitTime_ReturnsDurationBasedOnPosition() {
+        queueService.enqueue(new QueuedTrack("T1", 1L, 1L, "src", 10L));
+        queueService.enqueue(new QueuedTrack("T2", 2L, 1L, "src", 20L));
+
+        assertEquals(Duration.ofSeconds(2), queueService.estimateWaitTime(2L));
     }
 
     private long getPauseUntil(BelPostTrackQueueService service) throws Exception {

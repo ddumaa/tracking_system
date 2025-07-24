@@ -16,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.Duration;
+import com.project.tracking_system.utils.DurationUtils;
 import java.util.List;
 import java.util.UUID;
 
@@ -66,9 +67,14 @@ public class TrackUploadProcessorService {
         progressAggregatorService.registerBatch(batchId, queued.size(), userId);
         belPostTrackQueueService.enqueue(queued);
 
-        long seconds = queued.size() * 2L; // условно 2 секунды на трек
+        Duration wait = belPostTrackQueueService.estimateWaitTime(userId);
+        String waitEta = DurationUtils.formatMinutesSeconds(wait);
+        webSocketController.sendUpdateStatus(userId,
+                "Партия поставлена в очередь. Начало через " + waitEta, true);
+
+        long seconds = queued.size() * BelPostTrackQueueService.PROCESSING_DELAY_SECONDS;
         Duration duration = Duration.ofSeconds(seconds);
-        String eta = String.format("%d:%02d", duration.toMinutes(), duration.toSecondsPart());
+        String eta = DurationUtils.formatMinutesSeconds(duration);
         webSocketController.sendTrackProcessingStarted(userId,
                 new TrackProcessingStartedDTO(queued.size(), eta));
     }
