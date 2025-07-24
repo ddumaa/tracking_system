@@ -113,8 +113,12 @@ public class BelPostTrackQueueService {
      * быструю обработку элементов очереди. После каждого трека
      * пользователю отправляется обновление прогресса через WebSocket.
      */
-    // минимальная задержка между итерациями в миллисекундах
-    @Scheduled(fixedDelay = 1)
+    /**
+     * Минимальная задержка между итерациями в миллисекундах. Значение
+     * считывается из конфигурации приложения и может быть изменено без
+     * перекомпиляции.
+     */
+    @Scheduled(fixedDelayString = "${belpost.queue.delay-ms:100}")
     public void processQueue() {
         if (Instant.now().toEpochMilli() < pauseUntil) {
             return; // временно приостановлено
