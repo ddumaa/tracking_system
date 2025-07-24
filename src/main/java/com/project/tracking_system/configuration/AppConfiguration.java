@@ -11,6 +11,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.beans.factory.annotation.Value;
+import java.time.Clock;
 
 /**
  * Конфигурационный класс для приложения.
@@ -99,6 +100,20 @@ public class AppConfiguration {
     @Bean
     public WebDriverFactory webDriverFactory() {
         return new ChromeWebDriverFactory(chromeDriverPath);
+    }
+
+    /**
+     * Создает бин {@link Clock} для получения текущего времени.
+     * <p>
+     * Используется в сервисах, где требуется абстракция времени,
+     * что упрощает тестирование и соблюдает принципы SOLID.
+     * </p>
+     *
+     * @return системные часы по умолчанию
+     */
+    @Bean
+    public Clock clock() {
+        return Clock.systemDefaultZone();
     }
 
 }
