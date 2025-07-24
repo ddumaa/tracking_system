@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,6 +22,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ProgressAggregatorService {
 
     private final WebSocketController webSocketController;
+    /** Поставщик времени для вычисления длительности операций. */
+    private final Clock clock;
 
     /** Состояние прогресса для каждой партии. */
     private final Map<Long, BatchProgress> progressMap = new ConcurrentHashMap<>();
@@ -33,7 +36,7 @@ public class ProgressAggregatorService {
      * @param userId  идентификатор владельца партии
      */
     public void registerBatch(long batchId, int total, Long userId) {
-        progressMap.put(batchId, new BatchProgress(total, userId));
+        progressMap.put(batchId, new BatchProgress(total, userId, clock));
         sendProgress(batchId);
     }
 
@@ -99,8 +102,8 @@ public class ProgressAggregatorService {
         return new TrackProcessingProgressDTO(batchId, progress.processed.get(), progress.total, elapsed);
     }
 
-    private static String formatElapsed(long start) {
-        Duration d = Duration.ofMillis(System.currentTimeMillis() - start);
+    private String formatElapsed(long start) {
+        Duration d = Duration.ofMillis(clock.millis() - start);
         return String.format("%d:%02d", d.toMinutes(), d.toSecondsPart());
     }
 
@@ -109,11 +112,12 @@ public class ProgressAggregatorService {
         final int total;
         final AtomicInteger processed = new AtomicInteger();
         final long userId;
-        final long startTime = System.currentTimeMillis();
+        final long startTime;
 
-        BatchProgress(int total, Long userId) {
+        BatchProgress(int total, Long userId, Clock clock) {
             this.total = total;
             this.userId = userId != null ? userId : 0L;
+            this.startTime = clock.millis();
         }
     }
 }

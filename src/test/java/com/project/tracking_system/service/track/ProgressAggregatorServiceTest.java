@@ -8,6 +8,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -18,14 +22,49 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class ProgressAggregatorServiceTest {
 
+    /**
+     * Изменяемые часы позволяют контролировать время внутри тестов,
+     * исключая необходимость задержек при проверках.
+     */
+    private static class MutableClock extends Clock {
+        private Instant instant;
+        private final ZoneId zone;
+
+        MutableClock(Instant instant, ZoneId zone) {
+            this.instant = instant;
+            this.zone = zone;
+        }
+
+        void plusMillis(long millis) {
+            instant = instant.plusMillis(millis);
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return zone;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return new MutableClock(instant, zone);
+        }
+
+        @Override
+        public Instant instant() {
+            return instant;
+        }
+    }
+
     @Mock
     private WebSocketController webSocketController;
 
     private ProgressAggregatorService service;
+    private MutableClock clock;
 
     @BeforeEach
     void setUp() {
-        service = new ProgressAggregatorService(webSocketController);
+        clock = new MutableClock(Instant.EPOCH, ZoneId.systemDefault());
+        service = new ProgressAggregatorService(webSocketController, clock);
     }
 
     @Test
@@ -47,9 +86,9 @@ class ProgressAggregatorServiceTest {
     }
 
     @Test
-    void getLatestBatchId_ReturnsMostRecent() throws InterruptedException {
+    void getLatestBatchId_ReturnsMostRecent() {
         service.registerBatch(1L, 1, 5L);
-        Thread.sleep(2);
+        clock.plusMillis(2);
         service.registerBatch(2L, 1, 5L);
 
         Long latest = service.getLatestBatchId(5L);
