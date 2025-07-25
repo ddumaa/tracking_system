@@ -215,7 +215,10 @@ public class DeliveryHistoryService {
             return;
         }
 
-        boolean alreadyRegistered = trackParcel.isIncludedInStatistics();
+        if(trackParcel.isIncludedInStatistics()){
+            log.debug("📦 Посылка {} уже учтена в статистике — пропускаем", trackParcel.getNumber());
+            return;
+        }
 
         Store store = history.getStore();
         // Получаем статистику магазина или создаём новую запись
@@ -250,41 +253,39 @@ public class DeliveryHistoryService {
                         Duration.between(history.getArrivedDate(), history.getReceivedDate()).toDays());
             }
 
-            if (!alreadyRegistered) {
-                int stUpd = storeAnalyticsRepository.incrementDelivered(
-                        store.getId(),
-                        1,
-                        deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
-                        pickupDays != null ? pickupDays : BigDecimal.ZERO);
-                if (stUpd == 0) {
-                    stats.setTotalDelivered(stats.getTotalDelivered() + 1);
-                    if (deliveryDays != null) {
-                        stats.setSumDeliveryDays(stats.getSumDeliveryDays().add(deliveryDays));
-                    }
-                    if (pickupDays != null) {
-                        stats.setSumPickupDays(stats.getSumPickupDays().add(pickupDays));
-                    }
-                    stats.setUpdatedAt(ZonedDateTime.now());
-                    storeAnalyticsRepository.save(stats);
+            int stUpd = storeAnalyticsRepository.incrementDelivered(
+                    store.getId(),
+                    1,
+                    deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
+                    pickupDays != null ? pickupDays : BigDecimal.ZERO);
+            if (stUpd == 0) {
+                stats.setTotalDelivered(stats.getTotalDelivered() + 1);
+                if (deliveryDays != null) {
+                    stats.setSumDeliveryDays(stats.getSumDeliveryDays().add(deliveryDays));
                 }
+                if (pickupDays != null) {
+                    stats.setSumPickupDays(stats.getSumPickupDays().add(pickupDays));
+                }
+                stats.setUpdatedAt(ZonedDateTime.now());
+                storeAnalyticsRepository.save(stats);
+            }
 
-                int psUpd = postalServiceStatisticsRepository.incrementDelivered(
-                        store.getId(),
-                        history.getPostalService(),
-                        1,
-                        deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
-                        pickupDays != null ? pickupDays : BigDecimal.ZERO);
-                if (psUpd == 0) {
-                    psStats.setTotalDelivered(psStats.getTotalDelivered() + 1);
-                    if (deliveryDays != null) {
-                        psStats.setSumDeliveryDays(psStats.getSumDeliveryDays().add(deliveryDays));
-                    }
-                    if (pickupDays != null) {
-                        psStats.setSumPickupDays(psStats.getSumPickupDays().add(pickupDays));
-                    }
-                    psStats.setUpdatedAt(ZonedDateTime.now());
-                    postalServiceStatisticsRepository.save(psStats);
+            int psUpd = postalServiceStatisticsRepository.incrementDelivered(
+                    store.getId(),
+                    history.getPostalService(),
+                    1,
+                    deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
+                    pickupDays != null ? pickupDays : BigDecimal.ZERO);
+            if (psUpd == 0) {
+                psStats.setTotalDelivered(psStats.getTotalDelivered() + 1);
+                if (deliveryDays != null) {
+                    psStats.setSumDeliveryDays(psStats.getSumDeliveryDays().add(deliveryDays));
                 }
+                if (pickupDays != null) {
+                    psStats.setSumPickupDays(psStats.getSumPickupDays().add(pickupDays));
+                }
+                psStats.setUpdatedAt(ZonedDateTime.now());
+                postalServiceStatisticsRepository.save(psStats);
             }
 
         } else if (status == GlobalStatus.RETURNED) {
@@ -304,39 +305,37 @@ public class DeliveryHistoryService {
                         Duration.between(history.getArrivedDate(), history.getReturnedDate()).toDays());
             }
 
-            if (!alreadyRegistered) {
-                int stUpd = storeAnalyticsRepository.incrementReturned(
-                        store.getId(),
-                        1,
-                        deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
-                        BigDecimal.ZERO);
-                if (stUpd == 0) {
-                    stats.setTotalReturned(stats.getTotalReturned() + 1);
-                    if (deliveryDays != null) {
-                        stats.setSumDeliveryDays(stats.getSumDeliveryDays().add(deliveryDays));
-                    }
-                    stats.setUpdatedAt(ZonedDateTime.now());
-                    storeAnalyticsRepository.save(stats);
+            int stUpd = storeAnalyticsRepository.incrementReturned(
+                    store.getId(),
+                    1,
+                    deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
+                    BigDecimal.ZERO);
+            if (stUpd == 0) {
+                stats.setTotalReturned(stats.getTotalReturned() + 1);
+                if (deliveryDays != null) {
+                    stats.setSumDeliveryDays(stats.getSumDeliveryDays().add(deliveryDays));
                 }
+                stats.setUpdatedAt(ZonedDateTime.now());
+                storeAnalyticsRepository.save(stats);
+            }
 
-                int psUpd = postalServiceStatisticsRepository.incrementReturned(
-                        store.getId(),
-                        history.getPostalService(),
-                        1,
-                        deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
-                        BigDecimal.ZERO);
-                if (psUpd == 0) {
-                    psStats.setTotalReturned(psStats.getTotalReturned() + 1);
-                    if (deliveryDays != null) {
-                        psStats.setSumDeliveryDays(psStats.getSumDeliveryDays().add(deliveryDays));
-                    }
-                    psStats.setUpdatedAt(ZonedDateTime.now());
-                    postalServiceStatisticsRepository.save(psStats);
+            int psUpd = postalServiceStatisticsRepository.incrementReturned(
+                    store.getId(),
+                    history.getPostalService(),
+                    1,
+                    deliveryDays != null ? deliveryDays : BigDecimal.ZERO,
+                    BigDecimal.ZERO);
+            if (psUpd == 0) {
+                psStats.setTotalReturned(psStats.getTotalReturned() + 1);
+                if (deliveryDays != null) {
+                    psStats.setSumDeliveryDays(psStats.getSumDeliveryDays().add(deliveryDays));
                 }
+                psStats.setUpdatedAt(ZonedDateTime.now());
+                postalServiceStatisticsRepository.save(psStats);
             }
         }
 
-        if (!alreadyRegistered && eventDate != null) {
+        if (eventDate != null) {
             updateDailyStats(store, history.getPostalService(), eventDate, status, deliveryDays, pickupDays);
         }
 
@@ -346,38 +345,12 @@ public class DeliveryHistoryService {
             customerStatsService.incrementReturned(trackParcel.getCustomer());
         }
 
-        // Устанавливаем флаг только при первом учёте
-        if (!alreadyRegistered) {
-            trackParcel.setIncludedInStatistics(true);
-            trackParcelRepository.save(trackParcel);
-        }
+        // флаг включён, дальнейшее обновление записей не требуется
+
+        trackParcel.setIncludedInStatistics(true);
+        trackParcelRepository.save(trackParcel);
 
         log.info("📊 Обновлена накопительная статистика по магазину: {}", store.getName());
-    }
-
-    /**
-     * Проверить, имеет ли посылка финальный статус.
-     *
-     * @param parcelId идентификатор посылки
-     * @return {@code true}, если статус финальный
-     */
-    @Transactional(readOnly = true)
-    public boolean hasFinalStatus(Long parcelId) {
-        return trackParcelRepository.findById(parcelId)
-                .map(p -> p.getStatus().isFinal())
-                .orElse(false);
-    }
-
-    /**
-     * Зарегистрировать финальный статус для посылки по её идентификатору.
-     *
-     * @param parcelId идентификатор посылки
-     */
-    @Transactional
-    public void registerFinalStatus(Long parcelId) {
-        DeliveryHistory history = deliveryHistoryRepository.findByTrackParcelId(parcelId)
-                .orElseThrow(() -> new IllegalArgumentException("История доставки не найдена"));
-        registerFinalStatus(history, history.getTrackParcel().getStatus());
     }
 
     /**
