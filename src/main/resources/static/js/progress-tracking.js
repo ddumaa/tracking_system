@@ -131,9 +131,12 @@
                 updateTrackingRow(data.trackingNumber, data.status);
             });
 
-            // Подписка на событие завершения партии треков Белпочты
+            // Подписка на событие завершения партии треков Белпочты.
+            // Итог обработки теперь вычисляется в updateDisplay по
+            // суммарным значениям processed и total, поэтому здесь
+            // оставляем пустой обработчик события.
             stompClient.subscribe(`/topic/belpost/batch-finished/${userId}`, () => {
-                handleBatchFinished(container);
+                // завершение обрабатывается после агрегации прогресса
             });
         };
 
@@ -235,6 +238,8 @@
             renderPopup(displayData);
         }
 
+        // Завершение обработки определяется здесь, когда обработано
+        // столько же или больше треков, сколько было запланировано
         if (!entry.finished && entry.processed >= entry.total) {
             entry.finished = true;
             handleBatchFinished(entry.container);
@@ -326,6 +331,8 @@
 
     /**
      * Обрабатывает окончание партии: уведомляет пользователя и скрывает прогресс.
+     * Вызывается один раз из updateDisplay после агрегирования прогресса.
+     *
      * @param {HTMLElement|null} container контейнер прогресс-бара
      */
     function handleBatchFinished(container) {
