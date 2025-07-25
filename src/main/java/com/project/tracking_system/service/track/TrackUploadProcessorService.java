@@ -7,7 +7,7 @@ import com.project.tracking_system.service.belpost.QueuedTrack;
 import com.project.tracking_system.service.track.TrackSource;
 import com.project.tracking_system.service.track.TrackExcelParser;
 import com.project.tracking_system.service.track.TrackExcelRow;
-import com.project.tracking_system.service.store.StoreService;
+import com.project.tracking_system.service.track.TrackMetaValidator;
 import com.project.tracking_system.service.track.ProgressAggregatorService;
 import com.project.tracking_system.service.track.TrackUpdateEligibilityService;
 import lombok.RequiredArgsConstructor;
@@ -33,15 +33,18 @@ public class TrackUploadProcessorService {
     private final TrackExcelParser parser;
     private final BelPostTrackQueueService belPostTrackQueueService;
     private final WebSocketController webSocketController;
-    private final StoreService storeService;
+    /** Сервис валидации загружаемых треков. */
+    private final TrackMetaValidator trackMetaValidator;
     /** Сервис агрегации прогресса разных обработчиков. */
     private final ProgressAggregatorService progressAggregatorService;
     /** Проверяет возможность обновления треков перед постановкой в очередь. */
     private final TrackUpdateEligibilityService trackUpdateEligibilityService;
 
     /**
-     * Принимает Excel-файл, конвертирует строки в {@link QueuedTrack} и
-     * отправляет их в очередь на обработку.
+     * Принимает Excel-файл, валидирует строки и конвертирует их
+     * в {@link QueuedTrack}, отправляя полученные задания в очередь.
+     * Если при валидации выявлены превышения лимитов,
+     * пользователю отправляется отдельное уведомление.
      * После постановки в очередь пользователю отправляется сообщение через WebSocket
      * о старте обработки с указанием предполагаемого времени выполнения.
      *
@@ -53,18 +56,29 @@ public class TrackUploadProcessorService {
         List<TrackExcelRow> rows = parser.parse(file);
         long batchId = System.currentTimeMillis();
 
-        Long defaultStoreId = userId != null ? storeService.getDefaultStoreId(userId) : null;
+        List<QueuedTrack> queued;
+        String limitMessage = null;
 
-        List<QueuedTrack> queued = rows.stream()
-                .map(r -> new QueuedTrack(
-                        r.number(),
-                        userId,
-                        parseStoreId(r.store(), defaultStoreId, userId),
-                        TrackSource.EXCEL,
-                        batchId,
-                        r.phone()))
-                .filter(q -> trackUpdateEligibilityService.canUpdate(q.trackNumber(), q.userId()))
-                .toList();
+        if (userId != null) {
+            // Валидация данных и применение пользовательских лимитов
+            TrackMetaValidationResult validationResult = trackMetaValidator.validate(rows, userId);
+            limitMessage = validationResult.limitExceededMessage();
+
+            // Преобразуем валидные метаданные в задания на обновление
+            queued = validationResult.validTracks().stream()
+                    .map(m -> new QueuedTrack(
+                            m.number(),
+                            userId,
+                            m.storeId(),
+                            TrackSource.EXCEL,
+                            batchId,
+                            m.phone()))
+                    .filter(q -> trackUpdateEligibilityService.canUpdate(q.trackNumber(), q.userId()))
+                    .toList();
+        } else {
+            // Для неавторизованных пользователей обработка не выполняется
+            queued = List.of();
+        }
 
         // Если после фильтрации не осталось треков, уведомляем пользователя и завершаем обработку
         if (queued.isEmpty()) {
@@ -85,6 +99,11 @@ public class TrackUploadProcessorService {
                 true
         );
 
+        // Дополнительное уведомление о превышении лимитов, если есть
+        if (limitMessage != null) {
+            webSocketController.sendUpdateStatus(userId, limitMessage, true);
+        }
+
         Duration wait = belPostTrackQueueService.estimateWaitTime(userId);
         String waitEta = DurationUtils.formatMinutesSeconds(wait);
         if (wait != null && !wait.isZero()) {
@@ -100,30 +119,4 @@ public class TrackUploadProcessorService {
                 new TrackProcessingStartedDTO(queued.size(), eta, waitEta));
     }
 
-    /**
-     * Преобразует значение магазина из Excel в корректный идентификатор.
-     * Если парсинг не удался или магазин не принадлежит пользователю,
-     * возвращается идентификатор магазина по умолчанию.
-     */
-    private Long parseStoreId(String rawStore, Long defaultStoreId, Long userId) {
-        Long storeId = defaultStoreId;
-        if (rawStore != null && !rawStore.isBlank()) {
-            try {
-                storeId = Long.parseLong(rawStore);
-            } catch (NumberFormatException e) {
-                Long byName = userId != null ? storeService.findStoreIdByName(rawStore, userId) : null;
-                if (byName != null) {
-                    storeId = byName;
-                } else {
-                    log.warn("\uD83D\uDD0D Магазин '{}' не найден, используется магазин по умолчанию", rawStore);
-                }
-            }
-        }
-
-        if (storeId != null && userId != null && !storeService.userOwnsStore(storeId, userId)) {
-            log.warn("\u26A0\uFE0F Магазин ID={} не принадлежит пользователю ID={}", storeId, userId);
-            storeId = defaultStoreId;
-        }
-        return storeId;
-    }
 }
