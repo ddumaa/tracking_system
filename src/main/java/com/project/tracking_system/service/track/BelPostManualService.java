@@ -26,9 +26,10 @@ public class BelPostManualService {
      * @param number номер трека
      * @param storeId идентификатор магазина
      * @param userId идентификатор пользователя
+     * @param phone телефон покупателя (может быть {@code null})
      * @return {@code true}, если трек был поставлен в очередь
      */
-    public boolean enqueueIfAllowed(String number, Long storeId, Long userId) {
+    public boolean enqueueIfAllowed(String number, Long storeId, Long userId, String phone) {
         if (trackUpdateEligibilityService.canUpdate(number, userId)) {
             belPostTrackQueueService.enqueue(new QueuedTrack(
                     number,
@@ -36,7 +37,7 @@ public class BelPostManualService {
                     storeId,
                     TrackSource.MANUAL,
                     System.currentTimeMillis(),
-                    null
+                    phone
             ));
 
             webSocketController.sendUpdateStatus(
