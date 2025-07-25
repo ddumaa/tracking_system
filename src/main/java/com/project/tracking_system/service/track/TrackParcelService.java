@@ -7,6 +7,7 @@ import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
 import com.project.tracking_system.service.user.UserService;
+import com.project.tracking_system.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -92,6 +93,32 @@ public class TrackParcelService {
         Page<TrackParcel> trackParcels = trackParcelRepository.findByStoreIdInAndStatus(storeIds, status, pageable);
         ZoneId userZone = userService.getUserZone(userId);
         return trackParcels.map(track -> new TrackParcelDTO(track, userZone));
+    }
+
+    /**
+     * Выполняет поиск посылок по номеру или номеру телефона покупателя.
+     *
+     * @param storeIds список магазинов
+     * @param status   фильтр статуса (может быть {@code null})
+     * @param query    строка поиска
+     * @param page     номер страницы
+     * @param size     размер страницы
+     * @param userId   идентификатор пользователя
+     * @return страница найденных посылок
+     */
+    @Transactional(readOnly = true)
+    public Page<TrackParcelDTO> searchByNumberOrPhone(List<Long> storeIds,
+                                                      GlobalStatus status,
+                                                      String query,
+                                                      int page,
+                                                      int size,
+                                                      Long userId) {
+        Pageable pageable = PageRequest.of(page, size);
+        String phoneDigits = PhoneUtils.extractDigits(query);
+        Page<TrackParcel> parcels = trackParcelRepository.searchByNumberOrPhone(
+                storeIds, userId, status, query, phoneDigits, pageable);
+        ZoneId userZone = userService.getUserZone(userId);
+        return parcels.map(track -> new TrackParcelDTO(track, userZone));
     }
 
     /**

@@ -1615,6 +1615,9 @@ document.addEventListener("DOMContentLoaded", function () {
             // Обновляем URL, меняя параметр "size"
             const currentUrl = new URL(window.location.href);
             currentUrl.searchParams.set("size", size);
+            if (searchInput && searchInput.value.trim()) {
+                currentUrl.searchParams.set("query", searchInput.value.trim());
+            }
 
             // Перенаправляем пользователя на обновленный URL
             window.location.href = currentUrl.toString();
@@ -1704,6 +1707,8 @@ document.addEventListener("DOMContentLoaded", function () {
     // Получаем элементы фильтров: статус и магазин
     const statusFilterDropdown  = document.getElementById("status");
     const storeFilterDropdown = document.getElementById("storeId");
+    const searchInput = document.getElementById("search");
+    const searchBtn = document.getElementById("searchBtn");
 
     // Проверяем, существует ли фильтр по статусу (если нет - выходим)
     if (!statusFilterDropdown) return;
@@ -1722,10 +1727,12 @@ document.addEventListener("DOMContentLoaded", function () {
     const currentUrl = new URL(window.location.href);
     const currentStatus = currentUrl.searchParams.get("status");
     const currentStore = currentUrl.searchParams.get("storeId");
+    const currentQuery = currentUrl.searchParams.get("query");
 
     // Устанавливаем значения селекторов, если в URL были параметры
     if (currentStatus) statusFilterDropdown.value = currentStatus;
     if (currentStore && storeFilterDropdown) storeFilterDropdown.value = currentStore;
+    if (currentQuery && searchInput) searchInput.value = currentQuery;
 
     /**
      * Функция применения фильтров.
@@ -1736,6 +1743,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function applyFilters() {
         const selectedStatus = statusFilterDropdown.value;
         const selectedStore = storeFilterDropdown ? storeFilterDropdown.value : null;
+        const query = searchInput ? searchInput.value.trim() : "";
         const currentUrl = new URL(window.location.href);
 
         if (selectedStatus) {
@@ -1750,7 +1758,13 @@ document.addEventListener("DOMContentLoaded", function () {
             currentUrl.searchParams.delete("storeId");
         }
 
-        debugLog("✅ Фильтр применён: статус =", selectedStatus, "магазин =", selectedStore || "нет выбора");
+        if (query) {
+            currentUrl.searchParams.set("query", query);
+        } else {
+            currentUrl.searchParams.delete("query");
+        }
+
+        debugLog("✅ Фильтр применён: статус =", selectedStatus, "магазин =", selectedStore || "нет выбора", "query=", query);
 
         window.location.href = currentUrl.toString();
     }
@@ -1759,6 +1773,16 @@ document.addEventListener("DOMContentLoaded", function () {
     statusFilterDropdown.addEventListener("change", applyFilters);
     if (storeFilterDropdown) {
         storeFilterDropdown.addEventListener("change", applyFilters);
+    }
+
+    if (searchBtn && searchInput) {
+        searchBtn.addEventListener("click", applyFilters);
+        searchInput.addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                applyFilters();
+            }
+        });
     }
 
     document.body.addEventListener("change", function (event) {

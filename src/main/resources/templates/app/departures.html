@@ -89,6 +89,13 @@
                             </select>
                         </div>
 
+                        <!-- Поле поиска по номеру или телефону -->
+                        <div class="filter-group d-flex flex-row align-items-center gap-2">
+                            <input id="search" type="text" class="form-control" placeholder="Поиск"
+                                   th:value="${query}">
+                            <button id="searchBtn" type="button" class="btn btn-outline-primary">Поиск</button>
+                        </div>
+
                         <!-- Количество элементов на странице -->
                         <div class="filter-group size-controls d-flex flex-row flex-wrap align-items-center gap-2">
                             <button type="button" class="btn btn-outline-secondary size-btn" data-size="20"
