@@ -56,6 +56,14 @@
      */
     let batchFinished = false;
 
+    /**
+     * Сводные данные о прогрессе по каждой партии.
+     * Ключом является batchId, значение хранит
+     * { total, processed, timerStart, container, finished }.
+     * @type {Object.<number,{total:number,processed:number,timerStart:number|null,container:HTMLElement|null,finished:boolean}>}
+     */
+    const batchProgress = {};
+
     document.addEventListener("DOMContentLoaded", initProgressTracking);
 
     /**
@@ -177,31 +185,60 @@
      */
     function updateDisplay(data, container) {
         if (!data || data.total === 0) return;
-        // Сохраняем контейнер и последние значения,
-        // чтобы таймер корректно обновлял полосу прогресса
-        if (container) {
-            progressContainer = container;
-        }
-        lastCompleted = data.processed;
-        lastTotal = data.total;
-        // Первое сообщение задаёт базовую точку времени для локального таймера
-        if (timerStart === null && typeof data.elapsed === "string") {
-            timerStart = Date.now() - parseElapsed(data.elapsed);
-        }
-        // Запускаем таймер при первом сообщении о прогрессе
-        if (timerId === null && typeof data.elapsed === "string") {
-            startTimer(parseElapsed(data.elapsed));
-        }
-        if (!batchFinished && data.processed >= data.total) {
-            // Уведомляем о завершении только один раз
-            handleBatchFinished(container);
-            return;
+
+        // Получаем или создаём агрегированный прогресс по batchId
+        if (!batchProgress[data.batchId]) {
+            batchProgress[data.batchId] = {
+                total: data.total,
+                processed: 0,
+                timerStart: null,
+                container: container || null,
+                finished: false
+            };
         }
 
-        if (container) {
-            renderBar(container, data);
+        const entry = batchProgress[data.batchId];
+
+        // Сохраняем максимальное известное общее количество
+        entry.total = Math.max(entry.total, data.total);
+        // Наращиваем количество обработанных элементов
+        entry.processed += data.processed;
+
+        // Сохраняем контейнер и стартовую точку времени при первом сообщении
+        if (!entry.container && container) {
+            entry.container = container;
+        }
+        if (entry.timerStart === null && typeof data.elapsed === "string") {
+            entry.timerStart = Date.now() - parseElapsed(data.elapsed);
+        }
+
+        // Обновляем глобальные значения для корректной работы таймера
+        progressContainer = entry.container || progressContainer;
+        lastCompleted = entry.processed;
+        lastTotal = entry.total;
+        if (timerStart === null && entry.timerStart !== null) {
+            timerStart = entry.timerStart;
+        }
+        if (timerId === null && entry.timerStart !== null) {
+            startTimer(Date.now() - entry.timerStart);
+        }
+
+        const displayData = {
+            processed: entry.processed,
+            total: entry.total,
+            elapsed: entry.timerStart ? formatElapsed(Date.now() - entry.timerStart) : data.elapsed
+        };
+
+        if (entry.container) {
+            renderBar(entry.container, displayData);
         } else {
-            renderPopup(data);
+            renderPopup(displayData);
+        }
+
+        if (!entry.finished && entry.processed >= entry.total) {
+            entry.finished = true;
+            handleBatchFinished(entry.container);
+            delete batchProgress[data.batchId];
         }
     }
 
