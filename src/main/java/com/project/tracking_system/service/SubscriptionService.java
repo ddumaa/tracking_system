@@ -11,6 +11,7 @@ import com.project.tracking_system.repository.UserSubscriptionRepository;
 import com.project.tracking_system.repository.UserRepository;
 import org.springframework.transaction.annotation.Transactional;
 import com.project.tracking_system.utils.EmailUtils;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -322,7 +323,7 @@ public class SubscriptionService {
     private void upgradeToPaidSubscription(UserSubscription subscription, int months, ZonedDateTime nowUtc) {
         SubscriptionPlan paidPlan = subscriptionPlanRepository
                 .findFirstByMonthlyPriceGreaterThanOrAnnualPriceGreaterThan(BigDecimal.ZERO, BigDecimal.ZERO)
-                .orElseThrow(() -> new RuntimeException("🚨 Платный план не найден"));
+                .orElseThrow(() -> new EntityNotFoundException("🚨 Платный план не найден"));
 
         subscription.setSubscriptionPlan(paidPlan);
         subscription.setSubscriptionEndDate(nowUtc.plusMonths(months));

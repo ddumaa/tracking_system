@@ -56,7 +56,6 @@ public class JwtTokenManager {
      * Метод, вызываемый после создания бина, для инициализации токена.
      * Генерирует токен при старте приложения.
      *
-     * @throws RuntimeException если не удалось инициализировать токен.
      */
     @PostConstruct
     private void initializeSystemToken() {
@@ -74,7 +73,7 @@ public class JwtTokenManager {
      * Обновляет токен, если он истёк.
      * Метод синхронизирован для предотвращения одновременных обновлений токена.
      *
-     * @throws RuntimeException если не удалось обновить токен.
+     * @throws IllegalStateException если не удалось обновить токен.
      */
     private synchronized void refreshSystemTokenIfExpired() {
         if (isSystemTokenExpired()) {
@@ -85,7 +84,7 @@ public class JwtTokenManager {
                 log.info("Системный токен успешно обновлён. Новый срок действия: {}", systemTokenExpiryTime);
             } catch (Exception e) {
                 log.error("Ошибка при обновлении системного токена: {}", e.getMessage());
-                throw new RuntimeException("Не удалось обновить системный токен.", e);
+                throw new IllegalStateException("Не удалось обновить системный токен.", e);
             }
         }
     }

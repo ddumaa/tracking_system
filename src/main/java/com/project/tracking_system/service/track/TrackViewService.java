@@ -8,6 +8,8 @@ import com.project.tracking_system.service.admin.ApplicationSettingsService;
 import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,18 +46,20 @@ public class TrackViewService {
      * @param itemNumber номер посылки
      * @param userId     идентификатор пользователя
      * @return объект с историей трека и возможным временем следующего обновления
+     * @throws AccessDeniedException    если посылка не принадлежит пользователю
+     * @throws EntityNotFoundException  если посылка не найдена
      */
     @Transactional
     public TrackViewResult getTrackDetails(String itemNumber, Long userId) {
         // Проверяем принадлежность посылки
         if (!trackParcelService.userOwnsParcel(itemNumber, userId)) {
             log.warn("❌ Пользователь ID={} попытался получить чужой трек {}", userId, itemNumber);
-            throw new RuntimeException("Ошибка доступа: Посылка не принадлежит пользователю.");
+            throw new AccessDeniedException("Посылка не принадлежит пользователю");
         }
 
         TrackParcel parcel = trackParcelService.findByNumberAndUserId(itemNumber, userId);
         if (parcel == null) {
-            throw new RuntimeException("Посылка не найдена");
+            throw new EntityNotFoundException("Посылка не найдена");
         }
 
         int interval = applicationSettingsService.getTrackUpdateIntervalHours();

@@ -29,7 +29,7 @@ public class GetJwtTokenService {
      * Получает JWT токен от внешнего API.
      * <p>
      * Метод выполняет запрос для получения JWT токена, извлекает его из ответа и сохраняет в объект {@link JsonPacket}.
-     * Если токен не найден, выбрасывается исключение {@link RuntimeException}.
+     * Если токен не найден, выбрасывается исключение {@link IllegalStateException}.
      * </p>
      */
     // Получение системного токена
@@ -59,7 +59,7 @@ public class GetJwtTokenService {
         // Извлекаем JWT токен из ответа
         JsonNode jwtNode = response.path("Table").path(0).path("JWT");
         if (jwtNode.isMissingNode()) {
-            throw new RuntimeException("Токен JWT не найден в ответе при запросе системного JWT");
+            throw new IllegalStateException("Токен JWT не найден в ответе при запросе системного JWT");
         }
 
         return jwtNode.asText();
@@ -92,7 +92,7 @@ public class GetJwtTokenService {
         // Извлекаем JWT токен из ответа
         JsonNode jwtNode = response.path("Table").path(0).path("JWT");
         if (jwtNode.isMissingNode()) {
-            throw new RuntimeException("Токен JWT не найден в ответе при запросе пользовательского JWT");
+            throw new IllegalStateException("Токен JWT не найден в ответе при запросе пользовательского JWT");
         }
 
         return jwtNode.asText();
