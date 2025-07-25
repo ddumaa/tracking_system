@@ -35,7 +35,8 @@ public class BelPostManualService {
                     userId,
                     storeId,
                     TrackSource.MANUAL,
-                    System.currentTimeMillis()
+                    System.currentTimeMillis(),
+                    null
             ));
 
             webSocketController.sendUpdateStatus(

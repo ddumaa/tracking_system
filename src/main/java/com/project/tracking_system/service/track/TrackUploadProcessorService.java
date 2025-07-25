@@ -61,7 +61,8 @@ public class TrackUploadProcessorService {
                         userId,
                         parseStoreId(r.store(), defaultStoreId, userId),
                         TrackSource.EXCEL,
-                        batchId))
+                        batchId,
+                        r.phone()))
                 .filter(q -> trackUpdateEligibilityService.canUpdate(q.trackNumber(), q.userId()))
                 .toList();
 

@@ -118,7 +118,8 @@ public class TrackAutoUpdateScheduler {
                         userId,
                         parcel.getStore().getId(),
                         TrackSource.AUTO,
-                        batchId
+                        batchId,
+                        null
                 ));
             } else {
                 others.add(new TrackMeta(
