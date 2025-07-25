@@ -1,0 +1,15 @@
+<!--
+    Фрагмент формирует URL для пагинации отправлений.
+    Он принимает параметры storeId, status, page, size и необязательный query.
+    Если query отсутствует или пуст, он не добавляется к ссылке.
+    Использование фрагмента позволяет избежать дублирования логики построения ссылок.
+-->
+<th:block th:fragment="departuresUrl(storeId, status, page, size, query)" th:remove="tag">
+    <!-- Вычисляем URL один раз, выбирая вариант с query или без него -->
+    <th:block th:with="paginationUrl=${#strings.isEmpty(query) ?
+            @{/app/departures(storeId=${storeId}, status=${status}, page=${page}, size=${size})} :
+            @{/app/departures(storeId=${storeId}, status=${status}, page=${page}, size=${size}, query=${query})}">
+        <!-- Возвращаем URL без лишней обёртки -->
+        <th:block th:text="${paginationUrl}"></th:block>
+    </th:block>
+</th:block>
