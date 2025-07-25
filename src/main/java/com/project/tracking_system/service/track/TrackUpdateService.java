@@ -317,7 +317,8 @@ public class TrackUpdateService {
                             userId,
                             m.storeId(),
                             TrackSource.UPDATE,
-                            batchId))
+                            batchId,
+                            m.phone()))
                     .toList();
             belPostTrackQueueService.enqueue(queued);
         }

@@ -143,7 +143,7 @@ public class BelPostTrackQueueService {
         try {
             info = webBelPostBatchService.parseTrack(task.trackNumber());
             if (!info.getList().isEmpty()) {
-                trackProcessingService.save(task.trackNumber(), info, task.storeId(), task.userId());
+                trackProcessingService.save(task.trackNumber(), info, task.storeId(), task.userId(), task.phone());
                 progress.success.incrementAndGet();
             } else {
                 progress.failed.incrementAndGet();
