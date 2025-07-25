@@ -110,11 +110,16 @@ public class TrackProcessingService {
      */
     @Transactional
     public void save(String number, TrackInfoListDTO trackInfoListDTO, Long storeId, Long userId) {
+        // Делегируем основной логике, где номер будет нормализован
         save(number, trackInfoListDTO, storeId, userId, null);
     }
 
     /**
      * Сохраняет или обновляет посылку пользователя и привязывает её к покупателю.
+     * <p>
+     * Номер предварительно нормализуется: приводится к верхнему регистру
+     * и обрезаются пробелы по краям.
+     * </p>
      *
      * @param number номер посылки
      * @param trackInfoListDTO информация о посылке
@@ -132,6 +137,9 @@ public class TrackProcessingService {
         if (number == null || trackInfoListDTO == null) {
             throw new IllegalArgumentException("Отсутствует посылка");
         }
+
+        // Приведение номера к единому виду
+        number = number.toUpperCase().trim();
 
         // Ищем трек по номеру и пользователю независимо от магазина
         TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(number, userId);
