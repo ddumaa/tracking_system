@@ -60,4 +60,21 @@ public final class PhoneUtils {
         }
         return phone.substring(0, phone.length() - 4) + "***";
     }
+
+    /**
+     * Извлекает только цифры из произвольной строки.
+     * <p>
+     * Используется для поиска по частичному номеру телефона, позволяя
+     * игнорировать пробелы, скобки и другие символы форматирования.
+     * </p>
+     *
+     * @param input строка с телефоном или его частью
+     * @return последовательность цифр без разделителей
+     */
+    public static String extractDigits(String input) {
+        if (input == null) {
+            return "";
+        }
+        return input.replaceAll("\\D", "");
+    }
 }

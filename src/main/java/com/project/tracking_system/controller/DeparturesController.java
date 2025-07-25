@@ -58,16 +58,18 @@ public class DeparturesController {
      *
      * @param storeId      (опционально) ID магазина, если нужно показать посылки только из одного магазина.
      * @param statusString строковое представление статуса для фильтрации.
+     * @param query        строка поиска по номеру посылки или телефону.
      * @param page         номер страницы для пагинации.
      * @param size         размер страницы.
-     * @param model модель для передачи данных на представление.
-     * @param user  текущий пользователь.
+     * @param model        модель для передачи данных на представление.
+     * @param user         текущий пользователь.
      * @return имя представления для отображения истории.
      */
     @GetMapping()
     public String departures(
             @RequestParam(required = false) Long storeId,  // Фильтр по магазину
             @RequestParam(value = "status", required = false) String statusString, // Фильтр по статусу
+            @RequestParam(value = "query", required = false) String query, // Поиск по номеру или телефону
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size,
             Model model,
@@ -102,10 +104,18 @@ public class DeparturesController {
         // Определяем начальную страницу (избегаем выхода за границы)
         page = Math.max(page, 0);
 
-        // Загружаем посылки с учетом статуса и магазина
-        Page<TrackParcelDTO> trackParcelPage = (status != null)
-                ? trackParcelService.findByStoreTracksAndStatus(filteredStoreIds, status, page, size, userId)
-                : trackParcelService.findByStoreTracks(filteredStoreIds, page, size, userId);
+        // Загружаем посылки с учётом статуса, магазина и параметра поиска
+        Page<TrackParcelDTO> trackParcelPage;
+        if (query != null && !query.isBlank()) {
+            trackParcelPage = trackParcelService.searchByNumberOrPhone(
+                    filteredStoreIds, status, query.trim(), page, size, userId);
+        } else if (status != null) {
+            trackParcelPage = trackParcelService.findByStoreTracksAndStatus(
+                    filteredStoreIds, status, page, size, userId);
+        } else {
+            trackParcelPage = trackParcelService.findByStoreTracks(
+                    filteredStoreIds, page, size, userId);
+        }
 
         // Если запрошенная страница больше допустимой, загружаем первую страницу
         if (page >= trackParcelPage.getTotalPages() && trackParcelPage.getTotalPages() > 0) {
@@ -113,9 +123,16 @@ public class DeparturesController {
 
             // Повторный запрос только если нужно сбросить страницу
             page = 0;
-            trackParcelPage = (status != null)
-                    ? trackParcelService.findByStoreTracksAndStatus(filteredStoreIds, status, page, size, userId)
-                    : trackParcelService.findByStoreTracks(filteredStoreIds, page, size, userId);
+            if (query != null && !query.isBlank()) {
+                trackParcelPage = trackParcelService.searchByNumberOrPhone(
+                        filteredStoreIds, status, query.trim(), page, size, userId);
+            } else if (status != null) {
+                trackParcelPage = trackParcelService.findByStoreTracksAndStatus(
+                        filteredStoreIds, status, page, size, userId);
+            } else {
+                trackParcelPage = trackParcelService.findByStoreTracks(
+                        filteredStoreIds, page, size, userId);
+            }
         }
 
         // Добавляем иконки в DTO перед передачей в шаблон
@@ -132,6 +149,7 @@ public class DeparturesController {
         model.addAttribute("size", size);
         model.addAttribute("trackParcelDTO", trackParcelPage.getContent());
         model.addAttribute("statusString", statusString);
+        model.addAttribute("query", query);
         model.addAttribute("currentPage", trackParcelPage.getNumber());
         model.addAttribute("totalPages", trackParcelPage.getTotalPages());
         model.addAttribute("trackParcelNotification", trackParcelPage.isEmpty() ? "Отслеживаемых посылок нет" : null);
