@@ -1,6 +1,7 @@
 package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.entity.PostalServiceType;
+import com.project.tracking_system.utils.TrackNumberUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -50,6 +51,7 @@ public class TrackServiceClassifier {
      * @return detected postal service type
      */
     public PostalServiceType detect(String number) {
-        return typeDefinitionTrackPostService.detectPostalService(number);
+        String normalized = TrackNumberUtils.normalize(number);
+        return typeDefinitionTrackPostService.detectPostalService(normalized);
     }
 }

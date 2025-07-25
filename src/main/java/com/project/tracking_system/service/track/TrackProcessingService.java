@@ -10,6 +10,7 @@ import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.service.customer.CustomerStatsService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.utils.DateParserUtils;
+import com.project.tracking_system.utils.TrackNumberUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -77,7 +78,7 @@ public class TrackProcessingService {
         if (number == null) {
             throw new IllegalArgumentException("Номер посылки не может быть null");
         }
-        number = number.toUpperCase(); // Приводим к верхнему регистру
+        number = TrackNumberUtils.normalize(number); // Приводим к единообразному виду
 
         log.info("Обработка трека: {} (Пользователь ID={}, Магазин ID={})", number, userId, storeId);
 
@@ -139,7 +140,7 @@ public class TrackProcessingService {
         }
 
         // Приведение номера к единому виду
-        number = number.toUpperCase().trim();
+        number = TrackNumberUtils.normalize(number);
 
         // Ищем трек по номеру и пользователю независимо от магазина
         TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(number, userId);

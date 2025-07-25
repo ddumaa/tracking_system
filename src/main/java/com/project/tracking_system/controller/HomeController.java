@@ -10,6 +10,7 @@ import com.project.tracking_system.service.track.TrackMeta;
 import com.project.tracking_system.service.track.TrackUpdateDispatcherService;
 import com.project.tracking_system.service.track.TrackServiceClassifier;
 import com.project.tracking_system.service.track.BelPostManualService;
+import com.project.tracking_system.utils.TrackNumberUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -93,11 +94,13 @@ public class HomeController {
         storeId = storeService.resolveStoreId(storeId, stores);
         model.addAttribute("stores", stores);
 
+        String normalizedNumber = TrackNumberUtils.normalize(number);
+
         try {
-            PostalServiceType type = trackServiceClassifier.detect(number);
+            PostalServiceType type = trackServiceClassifier.detect(normalizedNumber);
 
             if (type == PostalServiceType.BELPOST && userId != null) {
-                boolean queued = belPostManualService.enqueueIfAllowed(number, storeId, userId, phone);
+                boolean queued = belPostManualService.enqueueIfAllowed(normalizedNumber, storeId, userId, phone);
                 if (queued) {
                     model.addAttribute("successMessage", "Номер добавлен в очередь обработки.");
                 } else {
@@ -106,7 +109,7 @@ public class HomeController {
                 return "app/home";
             }
 
-            TrackMeta meta = new TrackMeta(number, storeId, phone, canSave);
+            TrackMeta meta = new TrackMeta(normalizedNumber, storeId, phone, canSave);
             TrackInfoListDTO trackInfo = trackUpdateDispatcherService.dispatch(meta).getTrackInfo();
 
             if (trackInfo == null || trackInfo.getList().isEmpty()) {
