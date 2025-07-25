@@ -20,6 +20,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import com.project.tracking_system.utils.ResponseBuilder;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import org.springframework.stereotype.Controller;
@@ -226,6 +227,10 @@ public class DeparturesController {
             log.info("Выбранные посылки {} удалены пользователем с ID: {}", selectedNumbers, userId);
             webSocketController.sendUpdateStatus(userId, "Выбранные посылки успешно удалены.", true);
             return ResponseBuilder.ok("Выбранные посылки успешно удалены.");
+        } catch (EntityNotFoundException ex) {
+            log.warn("Попытка удалить несуществующие посылки пользователем {}", userId);
+            webSocketController.sendUpdateStatus(userId, ex.getMessage(), false);
+            return ResponseBuilder.error(HttpStatus.NOT_FOUND, ex.getMessage());
         } catch (Exception e) {
             log.error("Ошибка при удалении посылок {} пользователем с ID: {}: {}", selectedNumbers, userId, e.getMessage(), e);
             webSocketController.sendUpdateStatus(userId, "Ошибка при удалении посылок.", false);

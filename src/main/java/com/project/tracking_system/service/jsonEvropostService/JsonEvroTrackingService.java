@@ -45,7 +45,7 @@ public class JsonEvroTrackingService {
      *
      * @param number Номер посылки, для которой требуется получить информацию о трекинге.
      * @return {@link JsonEvroTrackingResponse} объект с данными о трекинге.
-     * @throws RuntimeException если произошла ошибка десериализации JSON.
+     * @throws IllegalStateException если произошла ошибка десериализации JSON или запроса
      */
     public JsonEvroTrackingResponse getJson(Long userId, String number) {
         ResolvedCredentialsDTO credentials;
@@ -76,7 +76,7 @@ public class JsonEvroTrackingService {
             log.info("Запрос успешно выполнен для почтового номера: {}", number);
         } catch (Exception e) {
             log.error("Ошибка при выполнении запроса для почтового номера: {}", number, e);
-            throw new RuntimeException("Ошибка при выполнении запроса.", e);
+            throw new IllegalStateException("Ошибка при выполнении запроса.", e);
         }
 
         JsonEvroTrackingResponse response = new JsonEvroTrackingResponse();
@@ -90,7 +90,7 @@ public class JsonEvroTrackingService {
             return response;
         } catch (JsonbException e) {
             log.error("Ошибка десериализации ответа JSON для почтового номера: {}", number, e);
-            throw new RuntimeException("Ошибка десериализации ответа JSON.", e);
+            throw new IllegalStateException("Ошибка десериализации ответа JSON.", e);
         }
     }
 

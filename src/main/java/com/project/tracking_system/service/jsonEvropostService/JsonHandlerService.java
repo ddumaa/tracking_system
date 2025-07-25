@@ -43,7 +43,7 @@ public class JsonHandlerService {
      *
      * @param jsonRequest объект запроса, который будет сериализован в JSON.
      * @return {@link JsonNode} десериализованный ответ от API.
-     * @throws RuntimeException если запрос не удался или произошла ошибка при обработке ответа.
+     * @throws IllegalStateException если запрос не удался или произошла ошибка при обработке ответа
      */
     public JsonNode jsonRequest(JsonRequest jsonRequest) {
 
@@ -56,18 +56,18 @@ public class JsonHandlerService {
         JsonNode jsonNode;
         try {
             if (response.getStatusCode() != HttpStatus.OK) {
-                throw new RuntimeException("Не удалось получить ответ, код состояния.: " + response.getStatusCode());
+                throw new IllegalStateException("Не удалось получить ответ, код состояния.: " + response.getStatusCode());
             }
 
             String responseBody = response.getBody();
             if (responseBody == null) {
-                throw new RuntimeException("Тело ответа имеет значение null");
+                throw new IllegalStateException("Тело ответа имеет значение null");
             }
 
             jsonNode = objectMapper.readTree(responseBody);
         } catch (
                 JsonProcessingException e) {
-            throw new RuntimeException("Ошибка анализа ответа JSON.", e);
+            throw new IllegalStateException("Ошибка анализа ответа JSON.", e);
         }
 
         return jsonNode;
