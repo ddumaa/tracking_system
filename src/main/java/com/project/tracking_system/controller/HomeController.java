@@ -97,7 +97,7 @@ public class HomeController {
             PostalServiceType type = trackServiceClassifier.detect(number);
 
             if (type == PostalServiceType.BELPOST && userId != null) {
-                boolean queued = belPostManualService.enqueueIfAllowed(number, storeId, userId);
+                boolean queued = belPostManualService.enqueueIfAllowed(number, storeId, userId, phone);
                 if (queued) {
                     model.addAttribute("successMessage", "Номер добавлен в очередь обработки.");
                 } else {
