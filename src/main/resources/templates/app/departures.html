@@ -160,9 +160,9 @@
                         <ul class="pagination" th:if="${totalPages > 1}">
                             <!-- Кнопка "Назад" -->
                             <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled'">
-                                <!-- При наличии поискового запроса добавляем его к ссылке -->
+                                <!-- При наличии поискового запроса (непустого) добавляем его к ссылке -->
                                 <a class="page-link"
-                                   th:href="${query != null} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size}, query=${query})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size})}"
+                                   th:href="${!#strings.isEmpty(query)} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size}, query=${query})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size})}"
                                    aria-label="Предыдущая страница">
                                     <i class="bi bi-chevron-left"></i>
                                 </a>
@@ -171,18 +171,18 @@
                             <!-- Номера страниц -->
                             <li class="page-item" th:each="i : ${#numbers.sequence(0, totalPages - 1)}"
                                 th:classappend="${i == currentPage} ? 'active'">
-                                <!-- Ссылка на определённую страницу, учитывающая поисковый запрос -->
+                                <!-- Ссылка на определённую страницу, учитывающая поисковый запрос, если поле поиска не пустое -->
                                 <a class="page-link"
-                                   th:href="${query != null} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${i}, size=${size}, query=${query})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${i}, size=${size})}"
+                                   th:href="${!#strings.isEmpty(query)} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${i}, size=${size}, query=${query})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${i}, size=${size})}"
                                    th:text="${i + 1}" aria-label="Страница ${i + 1}">
                                 </a>
                             </li>
 
                             <!-- Кнопка "Вперёд" -->
                             <li class="page-item" th:classappend="${currentPage == totalPages - 1} ? 'disabled'">
-                                <!-- Кнопка перехода вперёд: добавляем параметр query при его наличии -->
+                                <!-- Кнопка перехода вперёд: добавляем параметр query, если он задан -->
                                 <a class="page-link"
-                                   th:href="${query != null} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size}, query=${query})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size})}"
+                                   th:href="${!#strings.isEmpty(query)} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size}, query=${query})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size})}"
                                    aria-label="Следующая страница">
                                     <i class="bi bi-chevron-right"></i>
                                 </a>
