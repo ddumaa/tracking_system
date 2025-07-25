@@ -4,6 +4,8 @@ import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.utils.PhoneUtils;
 import com.project.tracking_system.utils.TrackNumberUtils;
+import com.project.tracking_system.entity.PostalServiceType;
+import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -36,6 +38,8 @@ public class TrackMetaValidator {
     private final TrackParcelService trackParcelService;
     private final SubscriptionService subscriptionService;
     private final StoreService storeService;
+    /** Сервис определения почтовой службы трека. */
+    private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
 
     /**
      * Валидирует сырые строки и преобразует их в {@link TrackMeta}.
@@ -163,7 +167,8 @@ public class TrackMetaValidator {
                 }
             }
 
-            result.add(new TrackMeta(meta.number(), meta.storeId(), meta.phone(), canSave));
+            PostalServiceType type = typeDefinitionTrackPostService.detectPostalService(meta.number());
+            result.add(new TrackMeta(meta.number(), meta.storeId(), meta.phone(), canSave, type));
         }
 
         return result;

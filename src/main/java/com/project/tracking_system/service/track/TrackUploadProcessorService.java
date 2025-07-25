@@ -10,6 +10,13 @@ import com.project.tracking_system.service.track.TrackExcelRow;
 import com.project.tracking_system.service.track.TrackMetaValidator;
 import com.project.tracking_system.service.track.ProgressAggregatorService;
 import com.project.tracking_system.service.track.TrackUpdateEligibilityService;
+import com.project.tracking_system.service.track.TrackUploadGroupingService;
+import com.project.tracking_system.service.track.TrackUpdateDispatcherService;
+import com.project.tracking_system.service.track.TrackingResultCacheService;
+import com.project.tracking_system.dto.TrackingResultAdd;
+import com.project.tracking_system.dto.TrackStatusUpdateDTO;
+import com.project.tracking_system.dto.TrackProcessingProgressDTO;
+import com.project.tracking_system.entity.PostalServiceType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,7 +26,7 @@ import java.io.IOException;
 import java.time.Duration;
 import com.project.tracking_system.utils.DurationUtils;
 import java.util.List;
-import java.util.UUID;
+import java.util.Map;
 
 
 /**
@@ -39,6 +46,12 @@ public class TrackUploadProcessorService {
     private final ProgressAggregatorService progressAggregatorService;
     /** Проверяет возможность обновления треков перед постановкой в очередь. */
     private final TrackUpdateEligibilityService trackUpdateEligibilityService;
+    /** Сервис группировки треков по почтовым службам. */
+    private final TrackUploadGroupingService groupingService;
+    /** Диспетчер обработки треков разных служб. */
+    private final TrackUpdateDispatcherService dispatcherService;
+    /** Кэш результатов обработки для восстановления таблицы. */
+    private final TrackingResultCacheService trackingResultCacheService;
 
     /**
      * Принимает Excel-файл, валидирует строки и конвертирует их
@@ -56,32 +69,22 @@ public class TrackUploadProcessorService {
         List<TrackExcelRow> rows = parser.parse(file);
         long batchId = System.currentTimeMillis();
 
-        List<QueuedTrack> queued;
+        List<TrackMeta> metas;
         String limitMessage = null;
 
         if (userId != null) {
-            // Валидация данных и применение пользовательских лимитов
+            // Валидация данных и применение лимитов
             TrackMetaValidationResult validationResult = trackMetaValidator.validate(rows, userId);
             limitMessage = validationResult.limitExceededMessage();
 
-            // Преобразуем валидные метаданные в задания на обновление
-            queued = validationResult.validTracks().stream()
-                    .map(m -> new QueuedTrack(
-                            m.number(),
-                            userId,
-                            m.storeId(),
-                            TrackSource.EXCEL,
-                            batchId,
-                            m.phone()))
-                    .filter(q -> trackUpdateEligibilityService.canUpdate(q.trackNumber(), q.userId()))
+            metas = validationResult.validTracks().stream()
+                    .filter(m -> trackUpdateEligibilityService.canUpdate(m.number(), userId))
                     .toList();
         } else {
-            // Для неавторизованных пользователей обработка не выполняется
-            queued = List.of();
+            metas = List.of();
         }
 
-        // Если после фильтрации не осталось треков, уведомляем пользователя и завершаем обработку
-        if (queued.isEmpty()) {
+        if (metas.isEmpty()) {
             webSocketController.sendUpdateStatus(
                     userId,
                     "Файл не содержит подходящих треков для обработки",
@@ -90,16 +93,43 @@ public class TrackUploadProcessorService {
             return;
         }
 
-        progressAggregatorService.registerBatch(batchId, queued.size(), userId);
-        belPostTrackQueueService.enqueue(queued);
+        progressAggregatorService.registerBatch(batchId, metas.size(), userId);
+        Map<PostalServiceType, List<TrackMeta>> grouped = groupingService.group(metas);
 
-        webSocketController.sendUpdateStatus(
-                userId,
-                "В очередь Белпочты поставлено " + queued.size() + " треков",
-                true
-        );
+        // Отдельно ставим в очередь треки Белпочты
+        List<TrackMeta> belpost = grouped.remove(PostalServiceType.BELPOST);
+        if (belpost != null && !belpost.isEmpty()) {
+            List<QueuedTrack> queued = belpost.stream()
+                    .map(m -> new QueuedTrack(
+                            m.number(),
+                            userId,
+                            m.storeId(),
+                            TrackSource.EXCEL,
+                            batchId,
+                            m.phone()))
+                    .toList();
+            belPostTrackQueueService.enqueue(queued);
+            webSocketController.sendUpdateStatus(
+                    userId,
+                    "В очередь Белпочты поставлено " + queued.size() + " треков",
+                    true
+            );
+        }
 
-        // Дополнительное уведомление о превышении лимитов, если есть
+        // Обрабатываем остальные треки сразу
+        List<TrackingResultAdd> processed = dispatcherService.dispatch(grouped, userId);
+        for (TrackingResultAdd r : processed) {
+            progressAggregatorService.trackProcessed(batchId);
+            TrackProcessingProgressDTO p = progressAggregatorService.getProgress(batchId);
+            TrackStatusUpdateDTO dto = new TrackStatusUpdateDTO(
+                    batchId,
+                    r.getTrackingNumber(),
+                    r.getStatus(),
+                    p.processed(),
+                    p.total());
+            trackingResultCacheService.addResult(userId, dto);
+        }
+
         if (limitMessage != null) {
             webSocketController.sendUpdateStatus(userId, limitMessage, true);
         }
@@ -112,11 +142,12 @@ public class TrackUploadProcessorService {
                     true);
         }
 
-        long seconds = queued.size() * BelPostTrackQueueService.PROCESSING_DELAY_SECONDS;
+        int belpostCount = belpost != null ? belpost.size() : 0;
+        long seconds = belpostCount * BelPostTrackQueueService.PROCESSING_DELAY_SECONDS;
         Duration duration = Duration.ofSeconds(seconds);
         String eta = DurationUtils.formatMinutesSeconds(duration);
         webSocketController.sendTrackProcessingStarted(userId,
-                new TrackProcessingStartedDTO(queued.size(), eta, waitEta));
+                new TrackProcessingStartedDTO(metas.size(), eta, waitEta));
     }
 
 }
