@@ -24,4 +24,5 @@ public final class DurationUtils {
         int seconds = duration.toSecondsPart();
         return String.format("%d:%02d", minutes, seconds);
     }
+
 }

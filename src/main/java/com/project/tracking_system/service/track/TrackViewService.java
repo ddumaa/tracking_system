@@ -65,6 +65,7 @@ public class TrackViewService {
         int interval = applicationSettingsService.getTrackUpdateIntervalHours();
         ZonedDateTime nowUtc = ZonedDateTime.now(ZoneOffset.UTC);
         ZonedDateTime nextAllowed = parcel.getLastUpdate().plusHours(interval);
+      
         // Посылку можно обновлять, если статус ещё не финальный и с момента
         // последнего обновления прошло достаточно времени
         boolean canUpdate = !parcel.getStatus().isFinal()
