@@ -3,6 +3,7 @@ package com.project.tracking_system.service.track;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.utils.PhoneUtils;
+import com.project.tracking_system.utils.TrackNumberUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -65,7 +66,7 @@ public class TrackMetaValidator {
         for (TrackExcelRow row : validRows) {
             if (processed >= maxLimit) break;
 
-            String number = row.number().toUpperCase();
+            String number = TrackNumberUtils.normalize(row.number());
             Long storeId = parseStoreId(row.store(), defaultStoreId, userId);
             String phone = normalizePhone(row.phone());
 

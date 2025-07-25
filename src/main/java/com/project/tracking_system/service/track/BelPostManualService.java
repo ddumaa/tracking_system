@@ -5,6 +5,7 @@ import com.project.tracking_system.service.belpost.QueuedTrack;
 import com.project.tracking_system.service.track.TrackSource;
 import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.utils.DurationUtils;
+import com.project.tracking_system.utils.TrackNumberUtils;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -30,9 +31,10 @@ public class BelPostManualService {
      * @return {@code true}, если трек был поставлен в очередь
      */
     public boolean enqueueIfAllowed(String number, Long storeId, Long userId, String phone) {
-        if (trackUpdateEligibilityService.canUpdate(number, userId)) {
+        String normalized = TrackNumberUtils.normalize(number);
+        if (trackUpdateEligibilityService.canUpdate(normalized, userId)) {
             belPostTrackQueueService.enqueue(new QueuedTrack(
-                    number,
+                    normalized,
                     userId,
                     storeId,
                     TrackSource.MANUAL,
@@ -42,7 +44,7 @@ public class BelPostManualService {
 
             webSocketController.sendUpdateStatus(
                     userId,
-                    "Трек '" + number + "' поставлен в очередь Белпочты",
+                    "Трек '" + normalized + "' поставлен в очередь Белпочты",
                     true
             );
 

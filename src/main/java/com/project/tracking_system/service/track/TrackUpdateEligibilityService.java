@@ -2,6 +2,7 @@ package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.service.admin.ApplicationSettingsService;
+import com.project.tracking_system.utils.TrackNumberUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -34,7 +35,8 @@ public class TrackUpdateEligibilityService {
         if (userId == null || number == null) {
             return false;
         }
-        TrackParcel parcel = trackParcelService.findByNumberAndUserId(number.toUpperCase(), userId);
+        String normalized = TrackNumberUtils.normalize(number);
+        TrackParcel parcel = trackParcelService.findByNumberAndUserId(normalized, userId);
         if (parcel == null) {
             return true;
         }
