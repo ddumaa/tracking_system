@@ -197,6 +197,7 @@ public class TrackProcessingService {
         trackParcel.setLastUpdate(ZonedDateTime.now(ZoneOffset.UTC));
 
         // Привязываем покупателя, если указан телефон
+        Customer previousCustomer = trackParcel.getCustomer();
         Customer customer = null;
         if (phone != null && !phone.isBlank()) {
             customer = customerService.registerOrGetByPhone(phone);
@@ -204,6 +205,13 @@ public class TrackProcessingService {
         }
 
         trackParcelRepository.save(trackParcel);
+
+        // Если изменён покупатель и посылка имеет финальный статус,
+        // нужно пересчитать статистику покупателя
+        boolean customerChanged = customer != null && (previousCustomer == null || !previousCustomer.getId().equals(customer.getId()));
+        if (customerChanged && deliveryHistoryService.hasFinalStatus(trackParcel.getId())) {
+            deliveryHistoryService.registerFinalStatus(trackParcel.getId());
+        }
 
         if (isNewParcel && customer != null) {
             customerStatsService.incrementSent(customer);
