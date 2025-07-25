@@ -177,6 +177,13 @@
      */
     function updateDisplay(data, container) {
         if (!data || data.total === 0) return;
+        // Сохраняем контейнер и последние значения,
+        // чтобы таймер корректно обновлял полосу прогресса
+        if (container) {
+            progressContainer = container;
+        }
+        lastCompleted = data.processed;
+        lastTotal = data.total;
         // Первое сообщение задаёт базовую точку времени для локального таймера
         if (timerStart === null && typeof data.elapsed === "string") {
             timerStart = Date.now() - parseElapsed(data.elapsed);
