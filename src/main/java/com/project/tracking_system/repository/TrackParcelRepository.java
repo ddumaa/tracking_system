@@ -142,6 +142,17 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
     List<String> findDistinctStoreNamesByCustomerId(@Param("customerId") Long customerId);
 
     /**
+     * Подсчитать количество посылок покупателя в указанном статусе.
+     *
+     * @param customerId идентификатор покупателя
+     * @param status     целевой статус
+     * @return количество посылок
+     */
+    @Query("SELECT COUNT(t) FROM TrackParcel t WHERE t.customer.id = :customerId AND t.status = :status")
+    int countByCustomerIdAndStatus(@Param("customerId") Long customerId,
+                                   @Param("status") GlobalStatus status);
+
+    /**
      * Поиск посылок по номеру или телефону покупателя.
      * <p>
      * Выполняется частичное совпадение номера трека и номера телефона
