@@ -115,11 +115,11 @@
             });
 
             // Подписка на события обработки трека Белпочты
+            // Глобальный прогресс обновляется через канал /topic/progress,
+            // поэтому здесь обновляем только информацию по конкретному треку
             stompClient.subscribe(`/topic/belpost/track-processed/${userId}`, message => {
                 progressContainer = container;
                 const data = JSON.parse(message.body);
-                // Progress updates come with elapsed time, timer is started in updateDisplay
-                updateProgressBar(data.completed, data.total);
                 updateTrackingRow(data.trackingNumber, data.status);
             });
 
