@@ -17,6 +17,9 @@ import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.dto.TrackStatusUpdateDTO;
 import com.project.tracking_system.dto.TrackProcessingProgressDTO;
 import com.project.tracking_system.entity.PostalServiceType;
+import com.project.tracking_system.service.track.TrackMeta;
+import com.project.tracking_system.service.track.TrackMetaValidationResult;
+import com.project.tracking_system.service.track.InvalidTrack;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -63,18 +66,21 @@ public class TrackUploadProcessorService {
      *
      * @param file   загруженный Excel-файл
      * @param userId идентификатор текущего пользователя (может быть {@code null})
+     * @return результат валидации, содержащий список обработанных и некорректных треков
      * @throws IOException если произошла ошибка при чтении файла
      */
-    public void process(MultipartFile file, Long userId) throws IOException {
+    public TrackMetaValidationResult process(MultipartFile file, Long userId) throws IOException {
         List<TrackExcelRow> rows = parser.parse(file);
         long batchId = System.currentTimeMillis();
 
         List<TrackMeta> metas;
+        List<InvalidTrack> invalid = List.of();
         String limitMessage = null;
 
         if (userId != null) {
             // Валидация данных и применение лимитов
             TrackMetaValidationResult validationResult = trackMetaValidator.validate(rows, userId);
+            invalid = validationResult.invalidTracks();
             limitMessage = validationResult.limitExceededMessage();
 
             metas = validationResult.validTracks().stream()
@@ -85,12 +91,14 @@ public class TrackUploadProcessorService {
         }
 
         if (metas.isEmpty()) {
+            // отправляем пустой прогресс, чтобы скрыть статусбар
+            progressAggregatorService.registerBatch(batchId, 0, userId);
             webSocketController.sendUpdateStatus(
                     userId,
-                    "Файл не содержит подходящих треков для обработки",
+                    "Ошибка — все треки невалидны",
                     false
             );
-            return;
+            return new TrackMetaValidationResult(List.of(), invalid, limitMessage);
         }
 
         progressAggregatorService.registerBatch(batchId, metas.size(), userId);
@@ -148,6 +156,7 @@ public class TrackUploadProcessorService {
         String eta = DurationUtils.formatMinutesSeconds(duration);
         webSocketController.sendTrackProcessingStarted(userId,
                 new TrackProcessingStartedDTO(metas.size(), eta, waitEta));
+        return new TrackMetaValidationResult(metas, invalid, limitMessage);
     }
 
 }

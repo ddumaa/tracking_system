@@ -61,6 +61,11 @@ public class ProgressAggregatorService {
         progressMap.put(batchId, new BatchProgress(total, userId, clock));
         // сразу отправляем начальный прогресс (0 из total)
         sendProgress(batchId);
+        // если треков нет, завершаем прогресс немедленно, чтобы статусбар скрытся
+        if (total == 0) {
+            progressMap.remove(batchId);
+            lastSentTimestamps.remove(batchId);
+        }
     }
 
     /**
