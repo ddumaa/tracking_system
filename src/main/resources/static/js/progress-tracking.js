@@ -125,6 +125,7 @@
         const container = document.getElementById("progressContainer");
         progressPopup = document.getElementById("progressPopup");
         attachResultsCloseHandler();
+        attachInvalidCloseHandler();
         attachUnloadHandler();
 
         fetch("/app/progress/latest", {cache: "no-store"})
@@ -184,6 +185,13 @@
             stompClient.subscribe(`/topic/belpost/batch-finished/${userId}`, () => {
                 // завершение обрабатывается после агрегации прогресса
             });
+
+            // Событие с информацией о некорректных строках файла
+            stompClient.subscribe(`/topic/invalid-tracks/${userId}`, message => {
+                const invalid = JSON.parse(message.body);
+                const list = Array.isArray(invalid) ? invalid : [invalid];
+                list.forEach(item => updateInvalidTrackRow(item.number, item.reason));
+            });
         };
 
         const fallback = () => startPolling(container);
@@ -240,7 +248,11 @@
      * @param {HTMLElement|null} container контейнер прогресс-бара
      */
     function updateDisplay(data, container) {
-        if (!data || data.total === 0) return;
+        if (!data) return;
+        if (data.total === 0) {
+            hideDisplay(container);
+            return;
+        }
 
         // Пересоздаём ссылки на элементы интерфейса при необходимости
         ensureProgressContainer(container);
@@ -537,6 +549,48 @@
     }
 
     /**
+     * Создаёт строку в таблице некорректных треков и показывает контейнер.
+     *
+     * @param {?string} trackNumber исходный номер трека
+     * @param {string} reason причина некорректности
+     */
+    function updateInvalidTrackRow(trackNumber, reason) {
+        const table = ensureInvalidTable();
+        if (!table) return;
+
+        document.getElementById("invalid-tracks-container")?.classList.remove("d-none");
+        const row = table.insertRow(-1);
+        row.insertCell(0).textContent = trackNumber ?? "";
+        row.insertCell(1).textContent = reason;
+    }
+
+    /**
+     * Возвращает таблицу некорректных треков, создавая её при необходимости.
+     *
+     * @returns {HTMLTableElement|null} таблица некорректных треков
+     */
+    function ensureInvalidTable() {
+        const container = document.getElementById("invalid-tracks-container");
+        if (!container) return null;
+
+        container.classList.remove("d-none");
+        let table = container.querySelector("#invalid-tracks-table");
+        if (!table) {
+            container.innerHTML =
+                `<div class="table-responsive">
+                     <table id="invalid-tracks-table" class="table table-striped">
+                         <thead>
+                         <tr><th>Номер посылки</th><th>Причина</th></tr>
+                         </thead>
+                         <tbody id="invalid-tracks-body"></tbody>
+                     </table>
+                 </div>`;
+            table = container.querySelector("#invalid-tracks-table");
+        }
+        return table;
+    }
+
+    /**
      * Форматирует прошедшее время в mm:ss.
      * @param {number} ms миллисекунды
      * @returns {string} строка вида "m:ss"
@@ -625,6 +679,26 @@
                 method: "POST",
                 headers: { [window.csrfHeader]: window.csrfToken }
             });
+        });
+    }
+
+    /**
+     * Назначает обработчик закрытия блока некорректных треков.
+     * После очистки таблицы контейнер скрывается.
+     */
+    function attachInvalidCloseHandler() {
+        const container = document.getElementById("invalid-tracks-container");
+        if (!container) return;
+
+        const closeBtn = container.querySelector("#invalid-tracks-close");
+        if (!closeBtn) return;
+
+        closeBtn.addEventListener("click", () => {
+            const tbody = container.querySelector("#invalid-tracks-body");
+            if (tbody) {
+                tbody.innerHTML = "";
+            }
+            container.classList.add("d-none");
         });
     }
 
