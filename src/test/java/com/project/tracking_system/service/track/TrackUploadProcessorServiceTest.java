@@ -13,6 +13,7 @@ import com.project.tracking_system.service.track.InvalidTrack;
 import com.project.tracking_system.service.track.TrackUploadGroupingService;
 import com.project.tracking_system.service.track.TrackUpdateDispatcherService;
 import com.project.tracking_system.service.track.TrackingResultCacheService;
+import com.project.tracking_system.service.track.InvalidTrackCacheService;
 import com.project.tracking_system.entity.PostalServiceType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,6 +54,8 @@ class TrackUploadProcessorServiceTest {
     private TrackUpdateDispatcherService dispatcherService;
     @Mock
     private TrackingResultCacheService trackingResultCacheService;
+    @Mock
+    private InvalidTrackCacheService invalidTrackCacheService;
 
     private TrackUploadProcessorService processor;
 
@@ -67,7 +70,8 @@ class TrackUploadProcessorServiceTest {
                 trackUpdateEligibilityService,
                 groupingService,
                 dispatcherService,
-                trackingResultCacheService
+                trackingResultCacheService,
+                invalidTrackCacheService
         );
     }
 
@@ -98,6 +102,7 @@ class TrackUploadProcessorServiceTest {
         verify(queueService).enqueue(anyList());
         verify(dispatcherService).dispatch(anyMap(), eq(1L));
         verify(trackingResultCacheService).addResult(eq(1L), any());
+        verify(invalidTrackCacheService).addInvalidTracks(eq(1L), anyLong(), anyList());
         verify(webSocketController, times(2)).sendUpdateStatus(eq(1L), contains("Белпочты"), eq(true));
         verify(webSocketController).sendTrackProcessingStarted(eq(1L), any());
         verify(progressAggregatorService).registerBatch(anyLong(), eq(1), eq(1L));
@@ -125,6 +130,7 @@ class TrackUploadProcessorServiceTest {
         verify(queueService, never()).enqueue(anyList());
         verify(webSocketController, never()).sendTrackProcessingStarted(anyLong(), any());
         verify(webSocketController).sendUpdateStatus(eq(1L), contains("нет"), eq(false));
+        verify(invalidTrackCacheService).addInvalidTracks(eq(1L), anyLong(), anyList());
     }
 
     /**
@@ -147,5 +153,6 @@ class TrackUploadProcessorServiceTest {
         verify(webSocketController).sendUpdateStatus(eq(1L), contains("невалидны"), eq(false));
         verify(queueService, never()).enqueue(anyList());
         verify(dispatcherService, never()).dispatch(anyMap(), any());
+        verify(invalidTrackCacheService).addInvalidTracks(eq(1L), anyLong(), anyList());
     }
 }

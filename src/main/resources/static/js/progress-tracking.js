@@ -142,6 +142,11 @@
         fetch("/app/results/latest", {cache: "no-store"})
             .then(r => r.ok ? r.json() : [])
             .then(list => list.forEach(item => updateTrackingRow(item.trackingNumber, item.status)));
+
+        // Загружаем сохранённые некорректные строки
+        fetch("/app/invalid/latest", {cache: "no-store"})
+            .then(r => r.ok ? r.json() : [])
+            .then(list => list.forEach(item => updateInvalidTrackRow(item.number, item.reason)));
     }
 
     /**
@@ -699,6 +704,11 @@
                 tbody.innerHTML = "";
             }
             container.classList.add("d-none");
+            // Очищаем кэш сохранённых некорректных треков
+            fetch("/app/invalid/clear", {
+                method: "POST",
+                headers: { [window.csrfHeader]: window.csrfToken }
+            });
         });
     }
 
@@ -710,6 +720,11 @@
             // Используем fetch с keepalive, чтобы гарантировать отправку запроса
             // даже при закрытии страницы
             fetch("/app/results/clear", {
+                method: "POST",
+                headers: { [window.csrfHeader]: window.csrfToken },
+                keepalive: true
+            });
+            fetch("/app/invalid/clear", {
                 method: "POST",
                 headers: { [window.csrfHeader]: window.csrfToken },
                 keepalive: true
