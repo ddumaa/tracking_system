@@ -1,6 +1,7 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.service.track.TrackUploadProcessorService;
+import com.project.tracking_system.service.track.TrackMetaValidationResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -59,14 +60,18 @@ public class UploadController {
 
         try {
             if (contentType.equals("application/vnd.ms-excel") || contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
-                trackUploadProcessorService.process(file, userId);
-                // После успешной передачи файла и запуска обработки
-                // добавляем пустой список результатов, чтобы таблица могла
-                // появиться на странице и наполняться через WebSocket.
-                model.addAttribute("trackingResults", Collections.emptyList());
-                // Таблица с результатами появится после получения первых данных
-                // по WebSocket. На этом этапе её не заполняем.
-                model.addAttribute("successMessage", "Файл принят, обработка начата.");
+                TrackMetaValidationResult result = trackUploadProcessorService.process(file, userId);
+                model.addAttribute("invalidTracks", result.invalidTracks());
+                model.addAttribute("limitExceededMessage", result.limitExceededMessage());
+                if (!result.validTracks().isEmpty()) {
+                    // После успешной передачи файла и запуска обработки
+                    // добавляем пустой список результатов, чтобы таблица могла
+                    // появиться на странице и наполняться через WebSocket.
+                    model.addAttribute("trackingResults", Collections.emptyList());
+                    // Таблица с результатами появится после получения первых данных
+                    // по WebSocket. На этом этапе её не заполняем.
+                    model.addAttribute("successMessage", "Файл принят, обработка начата.");
+                }
             } else {
                 model.addAttribute("customError", "Неподдерживаемый тип файла. Загрузите XLS или XLSX.");
                 return "app/home";
