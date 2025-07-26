@@ -100,4 +100,37 @@ class ProgressAggregatorServiceTest {
     void getLatestBatchId_ReturnsNullWhenNothing() {
         assertNull(service.getLatestBatchId(99L));
     }
+
+    @Test
+    void sendProgress_ThrottlesIntermediateUpdates() {
+        service.registerBatch(3L, 4, 5L);
+        reset(webSocketController);
+
+        service.trackProcessed(3L);
+        verify(webSocketController, never()).sendProgress(eq(5L), any());
+
+        clock.plusMillis(200);
+        service.trackProcessed(3L);
+        verify(webSocketController, never()).sendProgress(eq(5L), any());
+
+        clock.plusMillis(51);
+        service.trackProcessed(3L);
+        verify(webSocketController).sendProgress(eq(5L), any());
+    }
+
+    @Test
+    void finalProgress_SentImmediately() {
+        service.registerBatch(4L, 2, 6L);
+        reset(webSocketController);
+
+        service.trackProcessed(4L); // first item, should be throttled
+        verify(webSocketController, never()).sendProgress(eq(6L), any());
+
+        clock.plusMillis(100); // less than required interval
+        service.trackProcessed(4L); // final update should send regardless of interval
+        verify(webSocketController).sendProgress(eq(6L), any());
+
+        TrackProcessingProgressDTO dto = service.getProgress(4L);
+        assertEquals(0, dto.total());
+    }
 }
