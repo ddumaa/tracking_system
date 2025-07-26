@@ -78,7 +78,7 @@ class TrackUploadProcessorServiceTest {
         TrackMeta meta = new TrackMeta("A1", 1L, "p", true, PostalServiceType.BELPOST);
         when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("A1", "1", "p")));
         when(trackMetaValidator.validate(anyList(), eq(1L)))
-                .thenReturn(new TrackMetaValidationResult(List.of(meta), null));
+                .thenReturn(new TrackMetaValidationResult(List.of(meta), List.of(), null));
         when(trackUpdateEligibilityService.canUpdate(anyString(), any())).thenReturn(true);
         when(groupingService.group(List.of(meta)))
                 .thenReturn(java.util.Map.of(PostalServiceType.BELPOST, List.of(meta)));
@@ -108,7 +108,7 @@ class TrackUploadProcessorServiceTest {
         when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("A1", "1", "p")));
         when(trackMetaValidator.validate(anyList(), eq(1L)))
                 .thenReturn(new TrackMetaValidationResult(
-                        List.of(new TrackMeta("A1", 1L, "p", true)), null));
+                        List.of(new TrackMeta("A1", 1L, "p", true)), List.of(), null));
         when(trackUpdateEligibilityService.canUpdate(anyString(), any())).thenReturn(false);
 
         processor.process(file, 1L);
