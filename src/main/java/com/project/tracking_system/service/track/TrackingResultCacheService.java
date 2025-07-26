@@ -110,45 +110,49 @@ public class TrackingResultCacheService {
     }
 
     /**
-     * Контейнер для списка результатов одной партии и времени последнего доступа.
+     * Контейнер для списка результатов одной партии и отметки последнего просмотра.
      */
     private static class BatchEntry {
         /** Сохранённые результаты партии. */
         private final List<TrackStatusUpdateDTO> results = Collections.synchronizedList(new ArrayList<>());
 
-        /** Момент последнего доступа к данным. */
+        /** Момент последнего просмотра кэша пользователем. */
         private volatile long lastAccess;
 
+        /** Флаг, указывающий, что пользователь уже открыл результаты. */
+        private volatile boolean viewed;
+
         /**
-         * Создаёт контейнер и фиксирует момент создания как время последнего доступа.
+         * Создаёт контейнер. Отметка просмотра будет обновлена при первом обращении.
          */
         BatchEntry() {
-            refresh();
+            lastAccess = System.currentTimeMillis();
+            viewed = false;
         }
 
         /**
-         * Добавляет результат в контейнер и обновляет время последнего доступа.
+         * Добавляет результат в контейнер.
+         * Обновление времени происходит при обращении {@link #snapshot()}.
          *
          * @param dto результат обработки трека
          */
         void add(TrackStatusUpdateDTO dto) {
             results.add(dto);
-            refresh();
         }
 
         /**
-         * Возвращает текущую копию результатов и обновляет время доступа.
+         * Возвращает копию результатов и помечает запись просмотренной.
+         * Одновременно обновляется время последнего доступа.
          *
          * @return список сохранённых результатов
          */
         List<TrackStatusUpdateDTO> snapshot() {
+            viewed = true;
             refresh();
             return new ArrayList<>(results);
         }
 
-        /**
-         * Обновляет время последнего доступа текущим моментом.
-         */
+        /** Обновляет время последнего доступа текущим моментом. */
         void refresh() {
             lastAccess = System.currentTimeMillis();
         }
@@ -160,7 +164,7 @@ public class TrackingResultCacheService {
          * @return {@code true}, если запись устарела
          */
         boolean expired(long threshold) {
-            return lastAccess < threshold;
+            return viewed && lastAccess < threshold;
         }
     }
 }

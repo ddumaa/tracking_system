@@ -54,5 +54,18 @@ class InvalidTrackCacheServiceTest {
         assertEquals(1, list.size());
         assertEquals("B", list.get(0).number());
     }
+
+    @Test
+    void notViewed_EntriesIgnoredUntilFirstAccess() {
+        when(applicationSettingsService.getResultCacheExpirationMs()).thenReturn(0L);
+
+        service.addInvalidTracks(1L, 1L, List.of(new InvalidTrack("A", InvalidTrackReason.DUPLICATE)));
+        service.removeExpired();
+        assertFalse(service.getInvalidTracks(1L, 1L).isEmpty(), "Cache should persist until viewed");
+
+        service.getInvalidTracks(1L, 1L);
+        service.removeExpired();
+        assertTrue(service.getInvalidTracks(1L, 1L).isEmpty(), "Cache should expire after viewing when TTL elapsed");
+    }
 }
 

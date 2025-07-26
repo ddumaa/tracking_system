@@ -131,24 +131,34 @@ public class InvalidTrackCacheService {
     }
 
     /**
-     * Контейнер с треками одного батча и временем последнего обращения.
+     * Контейнер с треками одного батча и отметкой последнего просмотра.
      */
     private static class BatchEntry {
         /** Список некорректных треков. */
         private final List<InvalidTrack> tracks = Collections.synchronizedList(new ArrayList<>());
-        /** Временная метка последнего обращения. */
+        /** Временная метка последнего просмотра кэша. */
         private volatile long lastAccess;
 
+        /** Признак того, что пользователь уже открыл список некорректных треков. */
+        private volatile boolean viewed;
+
         BatchEntry() {
-            refresh();
+            lastAccess = System.currentTimeMillis();
+            viewed = false;
         }
 
+        /**
+         * Добавляет список треков. Обновление времени будет произведено при обращении.
+         */
         void addAll(List<InvalidTrack> list) {
             tracks.addAll(list);
-            refresh();
         }
 
+        /**
+         * Возвращает копию списка и помечает запись просмотренной.
+         */
         List<InvalidTrack> snapshot() {
+            viewed = true;
             refresh();
             return new ArrayList<>(tracks);
         }
@@ -158,7 +168,7 @@ public class InvalidTrackCacheService {
         }
 
         boolean expired(long threshold) {
-            return lastAccess < threshold;
+            return viewed && lastAccess < threshold;
         }
     }
 }

@@ -41,4 +41,18 @@ class TrackingResultCacheServiceTest {
 
         verify(applicationSettingsService, times(2)).getResultCacheExpirationMs();
     }
+
+    @Test
+    void notViewed_EntriesIgnoredUntilFirstAccess() {
+        when(applicationSettingsService.getResultCacheExpirationMs()).thenReturn(0L);
+
+        service.addResult(1L, new TrackStatusUpdateDTO(1L, "A1", "ok", 1, 1));
+        service.removeExpired();
+        assertFalse(service.getResults(1L, 1L).isEmpty(), "Cache should persist until viewed");
+
+        // first access should mark entry as viewed
+        service.getResults(1L, 1L);
+        service.removeExpired();
+        assertTrue(service.getResults(1L, 1L).isEmpty(), "Cache should expire after viewing when TTL elapsed");
+    }
 }
