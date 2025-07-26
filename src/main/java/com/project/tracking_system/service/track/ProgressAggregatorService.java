@@ -27,6 +27,11 @@ public class ProgressAggregatorService {
 
     /** Состояние прогресса для каждой партии. */
     private final Map<Long, BatchProgress> progressMap = new ConcurrentHashMap<>();
+    /** Время последней отправки прогресса по каждой партии. */
+    private final Map<Long, Long> lastSentTimestamps = new ConcurrentHashMap<>();
+
+    /** Минимальный интервал между отправками одного и того же прогресса (мс). */
+    private static final long UPDATE_INTERVAL_MS = 250L;
 
     /**
      * Регистрирует новую партию для отслеживания прогресса.
@@ -37,11 +42,16 @@ public class ProgressAggregatorService {
      */
     public void registerBatch(long batchId, int total, Long userId) {
         progressMap.put(batchId, new BatchProgress(total, userId, clock));
+        // сразу отправляем начальный прогресс (0 из total)
         sendProgress(batchId);
     }
 
     /**
-     * Помечает один трек в партии обработанным и отправляет событие прогресса.
+     * Помечает один трек обработанным и при необходимости уведомляет клиента.
+     * <p>
+     * После достижения общего количества треков партия удаляется из отслеживания,
+     * а финальный прогресс отправляется без задержки.
+     * </p>
      *
      * @param batchId идентификатор партии
      */
@@ -54,6 +64,7 @@ public class ProgressAggregatorService {
         sendProgress(batchId);
         if (processed >= progress.total) {
             progressMap.remove(batchId);
+            lastSentTimestamps.remove(batchId);
         }
     }
 
@@ -88,13 +99,33 @@ public class ProgressAggregatorService {
                 .orElse(null);
     }
 
-    /** Отправляет текущий прогресс клиенту через WebSocket. */
+    /**
+     * Отправляет текущее состояние прогресса клиенту через WebSocket.
+     * <p>
+     * Обновления посылаются не чаще, чем раз в {@link #UPDATE_INTERVAL_MS} миллисекунд.
+     * Финальное состояние отправляется незамедлительно.
+     * </p>
+     */
     private void sendProgress(long batchId) {
         BatchProgress progress = progressMap.get(batchId);
         if (progress == null) {
             return;
         }
+
+        long now = clock.millis();
+        boolean finished = progress.processed.get() >= progress.total;
+        Long last = lastSentTimestamps.get(batchId);
+
+        if (!finished && last != null && now - last < UPDATE_INTERVAL_MS) {
+            return;
+        }
+
+        lastSentTimestamps.put(batchId, now);
         webSocketController.sendProgress(progress.userId, buildDto(batchId, progress));
+
+        if (finished) {
+            lastSentTimestamps.remove(batchId);
+        }
     }
 
     private TrackProcessingProgressDTO buildDto(long batchId, BatchProgress progress) {
@@ -107,7 +138,10 @@ public class ProgressAggregatorService {
         return String.format("%d:%02d", d.toMinutes(), d.toSecondsPart());
     }
 
-    /** Контейнер с счётчиками одной партии. */
+    /**
+     * Контейнер с счётчиками одной партии треков.
+     * Инкапсулирует данные, необходимые для вычисления прогресса и времени.
+     */
     private static class BatchProgress {
         final int total;
         final AtomicInteger processed = new AtomicInteger();
