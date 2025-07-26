@@ -134,4 +134,14 @@ class ProgressAggregatorServiceTest {
         TrackProcessingProgressDTO dto = service.getProgress(4L);
         assertEquals(0, dto.total());
     }
+
+    /**
+     * Проверяем, что партия без треков сразу помечается завершённой.
+     */
+    @Test
+    void zeroTotalBatch_CompletesImmediately() {
+        service.registerBatch(5L, 0, 6L);
+        verify(webSocketController).sendProgress(eq(6L), any());
+        assertNull(service.getLatestBatchId(6L));
+    }
 }

@@ -9,6 +9,7 @@ import com.project.tracking_system.service.track.TrackExcelParser;
 import com.project.tracking_system.service.track.TrackExcelRow;
 import com.project.tracking_system.service.track.TrackMeta;
 import com.project.tracking_system.service.track.TrackMetaValidationResult;
+import com.project.tracking_system.service.track.InvalidTrack;
 import com.project.tracking_system.service.track.TrackUploadGroupingService;
 import com.project.tracking_system.service.track.TrackUpdateDispatcherService;
 import com.project.tracking_system.service.track.TrackingResultCacheService;
@@ -22,6 +23,7 @@ import org.springframework.mock.web.MockMultipartFile;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -88,7 +90,10 @@ class TrackUploadProcessorServiceTest {
                 .thenReturn(new com.project.tracking_system.dto.TrackProcessingProgressDTO(1L, 1, 1, "0:00"));
         when(queueService.estimateWaitTime(1L)).thenReturn(java.time.Duration.ofSeconds(4));
 
-        processor.process(file, 1L);
+        TrackMetaValidationResult result = processor.process(file, 1L);
+
+        assertTrue(result.invalidTracks().isEmpty());
+        assertEquals(1, result.validTracks().size());
 
         verify(queueService).enqueue(anyList());
         verify(dispatcherService).dispatch(anyMap(), eq(1L));
@@ -111,11 +116,36 @@ class TrackUploadProcessorServiceTest {
                         List.of(new TrackMeta("A1", 1L, "p", true)), List.of(), null));
         when(trackUpdateEligibilityService.canUpdate(anyString(), any())).thenReturn(false);
 
-        processor.process(file, 1L);
+        TrackMetaValidationResult result = processor.process(file, 1L);
+
+        assertTrue(result.validTracks().isEmpty());
+        assertTrue(result.invalidTracks().isEmpty());
 
         verify(progressAggregatorService, never()).registerBatch(anyLong(), anyInt(), any());
         verify(queueService, never()).enqueue(anyList());
         verify(webSocketController, never()).sendTrackProcessingStarted(anyLong(), any());
         verify(webSocketController).sendUpdateStatus(eq(1L), contains("нет"), eq(false));
+    }
+
+    /**
+     * Если все строки файла некорректны, пользователю отправляется сообщение об ошибке,
+     * а прогресс завершается сразу.
+     */
+    @Test
+    void process_AllInvalid_SendsErrorAndProgress() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("f", new byte[0]);
+        when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("bad", null, null)));
+        when(trackMetaValidator.validate(anyList(), eq(1L)))
+                .thenReturn(new TrackMetaValidationResult(List.of(), List.of(new InvalidTrack("bad", "WRONG_FORMAT")), null));
+
+        TrackMetaValidationResult result = processor.process(file, 1L);
+
+        assertTrue(result.validTracks().isEmpty());
+        assertEquals(1, result.invalidTracks().size());
+
+        verify(progressAggregatorService).registerBatch(anyLong(), eq(0), eq(1L));
+        verify(webSocketController).sendUpdateStatus(eq(1L), contains("невалидны"), eq(false));
+        verify(queueService, never()).enqueue(anyList());
+        verify(dispatcherService, never()).dispatch(anyMap(), any());
     }
 }
