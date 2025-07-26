@@ -158,15 +158,6 @@
                         <strong th:text="${limitExceededMessage}"></strong>
                     </div>
 
-                    <!-- Некорректные строки -->
-                    <div th:if="${invalidTracks != null and not #lists.isEmpty(invalidTracks)}"
-                         class="alert alert-warning mt-3">
-                        <p class="mb-1">Некорректные строки файла:</p>
-                        <ul class="mb-0">
-                            <li th:each="it : ${invalidTracks}"
-                                th:text="${it.number} + ' - ' + ${it.reason}"></li>
-                        </ul>
-                    </div>
 
                 </div>
 
