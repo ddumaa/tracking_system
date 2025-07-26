@@ -10,6 +10,7 @@ import com.project.tracking_system.service.track.TrackExcelRow;
 import com.project.tracking_system.service.track.TrackMeta;
 import com.project.tracking_system.service.track.TrackMetaValidationResult;
 import com.project.tracking_system.service.track.InvalidTrack;
+import com.project.tracking_system.service.track.InvalidTrackReason;
 import com.project.tracking_system.service.track.TrackUploadGroupingService;
 import com.project.tracking_system.service.track.TrackUpdateDispatcherService;
 import com.project.tracking_system.service.track.TrackingResultCacheService;
@@ -142,7 +143,10 @@ class TrackUploadProcessorServiceTest {
         MockMultipartFile file = new MockMultipartFile("f", new byte[0]);
         when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("bad", null, null)));
         when(trackMetaValidator.validate(anyList(), eq(1L)))
-                .thenReturn(new TrackMetaValidationResult(List.of(), List.of(new InvalidTrack("bad", "WRONG_FORMAT")), null));
+                .thenReturn(new TrackMetaValidationResult(
+                        List.of(),
+                        List.of(new InvalidTrack("bad", InvalidTrackReason.WRONG_FORMAT)),
+                        null));
 
         TrackMetaValidationResult result = processor.process(file, 1L);
 
