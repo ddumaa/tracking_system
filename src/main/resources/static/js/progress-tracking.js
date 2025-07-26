@@ -1,5 +1,5 @@
 (function() {
-    "use strict";
+"use strict";
 
     /**
      * Клиент STOMP для получения уведомлений по WebSocket.
@@ -31,6 +31,26 @@
      * @type {number|null}
      */
     let timerId = null;
+
+    /**
+     * Таблица соответствия кодов причин чтению человеком.
+     * Используется при отображении некорректных строк.
+     */
+    const invalidReasonText = {
+        EMPTY_NUMBER: "Пустой номер",
+        WRONG_FORMAT: "Некорректный формат",
+        DUPLICATE: "Дубликат"
+    };
+
+    /**
+     * Возвращает текстовое описание причины или сам код,
+     * если сопоставления не найдено.
+     * @param {string} reason код причины от сервера
+     * @returns {string} человекочитаемая строка
+     */
+    function mapInvalidReason(reason) {
+        return invalidReasonText[reason] ?? reason;
+    }
 
     /**
      * Последнее отображённое состояние прогресса.
@@ -557,7 +577,7 @@
      * Создаёт строку в таблице некорректных треков и показывает контейнер.
      *
      * @param {?string} trackNumber исходный номер трека
-     * @param {string} reason причина некорректности
+     * @param {string} reason код причины некорректности
      */
     function updateInvalidTrackRow(trackNumber, reason) {
         const table = ensureInvalidTable();
@@ -566,7 +586,7 @@
         document.getElementById("invalid-tracks-container")?.classList.remove("d-none");
         const row = table.insertRow(-1);
         row.insertCell(0).textContent = trackNumber ?? "";
-        row.insertCell(1).textContent = reason;
+        row.insertCell(1).textContent = mapInvalidReason(reason);
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.service.admin.ApplicationSettingsService;
+import com.project.tracking_system.service.track.InvalidTrackReason;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,7 +33,7 @@ class InvalidTrackCacheServiceTest {
     void removeExpired_RespectsUpdatedSetting() {
         when(applicationSettingsService.getResultCacheExpirationMs()).thenReturn(100L);
 
-        service.addInvalidTracks(1L, 1L, List.of(new InvalidTrack("A", "BAD")));
+        service.addInvalidTracks(1L, 1L, List.of(new InvalidTrack("A", InvalidTrackReason.WRONG_FORMAT)));
         service.removeExpired();
         assertFalse(service.getInvalidTracks(1L, 1L).isEmpty());
 
@@ -45,8 +46,8 @@ class InvalidTrackCacheServiceTest {
 
     @Test
     void getLatestInvalidTracks_ReturnsNewestBatch() {
-        service.addInvalidTracks(1L, 1L, List.of(new InvalidTrack("A", "x")));
-        service.addInvalidTracks(1L, 2L, List.of(new InvalidTrack("B", "y")));
+        service.addInvalidTracks(1L, 1L, List.of(new InvalidTrack("A", InvalidTrackReason.EMPTY_NUMBER)));
+        service.addInvalidTracks(1L, 2L, List.of(new InvalidTrack("B", InvalidTrackReason.DUPLICATE)));
 
         List<InvalidTrack> list = service.getLatestInvalidTracks(1L);
 

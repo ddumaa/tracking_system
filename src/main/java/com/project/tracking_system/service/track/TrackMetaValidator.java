@@ -7,6 +7,7 @@ import com.project.tracking_system.utils.TrackNumberUtils;
 import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.track.InvalidTrack;
+import com.project.tracking_system.service.track.InvalidTrackReason;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,11 +40,11 @@ public class TrackMetaValidator {
     }
 
     /** Причина некорректной строки – номер отсутствует. */
-    private static final String REASON_EMPTY = "EMPTY_NUMBER";
+    private static final InvalidTrackReason REASON_EMPTY = InvalidTrackReason.EMPTY_NUMBER;
     /** Причина некорректной строки – неверный формат номера. */
-    private static final String REASON_FORMAT = "WRONG_FORMAT";
+    private static final InvalidTrackReason REASON_FORMAT = InvalidTrackReason.WRONG_FORMAT;
     /** Причина некорректной строки – дубликат в загруженных данных. */
-    private static final String REASON_DUPLICATE = "DUPLICATE";
+    private static final InvalidTrackReason REASON_DUPLICATE = InvalidTrackReason.DUPLICATE;
 
     private final TrackParcelService trackParcelService;
     private final SubscriptionService subscriptionService;
