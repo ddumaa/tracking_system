@@ -3,6 +3,8 @@ package com.project.tracking_system.controller;
 import com.project.tracking_system.dto.TrackProcessingProgressDTO;
 import com.project.tracking_system.service.track.ProgressAggregatorService;
 import com.project.tracking_system.service.track.TrackingResultCacheService;
+import com.project.tracking_system.service.track.InvalidTrackCacheService;
+import com.project.tracking_system.service.track.InvalidTrack;
 import com.project.tracking_system.dto.TrackStatusUpdateDTO;
 import com.project.tracking_system.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ public class ProgressController {
 
     private final ProgressAggregatorService progressAggregatorService;
     private final TrackingResultCacheService trackingResultCacheService;
+    private final InvalidTrackCacheService invalidTrackCacheService;
 
     /**
      * Возвращает актуальный прогресс обработки партии.
@@ -72,12 +75,37 @@ public class ProgressController {
     }
 
     /**
+     * Возвращает сохранённые некорректные строки последней партии пользователя.
+     *
+     * @param user аутентифицированный пользователь
+     * @return список некорректных треков
+     */
+    @GetMapping("/app/invalid/latest")
+    public ResponseEntity<List<InvalidTrack>> getLatestInvalid(@AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseBuilder.ok(List.of());
+        }
+        return ResponseBuilder.ok(invalidTrackCacheService.getLatestInvalidTracks(user.getId()));
+    }
+
+    /**
      * Очищает кэш результатов текущего пользователя.
      */
     @PostMapping("/app/results/clear")
     public ResponseEntity<String> clearResults(@AuthenticationPrincipal User user) {
         if (user != null) {
             trackingResultCacheService.clearResults(user.getId());
+        }
+        return ResponseBuilder.ok("cleared");
+    }
+
+    /**
+     * Очищает кэш некорректных треков текущего пользователя.
+     */
+    @PostMapping("/app/invalid/clear")
+    public ResponseEntity<String> clearInvalid(@AuthenticationPrincipal User user) {
+        if (user != null) {
+            invalidTrackCacheService.clearInvalidTracks(user.getId());
         }
         return ResponseBuilder.ok("cleared");
     }
