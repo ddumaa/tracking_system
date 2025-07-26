@@ -33,11 +33,16 @@
     let timerId = null;
 
     /**
-     * Последние значения прогресса.
-     * Хранятся для перерисовки бара при тике таймера.
+     * Последнее отображённое состояние прогресса.
+     * Используется таймером для обновления интерфейса.
+     * @type {{batchId:number|null, processed:number, total:number, elapsed:string}}
      */
-    let lastCompleted = 0;
-    let lastTotal = 0;
+    const currentProgress = {
+        batchId: null,
+        processed: 0,
+        total: 0,
+        elapsed: "0:00"
+    };
     /**
      * Контейнер текущего прогресс-бара.
      * Хранится чтобы таймер мог обновлять его без WebSocket сообщений.
@@ -63,6 +68,22 @@
      * @type {Object.<number,{total:number,processed:number,timerStart:number|null,container:HTMLElement|null,finished:boolean}>}
      */
     const batchProgress = {};
+
+    /**
+     * Сохраняет текущее состояние прогресса, если поступили новые данные.
+     * Обновление происходит только при новом batchId либо увеличении processed.
+     *
+     * @param {number} batchId идентификатор партии
+     * @param {{processed:number,total:number,elapsed:string}} data данные прогресса
+     */
+    function storeCurrentProgress(batchId, data) {
+        if (batchId !== currentProgress.batchId || data.processed > currentProgress.processed) {
+            currentProgress.batchId = batchId;
+            currentProgress.processed = data.processed;
+            currentProgress.total = data.total;
+            currentProgress.elapsed = data.elapsed;
+        }
+    }
 
     document.addEventListener("DOMContentLoaded", initProgressTracking);
 
@@ -220,10 +241,8 @@
             entry.timerStart = Date.now() - parseElapsed(data.elapsed);
         }
 
-        // Обновляем глобальные значения для корректной работы таймера
+        // Обновляем контейнер и таймеры для корректной работы
         progressContainer = entry.container || progressContainer;
-        lastCompleted = entry.processed;
-        lastTotal = entry.total;
         if (timerStart === null && entry.timerStart !== null) {
             timerStart = entry.timerStart;
         }
@@ -238,6 +257,8 @@
             total: entry.total,
             elapsed: entry.timerStart ? formatElapsed(Date.now() - entry.timerStart) : data.elapsed
         };
+
+        storeCurrentProgress(data.batchId, displayData);
 
         if (entry.container) {
             renderBar(entry.container, displayData);
@@ -367,7 +388,7 @@
         if (timerStart === null) {
             timerStart = Date.now() - offsetMs;
         }
-        timerId = setInterval(() => updateProgressBar(lastCompleted, lastTotal), 1000);
+        timerId = setInterval(updateProgressDisplay, 1000);
     }
 
     /**
@@ -381,37 +402,35 @@
     }
 
     /**
-     * Обновляет визуальный прогресс-бар текущими значениями.
-     * Также выводит прошедшее время с момента запуска таймера.
-     *
-     * @param {number} completed сколько элементов обработано
-     * @param {number} total общее количество элементов
+     * Обновляет визуальный прогресс-бар на основе текущего состояния.
+     * Используется локальным таймером для отрисовки времени.
      */
-    function updateProgressBar(completed, total) {
-        if (!progressContainer) return;
-        lastCompleted = completed;
-        lastTotal = total;
+    function updateProgressDisplay() {
+        if (progressContainer) {
+            progressContainer.classList.remove("d-none");
+            let bar = progressContainer.querySelector(".progress-bar");
+            let info = progressContainer.querySelector(".progress-info");
+            if (!bar) {
+                progressContainer.innerHTML =
+                    `<div class="progress my-3">
+                         <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${currentProgress.total}"></div>
+                     </div>
+                     <div class="progress-info small text-center"></div>`;
+                bar = progressContainer.querySelector(".progress-bar");
+                info = progressContainer.querySelector(".progress-info");
+            }
 
-        progressContainer.classList.remove("d-none");
-        let bar = progressContainer.querySelector(".progress-bar");
-        let info = progressContainer.querySelector(".progress-info");
-        if (!bar) {
-            progressContainer.innerHTML =
-                `<div class="progress my-3">
-                     <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${total}"></div>
-                 </div>
-                 <div class="progress-info small text-center"></div>`;
-            bar = progressContainer.querySelector(".progress-bar");
-            info = progressContainer.querySelector(".progress-info");
+            const percent = progressPercent(currentProgress.processed, currentProgress.total);
+            bar.style.width = percent + "%";
+            bar.setAttribute("aria-valuenow", String(currentProgress.processed));
+            currentProgress.elapsed = timerStart ? formatElapsed(Date.now() - timerStart) : "0:00";
+            info.textContent = `Обработано ${currentProgress.processed} из ${currentProgress.total} | ${currentProgress.elapsed}`;
+        } else if (progressPopup) {
+            currentProgress.elapsed = timerStart ? formatElapsed(Date.now() - timerStart) : "0:00";
+            renderPopup(currentProgress);
         }
 
-        const percent = progressPercent(completed, total);
-        bar.style.width = percent + "%";
-        bar.setAttribute("aria-valuenow", String(completed));
-        const elapsed = timerStart ? formatElapsed(Date.now() - timerStart) : "0:00";
-        info.textContent = `Обработано ${completed} из ${total} | ${elapsed}`;
-
-        if (completed >= total && total > 0) {
+        if (currentProgress.processed >= currentProgress.total && currentProgress.total > 0) {
             stopTimer();
         }
     }
