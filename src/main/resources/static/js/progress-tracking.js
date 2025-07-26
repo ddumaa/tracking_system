@@ -54,6 +54,31 @@
      * @type {HTMLElement|null}
      */
     let progressPopup = null;
+
+    /**
+     * Гарантирует наличие контейнера прогресса.
+     * Если глобальная ссылка сброшена, присваивает переданный DOM-элемент.
+     *
+     * @param {HTMLElement|null} container DOM-элемент прогресс-бара
+     * @returns {HTMLElement|null} актуальный контейнер прогресса
+     */
+    function ensureProgressContainer(container) {
+        if (!progressContainer && container) {
+            progressContainer = container;
+        }
+        return progressContainer;
+    }
+
+    /**
+     * Возвращает всплывающий блок прогресса, переинициализируя его при необходимости.
+     * @returns {HTMLElement|null} DOM-элемент всплывающего окна
+     */
+    function ensureProgressPopup() {
+        if (!progressPopup) {
+            progressPopup = document.getElementById("progressPopup");
+        }
+        return progressPopup;
+    }
     /**
      * Флаг окончания обработки текущей партии.
      * Используется чтобы не показывать уведомление несколько раз.
@@ -217,6 +242,10 @@
     function updateDisplay(data, container) {
         if (!data || data.total === 0) return;
 
+        // Пересоздаём ссылки на элементы интерфейса при необходимости
+        ensureProgressContainer(container);
+        ensureProgressPopup();
+
         // Получаем или создаём агрегированный прогресс по batchId
         if (!batchProgress[data.batchId]) {
             batchProgress[data.batchId] = {
@@ -325,7 +354,7 @@
      * @param {{processed:number,total:number,elapsed:string}} data данные прогресса
      */
     function renderPopup(data) {
-        if (!progressPopup) return;
+        if (!ensureProgressPopup()) return;
 
         // Прогресс отображаем внутри всплывающего блока без создания toast
         progressPopup.classList.remove("d-none");
@@ -445,7 +474,7 @@
             bar.setAttribute("aria-valuenow", String(currentProgress.processed));
             currentProgress.elapsed = timerStart ? formatElapsed(Date.now() - timerStart) : "0:00";
             info.textContent = `Обработано ${currentProgress.processed} из ${currentProgress.total} | ${currentProgress.elapsed}`;
-        } else if (progressPopup) {
+        } else if (ensureProgressPopup()) {
             currentProgress.elapsed = timerStart ? formatElapsed(Date.now() - timerStart) : "0:00";
             renderPopup(currentProgress);
         }
@@ -558,6 +587,8 @@
             container.innerHTML = "";
             container.classList.add("d-none");
         }
+        // Сбрасываем ссылку, чтобы новая партия могла корректно инициализировать контейнер
+        progressContainer = null;
     }
 
     /**
@@ -567,6 +598,8 @@
         if (!progressPopup) return;
         progressPopup.innerHTML = "";
         progressPopup.classList.add("d-none");
+        // После скрытия сбрасываем ссылку, чтобы элемент был заново получен при следующей партии
+        progressPopup = null;
     }
 
     /**
