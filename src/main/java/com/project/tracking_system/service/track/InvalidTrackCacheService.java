@@ -12,10 +12,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Cache service for storing invalid track rows grouped by user and batch.
+ * Сервис-кэш для хранения некорректных треков, сгруппированных по пользователям и батчам.
  * <p>
- * Allows restoring the table with errors after page reload.
- * Entries expire after a configurable TTL obtained from
+ * Позволяет восстановить таблицу ошибок после обновления страницы.
+ * Записи автоматически удаляются по истечении TTL, полученного из
  * {@link ApplicationSettingsService}.
  * </p>
  */
@@ -30,11 +30,16 @@ public class InvalidTrackCacheService {
     private final Map<Long, Map<Long, BatchEntry>> cache = new ConcurrentHashMap<>();
 
     /**
-     * Stores invalid tracks for the specified batch.
+     * Добавляет список некорректных треков для указанного батча пользователя.
+     * <p>
+     * Данные хранятся в памяти и автоматически удаляются
+     * после истечения настроенного TTL. Если переданные аргументы {@code null}
+     * или список пуст, метод ничего не делает.
+     * </p>
      *
-     * @param userId  owner identifier
-     * @param batchId batch identifier
-     * @param tracks  list of invalid tracks
+     * @param userId  идентификатор владельца
+     * @param batchId идентификатор батча
+     * @param tracks  список некорректных треков
      */
     public void addInvalidTracks(Long userId, Long batchId, List<InvalidTrack> tracks) {
         if (userId == null || batchId == null || tracks == null || tracks.isEmpty()) {
@@ -47,11 +52,15 @@ public class InvalidTrackCacheService {
     }
 
     /**
-     * Returns invalid tracks for a user's batch.
+     * Возвращает сохранённые некорректные треки конкретного батча пользователя.
+     * <p>
+     * Если запись истекла по TTL, она будет очищена при следующей
+     * плановой проверке и вернётся пустой список.
+     * </p>
      *
-     * @param userId  user identifier
-     * @param batchId batch identifier
-     * @return list of invalid tracks or empty list
+     * @param userId  идентификатор пользователя
+     * @param batchId идентификатор батча
+     * @return список некорректных треков либо пустой список
      */
     public List<InvalidTrack> getInvalidTracks(Long userId, Long batchId) {
         if (userId == null || batchId == null) {
@@ -66,10 +75,15 @@ public class InvalidTrackCacheService {
     }
 
     /**
-     * Returns the invalid tracks from the latest batch of the user.
+     * Возвращает некорректные треки последнего загруженного пользователем батча.
+     * <p>
+     * Последний батч определяется по наибольшему идентификатору,
+     * присутствующему в кэше. Если все записи истекли, будет возвращён
+     * пустой список.
+     * </p>
      *
-     * @param userId user identifier
-     * @return list of invalid tracks or empty list
+     * @param userId идентификатор пользователя
+     * @return список некорректных треков либо пустой список
      */
     public List<InvalidTrack> getLatestInvalidTracks(Long userId) {
         Map<Long, BatchEntry> byBatch = cache.get(userId);
@@ -84,9 +98,13 @@ public class InvalidTrackCacheService {
     }
 
     /**
-     * Clears all cached invalid tracks of the user.
+     * Удаляет все сохранённые некорректные треки указанного пользователя.
+     * <p>
+     * Метод можно вызвать при уходе пользователя со страницы либо вручную.
+     * Запланированная очистка также удалит записи после истечения TTL.
+     * </p>
      *
-     * @param userId identifier of the user
+     * @param userId идентификатор пользователя
      */
     public void clearInvalidTracks(Long userId) {
         if (userId != null) {
@@ -95,8 +113,11 @@ public class InvalidTrackCacheService {
     }
 
     /**
-     * Removes expired cache entries based on configured TTL.
-     * Executed every 30 seconds.
+     * Периодически удаляет записи, срок хранения которых истёк.
+     * <p>
+     * Очистка выполняется каждые 30 секунд, чтобы память не занимали
+     * устаревшие данные.
+     * </p>
      */
     @Scheduled(fixedDelay = 30_000)
     public void removeExpired() {
@@ -110,12 +131,12 @@ public class InvalidTrackCacheService {
     }
 
     /**
-     * Container storing invalid tracks of a batch and last access time.
+     * Контейнер с треками одного батча и временем последнего обращения.
      */
     private static class BatchEntry {
-        /** Stored invalid tracks. */
+        /** Список некорректных треков. */
         private final List<InvalidTrack> tracks = Collections.synchronizedList(new ArrayList<>());
-        /** Last access timestamp. */
+        /** Временная метка последнего обращения. */
         private volatile long lastAccess;
 
         BatchEntry() {
