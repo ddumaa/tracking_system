@@ -22,8 +22,8 @@ public class ApplicationSettingsService {
 
     private final ApplicationSettingsRepository repository;
 
-    /** Значение TTL кэша по умолчанию (мс). */
-    public static final long DEFAULT_CACHE_EXPIRATION_MS = 60_000L;
+    /** Значение TTL кэша по умолчанию (мс). Один час. */
+    public static final long DEFAULT_CACHE_EXPIRATION_MS = 3_600_000L;
 
     /**
      * Получить текущий интервал автообновления треков в часах.
