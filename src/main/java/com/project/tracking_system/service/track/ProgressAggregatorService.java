@@ -2,8 +2,8 @@ package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.dto.TrackProcessingProgressDTO;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -17,21 +17,38 @@ import java.util.concurrent.atomic.AtomicInteger;
  * и отправляет единые обновления клиенту через {@link WebSocketController}.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class ProgressAggregatorService {
 
     private final WebSocketController webSocketController;
     /** Поставщик времени для вычисления длительности операций. */
     private final Clock clock;
+    /**
+     * Минимальный интервал между отправками одного и того же прогресса (мс).
+     * Значение берётся из конфигурации приложения.
+     */
+    private final long updateIntervalMs;
+
+    /**
+     * Создаёт экземпляр сервиса с указанными зависимостями.
+     *
+     * @param webSocketController контроллер для отправки обновлений клиенту
+     * @param clock               абстракция времени для тестируемости
+     * @param updateIntervalMs    интервал между отправками прогресса
+     */
+    public ProgressAggregatorService(WebSocketController webSocketController,
+                                     Clock clock,
+                                     @Value("${progress.update-interval-ms:250}") long updateIntervalMs) {
+        this.webSocketController = webSocketController;
+        this.clock = clock;
+        this.updateIntervalMs = updateIntervalMs;
+    }
 
     /** Состояние прогресса для каждой партии. */
     private final Map<Long, BatchProgress> progressMap = new ConcurrentHashMap<>();
     /** Время последней отправки прогресса по каждой партии. */
     private final Map<Long, Long> lastSentTimestamps = new ConcurrentHashMap<>();
 
-    /** Минимальный интервал между отправками одного и того же прогресса (мс). */
-    private static final long UPDATE_INTERVAL_MS = 250L;
 
     /**
      * Регистрирует новую партию для отслеживания прогресса.
@@ -108,7 +125,7 @@ public class ProgressAggregatorService {
      * Отправляет агрегированный прогресс партии пользователю через WebSocket.
      * <p>
      * Метод проверяет время последней отправки и пропускает обновление,
-     * если после предыдущего прошло меньше {@link #UPDATE_INTERVAL_MS} миллисекунд.
+     * если после предыдущего прошло меньше заданного интервала в миллисекундах.
      * Исключение составляет финальное состояние: когда все треки обработаны,
      * данные отправляются сразу, а запись о времени последней отправки очищается.
      * Таким образом, клиент получает последнее обновление без задержки, а
@@ -125,7 +142,7 @@ public class ProgressAggregatorService {
         boolean finished = progress.processed.get() >= progress.total;
         Long last = lastSentTimestamps.get(batchId);
 
-        if (!finished && last != null && now - last < UPDATE_INTERVAL_MS) {
+        if (!finished && last != null && now - last < updateIntervalMs) {
             return;
         }
 

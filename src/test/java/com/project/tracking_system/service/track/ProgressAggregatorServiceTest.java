@@ -60,11 +60,12 @@ class ProgressAggregatorServiceTest {
 
     private ProgressAggregatorService service;
     private MutableClock clock;
+    private static final long INTERVAL = 250L;
 
     @BeforeEach
     void setUp() {
         clock = new MutableClock(Instant.EPOCH, ZoneId.systemDefault());
-        service = new ProgressAggregatorService(webSocketController, clock);
+        service = new ProgressAggregatorService(webSocketController, clock, INTERVAL);
     }
 
     @Test
@@ -109,11 +110,11 @@ class ProgressAggregatorServiceTest {
         service.trackProcessed(3L);
         verify(webSocketController, never()).sendProgress(eq(5L), any());
 
-        clock.plusMillis(200);
+        clock.plusMillis(INTERVAL - 50);
         service.trackProcessed(3L);
         verify(webSocketController, never()).sendProgress(eq(5L), any());
 
-        clock.plusMillis(51);
+        clock.plusMillis(50 + 1);
         service.trackProcessed(3L);
         verify(webSocketController).sendProgress(eq(5L), any());
     }
@@ -126,7 +127,7 @@ class ProgressAggregatorServiceTest {
         service.trackProcessed(4L); // first item, should be throttled
         verify(webSocketController, never()).sendProgress(eq(6L), any());
 
-        clock.plusMillis(100); // less than required interval
+        clock.plusMillis(INTERVAL / 2); // less than required interval
         service.trackProcessed(4L); // final update should send regardless of interval
         verify(webSocketController).sendProgress(eq(6L), any());
 
