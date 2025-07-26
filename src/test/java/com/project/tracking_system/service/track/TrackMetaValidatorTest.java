@@ -69,6 +69,7 @@ class TrackMetaValidatorTest {
         assertEquals(2, result.validTracks().size());
         assertTrue(result.validTracks().get(0).canSave());
         assertFalse(result.validTracks().get(1).canSave());
+        assertTrue(result.invalidTracks().isEmpty());
         assertNotNull(result.limitExceededMessage());
     }
 
@@ -92,6 +93,7 @@ class TrackMetaValidatorTest {
         TrackMetaValidationResult result = validator.validate(rows, 1L);
 
         assertEquals(2L, result.validTracks().get(0).storeId());
+        assertTrue(result.invalidTracks().isEmpty());
     }
 
     /**
@@ -113,5 +115,34 @@ class TrackMetaValidatorTest {
         TrackMetaValidationResult result = validator.validate(rows, 1L);
 
         assertEquals("375291111111", result.validTracks().get(0).phone());
+        assertTrue(result.invalidTracks().isEmpty());
+    }
+
+    /**
+     * Некорректные строки должны быть собраны отдельно.
+     */
+    @Test
+    void validate_CollectsInvalidRows() {
+        when(subscriptionService.canUploadTracks(anyLong(), anyInt())).thenReturn(2);
+        when(subscriptionService.canSaveMoreTracks(anyLong(), anyInt())).thenReturn(2);
+        when(storeService.getDefaultStoreId(1L)).thenReturn(1L);
+        when(storeService.userOwnsStore(1L, 1L)).thenReturn(true);
+        when(trackParcelService.isNewTrack(anyString(), any())).thenReturn(true);
+        when(typeDefinitionTrackPostService.detectPostalService(anyString()))
+                .thenAnswer(invocation -> {
+                    String num = invocation.getArgument(0);
+                    return num.equals("BAD") ? PostalServiceType.UNKNOWN : PostalServiceType.BELPOST;
+                });
+
+        List<TrackExcelRow> rows = List.of(
+                new TrackExcelRow("A1", "1", null),
+                new TrackExcelRow("BAD", "1", null),
+                new TrackExcelRow("A1", "1", null)
+        );
+
+        TrackMetaValidationResult result = validator.validate(rows, 1L);
+
+        assertEquals(1, result.validTracks().size());
+        assertEquals(2, result.invalidTracks().size());
     }
 }
