@@ -231,8 +231,10 @@
             startTimer(Date.now() - entry.timerStart);
         }
 
+        // Ограничиваем отображаемое значение, чтобы исключить переполнение
+        // прогресс-бара при рассинхроне данных
         const displayData = {
-            processed: entry.processed,
+            processed: Math.min(entry.processed, entry.total),
             total: entry.total,
             elapsed: entry.timerStart ? formatElapsed(Date.now() - entry.timerStart) : data.elapsed
         };
@@ -271,7 +273,7 @@
             bar = container.querySelector(".progress-bar");
             info = container.querySelector(".progress-info");
         }
-        const percent = Math.floor(data.processed / data.total * 100);
+        const percent = progressPercent(data.processed, data.total);
         bar.style.width = percent + "%";
         bar.setAttribute("aria-valuenow", String(data.processed));
         info.textContent = `Обработано ${data.processed} из ${data.total} | ${data.elapsed}`;
@@ -287,7 +289,7 @@
         // Прогресс отображаем внутри всплывающего блока без создания toast
         progressPopup.classList.remove("d-none");
 
-        const percent = Math.floor(data.processed / data.total * 100);
+        const percent = progressPercent(data.processed, data.total);
         progressPopup.innerHTML =
             `<div class="progress-text">
                  <span>Обработано ${data.processed} из ${data.total}</span>
@@ -403,7 +405,7 @@
             info = progressContainer.querySelector(".progress-info");
         }
 
-        const percent = total > 0 ? Math.floor(completed / total * 100) : 0;
+        const percent = progressPercent(completed, total);
         bar.style.width = percent + "%";
         bar.setAttribute("aria-valuenow", String(completed));
         const elapsed = timerStart ? formatElapsed(Date.now() - timerStart) : "0:00";
@@ -490,6 +492,20 @@
         const minutes = parseInt(parts[0], 10) || 0;
         const seconds = parseInt(parts[1], 10) || 0;
         return (minutes * 60 + seconds) * 1000;
+    }
+
+    /**
+     * Рассчитывает процент выполнения на основе обработанных элементов.
+     * Используется в разных частях модуля для отрисовки прогресс-бара.
+     *
+     * @param {number} processed сколько элементов обработано
+     * @param {number} total общее количество элементов
+     * @returns {number} значение процента от 0 до 100
+     */
+    function progressPercent(processed, total) {
+        if (total <= 0) return 0;
+        const clamped = Math.min(processed, total);
+        return Math.floor(clamped / total * 100);
     }
 
     /**
