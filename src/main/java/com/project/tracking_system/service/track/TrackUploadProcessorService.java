@@ -13,6 +13,7 @@ import com.project.tracking_system.service.track.TrackUpdateEligibilityService;
 import com.project.tracking_system.service.track.TrackUploadGroupingService;
 import com.project.tracking_system.service.track.TrackUpdateDispatcherService;
 import com.project.tracking_system.service.track.TrackingResultCacheService;
+import com.project.tracking_system.service.track.InvalidTrackCacheService;
 import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.dto.TrackStatusUpdateDTO;
 import com.project.tracking_system.dto.TrackProcessingProgressDTO;
@@ -55,6 +56,8 @@ public class TrackUploadProcessorService {
     private final TrackUpdateDispatcherService dispatcherService;
     /** Кэш результатов обработки для восстановления таблицы. */
     private final TrackingResultCacheService trackingResultCacheService;
+    /** Кэш некорректных треков для восстановления таблицы. */
+    private final InvalidTrackCacheService invalidTrackCacheService;
 
     /**
      * Принимает Excel-файл, валидирует строки и конвертирует их
@@ -89,6 +92,8 @@ public class TrackUploadProcessorService {
             TrackMetaValidationResult validationResult = trackMetaValidator.validate(rows, userId);
             invalid = validationResult.invalidTracks();
             limitMessage = validationResult.limitExceededMessage();
+            // Сохраняем список некорректных строк для возможного восстановления таблицы
+            invalidTrackCacheService.addInvalidTracks(userId, batchId, invalid);
 
             metas = validationResult.validTracks().stream()
                     .filter(m -> trackUpdateEligibilityService.canUpdate(m.number(), userId))
