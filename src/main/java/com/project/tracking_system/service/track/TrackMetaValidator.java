@@ -51,15 +51,20 @@ public class TrackMetaValidator {
     /** Сервис определения почтовой службы трека. */
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
 
-    /**
-     * Валидирует сырые строки и преобразует их в {@link TrackMeta}.
-     * Метод выступает в роли координатора, собирая данные,
-     * применяя лимиты и формируя итоговый {@link TrackMetaValidationResult}.
-     *
-     * @param rows   строки из XLS-файла
-     * @param userId идентификатор пользователя, не {@code null}
-     * @return результат валидации
-     */
+/**
+ * Валидирует сырые строки и преобразует их в {@link TrackMeta}.
+ * <p>
+ * Процесс включает нормализацию номера, проверку принадлежности
+ * почтовой службе, устранение дубликатов и применение лимитов
+ * пользователя. Все некорректные строки собираются в список
+ * {@link InvalidTrack} и вместе с успешно обработанными номерами
+ * возвращаются в {@link TrackMetaValidationResult}.
+ * </p>
+ *
+ * @param rows   строки из XLS-файла
+ * @param userId идентификатор пользователя, не {@code null}
+ * @return результат валидации
+ */
     public TrackMetaValidationResult validate(List<TrackExcelRow> rows, Long userId) {
         Objects.requireNonNull(userId, "User ID не может быть null");
         StringBuilder messageBuilder = new StringBuilder();
