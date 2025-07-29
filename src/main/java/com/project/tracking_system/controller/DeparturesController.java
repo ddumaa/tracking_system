@@ -162,6 +162,7 @@ public class DeparturesController {
         model.addAttribute("bulkUpdateButtonDTO",
                 new BulkUpdateButtonDTO(userService.isShowBulkUpdateButton(user.getId())));
         model.addAttribute("sortedParcels", sortedParcels);
+        // Передаём текущий порядок сортировки во вью, чтобы отобразить правильную стрелку на кнопке
         model.addAttribute("sortOrder", sortOrder);
 
         return "app/departures";
