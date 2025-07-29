@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -201,6 +202,30 @@ public class TrackParcelService {
         List<TrackParcel> trackParcels = trackParcelRepository.findByUserId(userId);
         ZoneId userZone = userService.getUserZone(userId);
         return trackParcels.stream()
+                .map(track -> new TrackParcelDTO(track, userZone))
+                .toList();
+    }
+
+    /**
+     * Получить все посылки пользователя, отсортированные по дате создания.
+     * <p>
+     * Порядок сортировки задаётся параметром {@code sortOrder} и может быть
+     * восходящим ({@code "asc"}) или нисходящим ({@code "desc"}).
+     * </p>
+     *
+     * @param userId    идентификатор пользователя
+     * @param sortOrder порядок сортировки: {@code "asc"} или {@code "desc"}
+     * @return список отсортированных посылок
+     */
+    @Transactional(readOnly = true)
+    public List<TrackParcelDTO> getParcelsSortedByDate(Long userId, String sortOrder) {
+        Sort sort = Sort.by("timestamp");
+        sort = "asc".equalsIgnoreCase(sortOrder) ? sort.ascending() : sort.descending();
+
+        List<TrackParcel> parcels = trackParcelRepository.findByUserId(userId, sort);
+        ZoneId userZone = userService.getUserZone(userId);
+
+        return parcels.stream()
                 .map(track -> new TrackParcelDTO(track, userZone))
                 .toList();
     }

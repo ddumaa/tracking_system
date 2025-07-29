@@ -4,6 +4,7 @@ import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.GlobalStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -15,6 +16,15 @@ import java.util.List;
 public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> {
 
     List<TrackParcel> findByUserId(Long userId);
+
+    /**
+     * Найти все посылки пользователя с указанным порядком сортировки по дате.
+     *
+     * @param userId идентификатор пользователя
+     * @param sort   настройка порядка сортировки
+     * @return отсортированный список посылок
+     */
+    List<TrackParcel> findByUserId(Long userId, Sort sort);
 
     TrackParcel findByNumberAndUserId(String number, Long userId);
 
