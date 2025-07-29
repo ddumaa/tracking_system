@@ -77,8 +77,9 @@ function setActiveProfileTab(href) {
 
 /**
  * Инициализирует переключение сортировки по дате.
- * При клике на элемент с ID 'sortDateBtn' изменяет параметр 'sortOrder'
- * текущего URL и перезагружает страницу.
+ * Нажатие на кнопку с ID 'sortDateBtn' меняет параметр 'sortOrder',
+ * выполняет запрос по обновлённому URL и заменяет тело таблицы без
+ * полной перезагрузки страницы.
  */
 function initSortDateToggle() {
     const sortBtn = document.getElementById('sortDateBtn');
@@ -92,7 +93,39 @@ function initSortDateToggle() {
         const newOrder = currentOrder === 'asc' ? 'desc' : 'asc';
         url.searchParams.set('sortOrder', newOrder);
 
-        window.location.href = url.toString();
+        fetch(url.toString(), { method: 'GET', cache: 'no-store' })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Ошибка загрузки данных');
+                }
+                return response.text();
+            })
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newTableBody = doc.querySelector('tbody')?.innerHTML || '';
+
+                if (newTableBody) {
+                    const currentTbody = document.querySelector('tbody');
+                    if (currentTbody) {
+                        currentTbody.innerHTML = newTableBody;
+                    }
+                }
+
+                // Обновляем иконку сортировки, чтобы отразить текущее состояние
+                const newIcon = doc.querySelector('#sortDateBtn i');
+                const currentIcon = sortBtn.querySelector('i');
+                if (newIcon && currentIcon) {
+                    currentIcon.className = newIcon.className;
+                }
+
+                // Сохраняем новый URL в истории
+                window.history.replaceState({}, '', url);
+                debugLog('✅ Таблица отсортирована!');
+            })
+            .catch(error => {
+                console.error('❌ Ошибка загрузки отсортированных данных!', error);
+            });
     });
 }
 
@@ -812,10 +845,17 @@ function connectWebSocket() {
     stompClient.activate();
 }
 
+/**
+ * Загружает актуальные данные таблицы.
+ * Запрос выполняется по текущему URL, чтобы сохранить все параметры
+ * фильтрации и сортировки.
+ */
 function reloadParcelTable() {
     debugLog("🔄 AJAX-запрос для обновления таблицы...");
 
-    fetch("/app/departures", { method: "GET", cache: "no-store" })
+    const url = new URL(window.location.href);
+
+    fetch(url.toString(), { method: "GET", cache: "no-store" })
         .then(response => {
             if (!response.ok) {
                 throw new Error("Ошибка загрузки данных");
