@@ -54,13 +54,15 @@ public class DeparturesController {
     private final TrackViewService trackViewService;
 
     /**
-     * Метод для отображения списка отслеживаемых посылок пользователя с возможностью фильтрации по магазину и статусу.
+     * Метод для отображения списка отслеживаемых посылок пользователя с
+     * возможностью фильтрации по магазину, статусу и сортировки по дате.
      *
      * @param storeId      (опционально) ID магазина, если нужно показать посылки только из одного магазина.
      * @param statusString строковое представление статуса для фильтрации.
      * @param query        строка поиска по номеру посылки или телефону.
      * @param page         номер страницы для пагинации.
      * @param size         размер страницы.
+     * @param sortOrder    порядок сортировки по дате (asc/desc).
      * @param model        модель для передачи данных на представление.
      * @param user         текущий пользователь.
      * @return имя представления для отображения истории.
@@ -72,6 +74,7 @@ public class DeparturesController {
             @RequestParam(value = "query", required = false) String query, // Поиск по номеру или телефону
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size,
+            @RequestParam(value = "sortOrder", defaultValue = "desc") String sortOrder,
             Model model,
             @AuthenticationPrincipal User user) {
 
@@ -141,6 +144,9 @@ public class DeparturesController {
             dto.setIconHtml(statusTrackService.getIcon(statusEnum)); // Передаем Enum в сервис для получения иконки
         });
 
+        // Получаем полный список посылок, отсортированный по дате
+        List<TrackParcelDTO> sortedParcels = trackParcelService.getParcelsSortedByDate(userId, sortOrder);
+
         log.debug("Передача атрибутов в модель: stores={}, storeId={}, trackParcelDTO={}, currentPage={}, totalPages={}, size={}", stores, storeId, trackParcelPage.getContent(), trackParcelPage.getNumber(), trackParcelPage.getTotalPages(), size);
 
         // Добавляем атрибуты в модель
@@ -155,6 +161,8 @@ public class DeparturesController {
         model.addAttribute("trackParcelNotification", trackParcelPage.isEmpty() ? "Отслеживаемых посылок нет" : null);
         model.addAttribute("bulkUpdateButtonDTO",
                 new BulkUpdateButtonDTO(userService.isShowBulkUpdateButton(user.getId())));
+        model.addAttribute("sortedParcels", sortedParcels);
+        model.addAttribute("sortOrder", sortOrder);
 
         return "app/departures";
     }
