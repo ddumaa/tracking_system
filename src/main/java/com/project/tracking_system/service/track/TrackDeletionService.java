@@ -5,6 +5,7 @@ import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.analytics.DeliveryHistoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,7 @@ public class TrackDeletionService {
      *
      * @param numbers список номеров посылок
      * @param userId  идентификатор пользователя
+     * @throws EntityNotFoundException если посылки не найдены
      */
     @Transactional
     public void deleteByNumbersAndUserId(List<String> numbers, Long userId) {
@@ -35,7 +37,7 @@ public class TrackDeletionService {
 
         if (parcelsToDelete.isEmpty()) {
             log.warn("❌ Попытка удаления несуществующих посылок. userId={}, номера={}", userId, numbers);
-            throw new RuntimeException("Нет посылок для удаления.");
+            throw new EntityNotFoundException("Нет посылок для удаления");
         }
 
         // Обнуляем связь с DeliveryHistory, чтобы Hibernate не пытался сохранять зависимую сущность

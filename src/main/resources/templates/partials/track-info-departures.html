@@ -1,5 +1,8 @@
 <div>
     <a th:text="${itemNumber}"></a>
+    <p th:if="${nextUpdateTime}" class="text-warning">
+        Следующее обновление возможно после <span th:text="${nextUpdateTime}"></span>
+    </p>
     <table class="table mt-3 table-striped">
         <thead>
         <tr>

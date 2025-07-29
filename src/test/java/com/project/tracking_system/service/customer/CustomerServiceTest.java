@@ -4,15 +4,9 @@ import com.project.tracking_system.entity.Customer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import com.project.tracking_system.repository.CustomerRepository;
-import com.project.tracking_system.repository.TrackParcelRepository;
-import com.project.tracking_system.service.SubscriptionService;
-import com.project.tracking_system.service.user.UserSettingsService;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import com.project.tracking_system.service.customer.CustomerTransactionalService;
-import com.project.tracking_system.service.customer.CustomerStatsService;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.Optional;
@@ -28,17 +22,7 @@ import static org.mockito.Mockito.*;
 class CustomerServiceTest {
 
     @Mock
-    private CustomerRepository customerRepository; // not used in tests but required for service construction
-    @Mock
-    private TrackParcelRepository trackParcelRepository; // not used
-    @Mock
     private CustomerTransactionalService transactionalService;
-    @Mock
-    private CustomerStatsService customerStatsService; // not used
-    @Mock
-    private SubscriptionService subscriptionService; // not used
-    @Mock
-    private UserSettingsService userSettingsService; // not used
 
     @InjectMocks
     private CustomerService service;

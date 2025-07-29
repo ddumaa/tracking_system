@@ -31,6 +31,10 @@
                 <div th:if="${generalError}" class="alert alert-danger mb-4">
                     <p th:text="${generalError}" class="mb-0"></p>
                 </div>
+                <div th:if="${successMessage}" class="alert alert-success mb-4">
+                    <p th:text="${successMessage}" class="mb-0"></p>
+                </div>
+                <div id="progressContainer" class="w-100 d-none mb-3"></div>
 
                 <!-- Форма поиска посылки и загрузка файла -->
                 <div class="card shadow-sm p-4 rounded-4">
@@ -124,17 +128,22 @@
                 </div>
 
                 <!-- Результаты загрузки -->
-                <div th:if="${trackingResults}" class="card shadow-sm p-4 rounded-4">
-                    <h4 class="text-center">Последние обновления</h4>
+                <div id="tracking-results-container"
+                     class="card shadow-sm p-4 rounded-4 d-none">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h4 class="text-center flex-grow-1 mb-0">Последние обновления</h4>
+                        <button id="tracking-results-close" type="button" class="btn-close ms-2" aria-label="Закрыть"></button>
+                    </div>
                     <div class="table-responsive">
-                        <table class="table table-striped">
+                        <!-- Таблица содержит последние обновления по загруженным трекам -->
+                        <table id="tracking-results-table" class="table table-striped">
                             <thead>
                             <tr>
                                 <th>Номер посылки</th>
                                 <th>Статус</th>
                             </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="tracking-results-body">
                             <tr th:each="result : ${trackingResults}">
                                 <td th:text="${result.trackingNumber}" class="fw-bold"></td>
                                 <td th:text="${result.status}" class="fw-semibold"></td>
@@ -149,10 +158,32 @@
                         <strong th:text="${limitExceededMessage}"></strong>
                     </div>
 
+
+                </div>
+
+                <!-- Контейнер для некорректных треков, наполняемый через WebSocket -->
+                <div id="invalid-tracks-container" class="card shadow-sm p-4 rounded-4 d-none mt-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h4 class="text-center flex-grow-1 mb-0">Некорректные строки</h4>
+                        <button id="invalid-tracks-close" type="button" class="btn-close ms-2" aria-label="Закрыть"></button>
+                    </div>
+                    <div class="table-responsive">
+                        <table id="invalid-tracks-table" class="table table-striped">
+                            <thead>
+                            <tr>
+                                <th>Номер посылки</th>
+                                <th>Причина</th>
+                            </tr>
+                            </thead>
+                            <tbody id="invalid-tracks-body"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </main>
+<div layout:fragment="afterFooter">
+</div>
 </body>
 </html>

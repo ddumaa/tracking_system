@@ -4,6 +4,7 @@ import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.GlobalStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -15,6 +16,15 @@ import java.util.List;
 public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> {
 
     List<TrackParcel> findByUserId(Long userId);
+
+    /**
+     * Найти все посылки пользователя с указанным порядком сортировки по дате.
+     *
+     * @param userId идентификатор пользователя
+     * @param sort   настройка порядка сортировки
+     * @return отсортированный список посылок
+     */
+    List<TrackParcel> findByUserId(Long userId, Sort sort);
 
     TrackParcel findByNumberAndUserId(String number, Long userId);
 
@@ -140,5 +150,49 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
      */
     @Query("SELECT DISTINCT t.store.name FROM TrackParcel t WHERE t.customer.id = :customerId")
     List<String> findDistinctStoreNamesByCustomerId(@Param("customerId") Long customerId);
+
+    /**
+     * Подсчитать количество посылок покупателя в указанном статусе.
+     *
+     * @param customerId идентификатор покупателя
+     * @param status     целевой статус
+     * @return количество посылок
+     */
+    @Query("SELECT COUNT(t) FROM TrackParcel t WHERE t.customer.id = :customerId AND t.status = :status")
+    int countByCustomerIdAndStatus(@Param("customerId") Long customerId,
+                                   @Param("status") GlobalStatus status);
+
+    /**
+     * Поиск посылок по номеру или телефону покупателя.
+     * <p>
+     * Выполняется частичное совпадение номера трека и номера телефона
+     * (последний хранится без форматирования).
+     * </p>
+     *
+     * @param storeIds    магазины владельца
+     * @param userId      идентификатор пользователя
+     * @param status      фильтр статуса (может быть {@code null})
+     * @param query       фрагмент трек-номера
+     * @param phoneDigits цифры телефона без форматирования
+     * @param pageable    настройки пагинации
+     * @return страница посылок, удовлетворяющих условиям
+     */
+    @Query("""
+            SELECT t FROM TrackParcel t
+            LEFT JOIN t.customer c
+            WHERE t.user.id = :userId
+              AND t.store.id IN :storeIds
+              AND (:status IS NULL OR t.status = :status)
+              AND (
+                    LOWER(t.number) LIKE LOWER(CONCAT('%', :query, '%'))
+                    OR (:phoneDigits <> '' AND c.phone LIKE CONCAT('%', :phoneDigits, '%'))
+              )
+            """)
+    Page<TrackParcel> searchByNumberOrPhone(@Param("storeIds") List<Long> storeIds,
+                                            @Param("userId") Long userId,
+                                            @Param("status") GlobalStatus status,
+                                            @Param("query") String query,
+                                            @Param("phoneDigits") String phoneDigits,
+                                            Pageable pageable);
 
 }

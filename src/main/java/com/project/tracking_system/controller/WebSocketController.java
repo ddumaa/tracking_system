@@ -1,6 +1,11 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.entity.UpdateResult;
+import com.project.tracking_system.dto.TrackProcessingStartedDTO;
+import com.project.tracking_system.dto.BelPostBatchStartedDTO;
+import com.project.tracking_system.dto.TrackStatusUpdateDTO;
+import com.project.tracking_system.dto.BelPostBatchFinishedDTO;
+import com.project.tracking_system.dto.TrackProcessingProgressDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -45,6 +50,62 @@ public class WebSocketController {
     public void sendDetailUpdateStatus(Long userId, UpdateResult updateResult) {
         getDebug(userId, updateResult);
         messagingTemplate.convertAndSend("/topic/status/" + userId, updateResult);
+    }
+
+    /**
+     * Уведомляет пользователя о начале пакетной обработки треков.
+     *
+     * @param userId     идентификатор пользователя
+     * @param startedDto информация о количестве треков,
+     *                   предполагаемом времени обработки и времени ожидания
+     */
+    public void sendTrackProcessingStarted(Long userId, TrackProcessingStartedDTO startedDto) {
+        log.debug("\uD83D\uDCE1 WebSocket старт обработки для {}: {}", userId, startedDto);
+        messagingTemplate.convertAndSend("/topic/track-processing-started/" + userId, startedDto);
+    }
+
+    /**
+     * Отправляет событие о начале обработки партии треков Белпочты.
+     *
+     * @param userId идентификатор пользователя
+     * @param dto    данные о партии
+     */
+    public void sendBelPostBatchStarted(Long userId, BelPostBatchStartedDTO dto) {
+        log.debug("\uD83D\uDCE1 WebSocket партия {} начата для {}: {}", dto.batchId(), userId, dto);
+        messagingTemplate.convertAndSend("/topic/belpost/batch-started/" + userId, dto);
+    }
+
+    /**
+     * Отправляет информацию о результате обработки одного трека Белпочты.
+     *
+     * @param userId идентификатор пользователя
+     * @param dto    информация об обработанном треке
+     */
+    public void sendBelPostTrackProcessed(Long userId, TrackStatusUpdateDTO dto) {
+        log.debug("\uD83D\uDCE1 WebSocket обработан трек {} партии {}: {}", dto.trackingNumber(), dto.batchId(), dto);
+        messagingTemplate.convertAndSend("/topic/belpost/track-processed/" + userId, dto);
+    }
+
+    /**
+     * Отправляет сообщение о завершении обработки партии треков Белпочты.
+     *
+     * @param userId идентификатор пользователя
+     * @param dto    финальная статистика по партии, включая время обработки
+     */
+    public void sendBelPostBatchFinished(Long userId, BelPostBatchFinishedDTO dto) {
+        log.debug("\uD83D\uDCE1 WebSocket партия {} завершена для {}: {}", dto.batchId(), userId, dto);
+        messagingTemplate.convertAndSend("/topic/belpost/batch-finished/" + userId, dto);
+    }
+
+    /**
+     * Передаёт текущий прогресс обработки партии треков.
+     *
+     * @param userId идентификатор пользователя
+     * @param dto    данные о прогрессе обработки
+     */
+    public void sendProgress(Long userId, TrackProcessingProgressDTO dto) {
+        log.debug("\uD83D\uDCE1 WebSocket прогресс партии {} для {}: {}", dto.batchId(), userId, dto);
+        messagingTemplate.convertAndSend("/topic/progress/" + userId, dto);
     }
 
     private static void getDebug(Long userId, UpdateResult updateResult) {

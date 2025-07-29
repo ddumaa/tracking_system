@@ -51,12 +51,81 @@ function copyToClipboard(text) {
 }
 
 /**
+ * Инициализирует кнопку копирования ссылки на Telegram-бота.
+ * Находит кнопку по ID, читает URL из атрибута data-link
+ * и регистрирует обработчик, вызывающий {@link copyToClipboard}.
+ */
+function initTelegramLinkCopy() {
+    const copyBtn = document.getElementById('telegramLinkCopyBtn');
+    if (!copyBtn) return;
+
+    const link = copyBtn.dataset.link;
+    if (!link) return;
+
+    copyBtn.addEventListener('click', () => copyToClipboard(link));
+}
+
+/**
  * Устанавливает активную вкладку профиля во всех меню.
  * @param {string} href - Идентификатор вкладки (href вида '#v-pills-home').
  */
 function setActiveProfileTab(href) {
     document.querySelectorAll('.profile-tab-menu a').forEach(link => {
         link.classList.toggle('active', link.getAttribute('href') === href);
+    });
+}
+
+/**
+ * Инициализирует переключение сортировки по дате.
+ * Нажатие на кнопку с ID 'sortDateBtn' меняет параметр 'sortOrder',
+ * выполняет запрос по обновлённому URL и заменяет тело таблицы без
+ * полной перезагрузки страницы.
+ */
+function initSortDateToggle() {
+    const sortBtn = document.getElementById('sortDateBtn');
+    if (!sortBtn) return;
+
+    sortBtn.addEventListener('click', function (event) {
+        event.preventDefault();
+
+        const url = new URL(window.location.href);
+        const currentOrder = url.searchParams.get('sortOrder');
+        const newOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+        url.searchParams.set('sortOrder', newOrder);
+
+        fetch(url.toString(), { method: 'GET', cache: 'no-store' })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Ошибка загрузки данных');
+                }
+                return response.text();
+            })
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newTableBody = doc.querySelector('tbody')?.innerHTML || '';
+
+                if (newTableBody) {
+                    const currentTbody = document.querySelector('tbody');
+                    if (currentTbody) {
+                        currentTbody.innerHTML = newTableBody;
+                    }
+                }
+
+                // Обновляем иконку сортировки, чтобы отразить текущее состояние
+                const newIcon = doc.querySelector('#sortDateBtn i');
+                const currentIcon = sortBtn.querySelector('i');
+                if (newIcon && currentIcon) {
+                    currentIcon.className = newIcon.className;
+                }
+
+                // Сохраняем новый URL в истории
+                window.history.replaceState({}, '', url);
+                debugLog('✅ Таблица отсортирована!');
+            })
+            .catch(error => {
+                console.error('❌ Ошибка загрузки отсортированных данных!', error);
+            });
     });
 }
 
@@ -776,10 +845,17 @@ function connectWebSocket() {
     stompClient.activate();
 }
 
+/**
+ * Загружает актуальные данные таблицы.
+ * Запрос выполняется по текущему URL, чтобы сохранить все параметры
+ * фильтрации и сортировки.
+ */
 function reloadParcelTable() {
     debugLog("🔄 AJAX-запрос для обновления таблицы...");
 
-    fetch("/app/departures", { method: "GET", cache: "no-store" })
+    const url = new URL(window.location.href);
+
+    fetch(url.toString(), { method: "GET", cache: "no-store" })
         .then(response => {
             if (!response.ok) {
                 throw new Error("Ошибка загрузки данных");
@@ -897,8 +973,9 @@ async function loadStores() {
 
     stores.forEach(store => {
         const row = document.createElement("tr");
+        // Первый столбец содержит идентификатор магазина и выравнивается по центру
         row.innerHTML = `
-            <td>${store.id}</td>
+            <td class="text-center store-id">${store.id}</td>
             <td class="d-flex align-items-center">
                 <input type="radio" name="defaultStore"
                        class="default-store-radio me-2"
@@ -1075,8 +1152,9 @@ function addNewStore() {
     const tempId = `new-${Date.now()}`; // Уникальный ID для нового магазина
 
     const row = document.createElement("tr");
+    // Строка новой записи с центровкой ID для согласованности с таблицей
     row.innerHTML = `
-        <td>—</td>
+        <td class="text-center store-id">—</td>
         <td>
             <input type="text" class="form-control store-name-input" id="store-name-${tempId}" placeholder="Введите название">
         </td>
@@ -1298,6 +1376,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // === Всплывающие подсказки (tooltips) ===
     enableTooltips();
+
+    // Кнопка копирования ссылки на Telegram-бота
+    initTelegramLinkCopy();
 
     /// Авто-скрытие уведомлений
     setTimeout(() => {
@@ -1595,11 +1676,19 @@ document.addEventListener("DOMContentLoaded", function () {
             // Обновляем URL, меняя параметр "size"
             const currentUrl = new URL(window.location.href);
             currentUrl.searchParams.set("size", size);
+            if (searchInput && searchInput.value.trim()) {
+                currentUrl.searchParams.set("query", searchInput.value.trim());
+            }
 
             // Перенаправляем пользователя на обновленный URL
+
             window.location.href = currentUrl.toString();
         });
     });
+
+    // === Сортировка по дате ===
+    // Инициализируем обработчик для переключения параметра sortOrder
+    initSortDateToggle();
 
     const selectAllCheckbox = document.getElementById("selectAllCheckbox");
 
@@ -1684,6 +1773,8 @@ document.addEventListener("DOMContentLoaded", function () {
     // Получаем элементы фильтров: статус и магазин
     const statusFilterDropdown  = document.getElementById("status");
     const storeFilterDropdown = document.getElementById("storeId");
+    const searchInput = document.getElementById("search");
+    const searchBtn = document.getElementById("searchBtn");
 
     // Проверяем, существует ли фильтр по статусу (если нет - выходим)
     if (!statusFilterDropdown) return;
@@ -1702,10 +1793,12 @@ document.addEventListener("DOMContentLoaded", function () {
     const currentUrl = new URL(window.location.href);
     const currentStatus = currentUrl.searchParams.get("status");
     const currentStore = currentUrl.searchParams.get("storeId");
+    const currentQuery = currentUrl.searchParams.get("query");
 
     // Устанавливаем значения селекторов, если в URL были параметры
     if (currentStatus) statusFilterDropdown.value = currentStatus;
     if (currentStore && storeFilterDropdown) storeFilterDropdown.value = currentStore;
+    if (currentQuery && searchInput) searchInput.value = currentQuery;
 
     /**
      * Функция применения фильтров.
@@ -1716,6 +1809,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function applyFilters() {
         const selectedStatus = statusFilterDropdown.value;
         const selectedStore = storeFilterDropdown ? storeFilterDropdown.value : null;
+        const query = searchInput ? searchInput.value.trim() : "";
         const currentUrl = new URL(window.location.href);
 
         if (selectedStatus) {
@@ -1730,7 +1824,13 @@ document.addEventListener("DOMContentLoaded", function () {
             currentUrl.searchParams.delete("storeId");
         }
 
-        debugLog("✅ Фильтр применён: статус =", selectedStatus, "магазин =", selectedStore || "нет выбора");
+        if (query) {
+            currentUrl.searchParams.set("query", query);
+        } else {
+            currentUrl.searchParams.delete("query");
+        }
+
+        debugLog("✅ Фильтр применён: статус =", selectedStatus, "магазин =", selectedStore || "нет выбора", "query=", query);
 
         window.location.href = currentUrl.toString();
     }
@@ -1739,6 +1839,16 @@ document.addEventListener("DOMContentLoaded", function () {
     statusFilterDropdown.addEventListener("change", applyFilters);
     if (storeFilterDropdown) {
         storeFilterDropdown.addEventListener("change", applyFilters);
+    }
+
+    if (searchBtn && searchInput) {
+        searchBtn.addEventListener("click", applyFilters);
+        searchInput.addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                applyFilters();
+            }
+        });
     }
 
     document.body.addEventListener("change", function (event) {

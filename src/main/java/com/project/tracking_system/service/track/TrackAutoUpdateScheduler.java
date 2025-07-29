@@ -1,5 +1,6 @@
 package com.project.tracking_system.service.track;
 
+import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.TrackParcelRepository;
@@ -7,11 +8,21 @@ import com.project.tracking_system.repository.UserSubscriptionRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.dto.TrackingResultAdd;
+import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
+import com.project.tracking_system.service.belpost.QueuedTrack;
+import com.project.tracking_system.service.track.TrackSource;
+import com.project.tracking_system.service.track.TrackMeta;
+import com.project.tracking_system.service.track.TrackUpdateService;
+import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
+import com.project.tracking_system.service.admin.ApplicationSettingsService;
+import java.util.ArrayList;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 /**
@@ -31,6 +42,9 @@ public class TrackAutoUpdateScheduler {
     private final SubscriptionService subscriptionService;
     private final UserService userService;
     private final TrackUpdateService trackUpdateService;
+    private final BelPostTrackQueueService belPostTrackQueueService;
+    private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
+    private final ApplicationSettingsService applicationSettingsService;
 
     /**
      * Запускает автообновление треков для всех подходящих пользователей.
@@ -69,38 +83,70 @@ public class TrackAutoUpdateScheduler {
     @Transactional
     protected void updateUserTracks(Long userId) {
         List<TrackParcel> parcels = trackParcelRepository.findByUserId(userId);
-        List<TrackParcel> toUpdate = parcels.stream()
+        int interval = applicationSettingsService.getTrackUpdateIntervalHours();
+        ZonedDateTime threshold = ZonedDateTime.now(ZoneOffset.UTC).minusHours(interval);
+
+        List<TrackParcel> active = parcels.stream()
                 .filter(p -> !p.getStatus().isFinal())
+                .filter(p -> p.getLastUpdate() == null || p.getLastUpdate().isBefore(threshold))
                 .toList();
 
-        if (toUpdate.isEmpty()) {
+        if (active.isEmpty()) {
             return;
         }
 
-        int allowed = subscriptionService.canUpdateTracks(userId, toUpdate.size());
+        int allowed = subscriptionService.canUpdateTracks(userId, active.size());
         if (allowed <= 0) {
             log.debug("Лимит автообновлений исчерпан для userId={}", userId);
             return;
         }
 
-        List<TrackMeta> metas = toUpdate.stream()
-                .limit(Math.min(allowed, toUpdate.size()))
-                .map(p -> new TrackMeta(
-                        p.getNumber(),
-                        p.getStore().getId(),
+        List<TrackParcel> limited = active.subList(0, Math.min(allowed, active.size()));
+
+        List<TrackMeta> others = new ArrayList<>();
+        List<QueuedTrack> belpostTracks = new ArrayList<>();
+        long batchId = System.currentTimeMillis();
+
+        for (TrackParcel parcel : limited) {
+            PostalServiceType type = parcel.getDeliveryHistory() != null
+                    ? parcel.getDeliveryHistory().getPostalService()
+                    : typeDefinitionTrackPostService.detectPostalService(parcel.getNumber());
+
+            if (type == PostalServiceType.BELPOST) {
+                belpostTracks.add(new QueuedTrack(
+                        parcel.getNumber(),
+                        userId,
+                        parcel.getStore().getId(),
+                        TrackSource.AUTO,
+                        batchId,
+                        null
+                ));
+            } else {
+                others.add(new TrackMeta(
+                        parcel.getNumber(),
+                        parcel.getStore().getId(),
                         null,
                         true,
-                        p.getDeliveryHistory() != null ? p.getDeliveryHistory().getPostalService() : null))
-                .toList();
+                        type
+                ));
+            }
+        }
 
-        List<TrackingResultAdd> results = trackUpdateService.process(metas, userId);
+        if (!belpostTracks.isEmpty()) {
+            belPostTrackQueueService.enqueue(belpostTracks);
+            log.info("В очередь Белпочты добавлено {} треков для userId={}", belpostTracks.size(), userId);
+        }
 
-        long updated = results.stream()
-                .filter(r -> !TrackConstants.NO_DATA_STATUS.equals(r.getStatus()))
-                .count();
+        if (!others.isEmpty()) {
+            List<TrackingResultAdd> results = trackUpdateService.process(others, userId);
 
-        if (updated > 0) {
-            log.info("♻️ Автообновление: {} из {} треков обновлено для userId={}", updated, toUpdate.size(), userId);
+            long updated = results.stream()
+                    .filter(r -> !TrackConstants.NO_DATA_STATUS.equals(r.getStatus()))
+                    .count();
+
+            if (updated > 0) {
+                log.info("♻️ Автообновление: {} из {} треков обновлено для userId={}", updated, others.size(), userId);
+            }
         }
     }
 }

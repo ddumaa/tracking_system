@@ -15,6 +15,8 @@ import com.project.tracking_system.service.email.EmailService;
 import com.project.tracking_system.service.jsonEvropostService.JwtTokenManager;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.utils.EncryptionUtils;
+import com.project.tracking_system.exception.CredentialsEncryptionException;
+import com.project.tracking_system.exception.JwtTokenGenerationException;
 import com.project.tracking_system.utils.EmailUtils;
 import com.project.tracking_system.utils.UserCredentialsResolver;
 import org.springframework.beans.factory.annotation.Value;
@@ -269,6 +271,8 @@ public class UserService {
      *
      * @param userId идентификатор пользователя
      * @param dto    новые учётные данные
+     * @throws CredentialsEncryptionException ошибка шифрования данных
+     * @throws JwtTokenGenerationException    если не удалось создать JWT токен
      */
     @Transactional
     public void updateEvropostCredentialsAndSettings(Long userId, EvropostCredentialsDTO dto) {
@@ -301,14 +305,14 @@ public class UserService {
 
         } catch (Exception e) {
             log.error("Ошибка при шифровании данных для пользователя с ID: {}", userId, e);
-            throw new RuntimeException("Ошибка при шифровании данных", e);
+            throw new CredentialsEncryptionException("Ошибка при шифровании данных", e);
         }
 
         // Генерация нового JWT токена
         String newToken = jwtTokenManager.getUserToken(user);
         if (newToken == null) {
             log.error("Не удалось создать JWT токен для пользователя с ID: {}", userId);
-            throw new RuntimeException("Не удалось создать JWT токен");
+            throw new JwtTokenGenerationException("Не удалось создать JWT токен");
         }
 
         log.info("Новый JWT токен успешно создан для пользователя с ID: {}", userId);

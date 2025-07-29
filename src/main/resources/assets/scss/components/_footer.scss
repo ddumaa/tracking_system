@@ -53,6 +53,7 @@
     }
   }
 
+  // Контактная информация
   .footer-contacts {
     display: flex;
     flex-direction: column;
@@ -63,6 +64,7 @@
       text-align: center;
     }
 
+    // Отдельная группа контактов
     .contact-group {
       h5 {
         font-size: 14px;
@@ -87,33 +89,54 @@
           font-size: 16px;
         }
       }
+    }
+  }
 
-      .footer-description {
-        text-align: center;
-        font-size: 14px;
-        color: #6c757d;
-        max-width: 300px;
-        margin: 0 auto;
-      }
+  // Описание сервиса в центральной колонке
+  .footer-description {
+    text-align: center;
+    font-size: 14px;
+    color: #6c757d;
+    max-width: 300px;
+    margin: 0 auto;
+  }
 
-      .footer-bottom {
-        margin-top: 20px;
-        text-align: center;
-        font-size: 12px;
-        color: #6c757d;
-        width: 100%; // Гарантируем, что занимает всю ширину
-        display: flex;
-        justify-content: center; // Центрируем содержимое
-        align-items: center;
+  // Нижняя часть футера (копирайт и ссылки)
+  .footer-bottom {
+    margin-top: 10px;
+    // Разделительная линия между содержимым и нижней частью футера
+    border-top: 1px solid #dee2e6;
+    padding-top: 10px;
+    text-align: center;
+    font-size: 12px;
+    color: #6c757d;
+    width: 100%; // Гарантируем, что занимает всю ширину
+    display: flex;
+    flex-direction: column; // Элементы располагаются вертикально
+    justify-content: center; // Центрируем содержимое
+    align-items: center;
+    gap: 8px; // Отступы между блоками
 
-        a {
-          text-decoration: none;
-          color: #6c757d;
+    // Блок с копирайтом и версией
+    .footer-info {
+      display: flex; // Отображаем элементы в одну строку
+      gap: 4px; // Небольшой отступ между текстовыми блоками
+      justify-content: center; // Центрируем содержимое
+    }
 
-          &:hover {
-            color: ui.$primary-color;
-          }
-        }
+    // Блок со ссылками на правовые документы
+    .footer-links {
+      display: flex;
+      gap: 4px; // Расстояние между ссылками
+    }
+
+    a {
+      text-decoration: none;
+      color: #6c757d;
+      white-space: nowrap; // Не переносить длинные фразы
+
+      &:hover {
+        color: ui.$primary-color;
       }
     }
   }

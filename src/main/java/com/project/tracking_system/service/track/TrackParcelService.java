@@ -7,11 +7,13 @@ import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
 import com.project.tracking_system.service.user.UserService;
+import com.project.tracking_system.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,12 +67,19 @@ public class TrackParcelService {
      * @param storeIds список идентификаторов магазинов
      * @param page     номер страницы
      * @param size     размер страницы
-     * @param userId   идентификатор пользователя
+     * @param userId    идентификатор пользователя
+     * @param sortOrder порядок сортировки: {@code "asc"} или {@code "desc"}
      * @return страница посылок указанного пользователя
      */
     @Transactional(readOnly = true)
-    public Page<TrackParcelDTO> findByStoreTracks(List<Long> storeIds, int page, int size, Long userId) {
-        Pageable pageable = PageRequest.of(page, size);
+    public Page<TrackParcelDTO> findByStoreTracks(List<Long> storeIds,
+                                                  int page,
+                                                  int size,
+                                                  Long userId,
+                                                  String sortOrder) {
+        Sort sort = Sort.by("timestamp");
+        sort = "asc".equalsIgnoreCase(sortOrder) ? sort.ascending() : sort.descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
         Page<TrackParcel> trackParcels = trackParcelRepository.findByStoreIdIn(storeIds, pageable);
         ZoneId userZone = userService.getUserZone(userId);
         return trackParcels.map(track -> new TrackParcelDTO(track, userZone));
@@ -83,15 +92,53 @@ public class TrackParcelService {
      * @param status   статус посылки
      * @param page     номер страницы
      * @param size     размер страницы
-     * @param userId   идентификатор пользователя
+     * @param userId    идентификатор пользователя
+     * @param sortOrder порядок сортировки: {@code "asc"} или {@code "desc"}
      * @return страница посылок
      */
     @Transactional(readOnly = true)
-    public Page<TrackParcelDTO> findByStoreTracksAndStatus(List<Long> storeIds, GlobalStatus status, int page, int size, Long userId) {
-        Pageable pageable = PageRequest.of(page, size);
+    public Page<TrackParcelDTO> findByStoreTracksAndStatus(List<Long> storeIds,
+                                                          GlobalStatus status,
+                                                          int page,
+                                                          int size,
+                                                          Long userId,
+                                                          String sortOrder) {
+        Sort sort = Sort.by("timestamp");
+        sort = "asc".equalsIgnoreCase(sortOrder) ? sort.ascending() : sort.descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
         Page<TrackParcel> trackParcels = trackParcelRepository.findByStoreIdInAndStatus(storeIds, status, pageable);
         ZoneId userZone = userService.getUserZone(userId);
         return trackParcels.map(track -> new TrackParcelDTO(track, userZone));
+    }
+
+    /**
+     * Выполняет поиск посылок по номеру или номеру телефона покупателя.
+     *
+     * @param storeIds список магазинов
+     * @param status   фильтр статуса (может быть {@code null})
+     * @param query    строка поиска
+     * @param page     номер страницы
+     * @param size     размер страницы
+     * @param userId    идентификатор пользователя
+     * @param sortOrder порядок сортировки: {@code "asc"} или {@code "desc"}
+     * @return страница найденных посылок
+     */
+    @Transactional(readOnly = true)
+    public Page<TrackParcelDTO> searchByNumberOrPhone(List<Long> storeIds,
+                                                      GlobalStatus status,
+                                                      String query,
+                                                      int page,
+                                                      int size,
+                                                      Long userId,
+                                                      String sortOrder) {
+        Sort sort = Sort.by("timestamp");
+        sort = "asc".equalsIgnoreCase(sortOrder) ? sort.ascending() : sort.descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        String phoneDigits = PhoneUtils.extractDigits(query);
+        Page<TrackParcel> parcels = trackParcelRepository.searchByNumberOrPhone(
+                storeIds, userId, status, query, phoneDigits, pageable);
+        ZoneId userZone = userService.getUserZone(userId);
+        return parcels.map(track -> new TrackParcelDTO(track, userZone));
     }
 
     /**
@@ -132,6 +179,22 @@ public class TrackParcelService {
     }
 
     /**
+     * Возвращает посылку по номеру и пользователю.
+     * <p>
+     * Используется для проверки времени последнего обновления
+     * и извлечения связанных данных.
+     * </p>
+     *
+     * @param number номер посылки
+     * @param userId идентификатор пользователя
+     * @return посылка или {@code null}, если не найдена
+     */
+    @Transactional(readOnly = true)
+    public TrackParcel findByNumberAndUserId(String number, Long userId) {
+        return trackParcelRepository.findByNumberAndUserId(number, userId);
+    }
+
+    /**
      * Возвращает все посылки указанного магазина.
      *
      * @param storeId идентификатор магазина
@@ -158,6 +221,30 @@ public class TrackParcelService {
         List<TrackParcel> trackParcels = trackParcelRepository.findByUserId(userId);
         ZoneId userZone = userService.getUserZone(userId);
         return trackParcels.stream()
+                .map(track -> new TrackParcelDTO(track, userZone))
+                .toList();
+    }
+
+    /**
+     * Получить все посылки пользователя, отсортированные по дате создания.
+     * <p>
+     * Порядок сортировки задаётся параметром {@code sortOrder} и может быть
+     * восходящим ({@code "asc"}) или нисходящим ({@code "desc"}).
+     * </p>
+     *
+     * @param userId    идентификатор пользователя
+     * @param sortOrder порядок сортировки: {@code "asc"} или {@code "desc"}
+     * @return список отсортированных посылок
+     */
+    @Transactional(readOnly = true)
+    public List<TrackParcelDTO> getParcelsSortedByDate(Long userId, String sortOrder) {
+        Sort sort = Sort.by("timestamp");
+        sort = "asc".equalsIgnoreCase(sortOrder) ? sort.ascending() : sort.descending();
+
+        List<TrackParcel> parcels = trackParcelRepository.findByUserId(userId, sort);
+        ZoneId userZone = userService.getUserZone(userId);
+
+        return parcels.stream()
                 .map(track -> new TrackParcelDTO(track, userZone))
                 .toList();
     }

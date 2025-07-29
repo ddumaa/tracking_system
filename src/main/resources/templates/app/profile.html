@@ -155,7 +155,7 @@
                             <table class="table">
                                 <thead>
                                 <tr>
-                                    <th>ID</th>
+                                    <th class="text-center store-id">ID</th>
                                     <th>Название магазина</th>
                                     <th>Действия</th>
                                 </tr>
@@ -203,8 +203,9 @@
                     Попросите покупателей запустить
                     <a th:href='@{${@environment.getProperty("telegram.bot.link")}}' target="_blank">бота Belivery</a>
                     <button type="button" class="btn btn-sm btn-outline-secondary ms-1"
+                            id="telegramLinkCopyBtn"
                             title="Скопировать ссылку"
-                            onclick="copyToClipboard([[${@environment.getProperty('telegram.bot.link')}]]);">
+                            th:attr="data-link=@{${@environment.getProperty('telegram.bot.link')}}">
                         <i class="bi bi-clipboard"></i>
                     </button>
                     и поделиться номером, чтобы получать уведомления.

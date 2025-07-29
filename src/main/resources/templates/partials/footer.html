@@ -57,12 +57,20 @@
 
         <!-- Нижняя часть футера -->
         <div class="footer-bottom text-center">
-            <span class="text-muted">
-                &copy; 2025 Belivery. Все права защищены.
-                <span th:text="'Версия ' + ${appVersion}"></span>
-                <a href="/privacy" class="text-muted">Политика конфиденциальности</a> |
+            <!-- Блок с копирайтом и версией -->
+            <div class="footer-info">
+                <span class="text-muted footer-bottom__copyright">
+                    &copy; 2025 Belivery. Все права защищены.
+                </span>
+                <span class="text-muted footer-bottom__version"
+                      th:text="'Версия ' + ${appVersion}"></span>
+            </div>
+            <!-- Блок со ссылками на правовые документы -->
+            <div class="footer-links">
+                <a href="/privacy" class="text-muted">Политика конфиденциальности</a>
+                |
                 <a href="/terms" class="text-muted">Пользовательское соглашение</a>
-            </span>
+            </div>
         </div>
     </footer>
 

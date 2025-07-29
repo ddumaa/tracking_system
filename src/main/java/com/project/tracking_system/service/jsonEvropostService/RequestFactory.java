@@ -2,7 +2,7 @@ package com.project.tracking_system.service.jsonEvropostService;
 
 import com.project.tracking_system.model.evropost.jsonRequestModel.*;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
@@ -17,14 +17,10 @@ import org.springframework.stereotype.Service;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class RequestFactory {
 
     private final JsonRequest jsonRequest;
-
-    @Autowired
-    public RequestFactory(JsonRequest jsonRequest) {
-        this.jsonRequest = jsonRequest;
-    }
 
     /**
      * Создаёт запрос для отслеживания посылки по номеру.

@@ -10,6 +10,7 @@ import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.service.customer.CustomerStatsService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.utils.DateParserUtils;
+import com.project.tracking_system.utils.TrackNumberUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -77,7 +78,7 @@ public class TrackProcessingService {
         if (number == null) {
             throw new IllegalArgumentException("Номер посылки не может быть null");
         }
-        number = number.toUpperCase(); // Приводим к верхнему регистру
+        number = TrackNumberUtils.normalize(number); // Приводим к единообразному виду
 
         log.info("Обработка трека: {} (Пользователь ID={}, Магазин ID={})", number, userId, storeId);
 
@@ -110,11 +111,16 @@ public class TrackProcessingService {
      */
     @Transactional
     public void save(String number, TrackInfoListDTO trackInfoListDTO, Long storeId, Long userId) {
+        // Делегируем основной логике, где номер будет нормализован
         save(number, trackInfoListDTO, storeId, userId, null);
     }
 
     /**
      * Сохраняет или обновляет посылку пользователя и привязывает её к покупателю.
+     * <p>
+     * Номер предварительно нормализуется: приводится к верхнему регистру
+     * и обрезаются пробелы по краям.
+     * </p>
      *
      * @param number номер посылки
      * @param trackInfoListDTO информация о посылке
@@ -132,6 +138,9 @@ public class TrackProcessingService {
         if (number == null || trackInfoListDTO == null) {
             throw new IllegalArgumentException("Отсутствует посылка");
         }
+
+        // Приведение номера к единому виду
+        number = TrackNumberUtils.normalize(number);
 
         // Ищем трек по номеру и пользователю независимо от магазина
         TrackParcel trackParcel = trackParcelRepository.findByNumberAndUserId(number, userId);
@@ -184,8 +193,11 @@ public class TrackProcessingService {
         ZoneId userZone = userService.getUserZone(userId);
         ZonedDateTime zonedDateTime = DateParserUtils.parse(lastDate, userZone);
         trackParcel.setTimestamp(zonedDateTime);
+        // фиксируем время обновления в UTC
+        trackParcel.setLastUpdate(ZonedDateTime.now(ZoneOffset.UTC));
 
         // Привязываем покупателя, если указан телефон
+        Customer previousCustomer = trackParcel.getCustomer();
         Customer customer = null;
         if (phone != null && !phone.isBlank()) {
             customer = customerService.registerOrGetByPhone(phone);
@@ -193,6 +205,13 @@ public class TrackProcessingService {
         }
 
         trackParcelRepository.save(trackParcel);
+
+        // Если изменён покупатель и посылка имеет финальный статус,
+        // нужно пересчитать статистику покупателя
+        boolean customerChanged = customer != null && (previousCustomer == null || !previousCustomer.getId().equals(customer.getId()));
+        if (customerChanged && deliveryHistoryService.hasFinalStatus(trackParcel.getId())) {
+            deliveryHistoryService.registerFinalStatus(trackParcel.getId());
+        }
 
         if (isNewParcel && customer != null) {
             customerStatsService.incrementSent(customer);

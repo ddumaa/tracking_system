@@ -32,3 +32,9 @@
     padding: 0.25rem 0.75rem;
   }
 }
+
+// Выравнивание ID магазинов по центру как по горизонтали, так и по вертикали
+.store-id {
+  text-align: center;
+  vertical-align: middle;
+}

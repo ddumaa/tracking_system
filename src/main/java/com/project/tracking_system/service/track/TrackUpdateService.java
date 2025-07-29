@@ -4,14 +4,28 @@ import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.repository.*;
 import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
+import com.project.tracking_system.service.belpost.QueuedTrack;
+import com.project.tracking_system.service.track.ProgressAggregatorService;
+import com.project.tracking_system.service.track.TrackingResultCacheService;
+import com.project.tracking_system.service.track.TrackSource;
+import com.project.tracking_system.service.admin.ApplicationSettingsService;
+import com.project.tracking_system.service.user.UserService;
+import com.project.tracking_system.dto.TrackProcessingProgressDTO;
+import com.project.tracking_system.dto.TrackStatusUpdateDTO;
+import com.project.tracking_system.dto.TrackUpdateResponse;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.dto.TrackingResultAdd;
+import com.project.tracking_system.entity.PostalServiceType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
@@ -34,6 +48,16 @@ public class TrackUpdateService {
     private final TrackParcelService trackParcelService;
     private final TrackUploadGroupingService groupingService;
     private final TrackUpdateDispatcherService dispatcherService;
+    /** Очередь Белпочты для централизованной обработки. */
+    private final BelPostTrackQueueService belPostTrackQueueService;
+    /** Сервис агрегации прогресса обработки. */
+    private final ProgressAggregatorService progressAggregatorService;
+    /** Кэш результатов трекинга для восстановления состояния страницы. */
+    private final TrackingResultCacheService trackingResultCacheService;
+    /** Сервис глобальных настроек приложения. */
+    private final ApplicationSettingsService applicationSettingsService;
+    /** Сервис управления пользователями для получения часового пояса. */
+    private final UserService userService;
 
     /**
      * Обновляет историю всех посылок пользователя.
@@ -42,7 +66,7 @@ public class TrackUpdateService {
      * @return результат запуска обновления
      */
     @Transactional
-    public UpdateResult updateAllParcels(Long userId) {
+    public TrackUpdateResponse updateAllParcels(Long userId) {
         if (!subscriptionService.isFeatureEnabled(userId, FeatureKey.BULK_UPDATE)) {
             String msg = "Обновление всех треков доступно только в премиум-версии.";
             log.warn("Отказано в доступе для пользователя ID: {}", userId);
@@ -50,29 +74,48 @@ public class TrackUpdateService {
             webSocketController.sendUpdateStatus(userId, msg, false);
             log.debug("📡 WebSocket отправлено: {}", msg);
 
-            return new UpdateResult(false, 0, 0, msg);
+            return new TrackUpdateResponse(0, 0, 0, 0, msg);
         }
 
         int count = storeRepository.countByOwnerId(userId);
         if (count == 0) {
             log.warn("У пользователя ID={} нет магазинов для обновления треков.", userId);
-            return new UpdateResult(false, 0, 0, "У вас нет магазинов с посылками.");
+            return new TrackUpdateResponse(0, 0, 0, 0, "У вас нет магазинов с посылками.");
         }
 
         List<TrackParcel> allParcels = trackParcelRepository.findByUserId(userId);
 
+        int interval = applicationSettingsService.getTrackUpdateIntervalHours();
+        ZonedDateTime threshold = ZonedDateTime.now(ZoneOffset.UTC).minusHours(interval);
+
+        int finalStatusCount = (int) allParcels.stream()
+                .filter(p -> p.getStatus().isFinal())
+                .count();
+        int recentlyUpdatedCount = (int) allParcels.stream()
+                .filter(p -> !p.getStatus().isFinal())
+                .filter(p -> p.getLastUpdate() != null && p.getLastUpdate().isAfter(threshold))
+                .count();
+
         List<TrackParcel> parcelsToUpdate = allParcels.stream()
-                .filter(parcel -> !parcel.getStatus().isFinal())
+                .filter(p -> !p.getStatus().isFinal())
+                .filter(p -> p.getLastUpdate() == null || p.getLastUpdate().isBefore(threshold))
                 .toList();
 
-        log.info("📦 Запущено обновление всех {} треков для userId={}", parcelsToUpdate.size(), userId);
+        int totalRequested = allParcels.size();
+        int readyToUpdateCount = parcelsToUpdate.size();
 
-        webSocketController.sendUpdateStatus(userId, "Обновление всех треков запущено...", true);
+        log.info("📦 Фильтрация завершена: {} треков допущено к обновлению, {} в финальном статусе, {} недавно обновлялись",
+                readyToUpdateCount, finalStatusCount, recentlyUpdatedCount);
 
-        processAllTrackUpdatesAsync(userId, parcelsToUpdate);
+        String message = buildUpdateMessage(readyToUpdateCount, finalStatusCount, recentlyUpdatedCount);
+        webSocketController.sendUpdateStatus(userId, message, readyToUpdateCount > 0);
 
-        return new UpdateResult(true, parcelsToUpdate.size(), allParcels.size(),
-                "Запущено обновление " + parcelsToUpdate.size() + " треков из " + allParcels.size());
+        if (readyToUpdateCount > 0) {
+            processAllTrackUpdatesAsync(userId, parcelsToUpdate);
+        }
+
+        return new TrackUpdateResponse(totalRequested, readyToUpdateCount, finalStatusCount,
+                recentlyUpdatedCount, message);
     }
 
     /**
@@ -122,25 +165,58 @@ public class TrackUpdateService {
 
     /**
      * Обновляет выбранные посылки пользователя.
+     * <p>
+     * Если выбран только один номер и его последнее обновление произошло
+     * менее чем за {@code interval} часов до текущего момента, метод не
+     * запускает обновление. Пользователю отправляется сообщение о том,
+     * когда будет доступно следующее обновление с учётом его часового пояса.
+     * </p>
      */
     @Transactional
-    public UpdateResult updateSelectedParcels(Long userId, List<String> selectedNumbers) {
+    public TrackUpdateResponse updateSelectedParcels(Long userId, List<String> selectedNumbers) {
         List<TrackParcel> selectedParcels = trackParcelRepository.findByNumberInAndUserId(selectedNumbers, userId);
 
+        int interval = applicationSettingsService.getTrackUpdateIntervalHours();
+        ZonedDateTime threshold = ZonedDateTime.now(ZoneOffset.UTC).minusHours(interval);
+
+        if (selectedNumbers.size() == 1 && !selectedParcels.isEmpty()) {
+            TrackParcel parcel = selectedParcels.get(0);
+            if (!parcel.getStatus().isFinal() && parcel.getLastUpdate() != null) {
+                ZonedDateTime nextAllowed = parcel.getLastUpdate().plusHours(interval);
+                if (nextAllowed.isAfter(ZonedDateTime.now(ZoneOffset.UTC))) {
+                    String formatted = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss")
+                            .withZone(userService.getUserZone(userId))
+                            .format(nextAllowed);
+                    String msg = "Трек " + parcel.getNumber() + " обновлялся недавно, " +
+                            "следующее обновление возможно после " + formatted;
+                    webSocketController.sendUpdateStatus(userId, msg, false);
+                    return new TrackUpdateResponse(1, 0, 0, 1, msg);
+                }
+            }
+        }
+
         int totalRequested = selectedParcels.size();
+        int finalStatusCount = (int) selectedParcels.stream()
+                .filter(p -> p.getStatus().isFinal())
+                .count();
+        int recentlyUpdatedCount = (int) selectedParcels.stream()
+                .filter(p -> !p.getStatus().isFinal())
+                .filter(p -> p.getLastUpdate() != null && p.getLastUpdate().isAfter(threshold))
+                .count();
         List<TrackParcel> updatableParcels = selectedParcels.stream()
-                .filter(parcel -> !parcel.getStatus().isFinal())
+                .filter(p -> !p.getStatus().isFinal())
+                .filter(p -> p.getLastUpdate() == null || p.getLastUpdate().isBefore(threshold))
                 .toList();
-        int nonUpdatableCount = totalRequested - updatableParcels.size();
+        int readyToUpdateCount = updatableParcels.size();
 
-        log.info("Фильтрация завершена: {} треков можно обновить из {}, {} уже в финальном статусе",
-                updatableParcels.size(), totalRequested, nonUpdatableCount);
+        log.info("📦 Фильтрация завершена: {} треков допущено к обновлению, {} в финальном статусе, {} недавно обновлялись",
+                readyToUpdateCount, finalStatusCount, recentlyUpdatedCount);
 
-        if (updatableParcels.isEmpty()) {
-            String msg = "Все выбранные треки уже в финальном статусе, обновление не требуется.";
+        if (readyToUpdateCount == 0) {
+            String msg = buildUpdateMessage(0, finalStatusCount, recentlyUpdatedCount);
             log.warn(msg);
-            webSocketController.sendUpdateStatus(userId, msg, true);
-            return new UpdateResult(false, 0, selectedNumbers.size(), msg);
+            webSocketController.sendUpdateStatus(userId, msg, false);
+            return new TrackUpdateResponse(totalRequested, 0, finalStatusCount, recentlyUpdatedCount, msg);
         }
 
         int remainingUpdates = subscriptionService.canUpdateTracks(userId, updatableParcels.size());
@@ -149,18 +225,18 @@ public class TrackUpdateService {
             String msg = "Ваш лимит обновлений на сегодня исчерпан.";
             log.info("Лимит обновлений исчерпан для пользователя ID: {}", userId);
             webSocketController.sendUpdateStatus(userId, msg, true);
-            return new UpdateResult(false, 0, updatableParcels.size(), msg);
+            return new TrackUpdateResponse(totalRequested, 0, finalStatusCount, recentlyUpdatedCount, msg);
         }
 
-        int updatesToProcess = Math.min(updatableParcels.size(), remainingUpdates);
+        int updatesToProcess = Math.min(readyToUpdateCount, remainingUpdates);
         List<TrackParcel> parcelsToUpdate = updatableParcels.subList(0, updatesToProcess);
+        String msg = buildUpdateMessage(updatesToProcess, finalStatusCount, recentlyUpdatedCount);
+        log.info("📦 Запущено обновление {} треков для пользователя ID={}", updatesToProcess, userId);
 
-        log.info("Запущено обновление {} треков для пользователя ID={}", updatesToProcess, userId);
+        processTrackUpdatesAsync(userId, parcelsToUpdate, totalRequested, finalStatusCount + recentlyUpdatedCount);
 
-        processTrackUpdatesAsync(userId, parcelsToUpdate, totalRequested, nonUpdatableCount);
-
-        return new UpdateResult(true, updatesToProcess, selectedNumbers.size(),
-                "Обновление запущено...");
+        webSocketController.sendUpdateStatus(userId, msg, true);
+        return new TrackUpdateResponse(totalRequested, updatesToProcess, finalStatusCount, recentlyUpdatedCount, msg);
     }
 
     /**
@@ -226,8 +302,79 @@ public class TrackUpdateService {
      * @return список объединенных результатов
      */
     public List<TrackingResultAdd> process(List<TrackMeta> tracks, Long userId) {
+        long batchId = System.currentTimeMillis();
+        progressAggregatorService.registerBatch(batchId, tracks.size(), userId);
         Map<PostalServiceType, List<TrackMeta>> grouped = groupingService.group(tracks);
-        return dispatcherService.dispatch(grouped, userId);
+
+        // Отдельно обрабатываем номера Белпочты через централизованную очередь
+        List<TrackMeta> belpost = grouped.remove(PostalServiceType.BELPOST);
+        if (belpost != null && !belpost.isEmpty()) {
+            // Для последующей обработки фиксируем источник как UPDATE
+            // чтобы различать треки, добавленные при ручном обновлении
+            List<QueuedTrack> queued = belpost.stream()
+                    .map(m -> new QueuedTrack(
+                            m.number(),
+                            userId,
+                            m.storeId(),
+                            TrackSource.UPDATE,
+                            batchId,
+                            m.phone()))
+                    .toList();
+            belPostTrackQueueService.enqueue(queued);
+        }
+
+        if (grouped.isEmpty()) {
+            return List.of();
+        }
+
+        List<TrackingResultAdd> results = dispatcherService.dispatch(grouped, userId);
+
+        for (TrackingResultAdd r : results) {
+            progressAggregatorService.trackProcessed(batchId);
+            TrackProcessingProgressDTO p = progressAggregatorService.getProgress(batchId);
+            TrackStatusUpdateDTO dto = new TrackStatusUpdateDTO(
+                    batchId,
+                    r.getTrackingNumber(),
+                    r.getStatus(),
+                    p.processed(),
+                    p.total());
+            trackingResultCacheService.addResult(userId, dto);
+        }
+
+        return results;
+    }
+
+    /**
+     * Формирует человекочитаемое сообщение о запуске обновления.
+     *
+     * @param ready    количество треков, которые будут обновлены
+     * @param finalStatus сколько треков имеют финальный статус
+     * @param recent   сколько треков пропущено из-за таймаута
+     * @return текст уведомления с эмодзи для пользователя
+     */
+    private String buildUpdateMessage(int ready, int finalStatus, int recent) {
+        int total = ready + finalStatus + recent;
+        StringBuilder sb = new StringBuilder();
+        if (ready == 0) {
+            sb.append("Обновление не выполнено.");
+        } else {
+            sb.append("Запущено обновление ")
+                    .append(ready)
+                    .append(" из ")
+                    .append(total)
+                    .append(" треков");
+        }
+        if (finalStatus > 0) {
+            sb.append("\n▪ ")
+                    .append(finalStatus)
+                    .append(" треков уже в финальном статусе");
+        }
+        if (recent > 0) {
+            sb.append("\n▪ ")
+                    .append(recent)
+                    .append(" треков недавно обновлялись и пропущены");
+        }
+        return sb.toString();
     }
 
 }

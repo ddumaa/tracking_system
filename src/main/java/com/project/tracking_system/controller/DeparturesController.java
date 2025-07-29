@@ -1,17 +1,17 @@
 package com.project.tracking_system.controller;
 
-import com.project.tracking_system.dto.TrackInfoListDTO;
+import com.project.tracking_system.dto.TrackViewResult;
 import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.dto.BulkUpdateButtonDTO;
 import com.project.tracking_system.entity.Store;
-import com.project.tracking_system.entity.UpdateResult;
+import com.project.tracking_system.dto.TrackUpdateResponse;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.service.track.StatusTrackService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.track.TrackFacade;
-import com.project.tracking_system.service.track.TrackUpdateDispatcherService;
-import com.project.tracking_system.service.track.TrackMeta;
+
+import com.project.tracking_system.service.track.TrackViewService;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +20,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import com.project.tracking_system.utils.ResponseBuilder;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import org.springframework.stereotype.Controller;
@@ -48,27 +49,32 @@ public class DeparturesController {
     private final TrackFacade trackFacade;
     private final StatusTrackService statusTrackService;
     private final StoreService storeService;
-    private final TrackUpdateDispatcherService trackUpdateDispatcherService;
     private final WebSocketController webSocketController;
     private final UserService userService;
+    private final TrackViewService trackViewService;
 
     /**
-     * Метод для отображения списка отслеживаемых посылок пользователя с возможностью фильтрации по магазину и статусу.
+     * Метод для отображения списка отслеживаемых посылок пользователя с
+     * возможностью фильтрации по магазину, статусу и сортировки по дате.
      *
      * @param storeId      (опционально) ID магазина, если нужно показать посылки только из одного магазина.
      * @param statusString строковое представление статуса для фильтрации.
+     * @param query        строка поиска по номеру посылки или телефону.
      * @param page         номер страницы для пагинации.
      * @param size         размер страницы.
-     * @param model модель для передачи данных на представление.
-     * @param user  текущий пользователь.
+     * @param sortOrder    порядок сортировки по дате (asc/desc).
+     * @param model        модель для передачи данных на представление.
+     * @param user         текущий пользователь.
      * @return имя представления для отображения истории.
      */
     @GetMapping()
     public String departures(
             @RequestParam(required = false) Long storeId,  // Фильтр по магазину
             @RequestParam(value = "status", required = false) String statusString, // Фильтр по статусу
+            @RequestParam(value = "query", required = false) String query, // Поиск по номеру или телефону
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size,
+            @RequestParam(value = "sortOrder", defaultValue = "desc") String sortOrder,
             Model model,
             @AuthenticationPrincipal User user) {
 
@@ -101,10 +107,18 @@ public class DeparturesController {
         // Определяем начальную страницу (избегаем выхода за границы)
         page = Math.max(page, 0);
 
-        // Загружаем посылки с учетом статуса и магазина
-        Page<TrackParcelDTO> trackParcelPage = (status != null)
-                ? trackParcelService.findByStoreTracksAndStatus(filteredStoreIds, status, page, size, userId)
-                : trackParcelService.findByStoreTracks(filteredStoreIds, page, size, userId);
+        // Загружаем посылки с учётом статуса, магазина и параметра поиска
+        Page<TrackParcelDTO> trackParcelPage;
+        if (query != null && !query.isBlank()) {
+            trackParcelPage = trackParcelService.searchByNumberOrPhone(
+                    filteredStoreIds, status, query.trim(), page, size, userId, sortOrder);
+        } else if (status != null) {
+            trackParcelPage = trackParcelService.findByStoreTracksAndStatus(
+                    filteredStoreIds, status, page, size, userId, sortOrder);
+        } else {
+            trackParcelPage = trackParcelService.findByStoreTracks(
+                    filteredStoreIds, page, size, userId, sortOrder);
+        }
 
         // Если запрошенная страница больше допустимой, загружаем первую страницу
         if (page >= trackParcelPage.getTotalPages() && trackParcelPage.getTotalPages() > 0) {
@@ -112,9 +126,16 @@ public class DeparturesController {
 
             // Повторный запрос только если нужно сбросить страницу
             page = 0;
-            trackParcelPage = (status != null)
-                    ? trackParcelService.findByStoreTracksAndStatus(filteredStoreIds, status, page, size, userId)
-                    : trackParcelService.findByStoreTracks(filteredStoreIds, page, size, userId);
+            if (query != null && !query.isBlank()) {
+                trackParcelPage = trackParcelService.searchByNumberOrPhone(
+                        filteredStoreIds, status, query.trim(), page, size, userId, sortOrder);
+            } else if (status != null) {
+                trackParcelPage = trackParcelService.findByStoreTracksAndStatus(
+                        filteredStoreIds, status, page, size, userId, sortOrder);
+            } else {
+                trackParcelPage = trackParcelService.findByStoreTracks(
+                        filteredStoreIds, page, size, userId, sortOrder);
+            }
         }
 
         // Добавляем иконки в DTO перед передачей в шаблон
@@ -131,11 +152,14 @@ public class DeparturesController {
         model.addAttribute("size", size);
         model.addAttribute("trackParcelDTO", trackParcelPage.getContent());
         model.addAttribute("statusString", statusString);
+        model.addAttribute("query", query);
         model.addAttribute("currentPage", trackParcelPage.getNumber());
         model.addAttribute("totalPages", trackParcelPage.getTotalPages());
         model.addAttribute("trackParcelNotification", trackParcelPage.isEmpty() ? "Отслеживаемых посылок нет" : null);
         model.addAttribute("bulkUpdateButtonDTO",
                 new BulkUpdateButtonDTO(userService.isShowBulkUpdateButton(user.getId())));
+        // Передаём текущий порядок сортировки во вью, чтобы отобразить правильную стрелку на кнопке
+        model.addAttribute("sortOrder", sortOrder);
 
         return "app/departures";
     }
@@ -157,21 +181,12 @@ public class DeparturesController {
         Long userId = user.getId();
         log.info("🔍 Запрос информации о посылке {} для пользователя ID={}", itemNumber, userId);
 
-        // Проверяем, принадлежит ли посылка пользователю
-        boolean ownsParcel = trackParcelService.userOwnsParcel(itemNumber, userId);
-        if (!ownsParcel) {
-            log.warn("❌ Пользователь ID={} попытался получить доступ к чужой посылке {}", userId, itemNumber);
-            throw new RuntimeException("Ошибка доступа: Посылка не принадлежит пользователю.");
-        }
-
-        // Собираем метаданные и передаём в общий диспетчер
-        TrackMeta meta = new TrackMeta(itemNumber, null, null, false,
-                trackParcelService.getPostalServiceType(itemNumber));
-        TrackInfoListDTO trackInfo = trackUpdateDispatcherService.dispatch(meta).getTrackInfo();
-        log.info("🎯 Передача в шаблон: {} записей для трека {}", trackInfo.getList().size(), itemNumber);
-
-        model.addAttribute("trackInfo", trackInfo);
+        TrackViewResult result = trackViewService.getTrackDetails(itemNumber, userId);
+        model.addAttribute("trackInfo", result.trackInfo());
         model.addAttribute("itemNumber", itemNumber);
+        if (result.nextUpdateTime() != null) {
+            model.addAttribute("nextUpdateTime", result.nextUpdateTime());
+        }
 
         return "partials/track-info-departures";
     }
@@ -189,7 +204,7 @@ public class DeparturesController {
         Long userId = user.getId();
         log.info("🔄 Запрос на обновление посылок: userId={}", userId);
 
-        UpdateResult result;
+        TrackUpdateResponse result;
         try {
             if (selectedNumbers != null && !selectedNumbers.isEmpty()) {
                 result = trackFacade.updateSelectedParcels(userId, selectedNumbers);
@@ -198,7 +213,7 @@ public class DeparturesController {
             }
 
             // Отправляем WebSocket-уведомление
-            webSocketController.sendDetailUpdateStatus(userId, result);
+            webSocketController.sendUpdateStatus(userId, result.message(), result.readyToUpdate() > 0);
             return ResponseBuilder.ok(result);
 
         } catch (Exception e) {
@@ -235,6 +250,10 @@ public class DeparturesController {
             log.info("Выбранные посылки {} удалены пользователем с ID: {}", selectedNumbers, userId);
             webSocketController.sendUpdateStatus(userId, "Выбранные посылки успешно удалены.", true);
             return ResponseBuilder.ok("Выбранные посылки успешно удалены.");
+        } catch (EntityNotFoundException ex) {
+            log.warn("Попытка удалить несуществующие посылки пользователем {}", userId);
+            webSocketController.sendUpdateStatus(userId, ex.getMessage(), false);
+            return ResponseBuilder.error(HttpStatus.NOT_FOUND, ex.getMessage());
         } catch (Exception e) {
             log.error("Ошибка при удалении посылок {} пользователем с ID: {}: {}", selectedNumbers, userId, e.getMessage(), e);
             webSocketController.sendUpdateStatus(userId, "Ошибка при удалении посылок.", false);

@@ -9,6 +9,7 @@ import lombok.*;
  */
 
 import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
 
 @Getter
 @Setter
@@ -33,6 +34,12 @@ public class TrackParcel {
     @Column(name = "timestamp", nullable = false)
     private ZonedDateTime timestamp;
 
+    /**
+     * Дата последнего обновления трека в UTC.
+     */
+    @Column(name = "last_update", nullable = false)
+    private ZonedDateTime lastUpdate = ZonedDateTime.now(ZoneOffset.UTC);
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "store_id", nullable = false)
     private Store store;
@@ -54,5 +61,5 @@ public class TrackParcel {
     @Version
     @Column(name = "version", nullable = false)
     private long version;
-
 }
+

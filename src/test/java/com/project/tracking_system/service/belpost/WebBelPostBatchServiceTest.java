@@ -32,7 +32,12 @@ class WebBelPostBatchServiceTest {
 
     @BeforeEach
     void init() {
-        when(factory.create()).thenReturn(driver1, driver2);
+        // Возвращаем разные драйверы при последовательных вызовах
+        // фабрики, имитируя создание нового экземпляра для каждого
+        // парсинга треков.
+        when(factory.create())
+                .thenReturn(driver1)
+                .thenReturn(driver2);
         doNothing().when(driver1).get(anyString());
         doNothing().when(driver2).get(anyString());
         when(driver1.findElement(any(By.class))).thenThrow(new NoSuchElementException("mock"));

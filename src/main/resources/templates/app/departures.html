@@ -40,6 +40,7 @@
 
                     <!-- Контейнер для уведомлений -->
                     <div id="notificationContainer"></div>
+                    <div id="progressContainer" class="w-100 d-none mb-3"></div>
 
                     <div class="card shadow-sm p-4 rounded-4 mb-4">
 
@@ -49,7 +50,6 @@
                         <!-- Действие + кнопка "Применить" -->
                         <div class="filter-group d-flex flex-column flex-sm-row align-items-sm-center gap-2">
                             <div class="filter-item d-flex align-items-center">
-                                <label for="actionSelect" class="form-label m-0 me-2">Действие:</label>
                                 <select id="actionSelect" class="form-select w-auto">
                                     <option value="">Выберите действие</option>
                                     <option value="delete">Удалить</option>
@@ -62,7 +62,6 @@
                         <!-- Фильтр по магазину (показываем только если магазинов больше 1) -->
                         <div class="filter-group d-flex flex-column flex-sm-row align-items-sm-center gap-2"
                              th:if="${stores != null and #lists.size(stores) > 1}">
-                            <label for="storeId" class="form-label m-0 me-2">Магазин:</label>
                             <select id="storeId" name="storeId" class="form-select w-auto">
                                 <option value="" th:selected="${storeId == null}">Все магазины</option>
                                 <option th:each="store : ${stores}"
@@ -75,7 +74,6 @@
 
                         <!-- Фильтр по статусу -->
                         <div class="filter-group d-flex flex-column flex-sm-row align-items-sm-center gap-2">
-                            <label for="status" class="form-label m-0 me-2">Статус:</label>
                             <select id="status" name="status" class="form-select w-auto">
                                 <!-- Всегда выводим опцию "Все статусы" -->
                                 <option value="" th:selected="${statusString == null}">Все статусы</option>
@@ -86,6 +84,13 @@
                                         th:selected="${status.name() == statusString}">
                                 </option>
                             </select>
+                        </div>
+
+                        <!-- Поле поиска по номеру или телефону -->
+                        <div class="filter-group d-flex flex-row align-items-center gap-2">
+                            <input id="search" type="text" class="form-control" placeholder="Поиск"
+                                   th:value="${query}">
+                            <button id="searchBtn" type="button" class="btn btn-outline-primary">Поиск</button>
                         </div>
 
                         <!-- Количество элементов на странице -->
@@ -113,7 +118,12 @@
                                         </th>
                                         <th scope="col">№ посылки</th>
                                         <th scope="col">Статус</th>
-                                        <th scope="col">Дата</th>
+                                        <th scope="col">
+                                            <a href="#" id="sortDateBtn" class="link-dark text-decoration-none">
+                                                Дата
+                                                <i class="bi" th:classappend="${sortOrder == 'asc'} ? 'bi-arrow-down' : 'bi-arrow-up'"></i>
+                                            </a>
+                                        </th>
                                     </tr>
                                     </thead>
                                     <tbody>
@@ -152,7 +162,9 @@
                         <ul class="pagination" th:if="${totalPages > 1}">
                             <!-- Кнопка "Назад" -->
                             <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled'">
-                                <a class="page-link" th:href="@{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size})}"
+                                <!-- При наличии поискового запроса (непустого) добавляем его к ссылке -->
+                                <a class="page-link"
+                                   th:href="${!#strings.isEmpty(query)} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size}, query=${query})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size})}"
                                    aria-label="Предыдущая страница">
                                     <i class="bi bi-chevron-left"></i>
                                 </a>
@@ -161,14 +173,18 @@
                             <!-- Номера страниц -->
                             <li class="page-item" th:each="i : ${#numbers.sequence(0, totalPages - 1)}"
                                 th:classappend="${i == currentPage} ? 'active'">
-                                <a class="page-link" th:href="@{/app/departures(storeId=${storeId}, status=${statusString}, page=${i}, size=${size})}"
+                                <!-- Ссылка на определённую страницу, учитывающая поисковый запрос, если поле поиска не пустое -->
+                                <a class="page-link"
+                                   th:href="${!#strings.isEmpty(query)} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${i}, size=${size}, query=${query})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${i}, size=${size})}"
                                    th:text="${i + 1}" aria-label="Страница ${i + 1}">
                                 </a>
                             </li>
 
                             <!-- Кнопка "Вперёд" -->
                             <li class="page-item" th:classappend="${currentPage == totalPages - 1} ? 'disabled'">
-                                <a class="page-link" th:href="@{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size})}"
+                                <!-- Кнопка перехода вперёд: добавляем параметр query, если он задан -->
+                                <a class="page-link"
+                                   th:href="${!#strings.isEmpty(query)} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size}, query=${query})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size})}"
                                    aria-label="Следующая страница">
                                     <i class="bi bi-chevron-right"></i>
                                 </a>
@@ -213,5 +229,4 @@
         </div>
     </div>
 </div>
-
 </html>

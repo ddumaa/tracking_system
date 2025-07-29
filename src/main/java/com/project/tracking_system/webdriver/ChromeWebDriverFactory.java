@@ -38,13 +38,13 @@ public class ChromeWebDriverFactory implements WebDriverFactory {
         System.setProperty("webdriver.chrome.driver", driverPath);
 
         ChromeOptions options = new ChromeOptions();
-        //options.addArguments("--headless=chrome");
-        //options.addArguments("--disable-gpu");
+        options.addArguments("--headless=new");
+        options.addArguments("--disable-gpu");
         options.addArguments("--window-size=1920,1080");
-        //options.addArguments("--ignore-certificate-errors");
-        //options.addArguments("--no-sandbox");
-        //options.addArguments("--disable-dev-shm-usage");
-        //options.addArguments("--remote-debugging-port=9222");
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--ignore-certificate-errors");
+
         return new ChromeDriver(options);
     }
 
