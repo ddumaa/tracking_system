@@ -111,13 +111,13 @@ public class DeparturesController {
         Page<TrackParcelDTO> trackParcelPage;
         if (query != null && !query.isBlank()) {
             trackParcelPage = trackParcelService.searchByNumberOrPhone(
-                    filteredStoreIds, status, query.trim(), page, size, userId);
+                    filteredStoreIds, status, query.trim(), page, size, userId, sortOrder);
         } else if (status != null) {
             trackParcelPage = trackParcelService.findByStoreTracksAndStatus(
-                    filteredStoreIds, status, page, size, userId);
+                    filteredStoreIds, status, page, size, userId, sortOrder);
         } else {
             trackParcelPage = trackParcelService.findByStoreTracks(
-                    filteredStoreIds, page, size, userId);
+                    filteredStoreIds, page, size, userId, sortOrder);
         }
 
         // Если запрошенная страница больше допустимой, загружаем первую страницу
@@ -128,13 +128,13 @@ public class DeparturesController {
             page = 0;
             if (query != null && !query.isBlank()) {
                 trackParcelPage = trackParcelService.searchByNumberOrPhone(
-                        filteredStoreIds, status, query.trim(), page, size, userId);
+                        filteredStoreIds, status, query.trim(), page, size, userId, sortOrder);
             } else if (status != null) {
                 trackParcelPage = trackParcelService.findByStoreTracksAndStatus(
-                        filteredStoreIds, status, page, size, userId);
+                        filteredStoreIds, status, page, size, userId, sortOrder);
             } else {
                 trackParcelPage = trackParcelService.findByStoreTracks(
-                        filteredStoreIds, page, size, userId);
+                        filteredStoreIds, page, size, userId, sortOrder);
             }
         }
 
@@ -143,9 +143,6 @@ public class DeparturesController {
             GlobalStatus statusEnum = GlobalStatus.fromDescription(dto.getStatus()); // Конвертация строки в Enum
             dto.setIconHtml(statusTrackService.getIcon(statusEnum)); // Передаем Enum в сервис для получения иконки
         });
-
-        // Получаем полный список посылок, отсортированный по дате
-        List<TrackParcelDTO> sortedParcels = trackParcelService.getParcelsSortedByDate(userId, sortOrder);
 
         log.debug("Передача атрибутов в модель: stores={}, storeId={}, trackParcelDTO={}, currentPage={}, totalPages={}, size={}", stores, storeId, trackParcelPage.getContent(), trackParcelPage.getNumber(), trackParcelPage.getTotalPages(), size);
 
@@ -161,7 +158,6 @@ public class DeparturesController {
         model.addAttribute("trackParcelNotification", trackParcelPage.isEmpty() ? "Отслеживаемых посылок нет" : null);
         model.addAttribute("bulkUpdateButtonDTO",
                 new BulkUpdateButtonDTO(userService.isShowBulkUpdateButton(user.getId())));
-        model.addAttribute("sortedParcels", sortedParcels);
         // Передаём текущий порядок сортировки во вью, чтобы отобразить правильную стрелку на кнопке
         model.addAttribute("sortOrder", sortOrder);
 
