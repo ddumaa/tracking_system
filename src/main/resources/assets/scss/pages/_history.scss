@@ -256,7 +256,7 @@
   display: inline-flex; // Позволяет корректно выровнять иконку
   align-items: center; // Центрируем содержимое по вертикали
   margin-left: 0.25rem; // Небольшой отступ слева от номера посылки
-  color: ui.$primary;
+  //color: ui.$primary;
   cursor: pointer;
   @include ui.transition(color, 0.3s);
 

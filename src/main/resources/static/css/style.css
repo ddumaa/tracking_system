@@ -853,6 +853,57 @@ button:hover {
   z-index: 2000;
 }
 
+.progress-popup {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1250;
+  background: #ffffff;
+  color: #1d1d1f;
+  padding: 12px 16px;
+  border-radius: 12px;
+  width: fit-content;
+  min-width: 220px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  font-family: "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  animation: fadeInUp 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.progress-text {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 500;
+}
+
+.progress-track {
+  height: 6px;
+  background: #e4e9f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #007bff, #00b8ff);
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 .offcanvas {
   max-width: 250px;
 }
@@ -1109,6 +1160,7 @@ button:hover {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
+  /* Добавляем анимацию появления строк истории */
 }
 .history-table thead {
   background: #007bff;
@@ -1118,6 +1170,9 @@ button:hover {
   padding: 12px;
   text-align: center;
   border-bottom: 1px solid #f8f9fa;
+}
+.history-table tbody tr {
+  animation: fadeSlideIn 0.5s ease forwards;
 }
 .history-table tbody tr:hover {
   background: rgba(0, 123, 255, 0.1);
@@ -1144,6 +1199,12 @@ button:hover {
   display: inline-flex;
   align-items: center;
   margin-left: 0.25rem;
+  cursor: pointer;
+  transition: color 0.3s ease-in-out;
+}
+.customer-icon:hover {
+  color: rgb(0, 110.7, 229.5);
+  transform: scale(1.1);
 }
 
 .pagination {
@@ -1276,6 +1337,38 @@ button:hover {
   }
   .table-responsive {
     overflow-x: auto;
+  }
+}
+/* === Отображение статуса посылки и номера === */
+.parcel-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #ffffff;
+  background-color: #17a2b8;
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+/* Стили для номера посылки */
+.track-number {
+  font-weight: 600;
+  color: #343a40;
+  text-decoration: none;
+  transition: color 0.3s ease-in-out;
+}
+.track-number:hover {
+  color: #007bff;
+}
+
+/* Анимация появления строк в таблице */
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 .hidden {
@@ -1564,59 +1657,6 @@ body.loading {
   .faq-item {
     padding-left: 0.5rem;
     padding-right: 0.5rem;
-  }
-}
-
-.progress-popup {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  z-index: 1250;
-  background: #ffffff;
-  color: #1d1d1f;
-  padding: 12px 16px;
-  border-radius: 12px;
-  width: -moz-fit-content;
-  width: fit-content;
-  min-width: 220px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  font-family: "Segoe UI", sans-serif;
-  font-size: 14px;
-  line-height: 1.4;
-  animation: fadeInUp 0.3s ease;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.progress-text {
-  display: flex;
-  justify-content: space-between;
-  font-weight: 500;
-}
-
-.progress-track {
-  height: 6px;
-  background: #e4e9f0;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.progress-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #007bff, #00b8ff);
-  border-radius: 4px;
-  transition: width 0.4s ease;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 
