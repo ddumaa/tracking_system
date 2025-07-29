@@ -131,19 +131,17 @@
                                     <td class="checkbox-column">
                                             <input type="checkbox" class="selectCheckbox" th:value="${item.number}" name="selectedNumbers">
                                         </td>
+                                        <!-- Бейдж с номером посылки и вспомогательными иконками.
+                                             Сохраняем класс .open-modal для обработчика JavaScript. -->
                                         <td>
-                                            <div class="d-flex align-items-center">
-                                                <!-- Изменено: выводим готовое значение iconHtml из DTO -->
+                                            <div class="parcel-badge d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill">
+                                                <!-- Используем заранее подготовленную иконку статуса из DTO.
+                                                     Если её нет, применяем иконку неизвестного статуса. -->
                                                 <span th:if="${item.iconHtml != null}" th:utext="${item.iconHtml}" class="status-icon"></span>
                                                 <span th:unless="${item.iconHtml != null}" th:utext="${T(com.project.tracking_system.entity.GlobalStatus).UNKNOWN_STATUS.getIconHtml()}" class="status-icon"></span>
-
-                                                <button type="button" class="btn btn-link parcel-number open-modal"
-                                                        th:text="${item.number}"
-                                                        th:data-itemnumber="${item.number}"
-                                                        aria-label="Открыть детали посылки">
-                                                </button>
-                                                <span class="customer-icon" role="button"
-                                                      th:data-trackid="${item.id}" aria-label="Информация о покупателе">
+                                                <!-- Номер трека остаётся с классом .open-modal, чтобы по клику открывать модальное окно. -->
+                                                <span class="track-number open-modal" th:text="${item.number}" th:data-itemnumber="${item.number}" role="button" aria-label="Открыть детали посылки"></span>
+                                                <span class="customer-icon ms-1" th:data-trackid="${item.id}" role="button" aria-label="Информация о покупателе">
                                                     <i class="bi bi-person-circle"></i>
                                                 </span>
                                             </div>
