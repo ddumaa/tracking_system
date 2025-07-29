@@ -75,6 +75,27 @@ function setActiveProfileTab(href) {
     });
 }
 
+/**
+ * Инициализирует переключение сортировки по дате.
+ * При клике на элемент с ID 'sortDateBtn' изменяет параметр 'sortOrder'
+ * текущего URL и перезагружает страницу.
+ */
+function initSortDateToggle() {
+    const sortBtn = document.getElementById('sortDateBtn');
+    if (!sortBtn) return;
+
+    sortBtn.addEventListener('click', function (event) {
+        event.preventDefault();
+
+        const url = new URL(window.location.href);
+        const currentOrder = url.searchParams.get('sortOrder');
+        const newOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+        url.searchParams.set('sortOrder', newOrder);
+
+        window.location.href = url.toString();
+    });
+}
+
 // Обновляем кнопку при изменении чекбоксов
 document.body.addEventListener("change", function (event) {
     if (event.target.classList.contains("selectCheckbox")) {
@@ -1620,9 +1641,14 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             // Перенаправляем пользователя на обновленный URL
+
             window.location.href = currentUrl.toString();
         });
     });
+
+    // === Сортировка по дате ===
+    // Инициализируем обработчик для переключения параметра sortOrder
+    initSortDateToggle();
 
     const selectAllCheckbox = document.getElementById("selectAllCheckbox");
 
