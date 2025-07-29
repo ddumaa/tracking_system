@@ -67,12 +67,19 @@ public class TrackParcelService {
      * @param storeIds список идентификаторов магазинов
      * @param page     номер страницы
      * @param size     размер страницы
-     * @param userId   идентификатор пользователя
+     * @param userId    идентификатор пользователя
+     * @param sortOrder порядок сортировки: {@code "asc"} или {@code "desc"}
      * @return страница посылок указанного пользователя
      */
     @Transactional(readOnly = true)
-    public Page<TrackParcelDTO> findByStoreTracks(List<Long> storeIds, int page, int size, Long userId) {
-        Pageable pageable = PageRequest.of(page, size);
+    public Page<TrackParcelDTO> findByStoreTracks(List<Long> storeIds,
+                                                  int page,
+                                                  int size,
+                                                  Long userId,
+                                                  String sortOrder) {
+        Sort sort = Sort.by("timestamp");
+        sort = "asc".equalsIgnoreCase(sortOrder) ? sort.ascending() : sort.descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
         Page<TrackParcel> trackParcels = trackParcelRepository.findByStoreIdIn(storeIds, pageable);
         ZoneId userZone = userService.getUserZone(userId);
         return trackParcels.map(track -> new TrackParcelDTO(track, userZone));
@@ -85,12 +92,20 @@ public class TrackParcelService {
      * @param status   статус посылки
      * @param page     номер страницы
      * @param size     размер страницы
-     * @param userId   идентификатор пользователя
+     * @param userId    идентификатор пользователя
+     * @param sortOrder порядок сортировки: {@code "asc"} или {@code "desc"}
      * @return страница посылок
      */
     @Transactional(readOnly = true)
-    public Page<TrackParcelDTO> findByStoreTracksAndStatus(List<Long> storeIds, GlobalStatus status, int page, int size, Long userId) {
-        Pageable pageable = PageRequest.of(page, size);
+    public Page<TrackParcelDTO> findByStoreTracksAndStatus(List<Long> storeIds,
+                                                          GlobalStatus status,
+                                                          int page,
+                                                          int size,
+                                                          Long userId,
+                                                          String sortOrder) {
+        Sort sort = Sort.by("timestamp");
+        sort = "asc".equalsIgnoreCase(sortOrder) ? sort.ascending() : sort.descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
         Page<TrackParcel> trackParcels = trackParcelRepository.findByStoreIdInAndStatus(storeIds, status, pageable);
         ZoneId userZone = userService.getUserZone(userId);
         return trackParcels.map(track -> new TrackParcelDTO(track, userZone));
@@ -104,7 +119,8 @@ public class TrackParcelService {
      * @param query    строка поиска
      * @param page     номер страницы
      * @param size     размер страницы
-     * @param userId   идентификатор пользователя
+     * @param userId    идентификатор пользователя
+     * @param sortOrder порядок сортировки: {@code "asc"} или {@code "desc"}
      * @return страница найденных посылок
      */
     @Transactional(readOnly = true)
@@ -113,8 +129,11 @@ public class TrackParcelService {
                                                       String query,
                                                       int page,
                                                       int size,
-                                                      Long userId) {
-        Pageable pageable = PageRequest.of(page, size);
+                                                      Long userId,
+                                                      String sortOrder) {
+        Sort sort = Sort.by("timestamp");
+        sort = "asc".equalsIgnoreCase(sortOrder) ? sort.ascending() : sort.descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
         String phoneDigits = PhoneUtils.extractDigits(query);
         Page<TrackParcel> parcels = trackParcelRepository.searchByNumberOrPhone(
                 storeIds, userId, status, query, phoneDigits, pageable);
