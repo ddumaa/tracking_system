@@ -129,7 +129,12 @@
                                         </th>
                                         <th scope="col">№ посылки</th>
                                         <th scope="col">Статус</th>
-                                        <th scope="col">Дата</th>
+                                        <th scope="col">
+                                            <a href="#" id="sortDateBtn">
+                                                Дата
+                                                <i class="bi" th:classappend="${sortOrder == 'asc'} ? 'bi-arrow-down' : 'bi-arrow-up'"></i>
+                                            </a>
+                                        </th>
                                     </tr>
                                     </thead>
                                     <tbody>
