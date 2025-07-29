@@ -103,17 +103,6 @@
                                     th:classappend="${size == 100} ? 'active'">100</button>
                         </div>
 
-                        <!--
-                            Кнопка переключения порядка сортировки отправлений по дате.
-                            При нажатии меняет значение параметра sortOrder и перезагружает страницу.
-                            Значок стрелки отображает текущий порядок: восходящий или нисходящий.
-                        -->
-                        <a th:href="@{/app/departures(sortOrder=${sortOrder == 'asc' ? 'desc' : 'asc'})}"
-                           class="btn btn-outline-primary btn-sm">
-                            <i class="bi" th:classappend="${sortOrder == 'asc'} ? 'bi-arrow-down' : 'bi-arrow-up'"></i>
-                            <span th:text="${sortOrder == 'asc'} ? 'Старые вначале' : 'Новые вначале'"></span>
-                        </a>
-
                     </div>
 
                     <!-- Таблица истории -->
@@ -130,7 +119,7 @@
                                         <th scope="col">№ посылки</th>
                                         <th scope="col">Статус</th>
                                         <th scope="col">
-                                            <a href="#" id="sortDateBtn">
+                                            <a href="#" id="sortDateBtn" class="link-dark text-decoration-none">
                                                 Дата
                                                 <i class="bi" th:classappend="${sortOrder == 'asc'} ? 'bi-arrow-down' : 'bi-arrow-up'"></i>
                                             </a>
