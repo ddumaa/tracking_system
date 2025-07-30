@@ -163,13 +163,4 @@ public class MarketingController {
         return "marketing/about";
     }
 
-    /**
-     * Отображает страницу с контактной информацией.
-     *
-     * @return имя представления страницы с контактами
-     */
-    @GetMapping("contacts")
-    public String contacts() {
-        return "marketing/contacts";
-    }
 }

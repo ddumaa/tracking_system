@@ -84,6 +84,32 @@ public class EmailService {
     }
 
     /**
+     * Отправляет письмо из формы обратной связи.
+     *
+     * @param to        адрес получателя
+     * @param variables карта данных формы (имя, email, сообщение)
+     */
+    public void sendContactEmail(String to, Map<String, Object> variables) {
+        if (!isValidEmail(to)) {
+            log.warn("⚠ Неверный формат email получателя: {}", EmailUtils.maskEmail(to));
+            return;
+        }
+
+        Object emailObj = variables.get("email");
+        if (emailObj instanceof String sender && !isValidEmail(sender)) {
+            log.warn("⚠ Неверный формат email отправителя: {}", EmailUtils.maskEmail(sender));
+            return;
+        }
+
+        try {
+            String htmlContent = templateService.generateEmail("contact-email", variables);
+            sendHtmlEmailAsync(to, "Обращение через форму обратной связи", htmlContent);
+        } catch (Exception e) {
+            log.error("❌ Ошибка при генерации email-шаблона обращения: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
      * Асинхронно отправляет HTML email сообщение.
      *
      * @param to      адрес получателя.

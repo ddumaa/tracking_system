@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Новое обращение</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f8f9fa; color: #333333; padding: 30px;">
+<div style="max-width: 600px; margin: 0 auto; background: #ffffff; padding: 20px; border-radius: 10px; border: 1px solid #e0e0e0;">
+    <h2 style="color: #007bff; text-align: center;">Новое обращение с сайта</h2>
+    <p><strong>Имя:</strong> <span th:text="${name}"></span></p>
+    <p><strong>Email:</strong> <span th:text="${email}"></span></p>
+    <p><strong>Сообщение:</strong></p>
+    <p th:text="${message}"></p>
+</div>
+</body>
+</html>
