@@ -1,0 +1,119 @@
+@use '../ui' as ui;
+@use "sass:color";
+
+.about-hero {
+  background-color: ui.$light;
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+  text-align: center;
+
+  h1 {
+    font-weight: 700;
+  }
+
+  p {
+    font-size: 1.25rem;
+    color: ui.$secondary;
+  }
+}
+
+.about-section {
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+
+  &--light {
+    background-color: ui.$light;
+  }
+
+  &--white {
+    background-color: ui.$white;
+  }
+
+  &--dark {
+    background-color: ui.$dark;
+    color: ui.$white;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  p {
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  img {
+    max-height: 280px;
+  }
+}
+
+.about-quote {
+  border-top: 1px solid color.scale(ui.$light, $lightness: -10%);
+  padding-top: 3rem;
+  margin-top: 3rem;
+  text-align: center;
+
+  .blockquote {
+    font-size: 1.25rem;
+    font-style: italic;
+  }
+
+  .blockquote-footer {
+    color: ui.$secondary;
+    font-size: 0.95rem;
+  }
+}
+
+.testimonial-large-panel {
+  position: relative;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background-color: #fff;
+  border-radius: ui.$border-radius;
+  box-shadow: ui.$box-shadow;
+}
+
+.founder-avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  z-index: 1;
+  position: relative;
+}
+
+.speech-bubble {
+  position: relative;
+  background-color: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+  max-width: 360px;
+  margin: 0 auto;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+/* Хвостик снизу по центру */
+.speech-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 8px 10px 0 10px;
+  border-style: solid;
+  border-color: #ffffff transparent transparent transparent;
+}
+
+/* Контур хвостика */
+.speech-bubble::before {
+  content: "";
+  position: absolute;
+  bottom: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 10px 12px 0 12px;
+  border-style: solid;
+  border-color: #ddd transparent transparent transparent;
+}

@@ -4,43 +4,52 @@
     <title layout:fragment="title">Контакты</title>
 </head>
 
-<div layout:fragment="header"
-     th:replace="~{partials/header-marketing :: header}">
-</div>
+<div layout:fragment="header" th:replace="~{partials/header-marketing :: header}"></div>
 
 <main layout:fragment="content" class="container py-5">
-    <h2 class="mb-4">Связаться с нами</h2>
-    <p>Если у вас возникли вопросы или предложения — напишите нам через форму ниже. Мы ответим в течение 1 рабочего дня.</p>
+    <h1 class="mb-5 text-center">Контакты</h1>
 
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <h5>📧 Электронная почта</h5>
-            <p><strong>Техническая поддержка:</strong> <a href="mailto:support@belivery.by">support@belivery.by</a></p>
-            <p><strong>Общие вопросы:</strong> <a href="mailto:info@belivery.by">info@belivery.by</a></p>
+    <div class="row">
+        <!-- Левая колонка: информация -->
+        <div class="col-lg-6 mb-5">
+            <h2 class="mb-4">Связаться с нами</h2>
+            <p class="mb-4 text-muted">Если у вас возникли вопросы или предложения — напишите нам.<br> Мы ответим в течение 1 рабочего дня.</p>
+
+            <div class="mb-4">
+                <h5>📧 Электронная почта</h5>
+                <p><strong>Техническая поддержка:</strong> <a href="mailto:support@belivery.by">support@belivery.by</a></p>
+                <p><strong>Общие вопросы:</strong> <a href="mailto:info@belivery.by">info@belivery.by</a></p>
+            </div>
+        </div>
+
+        <!-- Правая колонка: форма -->
+        <div class="col-lg-6">
+            <h2 class="mb-4">Форма обратной связи</h2>
+
+            <div th:if="${success}" class="alert alert-success" role="alert">
+                <span th:text="${success}"></span>
+            </div>
+
+            <form th:action="@{/contacts/submit}" method="post" class="row g-3">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                <div class="col-12">
+                    <label for="name" class="form-label">Ваше имя</label>
+                    <input type="text" class="form-control" id="name" name="name" required>
+                </div>
+                <div class="col-12">
+                    <label for="email" class="form-label">Ваш Email</label>
+                    <input type="email" class="form-control" id="email" name="email" required>
+                </div>
+                <div class="col-12">
+                    <label for="message" class="form-label">Сообщение</label>
+                    <textarea class="form-control" id="message" name="message" rows="5" required></textarea>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary w-100">Отправить</button>
+                </div>
+            </form>
         </div>
     </div>
-
-    <div th:if="${success}" class="alert alert-success mt-3" role="alert">
-        <span th:text="${success}"></span>
-    </div>
-
-    <form th:action="@{/contacts/submit}" method="post" class="row g-3">
-        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
-        <div class="col-md-6">
-            <label for="name" class="form-label">Ваше имя</label>
-            <input type="text" class="form-control" id="name" name="name" required>
-        </div>
-        <div class="col-md-6">
-            <label for="email" class="form-label">Ваш Email</label>
-            <input type="email" class="form-control" id="email" name="email" required>
-        </div>
-        <div class="col-12">
-            <label for="message" class="form-label">Сообщение</label>
-            <textarea class="form-control" id="message" name="message" rows="5" required></textarea>
-        </div>
-        <div class="col-12">
-            <button type="submit" class="btn btn-primary">Отправить</button>
-        </div>
-    </form>
 </main>
+
 </html>

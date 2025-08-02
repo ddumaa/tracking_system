@@ -50,4 +50,5 @@ public class ContactController {
                 "Сообщение отправлено! Мы свяжемся с вами в ближайшее время.");
         return "redirect:/contacts";
     }
+
 }

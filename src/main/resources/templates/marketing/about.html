@@ -8,8 +8,93 @@
      th:replace="~{partials/header-marketing :: header}">
 </div>
 
-<main layout:fragment="content" class="container mt-4">
-    <h1 class="text-center">О нас</h1>
-    <p class="text-center">Страница в разработке.</p>
+<main layout:fragment="content">
+
+    <!-- Заголовок -->
+    <section class="about-hero pt-2 pb-3">
+        <div class="container px-4 px-md-5">
+            <h1 class="display-5 fw-bold">О нас</h1>
+            <p>
+                Belivery — сервис, созданный из реальной потребности: контроль за отправлениями, автоматизация, удобство. Без лишнего.
+            </p>
+        </div>
+    </section>
+
+    <!-- Как всё началось -->
+    <section class="about-section about-section--white">
+        <div class="container px-4 px-md-5">
+            <div class="row align-items-center">
+                <div class="col-md-6 text-center">
+                    <img src="/images/about-start.svg" alt="Начало проекта" class="img-fluid">
+                </div>
+                <div class="col-md-6">
+                    <h2>Как всё началось</h2>
+                    <p>
+                        Этот проект появился не как стартап, а как решение внутренней боли. Я — индивидуальный предприниматель,
+                        и мне самому приходилось вручную отслеживать десятки посылок, вести таблицы и гадать, где застрял клиент.
+                        Belivery появился, чтобы упростить это. Теперь он помогает и другим.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Наш подход -->
+    <section class="about-section about-section--light">
+        <div class="container px-4 px-md-5">
+            <div class="row align-items-center flex-md-row">
+                <div class="col-md-6">
+                    <h2>Наш подход</h2>
+                    <p>
+                        Мы не гонимся за фичами — только нужное. Всё строится вокруг реального рабочего процесса:
+                        трек-номера, автоматические обновления, аналитика, Telegram-бот.
+                        Честный, понятный сервис без сложностей.
+                    </p>
+                </div>
+                <div class="col-md-6 text-center">
+                    <img src="/images/about-approach.svg" alt="Наш подход" class="img-fluid">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Что сейчас -->
+    <section class="about-section about-section--white">
+        <div class="container px-4 px-md-5">
+            <div class="row align-items-center">
+                <div class="col-md-6 text-center">
+                    <img src="/images/about-now.svg" alt="Что сейчас" class="img-fluid">
+                </div>
+                <div class="col-md-6">
+                    <h2>Что сейчас</h2>
+                    <p>
+                        Belivery уже работает и используется в действующем бизнесе. Мы постепенно развиваем проект:
+                        улучшаем аналитику, расширяем уведомления, добавляем полезные детали.
+                        Всё делается с прицелом на удобство и контроль.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Цитата с изображением -->
+    <section class="about-quote py-5">
+        <div class="container px-4 px-md-5 text-center">
+            <div class="position-relative d-inline-block">
+                <!-- Облако -->
+                <div class="speech-bubble mb-3">
+                    <p class="mb-0">«Я создал Belivery для себя — и понял, что это нужно не только мне»</p>
+                </div>
+
+                <!-- Аватар -->
+                <img src="/images/founder-photo.webp" alt="Основатель" class="founder-avatar mt-3">
+                <div class="mt-2">
+                    <small class="text-muted">Дмитрий, основатель сервиса</small>
+                </div>
+            </div>
+        </div>
+    </section>
+
 </main>
+
 </html>
