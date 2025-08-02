@@ -90,7 +90,8 @@ footer {
     margin-right: 5px;
   }
 }
-h1, h3, h4, h5 {
+/* Общие стили для заголовков (включая h2) */
+h1, h2, h3, h4, h5 {
   color: #343a40;
   font-weight: bold;
   margin-bottom: 15px;
@@ -120,6 +121,13 @@ h1 {
   h1 {
     font-size: 1.5rem;
   }
+}
+
+/* Заголовки второго уровня для внутренних секций */
+h2 {
+  font-size: 2rem;
+  text-align: center;
+  margin-bottom: 1.25rem;
 }
 
 h3 {
@@ -1765,5 +1773,3 @@ body.loading {
   border-style: solid;
   border-color: #ddd transparent transparent transparent;
 }
-
-/*# sourceMappingURL=style.css.map */
