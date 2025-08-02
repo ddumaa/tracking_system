@@ -91,13 +91,13 @@ footer {
   }
 }
 /* Общие стили для заголовков (включая h2) */
-h1, h2, h3, h4, h5 {
+h1, .page-title, h2, .section-title, h3, h4, h5 {
   color: #343a40;
   font-weight: bold;
   margin-bottom: 15px;
 }
 
-h1 {
+h1, .page-title {
   font-size: 2.5rem;
   font-weight: 700;
   text-align: center;
@@ -108,28 +108,30 @@ h1 {
   margin-bottom: 1.5rem;
 }
 @media (max-width: 992px) {
-  h1 {
+  h1, .page-title {
     font-size: 2rem;
   }
 }
 @media (max-width: 768px) {
-  h1 {
+  h1, .page-title {
     font-size: 1.75rem;
   }
 }
 @media (max-width: 576px) {
-  h1 {
+  h1, .page-title {
     font-size: 1.5rem;
   }
 }
 
 /* Заголовки второго уровня для внутренних секций */
-h2 {
+h2, .section-title {
   font-size: 2rem;
   text-align: center;
   margin-bottom: 1.25rem;
 }
 
+/* Класс для заголовков страниц маркетинга */
+/* Класс для заголовков секций на маркетинговых страницах */
 h3 {
   font-size: 1.75rem;
 }
@@ -1418,7 +1420,7 @@ button:hover {
   max-width: 800px;
   margin: 0 auto;
 }
-.legal-container .legal-title {
+.legal-container .page-title {
   font-size: 2rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
@@ -1673,7 +1675,7 @@ body.loading {
   padding-bottom: 4rem;
   text-align: center;
 }
-.about-hero h1 {
+.about-hero .page-title {
   font-weight: 700;
 }
 .about-hero p {
@@ -1695,7 +1697,7 @@ body.loading {
   background-color: #343a40;
   color: #ffffff;
 }
-.about-section h2 {
+.about-section .section-title {
   font-size: 1.5rem;
   margin-bottom: 1rem;
 }

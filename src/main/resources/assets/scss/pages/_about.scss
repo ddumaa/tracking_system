@@ -1,13 +1,16 @@
 @use '../ui' as ui;
 @use "sass:color";
 
+
+// Стили для hero-блока страницы "О нас"
 .about-hero {
   background-color: ui.$light;
   padding-top: 4rem;
   padding-bottom: 4rem;
   text-align: center;
 
-  h1 {
+  // Дополнительное оформление заголовка страницы
+  .page-title {
     font-weight: 700;
   }
 
@@ -34,7 +37,8 @@
     color: ui.$white;
   }
 
-  h2 {
+  // Локальная стилизация заголовков секций
+  .section-title {
     font-size: 1.5rem;
     margin-bottom: 1rem;
   }

@@ -7,12 +7,14 @@
 <div layout:fragment="header" th:replace="~{partials/header-marketing :: header}"></div>
 
 <main layout:fragment="content" class="container py-5">
-    <h1 class="mb-5 text-center">Контакты</h1>
+    <!-- Главный заголовок страницы контактов -->
+    <h1 class="page-title mb-5 text-center">Контакты</h1>
 
     <div class="row">
         <!-- Левая колонка: информация -->
         <div class="col-lg-6 mb-5">
-            <h2 class="mb-4">Связаться с нами</h2>
+            <!-- Секция с основными способами связи -->
+            <h2 class="section-title mb-4">Связаться с нами</h2>
             <p class="mb-4 text-muted">Если у вас возникли вопросы или предложения — напишите нам.<br> Мы ответим в течение 1 рабочего дня.</p>
 
             <div class="mb-4">
@@ -25,7 +27,8 @@
 
         <!-- Правая колонка: форма -->
         <div class="col-lg-6">
-            <h2 class="mb-4">Форма обратной связи</h2>
+            <!-- Секция с формой обратной связи -->
+            <h2 class="section-title mb-4">Форма обратной связи</h2>
 
             <div th:if="${success}" class="alert alert-success" role="alert">
                 <span th:text="${success}"></span>
