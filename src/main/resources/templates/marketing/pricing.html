@@ -25,12 +25,15 @@
             </div>
         </div>
 
+        <!-- 🧭 Заголовок секции тарифов -->
+        <h2 class="text-center mb-4">Тарифные планы</h2>
+
         <div class="row justify-content-center g-4">
 
             <div class="col-12 col-sm-6 col-md-4 col-lg-3" th:each="plan : ${plans}">
                 <div class="card h-100 shadow-sm border-0 rounded-4 d-flex flex-column position-relative">
                     <div th:if="${plan.recommended}" class="recommended-label">Рекомендуем</div>
-                    <!-- Название -->
+                    <!-- Название тарифа (уровень h3 следует за общим h2) -->
                     <h3 class="text-center fw-bold fs-3 mt-3 mb-1" th:text="${plan.name}">Premium</h3>
                     <div class="text-center mb-2" th:if="${plan.recommended}">
                         <span class="recommended-label">Рекомендуем</span>
