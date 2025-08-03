@@ -2,6 +2,7 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/layout}">
 <head>
     <title layout:fragment="title">Контакты</title>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 </head>
 
 <div layout:fragment="header" th:replace="~{partials/header-marketing :: header}"></div>
@@ -58,6 +59,12 @@
                               th:classappend="${#fields.hasErrors('message')} ? 'is-invalid'"></textarea>
                     <div class="invalid-feedback d-block" th:if="${#fields.hasErrors('message')}">
                         <span th:errors="*{message}"></span>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="g-recaptcha mb-3" th:attr="data-sitekey=${recaptchaSiteKey}"></div>
+                    <div class="invalid-feedback d-block" th:if="${#fields.hasGlobalErrors()}">
+                        <span th:each="err : ${#fields.globalErrors()}" th:text="${err}"></span>
                     </div>
                 </div>
                 <div class="col-12">
