@@ -1,11 +1,15 @@
 package com.project.tracking_system.controller;
 
+import com.project.tracking_system.dto.ContactFormRequest;
 import com.project.tracking_system.service.contact.ContactService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
@@ -27,7 +31,9 @@ public class ContactController {
      * @return имя шаблона страницы контактов
      */
     @GetMapping("/contacts")
-    public String contactPage() {
+    public String contactPage(Model model) {
+        // Добавляем пустой объект формы в модель для привязки полей на странице
+        model.addAttribute("contactForm", new ContactFormRequest());
         return "marketing/contacts";
     }
 
@@ -41,11 +47,17 @@ public class ContactController {
      * @return редирект на страницу контактов
      */
     @PostMapping("/contacts/submit")
-    public String submitContactForm(@RequestParam String name,
-                                    @RequestParam String email,
-                                    @RequestParam String message,
-                                    RedirectAttributes redirectAttributes) {
-        contactService.processContactRequest(name, email, message);
+    public String submitContactForm(
+            @Valid @ModelAttribute("contactForm") ContactFormRequest contactForm,
+            BindingResult bindingResult,
+            RedirectAttributes redirectAttributes) {
+        // Если при валидации формы обнаружены ошибки - возвращаем пользователя на страницу контактов
+        if (bindingResult.hasErrors()) {
+            return "marketing/contacts";
+        }
+
+        // Передаём корректные данные в сервис для дальнейшей обработки
+        contactService.processContactRequest(contactForm);
         redirectAttributes.addFlashAttribute("success",
                 "Сообщение отправлено! Мы свяжемся с вами в ближайшее время.");
         return "redirect:/contacts";
