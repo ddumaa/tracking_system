@@ -34,19 +34,31 @@
                 <span th:text="${success}"></span>
             </div>
 
-            <form th:action="@{/contacts/submit}" method="post" class="row g-3">
+            <form th:action="@{/contacts/submit}" th:object="${contactForm}" method="post" class="row g-3">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
                 <div class="col-12">
                     <label for="name" class="form-label">Ваше имя</label>
-                    <input type="text" class="form-control" id="name" name="name" required>
+                    <input type="text" th:field="*{name}" class="form-control" id="name"
+                           th:classappend="${#fields.hasErrors('name')} ? 'is-invalid'">
+                    <div class="invalid-feedback d-block" th:if="${#fields.hasErrors('name')}">
+                        <span th:errors="*{name}"></span>
+                    </div>
                 </div>
                 <div class="col-12">
                     <label for="email" class="form-label">Ваш Email</label>
-                    <input type="email" class="form-control" id="email" name="email" required>
+                    <input type="email" th:field="*{email}" class="form-control" id="email"
+                           th:classappend="${#fields.hasErrors('email')} ? 'is-invalid'">
+                    <div class="invalid-feedback d-block" th:if="${#fields.hasErrors('email')}">
+                        <span th:errors="*{email}"></span>
+                    </div>
                 </div>
                 <div class="col-12">
                     <label for="message" class="form-label">Сообщение</label>
-                    <textarea class="form-control" id="message" name="message" rows="5" required></textarea>
+                    <textarea th:field="*{message}" class="form-control" id="message" rows="5"
+                              th:classappend="${#fields.hasErrors('message')} ? 'is-invalid'"></textarea>
+                    <div class="invalid-feedback d-block" th:if="${#fields.hasErrors('message')}">
+                        <span th:errors="*{message}"></span>
+                    </div>
                 </div>
                 <div class="col-12">
                     <button type="submit" class="btn btn-primary w-100">Отправить</button>

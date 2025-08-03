@@ -1,5 +1,6 @@
 package com.project.tracking_system.service.contact;
 
+import com.project.tracking_system.dto.ContactFormRequest;
 import com.project.tracking_system.service.email.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,16 +29,14 @@ public class ContactService {
     /**
      * Обрабатывает обращение пользователя, отправляя его содержимое по почте.
      *
-     * @param name    имя отправителя
-     * @param email   email отправителя
-     * @param message текст обращения
+     * @param request объект с данными обращения пользователя
      */
-    public void processContactRequest(String name, String email, String message) {
-        log.info("Получено обращение от {} <{}>", name, email);
+    public void processContactRequest(ContactFormRequest request) {
+        log.info("Получено обращение от {} <{}>", request.getName(), request.getEmail());
         emailService.sendContactEmail(recipientEmail, Map.of(
-                "name", name,
-                "email", email,
-                "message", message
+                "name", request.getName(),
+                "email", request.getEmail(),
+                "message", request.getMessage()
         ));
     }
 }
