@@ -47,9 +47,15 @@ class InvalidTrackCacheServiceTest {
         service.removeExpired();
         assertFalse(service.getInvalidTracks(1L, 1L).isEmpty());
 
+        try {
+            Thread.sleep(1);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
         // после смены TTL на ноль запись должна быть удалена
         service.removeExpired();
-        assertTrue(service.getInvalidTracks(1L, 1L).isEmpty());
+        List<InvalidTrack> remaining = service.getInvalidTracks(1L, 1L);
+        assertTrue(remaining.isEmpty(), "Cache entry should be removed after TTL becomes zero");
 
         verify(applicationSettingsService, times(2)).getResultCacheExpirationMs();
     }
@@ -85,4 +91,3 @@ class InvalidTrackCacheServiceTest {
         assertTrue(service.getInvalidTracks(1L, 1L).isEmpty(), "Cache should expire after viewing when TTL elapsed");
     }
 }
-
