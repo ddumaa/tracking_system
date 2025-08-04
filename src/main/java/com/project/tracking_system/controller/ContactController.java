@@ -62,8 +62,17 @@ public class ContactController {
             HttpServletRequest request,
             RedirectAttributes redirectAttributes) {
 
+        // IP-адрес клиента используется для проверки капчи
         String ip = request.getRemoteAddr();
-        if (!captchaService.verifyToken(captchaToken, ip)) {
+
+        // Проверяем токен только при его наличии, чтобы избежать лишних
+        // обращений к сервису и упростить тестирование контроллера
+        boolean captchaValid = captchaToken != null
+                && !captchaToken.isBlank()
+                && captchaService.verifyToken(captchaToken, ip);
+
+        // При отсутствии токена или неверной капче добавляем ошибку валидации
+        if (!captchaValid) {
             bindingResult.reject("captcha.invalid", "Подтвердите, что вы не робот.");
         }
 
