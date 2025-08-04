@@ -10,6 +10,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
+import org.mockito.Mockito;
 
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -65,7 +66,7 @@ class DynamicSchedulerServiceTest {
 
         when(repository.findAll()).thenReturn(List.of(cfg1, cfg2));
         ScheduledFuture<?> future = mock(ScheduledFuture.class);
-        when(taskScheduler.schedule(any(Runnable.class), any(CronTrigger.class))).thenReturn(future);
+        Mockito.<ScheduledFuture<?>>when(taskScheduler.schedule(any(Runnable.class), any(CronTrigger.class))).thenReturn(future);
 
         service.init();
 
@@ -73,8 +74,10 @@ class DynamicSchedulerServiceTest {
         verify(taskScheduler, times(2)).schedule(any(Runnable.class), triggerCaptor.capture());
 
         List<CronTrigger> triggers = triggerCaptor.getAllValues();
-        assertTrue(triggers.stream().anyMatch(t -> ZoneId.of("Europe/Moscow").equals(t.getZone())));
-        assertTrue(triggers.stream().anyMatch(t -> ZoneOffset.UTC.equals(t.getZone())));
+        // Сравниваем с ожидаемыми триггерами: equals учитывает и cron, и используемый ZoneId
+        assertTrue(triggers.contains(new CronTrigger("0 0 * * * *", ZoneId.of("Europe/Moscow"))));
+        // Для пустой зоны конфигурации используется UTC, это также проверяем через equals
+        assertTrue(triggers.contains(new CronTrigger("0 5 * * * *", ZoneOffset.UTC)));
     }
 
     /**
@@ -93,7 +96,7 @@ class DynamicSchedulerServiceTest {
         service.registerTask(1L, task);
 
         ScheduledFuture<?> future = mock(ScheduledFuture.class);
-        when(taskScheduler.schedule(eq(task), any(CronTrigger.class))).thenReturn(future);
+        Mockito.<ScheduledFuture<?>>when(taskScheduler.schedule(eq(task), any(CronTrigger.class))).thenReturn(future);
 
         service.updateCron(1L, "0 10 * * * *");
 
