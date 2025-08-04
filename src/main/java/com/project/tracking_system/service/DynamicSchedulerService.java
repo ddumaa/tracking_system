@@ -86,9 +86,17 @@ public class DynamicSchedulerService {
         reschedule(cfg);
     }
 
+    /**
+     * Планирует выполнение задачи согласно её конфигурации.
+     * <p>Если задача не зарегистрирована в {@link #tasks}, то планирование
+     * не производится.</p>
+     *
+     * @param cfg конфигурация с cron-выражением и таймзоной
+     */
     private void schedule(ScheduledTaskConfig cfg) {
         Runnable r = tasks.get(cfg.getId());
         if (r == null) {
+            // Задача не была зарегистрирована — выходим без планирования
             return;
         }
 
@@ -97,12 +105,19 @@ public class DynamicSchedulerService {
                 ? ZoneOffset.UTC
                 : ZoneId.of(cfg.getZone());
 
+        // Создаём триггер и передаём задачу планировщику
         CronTrigger trigger = new CronTrigger(cfg.getCron(), zoneId);
         futures.put(cfg.getId(), taskScheduler.schedule(r, trigger));
         log.info("Запланирована задача {} c cron {} в таймзоне {}",
                 cfg.getDescription(), cfg.getCron(), zoneId);
     }
 
+    /**
+     * Отменяет ранее запланированную задачу и планирует её заново.
+     * Используется при изменении расписания.
+     *
+     * @param cfg обновлённая конфигурация задачи
+     */
     private void reschedule(ScheduledTaskConfig cfg) {
         ScheduledFuture<?> future = futures.get(cfg.getId());
         if (future != null) {
