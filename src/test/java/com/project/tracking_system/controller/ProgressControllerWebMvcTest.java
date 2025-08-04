@@ -7,6 +7,7 @@ import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.track.ProgressAggregatorService;
 import com.project.tracking_system.service.track.TrackingResultCacheService;
+import com.project.tracking_system.service.track.InvalidTrackCacheService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +44,10 @@ class ProgressControllerWebMvcTest {
 
     @MockBean
     private TrackingResultCacheService trackingResultCacheService;
+
+    // Мокаем кэш некорректных треков, чтобы контроллер мог быть создан
+    @MockBean
+    private InvalidTrackCacheService invalidTrackCacheService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
