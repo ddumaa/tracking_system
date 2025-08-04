@@ -61,15 +61,18 @@ public class CspNonceFilter extends OncePerRequestFilter {
         String formAction = String.join(" ", allowedFormActionOrigins);
 
         String cspPolicy = "default-src 'self'; " +
-                "script-src 'self' 'nonce-" + nonce + "' https://code.jquery.com https://cdn.jsdelivr.net; " +
-                // Разрешаем подключать стили с CDN Google Fonts
-                "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; " +
+                // Разрешаем скрипты собственного происхождения, CDN и Google reCAPTCHA
+                "script-src 'self' 'nonce-" + nonce + "' https://code.jquery.com https://cdn.jsdelivr.net https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; " +
+                // Разрешаем подключать стили с CDN Google Fonts и reCAPTCHA
+                "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com https://www.gstatic.com/recaptcha/; " +
                 // Разрешаем подгрузку шрифтов с CDN Google Fonts
                 "font-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.gstatic.com; " +
                 "img-src 'self' data:; " +
                 "connect-src 'self'" + (connectSrc.isBlank() ? "" : " " + connectSrc) + "; " +
                 "object-src 'none'; " +
                 "frame-ancestors 'none'; " +
+                // Разрешаем загрузку iframe с Google reCAPTCHA
+                "frame-src 'self' https://www.google.com/recaptcha/; " +
                 "base-uri 'self'; " +
                 "form-action 'self'" + (formAction.isBlank() ? "" : " " + formAction) + ";";
 
