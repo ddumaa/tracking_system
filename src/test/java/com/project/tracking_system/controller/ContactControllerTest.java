@@ -1,5 +1,6 @@
 package com.project.tracking_system.controller;
 
+import com.project.tracking_system.configuration.GlobalControllerAdvice;
 import com.project.tracking_system.dto.ContactFormRequest;
 import com.project.tracking_system.service.captcha.CaptchaService;
 import com.project.tracking_system.service.contact.ContactService;
@@ -8,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -26,7 +29,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Тесты контроллера страницы контактов.
  */
-@WebMvcTest(ContactController.class)
+// Ограничиваем сканирование контекста только тестируемым контроллером и исключаем глобальный совет,
+// требующий дополнительных зависимостей и конфигураций.
+@WebMvcTest(value = ContactController.class,
+        excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = GlobalControllerAdvice.class))
 @AutoConfigureMockMvc(addFilters = false)
 class ContactControllerTest {
 
