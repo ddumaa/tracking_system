@@ -77,7 +77,6 @@ class TrackViewServiceTest {
         when(trackParcelService.findByNumberAndUserId("A1", 1L)).thenReturn(parcel);
         when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(3);
         when(trackParcelService.getPostalServiceType("A1")).thenReturn(PostalServiceType.BELPOST);
-        when(userService.getUserZone(1L)).thenReturn(ZoneId.systemDefault());
         TrackInfoListDTO info = new TrackInfoListDTO();
         when(trackUpdateDispatcherService.dispatch(any(TrackMeta.class)))
                 .thenReturn(new TrackingResultAdd("A1", "ok", info));
