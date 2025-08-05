@@ -45,7 +45,6 @@ class ProgressControllerWebMvcTest {
     @MockBean
     private TrackingResultCacheService trackingResultCacheService;
 
-    // Мокаем кэш некорректных треков, чтобы контроллер мог быть создан
     @MockBean
     private InvalidTrackCacheService invalidTrackCacheService;
 
