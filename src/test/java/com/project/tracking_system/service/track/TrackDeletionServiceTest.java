@@ -35,7 +35,7 @@ class TrackDeletionServiceTest {
     }
 
     /**
-     * Проверяем, что сервис загружает посылки и корректно удаляет их.
+     * Проверяет, что сервис загружает посылки и корректно удаляет их.
      */
     @Test
     void deleteByNumbersAndUserId_DeletesParcelsAndClearsHistory() {
@@ -56,7 +56,7 @@ class TrackDeletionServiceTest {
     }
 
     /**
-     * Проверяем, что отсутствие посылок приводит к ошибке и удаление не выполняется.
+     * Убеждается, что отсутствие посылок приводит к ошибке и удаление не выполняется.
      */
     @Test
     void deleteByNumbersAndUserId_NoParcelsFound_ThrowsException() {

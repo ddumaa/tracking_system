@@ -29,16 +29,16 @@ class TrackingResultCacheServiceTest {
 
     @Test
     void removeExpired_RespectsUpdatedSetting() {
-        // Настройка TTL в 100 мс — запись не должна быть удалена до просмотра
+        // Устанавливаем TTL 100 мс — запись не должна удаляться до просмотра
         when(applicationSettingsService.getResultCacheExpirationMs()).thenReturn(100L);
 
         service.addResult(1L, new TrackStatusUpdateDTO(1L, "A1", "ok", 1, 1));
         service.removeExpired();
         assertFalse(service.getResults(1L, 1L).isEmpty());
 
-        // Изменяем TTL на 0 мс. После просмотра запись должна быть удалена
+        // Меняем TTL на 0 мс. После просмотра запись должна удалиться
         when(applicationSettingsService.getResultCacheExpirationMs()).thenReturn(0L);
-        service.getResults(1L, 1L); // помечает запись просмотренной
+        service.getResults(1L, 1L); // помечает запись как просмотренную
         service.removeExpired();
         assertTrue(service.getResults(1L, 1L).isEmpty());
 
@@ -54,9 +54,9 @@ class TrackingResultCacheServiceTest {
         service.removeExpired();
         assertFalse(service.getResults(1L, 1L).isEmpty(), "Кэш должен сохраняться до первого просмотра");
 
-        // Первый доступ помечает запись просмотренной, после чего она должна удалиться
+        // Первый доступ помечает запись как просмотренную, после чего она должна удалиться
         service.getResults(1L, 1L);
         service.removeExpired();
-        assertTrue(service.getResults(1L, 1L).isEmpty(), "Кэш должен удаляться после просмотра, если TTL истёк");
+        assertTrue(service.getResults(1L, 1L).isEmpty(), "Кэш должен удаляться после просмотра при истекшем TTL");
     }
 }
