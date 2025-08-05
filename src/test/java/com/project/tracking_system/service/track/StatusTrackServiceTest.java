@@ -9,16 +9,17 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Unit tests for {@link StatusTrackService} verifying correct mapping
- * of raw status strings to {@link GlobalStatus} values.
+ * Юнит-тесты для {@link StatusTrackService}, проверяющие корректное
+ * сопоставление сырых строк статуса значениям {@link GlobalStatus}.
  */
 class StatusTrackServiceTest {
 
     private final StatusTrackService service = new StatusTrackService();
 
     /**
-     * Arrival status from Belpost should map to {@link GlobalStatus#WAITING_FOR_CUSTOMER}.
-     * Leading and trailing spaces must not affect the result.
+     * Статус прибытия от Белпочты должен преобразовываться в
+     * {@link GlobalStatus#WAITING_FOR_CUSTOMER}. Наличие пробелов в начале
+     * и конце строки не должно влиять на результат.
      */
     @Test
     void setStatus_MapsArrivalToWaiting() {
@@ -32,7 +33,8 @@ class StatusTrackServiceTest {
     }
 
     /**
-     * Status text about delivery must result in {@link GlobalStatus#DELIVERED}.
+     * Строка со статусом о выдаче должна приводить к статусу
+     * {@link GlobalStatus#DELIVERED}.
      */
     @Test
     void setStatus_MapsDelivered() {
