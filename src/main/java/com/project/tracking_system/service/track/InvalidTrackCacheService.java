@@ -23,10 +23,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class InvalidTrackCacheService {
 
-    /** Application settings provider. */
+    /** Сервис получения настроек приложения. */
     private final ApplicationSettingsService applicationSettingsService;
 
-    /** Map userId -> (batchId -> cached entry). */
+    /** Карта вида userId -> (batchId -> запись кэша). */
     private final Map<Long, Map<Long, BatchEntry>> cache = new ConcurrentHashMap<>();
 
     /**
@@ -163,12 +163,25 @@ public class InvalidTrackCacheService {
             return new ArrayList<>(tracks);
         }
 
+        /** Обновляет время последнего доступа текущим моментом. */
         void refresh() {
             lastAccess = System.currentTimeMillis();
         }
 
+        /**
+         * Проверяет, истекло ли время жизни записи относительно заданного порога.
+         * <p>
+         * Используется нестрогое сравнение: запись считается просроченной ровно
+         * в момент окончания TTL. Это позволяет немедленно удалить запись,
+         * когда время жизни равно нулю и пользователь уже просмотрел данные.
+         * </p>
+         *
+         * @param threshold момент времени, с которым сравнивается {@code lastAccess}
+         * @return {@code true}, если запись следует считать просроченной
+         */
         boolean expired(long threshold) {
-            return viewed && lastAccess < threshold;
+            // запись подлежит удалению только после просмотра пользователем
+            return viewed && lastAccess <= threshold;
         }
     }
 
