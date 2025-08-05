@@ -37,6 +37,9 @@ class SubscriptionServiceTest {
     @InjectMocks
     private SubscriptionService subscriptionService;
 
+    /**
+     * Возвращает ноль, если у пользователя нет подписки.
+     */
     @Test
     void canUpdateTracks_NoSubscription_ReturnsZero() {
         when(userSubscriptionRepository.findByUserId(1L))
@@ -48,10 +51,13 @@ class SubscriptionServiceTest {
         verify(userSubscriptionRepository, never()).save(any());
     }
 
+    /**
+     * Возвращает запрошенное количество для плана без ограничений.
+     */
     @Test
     void canUpdateTracks_UnlimitedPlan_ReturnsRequested() {
         SubscriptionPlan plan = new SubscriptionPlan();
-        plan.setLimits(null); // отсутствие лимитов
+        plan.setLimits(null); // без ограничений
         UserSubscription sub = new UserSubscription();
         sub.setSubscriptionPlan(plan);
         sub.setResetDate(LocalDate.now());
@@ -65,6 +71,9 @@ class SubscriptionServiceTest {
         verify(userSubscriptionRepository, never()).save(any());
     }
 
+    /**
+     * Учитывает лимиты и обновляет счётчик.
+     */
     @Test
     void canUpdateTracks_WithLimits_UpdatesCounter() {
         SubscriptionLimits limits = new SubscriptionLimits();
@@ -88,6 +97,9 @@ class SubscriptionServiceTest {
         verify(userSubscriptionRepository).save(sub);
     }
 
+    /**
+     * Продлевает оплаченный план подписки.
+     */
     @Test
     void upgradeOrExtendSubscription_ExtendPaidPlan() {
         SubscriptionPlan paidPlan = new SubscriptionPlan();
@@ -110,6 +122,9 @@ class SubscriptionServiceTest {
         verify(userSubscriptionRepository).save(subscription);
     }
 
+    /**
+     * Обновляет бесплатный план до платного.
+     */
     @Test
     void upgradeOrExtendSubscription_UpgradeFreePlan() {
         SubscriptionPlan freePlan = new SubscriptionPlan();
@@ -136,6 +151,9 @@ class SubscriptionServiceTest {
         verify(userSubscriptionRepository).save(subscription);
     }
 
+    /**
+     * Бросает исключение, если подписка отсутствует.
+     */
     @Test
     void upgradeOrExtendSubscription_SubscriptionMissing_Throws() {
         when(userSubscriptionRepository.findByUserId(2L))
@@ -145,6 +163,9 @@ class SubscriptionServiceTest {
                 () -> subscriptionService.upgradeOrExtendSubscription(2L, 1));
     }
 
+    /**
+     * Возвращает true, если функция включена в плане подписки.
+     */
     @Test
     void isFeatureEnabled_ReturnsTrueWhenEnabled() {
         when(userSubscriptionRepository.getSubscriptionPlanCode(1L))
@@ -164,6 +185,9 @@ class SubscriptionServiceTest {
         assertTrue(subscriptionService.isFeatureEnabled(1L, FeatureKey.BULK_UPDATE));
     }
 
+    /**
+     * Возвращает false, если код подписки отсутствует.
+     */
     @Test
     void isFeatureEnabled_ReturnsFalseWhenNoCode() {
         when(userSubscriptionRepository.getSubscriptionPlanCode(3L))
@@ -172,6 +196,9 @@ class SubscriptionServiceTest {
         assertFalse(subscriptionService.isFeatureEnabled(3L, FeatureKey.BULK_UPDATE));
     }
 
+    /**
+     * При переходе на платный план устанавливает дату окончания подписки.
+     */
     @Test
     void changeSubscription_ToPaidPlan_SetsEndDate() {
         UserSubscription subscription = new UserSubscription();
