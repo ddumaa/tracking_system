@@ -88,7 +88,7 @@ class TrackUploadProcessorServiceTest {
                 .thenReturn(new TrackMetaValidationResult(List.of(meta), List.of(), null));
         when(trackUpdateEligibilityService.canUpdate(anyString(), any())).thenReturn(true);
         when(groupingService.group(List.of(meta)))
-                .thenReturn(java.util.Map.of(PostalServiceType.BELPOST, List.of(meta)));
+                .thenReturn(new java.util.HashMap<>(java.util.Map.of(PostalServiceType.BELPOST, List.of(meta))));
         when(dispatcherService.dispatch(anyMap(), eq(1L)))
                 .thenReturn(List.of(new com.project.tracking_system.dto.TrackingResultAdd("A1", "ok")));
         when(progressAggregatorService.getProgress(anyLong()))
@@ -111,7 +111,8 @@ class TrackUploadProcessorServiceTest {
     }
 
     /**
-     * Если подходящих для обновления треков нет, метод завершается без действий.
+     * Если подходящих для обновления треков нет, метод регистрирует пустую партию
+     * и завершает обработку без постановки треков в очередь.
      */
     @Test
     void process_NoEligibleTracks_ReturnsEarly() throws Exception {
@@ -127,10 +128,11 @@ class TrackUploadProcessorServiceTest {
         assertTrue(result.validTracks().isEmpty());
         assertTrue(result.invalidTracks().isEmpty());
 
-        verify(progressAggregatorService, never()).registerBatch(anyLong(), anyInt(), any());
+        verify(progressAggregatorService).registerBatch(anyLong(), eq(0), eq(1L));
         verify(queueService, never()).enqueue(anyList());
         verify(webSocketController, never()).sendTrackProcessingStarted(anyLong(), any());
-        verify(webSocketController).sendUpdateStatus(eq(1L), contains("нет"), eq(false));
+        // Пользователь уведомляется, что все треки признаны некорректными
+        verify(webSocketController).sendUpdateStatus(eq(1L), contains("невалидны"), eq(false));
         verify(invalidTrackCacheService).addInvalidTracks(eq(1L), anyLong(), anyList());
     }
 
