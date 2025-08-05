@@ -30,5 +30,4 @@ public enum InvalidTrackReason {
     public String getText() {
         return text;
     }
-
 }

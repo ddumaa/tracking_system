@@ -90,5 +90,4 @@ class InvalidTrackCacheServiceTest {
         service.removeExpired();
         assertTrue(service.getInvalidTracks(1L, 1L).isEmpty(), "Cache should expire after viewing when TTL elapsed");
     }
-
 }
