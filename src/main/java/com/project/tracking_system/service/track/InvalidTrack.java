@@ -12,4 +12,5 @@ package com.project.tracking_system.service.track;
  * @param reason код причины некорректности
  */
 public record InvalidTrack(String number, InvalidTrackReason reason) {
+
 }
