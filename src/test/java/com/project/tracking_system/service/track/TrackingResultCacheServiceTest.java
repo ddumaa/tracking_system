@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Tests for {@link TrackingResultCacheService}.
+ * Тесты для {@link TrackingResultCacheService}.
  */
 @ExtendWith(MockitoExtension.class)
 class TrackingResultCacheServiceTest {
@@ -52,11 +52,11 @@ class TrackingResultCacheServiceTest {
 
         service.addResult(1L, new TrackStatusUpdateDTO(1L, "A1", "ok", 1, 1));
         service.removeExpired();
-        assertFalse(service.getResults(1L, 1L).isEmpty(), "Cache should persist until viewed");
+        assertFalse(service.getResults(1L, 1L).isEmpty(), "Кэш должен сохраняться до первого просмотра");
 
         // Первый доступ помечает запись просмотренной, после чего она должна удалиться
         service.getResults(1L, 1L);
         service.removeExpired();
-        assertTrue(service.getResults(1L, 1L).isEmpty(), "Cache should expire after viewing when TTL elapsed");
+        assertTrue(service.getResults(1L, 1L).isEmpty(), "Кэш должен удаляться после просмотра, если TTL истёк");
     }
 }
