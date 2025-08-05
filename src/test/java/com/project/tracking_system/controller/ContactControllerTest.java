@@ -2,7 +2,6 @@ package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.ContactFormRequest;
 import com.project.tracking_system.service.captcha.CaptchaService;
-import com.project.tracking_system.service.contact.ContactService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,9 +23,6 @@ import static org.mockito.Mockito.*;
  */
 @ExtendWith(MockitoExtension.class)
 class ContactControllerTest {
-
-    @Mock
-    private ContactService contactService;
 
     @Mock
     private CaptchaService captchaService;
