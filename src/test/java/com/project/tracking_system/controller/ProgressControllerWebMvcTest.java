@@ -10,52 +10,78 @@ import com.project.tracking_system.service.track.InvalidTrackCacheService;
 import com.project.tracking_system.service.track.InvalidTrackReason;
 import com.project.tracking_system.service.track.ProgressAggregatorService;
 import com.project.tracking_system.service.track.TrackingResultCacheService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 
 import java.util.List;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+
 /**
  * Интеграционные тесты REST-эндпоинтов {@link ProgressController}.
  * <p>
- * Класс использует {@link WebMvcTest} без фильтров безопасности для проверки
- * работы контроллера в изоляции.
+ * Тестируем контроллер в изоляции, настраивая {@link MockMvc}
+ * через {@link MockMvcBuilders#standaloneSetup} и подключая фильтры безопасности.
  * </p>
  */
-@ExtendWith(SpringExtension.class)
-@WebMvcTest(ProgressController.class)
-@AutoConfigureMockMvc(addFilters = false)
+@ExtendWith(MockitoExtension.class)
 class ProgressControllerWebMvcTest {
 
-    /** Мок для выполнения HTTP-запросов к контроллеру. */
-    @Autowired
+    /**
+     * Мок для выполнения HTTP-запросов к контроллеру.
+     */
     private MockMvc mockMvc;
 
-    /** Заглушка агрегатора прогресса. */
-    @MockBean
+    /**
+     * Контроллер с внедрёнными зависимостями.
+     */
+    @InjectMocks
+    private ProgressController controller;
+
+    /**
+     * Заглушка агрегатора прогресса.
+     */
+    @Mock
     private ProgressAggregatorService progressAggregatorService;
 
-    /** Заглушка кэша последних результатов. */
-    @MockBean
+    /**
+     * Заглушка кэша последних результатов.
+     */
+    @Mock
     private TrackingResultCacheService trackingResultCacheService;
 
-    /** Заглушка кэша некорректных треков. */
-    @MockBean
+    /**
+     * Заглушка кэша некорректных треков.
+     */
+    @Mock
     private InvalidTrackCacheService invalidTrackCacheService;
 
-    /** Сериализатор JSON для сравнений. */
+    /**
+     * Настраивает {@link MockMvc} перед каждым тестом.
+     * Используем standaloneSetup для лёгкого окружения и подключаем фильтры безопасности.
+     */
+    @BeforeEach
+    void setUp() {
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .apply(SecurityMockMvcConfigurers.springSecurity())
+                .build();
+    }
+
+    /**
+     * Сериализатор JSON для сравнений.
+     */
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Nested
@@ -72,7 +98,6 @@ class ProgressControllerWebMvcTest {
             mockMvc.perform(MockMvcRequestBuilders.get("/app/progress/5"))
                     .andExpect(status().isOk())
                     .andExpect(content().json(objectMapper.writeValueAsString(dto)));
-
             verify(progressAggregatorService).getProgress(5L);
         }
     }
@@ -258,5 +283,5 @@ class ProgressControllerWebMvcTest {
         user.setRole(Role.ROLE_USER);
         return user;
     }
-}
 
+}
