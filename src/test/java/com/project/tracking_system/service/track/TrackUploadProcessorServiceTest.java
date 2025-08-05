@@ -131,7 +131,8 @@ class TrackUploadProcessorServiceTest {
         verify(progressAggregatorService).registerBatch(anyLong(), eq(0), eq(1L));
         verify(queueService, never()).enqueue(anyList());
         verify(webSocketController, never()).sendTrackProcessingStarted(anyLong(), any());
-        verify(webSocketController).sendUpdateStatus(eq(1L), contains("нет"), eq(false));
+        // Пользователь уведомляется, что все треки признаны некорректными
+        verify(webSocketController).sendUpdateStatus(eq(1L), contains("невалидны"), eq(false));
         verify(invalidTrackCacheService).addInvalidTracks(eq(1L), anyLong(), anyList());
     }
 
