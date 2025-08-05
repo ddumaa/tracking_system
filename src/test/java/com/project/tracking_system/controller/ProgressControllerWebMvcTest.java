@@ -32,6 +32,7 @@ import java.util.List;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+
 /**
  * Интеграционные тесты REST-эндпоинтов {@link ProgressController}.
  * <p>
@@ -285,5 +286,5 @@ class ProgressControllerWebMvcTest {
         user.setRole(Role.ROLE_USER);
         return user;
     }
-}
 
+}
