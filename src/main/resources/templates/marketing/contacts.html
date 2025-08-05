@@ -2,7 +2,8 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/layout}">
 <head>
     <title layout:fragment="title">Контакты</title>
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <!-- Подключаем скрипт reCAPTCHA с nonce для прохождения CSP -->
+    <script th:attr="nonce=${nonce}" src="https://www.google.com/recaptcha/api.js" async defer></script>
 </head>
 
 <div layout:fragment="header" th:replace="~{partials/header-marketing :: header}"></div>

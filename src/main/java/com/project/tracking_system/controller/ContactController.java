@@ -38,10 +38,10 @@ public class ContactController {
      * @return имя шаблона страницы контактов
      */
     @GetMapping("/contacts")
-    public String contactPage(Model model) {
-        // Добавляем пустой объект формы и ключ капчи для рендеринга виджета
+    public String contactPage(Model model, HttpServletRequest request) {
+        // Подготавливаем модель для отображения формы
         model.addAttribute("contactForm", new ContactFormRequest());
-        model.addAttribute("recaptchaSiteKey", captchaService.getSiteKey());
+        prepareContactPageModel(model, request);
         return "marketing/contacts";
     }
 
@@ -60,6 +60,7 @@ public class ContactController {
             BindingResult bindingResult,
             @RequestParam(value = "g-recaptcha-response", required = false) String captchaToken,
             HttpServletRequest request,
+            Model model,
             RedirectAttributes redirectAttributes) {
 
         // IP-адрес клиента используется для проверки капчи
@@ -78,6 +79,8 @@ public class ContactController {
 
         // Если при валидации формы обнаружены ошибки - возвращаем пользователя на страницу контактов
         if (bindingResult.hasErrors()) {
+            // Повторно подготавливаем модель при ошибках
+            prepareContactPageModel(model, request);
             return "marketing/contacts";
         }
 
@@ -86,12 +89,27 @@ public class ContactController {
             contactService.processContactRequest(contactForm, ip);
         } catch (RateLimitExceededException ex) {
             bindingResult.reject("rate.limit", "Слишком много запросов. Попробуйте позже.");
+            prepareContactPageModel(model, request);
             return "marketing/contacts";
         }
 
         redirectAttributes.addFlashAttribute("success",
                 "Сообщение отправлено! Мы свяжемся с вами в ближайшее время.");
         return "redirect:/contacts";
+    }
+
+    /**
+     * Заполняет модель данными, необходимыми для отображения страницы контактов.
+     * <p>
+     * Добавляет ключ сайта reCAPTCHA и nonce для прохождения проверки CSP.
+     * </p>
+     *
+     * @param model   модель представления
+     * @param request текущий HTTP-запрос
+     */
+    private void prepareContactPageModel(Model model, HttpServletRequest request) {
+        model.addAttribute("recaptchaSiteKey", captchaService.getSiteKey());
+        model.addAttribute("nonce", request.getAttribute("nonce"));
     }
 
 }
