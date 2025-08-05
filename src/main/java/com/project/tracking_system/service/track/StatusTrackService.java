@@ -60,18 +60,20 @@ public class StatusTrackService {
     }
 
     /**
-     * Устанавливает статус для списка треков посылок.
+     * Определяет итоговый статус для списка трекинговых записей.
+     * Метод анализирует последний статус, игнорируя пробелы в начале
+     * и в конце строки, и проверяет его соответствие известным шаблонам.
      *
-     * @param trackInfoDTOList Список объектов с информацией о трекинге.
-     * @return Статус, который соответствует последнему трекинговому событию.
+     * @param trackInfoDTOList список событий трекинга в обратном хронологическом порядке
+     * @return статус, соответствующий последнему событию
      */
     public GlobalStatus setStatus(List<TrackInfoDTO> trackInfoDTOList) {
         if (trackInfoDTOList.isEmpty()) {
             return GlobalStatus.UNKNOWN_STATUS; // Если список пустой, статус неизвестен
         }
 
-        // Получаем последний статус
-        String lastStatus = trackInfoDTOList.get(0).getInfoTrack();
+        // Получаем последний статус и убираем лишние пробелы
+        String lastStatus = trackInfoDTOList.get(0).getInfoTrack().trim();
 
         // Проверяем последний статус
         for (Map.Entry<Pattern, GlobalStatus> entry : statusPatterns.entrySet()) {
@@ -81,7 +83,8 @@ public class StatusTrackService {
                 if (RETURN_PATTERN.matcher(lastStatus).find()) {
                     // Проверяем историю на наличие статуса возврата
                     for (TrackInfoDTO trackInfoDTO : trackInfoDTOList) {
-                        if (trackInfoDTO.getInfoTrack().equals("Почтовое отправление готово к возврату")) {
+                        String status = trackInfoDTO.getInfoTrack().trim();
+                        if (status.equals("Почтовое отправление готово к возврату")) {
                             return GlobalStatus.RETURN_IN_PROGRESS;
                         }
                     }
