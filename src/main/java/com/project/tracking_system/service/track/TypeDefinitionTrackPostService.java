@@ -43,7 +43,7 @@ public class TypeDefinitionTrackPostService {
      * <p>Возвращает {@link PostalServiceType#UNKNOWN}, если шаблон не подходит.</p>
      */
     public PostalServiceType detectPostalService(String number) {
-        if (number.matches("^PC\\d{9}BY$") || number.matches("^BV\\d{9}BY$") || number.matches("^BP\\d{9}BY$")) {
+        if (number.matches("^(PC|BV|BP|PE)\\d{9}BY$")) {
             return PostalServiceType.BELPOST;
         }
         if (number.matches("^BY\\d{12}$")) {

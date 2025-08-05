@@ -47,4 +47,5 @@ public class TrackUpdateEligibilityService {
         ZonedDateTime threshold = ZonedDateTime.now(ZoneOffset.UTC).minusHours(interval);
         return parcel.getLastUpdate() == null || parcel.getLastUpdate().isBefore(threshold);
     }
+
 }

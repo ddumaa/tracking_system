@@ -167,4 +167,5 @@ public class TrackingResultCacheService {
             return viewed && lastAccess < threshold;
         }
     }
+
 }

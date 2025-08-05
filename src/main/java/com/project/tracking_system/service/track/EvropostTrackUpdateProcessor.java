@@ -83,4 +83,5 @@ public class EvropostTrackUpdateProcessor implements TrackUpdateProcessor {
                 : info.getList().get(0).getInfoTrack();
         return new TrackingResultAdd(meta.number(), status, info);
     }
+
 }

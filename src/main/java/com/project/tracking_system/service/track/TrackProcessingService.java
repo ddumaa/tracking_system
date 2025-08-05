@@ -225,4 +225,5 @@ public class TrackProcessingService {
         log.info("Обновлено: userId={}, storeId={}, трек={}, новый статус={}",
                 userId, storeId, trackParcel.getNumber(), newStatus);
     }
+
 }
