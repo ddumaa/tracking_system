@@ -5,9 +5,11 @@ import com.project.tracking_system.dto.TrackProcessingProgressDTO;
 import com.project.tracking_system.dto.TrackStatusUpdateDTO;
 import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.service.track.InvalidTrack;
+import com.project.tracking_system.service.track.InvalidTrackCacheService;
+import com.project.tracking_system.service.track.InvalidTrackReason;
 import com.project.tracking_system.service.track.ProgressAggregatorService;
 import com.project.tracking_system.service.track.TrackingResultCacheService;
-import com.project.tracking_system.service.track.InvalidTrackCacheService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,8 +29,8 @@ import static org.mockito.Mockito.*;
 /**
  * Интеграционные тесты REST-эндпоинтов {@link ProgressController}.
  * <p>
- * Используется {@link WebMvcTest} без фильтров безопасности для изолированного
- * тестирования контроллера.
+ * Используется {@link WebMvcTest} без фильтров безопасности, чтобы проверить
+ * корректную работу контроллера в изоляции от остальных слоёв приложения.
  * </p>
  */
 @ExtendWith(SpringExtension.class)
@@ -36,22 +38,43 @@ import static org.mockito.Mockito.*;
 @AutoConfigureMockMvc(addFilters = false)
 class ProgressControllerWebMvcTest {
 
+    /** Мок для выполнения HTTP-запросов к контроллеру. */
     @Autowired
     private MockMvc mockMvc;
 
+    /** Заглушка агрегатора прогресса. */
     @MockBean
     private ProgressAggregatorService progressAggregatorService;
 
+    /** Заглушка кэша последних результатов. */
     @MockBean
     private TrackingResultCacheService trackingResultCacheService;
 
+    /** Заглушка кэша некорректных треков. */
     @MockBean
     private InvalidTrackCacheService invalidTrackCacheService;
 
+    /** Сериализатор JSON для сравнений. */
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * Проверяем, что анонимный пользователь получает пустой прогресс.
+     * Проверяет получение прогресса конкретного батча по его идентификатору.
+     */
+    @Test
+    void getProgress_ReturnsDtoFromService() throws Exception {
+        TrackProcessingProgressDTO dto = new TrackProcessingProgressDTO(5L, 2, 3, "0:05");
+        when(progressAggregatorService.getProgress(5L)).thenReturn(dto);
+
+        mockMvc.perform(MockMvcRequestBuilders.get("/app/progress/5"))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.content().json(objectMapper.writeValueAsString(dto)));
+
+        verify(progressAggregatorService).getProgress(5L);
+    }
+
+    /**
+     * Убеждаемся, что анонимный пользователь получает пустой прогресс
+     * без обращения к сервису.
      */
     @Test
     void getLatestProgress_Anonymous_ReturnsEmptyDto() throws Exception {
@@ -62,11 +85,11 @@ class ProgressControllerWebMvcTest {
                 .andExpect(MockMvcResultMatchers.jsonPath("$.total").value(0))
                 .andExpect(MockMvcResultMatchers.jsonPath("$.elapsed").value("0:00"));
 
-        verify(progressAggregatorService, never()).getLatestBatchId(any());
+        verifyNoInteractions(progressAggregatorService);
     }
 
     /**
-     * Проверяем, что аутентифицированный пользователь получает актуальные данные.
+     * Проверяет возврат актуальных данных прогресса для аутентифицированного пользователя.
      */
     @Test
     void getLatestProgress_User_ReturnsDtoFromService() throws Exception {
@@ -85,10 +108,22 @@ class ProgressControllerWebMvcTest {
     }
 
     /**
-     * Проверяем получение списка последних результатов пользователя.
+     * Проверяет, что анонимный пользователь получает пустой список результатов.
      */
     @Test
-    void getLatestResults_ReturnsListFromService() throws Exception {
+    void getLatestResults_Anonymous_ReturnsEmptyList() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders.get("/app/results/latest"))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.content().json("[]"));
+
+        verifyNoInteractions(trackingResultCacheService);
+    }
+
+    /**
+     * Проверяет получение списка последних результатов для пользователя.
+     */
+    @Test
+    void getLatestResults_User_ReturnsListFromService() throws Exception {
         User user = buildUser(1L);
         List<TrackStatusUpdateDTO> list = List.of(new TrackStatusUpdateDTO(1L, "T123", "OK", 1, 1));
         when(trackingResultCacheService.getLatestResults(1L)).thenReturn(list);
@@ -102,10 +137,39 @@ class ProgressControllerWebMvcTest {
     }
 
     /**
-     * Проверяем очистку результатов пользователя.
+     * Проверяет, что анонимный пользователь получает пустой список некорректных треков.
      */
     @Test
-    void clearResults_InvokesService() throws Exception {
+    void getLatestInvalid_Anonymous_ReturnsEmptyList() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders.get("/app/invalid/latest"))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.content().json("[]"));
+
+        verifyNoInteractions(invalidTrackCacheService);
+    }
+
+    /**
+     * Проверяет получение списка некорректных треков для пользователя.
+     */
+    @Test
+    void getLatestInvalid_User_ReturnsListFromService() throws Exception {
+        User user = buildUser(3L);
+        List<InvalidTrack> list = List.of(new InvalidTrack("bad", InvalidTrackReason.WRONG_FORMAT));
+        when(invalidTrackCacheService.getLatestInvalidTracks(3L)).thenReturn(list);
+
+        mockMvc.perform(MockMvcRequestBuilders.get("/app/invalid/latest")
+                        .with(SecurityMockMvcRequestPostProcessors.user(user)))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.content().json(objectMapper.writeValueAsString(list)));
+
+        verify(invalidTrackCacheService).getLatestInvalidTracks(3L);
+    }
+
+    /**
+     * Проверяет очистку результатов пользователем.
+     */
+    @Test
+    void clearResults_User_InvokesService() throws Exception {
         User user = buildUser(2L);
 
         mockMvc.perform(MockMvcRequestBuilders.post("/app/results/clear")
@@ -117,7 +181,49 @@ class ProgressControllerWebMvcTest {
     }
 
     /**
-     * Утилитарный метод создания пользователя для тестов.
+     * Проверяет, что анонимный пользователь не вызывает очистку результатов.
+     */
+    @Test
+    void clearResults_Anonymous_DoesNotInvokeService() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders.post("/app/results/clear"))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.content().string("cleared"));
+
+        verifyNoInteractions(trackingResultCacheService);
+    }
+
+    /**
+     * Проверяет очистку списка некорректных треков пользователем.
+     */
+    @Test
+    void clearInvalid_User_InvokesService() throws Exception {
+        User user = buildUser(4L);
+
+        mockMvc.perform(MockMvcRequestBuilders.post("/app/invalid/clear")
+                        .with(SecurityMockMvcRequestPostProcessors.user(user)))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.content().string("cleared"));
+
+        verify(invalidTrackCacheService).clearInvalidTracks(4L);
+    }
+
+    /**
+     * Проверяет, что анонимный пользователь не вызывает очистку некорректных треков.
+     */
+    @Test
+    void clearInvalid_Anonymous_DoesNotInvokeService() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders.post("/app/invalid/clear"))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.content().string("cleared"));
+
+        verifyNoInteractions(invalidTrackCacheService);
+    }
+
+    /**
+     * Создаёт сущность пользователя для тестов.
+     *
+     * @param id идентификатор пользователя
+     * @return настроенный пользователь
      */
     private User buildUser(Long id) {
         User user = new User();
@@ -129,3 +235,4 @@ class ProgressControllerWebMvcTest {
         return user;
     }
 }
+
