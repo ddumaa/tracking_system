@@ -54,4 +54,5 @@ public class TrackServiceClassifier {
         String normalized = TrackNumberUtils.normalize(number);
         return typeDefinitionTrackPostService.detectPostalService(normalized);
     }
+
 }

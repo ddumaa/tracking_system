@@ -29,4 +29,5 @@ public record TrackMeta(String number,
     public TrackMeta(String number, Long storeId, String phone, boolean canSave) {
         this(number, storeId, phone, canSave, null);
     }
+
 }
