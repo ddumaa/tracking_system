@@ -6,8 +6,6 @@ import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.track.TrackFacade;
-import com.project.tracking_system.service.track.TrackMeta;
-import com.project.tracking_system.service.track.TrackUpdateDispatcherService;
 import com.project.tracking_system.service.track.TrackServiceClassifier;
 import com.project.tracking_system.service.track.BelPostManualService;
 import com.project.tracking_system.utils.TrackNumberUtils;
@@ -37,7 +35,6 @@ public class HomeController {
 
     private final TrackFacade trackFacade;
     private final StoreService storeService;
-    private final TrackUpdateDispatcherService trackUpdateDispatcherService;
     /** Сервис классификации трек-номеров по типу почтовой службы. */
     private final TrackServiceClassifier trackServiceClassifier;
     /** Сервис постановки в очередь треков Белпочты. */
@@ -65,8 +62,8 @@ public class HomeController {
      * <p>
      * Номера Белпочты помещаются в очередь через {@link BelPostManualService}
      * и обрабатываются асинхронно. Для остальных номеров информация
-     * загружается синхронно через {@link TrackUpdateDispatcherService}.
-     * При указании телефона трек связывается с покупателем.
+     * загружается синхронно через {@link TrackFacade}, который при необходимости
+     * сохраняет трек в систему. При указании телефона трек связывается с покупателем.
      * </p>
      * </p>
      *
@@ -109,8 +106,9 @@ public class HomeController {
                 return "app/home";
             }
 
-            TrackMeta meta = new TrackMeta(normalizedNumber, storeId, phone, canSave);
-            TrackInfoListDTO trackInfo = trackUpdateDispatcherService.dispatch(meta).getTrackInfo();
+            // Получаем данные о треке через фасад, который также сохранит его при необходимости
+            TrackInfoListDTO trackInfo = trackFacade.processTrack(
+                    normalizedNumber, storeId, userId, canSave, phone);
 
             if (trackInfo == null || trackInfo.getList().isEmpty()) {
                 model.addAttribute("customError", "Нет данных для указанного номера посылки.");
