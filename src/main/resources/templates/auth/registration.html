@@ -38,7 +38,7 @@
                 <input type="password" class="form-control password-input" id="password" th:field="*{password}" placeholder="Пароль" required>
                 <label for="password">Пароль</label>
                 <span class="toggle-password" data-target="password">
-                    <i class="bi bi-eye"></i>
+                    <i class="bi bi-eye-slash"></i>
                 </span>
                 <div th:if="${#fields.hasErrors('password')}" class="text-danger small" th:errors="*{password}"></div>
             </div>
@@ -47,9 +47,9 @@
                 <input type="password" class="form-control password-input" id="confirmPassword" th:field="*{confirmPassword}" placeholder="Подтвердите пароль" required>
                 <label for="confirmPassword">Подтвердите пароль</label>
                 <span class="toggle-password" data-target="confirmPassword">
-                    <i class="bi bi-eye"></i>
+                    <i class="bi bi-eye-slash"></i>
                 </span>
-                <div th:if="${#fields.hasErrors('confirmPassword')}" class="text-danger small" th:errors="*{confirmPassword}"></div>
+            <div th:if="${#fields.hasErrors('confirmPassword')}" class="text-danger small" th:errors="*{confirmPassword}"></div>
             </div>
 
             <!-- Чекбокс "Согласен с условиями" -->
