@@ -3,6 +3,7 @@ package com.project.tracking_system.entity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
 /**
  * Представляет посылку с трек-номером в системе.
@@ -37,6 +38,11 @@ public class TrackParcel {
     @Column(name = "pre_registered", nullable = false)
     private boolean preRegistered = false;
 
+    /**
+     * Дата последнего статуса либо время предварительной регистрации.
+     * Заполняется автоматически при создании записи.
+     */
+    @CreationTimestamp
     @Column(name = "timestamp", nullable = false)
     private ZonedDateTime timestamp;
 
