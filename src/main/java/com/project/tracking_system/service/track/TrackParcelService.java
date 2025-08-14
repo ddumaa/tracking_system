@@ -112,6 +112,50 @@ public class TrackParcelService {
     }
 
     /**
+     * Возвращает страницу предзарегистрированных посылок.
+     *
+     * @param page      номер страницы
+     * @param size      размер страницы
+     * @param sortOrder порядок сортировки: {@code "asc"} или {@code "desc"}
+     * @return страница предзарегистрированных посылок
+     */
+    @Transactional(readOnly = true)
+    public Page<TrackParcelDTO> findPreRegistered(int page,
+                                                  int size,
+                                                  String sortOrder) {
+        Sort sort = Sort.by("timestamp");
+        sort = "asc".equalsIgnoreCase(sortOrder) ? sort.ascending() : sort.descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        Page<TrackParcel> parcels = trackParcelRepository.findByPreRegisteredTrue(pageable);
+        return parcels.map(track -> new TrackParcelDTO(
+                track,
+                userService.getUserZone(track.getUser().getId())));
+    }
+
+    /**
+     * Возвращает посылки в указанном статусе без учёта магазина.
+     *
+     * @param status    статус посылки
+     * @param page      номер страницы
+     * @param size      размер страницы
+     * @param sortOrder порядок сортировки: {@code "asc"} или {@code "desc"}
+     * @return страница посылок в заданном статусе
+     */
+    @Transactional(readOnly = true)
+    public Page<TrackParcelDTO> findByStatus(GlobalStatus status,
+                                             int page,
+                                             int size,
+                                             String sortOrder) {
+        Sort sort = Sort.by("timestamp");
+        sort = "asc".equalsIgnoreCase(sortOrder) ? sort.ascending() : sort.descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        Page<TrackParcel> parcels = trackParcelRepository.findByStatus(status, pageable);
+        return parcels.map(track -> new TrackParcelDTO(
+                track,
+                userService.getUserZone(track.getUser().getId())));
+    }
+
+    /**
      * Выполняет поиск посылок по номеру или номеру телефона покупателя.
      *
      * @param storeIds список магазинов

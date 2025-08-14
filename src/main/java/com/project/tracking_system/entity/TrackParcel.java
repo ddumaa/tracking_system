@@ -31,6 +31,12 @@ public class TrackParcel {
     @Column(name = "status", nullable = false)
     private GlobalStatus status;
 
+    /**
+     * Флаг предварительной регистрации посылки.
+     */
+    @Column(name = "pre_registered", nullable = false)
+    private boolean preRegistered = false;
+
     @Column(name = "timestamp", nullable = false)
     private ZonedDateTime timestamp;
 
