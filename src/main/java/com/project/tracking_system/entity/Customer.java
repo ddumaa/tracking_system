@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import java.time.ZonedDateTime;
 
 /**
  * Покупатель, оформляющий заказы в системе.
@@ -23,6 +24,16 @@ public class Customer {
 
     @Column(name = "phone", nullable = false, unique = true)
     private String phone;
+
+    @Column(name = "full_name")
+    private String fullName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "name_source", nullable = false)
+    private NameSource nameSource = NameSource.MERCHANT_PROVIDED;
+
+    @Column(name = "name_updated_at")
+    private ZonedDateTime nameUpdatedAt;
 
     @Column(name = "sent_count", nullable = false)
     private int sentCount = 0;

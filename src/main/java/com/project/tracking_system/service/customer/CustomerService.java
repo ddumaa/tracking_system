@@ -14,6 +14,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.concurrent.TimeUnit;
 
 import java.util.Optional;
@@ -81,6 +83,38 @@ public class CustomerService {
             throw new IllegalStateException("Покупатель не найден после ошибки сохранения");
         }
 
+    }
+
+    /**
+     * Обновляет ФИО покупателя с учётом источника данных.
+     * <p>
+     * Если имя подтверждено пользователем, попытки обновления от магазина
+     * игнорируются. При успешном изменении фиксируется время обновления.
+     * </p>
+     *
+     * @param customer изменяемый покупатель
+     * @param newName  новое ФИО
+     * @param source   источник данных имени
+     * @return {@code true}, если обновление было выполнено
+     */
+    @Transactional
+    public boolean updateCustomerName(Customer customer, String newName, NameSource source) {
+        if (customer == null || source == null || newName == null || newName.isBlank()) {
+            return false;
+        }
+        if (customer.getNameSource() == NameSource.USER_CONFIRMED
+                && source == NameSource.MERCHANT_PROVIDED) {
+            log.debug("🚫 Обновление ФИО отклонено: имя подтверждено пользователем");
+            return false;
+        }
+        if (newName.equals(customer.getFullName())) {
+            return false;
+        }
+        customer.setFullName(newName);
+        customer.setNameSource(source);
+        customer.setNameUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+        customerRepository.save(customer);
+        return true;
     }
 
     /**
