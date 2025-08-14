@@ -1,6 +1,7 @@
 package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.dto.TrackParcelDTO;
+import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.PostalServiceType;
@@ -87,7 +88,7 @@ public class TrackParcelService {
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<TrackParcel> trackParcels = trackParcelRepository.findByStoreIdIn(storeIds, pageable);
         ZoneId userZone = userService.getUserZone(userId);
-        return trackParcels.map(track -> new TrackParcelDTO(track, userZone));
+        return trackParcels.map(track -> toDto(track, userZone));
     }
 
     /**
@@ -113,7 +114,7 @@ public class TrackParcelService {
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<TrackParcel> trackParcels = trackParcelRepository.findByStoreIdInAndStatus(storeIds, status, pageable);
         ZoneId userZone = userService.getUserZone(userId);
-        return trackParcels.map(track -> new TrackParcelDTO(track, userZone));
+        return trackParcels.map(track -> toDto(track, userZone));
     }
 
     /**
@@ -132,7 +133,7 @@ public class TrackParcelService {
         sort = "asc".equalsIgnoreCase(sortOrder) ? sort.ascending() : sort.descending();
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<TrackParcel> parcels = trackParcelRepository.findByPreRegisteredTrue(pageable);
-        return parcels.map(track -> new TrackParcelDTO(
+        return parcels.map(track -> toDto(
                 track,
                 userService.getUserZone(track.getUser().getId())));
     }
@@ -195,7 +196,7 @@ public class TrackParcelService {
         ZoneId userZone = userService.getUserZone(userId);
         List<TrackParcelDTO> content = merged.subList(start, end)
                 .stream()
-                .map(track -> new TrackParcelDTO(track, userZone))
+                .map(track -> toDto(track, userZone))
                 .toList();
 
         return new PageImpl<>(content, PageRequest.of(page, size, sort), merged.size());
@@ -219,7 +220,7 @@ public class TrackParcelService {
         sort = "asc".equalsIgnoreCase(sortOrder) ? sort.ascending() : sort.descending();
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<TrackParcel> parcels = trackParcelRepository.findByStatus(status, pageable);
-        return parcels.map(track -> new TrackParcelDTO(
+        return parcels.map(track -> toDto(
                 track,
                 userService.getUserZone(track.getUser().getId())));
     }
@@ -251,7 +252,7 @@ public class TrackParcelService {
         Page<TrackParcel> parcels = trackParcelRepository.searchByNumberOrPhone(
                 storeIds, userId, status, query, phoneDigits, pageable);
         ZoneId userZone = userService.getUserZone(userId);
-        return parcels.map(track -> new TrackParcelDTO(track, userZone));
+        return parcels.map(track -> toDto(track, userZone));
     }
 
     /**
@@ -319,7 +320,7 @@ public class TrackParcelService {
         List<TrackParcel> trackParcels = trackParcelRepository.findByStoreId(storeId);
         ZoneId userZone = userService.getUserZone(userId);
         return trackParcels.stream()
-                .map(track -> new TrackParcelDTO(track, userZone))
+                .map(track -> toDto(track, userZone))
                 .toList();
     }
 
@@ -334,7 +335,7 @@ public class TrackParcelService {
         List<TrackParcel> trackParcels = trackParcelRepository.findByUserId(userId);
         ZoneId userZone = userService.getUserZone(userId);
         return trackParcels.stream()
-                .map(track -> new TrackParcelDTO(track, userZone))
+                .map(track -> toDto(track, userZone))
                 .toList();
     }
 
@@ -358,8 +359,25 @@ public class TrackParcelService {
         ZoneId userZone = userService.getUserZone(userId);
 
         return parcels.stream()
-                .map(track -> new TrackParcelDTO(track, userZone))
+                .map(track -> toDto(track, userZone))
                 .toList();
     }
 
+    /**
+     * Преобразует сущность TrackParcel в DTO с данными покупателя.
+     *
+     * @param track    исходная сущность
+     * @param userZone часовой пояс пользователя
+     * @return заполненный {@link TrackParcelDTO}
+     */
+    private TrackParcelDTO toDto(TrackParcel track, ZoneId userZone) {
+        TrackParcelDTO dto = new TrackParcelDTO(track, userZone);
+        Customer customer = track.getCustomer();
+        if (customer != null) {
+            dto.setCustomerName(customer.getFullName());
+            dto.setCustomerPhone(customer.getPhone());
+            dto.setNameSource(customer.getNameSource());
+        }
+        return dto;
+    }
 }

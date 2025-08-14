@@ -1,5 +1,7 @@
 package com.project.tracking_system.dto;
 
+import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.entity.TrackParcel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -20,7 +22,20 @@ public class TrackParcelDTO {
     private String timestamp;
     private transient String iconHtml;
     private Long storeId;
+    private String customerName;
+    private String customerPhone;
+    private NameSource nameSource;
 
+    /**
+     * Конструктор DTO на основе сущности TrackParcel.
+     * <p>
+     * Преобразует дату в часовую зону пользователя и извлекает
+     * данные о покупателе, если они связаны с посылкой.
+     * </p>
+     *
+     * @param trackParcel сущность посылки
+     * @param userZone    часовой пояс пользователя
+     */
     public TrackParcelDTO(TrackParcel trackParcel, ZoneId userZone) {
         this.id = trackParcel.getId();
         this.number = trackParcel.getNumber();
@@ -29,5 +44,12 @@ public class TrackParcelDTO {
         this.timestamp = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss")
                 .withZone(userZone)
                 .format(trackParcel.getTimestamp());
+
+        Customer customer = trackParcel.getCustomer();
+        if (customer != null) {
+            this.customerName = customer.getFullName();
+            this.customerPhone = customer.getPhone();
+            this.nameSource = customer.getNameSource();
+        }
     }
 }

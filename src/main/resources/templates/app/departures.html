@@ -117,6 +117,7 @@
                                             <input type="checkbox" id="selectAllCheckbox" aria-label="Выделить все посылки">
                                         </th>
                                         <th scope="col">№ посылки</th>
+                                        <th scope="col">Покупатель</th>
                                         <th scope="col">Статус</th>
                                         <th scope="col">
                                             <a href="#" id="sortDateBtn" class="link-dark text-decoration-none">
@@ -142,10 +143,23 @@
                                                         th:data-itemnumber="${item.number}"
                                                         aria-label="Открыть детали посылки">
                                                 </button>
-                                                <span class="customer-icon" role="button"
-                                                      th:data-trackid="${item.id}" aria-label="Информация о покупателе">
-                                                    <i class="bi bi-person-circle"></i>
-                                                </span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-column">
+                                                <div class="d-flex align-items-center">
+                                                    <button type="button" class="btn btn-link p-0 customer-icon ms-0"
+                                                            th:text="${item.customerName != null ? item.customerName : '-'}"
+                                                            th:data-trackid="${item.id}"
+                                                            aria-label="Информация о покупателе">
+                                                    </button>
+                                                    <span th:if="${item.nameSource == T(com.project.tracking_system.entity.NameSource).USER_CONFIRMED}"
+                                                          class="badge bg-success ms-2">подтверждено</span>
+                                                    <span th:if="${item.nameSource == T(com.project.tracking_system.entity.NameSource).MERCHANT_PROVIDED}"
+                                                          class="badge bg-secondary ms-2">магазин</span>
+                                                </div>
+                                                <span class="text-muted"
+                                                      th:text="${item.customerPhone != null ? item.customerPhone : '-'}"></span>
                                             </div>
                                         </td>
                                         <td th:text="${item.status}" class="status-text"></td>
