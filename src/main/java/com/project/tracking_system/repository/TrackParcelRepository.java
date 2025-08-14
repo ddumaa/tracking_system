@@ -45,6 +45,23 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
     // Поиск одной посылки по номеру в рамках конкретного магазина
     TrackParcel findByNumberAndStoreId(String number, Long storeId);
 
+    /**
+     * Найти все предзарегистрированные посылки.
+     *
+     * @param pageable настройки пагинации
+     * @return страница предзарегистрированных посылок
+     */
+    Page<TrackParcel> findByPreRegisteredTrue(Pageable pageable);
+
+    /**
+     * Найти посылки по статусу с пагинацией.
+     *
+     * @param status   статус посылки
+     * @param pageable настройки пагинации
+     * @return страница посылок с указанным статусом
+     */
+    Page<TrackParcel> findByStatus(GlobalStatus status, Pageable pageable);
+
     // Поиск посылок по статусу для конкретного магазина (с пагинацией)
     @Query("SELECT t FROM TrackParcel t WHERE t.store.id IN :storeIds AND t.status = :status")
     Page<TrackParcel> findByStoreIdInAndStatus(@Param("storeIds") List<Long> storeIds, @Param("status") GlobalStatus status, Pageable pageable);
