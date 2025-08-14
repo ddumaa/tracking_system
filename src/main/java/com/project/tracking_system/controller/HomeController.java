@@ -4,10 +4,14 @@ import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.track.TrackFacade;
 import com.project.tracking_system.service.track.TrackServiceClassifier;
 import com.project.tracking_system.service.track.BelPostManualService;
+import com.project.tracking_system.service.registration.PreRegistrationService;
+import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.utils.TrackNumberUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +43,10 @@ public class HomeController {
     private final TrackServiceClassifier trackServiceClassifier;
     /** Сервис постановки в очередь треков Белпочты. */
     private final BelPostManualService belPostManualService;
+    /** Сервис предрегистрации посылок. */
+    private final PreRegistrationService preRegistrationService;
+    /** Сервис работы с покупателями. */
+    private final CustomerService customerService;
 
     /**
      * Обрабатывает запросы на главной странице. Отображает домашнюю страницу.
@@ -67,17 +75,23 @@ public class HomeController {
      * </p>
      * </p>
      *
-     * @param number  номер посылки
-     * @param storeId идентификатор магазина
-     * @param phone   телефон покупателя
-     * @param model   модель представления
-     * @param user    аутентифицированный пользователь
+     * @param number              номер посылки
+     * @param storeId             идентификатор магазина
+     * @param phone               телефон покупателя
+     * @param preRegistered      признак предрегистрации
+     * @param fullName           ФИО покупателя
+     * @param registrationSource источник регистрации
+     * @param model              модель представления
+     * @param user               аутентифицированный пользователь
      * @return имя представления домашней страницы
      */
     @PostMapping
     public String home(@ModelAttribute("number") String number,
                        @RequestParam(value = "storeId", required = false) Long storeId,
                        @RequestParam(value = "phone", required = false) String phone,
+                       @RequestParam(value = "preRegistered", required = false) Boolean preRegistered,
+                       @RequestParam(value = "fullName", required = false) String fullName,
+                       @RequestParam(value = "registrationSource", required = false) String registrationSource,
                        Model model,
                        @AuthenticationPrincipal User user) {
         Long userId = user != null ? user.getId() : null;
@@ -95,6 +109,9 @@ public class HomeController {
 
         try {
             PostalServiceType type = trackServiceClassifier.detect(normalizedNumber);
+
+            // Обрабатываем предрегистрацию, если пользователь указал соответствующий флаг
+            handlePreRegistration(preRegistered, normalizedNumber, registrationSource, storeId, userId);
 
             if (type == PostalServiceType.BELPOST && userId != null) {
                 boolean queued = belPostManualService.enqueueIfAllowed(normalizedNumber, storeId, userId, phone);
@@ -117,6 +134,9 @@ public class HomeController {
             }
 
             model.addAttribute("trackInfo", trackInfo);
+
+            // Обновляем ФИО покупателя при наличии телефона
+            updateCustomerName(phone, fullName);
         } catch (IllegalArgumentException e) {
             model.addAttribute("customError", e.getMessage());
             log.warn("Ошибка: {}", e.getMessage());
@@ -126,5 +146,39 @@ public class HomeController {
         }
 
         return "app/home";
+    }
+
+    /**
+     * Выполняет предрегистрацию трека через соответствующий сервис.
+     *
+     * @param preRegistered      признак предрегистрации
+     * @param number             номер трека
+     * @param registrationSource источник регистрации
+     * @param storeId            идентификатор магазина
+     * @param userId             идентификатор пользователя
+     */
+    private void handlePreRegistration(Boolean preRegistered,
+                                       String number,
+                                       String registrationSource,
+                                       Long storeId,
+                                       Long userId) {
+        if (preRegistered == null || !preRegistered) {
+            return;
+        }
+        preRegistrationService.preRegister(number, registrationSource, storeId, userId);
+    }
+
+    /**
+     * Обновляет ФИО покупателя, если оно передано вместе с телефоном.
+     *
+     * @param phone    номер телефона покупателя
+     * @param fullName новое ФИО
+     */
+    private void updateCustomerName(String phone, String fullName) {
+        if (phone == null || phone.isBlank() || fullName == null || fullName.isBlank()) {
+            return;
+        }
+        Customer customer = customerService.registerOrGetByPhone(phone);
+        customerService.updateCustomerName(customer, fullName, NameSource.MERCHANT_PROVIDED);
     }
 }

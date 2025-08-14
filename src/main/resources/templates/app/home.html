@@ -66,10 +66,20 @@
                             <button type="submit" class="btn btn-outline-primary btn-equal">Проверить</button>
                         </div>
 
-                        <!-- Переключатель для отображения поля телефона -->
-                        <div class="form-check form-switch mb-2">
-                            <input class="form-check-input" type="checkbox" id="togglePhone">
-                            <label class="form-check-label" for="togglePhone">Указать телефон покупателя</label>
+                        <!-- Переключатели дополнительных полей -->
+                        <div class="d-flex flex-wrap gap-3 mb-2">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="togglePhone">
+                                <label class="form-check-label" for="togglePhone">Указать телефон покупателя</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="togglePreRegistration" name="preRegistered">
+                                <label class="form-check-label" for="togglePreRegistration">Предрегистрация</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="toggleFullName">
+                                <label class="form-check-label" for="toggleFullName">Указать ФИО</label>
+                            </div>
                         </div>
 
                         <!-- Блок поля ввода телефона -->
@@ -77,6 +87,20 @@
                             <label for="phone" class="form-label fw-semibold">Номер телефона покупателя:</label>
                             <div class="input-group">
                                 <input type="text" id="phone" name="phone" class="form-control" placeholder="375XXXXXXXXX">
+                            </div>
+                        </div>
+
+                        <!-- Блок полей предрегистрации -->
+                        <div id="preRegistrationFields" class="mb-3 hidden">
+                            <label for="registrationSource" class="form-label fw-semibold">Источник регистрации:</label>
+                            <input type="text" id="registrationSource" name="registrationSource" class="form-control mb-2" placeholder="Источник">
+                        </div>
+
+                        <!-- Блок поля ввода ФИО -->
+                        <div id="fullNameField" class="mb-3 hidden">
+                            <label for="fullName" class="form-label fw-semibold">ФИО покупателя:</label>
+                            <div class="input-group">
+                                <input type="text" id="fullName" name="fullName" class="form-control" placeholder="Иванов Иван Иванович">
                             </div>
                         </div>
                     </form>
