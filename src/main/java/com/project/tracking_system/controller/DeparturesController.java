@@ -113,8 +113,14 @@ public class DeparturesController {
             trackParcelPage = trackParcelService.searchByNumberOrPhone(
                     filteredStoreIds, status, query.trim(), page, size, userId, sortOrder);
         } else if (status != null) {
-            trackParcelPage = trackParcelService.findByStoreTracksAndStatus(
-                    filteredStoreIds, status, page, size, userId, sortOrder);
+            if (status == GlobalStatus.PRE_REGISTERED) {
+                // При фильтрации по PRE_REGISTERED добавляем также предзарегистрированные посылки
+                trackParcelPage = trackParcelService.findByStoreTracksWithPreRegistered(
+                        filteredStoreIds, page, size, userId, sortOrder);
+            } else {
+                trackParcelPage = trackParcelService.findByStoreTracksAndStatus(
+                        filteredStoreIds, status, page, size, userId, sortOrder);
+            }
         } else {
             trackParcelPage = trackParcelService.findByStoreTracks(
                     filteredStoreIds, page, size, userId, sortOrder);

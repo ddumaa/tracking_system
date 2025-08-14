@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,7 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Базовый сервис для работы с посылками пользователя.
@@ -130,6 +135,70 @@ public class TrackParcelService {
         return parcels.map(track -> new TrackParcelDTO(
                 track,
                 userService.getUserZone(track.getUser().getId())));
+    }
+
+    /**
+     * Находит посылки со статусом {@link GlobalStatus#PRE_REGISTERED} или отмеченные как предзарегистрированные.
+     * <p>
+     * Метод объединяет результаты двух запросов:
+     * <ul>
+     *     <li>посылки выбранных магазинов в статусе {@code PRE_REGISTERED};</li>
+     *     <li>посылки с флагом {@code preRegistered=true} тех же магазинов.</li>
+     * </ul>
+     * Результат сортируется по времени добавления и постранично возвращается пользователю.
+     * </p>
+     *
+     * @param storeIds  идентификаторы магазинов
+     * @param page      номер страницы
+     * @param size      размер страницы
+     * @param userId    идентификатор пользователя
+     * @param sortOrder порядок сортировки: {@code "asc"} или {@code "desc"}
+     * @return страница подходящих посылок
+     */
+    @Transactional(readOnly = true)
+    public Page<TrackParcelDTO> findByStoreTracksWithPreRegistered(List<Long> storeIds,
+                                                                   int page,
+                                                                   int size,
+                                                                   Long userId,
+                                                                   String sortOrder) {
+        Sort sort = Sort.by("timestamp");
+        sort = "asc".equalsIgnoreCase(sortOrder) ? sort.ascending() : sort.descending();
+
+        // Загружаем все посылки в статусе PRE_REGISTERED для указанных магазинов
+        List<TrackParcel> statusParcels = trackParcelRepository
+                .findByStoreIdInAndStatus(storeIds, GlobalStatus.PRE_REGISTERED, Pageable.unpaged())
+                .getContent();
+
+        // Загружаем все посылки с флагом preRegistered=true и фильтруем по магазинам
+        List<TrackParcel> preRegisteredParcels = trackParcelRepository
+                .findByPreRegisteredTrue(Pageable.unpaged())
+                .stream()
+                .filter(parcel -> storeIds.contains(parcel.getStore().getId()))
+                .toList();
+
+        // Объединяем результаты без дубликатов по идентификатору
+        Map<Long, TrackParcel> mergedMap = new LinkedHashMap<>();
+        statusParcels.forEach(parcel -> mergedMap.put(parcel.getId(), parcel));
+        preRegisteredParcels.forEach(parcel -> mergedMap.put(parcel.getId(), parcel));
+        List<TrackParcel> merged = new ArrayList<>(mergedMap.values());
+
+        // Сортируем объединённый список
+        Comparator<TrackParcel> comparator = Comparator.comparing(TrackParcel::getTimestamp);
+        if (sort.isDescending()) {
+            comparator = comparator.reversed();
+        }
+        merged.sort(comparator);
+
+        // Формируем страницу результатов
+        int start = Math.min(page * size, merged.size());
+        int end = Math.min(start + size, merged.size());
+        ZoneId userZone = userService.getUserZone(userId);
+        List<TrackParcelDTO> content = merged.subList(start, end)
+                .stream()
+                .map(track -> new TrackParcelDTO(track, userZone))
+                .toList();
+
+        return new PageImpl<>(content, PageRequest.of(page, size, sort), merged.size());
     }
 
     /**
