@@ -393,21 +393,6 @@ function initializePhoneToggle() {
     }
 }
 
-// Инициализация переключателя предрегистрации
-function initializePreRegistrationToggle() {
-    const toggle = document.getElementById("togglePreRegistration");
-    const fields = document.getElementById("preRegistrationFields");
-
-    if (toggle && fields) {
-        // Первичное состояние
-        toggleFieldsVisibility(toggle, fields);
-
-        // Обработчик переключения
-        const handler = () => toggleFieldsVisibility(toggle, fields);
-        toggle.addEventListener('change', handler);
-    }
-}
-
 // Инициализация переключателя ввода ФИО
 function initializeFullNameToggle() {
     const toggle = document.getElementById("toggleFullName");
@@ -1503,7 +1488,6 @@ document.addEventListener("DOMContentLoaded", function () {
     initAutoUpdateToggle();
     initBulkButtonToggle();
     initializePhoneToggle();
-    initializePreRegistrationToggle();
     initializeFullNameToggle();
     initAssignCustomerFormHandler();
     initEditCustomerPhoneFormHandler();

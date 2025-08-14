@@ -80,7 +80,6 @@ public class HomeController {
      * @param phone               телефон покупателя
      * @param preRegistered      признак предрегистрации
      * @param fullName           ФИО покупателя
-     * @param registrationSource источник регистрации
      * @param model              модель представления
      * @param user               аутентифицированный пользователь
      * @return имя представления домашней страницы
@@ -91,7 +90,6 @@ public class HomeController {
                        @RequestParam(value = "phone", required = false) String phone,
                        @RequestParam(value = "preRegistered", required = false) Boolean preRegistered,
                        @RequestParam(value = "fullName", required = false) String fullName,
-                       @RequestParam(value = "registrationSource", required = false) String registrationSource,
                        Model model,
                        @AuthenticationPrincipal User user) {
         Long userId = user != null ? user.getId() : null;
@@ -111,7 +109,7 @@ public class HomeController {
             PostalServiceType type = trackServiceClassifier.detect(normalizedNumber);
 
             // Обрабатываем предрегистрацию, если пользователь указал соответствующий флаг
-            handlePreRegistration(preRegistered, normalizedNumber, registrationSource, storeId, userId);
+            handlePreRegistration(preRegistered, normalizedNumber, storeId, userId);
 
             if (type == PostalServiceType.BELPOST && userId != null) {
                 boolean queued = belPostManualService.enqueueIfAllowed(normalizedNumber, storeId, userId, phone);
@@ -151,21 +149,19 @@ public class HomeController {
     /**
      * Выполняет предрегистрацию трека через соответствующий сервис.
      *
-     * @param preRegistered      признак предрегистрации
-     * @param number             номер трека
-     * @param registrationSource источник регистрации
-     * @param storeId            идентификатор магазина
-     * @param userId             идентификатор пользователя
+     * @param preRegistered признак предрегистрации
+     * @param number        номер трека
+     * @param storeId       идентификатор магазина
+     * @param userId        идентификатор пользователя
      */
     private void handlePreRegistration(Boolean preRegistered,
                                        String number,
-                                       String registrationSource,
                                        Long storeId,
                                        Long userId) {
         if (preRegistered == null || !preRegistered) {
             return;
         }
-        preRegistrationService.preRegister(number, registrationSource, storeId, userId);
+        preRegistrationService.preRegister(number, storeId, userId);
     }
 
     /**

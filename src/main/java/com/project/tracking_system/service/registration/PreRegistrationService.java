@@ -15,13 +15,11 @@ public class PreRegistrationService {
     /**
      * Выполняет предрегистрацию номера.
      *
-     * @param number              основной трек-номер
-     * @param registrationSource  источник регистрации
-     * @param storeId             идентификатор магазина
-     * @param userId              идентификатор пользователя
+     * @param number  основной трек-номер
+     * @param storeId идентификатор магазина
+     * @param userId  идентификатор пользователя
      */
     public void preRegister(String number,
-                            String registrationSource,
                             Long storeId,
                             Long userId) {
         // Заглушка. Реализация зависит от интеграции с внешними системами.
