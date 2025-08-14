@@ -1,6 +1,7 @@
 package com.project.tracking_system.service.telegram;
 
 import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,8 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Telegram-бот для покупателей.
@@ -31,6 +34,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private final TelegramClient telegramClient;
     private final CustomerTelegramService telegramService;
     private final String botToken;
+    private final Map<Long, Boolean> awaitingName = new ConcurrentHashMap<>();
 
     /**
      * Создаёт телеграм-бота для покупателей.
@@ -74,22 +78,38 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
             if (message.hasText()) {
                 String text = message.getText();
-                if ("/start".equals(text)) {
-                    log.info("✅ Команда /start получена от {}", message.getChatId());
-                    sendSharePhoneKeyboard(message.getChatId());
+                Long chatId = message.getChatId();
 
-                    // 🔽 Добавить отображение текущих настроек, если юзер уже привязан
-                    Optional<Customer> optional = telegramService.findByChatId(message.getChatId());
-                    if (optional.isPresent() && optional.get().isTelegramConfirmed()) {
-                        boolean enabled = optional.get().isNotificationsEnabled();
-                        sendNotificationsKeyboard(message.getChatId(), enabled);
+                // Проверка режима ожидания ввода ФИО
+                if (awaitingName.remove(chatId) != null) {
+                    boolean saved = telegramService.updateNameFromTelegram(chatId, text.trim());
+                    String reply = saved ? "✅ ФИО сохранено и подтверждено" : "⚠️ Не удалось сохранить ФИО";
+                    sendSimpleMessage(chatId, reply);
+                    return;
+                }
+
+                if ("/start".equals(text)) {
+                    log.info("✅ Команда /start получена от {}", chatId);
+                    Optional<Customer> optional = telegramService.findByChatId(chatId);
+                    if (optional.isEmpty()) {
+                        sendSharePhoneKeyboard(chatId);
+                        return;
+                    }
+                    Customer customer = optional.get();
+                    sendNotificationsKeyboard(chatId, customer.isNotificationsEnabled());
+                    if (customer.getFullName() != null) {
+                        if (customer.getNameSource() == NameSource.MERCHANT_PROVIDED) {
+                            sendNameConfirmation(chatId, customer.getFullName());
+                        }
+                    } else {
+                        promptForName(chatId);
                     }
                 }
-                if ("/stop".equals(text) || "/unsubscribe".equals(text)) {
-                    log.info("🔕 Команда {} получена от {}", text, message.getChatId());
-                    boolean disabled = telegramService.disableNotifications(message.getChatId());
+                else if ("/stop".equals(text) || "/unsubscribe".equals(text)) {
+                    log.info("🔕 Команда {} получена от {}", text, chatId);
+                    boolean disabled = telegramService.disableNotifications(chatId);
                     if (disabled) {
-                        SendMessage confirm = new SendMessage(message.getChatId().toString(),
+                        SendMessage confirm = new SendMessage(chatId.toString(),
                                 "🔕 Уведомления отключены. Чтобы возобновить их, снова отправьте /start.");
                         try {
                             telegramClient.execute(confirm);
@@ -98,21 +118,33 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                         }
                     }
                 }
-                if ("🔕 Отключить уведомления".equals(text)) {
-                    boolean disabled = telegramService.disableNotifications(message.getChatId());
+                else if ("🔕 Отключить уведомления".equals(text)) {
+                    boolean disabled = telegramService.disableNotifications(chatId);
                     if (disabled) {
-                        sendNotificationsKeyboard(message.getChatId(), false);
+                        sendNotificationsKeyboard(chatId, false);
                     }
                 }
-                if ("🔔 Включить уведомления".equals(text)) {
-                    boolean enabled = telegramService.enableNotifications(message.getChatId());
+                else if ("🔔 Включить уведомления".equals(text)) {
+                    boolean enabled = telegramService.enableNotifications(chatId);
                     if (enabled) {
-                        sendNotificationsKeyboard(message.getChatId(), true);
+                        sendNotificationsKeyboard(chatId, true);
                     }
+                }
+                else if ("Верно".equalsIgnoreCase(text)) {
+                    if (telegramService.confirmName(chatId)) {
+                        sendSimpleMessage(chatId, "✅ Спасибо, данные подтверждены");
+                    }
+                }
+                else if ("Неверно".equalsIgnoreCase(text)) {
+                    telegramService.markNameUnconfirmed(chatId);
+                    promptForName(chatId);
+                }
+                else if ("Изменить".equalsIgnoreCase(text)) {
+                    promptForName(chatId);
                 }
                 // Покупатель запросил статистику о своих посылках
                 if ("/stats".equals(text) || "📊 Моя статистика".equals(text)) {
-                    telegramService.getStatistics(message.getChatId())
+                    telegramService.getStatistics(chatId)
                             .ifPresent(stats -> {
                                 String stores = stats.getStoreNames().isEmpty()
                                         ? "-" : String.join(", ", stats.getStoreNames());
@@ -127,7 +159,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                                         stores,
                                         stats.getReputation().getDisplayName()
                                 );
-                                SendMessage msg = new SendMessage(message.getChatId().toString(), reply);
+                                SendMessage msg = new SendMessage(chatId.toString(), reply);
                                 try {
                                     telegramClient.execute(msg);
                                 } catch (TelegramApiException e) {
@@ -195,8 +227,62 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
+     * Отправить простое текстовое сообщение без клавиатуры.
+     *
+     * @param chatId идентификатор чата
+     * @param text   текст сообщения
+     */
+    private void sendSimpleMessage(Long chatId, String text) {
+        SendMessage msg = new SendMessage(chatId.toString(), text);
+        try {
+            telegramClient.execute(msg);
+        } catch (TelegramApiException e) {
+            log.error("❌ Ошибка отправки сообщения", e);
+        }
+    }
+
+    /**
+     * Попросить пользователя ввести своё ФИО.
+     *
+     * @param chatId идентификатор чата
+     */
+    private void promptForName(Long chatId) {
+        awaitingName.put(chatId, Boolean.TRUE);
+        sendSimpleMessage(chatId, "✍️ Пожалуйста, укажите своё ФИО");
+    }
+
+    /**
+     * Отправить пользователю ФИО из системы для подтверждения.
+     *
+     * @param chatId   идентификатор чата
+     * @param fullName имя, полученное от магазина
+     */
+    private void sendNameConfirmation(Long chatId, String fullName) {
+        KeyboardButton ok = new KeyboardButton("Верно");
+        KeyboardButton wrong = new KeyboardButton("Неверно");
+        KeyboardButton change = new KeyboardButton("Изменить");
+        KeyboardRow first = new KeyboardRow(List.of(ok, wrong));
+        KeyboardRow second = new KeyboardRow(List.of(change));
+        ReplyKeyboardMarkup markup = new ReplyKeyboardMarkup(List.of(first, second));
+        markup.setResizeKeyboard(true);
+        markup.setOneTimeKeyboard(true);
+
+        String text = String.format("Магазин указал ваше ФИО: %s\nЭто верно?", fullName);
+        SendMessage msg = new SendMessage(chatId.toString(), text);
+        msg.setReplyMarkup(markup);
+        try {
+            telegramClient.execute(msg);
+        } catch (TelegramApiException e) {
+            log.error("❌ Ошибка отправки подтверждения имени", e);
+        }
+    }
+
+    /**
      * Обработать контакт с номером телефона от пользователя.
-     * Привязывает номер к покупателю и отправляет подтверждение.
+     * <p>
+     * Привязывает номер к покупателю, подтверждает Telegram и предлагает
+     * подтвердить или указать ФИО.
+     * </p>
      *
      * @param chatId  идентификатор чата Telegram
      * @param contact объект контакта с номером телефона
@@ -213,6 +299,14 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 telegramService.confirmTelegram(customer);
                 telegramService.notifyActualStatuses(customer);
                 sendNotificationsKeyboard(chatId, true);
+            }
+
+            if (customer.getFullName() != null) {
+                if (customer.getNameSource() == NameSource.MERCHANT_PROVIDED) {
+                    sendNameConfirmation(chatId, customer.getFullName());
+                }
+            } else {
+                promptForName(chatId);
             }
         } catch (Exception e) {
             log.error("❌ Ошибка регистрации телефона {} для чата {}",
