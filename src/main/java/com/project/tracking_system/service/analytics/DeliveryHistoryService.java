@@ -85,7 +85,7 @@ public class DeliveryHistoryService {
 
                     // Определяем почтовую службу
                     PostalServiceType serviceType = typeDefinitionTrackPostService.detectPostalService(trackParcel.getNumber());
-                    return new DeliveryHistory(trackParcel, trackParcel.getStore(), serviceType, null, null, null);
+                    return new DeliveryHistory(trackParcel, trackParcel.getStore(), serviceType, null, null, null, null);
                 });
 
         //  Если статус НЕ изменился — ничего не делаем
@@ -101,29 +101,36 @@ public class DeliveryHistoryService {
         DeliveryDates deliveryDates = extractDatesFromTrackInfo(trackParcel, trackInfoListDTO, userZone);
 
         // Устанавливаем дату отправки, если она доступна
-        setHistoryDate("Дата отправки", history.getSendDate(), deliveryDates.sendDate(), history::setSendDate);
+        ZonedDateTime sendDate = deliveryDates.sendDate();
+        setHistoryDate("Дата отправки", history.getSendDate(), sendDate, history::setSendDate);
 
-        if (newStatus == GlobalStatus.DELIVERED) {
-            setHistoryDate("Дата получения", history.getReceivedDate(), deliveryDates.receivedDate(), history::setReceivedDate);
-        }
+        if (newStatus == GlobalStatus.PRE_REGISTERED) {
+            // При предварительной регистрации запоминаем дату регистрации и не обновляем статистику
+            ZonedDateTime registrationDate = sendDate != null ? sendDate : trackParcel.getTimestamp();
+            setHistoryDate("Дата регистрации", history.getRegistrationDate(), registrationDate, history::setRegistrationDate);
+        } else {
+            if (newStatus == GlobalStatus.DELIVERED) {
+                setHistoryDate("Дата получения", history.getReceivedDate(), deliveryDates.receivedDate(), history::setReceivedDate);
+            }
 
-        if (newStatus == GlobalStatus.RETURNED) {
-            setHistoryDate("Дата возврата", history.getReturnedDate(), deliveryDates.returnedDate(), history::setReturnedDate);
-        }
+            if (newStatus == GlobalStatus.RETURNED) {
+                setHistoryDate("Дата возврата", history.getReturnedDate(), deliveryDates.returnedDate(), history::setReturnedDate);
+            }
 
-        if (history.getArrivedDate() == null && deliveryDates.arrivedDate() != null) {
-            // Фиксируем дату прибытия на пункт выдачи, даже если текущий статус уже финальный
-            setHistoryDate(
-                    "Дата прибытия на пункт выдачи",
-                    history.getArrivedDate(),
-                    deliveryDates.arrivedDate(),
-                    history::setArrivedDate
-            );
-        }
+            if (history.getArrivedDate() == null && deliveryDates.arrivedDate() != null) {
+                // Фиксируем дату прибытия на пункт выдачи, даже если текущий статус уже финальный
+                setHistoryDate(
+                        "Дата прибытия на пункт выдачи",
+                        history.getArrivedDate(),
+                        deliveryDates.arrivedDate(),
+                        history::setArrivedDate
+                );
+            }
 
-        // Считаем и обновляем среднее время доставки
-        if (newStatus.isFinal()) {
-            registerFinalStatus(history, newStatus);
+            // Считаем и обновляем среднее время доставки только для финальных статусов
+            if (newStatus.isFinal()) {
+                registerFinalStatus(history, newStatus);
+            }
         }
 
         // Сохраняем историю, если что-то изменилось
@@ -157,13 +164,24 @@ public class DeliveryHistoryService {
         PostalServiceType serviceType = typeDefinitionTrackPostService.detectPostalService(trackParcel.getNumber());
         ZonedDateTime sendDate = null, receivedDate = null, returnedDate = null, arrivedDate = null;
 
-        //  Определяем дату отправки
+        //  Определяем дату отправки/регистрации
         if (serviceType == PostalServiceType.BELPOST) {
-            sendDate = DateParserUtils.parse(trackInfoList.get(trackInfoList.size() - 1).getTimex(), userZone); // Последний статус
-        } else if (serviceType == PostalServiceType.EVROPOST && trackInfoList.size() > 1) {
-            sendDate = DateParserUtils.parse(trackInfoList.get(trackInfoList.size() - 2).getTimex(), userZone); // Предпоследний статус
-        } else {
-            log.info("Европочта: Недостаточно данных для даты отправки. Трек: {}", trackParcel.getNumber());
+            // Для Белпочты берём последнюю запись
+            sendDate = DateParserUtils.parse(trackInfoList.get(trackInfoList.size() - 1).getTimex(), userZone);
+        } else if (serviceType == PostalServiceType.EVROPOST) {
+            // Для Европочты дата отправки берётся из предпоследней записи,
+            // однако если запись одна — это лишь регистрация, отправка не фиксируется
+            if (trackInfoList.size() > 1) {
+                sendDate = DateParserUtils.parse(
+                        trackInfoList.get(trackInfoList.size() - 2).getTimex(),
+                        userZone
+                );
+            } else {
+                log.info(
+                        "Европочта: единственная запись считается регистрацией, дата отправки не определена. Трек: {}",
+                        trackParcel.getNumber()
+                );
+            }
         }
 
         // Определяем дату получения или возврата
@@ -207,6 +225,12 @@ public class DeliveryHistoryService {
      */
     @Transactional
     public void registerFinalStatus(DeliveryHistory history, GlobalStatus status) {
+        // Предварительная регистрация не участвует в статистике
+        if (status == GlobalStatus.PRE_REGISTERED) {
+            log.debug("Статус PRE_REGISTERED не влияет на статистику");
+            return;
+        }
+
         TrackParcel trackParcel = history.getTrackParcel();
 
         // Пропускаем обновление аналитики для неизвестной почтовой службы
