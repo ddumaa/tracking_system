@@ -36,6 +36,12 @@ public class DeliveryHistory {
     @Column(name = "postal_service", nullable = false)
     private PostalServiceType postalService;
 
+    /**
+     * Дата предварительной регистрации посылки.
+     */
+    @Column(name = "registration_date")
+    private ZonedDateTime registrationDate;
+
     @Column(name = "send_date")
     private ZonedDateTime sendDate;
 
@@ -48,11 +54,17 @@ public class DeliveryHistory {
     @Column(name = "returned_date")
     private ZonedDateTime returnedDate;
 
-    public DeliveryHistory(TrackParcel trackParcel, Store store, PostalServiceType postalService,
-                           ZonedDateTime sendDate, ZonedDateTime receivedDate, ZonedDateTime returnedDate) {
+    public DeliveryHistory(TrackParcel trackParcel,
+                           Store store,
+                           PostalServiceType postalService,
+                           ZonedDateTime registrationDate,
+                           ZonedDateTime sendDate,
+                           ZonedDateTime receivedDate,
+                           ZonedDateTime returnedDate) {
         this.trackParcel = trackParcel;
         this.store = store;
         this.postalService = postalService;
+        this.registrationDate = registrationDate;
         this.sendDate = sendDate;
         this.receivedDate = receivedDate;
         this.returnedDate = returnedDate;
