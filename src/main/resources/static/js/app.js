@@ -393,6 +393,36 @@ function initializePhoneToggle() {
     }
 }
 
+// Инициализация переключателя предрегистрации
+function initializePreRegistrationToggle() {
+    const toggle = document.getElementById("togglePreRegistration");
+    const fields = document.getElementById("preRegistrationFields");
+
+    if (toggle && fields) {
+        // Первичное состояние
+        toggleFieldsVisibility(toggle, fields);
+
+        // Обработчик переключения
+        const handler = () => toggleFieldsVisibility(toggle, fields);
+        toggle.addEventListener('change', handler);
+    }
+}
+
+// Инициализация переключателя ввода ФИО
+function initializeFullNameToggle() {
+    const toggle = document.getElementById("toggleFullName");
+    const field = document.getElementById("fullNameField");
+
+    if (toggle && field) {
+        // Первичное состояние
+        toggleFieldsVisibility(toggle, field);
+
+        // Обработчик переключения
+        const handler = () => toggleFieldsVisibility(toggle, field);
+        toggle.addEventListener('change', handler);
+    }
+}
+
 // Инициализация формы привязки покупателя к посылке
 function initAssignCustomerFormHandler() {
     ajaxSubmitForm('assign-customer-form', 'customerInfoContainer', [initAssignCustomerFormHandler]);
@@ -1473,6 +1503,8 @@ document.addEventListener("DOMContentLoaded", function () {
     initAutoUpdateToggle();
     initBulkButtonToggle();
     initializePhoneToggle();
+    initializePreRegistrationToggle();
+    initializeFullNameToggle();
     initAssignCustomerFormHandler();
     initEditCustomerPhoneFormHandler();
     initPhoneEditToggle();
