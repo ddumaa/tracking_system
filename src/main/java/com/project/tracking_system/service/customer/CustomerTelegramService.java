@@ -101,6 +101,54 @@ public class CustomerTelegramService {
     }
 
     /**
+     * Подтвердить имя покупателя по идентификатору чата.
+     * <p>Имя становится подтверждённым пользователем.</p>
+     *
+     * @param chatId идентификатор чата Telegram
+     * @return {@code true}, если имя подтверждено
+     */
+    @Transactional
+    public boolean confirmName(Long chatId) {
+        return customerRepository.findByTelegramChatId(chatId)
+                .map(c -> {
+                    if (c.getFullName() == null) {
+                        return false;
+                    }
+                    return customerService.updateCustomerName(c, c.getFullName(), NameSource.USER_CONFIRMED);
+                })
+                .orElse(false);
+    }
+
+    /**
+     * Обновить ФИО покупателя, введённое в Telegram.
+     *
+     * @param chatId   идентификатор чата Telegram
+     * @param fullName новое ФИО
+     * @return {@code true}, если имя успешно сохранено
+     */
+    @Transactional
+    public boolean updateNameFromTelegram(Long chatId, String fullName) {
+        return customerRepository.findByTelegramChatId(chatId)
+                .map(c -> customerService.updateCustomerName(c, fullName, NameSource.USER_CONFIRMED))
+                .orElse(false);
+    }
+
+    /**
+     * Пометить имя как неподтверждённое магазином.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    @Transactional
+    public void markNameUnconfirmed(Long chatId) {
+        customerRepository.findByTelegramChatId(chatId)
+                .ifPresent(c -> {
+                    c.setNameSource(NameSource.MERCHANT_PROVIDED);
+                    c.setNameUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                    customerRepository.save(c);
+                });
+    }
+
+    /**
      * Отправить текущие статусы всех активных посылок покупателю после привязки Telegram.
      * <p>
      * Метод ищет все посылки покупателя в не финальных статусах и отправляет
