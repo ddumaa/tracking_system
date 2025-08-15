@@ -230,6 +230,23 @@ public class DeparturesController {
     }
 
     /**
+     * Сохраняет трек-номер для предварительно зарегистрированной посылки.
+     *
+     * @param id     идентификатор посылки
+     * @param number новый трек-номер
+     * @param user   текущий пользователь
+     * @return результат операции
+     */
+    @PostMapping("/set-number")
+    public ResponseEntity<?> setNumber(
+            @RequestParam Long id,
+            @RequestParam String number,
+            @AuthenticationPrincipal User user) {
+        trackParcelService.assignTrackNumber(id, number, user.getId());
+        return ResponseBuilder.ok("Трек-номер добавлен");
+    }
+
+    /**
      * Метод для удаления выбранных посылок.
      * <p>
      * Удаляются посылки, выбранные пользователем в интерфейсе. В случае успеха отображается сообщение об успешном удалении.
