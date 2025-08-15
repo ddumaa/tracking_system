@@ -74,13 +74,13 @@ public class TrackUpdateService {
             webSocketController.sendUpdateStatus(userId, msg, false);
             log.debug("📡 WebSocket отправлено: {}", msg);
 
-            return new TrackUpdateResponse(0, 0, 0, 0, msg);
+            return new TrackUpdateResponse(0, 0, 0, 0, 0, msg);
         }
 
         int count = storeRepository.countByOwnerId(userId);
         if (count == 0) {
             log.warn("У пользователя ID={} нет магазинов для обновления треков.", userId);
-            return new TrackUpdateResponse(0, 0, 0, 0, "У вас нет магазинов с посылками.");
+            return new TrackUpdateResponse(0, 0, 0, 0, 0, "У вас нет магазинов с посылками.");
         }
 
         List<TrackParcel> allParcels = trackParcelRepository.findByUserId(userId);
@@ -88,15 +88,24 @@ public class TrackUpdateService {
         int interval = applicationSettingsService.getTrackUpdateIntervalHours();
         ZonedDateTime threshold = ZonedDateTime.now(ZoneOffset.UTC).minusHours(interval);
 
-        int finalStatusCount = (int) allParcels.stream()
+        int preRegisteredCount = (int) allParcels.stream()
+                .filter(this::isPreRegisteredWithoutNumber)
+                .peek(p -> log.debug("Пропуск предрегистрации без номера: id={}", p.getId()))
+                .count();
+
+        List<TrackParcel> filteredParcels = allParcels.stream()
+                .filter(p -> !isPreRegisteredWithoutNumber(p))
+                .toList();
+
+        int finalStatusCount = (int) filteredParcels.stream()
                 .filter(p -> p.getStatus().isFinal())
                 .count();
-        int recentlyUpdatedCount = (int) allParcels.stream()
+        int recentlyUpdatedCount = (int) filteredParcels.stream()
                 .filter(p -> !p.getStatus().isFinal())
                 .filter(p -> p.getLastUpdate() != null && p.getLastUpdate().isAfter(threshold))
                 .count();
 
-        List<TrackParcel> parcelsToUpdate = allParcels.stream()
+        List<TrackParcel> parcelsToUpdate = filteredParcels.stream()
                 .filter(p -> !p.getStatus().isFinal())
                 .filter(p -> p.getLastUpdate() == null || p.getLastUpdate().isBefore(threshold))
                 .toList();
@@ -107,7 +116,7 @@ public class TrackUpdateService {
         log.info("📦 Фильтрация завершена: {} треков допущено к обновлению, {} в финальном статусе, {} недавно обновлялись",
                 readyToUpdateCount, finalStatusCount, recentlyUpdatedCount);
 
-        String message = buildUpdateMessage(readyToUpdateCount, finalStatusCount, recentlyUpdatedCount);
+        String message = buildUpdateMessage(readyToUpdateCount, finalStatusCount, recentlyUpdatedCount, preRegisteredCount);
         webSocketController.sendUpdateStatus(userId, message, readyToUpdateCount > 0);
 
         if (readyToUpdateCount > 0) {
@@ -115,7 +124,7 @@ public class TrackUpdateService {
         }
 
         return new TrackUpdateResponse(totalRequested, readyToUpdateCount, finalStatusCount,
-                recentlyUpdatedCount, message);
+                recentlyUpdatedCount, preRegisteredCount, message);
     }
 
     /**
@@ -175,12 +184,22 @@ public class TrackUpdateService {
     @Transactional
     public TrackUpdateResponse updateSelectedParcels(Long userId, List<String> selectedNumbers) {
         List<TrackParcel> selectedParcels = trackParcelRepository.findByNumberInAndUserId(selectedNumbers, userId);
+        int totalRequested = selectedParcels.size();
+
+        int preRegisteredCount = (int) selectedParcels.stream()
+                .filter(this::isPreRegisteredWithoutNumber)
+                .peek(p -> log.debug("Пропуск предрегистрации без номера: id={}", p.getId()))
+                .count();
+
+        List<TrackParcel> filteredParcels = selectedParcels.stream()
+                .filter(p -> !isPreRegisteredWithoutNumber(p))
+                .toList();
 
         int interval = applicationSettingsService.getTrackUpdateIntervalHours();
         ZonedDateTime threshold = ZonedDateTime.now(ZoneOffset.UTC).minusHours(interval);
 
-        if (selectedNumbers.size() == 1 && !selectedParcels.isEmpty()) {
-            TrackParcel parcel = selectedParcels.get(0);
+        if (selectedNumbers.size() == 1 && !filteredParcels.isEmpty()) {
+            TrackParcel parcel = filteredParcels.get(0);
             if (!parcel.getStatus().isFinal() && parcel.getLastUpdate() != null) {
                 ZonedDateTime nextAllowed = parcel.getLastUpdate().plusHours(interval);
                 if (nextAllowed.isAfter(ZonedDateTime.now(ZoneOffset.UTC))) {
@@ -190,20 +209,19 @@ public class TrackUpdateService {
                     String msg = "Трек " + parcel.getNumber() + " обновлялся недавно, " +
                             "следующее обновление возможно после " + formatted;
                     webSocketController.sendUpdateStatus(userId, msg, false);
-                    return new TrackUpdateResponse(1, 0, 0, 1, msg);
+                    return new TrackUpdateResponse(1, 0, 0, 1, 0, msg);
                 }
             }
         }
 
-        int totalRequested = selectedParcels.size();
-        int finalStatusCount = (int) selectedParcels.stream()
+        int finalStatusCount = (int) filteredParcels.stream()
                 .filter(p -> p.getStatus().isFinal())
                 .count();
-        int recentlyUpdatedCount = (int) selectedParcels.stream()
+        int recentlyUpdatedCount = (int) filteredParcels.stream()
                 .filter(p -> !p.getStatus().isFinal())
                 .filter(p -> p.getLastUpdate() != null && p.getLastUpdate().isAfter(threshold))
                 .count();
-        List<TrackParcel> updatableParcels = selectedParcels.stream()
+        List<TrackParcel> updatableParcels = filteredParcels.stream()
                 .filter(p -> !p.getStatus().isFinal())
                 .filter(p -> p.getLastUpdate() == null || p.getLastUpdate().isBefore(threshold))
                 .toList();
@@ -213,10 +231,10 @@ public class TrackUpdateService {
                 readyToUpdateCount, finalStatusCount, recentlyUpdatedCount);
 
         if (readyToUpdateCount == 0) {
-            String msg = buildUpdateMessage(0, finalStatusCount, recentlyUpdatedCount);
+            String msg = buildUpdateMessage(0, finalStatusCount, recentlyUpdatedCount, preRegisteredCount);
             log.warn(msg);
             webSocketController.sendUpdateStatus(userId, msg, false);
-            return new TrackUpdateResponse(totalRequested, 0, finalStatusCount, recentlyUpdatedCount, msg);
+            return new TrackUpdateResponse(totalRequested, 0, finalStatusCount, recentlyUpdatedCount, preRegisteredCount, msg);
         }
 
         int remainingUpdates = subscriptionService.canUpdateTracks(userId, updatableParcels.size());
@@ -225,18 +243,18 @@ public class TrackUpdateService {
             String msg = "Ваш лимит обновлений на сегодня исчерпан.";
             log.info("Лимит обновлений исчерпан для пользователя ID: {}", userId);
             webSocketController.sendUpdateStatus(userId, msg, true);
-            return new TrackUpdateResponse(totalRequested, 0, finalStatusCount, recentlyUpdatedCount, msg);
+            return new TrackUpdateResponse(totalRequested, 0, finalStatusCount, recentlyUpdatedCount, preRegisteredCount, msg);
         }
 
         int updatesToProcess = Math.min(readyToUpdateCount, remainingUpdates);
         List<TrackParcel> parcelsToUpdate = updatableParcels.subList(0, updatesToProcess);
-        String msg = buildUpdateMessage(updatesToProcess, finalStatusCount, recentlyUpdatedCount);
+        String msg = buildUpdateMessage(updatesToProcess, finalStatusCount, recentlyUpdatedCount, preRegisteredCount);
         log.info("📦 Запущено обновление {} треков для пользователя ID={}", updatesToProcess, userId);
 
         processTrackUpdatesAsync(userId, parcelsToUpdate, totalRequested, finalStatusCount + recentlyUpdatedCount);
 
         webSocketController.sendUpdateStatus(userId, msg, true);
-        return new TrackUpdateResponse(totalRequested, updatesToProcess, finalStatusCount, recentlyUpdatedCount, msg);
+        return new TrackUpdateResponse(totalRequested, updatesToProcess, finalStatusCount, recentlyUpdatedCount, preRegisteredCount, msg);
     }
 
     /**
@@ -246,9 +264,19 @@ public class TrackUpdateService {
     @Transactional
     public void processTrackUpdatesAsync(Long userId, List<TrackParcel> parcelsToUpdate, int totalRequested, int nonUpdatableCount) {
         try {
-            log.info("Начато обновление {} треков для userId={}", parcelsToUpdate.size(), userId);
+            List<TrackParcel> filteredParcels = parcelsToUpdate.stream()
+                    .filter(p -> {
+                        boolean skip = isPreRegisteredWithoutNumber(p);
+                        if (skip) {
+                            log.debug("Пропуск предрегистрации без номера: id={}", p.getId());
+                        }
+                        return !skip;
+                    })
+                    .toList();
 
-            List<TrackMeta> metas = parcelsToUpdate.stream()
+            log.info("Начато обновление {} треков для userId={}", filteredParcels.size(), userId);
+
+            List<TrackMeta> metas = filteredParcels.stream()
                     .map(parcel -> new TrackMeta(
                             parcel.getNumber(),
                             parcel.getStore().getId(),
@@ -256,7 +284,6 @@ public class TrackUpdateService {
                             true,
                             parcel.getDeliveryHistory() != null ? parcel.getDeliveryHistory().getPostalService() : null))
                     .toList();
-
             List<TrackingResultAdd> results = process(metas, userId);
 
             int updatedCount = (int) results.stream()
@@ -347,13 +374,14 @@ public class TrackUpdateService {
     /**
      * Формирует человекочитаемое сообщение о запуске обновления.
      *
-     * @param ready    количество треков, которые будут обновлены
-     * @param finalStatus сколько треков имеют финальный статус
-     * @param recent   сколько треков пропущено из-за таймаута
+     * @param ready             количество треков, которые будут обновлены
+     * @param finalStatus       сколько треков имеют финальный статус
+     * @param recent            сколько треков пропущено из-за таймаута
+     * @param preRegistered     сколько предрегистраций без номера пропущено
      * @return текст уведомления с эмодзи для пользователя
      */
-    private String buildUpdateMessage(int ready, int finalStatus, int recent) {
-        int total = ready + finalStatus + recent;
+    private String buildUpdateMessage(int ready, int finalStatus, int recent, int preRegistered) {
+        int total = ready + finalStatus + recent + preRegistered;
         StringBuilder sb = new StringBuilder();
         if (ready == 0) {
             sb.append("Обновление не выполнено.");
@@ -374,7 +402,23 @@ public class TrackUpdateService {
                     .append(recent)
                     .append(" треков недавно обновлялись и пропущены");
         }
+        if (preRegistered > 0) {
+            sb.append("\n▪ ")
+                    .append(preRegistered)
+                    .append(" предрегистраций без номера пропущено");
+        }
         return sb.toString();
+    }
+
+    /**
+     * Проверяет, является ли посылка предварительно зарегистрированной без трек-номера.
+     *
+     * @param parcel объект посылки
+     * @return {@code true}, если статус {@link GlobalStatus#PRE_REGISTERED} и номер отсутствует
+     */
+    private boolean isPreRegisteredWithoutNumber(TrackParcel parcel) {
+        return parcel.getStatus() == GlobalStatus.PRE_REGISTERED &&
+                (parcel.getNumber() == null || parcel.getNumber().isBlank());
     }
 
 }

@@ -11,11 +11,13 @@ package com.project.tracking_system.dto;
  * @param readyToUpdate        сколько треков будет обновлено
  * @param finalStatusCount     сколько треков пропущено из-за финального статуса
  * @param recentlyUpdatedCount сколько треков пропущено из-за ограничения по времени
+ * @param preRegisteredCount   сколько предрегистраций без номера пропущено
  * @param message              человекочитаемое сообщение о запуске
  */
 public record TrackUpdateResponse(int totalRequested,
                                   int readyToUpdate,
                                   int finalStatusCount,
                                   int recentlyUpdatedCount,
+                                  int preRegisteredCount,
                                   String message) {
 }
