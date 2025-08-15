@@ -9,6 +9,7 @@ import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.utils.PhoneUtils;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -361,6 +362,27 @@ public class TrackParcelService {
         return parcels.stream()
                 .map(track -> toDto(track, userZone))
                 .toList();
+    }
+
+    /**
+     * Присваивает трек-номер предварительно зарегистрированной посылке пользователя.
+     * <p>
+     * Метод проверяет принадлежность посылки пользователю и наличие статуса
+     * предварительной регистрации. В случае отсутствия посылки или
+     * несоответствия владельца выбрасывается {@link EntityNotFoundException}.
+     * </p>
+     *
+     * @param parcelId идентификатор посылки
+     * @param number   трек-номер
+     * @param userId   идентификатор пользователя
+     */
+    @Transactional
+    public void assignTrackNumber(Long parcelId, String number, Long userId) {
+        TrackParcel parcel = trackParcelRepository.findByIdAndPreRegisteredTrue(parcelId);
+        if (parcel == null || !parcel.getUser().getId().equals(userId)) {
+            throw new EntityNotFoundException("Посылка не найдена");
+        }
+        trackParcelRepository.updatePreRegisteredNumber(parcelId, number);
     }
 
     /**

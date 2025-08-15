@@ -403,9 +403,8 @@ public class TrackUpdateService {
                     .append(" треков недавно обновлялись и пропущены");
         }
         if (preRegistered > 0) {
-            sb.append("\n▪ ")
-                    .append(preRegistered)
-                    .append(" предрегистраций без номера пропущено");
+            sb.append("\n▪ Пропущено предрегистраций без номера: ")
+                    .append(preRegistered);
         }
         return sb.toString();
     }
