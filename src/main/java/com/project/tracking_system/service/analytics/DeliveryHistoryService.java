@@ -138,7 +138,8 @@ public class DeliveryHistoryService {
         log.info("История доставки обновлена: {}", trackParcel.getNumber());
 
         // Отправляем уведомление в Telegram при выполнении условий
-        if (shouldNotifyCustomer(trackParcel, newStatus)) {
+        // Уведомления стартуют только после выхода из предрегистрации
+        if (newStatus != GlobalStatus.PRE_REGISTERED && shouldNotifyCustomer(trackParcel, newStatus)) {
             telegramNotificationService.sendStatusUpdate(trackParcel, newStatus);
             log.info("✅ Уведомление о статусе {} отправлено для трека {}", newStatus, trackParcel.getNumber());
             saveNotificationLog(trackParcel, newStatus);
@@ -632,7 +633,11 @@ public class DeliveryHistoryService {
         }
     }
 
-    // Проверить необходимость отправки уведомления покупателю
+    /**
+     * Определяет, нужно ли отправлять уведомление покупателю о смене статуса.
+     * Проверяет наличие идентификатора чата в Telegram, активную подписку
+     * и факт отсутствия ранее отправленного уведомления по данному статусу.
+     */
     private boolean shouldNotifyCustomer(TrackParcel parcel, GlobalStatus status) {
         Customer customer = parcel.getCustomer();
         if (customer == null || customer.getTelegramChatId() == null) {
@@ -652,7 +657,10 @@ public class DeliveryHistoryService {
         );
     }
 
-    // Сохранить лог отправленного уведомления
+    /**
+     * Сохраняет запись об отправленном уведомлении, чтобы исключить повторные отправки
+     * для одного и того же статуса.
+     */
     private void saveNotificationLog(TrackParcel parcel, GlobalStatus status) {
         CustomerNotificationLog logEntry = new CustomerNotificationLog();
         logEntry.setCustomer(parcel.getCustomer());
