@@ -6,6 +6,7 @@ import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.service.track.TrackConstants;
 import com.project.tracking_system.service.track.TrackProcessingService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +19,7 @@ import java.util.concurrent.CompletableFuture;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EvropostTrackUpdateProcessor implements TrackUpdateProcessor {
 
     /**
@@ -55,9 +57,12 @@ public class EvropostTrackUpdateProcessor implements TrackUpdateProcessor {
                 .map(meta -> CompletableFuture.supplyAsync(() -> {
                     TrackInfoListDTO info = trackProcessingService.processTrack(
                             meta.number(), meta.storeId(), userId, meta.canSave(), meta.phone());
-                    String status = info.getList().isEmpty()
-                            ? TrackConstants.NO_DATA_STATUS
-                            : info.getList().get(0).getInfoTrack();
+                    boolean hasStatus = !info.getList().isEmpty();
+                    // Информируем о результате обработки без персональных данных
+                    log.debug(hasStatus ? "Статусы получены" : "Статусы отсутствуют");
+                    String status = hasStatus
+                            ? info.getList().get(0).getInfoTrack()
+                            : TrackConstants.NO_DATA_STATUS;
                     return new TrackingResultAdd(meta.number(), status);
                 }, batchUploadExecutor))
                 .toList();
@@ -78,9 +83,12 @@ public class EvropostTrackUpdateProcessor implements TrackUpdateProcessor {
         }
         TrackInfoListDTO info = trackProcessingService.processTrack(
                 meta.number(), meta.storeId(), null, meta.canSave(), meta.phone());
-        String status = info.getList().isEmpty()
-                ? TrackConstants.NO_DATA_STATUS
-                : info.getList().get(0).getInfoTrack();
+        boolean hasStatus = !info.getList().isEmpty();
+        // Информируем о результате обработки без персональных данных
+        log.debug(hasStatus ? "Статусы получены" : "Статусы отсутствуют");
+        String status = hasStatus
+                ? info.getList().get(0).getInfoTrack()
+                : TrackConstants.NO_DATA_STATUS;
         return new TrackingResultAdd(meta.number(), status, info);
     }
 
