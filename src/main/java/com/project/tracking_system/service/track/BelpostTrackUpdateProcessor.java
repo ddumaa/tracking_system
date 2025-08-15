@@ -7,6 +7,7 @@ import com.project.tracking_system.service.belpost.WebBelPostBatchService;
 import com.project.tracking_system.service.track.TrackConstants;
 import com.project.tracking_system.service.track.TrackProcessingService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -18,6 +19,7 @@ import java.util.Map;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class BelpostTrackUpdateProcessor implements TrackUpdateProcessor {
 
     /**
@@ -59,12 +61,15 @@ public class BelpostTrackUpdateProcessor implements TrackUpdateProcessor {
                 tracks.stream().map(TrackMeta::number).toList());
         for (TrackMeta meta : tracks) {
             TrackInfoListDTO info = infoMap.getOrDefault(meta.number(), new TrackInfoListDTO());
+            boolean hasStatus = !info.getList().isEmpty();
             if (userId != null && meta.canSave()) {
                 trackProcessingService.save(meta.number(), info, meta.storeId(), userId, meta.phone());
             }
-            String status = info.getList().isEmpty()
-                    ? TrackConstants.NO_DATA_STATUS
-                    : info.getList().get(0).getInfoTrack();
+            // Информируем о результате обработки без персональных данных
+            log.debug(hasStatus ? "Статусы получены" : "Статусы отсутствуют");
+            String status = hasStatus
+                    ? info.getList().get(0).getInfoTrack()
+                    : TrackConstants.NO_DATA_STATUS;
             results.add(new TrackingResultAdd(meta.number(), status));
         }
         return results;
@@ -83,12 +88,15 @@ public class BelpostTrackUpdateProcessor implements TrackUpdateProcessor {
         }
         Map<String, TrackInfoListDTO> infoMap = webBelPostBatchService.processBatch(List.of(meta.number()));
         TrackInfoListDTO info = infoMap.getOrDefault(meta.number(), new TrackInfoListDTO());
+        boolean hasStatus = !info.getList().isEmpty();
         if (meta.canSave()) {
             trackProcessingService.save(meta.number(), info, meta.storeId(), null, meta.phone());
         }
-        String status = info.getList().isEmpty()
-                ? TrackConstants.NO_DATA_STATUS
-                : info.getList().get(0).getInfoTrack();
+        // Информируем о результате обработки без персональных данных
+        log.debug(hasStatus ? "Статусы получены" : "Статусы отсутствуют");
+        String status = hasStatus
+                ? info.getList().get(0).getInfoTrack()
+                : TrackConstants.NO_DATA_STATUS;
         return new TrackingResultAdd(meta.number(), status, info);
     }
 }
