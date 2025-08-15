@@ -69,6 +69,8 @@ public class DeliveryHistoryService {
      * накопительную статистику.
      * </p>
      *
+     * <p><strong>Безопасность:</strong> не логируем персональные данные или токены.</p>
+     *
      * @param trackParcel       посылка, у которой изменился статус
      * @param oldStatus         предыдущий статус посылки
      * @param newStatus         новый статус посылки
@@ -76,7 +78,12 @@ public class DeliveryHistoryService {
      */
     @Transactional
     public void updateDeliveryHistory(TrackParcel trackParcel, GlobalStatus oldStatus, GlobalStatus newStatus, TrackInfoListDTO trackInfoListDTO) {
-        log.info("Начало обновления истории доставки для трека {}", trackParcel.getNumber());
+        // Для PRE_REGISTERED используем debug, чтобы не засорять основное логирование
+        if (newStatus == GlobalStatus.PRE_REGISTERED) {
+            log.debug("Начало обновления истории доставки (PRE_REGISTERED) для трека {}", trackParcel.getNumber());
+        } else {
+            log.info("Начало обновления истории доставки для трека {}", trackParcel.getNumber());
+        }
 
         // Получаем историю или создаём новую
         DeliveryHistory history = deliveryHistoryRepository.findByTrackParcelId(trackParcel.getId())
@@ -90,7 +97,11 @@ public class DeliveryHistoryService {
 
         //  Если статус НЕ изменился — ничего не делаем
         if (oldStatus == null || !newStatus.equals(oldStatus)) {
-            log.info("Новый трек или статус изменился, обновляем историю...");
+            if (newStatus == GlobalStatus.PRE_REGISTERED) {
+                log.debug("Новый трек или статус PRE_REGISTERED, обновляем историю...");
+            } else {
+                log.info("Новый трек или статус изменился, обновляем историю...");
+            }
         } else {
             log.debug("Статус не изменился, обновление истории не требуется для {}", trackParcel.getNumber());
             return;
@@ -135,7 +146,11 @@ public class DeliveryHistoryService {
 
         // Сохраняем историю, если что-то изменилось
         deliveryHistoryRepository.save(history);
-        log.info("История доставки обновлена: {}", trackParcel.getNumber());
+        if (newStatus == GlobalStatus.PRE_REGISTERED) {
+            log.debug("История доставки обновлена (PRE_REGISTERED): {}", trackParcel.getNumber());
+        } else {
+            log.info("История доставки обновлена: {}", trackParcel.getNumber());
+        }
 
         // Отправляем уведомление в Telegram при выполнении условий
         // Уведомления стартуют только после выхода из предрегистрации
@@ -223,6 +238,8 @@ public class DeliveryHistoryService {
      *
      * @param history история доставки, содержащая даты и связанные данные
      * @param status  новый статус, достигнутый посылкой
+     *
+     * <p><strong>Безопасность:</strong> избегаем логирования персональных данных или токенов.</p>
      */
     @Transactional
     public void registerFinalStatus(DeliveryHistory history, GlobalStatus status) {

@@ -90,6 +90,7 @@ public class TrackUpdateService {
 
         int preRegisteredCount = (int) allParcels.stream()
                 .filter(this::isPreRegisteredWithoutNumber)
+                // Логируем только ID посылки, чтобы не раскрывать персональные данные
                 .peek(p -> log.debug("Пропуск предрегистрации без номера: id={}", p.getId()))
                 .count();
 
@@ -188,6 +189,7 @@ public class TrackUpdateService {
 
         int preRegisteredCount = (int) selectedParcels.stream()
                 .filter(this::isPreRegisteredWithoutNumber)
+                // Логируем только ID посылки, не раскрывая личные данные
                 .peek(p -> log.debug("Пропуск предрегистрации без номера: id={}", p.getId()))
                 .count();
 
@@ -268,6 +270,7 @@ public class TrackUpdateService {
                     .filter(p -> {
                         boolean skip = isPreRegisteredWithoutNumber(p);
                         if (skip) {
+                            // Логируем только идентификатор, избегая персональных данных
                             log.debug("Пропуск предрегистрации без номера: id={}", p.getId());
                         }
                         return !skip;
@@ -414,6 +417,8 @@ public class TrackUpdateService {
      *
      * @param parcel объект посылки
      * @return {@code true}, если статус {@link GlobalStatus#PRE_REGISTERED} и номер отсутствует
+     *
+     * <p><strong>Безопасность:</strong> метод не должен логировать персональные данные или токены.</p>
      */
     private boolean isPreRegisteredWithoutNumber(TrackParcel parcel) {
         return parcel.getStatus() == GlobalStatus.PRE_REGISTERED &&
