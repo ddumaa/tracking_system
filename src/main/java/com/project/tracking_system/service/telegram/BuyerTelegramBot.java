@@ -98,7 +98,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                     Customer customer = optional.get();
                     sendNotificationsKeyboard(chatId, customer.isNotificationsEnabled());
                     if (customer.getFullName() != null) {
-                        if (customer.getNameSource() == NameSource.MERCHANT_PROVIDED) {
+                        if (customer.getNameSource() != NameSource.USER_CONFIRMED) {
                             sendNameConfirmation(chatId, customer.getFullName());
                         }
                     } else {
@@ -255,7 +255,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * Отправить пользователю ФИО из системы для подтверждения.
      *
      * @param chatId   идентификатор чата
-     * @param fullName имя, полученное от магазина
+     * @param fullName имя, известное системе
      */
     private void sendNameConfirmation(Long chatId, String fullName) {
         KeyboardButton ok = new KeyboardButton("Верно");
@@ -267,7 +267,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         markup.setResizeKeyboard(true);
         markup.setOneTimeKeyboard(true);
 
-        String text = String.format("Магазин указал ваше ФИО: %s\nЭто верно?", fullName);
+        String text = String.format("У нас указано ваше ФИО: %s\nЭто верно?", fullName);
         SendMessage msg = new SendMessage(chatId.toString(), text);
         msg.setReplyMarkup(markup);
         try {
@@ -302,7 +302,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             }
 
             if (customer.getFullName() != null) {
-                if (customer.getNameSource() == NameSource.MERCHANT_PROVIDED) {
+                if (customer.getNameSource() != NameSource.USER_CONFIRMED) {
                     sendNameConfirmation(chatId, customer.getFullName());
                 }
             } else {

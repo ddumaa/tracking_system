@@ -40,8 +40,92 @@ public class CustomerNameEventService {
         event.setCustomer(customer);
         event.setOldName(oldName);
         event.setNewName(newName);
-        event.setStatus(CustomerNameEventStatus.ACTIVE);
+        event.setStatus(CustomerNameEventStatus.PENDING);
         event.setCreatedAt(ZonedDateTime.now(ZoneOffset.UTC));
         repository.save(event);
+    }
+
+    /**
+     * Подтвердить предложенное ФИО от лица покупателя.
+     *
+     * @param eventId        идентификатор заявки
+     * @param chatCustomerId идентификатор покупателя из Telegram
+     * @return {@code true}, если статус обновлён
+     */
+    @Transactional
+    public boolean confirmFromTelegram(Long eventId, Long chatCustomerId) {
+        if (eventId == null || chatCustomerId == null) {
+            return false;
+        }
+        return repository.findById(eventId)
+                .filter(e -> e.getStatus() == CustomerNameEventStatus.PENDING
+                        && e.getCustomer() != null
+                        && e.getCustomer().getId() != null
+                        && e.getCustomer().getId().equals(chatCustomerId))
+                .map(e -> {
+                    e.setStatus(CustomerNameEventStatus.APPLIED);
+                    repository.save(e);
+                    return true;
+                })
+                .orElse(false);
+    }
+
+    /**
+     * Отклонить предложение магазина.
+     *
+     * @param eventId        идентификатор заявки
+     * @param chatCustomerId идентификатор покупателя из Telegram
+     * @return {@code true}, если статус обновлён
+     */
+    @Transactional
+    public boolean rejectFromTelegram(Long eventId, Long chatCustomerId) {
+        if (eventId == null || chatCustomerId == null) {
+            return false;
+        }
+        return repository.findById(eventId)
+                .filter(e -> e.getStatus() == CustomerNameEventStatus.PENDING
+                        && e.getCustomer() != null
+                        && e.getCustomer().getId() != null
+                        && e.getCustomer().getId().equals(chatCustomerId))
+                .map(e -> {
+                    e.setStatus(CustomerNameEventStatus.REJECTED);
+                    repository.save(e);
+                    return true;
+                })
+                .orElse(false);
+    }
+
+    /**
+     * Применить исправленное покупателем ФИО.
+     *
+     * @param eventId        идентификатор исходной заявки
+     * @param chatCustomerId идентификатор покупателя из Telegram
+     * @param newName        новое ФИО от покупателя
+     * @return {@code true}, если новое событие создано
+     */
+    @Transactional
+    public boolean changeFromTelegram(Long eventId, Long chatCustomerId, String newName) {
+        if (eventId == null || chatCustomerId == null || newName == null || newName.isBlank()) {
+            return false;
+        }
+        return repository.findById(eventId)
+                .filter(e -> e.getStatus() == CustomerNameEventStatus.PENDING
+                        && e.getCustomer() != null
+                        && e.getCustomer().getId() != null
+                        && e.getCustomer().getId().equals(chatCustomerId))
+                .map(e -> {
+                    e.setStatus(CustomerNameEventStatus.SUPERSEDED);
+                    repository.save(e);
+
+                    CustomerNameEvent applied = new CustomerNameEvent();
+                    applied.setCustomer(e.getCustomer());
+                    applied.setOldName(e.getOldName());
+                    applied.setNewName(newName);
+                    applied.setStatus(CustomerNameEventStatus.APPLIED);
+                    applied.setCreatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                    repository.save(applied);
+                    return true;
+                })
+                .orElse(false);
     }
 }

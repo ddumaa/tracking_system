@@ -48,6 +48,25 @@ class CustomerNameEventServiceTest {
         List<CustomerNameEvent> events = eventRepository.findByCustomerOrderByCreatedAtAsc(customer);
         assertEquals(2, events.size());
         assertEquals(CustomerNameEventStatus.SUPERSEDED, events.get(0).getStatus());
-        assertEquals(CustomerNameEventStatus.ACTIVE, events.get(1).getStatus());
+        assertEquals(CustomerNameEventStatus.PENDING, events.get(1).getStatus());
+    }
+
+    /**
+     * Подтверждение от покупателя переводит заявку в APPLIED.
+     */
+    @Test
+    void confirmFromTelegramUpdatesStatus() {
+        Customer customer = new Customer();
+        customer.setPhone("375000000001");
+        customerRepository.saveAndFlush(customer);
+
+        eventService.recordEvent(customer, null, "Иван Иванов");
+        CustomerNameEvent event = eventRepository
+                .findTopByCustomerOrderByCreatedAtDesc(customer).orElseThrow();
+
+        boolean updated = eventService.confirmFromTelegram(event.getId(), customer.getId());
+        assertTrue(updated);
+        CustomerNameEvent refreshed = eventRepository.findById(event.getId()).orElseThrow();
+        assertEquals(CustomerNameEventStatus.APPLIED, refreshed.getStatus());
     }
 }
