@@ -33,6 +33,7 @@ class CustomerStatsServiceTest {
     void setUp() {
         customer = new Customer();
         customer.setId(1L);
+        customer.setVersion(0);
     }
 
     /**
@@ -40,12 +41,12 @@ class CustomerStatsServiceTest {
      */
     @Test
     void incrementSent_AtomicSuccess() {
-        when(customerRepository.incrementSentCount(1L)).thenReturn(1);
+        when(customerRepository.incrementSentCount(1L, 0L)).thenReturn(1);
 
         service.incrementSent(customer);
 
         assertEquals(1, customer.getSentCount());
-        verify(customerRepository).incrementSentCount(1L);
+        verify(customerRepository).incrementSentCount(1L, 0L);
         verify(customerRepository).save(customer);
     }
 
@@ -54,9 +55,10 @@ class CustomerStatsServiceTest {
      */
     @Test
     void incrementSent_FallbackManual() {
-        when(customerRepository.incrementSentCount(1L)).thenReturn(0);
+        when(customerRepository.incrementSentCount(1L, 0L)).thenReturn(0);
         Customer fresh = new Customer();
         fresh.setId(1L);
+        fresh.setVersion(1);
         when(customerRepository.findById(1L)).thenReturn(Optional.of(fresh));
 
         service.incrementSent(customer);
@@ -70,12 +72,12 @@ class CustomerStatsServiceTest {
      */
     @Test
     void incrementPickedUp_AtomicSuccess() {
-        when(customerRepository.incrementPickedUpCount(1L)).thenReturn(1);
+        when(customerRepository.incrementPickedUpCount(1L, 0L)).thenReturn(1);
 
         service.incrementPickedUp(customer);
 
         assertEquals(1, customer.getPickedUpCount());
-        verify(customerRepository).incrementPickedUpCount(1L);
+        verify(customerRepository).incrementPickedUpCount(1L, 0L);
         verify(customerRepository).save(customer);
     }
 
@@ -84,9 +86,10 @@ class CustomerStatsServiceTest {
      */
     @Test
     void incrementPickedUp_FallbackManual() {
-        when(customerRepository.incrementPickedUpCount(1L)).thenReturn(0);
+        when(customerRepository.incrementPickedUpCount(1L, 0L)).thenReturn(0);
         Customer fresh = new Customer();
         fresh.setId(1L);
+        fresh.setVersion(1);
         when(customerRepository.findById(1L)).thenReturn(Optional.of(fresh));
 
         service.incrementPickedUp(customer);
@@ -100,12 +103,12 @@ class CustomerStatsServiceTest {
      */
     @Test
     void incrementReturned_AtomicSuccess() {
-        when(customerRepository.incrementReturnedCount(1L)).thenReturn(1);
+        when(customerRepository.incrementReturnedCount(1L, 0L)).thenReturn(1);
 
         service.incrementReturned(customer);
 
         assertEquals(1, customer.getReturnedCount());
-        verify(customerRepository).incrementReturnedCount(1L);
+        verify(customerRepository).incrementReturnedCount(1L, 0L);
         verify(customerRepository).save(customer);
     }
 
@@ -114,9 +117,10 @@ class CustomerStatsServiceTest {
      */
     @Test
     void incrementReturned_FallbackManual() {
-        when(customerRepository.incrementReturnedCount(1L)).thenReturn(0);
+        when(customerRepository.incrementReturnedCount(1L, 0L)).thenReturn(0);
         Customer fresh = new Customer();
         fresh.setId(1L);
+        fresh.setVersion(1);
         when(customerRepository.findById(1L)).thenReturn(Optional.of(fresh));
 
         service.incrementReturned(customer);

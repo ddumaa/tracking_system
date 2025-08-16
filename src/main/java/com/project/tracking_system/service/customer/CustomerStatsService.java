@@ -29,7 +29,7 @@ public class CustomerStatsService {
             return;
         }
         log.debug("🔄 Попытка атомарного увеличения отправленных для customerId={}", customer.getId());
-        int updated = customerRepository.incrementSentCount(customer.getId());
+        int updated = customerRepository.incrementSentCount(customer.getId(), customer.getVersion());
         if (updated == 0) {
             log.warn("⚠️ Не удалось атомарно обновить отправленные для customerId={}, переключаемся на ручной режим", customer.getId());
             // При неудаче загружаем сущность и обновляем вручную
@@ -41,11 +41,13 @@ public class CustomerStatsService {
             // Синхронизируем переданный объект
             customer.setSentCount(fresh.getSentCount());
             customer.setReputation(fresh.getReputation());
+            customer.setVersion(fresh.getVersion());
             log.debug("✅ Счётчик отправленных вручную увеличен для customerId={}", customer.getId());
         } else {
             log.debug("✅ Атомарное увеличение отправленных успешно для customerId={}", customer.getId());
             customer.setSentCount(customer.getSentCount() + 1);
             customer.recalculateReputation();
+            customer.setVersion(customer.getVersion() + 1);
             // Сохраняем репутацию для согласованности с БД
             customerRepository.save(customer);
         }
@@ -62,7 +64,7 @@ public class CustomerStatsService {
             return;
         }
         log.debug("🔄 Попытка атомарного увеличения забранных для customerId={}", customer.getId());
-        int updated = customerRepository.incrementPickedUpCount(customer.getId());
+        int updated = customerRepository.incrementPickedUpCount(customer.getId(), customer.getVersion());
         if (updated == 0) {
             log.warn("⚠️ Не удалось атомарно обновить забранные для customerId={}, переключаемся на ручной режим", customer.getId());
             // При неудаче читаем и обновляем вручную
@@ -74,11 +76,13 @@ public class CustomerStatsService {
             // Обновляем переданный экземпляр
             customer.setPickedUpCount(fresh.getPickedUpCount());
             customer.setReputation(fresh.getReputation());
+            customer.setVersion(fresh.getVersion());
             log.debug("✅ Счётчик забранных вручную увеличен для customerId={}", customer.getId());
         } else {
             log.debug("✅ Атомарное увеличение забранных успешно для customerId={}", customer.getId());
             customer.setPickedUpCount(customer.getPickedUpCount() + 1);
             customer.recalculateReputation();
+            customer.setVersion(customer.getVersion() + 1);
             // Сохраняем репутацию для согласованности с БД
             customerRepository.save(customer);
         }
@@ -95,7 +99,7 @@ public class CustomerStatsService {
             return;
         }
         log.debug("🔄 Попытка атомарного увеличения возвратов для customerId={}", customer.getId());
-        int updated = customerRepository.incrementReturnedCount(customer.getId());
+        int updated = customerRepository.incrementReturnedCount(customer.getId(), customer.getVersion());
         if (updated == 0) {
             log.warn("⚠️ Не удалось атомарно обновить возвраты для customerId={}, переключаемся на ручной режим", customer.getId());
             Customer fresh = customerRepository.findById(customer.getId())
@@ -105,11 +109,13 @@ public class CustomerStatsService {
             customerRepository.save(fresh);
             customer.setReturnedCount(fresh.getReturnedCount());
             customer.setReputation(fresh.getReputation());
+            customer.setVersion(fresh.getVersion());
             log.debug("✅ Счётчик возвратов вручную увеличен для customerId={}", customer.getId());
         } else {
             log.debug("✅ Атомарное увеличение возвратов успешно для customerId={}", customer.getId());
             customer.setReturnedCount(customer.getReturnedCount() + 1);
             customer.recalculateReputation();
+            customer.setVersion(customer.getVersion() + 1);
             customerRepository.save(customer);
         }
     }

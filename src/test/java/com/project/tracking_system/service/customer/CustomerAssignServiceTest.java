@@ -74,8 +74,8 @@ class CustomerAssignServiceTest {
 
         when(trackParcelRepository.findById(10L)).thenReturn(Optional.of(parcel));
         when(transactionalService.findByPhone("375111111111")).thenReturn(Optional.of(newCustomer));
-        when(customerRepository.incrementSentCount(2L)).thenReturn(1);
-        when(customerRepository.incrementPickedUpCount(2L)).thenReturn(1);
+        when(customerRepository.incrementSentCount(2L, 0L)).thenReturn(1);
+        when(customerRepository.incrementPickedUpCount(2L, 1L)).thenReturn(1);
 
         service.assignCustomerToParcel(10L, "375111111111");
 
@@ -107,8 +107,8 @@ class CustomerAssignServiceTest {
 
         when(trackParcelRepository.findById(11L)).thenReturn(Optional.of(parcel));
         when(transactionalService.findByPhone("375222222222")).thenReturn(Optional.of(newCustomer));
-        when(customerRepository.incrementSentCount(2L)).thenReturn(1);
-        when(customerRepository.incrementReturnedCount(2L)).thenReturn(1);
+        when(customerRepository.incrementSentCount(2L, 0L)).thenReturn(1);
+        when(customerRepository.incrementReturnedCount(2L, 1L)).thenReturn(1);
 
         service.assignCustomerToParcel(11L, "375222222222");
 
@@ -131,6 +131,7 @@ class CustomerAssignServiceTest {
         c.setSentCount(sent);
         c.setPickedUpCount(picked);
         c.setReturnedCount(returned);
+        c.setVersion(0);
         c.recalculateReputation();
         return c;
     }
