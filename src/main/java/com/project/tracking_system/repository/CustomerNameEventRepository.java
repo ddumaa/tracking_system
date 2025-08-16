@@ -1,0 +1,29 @@
+package com.project.tracking_system.repository;
+
+import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.entity.CustomerNameEvent;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+/**
+ * Репозиторий для работы с событиями изменения ФИО.
+ */
+public interface CustomerNameEventRepository extends JpaRepository<CustomerNameEvent, Long> {
+
+    /**
+     * Найти последнее событие для покупателя.
+     *
+     * @param customer покупатель
+     * @return последнее событие или {@link Optional#empty()}
+     */
+    Optional<CustomerNameEvent> findTopByCustomerOrderByCreatedAtDesc(Customer customer);
+
+    /**
+     * Получить все события покупателя в порядке их создания.
+     *
+     * @param customer покупатель
+     * @return список событий
+     */
+    List<CustomerNameEvent> findByCustomerOrderByCreatedAtAsc(Customer customer);
+}
