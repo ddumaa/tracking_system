@@ -186,7 +186,7 @@ public class TrackParcelService {
 
         // Сортируем объединённый список
         Comparator<TrackParcel> comparator = Comparator.comparing(TrackParcel::getTimestamp);
-        if (sort.isDescending()) {
+        if (sort.isSorted() && sort.iterator().next().isDescending()) {
             comparator = comparator.reversed();
         }
         merged.sort(comparator);
@@ -402,4 +402,5 @@ public class TrackParcelService {
         }
         return dto;
     }
+
 }
