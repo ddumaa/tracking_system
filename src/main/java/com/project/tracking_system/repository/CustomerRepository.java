@@ -48,49 +48,52 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     int updateNotificationsEnabled(@Param("chatId") Long chatId, @Param("enabled") boolean enabled);
 
     /**
-     * Атомарно увеличить счётчик отправленных посылок.
+     * Атомарно увеличить счётчик отправленных посылок с проверкой версии.
      *
-     * @param id идентификатор покупателя
-     * @return количество обновлённых записей
+     * @param id      идентификатор покупателя
+     * @param version ожидаемая версия записи
+     * @return количество обновлённых записей (0 при конфликте версий)
      */
     @Modifying
     @Transactional
     @Query("""
         UPDATE Customer c
-        SET c.sentCount = c.sentCount + 1
-        WHERE c.id = :id
+        SET c.sentCount = c.sentCount + 1, c.version = c.version + 1
+        WHERE c.id = :id AND c.version = :version
         """)
-    int incrementSentCount(@Param("id") Long id);
+    int incrementSentCount(@Param("id") Long id, @Param("version") long version);
 
     /**
-     * Атомарно увеличить счётчик забранных посылок.
+     * Атомарно увеличить счётчик забранных посылок с учётом версии записи.
      *
-     * @param id идентификатор покупателя
+     * @param id      идентификатор покупателя
+     * @param version ожидаемая версия записи
      * @return количество обновлённых записей
      */
     @Modifying
     @Transactional
     @Query("""
         UPDATE Customer c
-        SET c.pickedUpCount = c.pickedUpCount + 1
-        WHERE c.id = :id
+        SET c.pickedUpCount = c.pickedUpCount + 1, c.version = c.version + 1
+        WHERE c.id = :id AND c.version = :version
         """)
-    int incrementPickedUpCount(@Param("id") Long id);
+    int incrementPickedUpCount(@Param("id") Long id, @Param("version") long version);
 
     /**
-     * Атомарно увеличить счётчик возвращённых посылок.
+     * Атомарно увеличить счётчик возвращённых посылок с проверкой версии.
      *
-     * @param id идентификатор покупателя
+     * @param id      идентификатор покупателя
+     * @param version ожидаемая версия записи
      * @return количество обновлённых записей
      */
     @Modifying
     @Transactional
     @Query("""
         UPDATE Customer c
-        SET c.returnedCount = c.returnedCount + 1
-        WHERE c.id = :id
+        SET c.returnedCount = c.returnedCount + 1, c.version = c.version + 1
+        WHERE c.id = :id AND c.version = :version
         """)
-    int incrementReturnedCount(@Param("id") Long id);
+    int incrementReturnedCount(@Param("id") Long id, @Param("version") long version);
 
     /**
      * Подсчитать количество покупателей с указанной репутацией.

@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
 import java.time.ZonedDateTime;
 
 /**
@@ -56,6 +57,13 @@ public class Customer {
     @Enumerated(EnumType.STRING)
     @Column(name = "reputation", nullable = false)
     private BuyerReputation reputation = BuyerReputation.NEW;
+
+    /**
+     * Версия записи для реализации оптимистичной блокировки.
+     */
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
 
     /**
      * Пересчитать репутацию покупателя на основе завершённых заказов.
