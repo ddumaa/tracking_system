@@ -6,6 +6,7 @@ import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.user.UserSettingsService;
+import com.project.tracking_system.service.customer.CustomerNameEventService;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ public class CustomerService {
     private final CustomerStatsService customerStatsService;
     private final SubscriptionService subscriptionService;
     private final UserSettingsService userSettingsService;
+    private final CustomerNameEventService customerNameEventService;
 
     /**
      * Зарегистрировать нового покупателя или получить существующего по телефону.
@@ -86,10 +88,11 @@ public class CustomerService {
     }
 
     /**
-     * Обновляет ФИО покупателя с учётом источника данных.
+     * Обновляет ФИО покупателя и фиксирует событие смены имени.
      * <p>
      * Если имя подтверждено пользователем, попытки обновления от магазина
-     * игнорируются. При успешном изменении фиксируется время обновления.
+     * игнорируются. При успешном изменении сохраняется событие, а предыдущие
+     * помечаются как {@code SUPERSEDED}.
      * </p>
      *
      * @param customer изменяемый покупатель
@@ -110,10 +113,12 @@ public class CustomerService {
         if (newName.equals(customer.getFullName())) {
             return false;
         }
+        String oldName = customer.getFullName();
         customer.setFullName(newName);
         customer.setNameSource(source);
         customer.setNameUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
         customerRepository.save(customer);
+        customerNameEventService.recordEvent(customer, oldName, newName);
         return true;
     }
 
