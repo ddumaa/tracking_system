@@ -36,12 +36,6 @@ public class DeliveryHistory {
     @Column(name = "postal_service", nullable = false)
     private PostalServiceType postalService;
 
-    /**
-     * Дата предварительной регистрации посылки.
-     */
-    @Column(name = "registration_date")
-    private ZonedDateTime registrationDate;
-
     @Column(name = "send_date")
     private ZonedDateTime sendDate;
 
@@ -54,17 +48,25 @@ public class DeliveryHistory {
     @Column(name = "returned_date")
     private ZonedDateTime returnedDate;
 
+    /**
+     * Конструирует сущность истории доставки для указанной посылки.
+     *
+     * @param trackParcel   посылка, для которой создаётся история
+     * @param store         магазин, связанный с посылкой
+     * @param postalService используемая почтовая служба
+     * @param sendDate      дата отправки посылки
+     * @param receivedDate  дата получения посылки
+     * @param returnedDate  дата возврата посылки
+     */
     public DeliveryHistory(TrackParcel trackParcel,
                            Store store,
                            PostalServiceType postalService,
-                           ZonedDateTime registrationDate,
                            ZonedDateTime sendDate,
                            ZonedDateTime receivedDate,
                            ZonedDateTime returnedDate) {
         this.trackParcel = trackParcel;
         this.store = store;
         this.postalService = postalService;
-        this.registrationDate = registrationDate;
         this.sendDate = sendDate;
         this.receivedDate = receivedDate;
         this.returnedDate = returnedDate;

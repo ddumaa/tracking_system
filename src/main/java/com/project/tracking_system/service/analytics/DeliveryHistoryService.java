@@ -92,7 +92,7 @@ public class DeliveryHistoryService {
 
                     // Определяем почтовую службу
                     PostalServiceType serviceType = typeDefinitionTrackPostService.detectPostalService(trackParcel.getNumber());
-                    return new DeliveryHistory(trackParcel, trackParcel.getStore(), serviceType, null, null, null, null);
+                    return new DeliveryHistory(trackParcel, trackParcel.getStore(), serviceType, null, null, null);
                 });
 
         //  Если статус НЕ изменился — ничего не делаем
@@ -115,11 +115,7 @@ public class DeliveryHistoryService {
         ZonedDateTime sendDate = deliveryDates.sendDate();
         setHistoryDate("Дата отправки", history.getSendDate(), sendDate, history::setSendDate);
 
-        if (newStatus == GlobalStatus.PRE_REGISTERED) {
-            // При предварительной регистрации запоминаем дату регистрации и не обновляем статистику
-            ZonedDateTime registrationDate = sendDate != null ? sendDate : trackParcel.getTimestamp();
-            setHistoryDate("Дата регистрации", history.getRegistrationDate(), registrationDate, history::setRegistrationDate);
-        } else {
+        if (newStatus != GlobalStatus.PRE_REGISTERED) {
             if (newStatus == GlobalStatus.DELIVERED) {
                 setHistoryDate("Дата получения", history.getReceivedDate(), deliveryDates.receivedDate(), history::setReceivedDate);
             }
@@ -687,6 +683,5 @@ public class DeliveryHistoryService {
         logEntry.setSentAt(ZonedDateTime.now(ZoneOffset.UTC));
         customerNotificationLogRepository.save(logEntry);
     }
-
 
 }
