@@ -203,6 +203,7 @@ public class CustomerService {
                             parcelId);
                     return track.getCustomer();
                 })
+                // Источник имени возвращаем, чтобы клиент мог блокировать редактирование подтверждённого имени
                 .map(this::toInfoDto)
                 .orElseGet(() -> {
                     log.debug("ℹ️ Покупатель для посылки ID={} не найден", parcelId);
@@ -255,6 +256,7 @@ public class CustomerService {
 
         log.debug("📈 Статистика покупателя ID={} обновлена после привязки посылки ID={}",
                 newCustomer.getId(), parcelId);
+        // Возвращаем имя и его источник, чтобы при подтверждённом имени запретить дальнейшее редактирование
         return toInfoDto(newCustomer);
     }
 
@@ -302,6 +304,8 @@ public class CustomerService {
                 : 0.0;
         return new CustomerInfoDTO(
                 customer.getPhone(),
+                customer.getFullName(),
+                customer.getNameSource(),
                 customer.getSentCount(),
                 customer.getPickedUpCount(),
                 customer.getReturnedCount(),

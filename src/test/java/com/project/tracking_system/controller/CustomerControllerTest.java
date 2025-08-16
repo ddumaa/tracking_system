@@ -2,6 +2,7 @@ package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.CustomerInfoDTO;
 import com.project.tracking_system.entity.BuyerReputation;
+import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.service.customer.CustomerService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,7 +39,14 @@ class CustomerControllerTest {
     @Test
     void getCustomerByParcelId_ReturnsCustomerInfoFragment() {
         CustomerInfoDTO dto = new CustomerInfoDTO(
-                "375291234567", 1, 1, 0, 100.0, BuyerReputation.RELIABLE
+                "375291234567",
+                "Иван Иванов",
+                NameSource.MERCHANT_PROVIDED,
+                1,
+                1,
+                0,
+                100.0,
+                BuyerReputation.RELIABLE
         );
         when(customerService.getCustomerInfoByParcelId(7L)).thenReturn(dto);
         Model model = new ExtendedModelMap();
@@ -58,7 +66,14 @@ class CustomerControllerTest {
     @Test
     void changeCustomer_UpdatesPhoneAndDelegatesToService() {
         CustomerInfoDTO dto = new CustomerInfoDTO(
-                "375299999999", 2, 1, 0, 50.0, BuyerReputation.RELIABLE
+                "375299999999",
+                "Пётр Петров",
+                NameSource.USER_CONFIRMED,
+                2,
+                1,
+                0,
+                50.0,
+                BuyerReputation.RELIABLE
         );
         when(customerService.assignCustomerToParcel(7L, "375299999999"))
                 .thenReturn(dto);
