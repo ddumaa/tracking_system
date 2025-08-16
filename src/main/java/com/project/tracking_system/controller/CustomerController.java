@@ -3,9 +3,11 @@ package com.project.tracking_system.controller;
 import com.project.tracking_system.dto.CustomerInfoDTO;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
+import com.project.tracking_system.entity.User;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.customer.CustomerNameEventService;
 import com.project.tracking_system.service.customer.CustomerService;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
@@ -91,13 +93,15 @@ public class CustomerController {
     @PostMapping("/update-name")
     public String updateName(@RequestParam Long trackId,
                              @RequestParam String fullName,
-                             Model model) {
+                             Model model,
+                             @AuthenticationPrincipal User user) {
         Customer customer = trackParcelRepository.findById(trackId)
                 .map(track -> track.getCustomer())
                 .orElse(null);
         if (customer != null) {
             // Имя, подтверждённое пользователем, сервис не позволит изменить
-            customerService.updateCustomerName(customer, fullName, NameSource.MERCHANT_PROVIDED);
+            customerService.updateCustomerName(customer, fullName, NameSource.MERCHANT_PROVIDED,
+                    user != null ? user.getRole() : null);
         }
         CustomerInfoDTO dto = customerService.getCustomerInfoByParcelId(trackId);
         populateModel(trackId, dto, model);
