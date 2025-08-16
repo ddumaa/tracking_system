@@ -1,6 +1,7 @@
 package com.project.tracking_system.configuration;
 
 import com.project.tracking_system.service.user.LoginAttemptService;
+import com.project.tracking_system.utils.ApiRateLimitFilter;
 import com.project.tracking_system.utils.CspNonceFilter;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -57,18 +58,22 @@ public class SecurityConfiguration {
      * Метод конфигурирует фильтры и основные параметры Spring Security.
      * </p>
      *
-     * @param http           объект {@link HttpSecurity} для настройки безопасности
-     * @param cspNonceFilter фильтр добавления nonce для CSP
+     * @param http             объект {@link HttpSecurity} для настройки безопасности
+     * @param cspNonceFilter   фильтр добавления nonce для CSP
+     * @param apiRateLimitFilter фильтр ограничения частоты запросов
      * @return цепочка фильтров {@link SecurityFilterChain}
      * @throws Exception при ошибках конфигурации
      */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, CspNonceFilter cspNonceFilter) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                                   CspNonceFilter cspNonceFilter,
+                                                   ApiRateLimitFilter apiRateLimitFilter) throws Exception {
         // Если ключ не переопределён в конфигурации, выводим предупреждение
         if ("defaultKey".equals(rememberMeKey)) {
             log.warn("Используется значение по умолчанию для security.remember-me-key. Задайте уникальное значение в application.properties!");
         }
         http
+                .addFilterBefore(apiRateLimitFilter, SecurityContextPersistenceFilter.class)
                 .addFilterBefore(cspNonceFilter, SecurityContextPersistenceFilter.class)
                 .headers(h -> h
                         .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
