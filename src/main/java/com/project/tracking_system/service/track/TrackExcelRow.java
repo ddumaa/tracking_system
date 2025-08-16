@@ -7,8 +7,9 @@ package com.project.tracking_system.service.track;
  * </p>
  *
  * @param number номер трека
- * @param store  значение ячейки магазина
- * @param phone  значение ячейки телефона
+ * @param store    значение ячейки магазина
+ * @param phone    значение ячейки телефона
+ * @param fullName значение ячейки ФИО
  */
-public record TrackExcelRow(String number, String store, String phone) {
+public record TrackExcelRow(String number, String store, String phone, String fullName) {
 }
