@@ -49,13 +49,21 @@
                         <div>
                             <strong>ФИО:</strong>
                             <span th:text="${customerInfo.fullName}"></span>
-                            <span th:if="${customerInfo.nameSource == T(com.project.tracking_system.entity.NameSource).USER_CONFIRMED}"
-                                  class="badge bg-success ms-2">подтверждено</span>
+                            <i th:if="${customerInfo.nameSource == T(com.project.tracking_system.entity.NameSource).USER_CONFIRMED}"
+                               class="bi bi-check-circle-fill text-success ms-2"></i>
+                            <span th:if="${customerInfo.nameSource == T(com.project.tracking_system.entity.NameSource).MERCHANT_PROVIDED}"
+                                  class="badge bg-secondary ms-2">store</span>
                         </div>
-                        <button th:if="${customerInfo.nameSource != T(com.project.tracking_system.entity.NameSource).USER_CONFIRMED}"
-                                id="editNameBtn" type="button" class="btn btn-link p-0 ms-2">
-                            <i class="bi bi-pencil"></i>
-                        </button>
+                        <div class="d-flex align-items-center">
+                            <button th:if="${customerInfo.nameSource != T(com.project.tracking_system.entity.NameSource).USER_CONFIRMED}"
+                                    id="editNameBtn" type="button" class="btn btn-link p-0 ms-2">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button th:if="${events != null and !events.isEmpty()}" type="button"
+                                    class="btn btn-link p-0 ms-2" data-bs-toggle="modal" data-bs-target="#nameEventsModal">
+                                История
+                            </button>
+                        </div>
                     </div>
                     <form th:if="${customerInfo.nameSource != T(com.project.tracking_system.entity.NameSource).USER_CONFIRMED}"
                           id="edit-name-form" th:action="@{/app/customers/update-name}" method="post" class="mt-2 hidden">
@@ -77,5 +85,27 @@
                       th:class="${customerInfo.colorClass}"></span>
             </li>
         </ul>
+    </div>
+
+    <div th:if="${events != null}">
+        <div class="modal fade" id="nameEventsModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">История событий</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <ul class="list-group" th:if="${!events.isEmpty()}">
+                            <li class="list-group-item" th:each="ev : ${events}">
+                                <span th:text="${#dates.format(ev.createdAt, 'dd.MM.yyyy HH:mm')}"></span>
+                                <span class="ms-2" th:text="${ev.status}"></span>
+                            </li>
+                        </ul>
+                        <p th:if="${events.isEmpty()}">Нет данных</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>

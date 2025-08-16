@@ -22,6 +22,14 @@ public interface CustomerNameEventRepository extends JpaRepository<CustomerNameE
     Optional<CustomerNameEvent> findTopByCustomerOrderByCreatedAtDesc(Customer customer);
 
     /**
+     * Получить последние пять событий покупателя начиная с самых новых.
+     *
+     * @param customer покупатель
+     * @return список из не более чем пяти последних событий
+     */
+    List<CustomerNameEvent> findTop5ByCustomerOrderByCreatedAtDesc(Customer customer);
+
+    /**
      * Получить все события покупателя в порядке их создания.
      *
      * @param customer покупатель

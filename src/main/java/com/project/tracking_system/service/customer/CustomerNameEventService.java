@@ -6,6 +6,7 @@ import com.project.tracking_system.entity.CustomerNameEventStatus;
 import com.project.tracking_system.repository.CustomerNameEventRepository;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,20 @@ import org.springframework.transaction.annotation.Transactional;
 public class CustomerNameEventService {
 
     private final CustomerNameEventRepository repository;
+
+    /**
+     * Получить последние события изменения ФИО.
+     *
+     * @param customer покупатель
+     * @return список из максимум пяти последних записей
+     */
+    @Transactional(readOnly = true)
+    public List<CustomerNameEvent> getRecentEvents(Customer customer) {
+        if (customer == null) {
+            return List.of();
+        }
+        return repository.findTop5ByCustomerOrderByCreatedAtDesc(customer);
+    }
 
     /**
      * Записать событие изменения ФИО и пометить предыдущее как устаревшее.
