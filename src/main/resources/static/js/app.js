@@ -408,6 +408,29 @@ function initializeFullNameToggle() {
     }
 }
 
+// Инициализация обязательности ввода номера посылки
+function initializePreRegistrationRequired() {
+    const toggle = document.getElementById("togglePreRegistration");
+    const numberInput = document.getElementById("number");
+
+    if (!toggle || !numberInput) return;
+
+    // Обновляет атрибут required в зависимости от состояния чекбокса
+    const updateRequired = () => {
+        // Если чекбокс не активен, поле номер становится обязательным
+        if (!toggle.checked) {
+            numberInput.setAttribute("required", "required");
+        } else {
+            numberInput.removeAttribute("required");
+        }
+    };
+
+    // Первичная настройка состояния поля
+    updateRequired();
+    // Обработчик переключения чекбокса
+    toggle.addEventListener("change", updateRequired);
+}
+
 // Инициализация формы привязки покупателя к посылке
 function initAssignCustomerFormHandler() {
     ajaxSubmitForm('assign-customer-form', 'customerInfoContainer', [initAssignCustomerFormHandler]);
@@ -1489,6 +1512,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initBulkButtonToggle();
     initializePhoneToggle();
     initializeFullNameToggle();
+    initializePreRegistrationRequired();
     initAssignCustomerFormHandler();
     initEditCustomerPhoneFormHandler();
     initPhoneEditToggle();
