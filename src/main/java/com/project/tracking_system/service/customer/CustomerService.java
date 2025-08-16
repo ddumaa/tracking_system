@@ -2,6 +2,7 @@ package com.project.tracking_system.service.customer;
 
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.dto.CustomerInfoDTO;
+import com.project.tracking_system.exception.ConfirmedNameChangeException;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.SubscriptionService;
@@ -14,6 +15,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -36,6 +40,8 @@ public class CustomerService {
     private final SubscriptionService subscriptionService;
     private final UserSettingsService userSettingsService;
     private final CustomerNameEventService customerNameEventService;
+    /** Клиент Telegram для отправки уведомлений. */
+    private final TelegramClient telegramClient;
 
     /**
      * Зарегистрировать нового покупателя или получить существующего по телефону.
@@ -102,13 +108,33 @@ public class CustomerService {
      */
     @Transactional
     public boolean updateCustomerName(Customer customer, String newName, NameSource source) {
+        return updateCustomerName(customer, newName, source, null);
+    }
+
+    /**
+     * Обновляет ФИО покупателя с учётом роли инициатора операции.
+     *
+     * @param customer  изменяемый покупатель
+     * @param newName   новое ФИО
+     * @param source    источник данных имени
+     * @param actorRole роль пользователя, выполняющего изменение
+     * @return {@code true}, если обновление выполнено
+     */
+    @Transactional
+    public boolean updateCustomerName(Customer customer, String newName, NameSource source, Role actorRole) {
         if (customer == null || source == null || newName == null || newName.isBlank()) {
             return false;
         }
+        // Запрещаем магазинам менять подтверждённое имя
         if (customer.getNameSource() == NameSource.USER_CONFIRMED
                 && source == NameSource.MERCHANT_PROVIDED) {
-            log.debug("🚫 Обновление ФИО отклонено: имя подтверждено пользователем");
-            return false;
+            if (actorRole != Role.ROLE_ADMIN) {
+                log.warn("🚫 Попытка магазина изменить подтверждённое имя клиента ID={}", customer.getId());
+                throw new ConfirmedNameChangeException("Имя подтверждено пользователем");
+            } else {
+                log.info("⚠️ Администратор изменяет подтверждённое имя клиента ID={} на '{}'", customer.getId(), newName);
+                notifyCustomer(customer, newName);
+            }
         }
         if (newName.equals(customer.getFullName())) {
             return false;
@@ -120,6 +146,25 @@ public class CustomerService {
         customerRepository.save(customer);
         customerNameEventService.recordEvent(customer, oldName, newName);
         return true;
+    }
+
+    /**
+     * Отправить уведомление покупателю об изменении имени администратором.
+     *
+     * @param customer покупатель
+     * @param newName  новое ФИО
+     */
+    private void notifyCustomer(Customer customer, String newName) {
+        Long chatId = customer.getTelegramChatId();
+        if (chatId == null) {
+            return;
+        }
+        String text = "⚠️ Администратор изменил ваше имя на '" + newName + "'.";
+        try {
+            telegramClient.execute(new SendMessage(chatId.toString(), text));
+        } catch (TelegramApiException e) {
+            log.error("Ошибка отправки уведомления клиенту {}: {}", chatId, e.getMessage(), e);
+        }
     }
 
     /**

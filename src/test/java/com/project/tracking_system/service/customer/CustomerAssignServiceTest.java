@@ -8,11 +8,13 @@ import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.user.UserSettingsService;
+import com.project.tracking_system.service.customer.CustomerNameEventService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.util.Optional;
 
@@ -39,6 +41,10 @@ class CustomerAssignServiceTest {
     private SubscriptionService subscriptionService;
     @Mock
     private UserSettingsService userSettingsService;
+    @Mock
+    private CustomerNameEventService customerNameEventService;
+    @Mock
+    private TelegramClient telegramClient;
 
     private CustomerStatsService customerStatsService;
     private CustomerService service;
@@ -52,7 +58,9 @@ class CustomerAssignServiceTest {
                 transactionalService,
                 customerStatsService,
                 subscriptionService,
-                userSettingsService
+                userSettingsService,
+                customerNameEventService,
+                telegramClient
         );
 
         when(customerRepository.save(any(Customer.class))).thenAnswer(inv -> inv.getArgument(0));

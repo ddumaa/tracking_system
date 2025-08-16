@@ -2,6 +2,7 @@ package com.project.tracking_system.service.customer;
 
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
+import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +41,7 @@ public class CustomerNameService {
         try {
             String phone = PhoneUtils.normalizePhone(rawPhone);
             Customer customer = customerService.registerOrGetByPhone(phone);
-            customerService.updateCustomerName(customer, fullName, NameSource.MERCHANT_PROVIDED);
+            customerService.updateCustomerName(customer, fullName, NameSource.MERCHANT_PROVIDED, Role.ROLE_USER);
         } catch (Exception e) {
             log.warn("Не удалось обновить ФИО для телефона {}: {}", rawPhone, e.getMessage());
         }

@@ -6,6 +6,7 @@ import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
+import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.track.TrackFacade;
 import com.project.tracking_system.service.track.TrackServiceClassifier;
@@ -116,7 +117,7 @@ public class HomeController {
             } else {
                 model.addAttribute("successMessage", "Предрегистрация выполнена.");
             }
-            updateCustomerName(phone, fullName);
+            updateCustomerName(phone, fullName, user != null ? user.getRole() : null);
             return "app/home";
         }
 
@@ -146,7 +147,7 @@ public class HomeController {
             model.addAttribute("trackInfo", trackInfo);
 
             // Обновляем ФИО покупателя при наличии телефона
-            updateCustomerName(phone, fullName);
+            updateCustomerName(phone, fullName, user != null ? user.getRole() : null);
         } catch (IllegalArgumentException e) {
             model.addAttribute("customError", e.getMessage());
             log.warn("Ошибка: {}", e.getMessage());
@@ -186,11 +187,11 @@ public class HomeController {
      * @param phone    номер телефона покупателя
      * @param fullName новое ФИО
      */
-    private void updateCustomerName(String phone, String fullName) {
+    private void updateCustomerName(String phone, String fullName, Role role) {
         if (phone == null || phone.isBlank() || fullName == null || fullName.isBlank()) {
             return;
         }
         Customer customer = customerService.registerOrGetByPhone(phone);
-        customerService.updateCustomerName(customer, fullName, NameSource.MERCHANT_PROVIDED);
+        customerService.updateCustomerName(customer, fullName, NameSource.MERCHANT_PROVIDED, role);
     }
 }
