@@ -56,7 +56,13 @@ public class TrackExcelParser {
                 if (phoneCell != null) {
                     phone = readCell(phoneCell).trim();
                 }
-                rows.add(new TrackExcelRow(number, store, phone));
+                String fullName = null;
+                Cell nameCell = row.getCell(3);
+                if (nameCell != null) {
+                    fullName = readCell(nameCell).trim();
+                }
+                // Сохраняем значения строки без нормализации
+                rows.add(new TrackExcelRow(number, store, phone, fullName));
             }
         }
         log.info("Разобрано {} строк из файла", rows.size());

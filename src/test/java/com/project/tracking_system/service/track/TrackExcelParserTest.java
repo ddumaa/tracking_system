@@ -20,6 +20,7 @@ class TrackExcelParserTest {
         row1.createCell(0).setCellValue("AA111");
         row1.createCell(1).setCellValue("1");
         row1.createCell(2).setCellValue("+375291234567");
+        row1.createCell(3).setCellValue("Иван Иванов");
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         wb.write(out);
         MockMultipartFile file = new MockMultipartFile("f", out.toByteArray());
@@ -31,5 +32,6 @@ class TrackExcelParserTest {
         assertEquals("AA111", rows.get(0).number());
         assertEquals("1", rows.get(0).store());
         assertEquals("+375291234567", rows.get(0).phone());
+        assertEquals("Иван Иванов", rows.get(0).fullName());
     }
 }

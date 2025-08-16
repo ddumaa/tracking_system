@@ -2,6 +2,7 @@ package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.store.StoreService;
+import com.project.tracking_system.service.customer.CustomerNameService;
 import com.project.tracking_system.utils.PhoneUtils;
 import com.project.tracking_system.utils.TrackNumberUtils;
 import com.project.tracking_system.entity.PostalServiceType;
@@ -51,6 +52,8 @@ public class TrackMetaValidator {
     private final StoreService storeService;
     /** Сервис определения почтовой службы трека. */
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
+    /** Сервис обновления ФИО покупателя. */
+    private final CustomerNameService customerNameService;
 
 /**
  * Валидирует сырые строки и преобразует их в {@link TrackMeta}.
@@ -107,6 +110,11 @@ public class TrackMetaValidator {
             String number = TrackNumberUtils.normalize(row.number());
             Long storeId = parseStoreId(row.store(), defaultStoreId, userId);
             String phone = normalizePhone(row.phone());
+            String fullName = row.fullName();
+            if (phone != null && fullName != null && !fullName.isBlank()) {
+                // При наличии телефона и ФИО обновляем данные покупателя
+                customerNameService.upsertFromStore(phone, fullName);
+            }
 
             boolean isNew = trackParcelService.isNewTrack(number, storeId);
             tempMetaList.add(new TempMeta(number, storeId, phone, isNew));

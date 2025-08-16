@@ -4,6 +4,7 @@ import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
+import com.project.tracking_system.service.customer.CustomerNameService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,7 +15,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 /**
  * Тесты для {@link TrackMetaValidator}.
@@ -34,6 +35,8 @@ class TrackMetaValidatorTest {
     private StoreService storeService;
     @Mock
     private TypeDefinitionTrackPostService typeDefinitionTrackPostService;
+    @Mock
+    private CustomerNameService customerNameService;
 
     private TrackMetaValidator validator;
 
@@ -43,7 +46,8 @@ class TrackMetaValidatorTest {
                 trackParcelService,
                 subscriptionService,
                 storeService,
-                typeDefinitionTrackPostService
+                typeDefinitionTrackPostService,
+                customerNameService
         );
     }
 
@@ -60,8 +64,8 @@ class TrackMetaValidatorTest {
         when(typeDefinitionTrackPostService.detectPostalService(anyString())).thenReturn(PostalServiceType.BELPOST);
 
         List<TrackExcelRow> rows = List.of(
-                new TrackExcelRow("A1", "1", "375291111111"),
-                new TrackExcelRow("A2", "1", "375291111112")
+                new TrackExcelRow("A1", "1", "375291111111", null),
+                new TrackExcelRow("A2", "1", "375291111112", null)
         );
 
         TrackMetaValidationResult result = validator.validate(rows, 1L);
@@ -87,7 +91,7 @@ class TrackMetaValidatorTest {
         when(typeDefinitionTrackPostService.detectPostalService(anyString())).thenReturn(PostalServiceType.BELPOST);
 
         List<TrackExcelRow> rows = List.of(
-                new TrackExcelRow("A1", "Shop", "375291111111")
+                new TrackExcelRow("A1", "Shop", "375291111111", null)
         );
 
         TrackMetaValidationResult result = validator.validate(rows, 1L);
@@ -109,7 +113,7 @@ class TrackMetaValidatorTest {
         when(typeDefinitionTrackPostService.detectPostalService(anyString())).thenReturn(PostalServiceType.BELPOST);
 
         List<TrackExcelRow> rows = List.of(
-                new TrackExcelRow("A1", "1", "+375 (29) 111-11-11")
+                new TrackExcelRow("A1", "1", "+375 (29) 111-11-11", null)
         );
 
         TrackMetaValidationResult result = validator.validate(rows, 1L);
@@ -135,14 +139,35 @@ class TrackMetaValidatorTest {
                 });
 
         List<TrackExcelRow> rows = List.of(
-                new TrackExcelRow("A1", "1", null),
-                new TrackExcelRow("BAD", "1", null),
-                new TrackExcelRow("A1", "1", null)
+                new TrackExcelRow("A1", "1", null, null),
+                new TrackExcelRow("BAD", "1", null, null),
+                new TrackExcelRow("A1", "1", null, null)
         );
 
         TrackMetaValidationResult result = validator.validate(rows, 1L);
 
         assertEquals(1, result.validTracks().size());
         assertEquals(2, result.invalidTracks().size());
+    }
+
+    /**
+     * При наличии корректного телефона и имени вызывается сервис обновления ФИО.
+     */
+    @Test
+    void validate_UpdatesCustomerName() {
+        when(subscriptionService.canUploadTracks(anyLong(), anyInt())).thenReturn(1);
+        when(subscriptionService.canSaveMoreTracks(anyLong(), anyInt())).thenReturn(1);
+        when(storeService.getDefaultStoreId(1L)).thenReturn(1L);
+        when(storeService.userOwnsStore(1L, 1L)).thenReturn(true);
+        when(trackParcelService.isNewTrack(anyString(), any())).thenReturn(true);
+        when(typeDefinitionTrackPostService.detectPostalService(anyString())).thenReturn(PostalServiceType.BELPOST);
+
+        List<TrackExcelRow> rows = List.of(
+                new TrackExcelRow("A1", "1", "+375291111111", "Иван")
+        );
+
+        validator.validate(rows, 1L);
+
+        verify(customerNameService).upsertFromStore("375291111111", "Иван");
     }
 }

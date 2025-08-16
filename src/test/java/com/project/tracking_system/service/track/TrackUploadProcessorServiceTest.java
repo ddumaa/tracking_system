@@ -83,7 +83,7 @@ class TrackUploadProcessorServiceTest {
     void process_EnqueuesTracks() throws Exception {
         MockMultipartFile file = new MockMultipartFile("f", new byte[0]);
         TrackMeta meta = new TrackMeta("A1", 1L, "p", true, PostalServiceType.BELPOST);
-        when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("A1", "1", "p")));
+        when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("A1", "1", "p", null)));
         when(trackMetaValidator.validate(anyList(), eq(1L)))
                 .thenReturn(new TrackMetaValidationResult(List.of(meta), List.of(), null));
         when(trackUpdateEligibilityService.canUpdate(anyString(), any())).thenReturn(true);
@@ -117,7 +117,7 @@ class TrackUploadProcessorServiceTest {
     @Test
     void process_NoEligibleTracks_ReturnsEarly() throws Exception {
         MockMultipartFile file = new MockMultipartFile("f", new byte[0]);
-        when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("A1", "1", "p")));
+        when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("A1", "1", "p", null)));
         when(trackMetaValidator.validate(anyList(), eq(1L)))
                 .thenReturn(new TrackMetaValidationResult(
                         List.of(new TrackMeta("A1", 1L, "p", true)), List.of(), null));
@@ -143,7 +143,7 @@ class TrackUploadProcessorServiceTest {
     @Test
     void process_AllInvalid_SendsErrorAndProgress() throws Exception {
         MockMultipartFile file = new MockMultipartFile("f", new byte[0]);
-        when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("bad", null, null)));
+        when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("bad", null, null, null)));
         when(trackMetaValidator.validate(anyList(), eq(1L)))
                 .thenReturn(new TrackMetaValidationResult(
                         List.of(),
