@@ -156,9 +156,10 @@
                                         </td>
                                         <td>
                                             <div class="d-flex flex-column">
-                                                <div class="d-flex align-items-center">
+                                                <!-- Если имя покупателя указано, выводим кнопку с ФИО и телефон отдельной строкой -->
+                                                <div class="d-flex align-items-center" th:if="${#strings.isNotEmpty(item.customerName)}">
                                                     <button type="button" class="btn btn-link p-0 customer-icon ms-0"
-                                                            th:text="${item.customerName != null ? item.customerName : '-'}"
+                                                            th:text="${item.customerName}"
                                                             th:data-trackid="${item.id}"
                                                             aria-label="Информация о покупателе">
                                                     </button>
@@ -167,8 +168,17 @@
                                                     <span th:if="${item.nameSource == T(com.project.tracking_system.entity.NameSource).MERCHANT_PROVIDED}"
                                                           class="badge bg-secondary ms-2">магазин</span>
                                                 </div>
-                                                <span class="text-muted"
+                                                <span th:if="${#strings.isNotEmpty(item.customerName)}"
+                                                      class="text-muted"
                                                       th:text="${item.customerPhone != null ? item.customerPhone : '-'}"></span>
+
+                                                <!-- Если имя отсутствует, телефон становится ссылкой -->
+                                                <button th:if="${#strings.isEmpty(item.customerName)}"
+                                                        type="button" class="btn btn-link p-0 customer-icon ms-0"
+                                                        th:text="${item.customerPhone != null ? item.customerPhone : '-'}"
+                                                        th:data-trackid="${item.id}"
+                                                        aria-label="Информация о покупателе">
+                                                </button>
                                             </div>
                                         </td>
                                         <td th:text="${item.status}" class="status-text"></td>
