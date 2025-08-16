@@ -73,15 +73,18 @@ public class HomeController {
      * загружается синхронно через {@link TrackFacade}, который при необходимости
      * сохраняет трек в систему. При указании телефона трек связывается с покупателем.
      * </p>
+     * <p>
+     * При предрегистрации обращения к почтовым сервисам не выполняются,
+     * что позволяет создать запись для последующего заполнения номера.
      * </p>
      *
-     * @param number              номер посылки
-     * @param storeId             идентификатор магазина
-     * @param phone               телефон покупателя
-     * @param preRegistered      признак предрегистрации
-     * @param fullName           ФИО покупателя
-     * @param model              модель представления
-     * @param user               аутентифицированный пользователь
+     * @param number        номер посылки
+     * @param storeId       идентификатор магазина
+     * @param phone         телефон покупателя
+     * @param preRegistered признак предрегистрации
+     * @param fullName      ФИО покупателя
+     * @param model         модель представления
+     * @param user          аутентифицированный пользователь
      * @return имя представления домашней страницы
      */
     @PostMapping
@@ -105,11 +108,20 @@ public class HomeController {
 
         String normalizedNumber = TrackNumberUtils.normalize(number);
 
+        // Предрегистрация обходится без обращений к почтовым сервисам
+        if (Boolean.TRUE.equals(preRegistered)) {
+            handlePreRegistration(true, normalizedNumber, storeId, userId);
+            if (normalizedNumber == null || normalizedNumber.isBlank()) {
+                model.addAttribute("successMessage", "Предрегистрация выполнена без номера.");
+            } else {
+                model.addAttribute("successMessage", "Предрегистрация выполнена.");
+            }
+            updateCustomerName(phone, fullName);
+            return "app/home";
+        }
+
         try {
             PostalServiceType type = trackServiceClassifier.detect(normalizedNumber);
-
-            // Обрабатываем предрегистрацию, если пользователь указал соответствующий флаг
-            handlePreRegistration(preRegistered, normalizedNumber, storeId, userId);
 
             if (type == PostalServiceType.BELPOST && userId != null) {
                 boolean queued = belPostManualService.enqueueIfAllowed(normalizedNumber, storeId, userId, phone);
@@ -148,9 +160,13 @@ public class HomeController {
 
     /**
      * Выполняет предрегистрацию трека через соответствующий сервис.
+     * <p>
+     * Номер может быть {@code null}, что используется при создании
+     * предварительной записи без трек-номера.
+     * </p>
      *
      * @param preRegistered признак предрегистрации
-     * @param number        номер трека
+     * @param number        номер трека, может быть {@code null}
      * @param storeId       идентификатор магазина
      * @param userId        идентификатор пользователя
      */
