@@ -181,6 +181,8 @@ function loadCustomerInfo(trackId) {
             initAssignCustomerFormHandler();
             initEditCustomerPhoneFormHandler();
             initPhoneEditToggle();
+            initEditCustomerNameFormHandler();
+            initNameEditToggle();
         })
         .catch(() => notifyUser('Ошибка при загрузке данных', 'danger'));
 }
@@ -461,6 +463,38 @@ function initEditCustomerPhoneFormHandler() {
 function initPhoneEditToggle() {
     const editBtn = document.getElementById('editPhoneBtn');
     const form = document.getElementById('edit-phone-form');
+
+    if (editBtn && form && !editBtn.dataset.initialized) {
+        editBtn.dataset.initialized = 'true';
+        editBtn.addEventListener('click', () => form.classList.toggle('hidden'));
+    }
+}
+
+/**
+ * Инициализирует отправку формы изменения ФИО покупателя.
+ * После успешного обновления перечитывает данные и
+ * повторно назначает обработчики.
+ */
+function initEditCustomerNameFormHandler() {
+    const reloadCallback = () => {
+        const idInput = document.querySelector('#edit-name-form input[name="trackId"]');
+        if (idInput) loadCustomerInfo(idInput.value);
+    };
+    ajaxSubmitForm('edit-name-form', 'customerInfoContainer', [
+        reloadCallback,
+        initEditCustomerNameFormHandler,
+        initAssignCustomerFormHandler,
+        initNameEditToggle
+    ]);
+}
+
+/**
+ * Назначает обработчик кнопке редактирования ФИО,
+ * отображающий или скрывающий форму ввода.
+ */
+function initNameEditToggle() {
+    const editBtn = document.getElementById('editNameBtn');
+    const form = document.getElementById('edit-name-form');
 
     if (editBtn && form && !editBtn.dataset.initialized) {
         editBtn.dataset.initialized = 'true';
@@ -1516,6 +1550,8 @@ document.addEventListener("DOMContentLoaded", function () {
     initAssignCustomerFormHandler();
     initEditCustomerPhoneFormHandler();
     initPhoneEditToggle();
+    initEditCustomerNameFormHandler();
+    initNameEditToggle();
     initTelegramForms();
     initTelegramToggle();
     initTelegramReminderBlocks();
