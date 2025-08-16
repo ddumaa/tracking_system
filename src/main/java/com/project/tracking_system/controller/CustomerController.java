@@ -1,6 +1,9 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.CustomerInfoDTO;
+import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.entity.NameSource;
+import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.customer.CustomerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 public class CustomerController {
 
     private final CustomerService customerService;
+    private final TrackParcelRepository trackParcelRepository;
 
     /**
      * Возвращает данные покупателя по идентификатору посылки.
@@ -71,6 +75,35 @@ public class CustomerController {
                                  @RequestParam String phone,
                                  Model model) {
         return updateCustomer(trackId, phone, model);
+    }
+
+    /**
+     * Обновляет ФИО покупателя, привязанного к посылке.
+     * <p>
+     * Имя, ранее подтверждённое пользователем, не изменяется повторно.
+     * </p>
+     *
+     * @param trackId  идентификатор посылки
+     * @param fullName новое ФИО покупателя
+     * @param model    модель для передачи данных во фрагмент
+     * @return HTML-фрагмент с обновлённой информацией о покупателе
+     */
+    @PostMapping("/update-name")
+    public String updateName(@RequestParam Long trackId,
+                             @RequestParam String fullName,
+                             Model model) {
+        Customer customer = trackParcelRepository.findById(trackId)
+                .map(track -> track.getCustomer())
+                .orElse(null);
+        if (customer != null) {
+            // Имя, подтверждённое пользователем, сервис не позволит изменить
+            customerService.updateCustomerName(customer, fullName, NameSource.MERCHANT_PROVIDED);
+        }
+        CustomerInfoDTO dto = customerService.getCustomerInfoByParcelId(trackId);
+        model.addAttribute("customerInfo", dto);
+        model.addAttribute("notFound", dto == null);
+        model.addAttribute("trackId", trackId);
+        return "partials/customer-info";
     }
 
     /**
