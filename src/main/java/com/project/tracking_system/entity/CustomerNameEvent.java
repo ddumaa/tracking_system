@@ -35,7 +35,7 @@ public class CustomerNameEvent {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    private CustomerNameEventStatus status = CustomerNameEventStatus.ACTIVE;
+    private CustomerNameEventStatus status = CustomerNameEventStatus.PENDING;
 
     @Column(name = "created_at", nullable = false)
     private ZonedDateTime createdAt;
