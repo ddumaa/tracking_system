@@ -9,7 +9,9 @@ import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.user.UserSettingsService;
 import com.project.tracking_system.service.customer.CustomerNameEventService;
 import com.project.tracking_system.model.subscription.FeatureKey;
+import com.project.tracking_system.utils.NameUtils;
 import com.project.tracking_system.utils.PhoneUtils;
+import org.springframework.beans.factory.annotation.Value;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -42,6 +44,10 @@ public class CustomerService {
     private final CustomerNameEventService customerNameEventService;
     /** Клиент Telegram для отправки уведомлений. */
     private final TelegramClient telegramClient;
+
+    /** Фича-флаг для вывода маскированных ФИО в DEBUG. */
+    @Value("${debug.log-masked-fio:false}")
+    private boolean debugLogMaskedFio;
 
     /**
      * Зарегистрировать нового покупателя или получить существующего по телефону.
@@ -132,7 +138,11 @@ public class CustomerService {
                 log.warn("🚫 Попытка магазина изменить подтверждённое имя клиента ID={}", customer.getId());
                 throw new ConfirmedNameChangeException("Имя подтверждено пользователем");
             } else {
-                log.info("⚠️ Администратор изменяет подтверждённое имя клиента ID={} на '{}'", customer.getId(), newName);
+                log.info("⚠️ Администратор изменяет подтверждённое имя клиента ID={}", customer.getId());
+                if (debugLogMaskedFio && log.isDebugEnabled()) {
+                    log.debug("⚠️ Администратор изменяет подтверждённое имя клиента ID={} на '{}'",
+                            customer.getId(), NameUtils.maskName(newName));
+                }
                 notifyCustomer(customer, newName);
             }
         }
