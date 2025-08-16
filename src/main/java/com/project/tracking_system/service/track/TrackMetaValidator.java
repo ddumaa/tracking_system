@@ -184,7 +184,7 @@ public class TrackMetaValidator {
         try {
             return PhoneUtils.normalizePhone(phone);
         } catch (Exception e) {
-            log.warn("Некорректный телефон '{}' пропущен", phone);
+            log.warn("Некорректный телефон '{}' пропущен", PhoneUtils.maskPhone(phone));
             return null;
         }
     }
