@@ -4,6 +4,7 @@ import com.project.tracking_system.dto.CustomerInfoDTO;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.repository.TrackParcelRepository;
+import com.project.tracking_system.service.customer.CustomerNameEventService;
 import com.project.tracking_system.service.customer.CustomerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +27,7 @@ public class CustomerController {
 
     private final CustomerService customerService;
     private final TrackParcelRepository trackParcelRepository;
+    private final CustomerNameEventService eventService;
 
     /**
      * Возвращает данные покупателя по идентификатору посылки.
@@ -37,9 +39,7 @@ public class CustomerController {
     @GetMapping("/parcel/{parcelId}")
     public String getCustomerByParcelId(@PathVariable Long parcelId, Model model) {
         CustomerInfoDTO dto = customerService.getCustomerInfoByParcelId(parcelId);
-        model.addAttribute("customerInfo", dto);
-        model.addAttribute("notFound", dto == null);
-        model.addAttribute("trackId", parcelId);
+        populateModel(parcelId, dto, model);
         return "partials/customer-info";
     }
 
@@ -100,9 +100,7 @@ public class CustomerController {
             customerService.updateCustomerName(customer, fullName, NameSource.MERCHANT_PROVIDED);
         }
         CustomerInfoDTO dto = customerService.getCustomerInfoByParcelId(trackId);
-        model.addAttribute("customerInfo", dto);
-        model.addAttribute("notFound", dto == null);
-        model.addAttribute("trackId", trackId);
+        populateModel(trackId, dto, model);
         return "partials/customer-info";
     }
 
@@ -113,9 +111,20 @@ public class CustomerController {
      */
     private String updateCustomer(Long trackId, String phone, Model model) {
         CustomerInfoDTO dto = customerService.assignCustomerToParcel(trackId, phone);
+        populateModel(trackId, dto, model);
+        return "partials/customer-info";
+    }
+
+    /**
+     * Заполняет модель данными о покупателе и дополнительными атрибутами.
+     */
+    private void populateModel(Long trackId, CustomerInfoDTO dto, Model model) {
         model.addAttribute("customerInfo", dto);
         model.addAttribute("notFound", dto == null);
         model.addAttribute("trackId", trackId);
-        return "partials/customer-info";
+        Customer customer = trackParcelRepository.findById(trackId)
+                .map(track -> track.getCustomer())
+                .orElse(null);
+        model.addAttribute("events", eventService.getRecentEvents(customer));
     }
 }

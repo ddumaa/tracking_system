@@ -435,7 +435,14 @@ function initializePreRegistrationRequired() {
 
 // Инициализация формы привязки покупателя к посылке
 function initAssignCustomerFormHandler() {
-    ajaxSubmitForm('assign-customer-form', 'customerInfoContainer', [initAssignCustomerFormHandler]);
+    const reloadCallback = () => {
+        const idInput = document.querySelector('#assign-customer-form input[name="trackId"]');
+        if (idInput) loadCustomerInfo(idInput.value);
+    };
+    ajaxSubmitForm('assign-customer-form', 'customerInfoContainer', [
+        reloadCallback,
+        initAssignCustomerFormHandler
+    ]);
 }
 
 /**
@@ -501,6 +508,7 @@ function initNameEditToggle() {
         editBtn.addEventListener('click', () => form.classList.toggle('hidden'));
     }
 }
+
 
 // Инициализация форм настроек Telegram
 function initTelegramForms() {
