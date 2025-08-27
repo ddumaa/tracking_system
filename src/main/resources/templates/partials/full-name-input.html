@@ -4,6 +4,7 @@
     <div class="input-group">
         <input type="text" id="fullName" name="fullName" class="form-control"
                placeholder="Иванов Иван Иванович"
+               th:value="${customerFullName}"
                th:attr="readonly=${readonlyFlag}? 'readonly' : null">
     </div>
     <small id="fullNameHint" class="form-text text-muted d-none">
