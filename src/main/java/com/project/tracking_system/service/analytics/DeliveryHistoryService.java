@@ -408,14 +408,21 @@ public class DeliveryHistoryService {
 
     /**
      * Зарегистрировать финальный статус для посылки по её идентификатору.
+     * <p>
+     * Если история доставки для посылки отсутствует, метод корректно завершится,
+     * не выбрасывая исключение. Это позволяет безопасно вызывать метод даже
+     * сразу после создания новой посылки без полной истории.
+     * </p>
      *
      * @param parcelId идентификатор посылки
      */
     @Transactional
     public void registerFinalStatus(Long parcelId) {
-        DeliveryHistory history = deliveryHistoryRepository.findByTrackParcelId(parcelId)
-                .orElseThrow(() -> new IllegalArgumentException("История доставки не найдена"));
-        registerFinalStatus(history, history.getTrackParcel().getStatus());
+        deliveryHistoryRepository.findByTrackParcelId(parcelId)
+                .ifPresentOrElse(
+                        history -> registerFinalStatus(history, history.getTrackParcel().getStatus()),
+                        () -> log.debug("История доставки для посылки {} не найдена", parcelId)
+                );
     }
 
     /**
