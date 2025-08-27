@@ -272,22 +272,39 @@ public class CustomerService {
     }
 
     /**
-     * Получить данные покупателя по номеру телефона.
+     * Найти покупателя по номеру телефона.
      * <p>
-     * Предусловие: телефон передаётся в произвольном формате и не должен быть {@code null} или пустым.
-     * Метод нормализует номер и ищет покупателя в репозитории.
+     * Номер нормализуется до формата {@code 375XXXXXXXXX}. При пустом значении
+     * возвращается {@link Optional#empty()}. Возможны исключения
+     * {@link IllegalArgumentException}, если номер не удаётся нормализовать.
      * </p>
      *
-     * @param phone телефон покупателя в произвольном формате
-     * @return Optional с информацией о покупателе или {@link Optional#empty()}, если клиент не найден
+     * @param rawPhone телефон в произвольном формате
+     * @return Optional с покупателем или {@link Optional#empty()}, если клиент не найден
+     * @throws IllegalArgumentException при неверном формате номера
      */
     @Transactional(readOnly = true)
-    public Optional<CustomerInfoDTO> getCustomerInfoByPhone(String phone) {
-        if (phone == null || phone.isBlank()) {
+    public Optional<Customer> findByPhone(String rawPhone) {
+        if (rawPhone == null || rawPhone.isBlank()) {
             return Optional.empty();
         }
-        String normalized = PhoneUtils.normalizePhone(phone);
-        return customerRepository.findByPhone(normalized).map(this::toInfoDto);
+        String phone = PhoneUtils.normalizePhone(rawPhone);
+        return customerRepository.findByPhone(phone);
+    }
+
+    /**
+     * Получить данные покупателя по номеру телефона.
+     * <p>
+     * Делегирует поиск методу {@link #findByPhone(String)} и не создаёт новых записей.
+     * </p>
+     *
+     * @param rawPhone телефон покупателя в произвольном формате
+     * @return Optional с информацией о покупателе или {@link Optional#empty()}, если клиент не найден
+     * @throws IllegalArgumentException при некорректном формате номера
+     */
+    @Transactional(readOnly = true)
+    public Optional<CustomerInfoDTO> getCustomerInfoByPhone(String rawPhone) {
+        return findByPhone(rawPhone).map(this::toInfoDto);
     }
 
     /**

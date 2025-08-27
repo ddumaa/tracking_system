@@ -107,4 +107,30 @@ class CustomerServiceTest {
         verify(transactionalService, times(4)).findByPhone("375291234567");
 
     }
+
+    /**
+     * Проверяем, что поиск по телефону нормализует номер и обращается к репозиторию.
+     */
+    @Test
+    void findByPhone_NormalizesAndDelegatesToRepository() {
+        when(customerRepository.findByPhone("375291234567"))
+                .thenReturn(Optional.of(savedCustomer));
+
+        Optional<Customer> result = service.findByPhone("+375 (29) 123-45-67");
+
+        assertTrue(result.isPresent());
+        assertSame(savedCustomer, result.get());
+        verify(customerRepository).findByPhone("375291234567");
+    }
+
+    /**
+     * Если номер пустой, репозиторий не вызывается и возвращается пустой результат.
+     */
+    @Test
+    void findByPhone_BlankPhone_ReturnsEmpty() {
+        Optional<Customer> result = service.findByPhone("   ");
+
+        assertTrue(result.isEmpty());
+        verifyNoInteractions(customerRepository);
+    }
 }
