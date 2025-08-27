@@ -78,7 +78,8 @@
                                 <label class="form-check-label" for="togglePreRegistration">Предрегистрация</label>
                             </div>
                             <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="toggleFullName">
+                                <input class="form-check-input" type="checkbox" id="toggleFullName"
+                                       th:attr="disabled=${fullNameReadOnly}? 'disabled' : null">
                                 <label class="form-check-label" for="toggleFullName">Указать ФИО</label>
                             </div>
                         </div>
@@ -92,7 +93,7 @@
                         </div>
 
                         <!-- Блок поля ввода ФИО подключается через фрагмент -->
-                        <div th:replace="~{partials/full-name-input :: fullNameBlock(false)}"></div>
+                        <div th:replace="~{partials/full-name-input :: fullNameBlock(${fullNameReadOnly})}"></div>
                     </form>
 
                     <hr class="my-3">

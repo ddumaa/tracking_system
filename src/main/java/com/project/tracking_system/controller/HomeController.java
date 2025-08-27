@@ -51,16 +51,26 @@ public class HomeController {
 
     /**
      * Обрабатывает запросы на главной странице. Отображает домашнюю страницу.
+     * <p>
+     * При наличии параметра телефона пытается найти покупателя и
+     * настроить отображение поля ФИО.
+     * </p>
      *
+     * @param user  текущий аутентифицированный пользователь, может быть {@code null}
+     * @param phone номер телефона покупателя для предварительного заполнения ФИО
+     * @param model модель представления
      * @return имя представления домашней страницы
      */
     @GetMapping
-    public String home(@AuthenticationPrincipal User user, Model model) {
+    public String home(@AuthenticationPrincipal User user,
+                       @RequestParam(value = "phone", required = false) String phone,
+                       Model model) {
         if (user != null) {
             // Получаем магазины пользователя
             List<Store> stores = storeService.getUserStores(user.getId());
             model.addAttribute("stores", stores);
         }
+        configureCustomerFields(phone, model);
         return "app/home";
     }
 
@@ -157,6 +167,29 @@ public class HomeController {
         }
 
         return "app/home";
+    }
+
+    /**
+     * Настраивает отображение блока ФИО в зависимости от данных покупателя.
+     * <p>
+     * Если по переданному телефону найден покупатель, имя которого подтверждено
+     * пользователем, поле ФИО будет отображено в режиме только для чтения, а
+     * переключатель редактирования отключён.
+     * </p>
+     *
+     * @param phone номер телефона покупателя
+     * @param model модель представления для установки атрибутов
+     */
+    private void configureCustomerFields(String phone, Model model) {
+        if (phone == null || phone.isBlank()) {
+            model.addAttribute("fullNameReadOnly", false);
+            return;
+        }
+        customerService.getCustomerInfoByPhone(phone).ifPresentOrElse(info -> {
+            model.addAttribute("customerFullName", info.getFullName());
+            boolean confirmed = info.getNameSource() == NameSource.USER_CONFIRMED;
+            model.addAttribute("fullNameReadOnly", confirmed);
+        }, () -> model.addAttribute("fullNameReadOnly", false));
     }
 
     /**
