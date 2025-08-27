@@ -89,6 +89,10 @@
                             <label for="phone" class="form-label fw-semibold">Номер телефона покупателя:</label>
                             <div class="input-group">
                                 <input type="text" id="phone" name="phone" class="form-control" placeholder="375XXXXXXXXX">
+                                <!-- Мини-индикатор загрузки, отображается при автоподстановке ФИО -->
+                                <div id="phoneLoading" class="spinner-border spinner-border-sm text-secondary ms-2 d-none" role="status">
+                                    <span class="visually-hidden">Загрузка...</span>
+                                </div>
                             </div>
                         </div>
 

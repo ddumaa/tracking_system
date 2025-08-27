@@ -423,13 +423,17 @@ function initializeFullNameToggle() {
  *    чтобы исключить случайное изменение.
  *  - ФИО предоставлено магазином: поле остаётся редактируемым
  *    для возможной корректировки сотрудником.
- */
+ *
+ * На время запроса поле телефона блокируется, а рядом отображается
+ * мини-индикатор загрузки для предотвращения повторных вызовов.
+*/
 function autoFillFullName() {
     const phoneInput = document.getElementById("phone");
     const fullNameInput = document.getElementById("fullName");
     const toggleFullName = document.getElementById("toggleFullName");
     const fullNameField = document.getElementById("fullNameField");
     const hint = document.getElementById("fullNameHint");
+    const phoneLoading = document.getElementById("phoneLoading");
 
     // Если нужные элементы отсутствуют, дальнейшая логика не требуется
     if (!phoneInput || !fullNameInput || !toggleFullName) return;
@@ -466,8 +470,22 @@ function autoFillFullName() {
     };
 
     /**
-     * Выполняет запрос к серверу для получения ФИО и настраивает
-     * состояние поля в зависимости от источника данных.
+     * Переключает состояние индикатора загрузки и доступность поля телефона.
+     * @param {boolean} isLoading - флаг отображения процесса загрузки
+     */
+    const togglePhoneRequestState = (isLoading) => {
+        if (isLoading) {
+            phoneLoading?.classList.remove('d-none');
+            phoneInput.disabled = true;
+        } else {
+            phoneLoading?.classList.add('d-none');
+            phoneInput.disabled = false;
+        }
+    };
+
+    /**
+     * Выполняет запрос к серверу для получения ФИО и управляет
+     * состоянием поля и индикатора в зависимости от источника данных.
      */
     const requestHandler = () => {
         const phone = phoneInput.value.trim();
@@ -477,6 +495,9 @@ function autoFillFullName() {
         if (window.csrfHeader && window.csrfToken) {
             headers[window.csrfHeader] = window.csrfToken;
         }
+
+        // Показываем индикатор и блокируем поле на время запроса
+        togglePhoneRequestState(true);
 
         fetch(`/app/customers/name?phone=${encodeURIComponent(phone)}`, { headers })
             .then(resp => resp.ok ? resp.json() : null)
@@ -508,6 +529,10 @@ function autoFillFullName() {
             })
             .catch(() => {
                 // Ошибки сети или обработки игнорируются: автоподстановка не выполняется
+            })
+            .finally(() => {
+                // Скрываем индикатор и возвращаем доступ к телефону
+                togglePhoneRequestState(false);
             });
     };
 
