@@ -157,7 +157,8 @@
                                         <td>
                                             <div class="d-flex flex-column">
                                                 <!-- Если имя покупателя указано, выводим кнопку с ФИО и телефон отдельной строкой -->
-                                                <div class="d-flex align-items-center" th:if="${#strings.isNotEmpty(item.customerName)}">
+                                                <!-- Проверяем, что имя покупателя не пустое -->
+                                                <div class="d-flex align-items-center" th:if="${!#strings.isEmpty(item.customerName)}">
                                                     <button type="button" class="btn btn-link p-0 customer-icon ms-0"
                                                             th:text="${item.customerName}"
                                                             th:data-trackid="${item.id}"
@@ -168,7 +169,8 @@
                                                     <span th:if="${item.nameSource == T(com.project.tracking_system.entity.NameSource).MERCHANT_PROVIDED}"
                                                           class="badge bg-secondary ms-2">магазин</span>
                                                 </div>
-                                                <span th:if="${#strings.isNotEmpty(item.customerName)}"
+                                                <!-- Показываем телефон отдельной строкой при наличии имени покупателя -->
+                                                <span th:if="${!#strings.isEmpty(item.customerName)}"
                                                       class="text-muted"
                                                       th:text="${item.customerPhone != null ? item.customerPhone : '-'}"></span>
 
