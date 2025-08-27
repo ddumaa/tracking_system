@@ -15,6 +15,8 @@ import com.project.tracking_system.service.track.TrackUploadGroupingService;
 import com.project.tracking_system.service.track.TrackUpdateDispatcherService;
 import com.project.tracking_system.service.track.TrackingResultCacheService;
 import com.project.tracking_system.service.track.InvalidTrackCacheService;
+import com.project.tracking_system.service.registration.PreRegistrationService;
+import com.project.tracking_system.service.track.PreRegistrationMeta;
 import com.project.tracking_system.entity.PostalServiceType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,6 +59,8 @@ class TrackUploadProcessorServiceTest {
     private TrackingResultCacheService trackingResultCacheService;
     @Mock
     private InvalidTrackCacheService invalidTrackCacheService;
+    @Mock
+    private PreRegistrationService preRegistrationService;
 
     private TrackUploadProcessorService processor;
 
@@ -72,7 +76,8 @@ class TrackUploadProcessorServiceTest {
                 groupingService,
                 dispatcherService,
                 trackingResultCacheService,
-                invalidTrackCacheService
+                invalidTrackCacheService,
+                preRegistrationService
         );
     }
 
@@ -83,9 +88,9 @@ class TrackUploadProcessorServiceTest {
     void process_EnqueuesTracks() throws Exception {
         MockMultipartFile file = new MockMultipartFile("f", new byte[0]);
         TrackMeta meta = new TrackMeta("A1", 1L, "p", true, PostalServiceType.BELPOST);
-        when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("A1", "1", "p", null)));
+        when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("A1", "1", "p", null, false)));
         when(trackMetaValidator.validate(anyList(), eq(1L)))
-                .thenReturn(new TrackMetaValidationResult(List.of(meta), List.of(), null));
+                .thenReturn(new TrackMetaValidationResult(List.of(meta), List.of(), null, List.of()));
         when(trackUpdateEligibilityService.canUpdate(anyString(), any())).thenReturn(true);
         when(groupingService.group(List.of(meta)))
                 .thenReturn(new java.util.HashMap<>(java.util.Map.of(PostalServiceType.BELPOST, List.of(meta))));
@@ -117,10 +122,10 @@ class TrackUploadProcessorServiceTest {
     @Test
     void process_NoEligibleTracks_ReturnsEarly() throws Exception {
         MockMultipartFile file = new MockMultipartFile("f", new byte[0]);
-        when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("A1", "1", "p", null)));
+        when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("A1", "1", "p", null, false)));
         when(trackMetaValidator.validate(anyList(), eq(1L)))
                 .thenReturn(new TrackMetaValidationResult(
-                        List.of(new TrackMeta("A1", 1L, "p", true)), List.of(), null));
+                        List.of(new TrackMeta("A1", 1L, "p", true)), List.of(), null, List.of()));
         when(trackUpdateEligibilityService.canUpdate(anyString(), any())).thenReturn(false);
 
         TrackMetaValidationResult result = processor.process(file, 1L);
@@ -143,12 +148,13 @@ class TrackUploadProcessorServiceTest {
     @Test
     void process_AllInvalid_SendsErrorAndProgress() throws Exception {
         MockMultipartFile file = new MockMultipartFile("f", new byte[0]);
-        when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("bad", null, null, null)));
+        when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow("bad", null, null, null, false)));
         when(trackMetaValidator.validate(anyList(), eq(1L)))
                 .thenReturn(new TrackMetaValidationResult(
                         List.of(),
                         List.of(new InvalidTrack("bad", InvalidTrackReason.WRONG_FORMAT)),
-                        null));
+                        null,
+                        List.of()));
 
         TrackMetaValidationResult result = processor.process(file, 1L);
 
@@ -160,5 +166,22 @@ class TrackUploadProcessorServiceTest {
         verify(queueService, never()).enqueue(anyList());
         verify(dispatcherService, never()).dispatch(anyMap(), any());
         verify(invalidTrackCacheService).addInvalidTracks(eq(1L), anyLong(), anyList());
+    }
+
+    /**
+     * Предрегистрации обрабатываются отдельным сервисом.
+     */
+    @Test
+    void process_HandlesPreRegisteredRows() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("f", new byte[0]);
+        PreRegistrationMeta pre = new PreRegistrationMeta(null, 1L);
+        when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow(null, "1", null, null, true)));
+        when(trackMetaValidator.validate(anyList(), eq(1L)))
+                .thenReturn(new TrackMetaValidationResult(List.of(), List.of(), null, List.of(pre)));
+
+        TrackMetaValidationResult result = processor.process(file, 1L);
+
+        verify(preRegistrationService).preRegister(null, 1L, 1L);
+        assertEquals(1, result.preRegistered().size());
     }
 }

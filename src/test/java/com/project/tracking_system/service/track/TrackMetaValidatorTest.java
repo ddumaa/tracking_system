@@ -64,8 +64,8 @@ class TrackMetaValidatorTest {
         when(typeDefinitionTrackPostService.detectPostalService(anyString())).thenReturn(PostalServiceType.BELPOST);
 
         List<TrackExcelRow> rows = List.of(
-                new TrackExcelRow("A1", "1", "375291111111", null),
-                new TrackExcelRow("A2", "1", "375291111112", null)
+                new TrackExcelRow("A1", "1", "375291111111", null, false),
+                new TrackExcelRow("A2", "1", "375291111112", null, false)
         );
 
         TrackMetaValidationResult result = validator.validate(rows, 1L);
@@ -91,7 +91,7 @@ class TrackMetaValidatorTest {
         when(typeDefinitionTrackPostService.detectPostalService(anyString())).thenReturn(PostalServiceType.BELPOST);
 
         List<TrackExcelRow> rows = List.of(
-                new TrackExcelRow("A1", "Shop", "375291111111", null)
+                new TrackExcelRow("A1", "Shop", "375291111111", null, false)
         );
 
         TrackMetaValidationResult result = validator.validate(rows, 1L);
@@ -113,7 +113,7 @@ class TrackMetaValidatorTest {
         when(typeDefinitionTrackPostService.detectPostalService(anyString())).thenReturn(PostalServiceType.BELPOST);
 
         List<TrackExcelRow> rows = List.of(
-                new TrackExcelRow("A1", "1", "+375 (29) 111-11-11", null)
+                new TrackExcelRow("A1", "1", "+375 (29) 111-11-11", null, false)
         );
 
         TrackMetaValidationResult result = validator.validate(rows, 1L);
@@ -139,9 +139,9 @@ class TrackMetaValidatorTest {
                 });
 
         List<TrackExcelRow> rows = List.of(
-                new TrackExcelRow("A1", "1", null, null),
-                new TrackExcelRow("BAD", "1", null, null),
-                new TrackExcelRow("A1", "1", null, null)
+                new TrackExcelRow("A1", "1", null, null, false),
+                new TrackExcelRow("BAD", "1", null, null, false),
+                new TrackExcelRow("A1", "1", null, null, false)
         );
 
         TrackMetaValidationResult result = validator.validate(rows, 1L);
@@ -163,11 +163,33 @@ class TrackMetaValidatorTest {
         when(typeDefinitionTrackPostService.detectPostalService(anyString())).thenReturn(PostalServiceType.BELPOST);
 
         List<TrackExcelRow> rows = List.of(
-                new TrackExcelRow("A1", "1", "+375291111111", "Иван")
+                new TrackExcelRow("A1", "1", "+375291111111", "Иван", false)
         );
 
         validator.validate(rows, 1L);
 
         verify(customerNameService).upsertFromStore("375291111111", "Иван");
+    }
+
+    /**
+     * Предрегистрации допускают отсутствие номера и возвращаются отдельно.
+     */
+    @Test
+    void validate_HandlesPreRegisteredRows() {
+        when(subscriptionService.canUploadTracks(anyLong(), anyInt())).thenReturn(0);
+        when(subscriptionService.canSaveMoreTracks(anyLong(), anyInt())).thenReturn(0);
+        when(storeService.getDefaultStoreId(1L)).thenReturn(1L);
+        when(storeService.userOwnsStore(1L, 1L)).thenReturn(true);
+
+        List<TrackExcelRow> rows = List.of(
+                new TrackExcelRow(null, "1", null, null, true)
+        );
+
+        TrackMetaValidationResult result = validator.validate(rows, 1L);
+
+        assertTrue(result.validTracks().isEmpty());
+        assertTrue(result.invalidTracks().isEmpty());
+        assertEquals(1, result.preRegistered().size());
+        assertEquals(1L, result.preRegistered().get(0).storeId());
     }
 }
