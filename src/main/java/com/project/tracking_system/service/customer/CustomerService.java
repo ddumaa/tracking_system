@@ -272,6 +272,25 @@ public class CustomerService {
     }
 
     /**
+     * Получить данные покупателя по номеру телефона.
+     * <p>
+     * Предусловие: телефон передаётся в произвольном формате и не должен быть {@code null} или пустым.
+     * Метод нормализует номер и ищет покупателя в репозитории.
+     * </p>
+     *
+     * @param phone телефон покупателя в произвольном формате
+     * @return Optional с информацией о покупателе или {@link Optional#empty()}, если клиент не найден
+     */
+    @Transactional(readOnly = true)
+    public Optional<CustomerInfoDTO> getCustomerInfoByPhone(String phone) {
+        if (phone == null || phone.isBlank()) {
+            return Optional.empty();
+        }
+        String normalized = PhoneUtils.normalizePhone(phone);
+        return customerRepository.findByPhone(normalized).map(this::toInfoDto);
+    }
+
+    /**
      * Привязать покупателя к посылке по телефону.
      *
      * @param parcelId идентификатор посылки

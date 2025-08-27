@@ -10,6 +10,7 @@ import com.project.tracking_system.service.customer.CustomerService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -43,6 +44,23 @@ public class CustomerController {
         CustomerInfoDTO dto = customerService.getCustomerInfoByParcelId(parcelId);
         populateModel(parcelId, dto, model);
         return "partials/customer-info";
+    }
+
+    /**
+     * Возвращает информацию о покупателе по номеру телефона.
+     * <p>
+     * Предусловие: параметр {@code phone} должен быть указан в запросе.
+     * Контроллер делегирует поиск сервису и формирует HTTP-ответ.
+     * </p>
+     *
+     * @param phone номер телефона покупателя
+     * @return 200 OK с данными покупателя или 404, если клиент не найден
+     */
+    @GetMapping("/name")
+    public ResponseEntity<CustomerInfoDTO> getCustomerNameByPhone(@RequestParam String phone) {
+        return customerService.getCustomerInfoByPhone(phone)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     /**
