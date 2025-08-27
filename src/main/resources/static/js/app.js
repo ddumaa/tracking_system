@@ -164,6 +164,10 @@ function loadModal(itemNumber) {
         .finally(() => hideLoading()); // скрываем индикатор в любом случае
 }
 
+/**
+ * Загружает и показывает информацию о покупателе в модальном окне.
+ * @param {string} trackId - идентификатор отправления для поиска покупателя
+ */
 function loadCustomerInfo(trackId) {
     if (!trackId) return;
     fetch(`/app/customers/parcel/${trackId}`)
@@ -1767,18 +1771,24 @@ document.addEventListener("DOMContentLoaded", function () {
     document.body.addEventListener("click", function (event) {
         const target = event.target;
 
-        const openModalButton = target.closest(".open-modal, .btn-link");
+        // Открытие модального окна с деталями отправления
+        // Ищем только элементы с классом .open-modal, чтобы не перехватывать клики по другим кнопкам
+        const openModalButton = target.closest(".open-modal");
         if (openModalButton) {
             const itemNumber = openModalButton.getAttribute("data-itemnumber");
-            if (itemNumber) loadModal(itemNumber);
-            console.log('loadModal called:', itemNumber)
+            if (itemNumber) {
+                loadModal(itemNumber);
+            }
             return;
         }
 
+        // Открытие модального окна с информацией о покупателе
         const customerIcon = target.closest(".customer-icon");
         if (customerIcon) {
             const trackId = customerIcon.getAttribute("data-trackid");
-            if (trackId) loadCustomerInfo(trackId);
+            if (trackId) {
+                loadCustomerInfo(trackId);
+            }
             return;
         }
     });
