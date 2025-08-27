@@ -435,6 +435,37 @@ function autoFillFullName() {
     if (!phoneInput || !fullNameInput || !toggleFullName) return;
 
     /**
+     * Отображает бейдж репутации рядом с полем ФИО.
+     * Создаёт элемент при необходимости и применяет цветовое оформление.
+     * @param {{reputationDisplayName?: string, colorClass?: string}} repData - данные о репутации
+     */
+    const renderReputationBadge = (repData) => {
+        // Базовые классы бейджа, сохраняющиеся при сбросе состояния
+        const baseClasses = ['ms-2', 'small'];
+        let badge = document.getElementById('reputationBadge');
+
+        // Если бейджа ещё нет в DOM, создаём его рядом с полем ФИО
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.id = 'reputationBadge';
+            badge.classList.add(...baseClasses);
+            fullNameInput.insertAdjacentElement('afterend', badge);
+        } else {
+            // Сбрасываем классы к базовым при повторных вызовах
+            badge.className = baseClasses.join(' ');
+        }
+
+        // Если сервер вернул данные о репутации, отображаем их
+        if (repData.reputationDisplayName && repData.colorClass) {
+            badge.textContent = repData.reputationDisplayName;
+            badge.classList.add(repData.colorClass);
+        } else {
+            // При отсутствии данных очищаем содержимое бейджа
+            badge.textContent = '';
+        }
+    };
+
+    /**
      * Выполняет запрос к серверу для получения ФИО и настраивает
      * состояние поля в зависимости от источника данных.
      */
@@ -450,12 +481,19 @@ function autoFillFullName() {
         fetch(`/app/customers/name?phone=${encodeURIComponent(phone)}`, { headers })
             .then(resp => resp.ok ? resp.json() : null)
             .then(data => {
-                if (!data || !data.fullName) return;
+                if (!data || !data.fullName) {
+                    // Очищаем бейдж, если данные не получены
+                    renderReputationBadge({});
+                    return;
+                }
 
                 // Активируем поле ФИО и подставляем полученное значение
                 toggleFullName.checked = true;
                 toggleFieldsVisibility(toggleFullName, fullNameField);
                 fullNameInput.value = data.fullName;
+
+                // Отображаем репутацию, если она есть
+                renderReputationBadge(data);
 
                 // Если имя подтверждено пользователем, редактирование запрещено
                 if (data.nameSource === 'USER_CONFIRMED') {

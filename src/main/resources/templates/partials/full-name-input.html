@@ -6,6 +6,8 @@
                placeholder="Иванов Иван Иванович"
                th:value="${customerFullName}"
                th:attr="readonly=${readonlyFlag}? 'readonly' : null">
+        <!-- Бейдж репутации покупателя; текст и цвет задаются из JS -->
+        <span id="reputationBadge" class="ms-2 small"></span>
     </div>
     <small id="fullNameHint" class="form-text text-muted d-none">
         ФИО подтверждено покупателем и не может быть изменено.
