@@ -1,0 +1,12 @@
+<!-- Фрагмент поля ФИО с подсказкой и поддержкой режима только для чтения -->
+<div th:fragment="fullNameBlock(readonlyFlag)" id="fullNameField" class="mb-3 hidden">
+    <label for="fullName" class="form-label fw-semibold">ФИО покупателя:</label>
+    <div class="input-group">
+        <input type="text" id="fullName" name="fullName" class="form-control"
+               placeholder="Иванов Иван Иванович"
+               th:attr="readonly=${readonlyFlag}? 'readonly' : null">
+    </div>
+    <small id="fullNameHint" class="form-text text-muted d-none">
+        ФИО подтверждено покупателем и не может быть изменено.
+    </small>
+</div>
