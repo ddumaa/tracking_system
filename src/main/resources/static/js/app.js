@@ -410,6 +410,73 @@ function initializeFullNameToggle() {
     }
 }
 
+/**
+ * Автоматически подставляет ФИО по введённому номеру телефона.
+ * <p>
+ * Работает при событии ухода фокуса или изменения поля телефона.
+ * После запроса к серверу значение ФИО подставляется в форму,
+ * а также учитывается источник данных имени.
+ * </p>
+ *
+ * Сценарии использования:
+ *  - Покупатель ранее подтверждал своё ФИО: поле блокируется,
+ *    чтобы исключить случайное изменение.
+ *  - ФИО предоставлено магазином: поле остаётся редактируемым
+ *    для возможной корректировки сотрудником.
+ */
+function autoFillFullName() {
+    const phoneInput = document.getElementById("phone");
+    const fullNameInput = document.getElementById("fullName");
+    const toggleFullName = document.getElementById("toggleFullName");
+    const fullNameField = document.getElementById("fullNameField");
+    const hint = document.getElementById("fullNameHint");
+
+    // Если нужные элементы отсутствуют, дальнейшая логика не требуется
+    if (!phoneInput || !fullNameInput || !toggleFullName) return;
+
+    /**
+     * Выполняет запрос к серверу для получения ФИО и настраивает
+     * состояние поля в зависимости от источника данных.
+     */
+    const requestHandler = () => {
+        const phone = phoneInput.value.trim();
+        if (!phone) return; // Пустой телефон не обрабатываем
+
+        const headers = {};
+        if (window.csrfHeader && window.csrfToken) {
+            headers[window.csrfHeader] = window.csrfToken;
+        }
+
+        fetch(`/app/customers/name?phone=${encodeURIComponent(phone)}`, { headers })
+            .then(resp => resp.ok ? resp.json() : null)
+            .then(data => {
+                if (!data || !data.fullName) return;
+
+                // Активируем поле ФИО и подставляем полученное значение
+                toggleFullName.checked = true;
+                toggleFieldsVisibility(toggleFullName, fullNameField);
+                fullNameInput.value = data.fullName;
+
+                // Если имя подтверждено пользователем, редактирование запрещено
+                if (data.nameSource === 'USER_CONFIRMED') {
+                    toggleFullName.disabled = true;
+                    fullNameInput.readOnly = true;
+                    hint?.classList.remove('d-none');
+                } else {
+                    toggleFullName.disabled = false;
+                    fullNameInput.readOnly = false;
+                    hint?.classList.add('d-none');
+                }
+            })
+            .catch(() => {
+                // Ошибки сети или обработки игнорируются: автоподстановка не выполняется
+            });
+    };
+
+    // Назначаем обработчики: при изменении и потере фокуса телефона
+    ['blur', 'change'].forEach(evt => phoneInput.addEventListener(evt, requestHandler));
+}
+
 // Инициализация обязательности ввода номера посылки
 function initializePreRegistrationRequired() {
     const toggle = document.getElementById("togglePreRegistration");
@@ -1553,6 +1620,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initAutoUpdateToggle();
     initBulkButtonToggle();
     initializePhoneToggle();
+    autoFillFullName();
     initializeFullNameToggle();
     initializePreRegistrationRequired();
     initAssignCustomerFormHandler();

@@ -91,13 +91,8 @@
                             </div>
                         </div>
 
-                        <!-- Блок поля ввода ФИО -->
-                        <div id="fullNameField" class="mb-3 hidden">
-                            <label for="fullName" class="form-label fw-semibold">ФИО покупателя:</label>
-                            <div class="input-group">
-                                <input type="text" id="fullName" name="fullName" class="form-control" placeholder="Иванов Иван Иванович">
-                            </div>
-                        </div>
+                        <!-- Блок поля ввода ФИО подключается через фрагмент -->
+                        <div th:replace="~{partials/full-name-input :: fullNameBlock(false)}"></div>
                     </form>
 
                     <hr class="my-3">
