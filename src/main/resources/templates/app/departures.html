@@ -237,6 +237,36 @@
 </main>
 
 <div layout:fragment="afterFooter">
+    <!-- Модальное окно для указания трек-номера -->
+    <div class="modal fade" id="trackNumberModal" tabindex="-1" aria-labelledby="trackNumberModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <!-- Форма отправки трек-номера на сервер -->
+                <form id="set-track-number-form" th:action="@{/app/departures/set-number}" method="post">
+                    <!-- CSRF-поля для защиты формы -->
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="trackNumberModalLabel">Укажите трек-номер</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Скрытое поле с идентификатором отправления -->
+                        <input type="hidden" name="id">
+                        <!-- Поле ввода трек-номера -->
+                        <div class="mb-3">
+                            <label for="track-number-input" class="form-label">Трек-номер</label>
+                            <input type="text" class="form-control" name="number" id="track-number-input" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary">Сохранить</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Модальное окно -->
     <div class="modal fade" id="infoModal" tabindex="-1" aria-labelledby="infoModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -263,35 +293,6 @@
                 <div class="modal-body">
                     <!-- Данные загружаются через AJAX -->
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Модальное окно для указания трек-номера -->
-    <div class="modal fade" id="trackNumberModal" tabindex="-1" aria-labelledby="trackNumberModalLabel"
-         aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <!-- Форма отправки трек-номера на сервер -->
-                <form id="set-track-number-form" th:action="@{/app/departures/set-number}" method="post">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="trackNumberModalLabel">Укажите трек-номер</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
-                    </div>
-                    <div class="modal-body">
-                        <!-- Скрытое поле с идентификатором отправления -->
-                        <input type="hidden" name="id">
-                        <!-- Поле ввода трек-номера -->
-                        <div class="mb-3">
-                            <label for="track-number-input" class="form-label">Трек-номер</label>
-                            <input type="text" class="form-control" name="number" id="track-number-input" required>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="submit" class="btn btn-primary">Сохранить</button>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                    </div>
-                </form>
             </div>
         </div>
     </div>
