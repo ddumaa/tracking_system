@@ -221,6 +221,12 @@
     border-bottom: 1px solid ui.$light;
   }
 
+  // Колонка с номерами треков выравнивается по левому краю
+  th:nth-child(2),
+  td:nth-child(2) {
+    text-align: left;
+  }
+
   /* Добавляем анимацию появления строк истории */
   tbody tr {
     animation: fadeSlideIn 0.5s ease forwards;
