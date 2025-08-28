@@ -9,6 +9,7 @@ import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.utils.PhoneUtils;
+import com.project.tracking_system.exception.TrackNumberAlreadyExistsException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -368,8 +369,11 @@ public class TrackParcelService {
      * Присваивает трек-номер предварительно зарегистрированной посылке пользователя.
      * <p>
      * Метод проверяет принадлежность посылки пользователю и наличие статуса
-     * предварительной регистрации. В случае отсутствия посылки или
-     * несоответствия владельца выбрасывается {@link EntityNotFoundException}.
+     * предварительной регистрации. Дополнительно выполняется проверка
+     * уникальности трек-номера для данного пользователя. В случае отсутствия
+     * посылки или несоответствия владельца выбрасывается
+     * {@link EntityNotFoundException}, а при обнаружении дубликата номера —
+     * {@link TrackNumberAlreadyExistsException}.
      * </p>
      *
      * @param parcelId идентификатор посылки
@@ -381,6 +385,9 @@ public class TrackParcelService {
         TrackParcel parcel = trackParcelRepository.findByIdAndPreRegisteredTrue(parcelId);
         if (parcel == null || !parcel.getUser().getId().equals(userId)) {
             throw new EntityNotFoundException("Посылка не найдена");
+        }
+        if (trackParcelRepository.existsByNumberAndUserId(number, userId)) {
+            throw new TrackNumberAlreadyExistsException("Трек-номер уже привязан к другой посылке");
         }
         trackParcelRepository.updatePreRegisteredNumber(parcelId, number);
     }
