@@ -46,4 +46,81 @@ class StatusTrackServiceTest {
 
         assertEquals(GlobalStatus.DELIVERED, status);
     }
+
+    /**
+     * Любой промежуточный статус доставки должен преобразовываться в
+     * {@link GlobalStatus#IN_TRANSIT}.
+     */
+    @Test
+    void setStatus_MapsInTransit() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO("20.07.2025, 09:00", "Почтовое отправление принято на ОПС")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.IN_TRANSIT, status);
+    }
+
+    /**
+     * Когда отправление подготовлено для возврата, должен быть установлен
+     * статус {@link GlobalStatus#RETURN_IN_PROGRESS}.
+     */
+    @Test
+    void setStatus_MapsReturnInProgress() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO("21.07.2025, 12:00", "Почтовое отправление готово к возврату")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.RETURN_IN_PROGRESS, status);
+    }
+
+    /**
+     * При прибытии отправления в отделение для возврата сервис должен
+     * вернуть статус {@link GlobalStatus#RETURN_PENDING_PICKUP}.
+     */
+    @Test
+    void setStatus_MapsReturnPendingPickup() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO("22.07.2025, 08:45",
+                        "Почтовое отправление прибыло на Отделение №1 для возврата отправителю")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.RETURN_PENDING_PICKUP, status);
+    }
+
+    /**
+     * После фактического возврата отправление должно получать статус
+     * {@link GlobalStatus#RETURNED}.
+     */
+    @Test
+    void setStatus_MapsReturned() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO("23.07.2025, 14:30", "Почтовое отправление возвращено отправителю")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.RETURNED, status);
+    }
+
+    /**
+     * Уведомление о невостребованном отправлении должно приводить к статусу
+     * {@link GlobalStatus#CUSTOMER_NOT_PICKING_UP}.
+     */
+    @Test
+    void setStatus_MapsCustomerNotPickingUp() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO("24.07.2025, 16:00",
+                        "Добрый день. Отправление AB123456789BY не востребовано получателем")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.CUSTOMER_NOT_PICKING_UP, status);
+    }
 }
