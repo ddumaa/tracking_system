@@ -22,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import com.project.tracking_system.utils.ResponseBuilder;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.project.tracking_system.exception.TrackNumberAlreadyExistsException;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -242,8 +243,13 @@ public class DeparturesController {
             @RequestParam Long id,
             @RequestParam String number,
             @AuthenticationPrincipal User user) {
-        trackParcelService.assignTrackNumber(id, number, user.getId());
-        return ResponseBuilder.ok("Трек-номер добавлен");
+        try {
+            trackParcelService.assignTrackNumber(id, number, user.getId());
+            return ResponseBuilder.ok("Трек-номер добавлен");
+        } catch (TrackNumberAlreadyExistsException e) {
+            log.warn("Попытка добавить уже существующий трек-номер: {} для пользователя {}", number, user.getId());
+            return ResponseBuilder.error(HttpStatus.CONFLICT, e.getMessage());
+        }
     }
 
     /**
