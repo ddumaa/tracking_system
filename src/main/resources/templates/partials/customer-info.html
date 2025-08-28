@@ -51,8 +51,8 @@
                             <span th:text="${customerInfo.fullName}"></span>
                             <i th:if="${customerInfo.nameSource == T(com.project.tracking_system.entity.NameSource).USER_CONFIRMED}"
                                class="bi bi-check-circle-fill text-success ms-2"></i>
-                            <span th:if="${customerInfo.nameSource == T(com.project.tracking_system.entity.NameSource).MERCHANT_PROVIDED}"
-                                  class="badge bg-secondary ms-2">store</span>
+                            <i th:if="${customerInfo.nameSource == T(com.project.tracking_system.entity.NameSource).MERCHANT_PROVIDED}"
+                               class="bi bi-shop text-muted ms-2" title="Источник: магазин"></i>
                         </div>
                         <div class="d-flex align-items-center">
                             <button th:if="${customerInfo.nameSource != T(com.project.tracking_system.entity.NameSource).USER_CONFIRMED}"
