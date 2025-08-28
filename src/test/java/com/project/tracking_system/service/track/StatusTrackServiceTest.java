@@ -46,4 +46,35 @@ class StatusTrackServiceTest {
 
         assertEquals(GlobalStatus.DELIVERED, status);
     }
+
+    /**
+     * Проверяет, что статус «Подготовлено для возврата» приводит к
+     * {@link GlobalStatus#RETURN_IN_PROGRESS}.
+     */
+    @Test
+    void setStatus_MapsPreparedForReturn() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO(null, "Подготовлено для возврата")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.RETURN_IN_PROGRESS, status);
+    }
+
+    /**
+     * Убеждается, что после подготовки к возврату последующие статусы
+     * корректно классифицируются как возврат в процессе.
+     */
+    @Test
+    void setStatus_MapsIntermediateAfterReturnStart() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO(null, "Почтовое отправление прибыло на сортировочный пункт"),
+                new TrackInfoDTO(null, "Подготовлено для возврата")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.RETURN_IN_PROGRESS, status);
+    }
 }
