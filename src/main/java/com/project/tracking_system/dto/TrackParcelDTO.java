@@ -3,6 +3,7 @@ package com.project.tracking_system.dto;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.utils.NameUtils;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
@@ -23,6 +24,10 @@ public class TrackParcelDTO {
     private transient String iconHtml;
     private Long storeId;
     private String customerName;
+    /**
+     * Сокращённое представление ФИО покупателя для компактного вывода.
+     */
+    private String shortCustomerName;
     private String customerPhone;
     private NameSource nameSource;
 
@@ -48,6 +53,8 @@ public class TrackParcelDTO {
         Customer customer = trackParcel.getCustomer();
         if (customer != null) {
             this.customerName = customer.getFullName();
+            // Формируем сокращённое имя на основе полного ФИО
+            this.shortCustomerName = NameUtils.shortenName(this.customerName);
             this.customerPhone = customer.getPhone();
             this.nameSource = customer.getNameSource();
         }
