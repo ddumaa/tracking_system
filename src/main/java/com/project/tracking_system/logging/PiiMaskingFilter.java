@@ -2,11 +2,13 @@ package com.project.tracking_system.logging;
 
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.classic.spi.LoggingEventVO;
+import ch.qos.logback.classic.spi.LoggingEvent;
+import ch.qos.logback.classic.spi.ThrowableProxy;
 import ch.qos.logback.core.filter.Filter;
 import ch.qos.logback.core.spi.FilterReply;
 import com.project.tracking_system.utils.EmailUtils;
 import com.project.tracking_system.utils.PhoneUtils;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.Set;
@@ -55,13 +57,11 @@ public class PiiMaskingFilter extends Filter<ILoggingEvent> {
         String formatted = event.getFormattedMessage();
         String masked = mask(formatted);
         if (!formatted.equals(masked)) {
-            // Клонируем событие, заменяем сообщение и логируем клон вместо оригинала.
-            LoggingEventVO clone = LoggingEventVO.build(event);
-            clone.setMessage(masked);
-            clone.setArgumentArray(null);
+            // Создаём новое событие с маскированным сообщением и отправляем его в те же аппендеры.
+            ILoggingEvent clone = cloneWithMessage(event, masked);
 
             maskedEvents.add(clone);
-            Logger logger = (Logger) event.getLogger();
+            Logger logger = (Logger) LoggerFactory.getLogger(event.getLoggerName());
             logger.callAppenders(clone);
             return FilterReply.DENY;
         }
@@ -69,6 +69,33 @@ public class PiiMaskingFilter extends Filter<ILoggingEvent> {
         // Маскировка не понадобилась, удаляем из обработанных.
         processedEvents.remove(event);
         return FilterReply.NEUTRAL;
+    }
+
+    /**
+     * Создаёт клон события с заменённым сообщением.
+     *
+     * @param original      исходное событие логирования
+     * @param maskedMessage сообщение, в котором персональные данные скрыты
+     * @return новое событие для передачи в аппендеры
+     */
+    private ILoggingEvent cloneWithMessage(ILoggingEvent original, String maskedMessage) {
+        LoggingEvent clone = new LoggingEvent();
+        clone.setLoggerContextRemoteView(original.getLoggerContextVO());
+        clone.setLoggerName(original.getLoggerName());
+        clone.setLevel(original.getLevel());
+        clone.setTimeStamp(original.getTimeStamp());
+        clone.setThreadName(original.getThreadName());
+        clone.setMessage(maskedMessage);
+        clone.setArgumentArray(null); // строка уже отформатирована
+        if (original.getThrowableProxy() instanceof ThrowableProxy tp) {
+            clone.setThrowableProxy(tp);
+        }
+        clone.setCallerData(original.getCallerData());
+        if (original.getMarker() != null) {
+            clone.addMarker(original.getMarker());
+        }
+        clone.setMDCPropertyMap(original.getMDCPropertyMap());
+        return clone;
     }
 
     /**

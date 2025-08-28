@@ -448,3 +448,45 @@
     transform: translateY(0);
   }
 }
+
+/* маленькие флаги-индикаторы: не расширяют строку */
+.small-flag{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:16px;
+  height:16px;
+  flex:0 0 16px;
+  font-size:16px; /* чтобы иконка стала 16px */
+  line-height:1;
+}
+
+/* колонка чекбокса — фиксированная ширина */
+.history-table .checkbox-column{
+  width: 44px; /* под кастомный чекбокс */
+  white-space: nowrap;
+}
+
+/* ячейка номера: иконка статуса + номер в ряд без скачков */
+.history-table .status-icon{
+  display:inline-flex;
+  align-items:center;
+  margin-right:.25rem;
+}
+
+/* кнопки-линки внутри таблицы — без лишних отступов и без переносов номера */
+.history-table .btn.btn-link.parcel-number{
+  padding:0;
+  white-space:nowrap;
+}
+
+/* имя покупателя — не разрывать, телефон ниже — нормально переносится */
+.history-table td .customer-icon{
+  padding:0;
+  white-space:nowrap;
+}
+
+/* на узких экранах разрешаем перенос ФИО, но индикаторы останутся фикс. ширины */
+@media (max-width: 576px){
+  .history-table td .customer-icon{ white-space:normal; }
+}

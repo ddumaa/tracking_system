@@ -135,8 +135,10 @@
                                                    th:name="${#strings.isEmpty(item.number) ? 'selectedIds' : 'selectedNumbers'}"
                                                    th:value="${#strings.isEmpty(item.number) ? item.id : item.number}"
                                                    th:data-id="${item.id}">
-                                            <span th:if="${item.status == 'Предрегистрация' and #strings.isEmpty(item.number)}"
-                                                  class="badge bg-warning ms-2">Пропущено: нет трека</span>
+                                            <i th:if="${item.status == 'Предрегистрация' and #strings.isEmpty(item.number)}"
+                                               class="bi bi-exclamation-circle text-warning small-flag ms-2"
+                                               title="Предрегистрация: добавьте трек-номер"
+                                               data-bs-toggle="tooltip" aria-label="Нет трека"></i>
                                         </td>
                                         <td>
                                             <div class="d-flex align-items-center">
@@ -165,12 +167,19 @@
                                                     <button type="button" class="btn btn-link p-0 customer-icon ms-0"
                                                             th:text="${item.customerName}"
                                                             th:data-trackid="${item.id}"
-                                                            aria-label="Информация о покупателе">
-                                                    </button>
-                                                    <span th:if="${item.nameSource == T(com.project.tracking_system.entity.NameSource).USER_CONFIRMED}"
-                                                          class="badge bg-success ms-2">подтверждено</span>
-                                                    <span th:if="${item.nameSource == T(com.project.tracking_system.entity.NameSource).MERCHANT_PROVIDED}"
-                                                          class="badge bg-secondary ms-2">магазин</span>
+                                                            aria-label="Информация о покупателе"></button>
+
+                                                    <!-- Имя подтверждено пользователем -->
+                                                    <i th:if="${item.nameSource == T(com.project.tracking_system.entity.NameSource).USER_CONFIRMED}"
+                                                       class="bi bi-patch-check-fill text-success small-flag ms-2"
+                                                       title="Имя подтверждено покупателем" data-bs-toggle="tooltip"
+                                                       aria-label="Имя подтверждено"></i>
+
+                                                    <!-- Имя предоставлено магазином -->
+                                                    <i th:if="${item.nameSource == T(com.project.tracking_system.entity.NameSource).MERCHANT_PROVIDED}"
+                                                       class="bi bi-shop text-muted small-flag ms-2"
+                                                       title="Источник: магазин" data-bs-toggle="tooltip"
+                                                       aria-label="Имя от магазина"></i>
                                                 </div>
                                                 <!-- Показываем телефон отдельной строкой при наличии имени покупателя -->
                                                 <span th:if="${!#strings.isEmpty(item.customerName)}"
