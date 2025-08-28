@@ -130,8 +130,11 @@
                                     <tbody>
                                     <tr th:each="item : ${trackParcelDTO}" th:attr="data-track-number=${item.number},data-track-id=${item.id}">
                                         <td class="checkbox-column">
-                                            <input type="checkbox" class="selectCheckbox" th:value="${item.number}"
-                                                   th:data-id="${item.id}" name="selectedNumbers">
+                                            <!-- Чекбокс выбора: при отсутствии номера используем ID -->
+                                            <input type="checkbox" class="selectCheckbox"
+                                                   th:name="${#strings.isEmpty(item.number) ? 'selectedIds' : 'selectedNumbers'}"
+                                                   th:value="${#strings.isEmpty(item.number) ? item.id : item.number}"
+                                                   th:data-id="${item.id}">
                                             <span th:if="${item.status == 'Предрегистрация' and #strings.isEmpty(item.number)}"
                                                   class="badge bg-warning ms-2">Пропущено: нет трека</span>
                                         </td>
