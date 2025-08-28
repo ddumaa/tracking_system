@@ -97,3 +97,8 @@
 #phone {
   border-radius: ui.$border-radius !important;
 }
+
+// Лейбл репутации, располагающийся над полем ФИО
+.reputation-badge {
+  z-index: 1;
+}

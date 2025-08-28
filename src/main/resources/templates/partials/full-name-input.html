@@ -1,13 +1,14 @@
 <!-- Фрагмент поля ФИО с подсказкой и поддержкой режима только для чтения -->
 <div th:fragment="fullNameBlock(readonlyFlag)" id="fullNameField" class="mb-3 hidden">
     <label for="fullName" class="form-label fw-semibold">ФИО покупателя:</label>
-    <div class="input-group">
+    <div class="input-group position-relative">
         <input type="text" id="fullName" name="fullName" class="form-control"
                placeholder="Иванов Иван Иванович"
                th:value="${customerFullName}"
                th:attr="readonly=${readonlyFlag}? 'readonly' : null">
-        <!-- Бейдж репутации покупателя; текст и цвет задаются из JS -->
-        <span id="reputationBadge" class="ms-2 small"></span>
+        <!-- Бейдж репутации покупателя; отображается над полем ФИО -->
+        <span id="reputationBadge"
+              class="badge small position-absolute top-0 start-50 translate-middle reputation-badge d-none"></span>
     </div>
     <small id="fullNameHint" class="form-text text-muted d-none">
         ФИО подтверждено покупателем и не может быть изменено.
