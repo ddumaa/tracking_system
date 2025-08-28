@@ -43,6 +43,11 @@ public class TypeDefinitionTrackPostService {
      * <p>Возвращает {@link PostalServiceType#UNKNOWN}, если шаблон не подходит.</p>
      */
     public PostalServiceType detectPostalService(String number) {
+        // Если номер не указан или состоит из пробелов, считаем службу неизвестной
+        if (number == null || number.isBlank()) {
+            return PostalServiceType.UNKNOWN;
+        }
+
         if (number.matches("^(PC|BV|BP|PE)\\d{9}BY$")) {
             return PostalServiceType.BELPOST;
         }
