@@ -510,6 +510,30 @@ function autoFillFullName() {
     if (!phoneInput || !fullNameInput || !toggleFullName) return;
 
     /**
+     * Вычисляет позицию бейджа репутации над введённым текстом ФИО
+     * и устанавливает горизонтальное смещение.
+     * При ошибке вычисления размещает бейдж у начала поля.
+     */
+    const positionReputationBadge = () => {
+        const badge = document.getElementById('reputationBadge');
+        if (!badge) return;
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+            ctx.font = getComputedStyle(fullNameInput).font;
+            const textWidth = ctx.measureText(fullNameInput.value).width;
+            if (isFinite(textWidth)) {
+                badge.style.left = `calc(0.5rem + ${textWidth / 2}px)`;
+                return;
+            }
+        }
+
+        // В случае невозможности измерить ширину текста
+        badge.style.left = '0.5rem';
+    };
+
+    /**
      * Отображает бейдж репутации над полем ФИО с нахлёстом.
      * При необходимости создаёт элемент и применяет цветовое оформление.
      * @param {{reputationDisplayName?: string, colorClass?: string}} repData - данные о репутации
@@ -521,9 +545,9 @@ function autoFillFullName() {
             'small',
             'position-absolute',
             'top-0',
-            'start-50',
             'translate-middle',
             'reputation-badge',
+            'rounded-pill',
             'd-none'
         ];
         let badge = document.getElementById('reputationBadge');
@@ -549,6 +573,9 @@ function autoFillFullName() {
             badge.textContent = '';
             badge.classList.add('d-none');
         }
+
+        // Обновляем позицию бейджа после изменения содержимого
+        positionReputationBadge();
     };
 
     /**
@@ -617,6 +644,10 @@ function autoFillFullName() {
                 togglePhoneRequestState(false);
             });
     };
+
+    // Обновляем позицию бейджа при вводе ФИО
+    fullNameInput.addEventListener('input', positionReputationBadge);
+    positionReputationBadge();
 
     // Назначаем обработчики: при изменении и потере фокуса телефона
     ['blur', 'change'].forEach(evt => phoneInput.addEventListener(evt, requestHandler));
