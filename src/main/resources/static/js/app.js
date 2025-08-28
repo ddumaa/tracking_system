@@ -452,16 +452,38 @@ function initTelegramNotificationsToggle() {
 }
 
 // Инициализация переключателя для ввода телефона
+/**
+ * Инициализирует переключение отображения номера телефона.
+ * <p>
+ * Принцип единственной ответственности (SRP): функция управляет
+ * лишь видимостью блока телефона и запускает связанные
+ * механизмы, не вмешиваясь в их реализацию.
+ * </p>
+ */
 function initializePhoneToggle() {
     const toggle = document.getElementById("togglePhone");
     const phoneField = document.getElementById("phoneField");
+    const phoneInput = document.getElementById("phone");
+    const toggleFullName = document.getElementById("toggleFullName");
+    const fullNameField = document.getElementById("fullNameField");
 
-    if (toggle && phoneField) {
+    if (toggle && phoneField && phoneInput && toggleFullName && fullNameField) {
         // Первичное состояние
         toggleFieldsVisibility(toggle, phoneField);
 
         // Единый обработчик для переключения
-        const handler = () => toggleFieldsVisibility(toggle, phoneField);
+        const handler = () => {
+            toggleFieldsVisibility(toggle, phoneField);
+
+            if (!toggle.checked) {
+                // При скрытии номера очищаем телефонные данные и блок ФИО,
+                // чтобы соблюсти бизнес-логику и не хранить лишние сведения
+                phoneInput.value = "";
+                toggleFullName.checked = false;
+                // Запуск обновления состояния ФИО через существующую логику
+                phoneInput.dispatchEvent(new Event('input'));
+            }
+        };
         toggle.addEventListener('change', handler);
     }
 }
