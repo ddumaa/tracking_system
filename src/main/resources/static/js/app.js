@@ -61,6 +61,14 @@ function promptTrackNumber(id) {
 // Экспортируем функцию, чтобы она была доступна из HTML-разметки
 window.promptTrackNumber = promptTrackNumber;
 
+// Делегируем клики по кнопкам добавления трек‑номера, исключая уже открывающие модали
+document.body.addEventListener('click', e => {
+    const btn = e.target.closest('button.parcel-number:not(.open-modal)');
+    if (btn) {
+        promptTrackNumber(btn.dataset.id);
+    }
+});
+
 /**
  * Копирует текст в буфер обмена и показывает уведомление о результате.
  * @param {string} text - копируемый текст
