@@ -28,6 +28,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Контроллер для отображения и управления историей отслеживания посылок пользователя.
@@ -256,21 +257,51 @@ public class DeparturesController {
      * @param user            текущий пользователь
      * @return перенаправление на страницу истории.
      */
+    /**
+     * Удаляет выбранные пользователем посылки.
+     * <p>
+     * Удаление может происходить как по трек-номерам, так и по идентификаторам
+     * (для предрегистрационных посылок без номера). Пустые значения
+     * и служебные значения фильтруются на стороне сервера.
+     * </p>
+     *
+     * @param selectedNumbers список трек-номеров
+     * @param selectedIds     список идентификаторов посылок
+     * @param user            текущий пользователь
+     * @return результат операции удаления
+     */
     @PostMapping("/delete-selected")
     public ResponseEntity<?> deleteSelected(
-            @RequestParam List<String> selectedNumbers,
+            @RequestParam(value = "selectedNumbers", required = false) List<String> selectedNumbers,
+            @RequestParam(value = "selectedIds", required = false) List<Long> selectedIds,
             @AuthenticationPrincipal User user) {
         Long userId = user.getId();
-        log.info("Запрос на удаление посылок {} для пользователя с ID: {}", selectedNumbers, userId);
+        log.info("Запрос на удаление посылок {} и ID {} для пользователя с ID: {}", selectedNumbers, selectedIds, userId);
 
-        if (selectedNumbers == null || selectedNumbers.isEmpty()) {
+        // Отбрасываем пустые значения и служебное значение "on"
+        List<String> filteredNumbers = selectedNumbers == null ? List.of() :
+                selectedNumbers.stream()
+                        .filter(num -> num != null && !num.isBlank() && !"on".equalsIgnoreCase(num))
+                        .toList();
+        List<Long> filteredIds = selectedIds == null ? List.of() :
+                selectedIds.stream().filter(Objects::nonNull).toList();
+
+        boolean hasNumbers = !filteredNumbers.isEmpty();
+        boolean hasIds = !filteredIds.isEmpty();
+
+        if (!hasNumbers && !hasIds) {
             log.warn("Попытка удаления без выбранных посылок пользователем с ID: {}", userId);
             return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Ошибка: Не выбраны посылки для удаления.");
         }
 
         try {
-            trackFacade.deleteByNumbersAndUserId(selectedNumbers, userId);
-            log.info("Выбранные посылки {} удалены пользователем с ID: {}", selectedNumbers, userId);
+            if (hasNumbers) {
+                trackFacade.deleteByNumbersAndUserId(filteredNumbers, userId);
+            }
+            if (hasIds) {
+                trackFacade.deleteByIdsAndUserId(filteredIds, userId);
+            }
+            log.info("Выбранные посылки удалены пользователем с ID: {}", userId);
             webSocketController.sendUpdateStatus(userId, "Выбранные посылки успешно удалены.", true);
             return ResponseBuilder.ok("Выбранные посылки успешно удалены.");
         } catch (EntityNotFoundException ex) {
@@ -278,7 +309,7 @@ public class DeparturesController {
             webSocketController.sendUpdateStatus(userId, ex.getMessage(), false);
             return ResponseBuilder.error(HttpStatus.NOT_FOUND, ex.getMessage());
         } catch (Exception e) {
-            log.error("Ошибка при удалении посылок {} пользователем с ID: {}: {}", selectedNumbers, userId, e.getMessage(), e);
+            log.error("Ошибка при удалении посылок пользователем с ID: {}: {}", userId, e.getMessage(), e);
             webSocketController.sendUpdateStatus(userId, "Ошибка при удалении посылок.", false);
             return ResponseBuilder.error(HttpStatus.INTERNAL_SERVER_ERROR, "Ошибка при удалении посылок.");
         }

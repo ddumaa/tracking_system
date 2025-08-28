@@ -1942,13 +1942,25 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // === Обработчик кнопки "Применить" ===
     document.getElementById("applyActionBtn")?.addEventListener("click", function () {
-        const selectedNumbers = Array.from(document.querySelectorAll(".selectCheckbox:checked"))
-            .map(checkbox => checkbox.value);
+        const selectedCheckboxes = Array.from(document.querySelectorAll(".selectCheckbox:checked"));
+        const selectedNumbers = [];
+        const selectedIds = [];
+
+        selectedCheckboxes.forEach(cb => {
+            const number = cb.value;
+            const id = cb.getAttribute('data-id');
+
+            if (number && number !== 'on') {
+                selectedNumbers.push(number);
+            } else if (id) {
+                selectedIds.push(id);
+            }
+        });
 
         const selectedAction = document.getElementById("actionSelect").value;
         const applyBtn = document.getElementById("applyActionBtn");
 
-        if (selectedNumbers.length === 0) {
+        if (selectedNumbers.length === 0 && selectedIds.length === 0) {
             notifyUser("Выберите хотя бы одну посылку.", "warning");
             return;
         }
@@ -1962,7 +1974,7 @@ document.addEventListener("DOMContentLoaded", function () {
         applyBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Выполняется...';
 
         if (selectedAction === "delete") {
-            sendDeleteRequest(selectedNumbers, applyBtn);
+            sendDeleteRequest(selectedNumbers, selectedIds, applyBtn);
         } else if (selectedAction === "update") {
             sendUpdateRequest(selectedNumbers, applyBtn);
         }
@@ -2083,12 +2095,13 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // === Функция отправки запроса на удаление ===
-    function sendDeleteRequest(selectedNumbers, applyBtn) {
+    function sendDeleteRequest(selectedNumbers, selectedIds, applyBtn) {
         applyBtn.disabled = true;
         applyBtn.innerHTML = "Удаление...";
 
         const formData = new URLSearchParams();
         selectedNumbers.forEach(number => formData.append("selectedNumbers", number));
+        selectedIds.forEach(id => formData.append("selectedIds", id));
 
         fetch("/app/departures/delete-selected", {
             method: "POST",

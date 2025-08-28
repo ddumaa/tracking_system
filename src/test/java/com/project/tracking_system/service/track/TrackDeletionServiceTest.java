@@ -69,6 +69,38 @@ class TrackDeletionServiceTest {
     }
 
     /**
+     * Проверяет удаление посылок по идентификаторам.
+     */
+    @Test
+    void deleteByIdsAndUserId_DeletesParcels() {
+        List<Long> ids = List.of(1L, 2L);
+        TrackParcel first = buildParcel("T1");
+        TrackParcel second = buildParcel("T2");
+        List<TrackParcel> parcels = List.of(first, second);
+        when(trackParcelRepository.findByIdInAndUserId(ids, 1L)).thenReturn(parcels);
+
+        service.deleteByIdsAndUserId(ids, 1L);
+
+        verify(trackParcelRepository).findByIdInAndUserId(ids, 1L);
+        verify(deliveryHistoryService).handleTrackParcelBeforeDelete(first);
+        verify(deliveryHistoryService).handleTrackParcelBeforeDelete(second);
+        verify(trackParcelRepository).deleteAll(parcels);
+    }
+
+    /**
+     * Проверяет, что отсутствие посылок по ID приводит к ошибке.
+     */
+    @Test
+    void deleteByIdsAndUserId_NoParcelsFound_ThrowsException() {
+        List<Long> ids = List.of(1L);
+        when(trackParcelRepository.findByIdInAndUserId(ids, 2L)).thenReturn(List.of());
+
+        assertThrows(RuntimeException.class, () -> service.deleteByIdsAndUserId(ids, 2L));
+        verify(trackParcelRepository).findByIdInAndUserId(ids, 2L);
+        verify(trackParcelRepository, never()).deleteAll(any());
+    }
+
+    /**
      * Создаёт тестовую посылку с историей доставки.
      */
     private static TrackParcel buildParcel(String number) {

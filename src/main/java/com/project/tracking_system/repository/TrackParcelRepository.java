@@ -30,6 +30,15 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
 
     List<TrackParcel> findByNumberInAndUserId(List<String> numbers, Long userId);
 
+    /**
+     * Найти посылки по списку идентификаторов пользователя.
+     *
+     * @param ids    список идентификаторов посылок
+     * @param userId идентификатор пользователя
+     * @return список найденных посылок
+     */
+    List<TrackParcel> findByIdInAndUserId(List<Long> ids, Long userId);
+
     TrackParcel findByNumberAndStoreIdAndUserId(String number, Long storeId, Long userId);
 
     Page<TrackParcel> findByUserId(Long userId, Pageable pageable);
