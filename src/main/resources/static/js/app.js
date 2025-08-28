@@ -61,14 +61,6 @@ function promptTrackNumber(id) {
 // Экспортируем функцию, чтобы она была доступна из HTML-разметки
 window.promptTrackNumber = promptTrackNumber;
 
-// Делегируем клики по кнопкам добавления трек‑номера, исключая уже открывающие модали
-document.body.addEventListener('click', e => {
-    const btn = e.target.closest('button.parcel-number:not(.open-modal)');
-    if (btn) {
-        promptTrackNumber(btn.dataset.id);
-    }
-});
-
 /**
  * Отправляет трек-номер на сервер и обновляет интерфейс.
  * @param {SubmitEvent} event событие отправки формы
@@ -1851,6 +1843,15 @@ document.addEventListener("DOMContentLoaded", function () {
      */
     document.body.addEventListener("click", function (event) {
         const target = event.target;
+
+        // Перехватываем клики по кнопкам добавления трек-номера,
+        // которые ещё не открывали модальное окно
+        const trackBtn = event.target.closest('button.parcel-number:not(.open-modal)');
+        if (trackBtn) {
+            // Показываем модаль с вводом трек-номера
+            promptTrackNumber(trackBtn.dataset.id);
+            return;
+        }
 
         // Открытие модального окна с деталями отправления
         // Ищем только элементы с классом .open-modal, чтобы не перехватывать клики по другим кнопкам
