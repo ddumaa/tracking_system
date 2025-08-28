@@ -637,6 +637,10 @@ button:hover {
   border-radius: 8px !important;
 }
 
+.reputation-badge {
+  z-index: 1;
+}
+
 .card {
   background: #ffffff;
   border-radius: 10px;

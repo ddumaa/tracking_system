@@ -510,21 +510,30 @@ function autoFillFullName() {
     if (!phoneInput || !fullNameInput || !toggleFullName) return;
 
     /**
-     * Отображает бейдж репутации рядом с полем ФИО.
-     * Создаёт элемент при необходимости и применяет цветовое оформление.
+     * Отображает бейдж репутации над полем ФИО с нахлёстом.
+     * При необходимости создаёт элемент и применяет цветовое оформление.
      * @param {{reputationDisplayName?: string, colorClass?: string}} repData - данные о репутации
      */
     const renderReputationBadge = (repData) => {
         // Базовые классы бейджа, сохраняющиеся при сбросе состояния
-        const baseClasses = ['ms-2', 'small'];
+        const baseClasses = [
+            'badge',
+            'small',
+            'position-absolute',
+            'top-0',
+            'start-50',
+            'translate-middle',
+            'reputation-badge',
+            'd-none'
+        ];
         let badge = document.getElementById('reputationBadge');
 
-        // Если бейджа ещё нет в DOM, создаём его рядом с полем ФИО
+        // Если бейджа ещё нет в DOM, создаём его внутри контейнера поля ФИО
         if (!badge) {
             badge = document.createElement('span');
             badge.id = 'reputationBadge';
             badge.classList.add(...baseClasses);
-            fullNameInput.insertAdjacentElement('afterend', badge);
+            fullNameInput.parentElement.appendChild(badge);
         } else {
             // Сбрасываем классы к базовым при повторных вызовах
             badge.className = baseClasses.join(' ');
@@ -534,9 +543,11 @@ function autoFillFullName() {
         if (repData.reputationDisplayName && repData.colorClass) {
             badge.textContent = repData.reputationDisplayName;
             badge.classList.add(repData.colorClass);
+            badge.classList.remove('d-none');
         } else {
-            // При отсутствии данных очищаем содержимое бейджа
+            // При отсутствии данных скрываем бейдж и очищаем его содержимое
             badge.textContent = '';
+            badge.classList.add('d-none');
         }
     };
 
