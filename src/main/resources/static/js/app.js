@@ -514,7 +514,7 @@ function autoFillFullName() {
         phoneValid = !getPhoneError(sanitizePhone(phoneInput.value));
 
         if (!phoneValid) {
-            // Номер невалиден — скрываем чекбокс и очищаем поле ФИО
+            // Номер невалиден — сбрасываем состояние чекбокса и очищаем поле ФИО
             toggleFullName.checked = false;
             fullNameInput.value = '';
         }
@@ -523,13 +523,13 @@ function autoFillFullName() {
 
         fullNameInput.disabled = !allowFullName; // блокируем поле до выполнения условий
 
-        // Чекбокс недоступен до успешной валидации телефона
+        // Чекбокс остаётся в DOM для ясности интерфейса,
+        // но активируется лишь после прохождения валидации телефона
         toggleFullName.disabled = !phoneValid;
         const wrapper = toggleFullName.closest('.form-check') || toggleFullName.labels?.[0];
 
-        // Скрываем и приглушаем чекбокс до появления валидного номера
-        wrapper?.classList.toggle('d-none', !phoneValid); // появится после успешной валидации
-        wrapper?.classList.toggle('opacity-50', !phoneValid); // визуально блокируем
+        // Визуально блокируем чекбокс до появления валидного номера
+        wrapper?.classList.toggle('opacity-50', !phoneValid);
 
         toggleFieldsVisibility(toggleFullName, fullNameField);
     };
