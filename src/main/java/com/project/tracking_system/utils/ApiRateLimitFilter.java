@@ -80,8 +80,22 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
             return;
         }
 
-        response.setStatus(HttpServletResponse.SC_TOO_MANY_REQUESTS);
+
+        //response.setStatus(HttpServletResponse.SC_TOO_MANY_REQUESTS);
         response.setContentType("text/plain;charset=UTF-8");
         response.getWriter().write("Превышен лимит запросов.");
+        setTooManyRequests(response);
     }
+
+    /**
+     * Устанавливает статус HTTP 429 (Too Many Requests).
+     * Метод вызывается, когда клиент превысил лимит запросов.
+     *
+     * @param response объект ответа, в котором устанавливается статус
+     */
+    private void setTooManyRequests(HttpServletResponse response) {
+        // 429 - Клиент отправил слишком много запросов
+        response.setStatus(429);
+    }
+
 }
