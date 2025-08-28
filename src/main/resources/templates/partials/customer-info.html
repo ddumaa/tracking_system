@@ -98,7 +98,8 @@
                     <div class="modal-body">
                         <ul class="list-group" th:if="${!events.isEmpty()}">
                             <li class="list-group-item" th:each="ev : ${events}">
-                                <span th:text="${#dates.format(ev.createdAt, 'dd.MM.yyyy HH:mm')}"></span>
+                                <!-- Форматируем дату события с учётом поддержки java.time -->
+                                <span th:text="${#temporals.format(ev.createdAt, 'dd.MM.yyyy HH:mm')}"></span>
                                 <span class="ms-2" th:text="${ev.status}"></span>
                             </li>
                         </ul>
