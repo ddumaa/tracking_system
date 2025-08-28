@@ -641,12 +641,12 @@ function autoFillFullName() {
     };
 
     /**
-     * Валидирует введённый номер телефона и отображает результат.
-     * Реализует единственную ответственность (SRP): работу с DOM
-     * и визуализацию состояния поля ввода.
+     * Валидирует введённый номер телефона и управляет отображением ошибки.
+     * Отвечает только за визуализацию состояния поля ввода (SRP).
+     * @param {boolean} showError - отображать ли сообщение об ошибке
      * @returns {string} текст ошибки или пустая строка
      */
-    const validatePhoneInput = () => {
+    const validatePhoneInput = (showError = false) => {
         const phone = sanitizePhone(phoneInput.value);
         const errorText = getPhoneError(phone);
 
@@ -660,11 +660,13 @@ function autoFillFullName() {
                   : phoneInput.insertAdjacentElement('afterend', errorEl);
         }
 
-        if (errorText) {
+        if (errorText && showError) {
+            // При необходимости показываем текст ошибки и подсветку
             errorEl.textContent = errorText;
             errorEl.classList.remove('d-none');
             phoneInput.classList.add('is-invalid');
         } else {
+            // При скрытии ошибки очищаем подсказку и стили
             errorEl.textContent = '';
             errorEl.classList.add('d-none');
             phoneInput.classList.remove('is-invalid');
@@ -680,19 +682,32 @@ function autoFillFullName() {
 
     // Обработчики изменений: каждая функция решает свою задачу (SRP)
     toggleFullName.addEventListener('change', updateFullNameState);
+
+    // При вводе номера скрываем ошибку и обновляем состояние поля ФИО
     phoneInput.addEventListener('input', () => {
-        validatePhoneInput();
+        validatePhoneInput(false);
         updateFullNameState();
     });
 
+    // При фокусе убираем подсказку об ошибке
+    phoneInput.addEventListener('focus', () => {
+        validatePhoneInput(false);
+    });
+
+    // При потере фокуса показываем ошибку и при валидном номере отправляем запрос
+    phoneInput.addEventListener('blur', () => {
+        const error = validatePhoneInput(true);
+        updateFullNameState();
+        if (!error) {
+            requestHandler();
+        }
+    });
+
     /**
-     * Обрабатывает ввод телефона: очищает, проверяет и при валидности запрашивает ФИО.
-     * Повторный запрос для того же номера не выполняется.
+     * Отправляет запрос за данными покупателя по номеру телефона.
+     * Предполагает, что валидация выполнена заранее (принцип SRP).
      */
     const requestHandler = () => {
-        const error = validatePhoneInput();
-        if (error) return;
-
         const phone = sanitizePhone(phoneInput.value);
         if (!phone) return;
 
@@ -770,9 +785,6 @@ function autoFillFullName() {
     // Обновляем позицию бейджа при вводе ФИО
     fullNameInput.addEventListener('input', positionReputationBadge);
     positionReputationBadge();
-
-    // Назначаем обработчики: при изменении и потере фокуса телефона
-    ['blur', 'change'].forEach(evt => phoneInput.addEventListener(evt, requestHandler));
 }
 
 // Инициализация обязательности ввода номера посылки
