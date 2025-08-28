@@ -1,12 +1,17 @@
 package com.project.tracking_system.logging;
 
+import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.classic.spi.LoggingEvent;
+import ch.qos.logback.classic.spi.LoggingEventVO;
 import ch.qos.logback.core.filter.Filter;
 import ch.qos.logback.core.spi.FilterReply;
 import com.project.tracking_system.utils.EmailUtils;
 import com.project.tracking_system.utils.PhoneUtils;
 
+import java.util.Collections;
+import java.util.Set;
+import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 /**
@@ -23,17 +28,46 @@ public class PiiMaskingFilter extends Filter<ILoggingEvent> {
     /** Паттерн распознавания email-адреса. */
     private static final Pattern EMAIL_PATTERN = Pattern.compile("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}");
 
+    /**
+     * Оригинальные события, которые уже были обработаны.
+     * Используется {@link WeakHashMap}, чтобы избежать утечек памяти.
+     */
+    private final Set<ILoggingEvent> processedEvents =
+            Collections.synchronizedSet(Collections.newSetFromMap(new WeakHashMap<>()));
+
+    /**
+     * События, созданные фильтром и содержащие уже маскированные сообщения.
+     */
+    private final Set<ILoggingEvent> maskedEvents = ConcurrentHashMap.newKeySet();
+
     @Override
     public FilterReply decide(ILoggingEvent event) {
-        if (!(event instanceof LoggingEvent loggingEvent)) {
+        if (maskedEvents.remove(event)) {
+            // Это уже маскированное событие, просто пропускаем его.
             return FilterReply.NEUTRAL;
         }
-        String formatted = loggingEvent.getFormattedMessage();
+
+        if (!processedEvents.add(event)) {
+            // Оригинальное событие уже обработано, запрещаем повторную запись.
+            return FilterReply.DENY;
+        }
+
+        String formatted = event.getFormattedMessage();
         String masked = mask(formatted);
         if (!formatted.equals(masked)) {
-            loggingEvent.setMessage(masked);
-            loggingEvent.setArgumentArray(null);
+            // Клонируем событие, заменяем сообщение и логируем клон вместо оригинала.
+            LoggingEventVO clone = LoggingEventVO.build(event);
+            clone.setMessage(masked);
+            clone.setArgumentArray(null);
+
+            maskedEvents.add(clone);
+            Logger logger = (Logger) event.getLogger();
+            logger.callAppenders(clone);
+            return FilterReply.DENY;
         }
+
+        // Маскировка не понадобилась, удаляем из обработанных.
+        processedEvents.remove(event);
         return FilterReply.NEUTRAL;
     }
 
