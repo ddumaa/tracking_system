@@ -106,6 +106,8 @@
 // Лейбл репутации, располагающийся над полем ФИО
 .reputation-badge {
   z-index: 1;
+  border-radius: ui.$border-radius;
+  padding: 0.25rem 0.5rem;
 }
 
 // Цветовые классы бейджа репутации

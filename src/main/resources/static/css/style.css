@@ -642,6 +642,8 @@ button:hover {
 
 .reputation-badge {
   z-index: 1;
+  border-radius: 8px;
+  padding: 0.25rem 0.5rem;
 }
 
 .reputation-new {
