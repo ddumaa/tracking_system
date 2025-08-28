@@ -81,10 +81,10 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
         }
 
 
-        //response.setStatus(HttpServletResponse.SC_TOO_MANY_REQUESTS);
         response.setContentType("text/plain;charset=UTF-8");
-        response.getWriter().write("Превышен лимит запросов.");
+        // Сначала устанавливаем статус, затем пишем тело ответа
         setTooManyRequests(response);
+        response.getWriter().write("Превышен лимит запросов.");
     }
 
     /**
