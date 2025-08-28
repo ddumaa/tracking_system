@@ -142,8 +142,8 @@
                                         </td>
                                         <td class="align-middle text-center">
                                             <!-- Ячейка выравнивает содержимое по центру -->
-                                            <!-- Контейнер выравнивает иконку и номер, соблюдая SRP -->
-                                            <div class="d-flex justify-content-center align-items-center">
+                                            <!-- Контейнер выравнивает иконку и номер по одному левому краю, оставляя ячейку по центру (SRP) -->
+                                            <div class="d-inline-flex align-items-center justify-content-start">
                                                 <!-- Изменено: выводим готовое значение iconHtml из DTO -->
                                                 <span th:if="${item.iconHtml != null}" th:utext="${item.iconHtml}" class="status-icon"
                                                       th:attr="title=${item.status == 'Предрегистрация' and #strings.isEmpty(item.number) ? 'Добавьте трек-номер, чтобы начать обновлять' : null}, data-bs-toggle=${item.status == 'Предрегистрация' and #strings.isEmpty(item.number) ? 'tooltip' : null}"></span>

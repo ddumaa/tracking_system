@@ -1407,10 +1407,12 @@ button:hover {
   white-space: nowrap;
 }
 
-/* ячейка номера: иконка статуса + номер в ряд без скачков */
+/* иконка статуса: фиксируем ширину и выравниваем номер без скачков */
 .history-table .status-icon {
   display: inline-flex;
   align-items: center;
+  justify-content: center; /* центрируем иконку в пределах выделенного места */
+  width: 1.5rem; /* фиксированная ширина, чтобы иконки занимали одинаковое место слева */
   margin-right: 0.25rem;
 }
 
