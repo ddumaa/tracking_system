@@ -107,4 +107,14 @@ public class TrackFacade {
         trackDeletionService.deleteByNumbersAndUserId(numbers, userId);
     }
 
+    /**
+     * Удаляет треки пользователя по их идентификаторам.
+     *
+     * @param ids    список идентификаторов посылок
+     * @param userId идентификатор пользователя
+     */
+    public void deleteByIdsAndUserId(List<Long> ids, Long userId) {
+        trackDeletionService.deleteByIdsAndUserId(ids, userId);
+    }
+
 }
