@@ -525,6 +525,9 @@ function autoFillFullName() {
     // Предыдущее состояние доступности поля ФИО
     // Нужно, чтобы не запускать анимацию повторно при неизменных условиях (SOLID)
     let allowFullNamePrev = false;
+    // Флаг подавления следующего изменения чекбокса
+    // Используется для избежания повторной анимации при автоподстановке
+    let ignoreNextToggle = false;
 
     // Если нужные элементы отсутствуют, дальнейшая логика не требуется
     if (!phoneInput || !fullNameInput || !toggleFullName) return;
@@ -716,7 +719,16 @@ function autoFillFullName() {
     updateFullNameState();
 
     // Обработчики изменений: каждая функция решает свою задачу (SRP)
-    toggleFullName.addEventListener('change', updateFullNameState);
+    toggleFullName.addEventListener('change', () => {
+        // При автоподстановке мы программно активируем чекбокс.
+        // Флаг ignoreNextToggle защищает от "второго" клика и лишней анимации.
+        if (ignoreNextToggle) {
+            ignoreNextToggle = false; // Снимаем блокировку для будущих кликов
+            toggleFullName.checked = true; // Сохраняем состояние без запуска анимации
+        } else {
+            updateFullNameState(); // Обычное обновление интерфейса
+        }
+    });
 
     // При вводе номера скрываем ошибку и обновляем состояние поля ФИО
     phoneInput.addEventListener('input', () => {
@@ -734,7 +746,8 @@ function autoFillFullName() {
         const error = validatePhoneInput(true);
         updateFullNameState();
         if (!error) {
-            requestHandler();
+            // Откладываем запрос, чтобы захватить финальное состояние чекбокса
+            setTimeout(requestHandler, 0);
         }
     });
 
@@ -788,6 +801,7 @@ function autoFillFullName() {
 
                 // Активируем поле ФИО и подставляем полученное значение
                 toggleFullName.checked = true;
+                ignoreNextToggle = true; // Подавляем последующий автоматический триггер change
                 updateFullNameState(); // Управляем показом через единый метод
                 fullNameInput.value = data.fullName;
 
