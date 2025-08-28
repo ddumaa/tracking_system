@@ -616,6 +616,9 @@ button:hover {
 .input-group input {
   border-radius: 8px 0 0 8px;
 }
+.input-group input:only-child {
+  border-radius: 8px;
+}
 .input-group .btn {
   border-radius: 0 8px 8px 0;
 }
