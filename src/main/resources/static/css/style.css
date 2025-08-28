@@ -641,6 +641,26 @@ button:hover {
   z-index: 1;
 }
 
+.reputation-new {
+  background: #17a2b8;
+  color: #ffffff;
+}
+
+.reputation-reliable {
+  background: #28a745;
+  color: #ffffff;
+}
+
+.reputation-neutral {
+  background: #6c757d;
+  color: #ffffff;
+}
+
+.reputation-unreliable {
+  background: #dc3545;
+  color: #ffffff;
+}
+
 .card {
   background: #ffffff;
   border-radius: 10px;
