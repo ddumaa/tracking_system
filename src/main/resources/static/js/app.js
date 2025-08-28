@@ -498,19 +498,20 @@ function autoFillFullName() {
     let lastRequestedPhone = null;
     // Флаг активности запроса, предотвращает параллельные обращения к серверу
     let isPhoneRequestActive = false;
+    // Флаг валидности номера телефона, используется для блокировки чекбокса
+    let phoneValid = false;
 
     // Если нужные элементы отсутствуют, дальнейшая логика не требуется
     if (!phoneInput || !fullNameInput || !toggleFullName) return;
 
     /**
-     * Обновляет доступность поля ФИО и его видимость.
-     * Поле становится доступным только при активном переключателе
-     * и корректно введённом номере телефона.
-     * Пока условия не выполнены, блокируем ввод, чтобы исключить
-     * несогласованность данных между телефоном и ФИО.
+     * Обновляет доступность поля ФИО и состояние чекбокса.
+     * Функция отвечает исключительно за управление DOM,
+     * делегируя проверку номера отдельным валидаторам (принцип SRP).
      */
     const updateFullNameState = () => {
-        const phoneValid = phoneInput.value.trim() && phoneInput.checkValidity();
+        // Проверяем номер и сохраняем результат для повторного использования
+        phoneValid = !getPhoneError(sanitizePhone(phoneInput.value));
         const allowFullName = toggleFullName.checked && phoneValid;
 
         fullNameInput.disabled = !allowFullName; // блокируем поле до выполнения условий
@@ -520,16 +521,14 @@ function autoFillFullName() {
             toggleFullName.checked = false;
         }
 
+        // Чекбокс недоступен при невалидном телефоне,
+        // визуально приглушаем его для ясности (принцип SOLID)
+        toggleFullName.disabled = !phoneValid;
+        const wrapper = toggleFullName.closest('.form-check') || toggleFullName.labels?.[0];
+        wrapper?.classList.toggle('opacity-50', !phoneValid);
+
         toggleFieldsVisibility(toggleFullName, fullNameField);
     };
-
-    // Первоначальная установка состояния поля и обработчики изменений
-    updateFullNameState();
-    toggleFullName.addEventListener('change', updateFullNameState);
-    phoneInput.addEventListener('input', () => {
-        validatePhoneInput();
-        updateFullNameState();
-    });
 
     /**
      * Вычисляет позицию бейджа репутации над введённым текстом ФИО
@@ -673,6 +672,18 @@ function autoFillFullName() {
 
         return errorText;
     };
+
+    // --- Инициализация состояния телефона и ФИО
+    // Проверяем номер и актуализируем доступность элементов при загрузке страницы
+    validatePhoneInput();
+    updateFullNameState();
+
+    // Обработчики изменений: каждая функция решает свою задачу (SRP)
+    toggleFullName.addEventListener('change', updateFullNameState);
+    phoneInput.addEventListener('input', () => {
+        validatePhoneInput();
+        updateFullNameState();
+    });
 
     /**
      * Обрабатывает ввод телефона: очищает, проверяет и при валидности запрашивает ФИО.
