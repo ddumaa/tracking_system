@@ -14,6 +14,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 import java.util.Optional;
 
@@ -132,5 +134,16 @@ class CustomerServiceTest {
 
         assertTrue(result.isEmpty());
         verifyNoInteractions(customerRepository);
+    }
+
+    /**
+     * Некорректный номер телефона приводит к исключению с кодом 400.
+     */
+    @Test
+    void registerOrGetByPhone_InvalidPhone_ThrowsBadRequest() {
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> service.registerOrGetByPhone("abc"));
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+        verifyNoInteractions(transactionalService);
     }
 }

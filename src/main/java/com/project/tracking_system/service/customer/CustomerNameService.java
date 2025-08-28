@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Сервис управления ФИО покупателя, полученного от магазина.
@@ -42,7 +43,8 @@ public class CustomerNameService {
             String phone = PhoneUtils.normalizePhone(rawPhone);
             Customer customer = customerService.registerOrGetByPhone(phone);
             customerService.updateCustomerName(customer, fullName, NameSource.MERCHANT_PROVIDED, Role.ROLE_USER);
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | ResponseStatusException e) {
+            // При ошибке нормализации или регистрации покупателя просто логируем, без прерывания процесса
             log.warn("Не удалось обновить ФИО для телефона {}: {}",
                     PhoneUtils.maskPhone(rawPhone), e.getMessage());
         }

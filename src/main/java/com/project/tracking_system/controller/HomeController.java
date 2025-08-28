@@ -13,6 +13,7 @@ import com.project.tracking_system.service.track.TrackServiceClassifier;
 import com.project.tracking_system.service.track.BelPostManualService;
 import com.project.tracking_system.service.registration.PreRegistrationService;
 import com.project.tracking_system.service.customer.CustomerService;
+import com.project.tracking_system.utils.PhoneUtils;
 import com.project.tracking_system.utils.TrackNumberUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -225,7 +227,14 @@ public class HomeController {
         if (phone == null || phone.isBlank() || fullName == null || fullName.isBlank()) {
             return;
         }
-        Customer customer = customerService.registerOrGetByPhone(phone);
-        customerService.updateCustomerName(customer, fullName, NameSource.MERCHANT_PROVIDED, role);
+        try {
+            Customer customer = customerService.registerOrGetByPhone(phone);
+            customerService.updateCustomerName(customer, fullName, NameSource.MERCHANT_PROVIDED, role);
+        } catch (ResponseStatusException ex) {
+            // Сообщаем в лог и пробрасываем для ответа 400
+            log.warn("Некорректный номер телефона при обновлении имени: {}",
+                    PhoneUtils.maskPhone(phone));
+            throw ex;
+        }
     }
 }
