@@ -116,7 +116,7 @@
                                         <th class="checkbox-column">
                                             <input type="checkbox" id="selectAllCheckbox" aria-label="Выделить все посылки">
                                         </th>
-                                        <th scope="col" class="align-middle text-center">№ посылки</th><!-- Заголовок номера: выравнивание по центру -->
+                                        <th scope="col" class="align-middle text-start">№ посылки</th><!-- Заголовок номера: выравнивание по левому краю -->
                                         <th scope="col">Покупатель</th>
                                         <th scope="col" class="align-middle text-center">Статус</th><!-- Заголовок статуса: выравнивание по центру -->
                                         <th scope="col" class="align-middle text-center">
@@ -140,9 +140,9 @@
                                                title="Предрегистрация: добавьте трек-номер"
                                                data-bs-toggle="tooltip" aria-label="Нет трека"></i>
                                         </td>
-                                        <td class="align-middle text-center">
-                                            <!-- Ячейка выравнивает содержимое по центру -->
-                                            <!-- Контейнер выравнивает иконку и номер по одному левому краю, оставляя ячейку по центру (SRP) -->
+                                        <td class="align-middle text-start">
+                                            <!-- Ячейка выравнивает содержимое по левому краю -->
+                                            <!-- Контейнер выравнивает иконку и номер по одному левому краю, сохраняя общую семантику таблицы (SRP) -->
                                             <div class="d-inline-flex align-items-center justify-content-start">
                                                 <!-- Изменено: выводим готовое значение iconHtml из DTO -->
                                                 <span th:if="${item.iconHtml != null}" th:utext="${item.iconHtml}" class="status-icon"

@@ -3,14 +3,6 @@
   font-size: 2rem;
 }
 
-/* Классы текста статуса и даты наследуют выравнивание,
-   чтобы не переопределять центрирование */
-.status-text,
-.date-text {
-  text-align: inherit;
-  vertical-align: inherit;
-}
-
 .delivered {
   color: #008000;
 }
@@ -1189,6 +1181,10 @@ button:hover {
   text-align: center;
   border-bottom: 1px solid #f8f9fa;
 }
+.history-table th:nth-child(2),
+.history-table td:nth-child(2) {
+  text-align: left;
+}
 .history-table tbody tr {
   animation: fadeSlideIn 0.5s ease forwards;
 }
@@ -1407,12 +1403,10 @@ button:hover {
   white-space: nowrap;
 }
 
-/* иконка статуса: фиксируем ширину и выравниваем номер без скачков */
+/* ячейка номера: иконка статуса + номер в ряд без скачков */
 .history-table .status-icon {
   display: inline-flex;
   align-items: center;
-  justify-content: center; /* центрируем иконку в пределах выделенного места */
-  width: 1.5rem; /* фиксированная ширина, чтобы иконки занимали одинаковое место слева */
   margin-right: 0.25rem;
 }
 
@@ -1828,5 +1822,3 @@ body.loading {
   border-style: solid;
   border-color: #ddd transparent transparent transparent;
 }
-
-/*# sourceMappingURL=style.css.map */
