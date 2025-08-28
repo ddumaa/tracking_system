@@ -3,6 +3,14 @@
   font-size: 2rem;
 }
 
+/* Классы текста статуса и даты наследуют выравнивание,
+   чтобы не переопределять центрирование */
+.status-text,
+.date-text {
+  text-align: inherit;
+  vertical-align: inherit;
+}
+
 .delivered {
   color: #008000;
 }
