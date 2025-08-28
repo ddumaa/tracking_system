@@ -69,6 +69,62 @@ class TrackDeletionServiceTest {
     }
 
     /**
+     * Проверяет удаление посылок по идентификаторам.
+     */
+    @Test
+    void deleteByIdsAndUserId_DeletesParcels() {
+        List<Long> ids = List.of(1L, 2L);
+        TrackParcel first = buildParcel("T1");
+        TrackParcel second = buildParcel("T2");
+        List<TrackParcel> parcels = List.of(first, second);
+        when(trackParcelRepository.findByIdInAndUserId(ids, 1L)).thenReturn(parcels);
+
+        service.deleteByIdsAndUserId(ids, 1L);
+
+        verify(trackParcelRepository).findByIdInAndUserId(ids, 1L);
+        verify(deliveryHistoryService).handleTrackParcelBeforeDelete(first);
+        verify(deliveryHistoryService).handleTrackParcelBeforeDelete(second);
+        verify(trackParcelRepository).deleteAll(parcels);
+    }
+
+    /**
+     * Проверяет, что отсутствие посылок по ID приводит к ошибке.
+     */
+    @Test
+    void deleteByIdsAndUserId_NoParcelsFound_ThrowsException() {
+        List<Long> ids = List.of(1L);
+        when(trackParcelRepository.findByIdInAndUserId(ids, 2L)).thenReturn(List.of());
+
+        assertThrows(RuntimeException.class, () -> service.deleteByIdsAndUserId(ids, 2L));
+        verify(trackParcelRepository).findByIdInAndUserId(ids, 2L);
+        verify(trackParcelRepository, never()).deleteAll(any());
+    }
+
+    /**
+     * Проверяет, что удаление допускает посылки без номера и статусом {@code PRE_REGISTERED}.
+     */
+    @Test
+    void deleteByIdsAndUserId_AllowsNullNumbers() {
+        List<Long> ids = List.of(3L);
+
+        // Подготавливаем посылку без номера и с предварительной регистрацией
+        TrackParcel parcel = new TrackParcel();
+        parcel.setNumber(null);
+        parcel.setStatus(GlobalStatus.PRE_REGISTERED);
+
+        List<TrackParcel> parcels = List.of(parcel);
+        when(trackParcelRepository.findByIdInAndUserId(ids, 1L)).thenReturn(parcels);
+
+        // Убедимся, что выполнение не приводит к исключениям
+        assertDoesNotThrow(() -> service.deleteByIdsAndUserId(ids, 1L));
+
+        // Проверяем, что были вызваны необходимые зависимости
+        verify(trackParcelRepository).findByIdInAndUserId(ids, 1L);
+        verify(deliveryHistoryService).handleTrackParcelBeforeDelete(parcel);
+        verify(trackParcelRepository).deleteAll(parcels);
+    }
+
+    /**
      * Создаёт тестовую посылку с историей доставки.
      */
     private static TrackParcel buildParcel(String number) {

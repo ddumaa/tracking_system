@@ -69,6 +69,8 @@ public class DeliveryHistoryService {
      * накопительную статистику.
      * </p>
      *
+     * <p><strong>Безопасность:</strong> не логируем персональные данные или токены.</p>
+     *
      * @param trackParcel       посылка, у которой изменился статус
      * @param oldStatus         предыдущий статус посылки
      * @param newStatus         новый статус посылки
@@ -76,7 +78,12 @@ public class DeliveryHistoryService {
      */
     @Transactional
     public void updateDeliveryHistory(TrackParcel trackParcel, GlobalStatus oldStatus, GlobalStatus newStatus, TrackInfoListDTO trackInfoListDTO) {
-        log.info("Начало обновления истории доставки для трека {}", trackParcel.getNumber());
+        // Для PRE_REGISTERED используем debug, чтобы не засорять основное логирование
+        if (newStatus == GlobalStatus.PRE_REGISTERED) {
+            log.debug("Начало обновления истории доставки (PRE_REGISTERED) для трека {}", trackParcel.getNumber());
+        } else {
+            log.info("Начало обновления истории доставки для трека {}", trackParcel.getNumber());
+        }
 
         // Получаем историю или создаём новую
         DeliveryHistory history = deliveryHistoryRepository.findByTrackParcelId(trackParcel.getId())
@@ -90,7 +97,11 @@ public class DeliveryHistoryService {
 
         //  Если статус НЕ изменился — ничего не делаем
         if (oldStatus == null || !newStatus.equals(oldStatus)) {
-            log.info("Новый трек или статус изменился, обновляем историю...");
+            if (newStatus == GlobalStatus.PRE_REGISTERED) {
+                log.debug("Новый трек или статус PRE_REGISTERED, обновляем историю...");
+            } else {
+                log.info("Новый трек или статус изменился, обновляем историю...");
+            }
         } else {
             log.debug("Статус не изменился, обновление истории не требуется для {}", trackParcel.getNumber());
             return;
@@ -101,37 +112,45 @@ public class DeliveryHistoryService {
         DeliveryDates deliveryDates = extractDatesFromTrackInfo(trackParcel, trackInfoListDTO, userZone);
 
         // Устанавливаем дату отправки, если она доступна
-        setHistoryDate("Дата отправки", history.getSendDate(), deliveryDates.sendDate(), history::setSendDate);
+        ZonedDateTime sendDate = deliveryDates.sendDate();
+        setHistoryDate("Дата отправки", history.getSendDate(), sendDate, history::setSendDate);
 
-        if (newStatus == GlobalStatus.DELIVERED) {
-            setHistoryDate("Дата получения", history.getReceivedDate(), deliveryDates.receivedDate(), history::setReceivedDate);
-        }
+        if (newStatus != GlobalStatus.PRE_REGISTERED) {
+            if (newStatus == GlobalStatus.DELIVERED) {
+                setHistoryDate("Дата получения", history.getReceivedDate(), deliveryDates.receivedDate(), history::setReceivedDate);
+            }
 
-        if (newStatus == GlobalStatus.RETURNED) {
-            setHistoryDate("Дата возврата", history.getReturnedDate(), deliveryDates.returnedDate(), history::setReturnedDate);
-        }
+            if (newStatus == GlobalStatus.RETURNED) {
+                setHistoryDate("Дата возврата", history.getReturnedDate(), deliveryDates.returnedDate(), history::setReturnedDate);
+            }
 
-        if (history.getArrivedDate() == null && deliveryDates.arrivedDate() != null) {
-            // Фиксируем дату прибытия на пункт выдачи, даже если текущий статус уже финальный
-            setHistoryDate(
-                    "Дата прибытия на пункт выдачи",
-                    history.getArrivedDate(),
-                    deliveryDates.arrivedDate(),
-                    history::setArrivedDate
-            );
-        }
+            if (history.getArrivedDate() == null && deliveryDates.arrivedDate() != null) {
+                // Фиксируем дату прибытия на пункт выдачи, даже если текущий статус уже финальный
+                setHistoryDate(
+                        "Дата прибытия на пункт выдачи",
+                        history.getArrivedDate(),
+                        deliveryDates.arrivedDate(),
+                        history::setArrivedDate
+                );
+            }
 
-        // Считаем и обновляем среднее время доставки
-        if (newStatus.isFinal()) {
-            registerFinalStatus(history, newStatus);
+            // Считаем и обновляем среднее время доставки только для финальных статусов
+            if (newStatus.isFinal()) {
+                registerFinalStatus(history, newStatus);
+            }
         }
 
         // Сохраняем историю, если что-то изменилось
         deliveryHistoryRepository.save(history);
-        log.info("История доставки обновлена: {}", trackParcel.getNumber());
+        if (newStatus == GlobalStatus.PRE_REGISTERED) {
+            log.debug("История доставки обновлена (PRE_REGISTERED): {}", trackParcel.getNumber());
+        } else {
+            log.info("История доставки обновлена: {}", trackParcel.getNumber());
+        }
 
         // Отправляем уведомление в Telegram при выполнении условий
-        if (shouldNotifyCustomer(trackParcel, newStatus)) {
+        // Уведомления стартуют только после выхода из предрегистрации
+        if (newStatus != GlobalStatus.PRE_REGISTERED && shouldNotifyCustomer(trackParcel, newStatus)) {
             telegramNotificationService.sendStatusUpdate(trackParcel, newStatus);
             log.info("✅ Уведомление о статусе {} отправлено для трека {}", newStatus, trackParcel.getNumber());
             saveNotificationLog(trackParcel, newStatus);
@@ -157,13 +176,24 @@ public class DeliveryHistoryService {
         PostalServiceType serviceType = typeDefinitionTrackPostService.detectPostalService(trackParcel.getNumber());
         ZonedDateTime sendDate = null, receivedDate = null, returnedDate = null, arrivedDate = null;
 
-        //  Определяем дату отправки
+        //  Определяем дату отправки/регистрации
         if (serviceType == PostalServiceType.BELPOST) {
-            sendDate = DateParserUtils.parse(trackInfoList.get(trackInfoList.size() - 1).getTimex(), userZone); // Последний статус
-        } else if (serviceType == PostalServiceType.EVROPOST && trackInfoList.size() > 1) {
-            sendDate = DateParserUtils.parse(trackInfoList.get(trackInfoList.size() - 2).getTimex(), userZone); // Предпоследний статус
-        } else {
-            log.info("Европочта: Недостаточно данных для даты отправки. Трек: {}", trackParcel.getNumber());
+            // Для Белпочты берём последнюю запись
+            sendDate = DateParserUtils.parse(trackInfoList.get(trackInfoList.size() - 1).getTimex(), userZone);
+        } else if (serviceType == PostalServiceType.EVROPOST) {
+            // Для Европочты дата отправки берётся из предпоследней записи,
+            // однако если запись одна — это лишь регистрация, отправка не фиксируется
+            if (trackInfoList.size() > 1) {
+                sendDate = DateParserUtils.parse(
+                        trackInfoList.get(trackInfoList.size() - 2).getTimex(),
+                        userZone
+                );
+            } else {
+                log.info(
+                        "Европочта: единственная запись считается регистрацией, дата отправки не определена. Трек: {}",
+                        trackParcel.getNumber()
+                );
+            }
         }
 
         // Определяем дату получения или возврата
@@ -204,9 +234,17 @@ public class DeliveryHistoryService {
      *
      * @param history история доставки, содержащая даты и связанные данные
      * @param status  новый статус, достигнутый посылкой
+     *
+     * <p><strong>Безопасность:</strong> избегаем логирования персональных данных или токенов.</p>
      */
     @Transactional
     public void registerFinalStatus(DeliveryHistory history, GlobalStatus status) {
+        // Предварительная регистрация не участвует в статистике
+        if (status == GlobalStatus.PRE_REGISTERED) {
+            log.debug("Статус PRE_REGISTERED не влияет на статистику");
+            return;
+        }
+
         TrackParcel trackParcel = history.getTrackParcel();
 
         // Пропускаем обновление аналитики для неизвестной почтовой службы
@@ -370,14 +408,21 @@ public class DeliveryHistoryService {
 
     /**
      * Зарегистрировать финальный статус для посылки по её идентификатору.
+     * <p>
+     * Если история доставки для посылки отсутствует, метод корректно завершится,
+     * не выбрасывая исключение. Это позволяет безопасно вызывать метод даже
+     * сразу после создания новой посылки без полной истории.
+     * </p>
      *
      * @param parcelId идентификатор посылки
      */
     @Transactional
     public void registerFinalStatus(Long parcelId) {
-        DeliveryHistory history = deliveryHistoryRepository.findByTrackParcelId(parcelId)
-                .orElseThrow(() -> new IllegalArgumentException("История доставки не найдена"));
-        registerFinalStatus(history, history.getTrackParcel().getStatus());
+        deliveryHistoryRepository.findByTrackParcelId(parcelId)
+                .ifPresentOrElse(
+                        history -> registerFinalStatus(history, history.getTrackParcel().getStatus()),
+                        () -> log.debug("История доставки для посылки {} не найдена", parcelId)
+                );
     }
 
     /**
@@ -545,9 +590,16 @@ public class DeliveryHistoryService {
         Store store = parcel.getStore();
         StoreStatistics stats = storeAnalyticsRepository.findByStoreId(store.getId())
                 .orElseThrow(() -> new IllegalStateException("❌ Статистика для магазина не найдена"));
-        PostalServiceType serviceType = parcel.getDeliveryHistory() != null
-                ? parcel.getDeliveryHistory().getPostalService()
-                : typeDefinitionTrackPostService.detectPostalService(parcel.getNumber());
+        // История или номер могут отсутствовать у черновых треков,
+        // поэтому определяем службу максимально безопасно.
+        PostalServiceType serviceType;
+        if (parcel.getDeliveryHistory() != null) {
+            serviceType = parcel.getDeliveryHistory().getPostalService();
+        } else if (parcel.getNumber() != null) {
+            serviceType = typeDefinitionTrackPostService.detectPostalService(parcel.getNumber());
+        } else {
+            serviceType = PostalServiceType.UNKNOWN; // Номер отсутствует — определить службу невозможно
+        }
         PostalServiceStatistics psStats = null;
         boolean updatePostalStats = serviceType != PostalServiceType.UNKNOWN;
         if (updatePostalStats) {
@@ -608,7 +660,11 @@ public class DeliveryHistoryService {
         }
     }
 
-    // Проверить необходимость отправки уведомления покупателю
+    /**
+     * Определяет, нужно ли отправлять уведомление покупателю о смене статуса.
+     * Проверяет наличие идентификатора чата в Telegram, активную подписку
+     * и факт отсутствия ранее отправленного уведомления по данному статусу.
+     */
     private boolean shouldNotifyCustomer(TrackParcel parcel, GlobalStatus status) {
         Customer customer = parcel.getCustomer();
         if (customer == null || customer.getTelegramChatId() == null) {
@@ -628,7 +684,10 @@ public class DeliveryHistoryService {
         );
     }
 
-    // Сохранить лог отправленного уведомления
+    /**
+     * Сохраняет запись об отправленном уведомлении, чтобы исключить повторные отправки
+     * для одного и того же статуса.
+     */
     private void saveNotificationLog(TrackParcel parcel, GlobalStatus status) {
         CustomerNotificationLog logEntry = new CustomerNotificationLog();
         logEntry.setCustomer(parcel.getCustomer());
@@ -638,6 +697,5 @@ public class DeliveryHistoryService {
         logEntry.setSentAt(ZonedDateTime.now(ZoneOffset.UTC));
         customerNotificationLogRepository.save(logEntry);
     }
-
 
 }

@@ -23,6 +23,7 @@ public class TrackExcelParser {
     /**
      * Читает файл и извлекает все строки с данными.
      * Первая строка (заголовок) пропускается.
+     * Ожидается пять столбцов: номер, магазин, телефон, ФИО, предрегистрация.
      *
      * @param file загруженный пользователем файл
      * @return список необработанных строк
@@ -38,13 +39,10 @@ public class TrackExcelParser {
                 if (row == null) {
                     continue;
                 }
+                String number = null;
                 Cell numberCell = row.getCell(0);
-                if (numberCell == null) {
-                    continue;
-                }
-                String number = readCell(numberCell).trim();
-                if (number.isEmpty()) {
-                    continue;
+                if (numberCell != null) {
+                    number = readCell(numberCell).trim();
                 }
                 String store = null;
                 Cell storeCell = row.getCell(1);
@@ -56,7 +54,17 @@ public class TrackExcelParser {
                 if (phoneCell != null) {
                     phone = readCell(phoneCell).trim();
                 }
-                rows.add(new TrackExcelRow(number, store, phone));
+                String fullName = null;
+                Cell nameCell = row.getCell(3);
+                if (nameCell != null) {
+                    fullName = readCell(nameCell).trim();
+                }
+                boolean preRegistered = parsePreRegistration(row.getCell(4));
+                if ((number == null || number.isBlank()) && !preRegistered) {
+                    continue;
+                }
+                // Сохраняем значения строки без нормализации
+                rows.add(new TrackExcelRow(number, store, phone, fullName, preRegistered));
             }
         }
         log.info("Разобрано {} строк из файла", rows.size());
@@ -69,6 +77,19 @@ public class TrackExcelParser {
             case STRING -> cell.getStringCellValue();
             default -> "";
         };
+    }
+
+    /**
+     * Преобразует значение ячейки предрегистрации к булеву типу.
+     * Допускаются значения "1", "true", "yes", "да" (без учёта регистра).
+     */
+    private boolean parsePreRegistration(Cell cell) {
+        if (cell == null) {
+            return false;
+        }
+        String value = readCell(cell).trim().toLowerCase();
+        return value.equals("1") || value.equals("true")
+                || value.equals("yes") || value.equals("да");
     }
 
 }

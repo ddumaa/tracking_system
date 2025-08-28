@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Сервис привязки Telegram-чатов к покупателям.
@@ -53,7 +54,15 @@ public class CustomerTelegramService {
                 PhoneUtils.maskPhone(normalized), chatId);
 
         // Регистрируем покупателя при необходимости
-        Customer customer = customerService.registerOrGetByPhone(normalized);
+        Customer customer;
+        try {
+            customer = customerService.registerOrGetByPhone(normalized);
+        } catch (ResponseStatusException ex) {
+            // При некорректном телефоне информируем пользователя кодом 400
+            log.warn("Телефон {} не прошёл проверку: {}",
+                    PhoneUtils.maskPhone(normalized), ex.getReason());
+            throw ex;
+        }
 
         // Если чат уже привязан, повторная привязка игнорируется
         if (customer.getTelegramChatId() != null) {
@@ -98,6 +107,54 @@ public class CustomerTelegramService {
             log.info("✅ Покупатель {} подтвердил Telegram", customer.getId());
         }
         return customer;
+    }
+
+    /**
+     * Подтвердить имя покупателя по идентификатору чата.
+     * <p>Имя становится подтверждённым пользователем.</p>
+     *
+     * @param chatId идентификатор чата Telegram
+     * @return {@code true}, если имя подтверждено
+     */
+    @Transactional
+    public boolean confirmName(Long chatId) {
+        return customerRepository.findByTelegramChatId(chatId)
+                .map(c -> {
+                    if (c.getFullName() == null) {
+                        return false;
+                    }
+                    return customerService.updateCustomerName(c, c.getFullName(), NameSource.USER_CONFIRMED);
+                })
+                .orElse(false);
+    }
+
+    /**
+     * Обновить ФИО покупателя, введённое в Telegram.
+     *
+     * @param chatId   идентификатор чата Telegram
+     * @param fullName новое ФИО
+     * @return {@code true}, если имя успешно сохранено
+     */
+    @Transactional
+    public boolean updateNameFromTelegram(Long chatId, String fullName) {
+        return customerRepository.findByTelegramChatId(chatId)
+                .map(c -> customerService.updateCustomerName(c, fullName, NameSource.USER_CONFIRMED))
+                .orElse(false);
+    }
+
+    /**
+     * Пометить имя как неподтверждённое магазином.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    @Transactional
+    public void markNameUnconfirmed(Long chatId) {
+        customerRepository.findByTelegramChatId(chatId)
+                .ifPresent(c -> {
+                    c.setNameSource(NameSource.MERCHANT_PROVIDED);
+                    c.setNameUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                    customerRepository.save(c);
+                });
     }
 
     /**

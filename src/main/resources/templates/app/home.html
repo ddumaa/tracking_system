@@ -62,23 +62,45 @@
                                data-bs-placement="right" title="Белпочта, Европочта"></i>
                         </label>
                         <div class="input-group mb-3">
-                            <input type="text" id="number" name="number" class="form-control" placeholder="Номер посылки" required>
+                            <!-- Атрибут required устанавливается динамически через JS -->
+                            <input type="text" id="number" name="number" class="form-control" placeholder="Номер посылки">
                             <button type="submit" class="btn btn-outline-primary btn-equal">Проверить</button>
                         </div>
 
-                        <!-- Переключатель для отображения поля телефона -->
-                        <div class="form-check form-switch mb-2">
-                            <input class="form-check-input" type="checkbox" id="togglePhone">
-                            <label class="form-check-label" for="togglePhone">Указать телефон покупателя</label>
+                        <!-- Переключатели дополнительных полей -->
+                        <div class="d-flex flex-wrap gap-3 mb-2">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="togglePhone">
+                                <label class="form-check-label" for="togglePhone">Указать телефон покупателя</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="togglePreRegistration" name="preRegistered">
+                                <label class="form-check-label" for="togglePreRegistration">Предрегистрация</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="toggleFullName"
+                                       th:attr="disabled=${fullNameReadOnly}? 'disabled' : null">
+                                <label class="form-check-label" for="toggleFullName">Указать ФИО</label>
+                            </div>
                         </div>
 
                         <!-- Блок поля ввода телефона -->
                         <div id="phoneField" class="mb-3 hidden">
                             <label for="phone" class="form-label fw-semibold">Номер телефона покупателя:</label>
                             <div class="input-group">
+                                <!-- Класс form-control необходим для корректной работы Bootstrap и подсветки ошибок -->
                                 <input type="text" id="phone" name="phone" class="form-control" placeholder="375XXXXXXXXX">
+                                <!-- Блок для мгновенного отображения ошибок ввода -->
+                                <div id="phoneError" class="invalid-feedback"></div>
+                                <!-- Мини-индикатор загрузки, отображается при автоподстановке ФИО -->
+                                <div id="phoneLoading" class="spinner-border spinner-border-sm text-secondary ms-2 d-none" role="status">
+                                    <span class="visually-hidden">Загрузка...</span>
+                                </div>
                             </div>
                         </div>
+
+                        <!-- Блок поля ввода ФИО подключается через фрагмент -->
+                        <div th:replace="~{partials/full-name-input :: fullNameBlock(${fullNameReadOnly})}"></div>
                     </form>
 
                     <hr class="my-3">

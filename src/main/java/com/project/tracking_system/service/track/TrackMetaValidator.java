@@ -2,12 +2,14 @@ package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.store.StoreService;
+import com.project.tracking_system.service.customer.CustomerNameService;
 import com.project.tracking_system.utils.PhoneUtils;
 import com.project.tracking_system.utils.TrackNumberUtils;
 import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.track.InvalidTrack;
 import com.project.tracking_system.service.track.InvalidTrackReason;
+import com.project.tracking_system.service.track.PreRegistrationMeta;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -51,6 +53,8 @@ public class TrackMetaValidator {
     private final StoreService storeService;
     /** Сервис определения почтовой службы трека. */
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
+    /** Сервис обновления ФИО покупателя. */
+    private final CustomerNameService customerNameService;
 
 /**
  * Валидирует сырые строки и преобразует их в {@link TrackMeta}.
@@ -59,7 +63,8 @@ public class TrackMetaValidator {
  * почтовой службе, устранение дубликатов и применение лимитов
  * пользователя. Все некорректные строки собираются в список
  * {@link InvalidTrack} и вместе с успешно обработанными номерами
- * возвращаются в {@link TrackMetaValidationResult}.
+ * возвращаются в {@link TrackMetaValidationResult}. Строки, отмеченные
+ * как предрегистрация, выделяются в отдельный список и не влияют на лимиты.
  * </p>
  *
  * @param rows   строки из XLS-файла
@@ -75,9 +80,22 @@ public class TrackMetaValidator {
         // Шаг 1: разделяем строки на валидные и некорректные
         List<InvalidTrack> invalidTracks = new ArrayList<>();
         List<TrackExcelRow> validRows = new ArrayList<>();
+        List<PreRegistrationMeta> preRegistered = new ArrayList<>();
         Set<String> seen = new HashSet<>();
 
         for (TrackExcelRow row : rows) {
+            if (row.preRegistered()) {
+                String normalized = row.number() == null ? null : TrackNumberUtils.normalize(row.number());
+                Long storeId = parseStoreId(row.store(), defaultStoreId, userId);
+                String phone = normalizePhone(row.phone());
+                String fullName = row.fullName();
+                if (phone != null && fullName != null && !fullName.isBlank()) {
+                    // Обновляем имя покупателя, если оно передано вместе с телефоном
+                    customerNameService.upsertFromStore(phone, fullName);
+                }
+                preRegistered.add(new PreRegistrationMeta(normalized, storeId, phone));
+                continue;
+            }
             String raw = row.number();
             if (raw == null || raw.isBlank()) {
                 invalidTracks.add(new InvalidTrack(null, REASON_EMPTY));
@@ -107,6 +125,11 @@ public class TrackMetaValidator {
             String number = TrackNumberUtils.normalize(row.number());
             Long storeId = parseStoreId(row.store(), defaultStoreId, userId);
             String phone = normalizePhone(row.phone());
+            String fullName = row.fullName();
+            if (phone != null && fullName != null && !fullName.isBlank()) {
+                // При наличии телефона и ФИО обновляем данные покупателя
+                customerNameService.upsertFromStore(phone, fullName);
+            }
 
             boolean isNew = trackParcelService.isNewTrack(number, storeId);
             tempMetaList.add(new TempMeta(number, storeId, phone, isNew));
@@ -136,7 +159,7 @@ public class TrackMetaValidator {
         }
 
         String message = messageBuilder.isEmpty() ? null : messageBuilder.toString().trim();
-        return new TrackMetaValidationResult(result, invalidTracks, message);
+        return new TrackMetaValidationResult(result, invalidTracks, message, preRegistered);
     }
 
     /**
@@ -176,7 +199,7 @@ public class TrackMetaValidator {
         try {
             return PhoneUtils.normalizePhone(phone);
         } catch (Exception e) {
-            log.warn("Некорректный телефон '{}' пропущен", phone);
+            log.warn("Некорректный телефон '{}' пропущен", PhoneUtils.maskPhone(phone));
             return null;
         }
     }

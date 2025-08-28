@@ -1,9 +1,16 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.CustomerInfoDTO;
+import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.entity.NameSource;
+import com.project.tracking_system.entity.User;
+import com.project.tracking_system.repository.TrackParcelRepository;
+import com.project.tracking_system.service.customer.CustomerNameEventService;
 import com.project.tracking_system.service.customer.CustomerService;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +29,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 public class CustomerController {
 
     private final CustomerService customerService;
+    private final TrackParcelRepository trackParcelRepository;
+    private final CustomerNameEventService eventService;
 
     /**
      * Возвращает данные покупателя по идентификатору посылки.
@@ -33,10 +42,25 @@ public class CustomerController {
     @GetMapping("/parcel/{parcelId}")
     public String getCustomerByParcelId(@PathVariable Long parcelId, Model model) {
         CustomerInfoDTO dto = customerService.getCustomerInfoByParcelId(parcelId);
-        model.addAttribute("customerInfo", dto);
-        model.addAttribute("notFound", dto == null);
-        model.addAttribute("trackId", parcelId);
+        populateModel(parcelId, dto, model);
         return "partials/customer-info";
+    }
+
+    /**
+     * Возвращает информацию о покупателе по номеру телефона.
+     * <p>
+     * Предусловие: параметр {@code phone} должен быть указан в запросе.
+     * Контроллер делегирует поиск сервису и формирует HTTP-ответ.
+     * </p>
+     *
+     * @param phone номер телефона покупателя
+     * @return 200 OK с данными покупателя или 404, если клиент не найден
+     */
+    @GetMapping("/name")
+    public ResponseEntity<CustomerInfoDTO> getCustomerNameByPhone(@RequestParam String phone) {
+        return customerService.getCustomerInfoByPhone(phone)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     /**
@@ -74,15 +98,55 @@ public class CustomerController {
     }
 
     /**
+     * Обновляет ФИО покупателя, привязанного к посылке.
+     * <p>
+     * Имя, ранее подтверждённое пользователем, не изменяется повторно.
+     * </p>
+     *
+     * @param trackId  идентификатор посылки
+     * @param fullName новое ФИО покупателя
+     * @param model    модель для передачи данных во фрагмент
+     * @return HTML-фрагмент с обновлённой информацией о покупателе
+     */
+    @PostMapping("/update-name")
+    public String updateName(@RequestParam Long trackId,
+                             @RequestParam String fullName,
+                             Model model,
+                             @AuthenticationPrincipal User user) {
+        Customer customer = trackParcelRepository.findById(trackId)
+                .map(track -> track.getCustomer())
+                .orElse(null);
+        if (customer != null) {
+            // Имя, подтверждённое пользователем, сервис не позволит изменить
+            customerService.updateCustomerName(customer, fullName, NameSource.MERCHANT_PROVIDED,
+                    user != null ? user.getRole() : null);
+        }
+        CustomerInfoDTO dto = customerService.getCustomerInfoByParcelId(trackId);
+        populateModel(trackId, dto, model);
+        return "partials/customer-info";
+    }
+
+    /**
      * Выполняет привязку покупателя к посылке и формирует модель представления.
      * Выделено в отдельный метод для повторного использования в разных
      * обработчиках.
      */
     private String updateCustomer(Long trackId, String phone, Model model) {
         CustomerInfoDTO dto = customerService.assignCustomerToParcel(trackId, phone);
+        populateModel(trackId, dto, model);
+        return "partials/customer-info";
+    }
+
+    /**
+     * Заполняет модель данными о покупателе и дополнительными атрибутами.
+     */
+    private void populateModel(Long trackId, CustomerInfoDTO dto, Model model) {
         model.addAttribute("customerInfo", dto);
         model.addAttribute("notFound", dto == null);
         model.addAttribute("trackId", trackId);
-        return "partials/customer-info";
+        Customer customer = trackParcelRepository.findById(trackId)
+                .map(track -> track.getCustomer())
+                .orElse(null);
+        model.addAttribute("events", eventService.getRecentEvents(customer));
     }
 }

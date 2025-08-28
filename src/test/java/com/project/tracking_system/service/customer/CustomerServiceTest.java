@@ -1,13 +1,21 @@
 package com.project.tracking_system.service.customer;
 
 import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.repository.CustomerRepository;
+import com.project.tracking_system.repository.TrackParcelRepository;
+import com.project.tracking_system.service.SubscriptionService;
+import com.project.tracking_system.service.user.UserSettingsService;
+import com.project.tracking_system.service.customer.CustomerNameEventService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.telegram.telegrambots.meta.generics.TelegramClient;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 import java.util.Optional;
 
@@ -22,7 +30,19 @@ import static org.mockito.Mockito.*;
 class CustomerServiceTest {
 
     @Mock
+    private CustomerRepository customerRepository;
+    @Mock
+    private TrackParcelRepository trackParcelRepository;
+    @Mock
+    private SubscriptionService subscriptionService;
+    @Mock
+    private UserSettingsService userSettingsService;
+    @Mock
+    private CustomerNameEventService customerNameEventService;
+    @Mock
     private CustomerTransactionalService transactionalService;
+    @Mock
+    private TelegramClient telegramClient;
 
     @InjectMocks
     private CustomerService service;
@@ -88,5 +108,42 @@ class CustomerServiceTest {
 
         verify(transactionalService, times(4)).findByPhone("375291234567");
 
+    }
+
+    /**
+     * Проверяем, что поиск по телефону нормализует номер и обращается к репозиторию.
+     */
+    @Test
+    void findByPhone_NormalizesAndDelegatesToRepository() {
+        when(customerRepository.findByPhone("375291234567"))
+                .thenReturn(Optional.of(savedCustomer));
+
+        Optional<Customer> result = service.findByPhone("+375 (29) 123-45-67");
+
+        assertTrue(result.isPresent());
+        assertSame(savedCustomer, result.get());
+        verify(customerRepository).findByPhone("375291234567");
+    }
+
+    /**
+     * Если номер пустой, репозиторий не вызывается и возвращается пустой результат.
+     */
+    @Test
+    void findByPhone_BlankPhone_ReturnsEmpty() {
+        Optional<Customer> result = service.findByPhone("   ");
+
+        assertTrue(result.isEmpty());
+        verifyNoInteractions(customerRepository);
+    }
+
+    /**
+     * Некорректный номер телефона приводит к исключению с кодом 400.
+     */
+    @Test
+    void registerOrGetByPhone_InvalidPhone_ThrowsBadRequest() {
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> service.registerOrGetByPhone("abc"));
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+        verifyNoInteractions(transactionalService);
     }
 }

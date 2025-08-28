@@ -1,6 +1,7 @@
 package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.dto.TrackParcelDTO;
+import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.PostalServiceType;
@@ -8,11 +9,14 @@ import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.utils.PhoneUtils;
+import com.project.tracking_system.exception.TrackNumberAlreadyExistsException;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,7 +24,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Базовый сервис для работы с посылками пользователя.
@@ -82,7 +90,7 @@ public class TrackParcelService {
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<TrackParcel> trackParcels = trackParcelRepository.findByStoreIdIn(storeIds, pageable);
         ZoneId userZone = userService.getUserZone(userId);
-        return trackParcels.map(track -> new TrackParcelDTO(track, userZone));
+        return trackParcels.map(track -> toDto(track, userZone));
     }
 
     /**
@@ -108,7 +116,115 @@ public class TrackParcelService {
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<TrackParcel> trackParcels = trackParcelRepository.findByStoreIdInAndStatus(storeIds, status, pageable);
         ZoneId userZone = userService.getUserZone(userId);
-        return trackParcels.map(track -> new TrackParcelDTO(track, userZone));
+        return trackParcels.map(track -> toDto(track, userZone));
+    }
+
+    /**
+     * Возвращает страницу предзарегистрированных посылок.
+     *
+     * @param page      номер страницы
+     * @param size      размер страницы
+     * @param sortOrder порядок сортировки: {@code "asc"} или {@code "desc"}
+     * @return страница предзарегистрированных посылок
+     */
+    @Transactional(readOnly = true)
+    public Page<TrackParcelDTO> findPreRegistered(int page,
+                                                  int size,
+                                                  String sortOrder) {
+        Sort sort = Sort.by("timestamp");
+        sort = "asc".equalsIgnoreCase(sortOrder) ? sort.ascending() : sort.descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        Page<TrackParcel> parcels = trackParcelRepository.findByPreRegisteredTrue(pageable);
+        return parcels.map(track -> toDto(
+                track,
+                userService.getUserZone(track.getUser().getId())));
+    }
+
+    /**
+     * Находит посылки со статусом {@link GlobalStatus#PRE_REGISTERED} или отмеченные как предзарегистрированные.
+     * <p>
+     * Метод объединяет результаты двух запросов:
+     * <ul>
+     *     <li>посылки выбранных магазинов в статусе {@code PRE_REGISTERED};</li>
+     *     <li>посылки с флагом {@code preRegistered=true} тех же магазинов.</li>
+     * </ul>
+     * Результат сортируется по времени добавления и постранично возвращается пользователю.
+     * </p>
+     *
+     * @param storeIds  идентификаторы магазинов
+     * @param page      номер страницы
+     * @param size      размер страницы
+     * @param userId    идентификатор пользователя
+     * @param sortOrder порядок сортировки: {@code "asc"} или {@code "desc"}
+     * @return страница подходящих посылок
+     */
+    @Transactional(readOnly = true)
+    public Page<TrackParcelDTO> findByStoreTracksWithPreRegistered(List<Long> storeIds,
+                                                                   int page,
+                                                                   int size,
+                                                                   Long userId,
+                                                                   String sortOrder) {
+        Sort sort = Sort.by("timestamp");
+        sort = "asc".equalsIgnoreCase(sortOrder) ? sort.ascending() : sort.descending();
+
+        // Загружаем все посылки в статусе PRE_REGISTERED для указанных магазинов
+        List<TrackParcel> statusParcels = trackParcelRepository
+                .findByStoreIdInAndStatus(storeIds, GlobalStatus.PRE_REGISTERED, Pageable.unpaged())
+                .getContent();
+
+        // Загружаем все посылки с флагом preRegistered=true и фильтруем по магазинам
+        List<TrackParcel> preRegisteredParcels = trackParcelRepository
+                .findByPreRegisteredTrue(Pageable.unpaged())
+                .stream()
+                .filter(parcel -> storeIds.contains(parcel.getStore().getId()))
+                .toList();
+
+        // Объединяем результаты без дубликатов по идентификатору
+        Map<Long, TrackParcel> mergedMap = new LinkedHashMap<>();
+        statusParcels.forEach(parcel -> mergedMap.put(parcel.getId(), parcel));
+        preRegisteredParcels.forEach(parcel -> mergedMap.put(parcel.getId(), parcel));
+        List<TrackParcel> merged = new ArrayList<>(mergedMap.values());
+
+        // Сортируем объединённый список
+        Comparator<TrackParcel> comparator = Comparator.comparing(TrackParcel::getTimestamp);
+        if (sort.isSorted() && sort.iterator().next().isDescending()) {
+            comparator = comparator.reversed();
+        }
+        merged.sort(comparator);
+
+        // Формируем страницу результатов
+        int start = Math.min(page * size, merged.size());
+        int end = Math.min(start + size, merged.size());
+        ZoneId userZone = userService.getUserZone(userId);
+        List<TrackParcelDTO> content = merged.subList(start, end)
+                .stream()
+                .map(track -> toDto(track, userZone))
+                .toList();
+
+        return new PageImpl<>(content, PageRequest.of(page, size, sort), merged.size());
+    }
+
+    /**
+     * Возвращает посылки в указанном статусе без учёта магазина.
+     *
+     * @param status    статус посылки
+     * @param page      номер страницы
+     * @param size      размер страницы
+     * @param sortOrder порядок сортировки: {@code "asc"} или {@code "desc"}
+     * @return страница посылок в заданном статусе
+     */
+    @Transactional(readOnly = true)
+    public Page<TrackParcelDTO> findByStatus(GlobalStatus status,
+                                             int page,
+                                             int size,
+                                             String sortOrder) {
+        Sort sort = Sort.by("timestamp");
+        sort = "asc".equalsIgnoreCase(sortOrder) ? sort.ascending() : sort.descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        Page<TrackParcel> parcels = trackParcelRepository.findByStatus(status, pageable);
+        return parcels.map(track -> toDto(
+                track,
+                userService.getUserZone(track.getUser().getId())));
     }
 
     /**
@@ -138,7 +254,7 @@ public class TrackParcelService {
         Page<TrackParcel> parcels = trackParcelRepository.searchByNumberOrPhone(
                 storeIds, userId, status, query, phoneDigits, pageable);
         ZoneId userZone = userService.getUserZone(userId);
-        return parcels.map(track -> new TrackParcelDTO(track, userZone));
+        return parcels.map(track -> toDto(track, userZone));
     }
 
     /**
@@ -206,7 +322,7 @@ public class TrackParcelService {
         List<TrackParcel> trackParcels = trackParcelRepository.findByStoreId(storeId);
         ZoneId userZone = userService.getUserZone(userId);
         return trackParcels.stream()
-                .map(track -> new TrackParcelDTO(track, userZone))
+                .map(track -> toDto(track, userZone))
                 .toList();
     }
 
@@ -221,7 +337,7 @@ public class TrackParcelService {
         List<TrackParcel> trackParcels = trackParcelRepository.findByUserId(userId);
         ZoneId userZone = userService.getUserZone(userId);
         return trackParcels.stream()
-                .map(track -> new TrackParcelDTO(track, userZone))
+                .map(track -> toDto(track, userZone))
                 .toList();
     }
 
@@ -245,8 +361,53 @@ public class TrackParcelService {
         ZoneId userZone = userService.getUserZone(userId);
 
         return parcels.stream()
-                .map(track -> new TrackParcelDTO(track, userZone))
+                .map(track -> toDto(track, userZone))
                 .toList();
+    }
+
+    /**
+     * Присваивает трек-номер предварительно зарегистрированной посылке пользователя.
+     * <p>
+     * Метод проверяет принадлежность посылки пользователю и наличие статуса
+     * предварительной регистрации. Дополнительно выполняется проверка
+     * уникальности трек-номера для данного пользователя. В случае отсутствия
+     * посылки или несоответствия владельца выбрасывается
+     * {@link EntityNotFoundException}, а при обнаружении дубликата номера —
+     * {@link TrackNumberAlreadyExistsException}.
+     * </p>
+     *
+     * @param parcelId идентификатор посылки
+     * @param number   трек-номер
+     * @param userId   идентификатор пользователя
+     */
+    @Transactional
+    public void assignTrackNumber(Long parcelId, String number, Long userId) {
+        TrackParcel parcel = trackParcelRepository.findByIdAndPreRegisteredTrue(parcelId);
+        if (parcel == null || !parcel.getUser().getId().equals(userId)) {
+            throw new EntityNotFoundException("Посылка не найдена");
+        }
+        if (trackParcelRepository.existsByNumberAndUserId(number, userId)) {
+            throw new TrackNumberAlreadyExistsException("Трек-номер уже привязан к другой посылке");
+        }
+        trackParcelRepository.updatePreRegisteredNumber(parcelId, number);
+    }
+
+    /**
+     * Преобразует сущность TrackParcel в DTO с данными покупателя.
+     *
+     * @param track    исходная сущность
+     * @param userZone часовой пояс пользователя
+     * @return заполненный {@link TrackParcelDTO}
+     */
+    private TrackParcelDTO toDto(TrackParcel track, ZoneId userZone) {
+        TrackParcelDTO dto = new TrackParcelDTO(track, userZone);
+        Customer customer = track.getCustomer();
+        if (customer != null) {
+            dto.setCustomerName(customer.getFullName());
+            dto.setCustomerPhone(customer.getPhone());
+            dto.setNameSource(customer.getNameSource());
+        }
+        return dto;
     }
 
 }

@@ -1,15 +1,15 @@
 package com.project.tracking_system.entity;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.AssertTrue;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
 
 /**
  * Представляет посылку с трек-номером в системе.
  */
-
-import java.time.ZonedDateTime;
-import java.time.ZoneOffset;
 
 @Getter
 @Setter
@@ -23,14 +23,31 @@ public class TrackParcel {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank(message = "Введите номер посылки")
-    @Column(name = "tracking_number", nullable = false)
+    /**
+     * Трек-номер посылки. Должен быть указан, когда посылка не
+     * предварительно зарегистрирована. При включённом флаге
+     * предварительной регистрации значение может отсутствовать
+     * или быть пустым.
+     */
+    @Column(name = "tracking_number", nullable = true)
     private String number;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private GlobalStatus status;
 
+    /**
+     * Флаг предварительной регистрации посылки. Если установлен,
+     * поле {@link #number} может быть пустым.
+     */
+    @Column(name = "pre_registered", nullable = false)
+    private boolean preRegistered = false;
+
+    /**
+     * Дата последнего статуса либо время предварительной регистрации.
+     * Заполняется автоматически при создании записи.
+     */
+    @CreationTimestamp
     @Column(name = "timestamp", nullable = false)
     private ZonedDateTime timestamp;
 
@@ -61,5 +78,47 @@ public class TrackParcel {
     @Version
     @Column(name = "version", nullable = false)
     private long version;
+
+    /**
+     * Устанавливает статус посылки и синхронизирует флаг предварительной регистрации.
+     * Инвариант: статус {@link GlobalStatus#PRE_REGISTERED} строго соответствует
+     * значению {@code preRegistered = true}.
+     *
+     * @param status новый статус посылки
+     */
+    public void setStatus(GlobalStatus status) {
+        this.status = status;
+        this.preRegistered = status == GlobalStatus.PRE_REGISTERED;
+    }
+
+    /**
+     * Устанавливает флаг предварительной регистрации и при необходимости
+     * корректирует статус.
+     * Инвариант: статус {@link GlobalStatus#PRE_REGISTERED} строго соответствует
+     * значению {@code preRegistered = true}.
+     *
+     * @param preRegistered флаг предварительной регистрации
+     */
+    public void setPreRegistered(boolean preRegistered) {
+        this.preRegistered = preRegistered;
+        if (preRegistered) {
+            this.status = GlobalStatus.PRE_REGISTERED;
+        } else if (this.status == GlobalStatus.PRE_REGISTERED) {
+            this.status = GlobalStatus.UNKNOWN_STATUS;
+        }
+    }
+
+    /**
+     * Проверяет, что трек-номер указан, если посылка не
+     * предварительно зарегистрирована.
+     * Инвариант: при {@code preRegistered = false} значение
+     * {@link #number} не должно быть пустым.
+     *
+     * @return {@code true}, если инвариант соблюдён
+     */
+    @AssertTrue(message = "Трек-номер обязателен, если посылка не предварительно зарегистрирована")
+    private boolean isTrackingNumberValid() {
+        return preRegistered || (number != null && !number.isBlank());
+    }
 }
 

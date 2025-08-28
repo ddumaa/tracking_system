@@ -32,6 +32,50 @@
                     </div>
                 </form>
             </li>
+            <li class="list-group-item">
+                <div th:if="${#strings.isEmpty(customerInfo.fullName)}">
+                    <strong>ФИО:</strong>
+                    <form id="edit-name-form" th:action="@{/app/customers/update-name}" method="post" class="mt-2">
+                        <input type="hidden" name="trackId" th:value="${trackId}">
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        <div class="input-group mb-2">
+                            <input type="text" name="fullName" class="form-control" placeholder="Иванов Иван Иванович" required>
+                            <button type="submit" class="btn btn-primary">Сохранить</button>
+                        </div>
+                    </form>
+                </div>
+                <div th:unless="${#strings.isEmpty(customerInfo.fullName)}">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>ФИО:</strong>
+                            <span th:text="${customerInfo.fullName}"></span>
+                            <i th:if="${customerInfo.nameSource == T(com.project.tracking_system.entity.NameSource).USER_CONFIRMED}"
+                               class="bi bi-check-circle-fill text-success ms-2"></i>
+                            <i th:if="${customerInfo.nameSource == T(com.project.tracking_system.entity.NameSource).MERCHANT_PROVIDED}"
+                               class="bi bi-shop text-muted ms-2" title="Источник: магазин"></i>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <button th:if="${customerInfo.nameSource != T(com.project.tracking_system.entity.NameSource).USER_CONFIRMED}"
+                                    id="editNameBtn" type="button" class="btn btn-link p-0 ms-2">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button th:if="${events != null and !events.isEmpty()}" type="button"
+                                    class="btn btn-link p-0 ms-2" data-bs-toggle="modal" data-bs-target="#nameEventsModal">
+                                История
+                            </button>
+                        </div>
+                    </div>
+                    <form th:if="${customerInfo.nameSource != T(com.project.tracking_system.entity.NameSource).USER_CONFIRMED}"
+                          id="edit-name-form" th:action="@{/app/customers/update-name}" method="post" class="mt-2 hidden">
+                        <input type="hidden" name="trackId" th:value="${trackId}">
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        <div class="input-group mb-2">
+                            <input type="text" name="fullName" class="form-control" placeholder="Иванов Иван Иванович" required>
+                            <button type="submit" class="btn btn-primary">Сохранить</button>
+                        </div>
+                    </form>
+                </div>
+            </li>
             <li class="list-group-item"><strong>Отправлено:</strong> <span th:text="${customerInfo.sentCount}"></span></li>
             <li class="list-group-item"><strong>Забрано:</strong> <span th:text="${customerInfo.pickedUpCount}"></span></li>
             <li class="list-group-item"><strong>Процент выкупа:</strong> <span th:text="${customerInfo.pickupPercentage}"></span>%</li>
@@ -41,5 +85,28 @@
                       th:class="${customerInfo.colorClass}"></span>
             </li>
         </ul>
+    </div>
+
+    <div th:if="${events != null}">
+        <div class="modal fade" id="nameEventsModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">История событий</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <ul class="list-group" th:if="${!events.isEmpty()}">
+                            <li class="list-group-item" th:each="ev : ${events}">
+                                <!-- Форматируем дату события с учётом поддержки java.time -->
+                                <span th:text="${#temporals.format(ev.createdAt, 'dd.MM.yyyy HH:mm')}"></span>
+                                <span class="ms-2" th:text="${ev.status}"></span>
+                            </li>
+                        </ul>
+                        <p th:if="${events.isEmpty()}">Нет данных</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>

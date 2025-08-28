@@ -70,6 +70,11 @@
 
   input {
     border-radius: ui.$border-radius 0 0 ui.$border-radius;
+
+    // Если внутри группы только одно поле ввода, сохраняем скругление всех углов
+    &:only-child {
+      border-radius: ui.$border-radius;
+    }
   }
 
   .btn {
@@ -96,4 +101,37 @@
 // Округление поля ввода телефона
 #phone {
   border-radius: ui.$border-radius !important;
+}
+
+// Лейбл репутации, располагающийся над полем ФИО
+.reputation-badge {
+  z-index: 1;
+  border-radius: ui.$border-radius;
+  padding: 0.25rem 0.5rem;
+}
+
+// Цветовые классы бейджа репутации
+
+// Новый клиент – голубой фон и белый текст для информативного вида
+.reputation-new {
+  background: ui.$info;
+  color: ui.$white;
+}
+
+// Надёжный клиент – зелёный фон сигнализирует о доверии
+.reputation-reliable {
+  background: ui.$success;
+  color: ui.$white;
+}
+
+// Нейтральный клиент – серый фон без акцента
+.reputation-neutral {
+  background: ui.$secondary;
+  color: ui.$white;
+}
+
+// Ненадёжный клиент – красный фон предупреждает о рисках
+.reputation-unreliable {
+  background: ui.$danger;
+  color: ui.$white;
 }

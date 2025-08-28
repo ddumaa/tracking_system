@@ -616,6 +616,9 @@ button:hover {
 .input-group input {
   border-radius: 8px 0 0 8px;
 }
+.input-group input:only-child {
+  border-radius: 8px;
+}
 .input-group .btn {
   border-radius: 0 8px 8px 0;
 }
@@ -635,6 +638,32 @@ button:hover {
 
 #phone {
   border-radius: 8px !important;
+}
+
+.reputation-badge {
+  z-index: 1;
+  border-radius: 8px;
+  padding: 0.25rem 0.5rem;
+}
+
+.reputation-new {
+  background: #17a2b8;
+  color: #ffffff;
+}
+
+.reputation-reliable {
+  background: #28a745;
+  color: #ffffff;
+}
+
+.reputation-neutral {
+  background: #6c757d;
+  color: #ffffff;
+}
+
+.reputation-unreliable {
+  background: #dc3545;
+  color: #ffffff;
 }
 
 .card {
@@ -1181,6 +1210,10 @@ button:hover {
   text-align: center;
   border-bottom: 1px solid #f8f9fa;
 }
+.history-table th:nth-child(2),
+.history-table td:nth-child(2) {
+  text-align: left;
+}
 .history-table tbody tr {
   animation: fadeSlideIn 0.5s ease forwards;
 }
@@ -1379,6 +1412,49 @@ button:hover {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+/* маленькие флаги-индикаторы: не расширяют строку */
+.small-flag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  font-size: 16px; /* чтобы иконка стала 16px */
+  line-height: 1;
+}
+
+/* колонка чекбокса — фиксированная ширина */
+.history-table .checkbox-column {
+  width: 44px; /* под кастомный чекбокс */
+  white-space: nowrap;
+}
+
+/* ячейка номера: иконка статуса + номер в ряд без скачков */
+.history-table .status-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 0.25rem;
+}
+
+/* кнопки-линки внутри таблицы — без лишних отступов и без переносов номера */
+.history-table .btn.btn-link.parcel-number {
+  padding: 0;
+  white-space: nowrap;
+}
+
+/* имя покупателя — не разрывать, телефон ниже — нормально переносится */
+.history-table td .customer-icon {
+  padding: 0;
+  white-space: nowrap;
+}
+
+/* на узких экранах разрешаем перенос ФИО, но индикаторы останутся фикс. ширины */
+@media (max-width: 576px) {
+  .history-table td .customer-icon {
+    white-space: normal;
   }
 }
 .hidden {
@@ -1775,3 +1851,11 @@ body.loading {
   border-style: solid;
   border-color: #ddd transparent transparent transparent;
 }
+
+/*# sourceMappingURL=style.css.map */
+
+/*# sourceMappingURL=style.css.map */
+
+/*# sourceMappingURL=style.css.map */
+
+/*# sourceMappingURL=style.css.map */

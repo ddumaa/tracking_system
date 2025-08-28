@@ -10,11 +10,13 @@ import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.service.customer.CustomerStatsService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.utils.DateParserUtils;
+import com.project.tracking_system.utils.PhoneUtils;
 import com.project.tracking_system.utils.TrackNumberUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.*;
 
@@ -80,22 +82,22 @@ public class TrackProcessingService {
         }
         number = TrackNumberUtils.normalize(number); // Приводим к единообразному виду
 
-        log.info("Обработка трека: {} (Пользователь ID={}, Магазин ID={})", number, userId, storeId);
+        log.debug("Начата обработка трека");
 
         // Получаем данные о треке
         TrackInfoListDTO trackInfo = typeDefinitionTrackPostService.getTypeDefinitionTrackPostService(userId, number);
 
         if (trackInfo == null || trackInfo.getList().isEmpty()) {
-            log.warn("Данных по треку {} не найдено", number);
+            log.debug("Информация по треку отсутствует");
             return trackInfo;
         }
 
         // Сохраняем трек, если пользователь авторизован и разрешено сохранять
         if (userId != null && canSave) {
             save(number, trackInfo, storeId, userId, phone);
-            log.debug("✅ Посылка сохранена: {} (UserID={}, StoreID={})", number, userId, storeId);
+            log.debug("Посылка сохранена");
         } else {
-            log.info("⏳ Трек '{}' обработан, но не сохранён.", number);
+            log.debug("Трек обработан без сохранения");
         }
 
         return trackInfo;
@@ -134,7 +136,7 @@ public class TrackProcessingService {
                      Long storeId,
                      Long userId,
                      String phone) {
-        log.info("Начало сохранения трека {} для пользователя ID={}", number, userId);
+        log.debug("Начало сохранения трека");
         if (number == null || trackInfoListDTO == null) {
             throw new IllegalArgumentException("Отсутствует посылка");
         }
@@ -166,7 +168,7 @@ public class TrackProcessingService {
             trackParcel.setNumber(number);
             trackParcel.setStore(store);
             trackParcel.setUser(user);
-            log.info("Создан новый трек {} для пользователя ID={}", number, userId);
+            log.debug("Создан новый трек");
 
         } else {
             // Запоминаем предыдущие значения для корректировки статистики
@@ -181,7 +183,13 @@ public class TrackProcessingService {
 
             // Обновляем магазин у трека
             trackParcel.setStore(newStore);
-            log.info("Обновление магазина для трека {}: с магазина {} на магазин {}", number, oldStoreId, storeId);
+            log.debug("Обновлён магазин трека");
+        }
+
+        // Для предварительно зарегистрированного трека без статусов сохраняем текущее состояние
+        if (!isNewParcel && trackParcel.isPreRegistered() && trackInfoListDTO.getList().isEmpty()) {
+            log.debug("Статусы не получены, изменения не применены");
+            return;
         }
 
         // Обновляем статус и дату трека на основе нового содержимого
@@ -200,8 +208,15 @@ public class TrackProcessingService {
         Customer previousCustomer = trackParcel.getCustomer();
         Customer customer = null;
         if (phone != null && !phone.isBlank()) {
-            customer = customerService.registerOrGetByPhone(phone);
-            trackParcel.setCustomer(customer);
+            try {
+                customer = customerService.registerOrGetByPhone(phone);
+                trackParcel.setCustomer(customer);
+            } catch (ResponseStatusException ex) {
+                // Логируем и пробрасываем исключение для корректного ответа клиенту
+                log.warn("Ошибочный телефон {} при сохранении трека: {}",
+                        PhoneUtils.maskPhone(phone), ex.getReason());
+                throw ex;
+            }
         }
 
         trackParcelRepository.save(trackParcel);
@@ -222,8 +237,7 @@ public class TrackProcessingService {
         // Обновляем историю доставки
         deliveryHistoryService.updateDeliveryHistory(trackParcel, oldStatus, newStatus, trackInfoListDTO);
 
-        log.info("Обновлено: userId={}, storeId={}, трек={}, новый статус={}",
-                userId, storeId, trackParcel.getNumber(), newStatus);
+        log.debug("Трек обновлён");
     }
 
 }

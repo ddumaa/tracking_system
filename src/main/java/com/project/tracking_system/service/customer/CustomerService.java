@@ -2,18 +2,29 @@ package com.project.tracking_system.service.customer;
 
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.dto.CustomerInfoDTO;
+import com.project.tracking_system.exception.ConfirmedNameChangeException;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.user.UserSettingsService;
+import com.project.tracking_system.service.customer.CustomerNameEventService;
 import com.project.tracking_system.model.subscription.FeatureKey;
+import com.project.tracking_system.utils.NameUtils;
 import com.project.tracking_system.utils.PhoneUtils;
+import org.springframework.beans.factory.annotation.Value;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.telegram.telegrambots.meta.generics.TelegramClient;
 
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.concurrent.TimeUnit;
 
 import java.util.Optional;
@@ -32,6 +43,13 @@ public class CustomerService {
     private final CustomerStatsService customerStatsService;
     private final SubscriptionService subscriptionService;
     private final UserSettingsService userSettingsService;
+    private final CustomerNameEventService customerNameEventService;
+    /** Клиент Telegram для отправки уведомлений. */
+    private final TelegramClient telegramClient;
+
+    /** Фича-флаг для вывода маскированных ФИО в DEBUG. */
+    @Value("${debug.log-masked-fio:false}")
+    private boolean debugLogMaskedFio;
 
     /**
      * Зарегистрировать нового покупателя или получить существующего по телефону.
@@ -46,7 +64,17 @@ public class CustomerService {
      * @return сущность покупателя
      */
     public Customer registerOrGetByPhone(String rawPhone) {
-        String phone = PhoneUtils.normalizePhone(rawPhone);
+        // Нормализуем телефон и обрабатываем ошибку формата,
+        // чтобы вернуть клиенту понятный ответ с кодом 400
+        String phone;
+        try {
+            phone = PhoneUtils.normalizePhone(rawPhone);
+        } catch (IllegalArgumentException ex) {
+            log.warn("Некорректный формат телефона {}: {}",
+                    PhoneUtils.maskPhone(rawPhone), ex.getMessage());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Некорректный номер телефона");
+        }
         log.info("🔍 Начало поиска/регистрации покупателя по телефону {}",
                 PhoneUtils.maskPhone(phone));
         // Первый поиск выполняем отдельно, чтобы не создавать дубликаты
@@ -81,6 +109,84 @@ public class CustomerService {
             throw new IllegalStateException("Покупатель не найден после ошибки сохранения");
         }
 
+    }
+
+    /**
+     * Обновляет ФИО покупателя и фиксирует событие смены имени.
+     * <p>
+     * Если имя подтверждено пользователем, попытки обновления от магазина
+     * игнорируются. При успешном изменении сохраняется событие, а предыдущие
+     * помечаются как {@code SUPERSEDED}.
+     * </p>
+     *
+     * @param customer изменяемый покупатель
+     * @param newName  новое ФИО
+     * @param source   источник данных имени
+     * @return {@code true}, если обновление было выполнено
+     */
+    @Transactional
+    public boolean updateCustomerName(Customer customer, String newName, NameSource source) {
+        return updateCustomerName(customer, newName, source, null);
+    }
+
+    /**
+     * Обновляет ФИО покупателя с учётом роли инициатора операции.
+     *
+     * @param customer  изменяемый покупатель
+     * @param newName   новое ФИО
+     * @param source    источник данных имени
+     * @param actorRole роль пользователя, выполняющего изменение
+     * @return {@code true}, если обновление выполнено
+     */
+    @Transactional
+    public boolean updateCustomerName(Customer customer, String newName, NameSource source, Role actorRole) {
+        if (customer == null || source == null || newName == null || newName.isBlank()) {
+            return false;
+        }
+        // Запрещаем магазинам менять подтверждённое имя
+        if (customer.getNameSource() == NameSource.USER_CONFIRMED
+                && source == NameSource.MERCHANT_PROVIDED) {
+            if (actorRole != Role.ROLE_ADMIN) {
+                log.warn("🚫 Попытка магазина изменить подтверждённое имя клиента ID={}", customer.getId());
+                throw new ConfirmedNameChangeException("Имя подтверждено пользователем");
+            } else {
+                log.info("⚠️ Администратор изменяет подтверждённое имя клиента ID={}", customer.getId());
+                if (debugLogMaskedFio && log.isDebugEnabled()) {
+                    log.debug("⚠️ Администратор изменяет подтверждённое имя клиента ID={} на '{}'",
+                            customer.getId(), NameUtils.maskName(newName));
+                }
+                notifyCustomer(customer, newName);
+            }
+        }
+        if (newName.equals(customer.getFullName())) {
+            return false;
+        }
+        String oldName = customer.getFullName();
+        customer.setFullName(newName);
+        customer.setNameSource(source);
+        customer.setNameUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+        customerRepository.save(customer);
+        customerNameEventService.recordEvent(customer, oldName, newName);
+        return true;
+    }
+
+    /**
+     * Отправить уведомление покупателю об изменении имени администратором.
+     *
+     * @param customer покупатель
+     * @param newName  новое ФИО
+     */
+    private void notifyCustomer(Customer customer, String newName) {
+        Long chatId = customer.getTelegramChatId();
+        if (chatId == null) {
+            return;
+        }
+        String text = "⚠️ Администратор изменил ваше имя на '" + newName + "'.";
+        try {
+            telegramClient.execute(new SendMessage(chatId.toString(), text));
+        } catch (TelegramApiException e) {
+            log.error("Ошибка отправки уведомления клиенту {}: {}", chatId, e.getMessage(), e);
+        }
     }
 
     /**
@@ -169,11 +275,48 @@ public class CustomerService {
                             parcelId);
                     return track.getCustomer();
                 })
+                // Источник имени возвращаем, чтобы клиент мог блокировать редактирование подтверждённого имени
                 .map(this::toInfoDto)
                 .orElseGet(() -> {
                     log.debug("ℹ️ Покупатель для посылки ID={} не найден", parcelId);
                     return null;
                 });
+    }
+
+    /**
+     * Найти покупателя по номеру телефона.
+     * <p>
+     * Номер нормализуется до формата {@code 375XXXXXXXXX}. При пустом значении
+     * возвращается {@link Optional#empty()}. Возможны исключения
+     * {@link IllegalArgumentException}, если номер не удаётся нормализовать.
+     * </p>
+     *
+     * @param rawPhone телефон в произвольном формате
+     * @return Optional с покупателем или {@link Optional#empty()}, если клиент не найден
+     * @throws IllegalArgumentException при неверном формате номера
+     */
+    @Transactional(readOnly = true)
+    public Optional<Customer> findByPhone(String rawPhone) {
+        if (rawPhone == null || rawPhone.isBlank()) {
+            return Optional.empty();
+        }
+        String phone = PhoneUtils.normalizePhone(rawPhone);
+        return customerRepository.findByPhone(phone);
+    }
+
+    /**
+     * Получить данные покупателя по номеру телефона.
+     * <p>
+     * Делегирует поиск методу {@link #findByPhone(String)} и не создаёт новых записей.
+     * </p>
+     *
+     * @param rawPhone телефон покупателя в произвольном формате
+     * @return Optional с информацией о покупателе или {@link Optional#empty()}, если клиент не найден
+     * @throws IllegalArgumentException при некорректном формате номера
+     */
+    @Transactional(readOnly = true)
+    public Optional<CustomerInfoDTO> getCustomerInfoByPhone(String rawPhone) {
+        return findByPhone(rawPhone).map(this::toInfoDto);
     }
 
     /**
@@ -190,7 +333,15 @@ public class CustomerService {
                 .orElseThrow(() -> new IllegalArgumentException("Посылка не найдена"));
         log.debug("📞 Привязываем телефон {} к посылке ID={}",
                 PhoneUtils.maskPhone(rawPhone), parcelId);
-        Customer newCustomer = registerOrGetByPhone(rawPhone);
+        Customer newCustomer;
+        try {
+            newCustomer = registerOrGetByPhone(rawPhone);
+        } catch (ResponseStatusException ex) {
+            // Логируем проблему и пробрасываем исключение для корректного ответа
+            log.warn("Ошибка привязки телефона {}: {}",
+                    PhoneUtils.maskPhone(rawPhone), ex.getReason());
+            throw ex;
+        }
 
         Customer current = parcel.getCustomer();
         // Если посылка уже привязана к этому же покупателю, ничего не меняем
@@ -221,6 +372,7 @@ public class CustomerService {
 
         log.debug("📈 Статистика покупателя ID={} обновлена после привязки посылки ID={}",
                 newCustomer.getId(), parcelId);
+        // Возвращаем имя и его источник, чтобы при подтверждённом имени запретить дальнейшее редактирование
         return toInfoDto(newCustomer);
     }
 
@@ -268,6 +420,8 @@ public class CustomerService {
                 : 0.0;
         return new CustomerInfoDTO(
                 customer.getPhone(),
+                customer.getFullName(),
+                customer.getNameSource(),
                 customer.getSentCount(),
                 customer.getPickedUpCount(),
                 customer.getReturnedCount(),

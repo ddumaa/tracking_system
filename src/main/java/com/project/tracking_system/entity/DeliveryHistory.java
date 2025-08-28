@@ -48,8 +48,22 @@ public class DeliveryHistory {
     @Column(name = "returned_date")
     private ZonedDateTime returnedDate;
 
-    public DeliveryHistory(TrackParcel trackParcel, Store store, PostalServiceType postalService,
-                           ZonedDateTime sendDate, ZonedDateTime receivedDate, ZonedDateTime returnedDate) {
+    /**
+     * Конструирует сущность истории доставки для указанной посылки.
+     *
+     * @param trackParcel   посылка, для которой создаётся история
+     * @param store         магазин, связанный с посылкой
+     * @param postalService используемая почтовая служба
+     * @param sendDate      дата отправки посылки
+     * @param receivedDate  дата получения посылки
+     * @param returnedDate  дата возврата посылки
+     */
+    public DeliveryHistory(TrackParcel trackParcel,
+                           Store store,
+                           PostalServiceType postalService,
+                           ZonedDateTime sendDate,
+                           ZonedDateTime receivedDate,
+                           ZonedDateTime returnedDate) {
         this.trackParcel = trackParcel;
         this.store = store;
         this.postalService = postalService;

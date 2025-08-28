@@ -22,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import com.project.tracking_system.utils.ResponseBuilder;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.project.tracking_system.exception.TrackNumberAlreadyExistsException;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -113,8 +114,14 @@ public class DeparturesController {
             trackParcelPage = trackParcelService.searchByNumberOrPhone(
                     filteredStoreIds, status, query.trim(), page, size, userId, sortOrder);
         } else if (status != null) {
-            trackParcelPage = trackParcelService.findByStoreTracksAndStatus(
-                    filteredStoreIds, status, page, size, userId, sortOrder);
+            if (status == GlobalStatus.PRE_REGISTERED) {
+                // При фильтрации по PRE_REGISTERED добавляем также предзарегистрированные посылки
+                trackParcelPage = trackParcelService.findByStoreTracksWithPreRegistered(
+                        filteredStoreIds, page, size, userId, sortOrder);
+            } else {
+                trackParcelPage = trackParcelService.findByStoreTracksAndStatus(
+                        filteredStoreIds, status, page, size, userId, sortOrder);
+            }
         } else {
             trackParcelPage = trackParcelService.findByStoreTracks(
                     filteredStoreIds, page, size, userId, sortOrder);
@@ -224,6 +231,28 @@ public class DeparturesController {
     }
 
     /**
+     * Сохраняет трек-номер для предварительно зарегистрированной посылки.
+     *
+     * @param id     идентификатор посылки
+     * @param number новый трек-номер
+     * @param user   текущий пользователь
+     * @return результат операции
+     */
+    @PostMapping("/set-number")
+    public ResponseEntity<?> setNumber(
+            @RequestParam Long id,
+            @RequestParam String number,
+            @AuthenticationPrincipal User user) {
+        try {
+            trackParcelService.assignTrackNumber(id, number, user.getId());
+            return ResponseBuilder.ok("Трек-номер добавлен");
+        } catch (TrackNumberAlreadyExistsException e) {
+            log.warn("Попытка добавить уже существующий трек-номер: {} для пользователя {}", number, user.getId());
+            return ResponseBuilder.error(HttpStatus.CONFLICT, e.getMessage());
+        }
+    }
+
+    /**
      * Метод для удаления выбранных посылок.
      * <p>
      * Удаляются посылки, выбранные пользователем в интерфейсе. В случае успеха отображается сообщение об успешном удалении.
@@ -233,21 +262,47 @@ public class DeparturesController {
      * @param user            текущий пользователь
      * @return перенаправление на страницу истории.
      */
+    /**
+     * Удаляет выбранные пользователем посылки.
+     * <p>
+     * Удаление может происходить как по трек-номерам, так и по идентификаторам
+     * (для предрегистрационных посылок без номера).
+     * </p>
+     *
+     * @param selectedNumbers список трек-номеров
+     * @param selectedIds     список идентификаторов посылок
+     * @param user            текущий пользователь
+     * @return результат операции удаления
+     */
     @PostMapping("/delete-selected")
     public ResponseEntity<?> deleteSelected(
-            @RequestParam List<String> selectedNumbers,
+            @RequestParam(value = "selectedNumbers", required = false) List<String> selectedNumbers,
+            @RequestParam(value = "selectedIds", required = false) List<Long> selectedIds,
             @AuthenticationPrincipal User user) {
         Long userId = user.getId();
-        log.info("Запрос на удаление посылок {} для пользователя с ID: {}", selectedNumbers, userId);
+        log.info("Запрос на удаление посылок {} и ID {} для пользователя с ID: {}", selectedNumbers, selectedIds, userId);
 
-        if (selectedNumbers == null || selectedNumbers.isEmpty()) {
+        boolean hasNumbers = selectedNumbers != null && selectedNumbers.stream().anyMatch(num -> num != null && !num.isBlank());
+        boolean hasIds = selectedIds != null && !selectedIds.isEmpty();
+
+        if (!hasNumbers && !hasIds) {
             log.warn("Попытка удаления без выбранных посылок пользователем с ID: {}", userId);
             return ResponseBuilder.error(HttpStatus.BAD_REQUEST, "Ошибка: Не выбраны посылки для удаления.");
         }
 
         try {
-            trackFacade.deleteByNumbersAndUserId(selectedNumbers, userId);
-            log.info("Выбранные посылки {} удалены пользователем с ID: {}", selectedNumbers, userId);
+            if (hasNumbers) {
+                List<String> filteredNumbers = selectedNumbers.stream()
+                        .filter(num -> num != null && !num.isBlank())
+                        .toList();
+                if (!filteredNumbers.isEmpty()) {
+                    trackFacade.deleteByNumbersAndUserId(filteredNumbers, userId);
+                }
+            }
+            if (hasIds) {
+                trackFacade.deleteByIdsAndUserId(selectedIds, userId);
+            }
+            log.info("Выбранные посылки удалены пользователем с ID: {}", userId);
             webSocketController.sendUpdateStatus(userId, "Выбранные посылки успешно удалены.", true);
             return ResponseBuilder.ok("Выбранные посылки успешно удалены.");
         } catch (EntityNotFoundException ex) {
@@ -255,7 +310,7 @@ public class DeparturesController {
             webSocketController.sendUpdateStatus(userId, ex.getMessage(), false);
             return ResponseBuilder.error(HttpStatus.NOT_FOUND, ex.getMessage());
         } catch (Exception e) {
-            log.error("Ошибка при удалении посылок {} пользователем с ID: {}: {}", selectedNumbers, userId, e.getMessage(), e);
+            log.error("Ошибка при удалении посылок пользователем с ID: {}: {}", userId, e.getMessage(), e);
             webSocketController.sendUpdateStatus(userId, "Ошибка при удалении посылок.", false);
             return ResponseBuilder.error(HttpStatus.INTERNAL_SERVER_ERROR, "Ошибка при удалении посылок.");
         }

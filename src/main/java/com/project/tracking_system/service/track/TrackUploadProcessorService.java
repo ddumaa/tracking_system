@@ -21,6 +21,8 @@ import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.service.track.TrackMeta;
 import com.project.tracking_system.service.track.TrackMetaValidationResult;
 import com.project.tracking_system.service.track.InvalidTrack;
+import com.project.tracking_system.service.track.PreRegistrationMeta;
+import com.project.tracking_system.service.registration.PreRegistrationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -58,6 +60,8 @@ public class TrackUploadProcessorService {
     private final TrackingResultCacheService trackingResultCacheService;
     /** Кэш некорректных треков для восстановления таблицы. */
     private final InvalidTrackCacheService invalidTrackCacheService;
+    /** Сервис предрегистрации отправлений. */
+    private final PreRegistrationService preRegistrationService;
 
     /**
      * Принимает Excel-файл, валидирует строки и конвертирует их
@@ -85,15 +89,22 @@ public class TrackUploadProcessorService {
 
         List<TrackMeta> metas;
         List<InvalidTrack> invalid = List.of();
+        List<PreRegistrationMeta> preRegistered = List.of();
         String limitMessage = null;
 
         if (userId != null) {
             // Валидация данных и применение лимитов
             TrackMetaValidationResult validationResult = trackMetaValidator.validate(rows, userId);
             invalid = validationResult.invalidTracks();
+            preRegistered = validationResult.preRegistered();
             limitMessage = validationResult.limitExceededMessage();
             // Сохраняем список некорректных строк для возможного восстановления таблицы
             invalidTrackCacheService.addInvalidTracks(userId, batchId, invalid);
+
+            for (PreRegistrationMeta pr : preRegistered) {
+                // Передаём строки предрегистрации отдельному сервису
+                preRegistrationService.preRegister(pr.number(), pr.storeId(), userId, pr.phone());
+            }
 
             metas = validationResult.validTracks().stream()
                     .filter(m -> trackUpdateEligibilityService.canUpdate(m.number(), userId))
@@ -105,12 +116,20 @@ public class TrackUploadProcessorService {
         if (metas.isEmpty()) {
             // отправляем пустой прогресс, чтобы скрыть статусбар
             progressAggregatorService.registerBatch(batchId, 0, userId);
-            webSocketController.sendUpdateStatus(
-                    userId,
-                    "Ошибка — все треки невалидны",
-                    false
-            );
-            return new TrackMetaValidationResult(List.of(), invalid, limitMessage);
+            if (preRegistered.isEmpty()) {
+                webSocketController.sendUpdateStatus(
+                        userId,
+                        "Ошибка — все треки невалидны",
+                        false
+                );
+            } else {
+                webSocketController.sendUpdateStatus(
+                        userId,
+                        "Предрегистрации выполнены, треков для проверки нет",
+                        true
+                );
+            }
+            return new TrackMetaValidationResult(List.of(), invalid, limitMessage, preRegistered);
         }
 
         progressAggregatorService.registerBatch(batchId, metas.size(), userId);
@@ -168,7 +187,7 @@ public class TrackUploadProcessorService {
         String eta = DurationUtils.formatMinutesSeconds(duration);
         webSocketController.sendTrackProcessingStarted(userId,
                 new TrackProcessingStartedDTO(metas.size(), eta, waitEta));
-        return new TrackMetaValidationResult(metas, invalid, limitMessage);
+        return new TrackMetaValidationResult(metas, invalid, limitMessage, preRegistered);
     }
 
 }

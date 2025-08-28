@@ -41,6 +41,73 @@ function hideLoading() {
 }
 
 /**
+ * Открывает модальное окно для ввода трек-номера.
+ * Отвечает только за установку идентификатора и показ модали.
+ * @param {string} id идентификатор отправления
+ */
+function promptTrackNumber(id) {
+    const idInput = document.querySelector('#set-track-number-form input[name="id"]');
+    if (idInput) {
+        idInput.value = id;
+    }
+
+    const modalEl = document.getElementById('trackNumberModal');
+    if (modalEl) {
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+    }
+}
+
+// Экспортируем функцию, чтобы она была доступна из HTML-разметки
+window.promptTrackNumber = promptTrackNumber;
+
+/**
+ * Отправляет трек-номер на сервер и обновляет интерфейс.
+ * @param {SubmitEvent} event событие отправки формы
+ */
+function handleTrackNumberFormSubmit(event) {
+    event.preventDefault();
+
+    const form = event.target;
+    const id = form.querySelector('input[name="id"]').value;
+    const number = form.querySelector('input[name="number"]').value;
+
+    fetch('/app/departures/set-number', {
+        method: 'POST',
+        headers: {
+            [window.csrfHeader]: window.csrfToken,
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({ id, number })
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Не удалось сохранить номер');
+            }
+
+            const row = document.querySelector(`tr[data-track-id="${id}"]`);
+            if (row) {
+                const btn = row.querySelector('button.parcel-number');
+                if (btn) {
+                    btn.textContent = number;
+                    btn.classList.add('open-modal');
+                    btn.dataset.itemnumber = number;
+                }
+                row.dataset.trackNumber = number;
+                notifyUser('Трек-номер добавлен', 'success');
+            } else {
+                window.location.reload();
+            }
+        })
+        .catch(error => notifyUser('Ошибка: ' + error.message, 'danger'))
+        .finally(() => {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('trackNumberModal'));
+            modal?.hide();
+            form.reset();
+        });
+}
+
+/**
  * Копирует текст в буфер обмена и показывает уведомление о результате.
  * @param {string} text - копируемый текст
  */
@@ -164,6 +231,10 @@ function loadModal(itemNumber) {
         .finally(() => hideLoading()); // скрываем индикатор в любом случае
 }
 
+/**
+ * Загружает и показывает информацию о покупателе в модальном окне.
+ * @param {string} trackId - идентификатор отправления для поиска покупателя
+ */
 function loadCustomerInfo(trackId) {
     if (!trackId) return;
     fetch(`/app/customers/parcel/${trackId}`)
@@ -181,6 +252,8 @@ function loadCustomerInfo(trackId) {
             initAssignCustomerFormHandler();
             initEditCustomerPhoneFormHandler();
             initPhoneEditToggle();
+            initEditCustomerNameFormHandler();
+            initNameEditToggle();
         })
         .catch(() => notifyUser('Ошибка при загрузке данных', 'danger'));
 }
@@ -379,23 +452,409 @@ function initTelegramNotificationsToggle() {
 }
 
 // Инициализация переключателя для ввода телефона
+/**
+ * Инициализирует переключение отображения номера телефона.
+ * <p>
+ * Принцип единственной ответственности (SRP): функция управляет
+ * лишь видимостью блока телефона и запускает связанные
+ * механизмы, не вмешиваясь в их реализацию.
+ * </p>
+ */
 function initializePhoneToggle() {
     const toggle = document.getElementById("togglePhone");
     const phoneField = document.getElementById("phoneField");
+    const phoneInput = document.getElementById("phone");
+    const toggleFullName = document.getElementById("toggleFullName");
+    const fullNameField = document.getElementById("fullNameField");
 
-    if (toggle && phoneField) {
+    if (toggle && phoneField && phoneInput && toggleFullName && fullNameField) {
         // Первичное состояние
         toggleFieldsVisibility(toggle, phoneField);
 
         // Единый обработчик для переключения
-        const handler = () => toggleFieldsVisibility(toggle, phoneField);
+        const handler = () => {
+            toggleFieldsVisibility(toggle, phoneField);
+
+            if (!toggle.checked) {
+                // При скрытии номера очищаем телефонные данные и блок ФИО,
+                // чтобы соблюсти бизнес-логику и не хранить лишние сведения
+                phoneInput.value = "";
+                toggleFullName.checked = false;
+                // Запуск обновления состояния ФИО через существующую логику
+                phoneInput.dispatchEvent(new Event('input'));
+            }
+        };
         toggle.addEventListener('change', handler);
     }
 }
 
+/**
+ * Автоматически подставляет ФИО по введённому номеру телефона.
+ * <p>
+ * Работает при событии ухода фокуса или изменения поля телефона.
+ * После запроса к серверу значение ФИО подставляется в форму,
+ * а также учитывается источник данных имени.
+ * </p>
+ *
+ * Сценарии использования:
+ *  - Покупатель ранее подтверждал своё ФИО: поле блокируется,
+ *    чтобы исключить случайное изменение.
+ *  - ФИО предоставлено магазином: поле остаётся редактируемым
+ *    для возможной корректировки сотрудником.
+ *
+ * На время запроса поле телефона блокируется, а рядом отображается
+ * мини-индикатор загрузки для предотвращения повторных вызовов.
+*/
+/**
+ * Автоматически подставляет ФИО по введённому номеру телефона.
+ * Использует кеш номера, чтобы не выполнять повторный запрос.
+ */
+function autoFillFullName() {
+    const phoneInput = document.getElementById("phone");
+    const fullNameInput = document.getElementById("fullName");
+    const toggleFullName = document.getElementById("toggleFullName");
+    const fullNameField = document.getElementById("fullNameField");
+    const hint = document.getElementById("fullNameHint");
+    const phoneLoading = document.getElementById("phoneLoading");
+    // Кеш последнего номера телефона для избежания повторных запросов
+    let lastRequestedPhone = null;
+    // Флаг активности запроса, предотвращает параллельные обращения к серверу
+    let isPhoneRequestActive = false;
+    // Флаг валидности номера телефона, используется для блокировки чекбокса
+    let phoneValid = false;
+    // Предыдущее состояние доступности поля ФИО
+    // Нужно, чтобы не запускать анимацию повторно при неизменных условиях (SOLID)
+    let allowFullNamePrev = false;
+
+    // Если нужные элементы отсутствуют, дальнейшая логика не требуется
+    if (!phoneInput || !fullNameInput || !toggleFullName) return;
+
+    /**
+     * Обновляет доступность поля ФИО и состояние чекбокса.
+     * Функция отвечает исключительно за управление DOM,
+     * делегируя проверку номера отдельным валидаторам (принцип SRP).
+     */
+    const updateFullNameState = () => {
+        // Проверяем номер и сохраняем результат для повторного использования
+        phoneValid = !getPhoneError(sanitizePhone(phoneInput.value));
+
+        if (!phoneValid) {
+            // Номер невалиден — сбрасываем состояние чекбокса и очищаем поле ФИО
+            toggleFullName.checked = false;
+            fullNameInput.value = '';
+        }
+
+        const allowFullName = toggleFullName.checked && phoneValid;
+
+        fullNameInput.disabled = !allowFullName; // блокируем поле до выполнения условий
+
+        // Чекбокс остаётся в DOM для ясности интерфейса,
+        // но активируется лишь после прохождения валидации телефона
+        toggleFullName.disabled = !phoneValid;
+        const wrapper = toggleFullName.closest('.form-check') || toggleFullName.labels?.[0];
+
+        // Визуально блокируем чекбокс до появления валидного номера
+        wrapper?.classList.toggle('opacity-50', !phoneValid);
+
+        // Отображаем или скрываем поле ФИО только при изменении условия
+        // Это предотвращает повторное проигрывание анимации (SRP)
+        if (allowFullName !== allowFullNamePrev) {
+            toggleFieldsVisibility(toggleFullName, fullNameField);
+            allowFullNamePrev = allowFullName;
+        }
+    };
+
+    /**
+     * Вычисляет позицию бейджа репутации над введённым текстом ФИО
+     * и устанавливает горизонтальное смещение.
+     * При ошибке вычисления размещает бейдж у начала поля.
+     */
+    const positionReputationBadge = () => {
+        const badge = document.getElementById('reputationBadge');
+        if (!badge) return;
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+            ctx.font = getComputedStyle(fullNameInput).font;
+            const textWidth = ctx.measureText(fullNameInput.value).width;
+            if (isFinite(textWidth)) {
+                badge.style.left = `calc(0.5rem + ${textWidth / 2}px)`;
+                return;
+            }
+        }
+
+        // В случае невозможности измерить ширину текста
+        badge.style.left = '0.5rem';
+    };
+
+    /**
+     * Отображает бейдж репутации над полем ФИО с нахлёстом.
+     * При необходимости создаёт элемент и применяет цветовое оформление.
+     * @param {{reputationDisplayName?: string, colorClass?: string}} repData - данные о репутации
+     */
+    const renderReputationBadge = (repData) => {
+        // Базовые классы бейджа, сохраняющиеся при сбросе состояния
+        const baseClasses = [
+            'badge',
+            'small',
+            'position-absolute',
+            'top-0',
+            'translate-middle',
+            'reputation-badge',
+            'rounded-pill',
+            'd-none'
+        ];
+        let badge = document.getElementById('reputationBadge');
+
+        // Если бейджа ещё нет в DOM, создаём его внутри контейнера поля ФИО
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.id = 'reputationBadge';
+            badge.classList.add(...baseClasses);
+            fullNameInput.parentElement.appendChild(badge);
+        } else {
+            // Сбрасываем классы к базовым при повторных вызовах
+            badge.className = baseClasses.join(' ');
+        }
+
+        // Если сервер вернул данные о репутации, отображаем их
+        if (repData.reputationDisplayName && repData.colorClass) {
+            badge.textContent = repData.reputationDisplayName;
+            badge.classList.add(repData.colorClass);
+            badge.classList.remove('d-none');
+        } else {
+            // При отсутствии данных скрываем бейдж и очищаем его содержимое
+            badge.textContent = '';
+            badge.classList.add('d-none');
+        }
+
+        // Обновляем позицию бейджа после изменения содержимого
+        positionReputationBadge();
+    };
+
+    /**
+     * Переключает состояние индикатора загрузки и доступность поля телефона.
+     * @param {boolean} isLoading - флаг отображения процесса загрузки
+     */
+    const togglePhoneRequestState = (isLoading) => {
+        if (isLoading) {
+            phoneLoading?.classList.remove('d-none');
+            phoneInput.disabled = true;
+        } else {
+            phoneLoading?.classList.add('d-none');
+            phoneInput.disabled = false;
+        }
+    };
+
+    /**
+     * Очищает номер телефона от лишних символов.
+     * Удаляет пробелы, плюсы, дефисы и скобки, возвращая только цифры.
+     * @param {string} phoneRaw - исходное значение из поля ввода
+     * @returns {string} очищенный номер телефона
+     */
+    const sanitizePhone = (phoneRaw) => phoneRaw.trim().replace(/[+\-\s()]/g, '');
+
+    /**
+     * Возвращает текст ошибки для введённого номера телефона.
+     * Следуя принципу SRP, функция не взаимодействует с DOM
+     * и проверяет только корректность формата.
+     * Пустой номер также считается невалидным.
+     * @param {string} phone — очищенный номер телефона
+     * @returns {string} сообщение об ошибке или пустая строка
+     */
+    const getPhoneError = (phone) => {
+        if (!phone) return 'Недостаточно цифр';
+        if (!phone.startsWith('80') && !phone.startsWith('375')) {
+            return 'Неверный код';
+        }
+        const requiredLength = phone.startsWith('375') ? 12 : 11;
+        if (phone.length < requiredLength) {
+            return 'Недостаточно цифр';
+        }
+        return '';
+    };
+
+    /**
+     * Валидирует введённый номер телефона и управляет отображением ошибки.
+     * Отвечает только за визуализацию состояния поля ввода (SRP).
+     * @param {boolean} showError - отображать ли сообщение об ошибке
+     * @returns {string} текст ошибки или пустая строка
+     */
+    const validatePhoneInput = (showError = false) => {
+        const phone = sanitizePhone(phoneInput.value);
+        const errorText = getPhoneError(phone);
+
+        let errorEl = document.getElementById('phoneError');
+        if (!errorEl) {
+            errorEl = document.createElement('div');
+            errorEl.id = 'phoneError';
+            errorEl.className = 'invalid-feedback d-none';
+            const group = phoneInput.closest('.input-group');
+            group ? group.insertAdjacentElement('afterend', errorEl)
+                  : phoneInput.insertAdjacentElement('afterend', errorEl);
+        }
+
+        if (errorText && showError) {
+            // При необходимости показываем текст ошибки и подсветку
+            errorEl.textContent = errorText;
+            errorEl.classList.remove('d-none');
+            phoneInput.classList.add('is-invalid');
+        } else {
+            // При скрытии ошибки очищаем подсказку и стили
+            errorEl.textContent = '';
+            errorEl.classList.add('d-none');
+            phoneInput.classList.remove('is-invalid');
+        }
+
+        return errorText;
+    };
+
+    // --- Инициализация состояния телефона и ФИО
+    // Проверяем номер и актуализируем доступность элементов при загрузке страницы
+    validatePhoneInput();
+    updateFullNameState();
+
+    // Обработчики изменений: каждая функция решает свою задачу (SRP)
+    toggleFullName.addEventListener('change', updateFullNameState);
+
+    // При вводе номера скрываем ошибку и обновляем состояние поля ФИО
+    phoneInput.addEventListener('input', () => {
+        validatePhoneInput(false);
+        updateFullNameState();
+    });
+
+    // При фокусе убираем подсказку об ошибке
+    phoneInput.addEventListener('focus', () => {
+        validatePhoneInput(false);
+    });
+
+    // При потере фокуса показываем ошибку и при валидном номере отправляем запрос
+    phoneInput.addEventListener('blur', () => {
+        const error = validatePhoneInput(true);
+        updateFullNameState();
+        if (!error) {
+            requestHandler();
+        }
+    });
+
+    /**
+     * Отправляет запрос за данными покупателя по номеру телефона.
+     * Предполагает, что валидация выполнена заранее (принцип SRP).
+     */
+    const requestHandler = () => {
+        const phone = sanitizePhone(phoneInput.value);
+        if (!phone) return;
+
+        // Повторный номер или активный запрос — обрабатываем только один раз
+        if (phone === lastRequestedPhone || isPhoneRequestActive) return;
+
+        const headers = {};
+        if (window.csrfHeader && window.csrfToken) {
+            headers[window.csrfHeader] = window.csrfToken;
+        }
+
+        // Сохраняем текущее состояние, чтобы не перезаписывать пользовательский ввод
+        const initialFullNameValue = fullNameInput.value;
+        const initialToggleState = toggleFullName.checked;
+        const initialToggleDisabled = toggleFullName.disabled;
+        const initialReadOnly = fullNameInput.readOnly;
+
+        // На время запроса блокируем телефон и чекбокс
+        toggleFullName.disabled = true;
+        togglePhoneRequestState(true);
+        isPhoneRequestActive = true;
+
+        // Запоминаем номер, чтобы не запрашивать его повторно
+        lastRequestedPhone = phone;
+
+        // Переменные для восстановления состояния после запроса
+        let shouldDisableToggle = initialToggleDisabled;
+        let shouldSetReadOnly = initialReadOnly;
+
+        fetch(`/app/customers/name?phone=${encodeURIComponent(phone)}`, { headers })
+            .then(resp => resp.ok ? resp.json() : null)
+            .then(data => {
+                // Перед подстановкой проверяем, не изменил ли пользователь данные
+                if (toggleFullName.checked !== initialToggleState || fullNameInput.value !== initialFullNameValue) {
+                    return;
+                }
+
+                if (!data || !data.fullName) {
+                    // Очищаем бейдж, если данные не получены
+                    renderReputationBadge({});
+                    return;
+                }
+
+                // Активируем поле ФИО и подставляем полученное значение
+                toggleFullName.checked = true;
+                updateFullNameState(); // Управляем показом через единый метод
+                fullNameInput.value = data.fullName;
+
+                // Отображаем репутацию, если она есть
+                renderReputationBadge(data);
+
+                // Определяем необходимость блокировки после запроса
+                if (data.nameSource === 'USER_CONFIRMED') {
+                    shouldDisableToggle = true;
+                    shouldSetReadOnly = true;
+                    hint?.classList.remove('d-none');
+                } else {
+                    shouldDisableToggle = false;
+                    shouldSetReadOnly = false;
+                    hint?.classList.add('d-none');
+                }
+            })
+            .catch(() => {
+                // Ошибки сети или обработки игнорируются: автоподстановка не выполняется
+            })
+            .finally(() => {
+                // Скрываем индикатор, разблокируем элементы и сбрасываем флаг запроса
+                togglePhoneRequestState(false);
+                toggleFullName.disabled = shouldDisableToggle;
+                fullNameInput.readOnly = shouldSetReadOnly;
+                isPhoneRequestActive = false;
+            });
+    };
+
+    // Обновляем позицию бейджа при вводе ФИО
+    fullNameInput.addEventListener('input', positionReputationBadge);
+    positionReputationBadge();
+}
+
+// Инициализация обязательности ввода номера посылки
+function initializePreRegistrationRequired() {
+    const toggle = document.getElementById("togglePreRegistration");
+    const numberInput = document.getElementById("number");
+
+    if (!toggle || !numberInput) return;
+
+    // Обновляет атрибут required в зависимости от состояния чекбокса
+    const updateRequired = () => {
+        // Если чекбокс не активен, поле номер становится обязательным
+        if (!toggle.checked) {
+            numberInput.setAttribute("required", "required");
+        } else {
+            numberInput.removeAttribute("required");
+        }
+    };
+
+    // Первичная настройка состояния поля
+    updateRequired();
+    // Обработчик переключения чекбокса
+    toggle.addEventListener("change", updateRequired);
+}
+
 // Инициализация формы привязки покупателя к посылке
 function initAssignCustomerFormHandler() {
-    ajaxSubmitForm('assign-customer-form', 'customerInfoContainer', [initAssignCustomerFormHandler]);
+    const reloadCallback = () => {
+        const idInput = document.querySelector('#assign-customer-form input[name="trackId"]');
+        if (idInput) loadCustomerInfo(idInput.value);
+    };
+    ajaxSubmitForm('assign-customer-form', 'customerInfoContainer', [
+        reloadCallback,
+        initAssignCustomerFormHandler
+    ]);
 }
 
 /**
@@ -429,6 +888,39 @@ function initPhoneEditToggle() {
         editBtn.addEventListener('click', () => form.classList.toggle('hidden'));
     }
 }
+
+/**
+ * Инициализирует отправку формы изменения ФИО покупателя.
+ * После успешного обновления перечитывает данные и
+ * повторно назначает обработчики.
+ */
+function initEditCustomerNameFormHandler() {
+    const reloadCallback = () => {
+        const idInput = document.querySelector('#edit-name-form input[name="trackId"]');
+        if (idInput) loadCustomerInfo(idInput.value);
+    };
+    ajaxSubmitForm('edit-name-form', 'customerInfoContainer', [
+        reloadCallback,
+        initEditCustomerNameFormHandler,
+        initAssignCustomerFormHandler,
+        initNameEditToggle
+    ]);
+}
+
+/**
+ * Назначает обработчик кнопке редактирования ФИО,
+ * отображающий или скрывающий форму ввода.
+ */
+function initNameEditToggle() {
+    const editBtn = document.getElementById('editNameBtn');
+    const form = document.getElementById('edit-name-form');
+
+    if (editBtn && form && !editBtn.dataset.initialized) {
+        editBtn.dataset.initialized = 'true';
+        editBtn.addEventListener('click', () => form.classList.toggle('hidden'));
+    }
+}
+
 
 // Инициализация форм настроек Telegram
 function initTelegramForms() {
@@ -920,7 +1412,19 @@ function enableTooltips(root = document) {
 
         // === Клик/Тап для мобильных устройств ===
         tooltipTriggerEl.addEventListener("click", function (e) {
-            // Останавливаем всплытие, чтобы глобальный обработчик клика не сработал сразу
+            // Для кнопок ввода трек-номера разрешаем всплытие,
+            // чтобы внешний обработчик тела открыл модальное окно
+            if (tooltipTriggerEl.classList.contains('parcel-number')) {
+                if (activeTooltip === newTooltip) {
+                    newTooltip.hide();
+                    activeTooltip = null;
+                }
+                // Не останавливаем событие и не показываем подсказку вручную
+                return;
+            }
+
+            // Для остальных элементов блокируем всплытие,
+            // чтобы глобальный обработчик не закрыл tooltip мгновенно
             e.stopPropagation();
             if (activeTooltip === newTooltip) {
                 newTooltip.hide();
@@ -1369,6 +1873,12 @@ document.addEventListener("DOMContentLoaded", function () {
     // === WebSocket ===
     connectWebSocket();
 
+    // === Сохранение трек-номера через модальное окно ===
+    const trackNumberForm = document.getElementById('set-track-number-form');
+    if (trackNumberForm) {
+        trackNumberForm.addEventListener('submit', handleTrackNumberFormSubmit);
+    }
+
     document.getElementById("updateAllForm")?.addEventListener("submit", function (event) {
         event.preventDefault();
         sendUpdateRequest(null);
@@ -1473,9 +1983,13 @@ document.addEventListener("DOMContentLoaded", function () {
     initAutoUpdateToggle();
     initBulkButtonToggle();
     initializePhoneToggle();
+    autoFillFullName();
+    initializePreRegistrationRequired();
     initAssignCustomerFormHandler();
     initEditCustomerPhoneFormHandler();
     initPhoneEditToggle();
+    initEditCustomerNameFormHandler();
+    initNameEditToggle();
     initTelegramForms();
     initTelegramToggle();
     initTelegramReminderBlocks();
@@ -1552,18 +2066,33 @@ document.addEventListener("DOMContentLoaded", function () {
     document.body.addEventListener("click", function (event) {
         const target = event.target;
 
-        const openModalButton = target.closest(".open-modal, .btn-link");
-        if (openModalButton) {
-            const itemNumber = openModalButton.getAttribute("data-itemnumber");
-            if (itemNumber) loadModal(itemNumber);
-            console.log('loadModal called:', itemNumber)
+        // Перехватываем клики по кнопкам добавления трек-номера,
+        // которые ещё не открывали модальное окно
+        const trackBtn = event.target.closest('button.parcel-number:not(.open-modal)');
+        if (trackBtn) {
+            // Показываем модаль с вводом трек-номера
+            promptTrackNumber(trackBtn.dataset.id);
             return;
         }
 
+        // Открытие модального окна с деталями отправления
+        // Ищем только элементы с классом .open-modal, чтобы не перехватывать клики по другим кнопкам
+        const openModalButton = target.closest(".open-modal");
+        if (openModalButton) {
+            const itemNumber = openModalButton.getAttribute("data-itemnumber");
+            if (itemNumber) {
+                loadModal(itemNumber);
+            }
+            return;
+        }
+
+        // Открытие модального окна с информацией о покупателе
         const customerIcon = target.closest(".customer-icon");
         if (customerIcon) {
             const trackId = customerIcon.getAttribute("data-trackid");
-            if (trackId) loadCustomerInfo(trackId);
+            if (trackId) {
+                loadCustomerInfo(trackId);
+            }
             return;
         }
     });
@@ -1717,13 +2246,23 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // === Обработчик кнопки "Применить" ===
     document.getElementById("applyActionBtn")?.addEventListener("click", function () {
-        const selectedNumbers = Array.from(document.querySelectorAll(".selectCheckbox:checked"))
-            .map(checkbox => checkbox.value);
+        const selectedCheckboxes = Array.from(document.querySelectorAll(".selectCheckbox:checked"));
+        const selectedNumbers = [];
+        const selectedIds = [];
+
+        // Раскладываем выбранные значения по массивам согласно имени чекбокса
+        selectedCheckboxes.forEach(cb => {
+            if (cb.name === "selectedNumbers") {
+                selectedNumbers.push(cb.value);
+            } else if (cb.name === "selectedIds") {
+                selectedIds.push(cb.value);
+            }
+        });
 
         const selectedAction = document.getElementById("actionSelect").value;
         const applyBtn = document.getElementById("applyActionBtn");
 
-        if (selectedNumbers.length === 0) {
+        if (selectedNumbers.length === 0 && selectedIds.length === 0) {
             notifyUser("Выберите хотя бы одну посылку.", "warning");
             return;
         }
@@ -1737,7 +2276,7 @@ document.addEventListener("DOMContentLoaded", function () {
         applyBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Выполняется...';
 
         if (selectedAction === "delete") {
-            sendDeleteRequest(selectedNumbers, applyBtn);
+            sendDeleteRequest(selectedNumbers, selectedIds, applyBtn);
         } else if (selectedAction === "update") {
             sendUpdateRequest(selectedNumbers, applyBtn);
         }
@@ -1857,13 +2396,19 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    // === Функция отправки запроса на удаление ===
-    function sendDeleteRequest(selectedNumbers, applyBtn) {
+    /**
+     * Отправляет запрос на массовое удаление выбранных отправлений.
+     * @param {string[]} selectedNumbers - номера треков для удаления
+     * @param {string[]} selectedIds - идентификаторы предрегистрационных отправлений
+     * @param {HTMLElement} applyBtn - кнопка запуска действия
+     */
+    function sendDeleteRequest(selectedNumbers, selectedIds, applyBtn) {
         applyBtn.disabled = true;
         applyBtn.innerHTML = "Удаление...";
 
         const formData = new URLSearchParams();
         selectedNumbers.forEach(number => formData.append("selectedNumbers", number));
+        selectedIds.forEach(id => formData.append("selectedIds", id));
 
         fetch("/app/departures/delete-selected", {
             method: "POST",

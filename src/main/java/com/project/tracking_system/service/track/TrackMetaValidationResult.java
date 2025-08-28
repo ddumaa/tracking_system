@@ -14,8 +14,10 @@ import java.util.List;
  * @param validTracks           список успешно прошедших проверку треков
  * @param invalidTracks         собранные некорректные строки из исходного файла
  * @param limitExceededMessage  сообщение о превышении лимитов (может быть {@code null})
+ * @param preRegistered         список данных для предрегистрации
  */
 public record TrackMetaValidationResult(List<TrackMeta> validTracks,
                                         List<InvalidTrack> invalidTracks,
-                                        String limitExceededMessage) {
+                                        String limitExceededMessage,
+                                        List<PreRegistrationMeta> preRegistered) {
 }

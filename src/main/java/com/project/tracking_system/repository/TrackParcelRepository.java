@@ -29,6 +29,7 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
     TrackParcel findByNumberAndUserId(String number, Long userId);
 
     List<TrackParcel> findByNumberInAndUserId(List<String> numbers, Long userId);
+    List<TrackParcel> findByIdInAndUserId(List<Long> ids, Long userId);
 
     TrackParcel findByNumberAndStoreIdAndUserId(String number, Long storeId, Long userId);
 
@@ -44,6 +45,50 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
 
     // Поиск одной посылки по номеру в рамках конкретного магазина
     TrackParcel findByNumberAndStoreId(String number, Long storeId);
+
+    /**
+     * Найти все предзарегистрированные посылки.
+     *
+     * @param pageable настройки пагинации
+     * @return страница предзарегистрированных посылок
+     */
+    Page<TrackParcel> findByPreRegisteredTrue(Pageable pageable);
+
+    /**
+     * Найти предварительно зарегистрированную посылку по идентификатору.
+     * <p>
+     * Использование идентификатора гарантирует корректную работу,
+     * даже если трек-номер ещё не присвоен.
+     * </p>
+     *
+     * @param id идентификатор посылки
+     * @return посылка или {@code null}, если не найдена
+     */
+    TrackParcel findByIdAndPreRegisteredTrue(Long id);
+
+    /**
+     * Обновить трек-номер предварительно зарегистрированной посылки.
+     * <p>
+     * Записи с уже указанным номером игнорируются, чтобы избежать
+     * перезаписи существующих данных.
+     * </p>
+     *
+     * @param id     идентификатор посылки
+     * @param number новый трек-номер
+     */
+    @Modifying
+    @Transactional
+    @Query("UPDATE TrackParcel t SET t.number = :number WHERE t.id = :id AND t.preRegistered = true AND t.number IS NULL")
+    void updatePreRegisteredNumber(@Param("id") Long id, @Param("number") String number);
+
+    /**
+     * Найти посылки по статусу с пагинацией.
+     *
+     * @param status   статус посылки
+     * @param pageable настройки пагинации
+     * @return страница посылок с указанным статусом
+     */
+    Page<TrackParcel> findByStatus(GlobalStatus status, Pageable pageable);
 
     // Поиск посылок по статусу для конкретного магазина (с пагинацией)
     @Query("SELECT t FROM TrackParcel t WHERE t.store.id IN :storeIds AND t.status = :status")
@@ -116,11 +161,15 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
 
     /**
      * Найти посылку по номеру с подгруженными магазином и пользователем.
+     * <p>
+     * Посылки без номера игнорируются, поэтому {@code NULL} значения
+     * никогда не будут возвращены.
+     * </p>
      *
      * @param number номер посылки
      * @return посылка или {@code null}, если не найдена
      */
-    @Query("SELECT t FROM TrackParcel t JOIN FETCH t.store JOIN FETCH t.user WHERE t.number = :number")
+    @Query("SELECT t FROM TrackParcel t JOIN FETCH t.store JOIN FETCH t.user WHERE t.number = :number AND t.number IS NOT NULL")
     TrackParcel findByNumberWithStoreAndUser(@Param("number") String number);
 
     /**
@@ -166,7 +215,8 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
      * Поиск посылок по номеру или телефону покупателя.
      * <p>
      * Выполняется частичное совпадение номера трека и номера телефона
-     * (последний хранится без форматирования).
+     * (последний хранится без форматирования). Посылки без трек-номера
+     * исключаются из поиска по номеру.
      * </p>
      *
      * @param storeIds    магазины владельца
@@ -184,7 +234,7 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
               AND t.store.id IN :storeIds
               AND (:status IS NULL OR t.status = :status)
               AND (
-                    LOWER(t.number) LIKE LOWER(CONCAT('%', :query, '%'))
+                    (t.number IS NOT NULL AND LOWER(t.number) LIKE LOWER(CONCAT('%', :query, '%')))
                     OR (:phoneDigits <> '' AND c.phone LIKE CONCAT('%', :phoneDigits, '%'))
               )
             """)

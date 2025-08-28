@@ -54,4 +54,35 @@ public class TrackDeletionService {
         log.info("✅ Удалены {} посылок пользователя ID={}", parcelsToDelete.size(), userId);
     }
 
+    /**
+     * Удаляет посылки пользователя по их идентификаторам.
+     *
+     * @param ids    список идентификаторов посылок
+     * @param userId идентификатор пользователя
+     * @throws EntityNotFoundException если посылки не найдены
+     */
+    @Transactional
+    public void deleteByIdsAndUserId(List<Long> ids, Long userId) {
+        log.info("Начало удаления посылок по ID {} пользователя ID={}", ids, userId);
+
+        List<TrackParcel> parcelsToDelete = trackParcelRepository.findByIdInAndUserId(ids, userId);
+
+        if (parcelsToDelete.isEmpty()) {
+            log.warn("❌ Попытка удаления несуществующих посылок по ID. userId={}, ids={}", userId, ids);
+            throw new EntityNotFoundException("Нет посылок для удаления");
+        }
+
+        for (TrackParcel parcel : parcelsToDelete) {
+            deliveryHistoryService.handleTrackParcelBeforeDelete(parcel);
+
+            if (parcel.getDeliveryHistory() != null) {
+                parcel.getDeliveryHistory().setTrackParcel(null);
+                parcel.setDeliveryHistory(null);
+            }
+        }
+
+        trackParcelRepository.deleteAll(parcelsToDelete);
+        log.info("✅ Удалены {} посылок пользователя ID={}", parcelsToDelete.size(), userId);
+    }
+
 }

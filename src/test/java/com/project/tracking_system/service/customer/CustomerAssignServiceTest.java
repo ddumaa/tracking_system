@@ -8,11 +8,13 @@ import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.user.UserSettingsService;
+import com.project.tracking_system.service.customer.CustomerNameEventService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.util.Optional;
 
@@ -39,6 +41,10 @@ class CustomerAssignServiceTest {
     private SubscriptionService subscriptionService;
     @Mock
     private UserSettingsService userSettingsService;
+    @Mock
+    private CustomerNameEventService customerNameEventService;
+    @Mock
+    private TelegramClient telegramClient;
 
     private CustomerStatsService customerStatsService;
     private CustomerService service;
@@ -52,7 +58,9 @@ class CustomerAssignServiceTest {
                 transactionalService,
                 customerStatsService,
                 subscriptionService,
-                userSettingsService
+                userSettingsService,
+                customerNameEventService,
+                telegramClient
         );
 
         when(customerRepository.save(any(Customer.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -74,8 +82,8 @@ class CustomerAssignServiceTest {
 
         when(trackParcelRepository.findById(10L)).thenReturn(Optional.of(parcel));
         when(transactionalService.findByPhone("375111111111")).thenReturn(Optional.of(newCustomer));
-        when(customerRepository.incrementSentCount(2L)).thenReturn(1);
-        when(customerRepository.incrementPickedUpCount(2L)).thenReturn(1);
+        when(customerRepository.incrementSentCount(2L, 0L)).thenReturn(1);
+        when(customerRepository.incrementPickedUpCount(2L, 1L)).thenReturn(1);
 
         service.assignCustomerToParcel(10L, "375111111111");
 
@@ -107,8 +115,8 @@ class CustomerAssignServiceTest {
 
         when(trackParcelRepository.findById(11L)).thenReturn(Optional.of(parcel));
         when(transactionalService.findByPhone("375222222222")).thenReturn(Optional.of(newCustomer));
-        when(customerRepository.incrementSentCount(2L)).thenReturn(1);
-        when(customerRepository.incrementReturnedCount(2L)).thenReturn(1);
+        when(customerRepository.incrementSentCount(2L, 0L)).thenReturn(1);
+        when(customerRepository.incrementReturnedCount(2L, 1L)).thenReturn(1);
 
         service.assignCustomerToParcel(11L, "375222222222");
 
@@ -131,6 +139,7 @@ class CustomerAssignServiceTest {
         c.setSentCount(sent);
         c.setPickedUpCount(picked);
         c.setReturnedCount(returned);
+        c.setVersion(0);
         c.recalculateReputation();
         return c;
     }

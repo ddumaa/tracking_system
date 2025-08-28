@@ -22,6 +22,7 @@ public enum GlobalStatus {
     RETURN_IN_PROGRESS("Возврат в пути", "<i class='bi bi-truck status-icon return-progress'></i>"),
     RETURN_PENDING_PICKUP("Возврат ожидает забора", "<i class='bi bi-box-arrow-in-down-right status-icon return-pending'></i>"),
     RETURNED("Возврат забран", "<i class='bi bi-check2-circle status-icon returned'></i>"),
+    PRE_REGISTERED("Предрегистрация", "<i class='bi bi-hourglass status-icon preregistered'></i>"),
     REGISTERED("Заявка зарегистрирована", "<i class='bi bi-file-earmark-text status-icon registered'></i>"),
     UNKNOWN_STATUS("Неизвестный статус", "<i class='bi bi-question-circle status-icon unknown'></i>");
 
