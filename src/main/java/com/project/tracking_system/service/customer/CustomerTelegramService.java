@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Сервис привязки Telegram-чатов к покупателям.
@@ -53,7 +54,15 @@ public class CustomerTelegramService {
                 PhoneUtils.maskPhone(normalized), chatId);
 
         // Регистрируем покупателя при необходимости
-        Customer customer = customerService.registerOrGetByPhone(normalized);
+        Customer customer;
+        try {
+            customer = customerService.registerOrGetByPhone(normalized);
+        } catch (ResponseStatusException ex) {
+            // При некорректном телефоне информируем пользователя кодом 400
+            log.warn("Телефон {} не прошёл проверку: {}",
+                    PhoneUtils.maskPhone(normalized), ex.getReason());
+            throw ex;
+        }
 
         // Если чат уже привязан, повторная привязка игнорируется
         if (customer.getTelegramChatId() != null) {

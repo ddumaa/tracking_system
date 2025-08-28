@@ -17,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
@@ -62,7 +64,17 @@ public class CustomerService {
      * @return сущность покупателя
      */
     public Customer registerOrGetByPhone(String rawPhone) {
-        String phone = PhoneUtils.normalizePhone(rawPhone);
+        // Нормализуем телефон и обрабатываем ошибку формата,
+        // чтобы вернуть клиенту понятный ответ с кодом 400
+        String phone;
+        try {
+            phone = PhoneUtils.normalizePhone(rawPhone);
+        } catch (IllegalArgumentException ex) {
+            log.warn("Некорректный формат телефона {}: {}",
+                    PhoneUtils.maskPhone(rawPhone), ex.getMessage());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Некорректный номер телефона");
+        }
         log.info("🔍 Начало поиска/регистрации покупателя по телефону {}",
                 PhoneUtils.maskPhone(phone));
         // Первый поиск выполняем отдельно, чтобы не создавать дубликаты
@@ -321,7 +333,15 @@ public class CustomerService {
                 .orElseThrow(() -> new IllegalArgumentException("Посылка не найдена"));
         log.debug("📞 Привязываем телефон {} к посылке ID={}",
                 PhoneUtils.maskPhone(rawPhone), parcelId);
-        Customer newCustomer = registerOrGetByPhone(rawPhone);
+        Customer newCustomer;
+        try {
+            newCustomer = registerOrGetByPhone(rawPhone);
+        } catch (ResponseStatusException ex) {
+            // Логируем проблему и пробрасываем исключение для корректного ответа
+            log.warn("Ошибка привязки телефона {}: {}",
+                    PhoneUtils.maskPhone(rawPhone), ex.getReason());
+            throw ex;
+        }
 
         Customer current = parcel.getCustomer();
         // Если посылка уже привязана к этому же покупателю, ничего не меняем

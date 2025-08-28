@@ -10,11 +10,13 @@ import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.service.customer.CustomerStatsService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.utils.DateParserUtils;
+import com.project.tracking_system.utils.PhoneUtils;
 import com.project.tracking_system.utils.TrackNumberUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.*;
 
@@ -206,8 +208,15 @@ public class TrackProcessingService {
         Customer previousCustomer = trackParcel.getCustomer();
         Customer customer = null;
         if (phone != null && !phone.isBlank()) {
-            customer = customerService.registerOrGetByPhone(phone);
-            trackParcel.setCustomer(customer);
+            try {
+                customer = customerService.registerOrGetByPhone(phone);
+                trackParcel.setCustomer(customer);
+            } catch (ResponseStatusException ex) {
+                // Логируем и пробрасываем исключение для корректного ответа клиенту
+                log.warn("Ошибочный телефон {} при сохранении трека: {}",
+                        PhoneUtils.maskPhone(phone), ex.getReason());
+                throw ex;
+            }
         }
 
         trackParcelRepository.save(trackParcel);

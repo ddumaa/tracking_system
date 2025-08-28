@@ -9,11 +9,13 @@ import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.customer.CustomerService;
+import com.project.tracking_system.utils.PhoneUtils;
 import com.project.tracking_system.utils.TrackNumberUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Сервис обработки предрегистрации отправлений.
@@ -72,8 +74,15 @@ public class PreRegistrationService {
 
         // Привязываем покупателя, если указан телефон
         if (phone != null && !phone.isBlank()) {
-            Customer customer = customerService.registerOrGetByPhone(phone);
-            parcel.setCustomer(customer);
+            try {
+                Customer customer = customerService.registerOrGetByPhone(phone);
+                parcel.setCustomer(customer);
+            } catch (ResponseStatusException ex) {
+                // Логируем и пробрасываем далее, чтобы клиент получил ответ 400
+                log.warn("Не удалось зарегистрировать покупателя по телефону {}: {}",
+                        PhoneUtils.maskPhone(phone), ex.getReason());
+                throw ex;
+            }
         }
 
         TrackParcel saved = trackParcelRepository.save(parcel);
