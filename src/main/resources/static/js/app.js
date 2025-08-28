@@ -612,13 +612,39 @@ function autoFillFullName() {
     };
 
     /**
-     * Обрабатывает ввод телефона и запрашивает ФИО.
+     * Очищает номер телефона от лишних символов.
+     * Удаляет пробелы, плюсы, дефисы и скобки, возвращая только цифры.
+     * @param {string} phoneRaw - исходное значение из поля ввода
+     * @returns {string} очищенный номер телефона
+     */
+    const sanitizePhone = (phoneRaw) => phoneRaw.trim().replace(/[+\-\s()]/g, '');
+
+    /**
+     * Проверяет номер телефона на соответствие допустимым форматам.
+     * Допускаются номера, начинающиеся на 80 или 375 и содержащие 9 последующих цифр.
+     * @param {string} phone - очищенный номер телефона
+     * @returns {boolean} true, если номер валиден
+     */
+    const isValidPhone = (phone) => /^(80|375)\d{9}$/.test(phone);
+
+    /**
+     * Обрабатывает ввод телефона: очищает, проверяет и при валидности запрашивает ФИО.
      * Повторный запрос для того же номера не выполняется.
      */
     const requestHandler = () => {
-        const phone = phoneInput.value.trim();
-        // Пустой/повторный номер или активный запрос — обрабатываем только один раз
-        if (!phone || phone === lastRequestedPhone || isPhoneRequestActive) return;
+        const phone = sanitizePhone(phoneInput.value);
+
+        // Игнорируем пустой ввод
+        if (!phone) return;
+
+        // Невалидный номер: уведомляем пользователя и прекращаем обработку
+        if (!isValidPhone(phone)) {
+            notifyUser('Неверный номер телефона', 'danger');
+            return;
+        }
+
+        // Повторный номер или активный запрос — обрабатываем только один раз
+        if (phone === lastRequestedPhone || isPhoneRequestActive) return;
 
         const headers = {};
         if (window.csrfHeader && window.csrfToken) {
