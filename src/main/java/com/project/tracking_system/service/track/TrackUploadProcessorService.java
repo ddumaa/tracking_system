@@ -103,7 +103,7 @@ public class TrackUploadProcessorService {
 
             for (PreRegistrationMeta pr : preRegistered) {
                 // Передаём строки предрегистрации отдельному сервису
-                preRegistrationService.preRegister(pr.number(), pr.storeId(), userId);
+                preRegistrationService.preRegister(pr.number(), pr.storeId(), userId, pr.phone());
             }
 
             metas = validationResult.validTracks().stream()

@@ -174,14 +174,14 @@ class TrackUploadProcessorServiceTest {
     @Test
     void process_HandlesPreRegisteredRows() throws Exception {
         MockMultipartFile file = new MockMultipartFile("f", new byte[0]);
-        PreRegistrationMeta pre = new PreRegistrationMeta(null, 1L);
+        PreRegistrationMeta pre = new PreRegistrationMeta(null, 1L, null);
         when(parser.parse(file)).thenReturn(List.of(new TrackExcelRow(null, "1", null, null, true)));
         when(trackMetaValidator.validate(anyList(), eq(1L)))
                 .thenReturn(new TrackMetaValidationResult(List.of(), List.of(), null, List.of(pre)));
 
         TrackMetaValidationResult result = processor.process(file, 1L);
 
-        verify(preRegistrationService).preRegister(null, 1L, 1L);
+        verify(preRegistrationService).preRegister(null, 1L, 1L, null);
         assertEquals(1, result.preRegistered().size());
     }
 }

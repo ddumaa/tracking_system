@@ -87,7 +87,13 @@ public class TrackMetaValidator {
             if (row.preRegistered()) {
                 String normalized = row.number() == null ? null : TrackNumberUtils.normalize(row.number());
                 Long storeId = parseStoreId(row.store(), defaultStoreId, userId);
-                preRegistered.add(new PreRegistrationMeta(normalized, storeId));
+                String phone = normalizePhone(row.phone());
+                String fullName = row.fullName();
+                if (phone != null && fullName != null && !fullName.isBlank()) {
+                    // Обновляем имя покупателя, если оно передано вместе с телефоном
+                    customerNameService.upsertFromStore(phone, fullName);
+                }
+                preRegistered.add(new PreRegistrationMeta(normalized, storeId, phone));
                 continue;
             }
             String raw = row.number();
