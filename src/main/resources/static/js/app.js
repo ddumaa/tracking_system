@@ -498,6 +498,10 @@ function initializeFullNameToggle() {
  * На время запроса поле телефона блокируется, а рядом отображается
  * мини-индикатор загрузки для предотвращения повторных вызовов.
 */
+/**
+ * Автоматически подставляет ФИО по введённому номеру телефона.
+ * Использует кеш номера, чтобы не выполнять повторный запрос.
+ */
 function autoFillFullName() {
     const phoneInput = document.getElementById("phone");
     const fullNameInput = document.getElementById("fullName");
@@ -505,6 +509,8 @@ function autoFillFullName() {
     const fullNameField = document.getElementById("fullNameField");
     const hint = document.getElementById("fullNameHint");
     const phoneLoading = document.getElementById("phoneLoading");
+    // Кеш последнего номера телефона для избежания повторных запросов
+    let lastRequestedPhone = null;
 
     // Если нужные элементы отсутствуют, дальнейшая логика не требуется
     if (!phoneInput || !fullNameInput || !toggleFullName) return;
@@ -593,12 +599,13 @@ function autoFillFullName() {
     };
 
     /**
-     * Выполняет запрос к серверу для получения ФИО и управляет
-     * состоянием поля и индикатора в зависимости от источника данных.
+     * Обрабатывает ввод телефона и запрашивает ФИО.
+     * Повторный запрос для того же номера не выполняется.
      */
     const requestHandler = () => {
         const phone = phoneInput.value.trim();
-        if (!phone) return; // Пустой телефон не обрабатываем
+        // Пустой или уже обработанный номер не обрабатываем
+        if (!phone || phone === lastRequestedPhone) return;
 
         const headers = {};
         if (window.csrfHeader && window.csrfToken) {
@@ -607,6 +614,9 @@ function autoFillFullName() {
 
         // Показываем индикатор и блокируем поле на время запроса
         togglePhoneRequestState(true);
+
+        // Запоминаем номер, чтобы не запрашивать его повторно
+        lastRequestedPhone = phone;
 
         fetch(`/app/customers/name?phone=${encodeURIComponent(phone)}`, { headers })
             .then(resp => resp.ok ? resp.json() : null)
