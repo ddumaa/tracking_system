@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -31,6 +32,11 @@ public class User implements UserDetails {
     @Email(message = "Email должен быть корректным")
     private String email;
 
+    /**
+     * Пароль пользователя, скрываемый при сериализации и в строковом представлении.
+     */
+    @JsonIgnore // исключает пароль из JSON-ответов
+    @ToString.Exclude // предотвращает вывод пароля в методе toString
     @NotBlank(message = "Введите пароль")
     private String password;
 
