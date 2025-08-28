@@ -511,6 +511,8 @@ function autoFillFullName() {
     const phoneLoading = document.getElementById("phoneLoading");
     // Кеш последнего номера телефона для избежания повторных запросов
     let lastRequestedPhone = null;
+    // Флаг активности запроса, предотвращает параллельные обращения к серверу
+    let isPhoneRequestActive = false;
 
     // Если нужные элементы отсутствуют, дальнейшая логика не требуется
     if (!phoneInput || !fullNameInput || !toggleFullName) return;
@@ -604,23 +606,40 @@ function autoFillFullName() {
      */
     const requestHandler = () => {
         const phone = phoneInput.value.trim();
-        // Пустой или уже обработанный номер не обрабатываем
-        if (!phone || phone === lastRequestedPhone) return;
+        // Пустой/повторный номер или активный запрос — обрабатываем только один раз
+        if (!phone || phone === lastRequestedPhone || isPhoneRequestActive) return;
 
         const headers = {};
         if (window.csrfHeader && window.csrfToken) {
             headers[window.csrfHeader] = window.csrfToken;
         }
 
-        // Показываем индикатор и блокируем поле на время запроса
+        // Сохраняем текущее состояние, чтобы не перезаписывать пользовательский ввод
+        const initialFullNameValue = fullNameInput.value;
+        const initialToggleState = toggleFullName.checked;
+        const initialToggleDisabled = toggleFullName.disabled;
+        const initialReadOnly = fullNameInput.readOnly;
+
+        // На время запроса блокируем телефон и чекбокс
+        toggleFullName.disabled = true;
         togglePhoneRequestState(true);
+        isPhoneRequestActive = true;
 
         // Запоминаем номер, чтобы не запрашивать его повторно
         lastRequestedPhone = phone;
 
+        // Переменные для восстановления состояния после запроса
+        let shouldDisableToggle = initialToggleDisabled;
+        let shouldSetReadOnly = initialReadOnly;
+
         fetch(`/app/customers/name?phone=${encodeURIComponent(phone)}`, { headers })
             .then(resp => resp.ok ? resp.json() : null)
             .then(data => {
+                // Перед подстановкой проверяем, не изменил ли пользователь данные
+                if (toggleFullName.checked !== initialToggleState || fullNameInput.value !== initialFullNameValue) {
+                    return;
+                }
+
                 if (!data || !data.fullName) {
                     // Очищаем бейдж, если данные не получены
                     renderReputationBadge({});
@@ -635,14 +654,14 @@ function autoFillFullName() {
                 // Отображаем репутацию, если она есть
                 renderReputationBadge(data);
 
-                // Если имя подтверждено пользователем, редактирование запрещено
+                // Определяем необходимость блокировки после запроса
                 if (data.nameSource === 'USER_CONFIRMED') {
-                    toggleFullName.disabled = true;
-                    fullNameInput.readOnly = true;
+                    shouldDisableToggle = true;
+                    shouldSetReadOnly = true;
                     hint?.classList.remove('d-none');
                 } else {
-                    toggleFullName.disabled = false;
-                    fullNameInput.readOnly = false;
+                    shouldDisableToggle = false;
+                    shouldSetReadOnly = false;
                     hint?.classList.add('d-none');
                 }
             })
@@ -650,8 +669,11 @@ function autoFillFullName() {
                 // Ошибки сети или обработки игнорируются: автоподстановка не выполняется
             })
             .finally(() => {
-                // Скрываем индикатор и возвращаем доступ к телефону
+                // Скрываем индикатор, разблокируем элементы и сбрасываем флаг запроса
                 togglePhoneRequestState(false);
+                toggleFullName.disabled = shouldDisableToggle;
+                fullNameInput.readOnly = shouldSetReadOnly;
+                isPhoneRequestActive = false;
             });
     };
 
