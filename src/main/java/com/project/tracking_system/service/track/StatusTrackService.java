@@ -28,12 +28,20 @@ public class StatusTrackService {
     private static final Map<Pattern, GlobalStatus> statusPatterns = new LinkedHashMap<>();
 
     /**
-     * Шаблон для промежуточных статусов, после которых возможен возврат отправителю.
+     * Шаблон для статусов, связанных с процессом возврата отправителю,
+     * включая подготовку и дальнейшее перемещение отправления.
      */
     private static final Pattern RETURN_PATTERN = Pattern.compile(
+            "^Подготовлено для возврата$|" +
             "^Почтовое отправление подготовлено в ОПС к доставке на сортировочный пункт$|" +
             "^Почтовое отправление прибыло на сортировочный пункт$|" +
             "^Почтовое отправление подготовлено в сортировочном пункте к доставке на ОПС отправителя$");
+
+    /**
+     * Шаблон начальных статусов, сигнализирующих о подготовке отправления к возврату.
+     */
+    private static final Pattern RETURN_START_PATTERN = Pattern.compile(
+            "^Почтовое отправление готово к возврату$|^Подготовлено для возврата$");
 
     static {
         // Инициализация карты регулярных выражений и статусов
@@ -47,8 +55,7 @@ public class StatusTrackService {
                         "^Почтовое отправление прибыло на сортировочный пункт$|" +
                         "^Почтовое отправление подготовлено в сортировочном пункте к доставке на ОПС назначения$"),
                 GlobalStatus.IN_TRANSIT);
-        statusPatterns.put(Pattern.compile("^Почтовое отправление готово к возврату"),
-                GlobalStatus.RETURN_IN_PROGRESS);
+        statusPatterns.put(RETURN_START_PATTERN, GlobalStatus.RETURN_IN_PROGRESS);
         statusPatterns.put(Pattern.compile("^Почтовое отправление прибыло на Отделение №\\d+.*для возврата.*"),
                 GlobalStatus.RETURN_PENDING_PICKUP);
         statusPatterns.put(Pattern.compile("^Почтовое отправление возвращено отправителю$"), GlobalStatus.RETURNED);
@@ -81,10 +88,10 @@ public class StatusTrackService {
             if (entry.getKey().matcher(lastStatus).find()) {
                 // Если последний статус соответствует определенному паттерну
                 if (RETURN_PATTERN.matcher(lastStatus).find()) {
-                    // Проверяем историю на наличие статуса возврата
+                    // Проверяем историю на наличие начального статуса возврата
                     for (TrackInfoDTO trackInfoDTO : trackInfoDTOList) {
                         String status = trackInfoDTO.getInfoTrack().trim();
-                        if (status.equals("Почтовое отправление готово к возврату")) {
+                        if (RETURN_START_PATTERN.matcher(status).find()) {
                             return GlobalStatus.RETURN_IN_PROGRESS;
                         }
                     }
