@@ -88,7 +88,10 @@
                         <div id="phoneField" class="mb-3 hidden">
                             <label for="phone" class="form-label fw-semibold">Номер телефона покупателя:</label>
                             <div class="input-group">
+                                <!-- Класс form-control необходим для корректной работы Bootstrap и подсветки ошибок -->
                                 <input type="text" id="phone" name="phone" class="form-control" placeholder="375XXXXXXXXX">
+                                <!-- Блок для мгновенного отображения ошибок ввода -->
+                                <div id="phoneError" class="invalid-feedback"></div>
                                 <!-- Мини-индикатор загрузки, отображается при автоподстановке ФИО -->
                                 <div id="phoneLoading" class="spinner-border spinner-border-sm text-secondary ms-2 d-none" role="status">
                                     <span class="visually-hidden">Загрузка...</span>
