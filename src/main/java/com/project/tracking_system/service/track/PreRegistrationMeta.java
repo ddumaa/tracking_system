@@ -10,6 +10,7 @@ package com.project.tracking_system.service.track;
  *
  * @param number  нормализованный номер трека, может быть {@code null}
  * @param storeId идентификатор магазина
+ * @param phone   нормализованный номер телефона покупателя, может быть {@code null}
  */
-public record PreRegistrationMeta(String number, Long storeId) {
+public record PreRegistrationMeta(String number, Long storeId, String phone) {
 }

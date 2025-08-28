@@ -191,5 +191,6 @@ class TrackMetaValidatorTest {
         assertTrue(result.invalidTracks().isEmpty());
         assertEquals(1, result.preRegistered().size());
         assertEquals(1L, result.preRegistered().get(0).storeId());
+        assertNull(result.preRegistered().get(0).phone());
     }
 }

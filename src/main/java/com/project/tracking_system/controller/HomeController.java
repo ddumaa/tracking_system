@@ -121,7 +121,7 @@ public class HomeController {
 
         // Предрегистрация обходится без обращений к почтовым сервисам
         if (Boolean.TRUE.equals(preRegistered)) {
-            handlePreRegistration(true, normalizedNumber, storeId, userId);
+            handlePreRegistration(true, normalizedNumber, storeId, userId, phone);
             if (normalizedNumber == null || normalizedNumber.isBlank()) {
                 model.addAttribute("successMessage", "Предрегистрация выполнена без номера.");
             } else {
@@ -207,11 +207,12 @@ public class HomeController {
     private void handlePreRegistration(Boolean preRegistered,
                                        String number,
                                        Long storeId,
-                                       Long userId) {
+                                       Long userId,
+                                       String phone) {
         if (preRegistered == null || !preRegistered) {
             return;
         }
-        preRegistrationService.preRegister(number, storeId, userId);
+        preRegistrationService.preRegister(number, storeId, userId, phone);
     }
 
     /**

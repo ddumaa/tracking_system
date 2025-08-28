@@ -4,9 +4,11 @@ import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.service.store.StoreService;
+import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.utils.TrackNumberUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +30,8 @@ public class PreRegistrationService {
     private final TrackParcelRepository trackParcelRepository;
     private final UserRepository userRepository;
     private final StoreService storeService;
+    /** Сервис работы с покупателями. */
+    private final CustomerService customerService;
 
     /**
      * Выполняет предрегистрацию номера и сохраняет базовые данные о посылке.
@@ -41,12 +45,40 @@ public class PreRegistrationService {
     public TrackParcel preRegister(String number,
                                    Long storeId,
                                    Long userId) {
+        // Делегируем методу с указанием телефона
+        return preRegister(number, storeId, userId, null);
+    }
+
+    /**
+     * Выполняет предрегистрацию и при наличии телефона
+     * привязывает посылку к существующему либо новому покупателю.
+     *
+     * @param number  основной трек-номер (может быть пустым)
+     * @param storeId идентификатор магазина
+     * @param userId  идентификатор пользователя
+     * @param phone   номер телефона покупателя (может быть {@code null})
+     * @return созданная сущность {@link TrackParcel}
+     */
+    @Transactional
+    public TrackParcel preRegister(String number,
+                                   Long storeId,
+                                   Long userId,
+                                   String phone) {
         String normalized = normalizeNumber(number);
         Store store = loadStore(storeId, userId);
         User user = loadUser(userId);
 
         TrackParcel parcel = buildPreRegisteredParcel(normalized, store, user);
+
+        // Привязываем покупателя, если указан телефон
+        if (phone != null && !phone.isBlank()) {
+            Customer customer = customerService.registerOrGetByPhone(phone);
+            parcel.setCustomer(customer);
+        }
+
         TrackParcel saved = trackParcelRepository.save(parcel);
+        // Обновляем статистику покупателя
+        customerService.updateStatsOnTrackAdd(saved);
         log.debug("Предрегистрация посылки ID={} выполнена", saved.getId());
         return saved;
     }
