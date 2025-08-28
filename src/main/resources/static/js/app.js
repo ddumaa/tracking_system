@@ -1858,7 +1858,6 @@ document.addEventListener("DOMContentLoaded", function () {
     initBulkButtonToggle();
     initializePhoneToggle();
     autoFillFullName();
-    initializeFullNameToggle();
     initializePreRegistrationRequired();
     initAssignCustomerFormHandler();
     initEditCustomerPhoneFormHandler();
