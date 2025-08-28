@@ -1946,11 +1946,12 @@ document.addEventListener("DOMContentLoaded", function () {
         const selectedNumbers = [];
         const selectedIds = [];
 
+        // Раскладываем выбранные значения по массивам согласно имени чекбокса
         selectedCheckboxes.forEach(cb => {
-            if (cb.value) {
+            if (cb.name === "selectedNumbers") {
                 selectedNumbers.push(cb.value);
-            } else if (cb.dataset.id) {
-                selectedIds.push(cb.dataset.id);
+            } else if (cb.name === "selectedIds") {
+                selectedIds.push(cb.value);
             }
         });
 
@@ -2091,7 +2092,12 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    // === Функция отправки запроса на удаление ===
+    /**
+     * Отправляет запрос на массовое удаление выбранных отправлений.
+     * @param {string[]} selectedNumbers - номера треков для удаления
+     * @param {string[]} selectedIds - идентификаторы предрегистрационных отправлений
+     * @param {HTMLElement} applyBtn - кнопка запуска действия
+     */
     function sendDeleteRequest(selectedNumbers, selectedIds, applyBtn) {
         applyBtn.disabled = true;
         applyBtn.innerHTML = "Удаление...";
