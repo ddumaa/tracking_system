@@ -135,10 +135,12 @@
                                                    th:name="${#strings.isEmpty(item.number) ? 'selectedIds' : 'selectedNumbers'}"
                                                    th:value="${#strings.isEmpty(item.number) ? item.id : item.number}"
                                                    th:data-id="${item.id}">
+                                            <!--
                                             <i th:if="${item.status == 'Предрегистрация' and #strings.isEmpty(item.number)}"
                                                class="bi bi-exclamation-circle text-warning small-flag ms-2"
                                                title="Предрегистрация: добавьте трек-номер"
                                                data-bs-toggle="tooltip" aria-label="Нет трека"></i>
+                                               -->
                                         </td>
                                         <td class="align-middle text-start">
                                             <!-- Ячейка выравнивает содержимое по левому краю -->
