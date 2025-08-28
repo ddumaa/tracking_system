@@ -1201,7 +1201,19 @@ function enableTooltips(root = document) {
 
         // === Клик/Тап для мобильных устройств ===
         tooltipTriggerEl.addEventListener("click", function (e) {
-            // Останавливаем всплытие, чтобы глобальный обработчик клика не сработал сразу
+            // Для кнопок ввода трек-номера разрешаем всплытие,
+            // чтобы внешний обработчик тела открыл модальное окно
+            if (tooltipTriggerEl.classList.contains('parcel-number')) {
+                if (activeTooltip === newTooltip) {
+                    newTooltip.hide();
+                    activeTooltip = null;
+                }
+                // Не останавливаем событие и не показываем подсказку вручную
+                return;
+            }
+
+            // Для остальных элементов блокируем всплытие,
+            // чтобы глобальный обработчик не закрыл tooltip мгновенно
             e.stopPropagation();
             if (activeTooltip === newTooltip) {
                 newTooltip.hide();
