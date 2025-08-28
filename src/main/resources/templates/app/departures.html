@@ -159,8 +159,9 @@
                                                         aria-label="Открыть детали посылки"></button>
                                             </div>
                                         </td>
-                                        <td>
-                                            <div class="d-flex flex-column">
+                                        <td class="align-middle text-center">
+                                            <!-- Контейнер отвечает только за выравнивание элементов, соблюдая SRP -->
+                                            <div class="d-flex flex-column justify-content-center align-items-center">
                                                 <!-- Если имя покупателя указано, выводим кнопку с ФИО и телефон отдельной строкой -->
                                                 <!-- Проверяем, что имя покупателя не пустое -->
                                                 <div class="d-flex align-items-center" th:if="${!#strings.isEmpty(item.customerName)}">
@@ -181,18 +182,23 @@
                                                        title="Источник: магазин" data-bs-toggle="tooltip"
                                                        aria-label="Имя от магазина"></i>
                                                 </div>
-                                                <!-- Показываем телефон отдельной строкой при наличии имени покупателя -->
-                                                <span th:if="${!#strings.isEmpty(item.customerName)}"
+                                                <!-- Телефон отображаем только при наличии, избегая заглушек (OCP) -->
+                                                <span th:if="${!#strings.isEmpty(item.customerName) and item.customerPhone != null}"
                                                       class="text-muted"
-                                                      th:text="${item.customerPhone != null ? item.customerPhone : '-'}"></span>
+                                                      th:text="${item.customerPhone}"></span>
 
-                                                <!-- Если имя отсутствует, телефон становится ссылкой -->
-                                                <button th:if="${#strings.isEmpty(item.customerName)}"
+                                                <!-- Если имя отсутствует, телефон становится ссылкой на модальное окно -->
+                                                <button th:if="${#strings.isEmpty(item.customerName) and item.customerPhone != null}"
                                                         type="button" class="btn btn-link p-0 customer-icon ms-0"
-                                                        th:text="${item.customerPhone != null ? item.customerPhone : '-'}"
+                                                        th:text="${item.customerPhone}"
                                                         th:data-trackid="${item.id}"
-                                                        aria-label="Информация о покупателе">
-                                                </button>
+                                                        aria-label="Информация о покупателе"></button>
+
+                                                <!-- При отсутствии имени и телефона предлагаем добавить покупателя, расширяя функциональность без изменения существующего кода (OCP) -->
+                                                <button th:if="${#strings.isEmpty(item.customerName) and item.customerPhone == null}"
+                                                        type="button" class="btn btn-link customer-icon"
+                                                        th:data-trackid="${item.id}"
+                                                        aria-label="Добавить покупателя">Добавить покупателя</button>
                                             </div>
                                         </td>
                                         <td th:text="${item.status}" class="status-text"></td>
