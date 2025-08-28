@@ -500,6 +500,9 @@ function autoFillFullName() {
     let isPhoneRequestActive = false;
     // Флаг валидности номера телефона, используется для блокировки чекбокса
     let phoneValid = false;
+    // Предыдущее состояние доступности поля ФИО
+    // Нужно, чтобы не запускать анимацию повторно при неизменных условиях (SOLID)
+    let allowFullNamePrev = false;
 
     // Если нужные элементы отсутствуют, дальнейшая логика не требуется
     if (!phoneInput || !fullNameInput || !toggleFullName) return;
@@ -531,7 +534,12 @@ function autoFillFullName() {
         // Визуально блокируем чекбокс до появления валидного номера
         wrapper?.classList.toggle('opacity-50', !phoneValid);
 
-        toggleFieldsVisibility(toggleFullName, fullNameField);
+        // Отображаем или скрываем поле ФИО только при изменении условия
+        // Это предотвращает повторное проигрывание анимации (SRP)
+        if (allowFullName !== allowFullNamePrev) {
+            toggleFieldsVisibility(toggleFullName, fullNameField);
+            allowFullNamePrev = allowFullName;
+        }
     };
 
     /**
@@ -758,7 +766,7 @@ function autoFillFullName() {
 
                 // Активируем поле ФИО и подставляем полученное значение
                 toggleFullName.checked = true;
-                updateFullNameState();
+                updateFullNameState(); // Управляем показом через единый метод
                 fullNameInput.value = data.fullName;
 
                 // Отображаем репутацию, если она есть
