@@ -512,20 +512,24 @@ function autoFillFullName() {
     const updateFullNameState = () => {
         // Проверяем номер и сохраняем результат для повторного использования
         phoneValid = !getPhoneError(sanitizePhone(phoneInput.value));
+
+        if (!phoneValid) {
+            // Номер невалиден — скрываем чекбокс и очищаем поле ФИО
+            toggleFullName.checked = false;
+            fullNameInput.value = '';
+        }
+
         const allowFullName = toggleFullName.checked && phoneValid;
 
         fullNameInput.disabled = !allowFullName; // блокируем поле до выполнения условий
 
-        // Если номер некорректен, скрываем поле и сбрасываем переключатель
-        if (!allowFullName) {
-            toggleFullName.checked = false;
-        }
-
-        // Чекбокс недоступен при невалидном телефоне,
-        // визуально приглушаем его для ясности (принцип SOLID)
+        // Чекбокс недоступен до успешной валидации телефона
         toggleFullName.disabled = !phoneValid;
         const wrapper = toggleFullName.closest('.form-check') || toggleFullName.labels?.[0];
-        wrapper?.classList.toggle('opacity-50', !phoneValid);
+
+        // Скрываем и приглушаем чекбокс до появления валидного номера
+        wrapper?.classList.toggle('d-none', !phoneValid); // появится после успешной валидации
+        wrapper?.classList.toggle('opacity-50', !phoneValid); // визуально блокируем
 
         toggleFieldsVisibility(toggleFullName, fullNameField);
     };
@@ -622,14 +626,15 @@ function autoFillFullName() {
     const sanitizePhone = (phoneRaw) => phoneRaw.trim().replace(/[+\-\s()]/g, '');
 
     /**
-     * Определяет текст ошибки для введённого номера телефона.
-     * Следуя принципу SRP, функция занимается только проверкой
-     * формата номера и не взаимодействует с DOM.
-     * @param {string} phone - очищенный номер телефона
-     * @returns {string} текст ошибки или пустая строка
+     * Возвращает текст ошибки для введённого номера телефона.
+     * Следуя принципу SRP, функция не взаимодействует с DOM
+     * и проверяет только корректность формата.
+     * Пустой номер также считается невалидным.
+     * @param {string} phone — очищенный номер телефона
+     * @returns {string} сообщение об ошибке или пустая строка
      */
     const getPhoneError = (phone) => {
-        if (!phone) return '';
+        if (!phone) return 'Недостаточно цифр';
         if (!phone.startsWith('80') && !phone.startsWith('375')) {
             return 'Неверный код';
         }
