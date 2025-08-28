@@ -101,6 +101,30 @@ class TrackDeletionServiceTest {
     }
 
     /**
+     * Проверяет, что удаление допускает посылки без номера и статусом {@code PRE_REGISTERED}.
+     */
+    @Test
+    void deleteByIdsAndUserId_AllowsNullNumbers() {
+        List<Long> ids = List.of(3L);
+
+        // Подготавливаем посылку без номера и с предварительной регистрацией
+        TrackParcel parcel = new TrackParcel();
+        parcel.setNumber(null);
+        parcel.setStatus(GlobalStatus.PRE_REGISTERED);
+
+        List<TrackParcel> parcels = List.of(parcel);
+        when(trackParcelRepository.findByIdInAndUserId(ids, 1L)).thenReturn(parcels);
+
+        // Убедимся, что выполнение не приводит к исключениям
+        assertDoesNotThrow(() -> service.deleteByIdsAndUserId(ids, 1L));
+
+        // Проверяем, что были вызваны необходимые зависимости
+        verify(trackParcelRepository).findByIdInAndUserId(ids, 1L);
+        verify(deliveryHistoryService).handleTrackParcelBeforeDelete(parcel);
+        verify(trackParcelRepository).deleteAll(parcels);
+    }
+
+    /**
      * Создаёт тестовую посылку с историей доставки.
      */
     private static TrackParcel buildParcel(String number) {
