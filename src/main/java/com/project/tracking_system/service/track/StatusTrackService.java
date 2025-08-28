@@ -46,8 +46,11 @@ public class StatusTrackService {
     static {
         // Инициализация карты регулярных выражений и статусов
         statusPatterns.put(Pattern.compile("^Почтовое отправление выдано|^Вручено"), GlobalStatus.DELIVERED);
-        statusPatterns.put(Pattern.compile("^Почтовое отправление прибыло на ОПС выдачи|^Добрый день\\. Срок бесплатного хранения|" +
-                "^Поступило в учреждение доставки.*"), GlobalStatus.WAITING_FOR_CUSTOMER);
+        statusPatterns.put(Pattern.compile("^Почтовое отправление прибыло на ОПС выдачи|" +
+                "^Почтовое отправление прибыло для выдачи|" +
+                "^Добрый день\\. Срок бесплатного хранения|" +
+                "^Поступило в учреждение доставки.*"),
+                GlobalStatus.WAITING_FOR_CUSTOMER);
         statusPatterns.put(Pattern.compile("^Почтовое отправление принято на ОПС|" +
                         "^Оплачено на ОПС|^Отправлено|^Принято от отправителя|" +
                         "^Поступило в обработку|" +

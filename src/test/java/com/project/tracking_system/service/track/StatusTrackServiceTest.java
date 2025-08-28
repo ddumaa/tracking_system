@@ -77,4 +77,19 @@ class StatusTrackServiceTest {
 
         assertEquals(GlobalStatus.RETURN_IN_PROGRESS, status);
     }
+
+    /**
+     * Проверяет, что формулировка о прибытии отправления для выдачи
+     * относится к статусу {@link GlobalStatus#WAITING_FOR_CUSTOMER}.
+     */
+    @Test
+    void setStatus_MapsArrivalForIssuance() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO("20.07.2025, 12:00", "Почтовое отправление прибыло для выдачи")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.WAITING_FOR_CUSTOMER, status);
+    }
 }
