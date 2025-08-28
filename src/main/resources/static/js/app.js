@@ -466,21 +466,6 @@ function initializePhoneToggle() {
     }
 }
 
-// Инициализация переключателя ввода ФИО
-function initializeFullNameToggle() {
-    const toggle = document.getElementById("toggleFullName");
-    const field = document.getElementById("fullNameField");
-
-    if (toggle && field) {
-        // Первичное состояние
-        toggleFieldsVisibility(toggle, field);
-
-        // Обработчик переключения
-        const handler = () => toggleFieldsVisibility(toggle, field);
-        toggle.addEventListener('change', handler);
-    }
-}
-
 /**
  * Автоматически подставляет ФИО по введённому номеру телефона.
  * <p>
@@ -516,6 +501,32 @@ function autoFillFullName() {
 
     // Если нужные элементы отсутствуют, дальнейшая логика не требуется
     if (!phoneInput || !fullNameInput || !toggleFullName) return;
+
+    /**
+     * Обновляет доступность поля ФИО и его видимость.
+     * Поле становится доступным только при активном переключателе
+     * и корректно введённом номере телефона.
+     * Пока условия не выполнены, блокируем ввод, чтобы исключить
+     * несогласованность данных между телефоном и ФИО.
+     */
+    const updateFullNameState = () => {
+        const phoneValid = phoneInput.value.trim() && phoneInput.checkValidity();
+        const allowFullName = toggleFullName.checked && phoneValid;
+
+        fullNameInput.disabled = !allowFullName; // блокируем поле до выполнения условий
+
+        // Если номер некорректен, скрываем поле и сбрасываем переключатель
+        if (!allowFullName) {
+            toggleFullName.checked = false;
+        }
+
+        toggleFieldsVisibility(toggleFullName, fullNameField);
+    };
+
+    // Первоначальная установка состояния поля и обработчики изменений
+    updateFullNameState();
+    toggleFullName.addEventListener('change', updateFullNameState);
+    phoneInput.addEventListener('input', updateFullNameState);
 
     /**
      * Вычисляет позицию бейджа репутации над введённым текстом ФИО
@@ -648,7 +659,7 @@ function autoFillFullName() {
 
                 // Активируем поле ФИО и подставляем полученное значение
                 toggleFullName.checked = true;
-                toggleFieldsVisibility(toggleFullName, fullNameField);
+                updateFullNameState();
                 fullNameInput.value = data.fullName;
 
                 // Отображаем репутацию, если она есть
