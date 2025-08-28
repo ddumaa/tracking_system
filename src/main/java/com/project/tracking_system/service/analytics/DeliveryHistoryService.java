@@ -590,9 +590,16 @@ public class DeliveryHistoryService {
         Store store = parcel.getStore();
         StoreStatistics stats = storeAnalyticsRepository.findByStoreId(store.getId())
                 .orElseThrow(() -> new IllegalStateException("❌ Статистика для магазина не найдена"));
-        PostalServiceType serviceType = parcel.getDeliveryHistory() != null
-                ? parcel.getDeliveryHistory().getPostalService()
-                : typeDefinitionTrackPostService.detectPostalService(parcel.getNumber());
+        // История или номер могут отсутствовать у черновых треков,
+        // поэтому определяем службу максимально безопасно.
+        PostalServiceType serviceType;
+        if (parcel.getDeliveryHistory() != null) {
+            serviceType = parcel.getDeliveryHistory().getPostalService();
+        } else if (parcel.getNumber() != null) {
+            serviceType = typeDefinitionTrackPostService.detectPostalService(parcel.getNumber());
+        } else {
+            serviceType = PostalServiceType.UNKNOWN; // Номер отсутствует — определить службу невозможно
+        }
         PostalServiceStatistics psStats = null;
         boolean updatePostalStats = serviceType != PostalServiceType.UNKNOWN;
         if (updatePostalStats) {
