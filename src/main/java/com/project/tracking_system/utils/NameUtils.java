@@ -36,4 +36,29 @@ public final class NameUtils {
         }
         return sb.toString();
     }
+
+    /**
+     * Сокращает ФИО, оставляя фамилию полностью и инициалы имени и отчества.
+     * <p>
+     * Если строка содержит менее двух частей, она возвращается без изменений.
+     * </p>
+     *
+     * @param fullName исходное полное имя
+     * @return сокращённая запись либо исходная строка при недостатке данных
+     */
+    public static String shortenName(String fullName) {
+        if (fullName == null || fullName.isBlank()) {
+            return fullName;
+        }
+        String[] parts = fullName.trim().split("\\s+");
+        if (parts.length < 2) {
+            return fullName;
+        }
+        StringBuilder result = new StringBuilder(parts[0]);
+        for (int i = 1; i < parts.length; i++) {
+            String part = parts[i];
+            result.append(' ').append(part.charAt(0)).append('.');
+        }
+        return result.toString();
+    }
 }

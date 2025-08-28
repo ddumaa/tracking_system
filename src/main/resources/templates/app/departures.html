@@ -165,7 +165,7 @@
                                                 <!-- Проверяем, что имя покупателя не пустое -->
                                                 <div class="d-flex align-items-center" th:if="${!#strings.isEmpty(item.customerName)}">
                                                     <button type="button" class="btn btn-link p-0 customer-icon ms-0"
-                                                            th:text="${item.customerName}"
+                                                            th:text="${item.shortCustomerName}"
                                                             th:data-trackid="${item.id}"
                                                             aria-label="Информация о покупателе"></button>
 
