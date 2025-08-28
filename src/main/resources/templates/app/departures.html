@@ -116,15 +116,15 @@
                                         <th class="checkbox-column">
                                             <input type="checkbox" id="selectAllCheckbox" aria-label="Выделить все посылки">
                                         </th>
-                                        <th scope="col">№ посылки</th>
+                                        <th scope="col" class="align-middle text-center">№ посылки</th><!-- Заголовок номера: выравнивание по центру -->
                                         <th scope="col">Покупатель</th>
-                                        <th scope="col">Статус</th>
-                                        <th scope="col">
+                                        <th scope="col" class="align-middle text-center">Статус</th><!-- Заголовок статуса: выравнивание по центру -->
+                                        <th scope="col" class="align-middle text-center">
                                             <a href="#" id="sortDateBtn" class="link-dark text-decoration-none">
                                                 Дата
                                                 <i class="bi" th:classappend="${sortOrder == 'asc'} ? 'bi-arrow-down' : 'bi-arrow-up'"></i>
                                             </a>
-                                        </th>
+                                        </th><!-- Заголовок даты: выравнивание по центру -->
                                     </tr>
                                     </thead>
                                     <tbody>
@@ -140,8 +140,10 @@
                                                title="Предрегистрация: добавьте трек-номер"
                                                data-bs-toggle="tooltip" aria-label="Нет трека"></i>
                                         </td>
-                                        <td>
-                                            <div class="d-flex align-items-center">
+                                        <td class="align-middle text-center">
+                                            <!-- Ячейка выравнивает содержимое по центру -->
+                                            <!-- Контейнер выравнивает иконку и номер, соблюдая SRP -->
+                                            <div class="d-flex justify-content-center align-items-center">
                                                 <!-- Изменено: выводим готовое значение iconHtml из DTO -->
                                                 <span th:if="${item.iconHtml != null}" th:utext="${item.iconHtml}" class="status-icon"
                                                       th:attr="title=${item.status == 'Предрегистрация' and #strings.isEmpty(item.number) ? 'Добавьте трек-номер, чтобы начать обновлять' : null}, data-bs-toggle=${item.status == 'Предрегистрация' and #strings.isEmpty(item.number) ? 'tooltip' : null}"></span>
@@ -201,8 +203,10 @@
                                                         aria-label="Добавить покупателя">Добавить покупателя</button>
                                             </div>
                                         </td>
-                                        <td th:text="${item.status}" class="status-text"></td>
-                                        <td th:text="${item.timestamp}" class="date-text"></td>
+                                        <td th:text="${item.status}" class="align-middle text-center status-text"></td>
+                                        <!-- Статус центрируется, status-text отвечает за оформление -->
+                                        <td th:text="${item.timestamp}" class="align-middle text-center date-text"></td>
+                                        <!-- Дата центрируется, date-text отвечает за оформление -->
                                     </tr>
                                     </tbody>
                                 </table>
