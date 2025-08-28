@@ -526,7 +526,10 @@ function autoFillFullName() {
     // Первоначальная установка состояния поля и обработчики изменений
     updateFullNameState();
     toggleFullName.addEventListener('change', updateFullNameState);
-    phoneInput.addEventListener('input', updateFullNameState);
+    phoneInput.addEventListener('input', () => {
+        validatePhoneInput();
+        updateFullNameState();
+    });
 
     /**
      * Вычисляет позицию бейджа репутации над введённым текстом ФИО
@@ -620,28 +623,67 @@ function autoFillFullName() {
     const sanitizePhone = (phoneRaw) => phoneRaw.trim().replace(/[+\-\s()]/g, '');
 
     /**
-     * Проверяет номер телефона на соответствие допустимым форматам.
-     * Допускаются номера, начинающиеся на 80 или 375 и содержащие 9 последующих цифр.
+     * Определяет текст ошибки для введённого номера телефона.
+     * Следуя принципу SRP, функция занимается только проверкой
+     * формата номера и не взаимодействует с DOM.
      * @param {string} phone - очищенный номер телефона
-     * @returns {boolean} true, если номер валиден
+     * @returns {string} текст ошибки или пустая строка
      */
-    const isValidPhone = (phone) => /^(80|375)\d{9}$/.test(phone);
+    const getPhoneError = (phone) => {
+        if (!phone) return '';
+        if (!phone.startsWith('80') && !phone.startsWith('375')) {
+            return 'Неверный код';
+        }
+        const requiredLength = phone.startsWith('375') ? 12 : 11;
+        if (phone.length < requiredLength) {
+            return 'Недостаточно цифр';
+        }
+        return '';
+    };
+
+    /**
+     * Валидирует введённый номер телефона и отображает результат.
+     * Реализует единственную ответственность (SRP): работу с DOM
+     * и визуализацию состояния поля ввода.
+     * @returns {string} текст ошибки или пустая строка
+     */
+    const validatePhoneInput = () => {
+        const phone = sanitizePhone(phoneInput.value);
+        const errorText = getPhoneError(phone);
+
+        let errorEl = document.getElementById('phoneError');
+        if (!errorEl) {
+            errorEl = document.createElement('div');
+            errorEl.id = 'phoneError';
+            errorEl.className = 'invalid-feedback d-none';
+            const group = phoneInput.closest('.input-group');
+            group ? group.insertAdjacentElement('afterend', errorEl)
+                  : phoneInput.insertAdjacentElement('afterend', errorEl);
+        }
+
+        if (errorText) {
+            errorEl.textContent = errorText;
+            errorEl.classList.remove('d-none');
+            phoneInput.classList.add('is-invalid');
+        } else {
+            errorEl.textContent = '';
+            errorEl.classList.add('d-none');
+            phoneInput.classList.remove('is-invalid');
+        }
+
+        return errorText;
+    };
 
     /**
      * Обрабатывает ввод телефона: очищает, проверяет и при валидности запрашивает ФИО.
      * Повторный запрос для того же номера не выполняется.
      */
     const requestHandler = () => {
+        const error = validatePhoneInput();
+        if (error) return;
+
         const phone = sanitizePhone(phoneInput.value);
-
-        // Игнорируем пустой ввод
         if (!phone) return;
-
-        // Невалидный номер: уведомляем пользователя и прекращаем обработку
-        if (!isValidPhone(phone)) {
-            notifyUser('Неверный номер телефона', 'danger');
-            return;
-        }
 
         // Повторный номер или активный запрос — обрабатываем только один раз
         if (phone === lastRequestedPhone || isPhoneRequestActive) return;
