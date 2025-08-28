@@ -70,6 +70,52 @@ document.body.addEventListener('click', e => {
 });
 
 /**
+ * Отправляет трек-номер на сервер и обновляет интерфейс.
+ * @param {SubmitEvent} event событие отправки формы
+ */
+function handleTrackNumberFormSubmit(event) {
+    event.preventDefault();
+
+    const form = event.target;
+    const id = form.querySelector('input[name="id"]').value;
+    const number = form.querySelector('input[name="number"]').value;
+
+    fetch('/app/departures/set-number', {
+        method: 'POST',
+        headers: {
+            [window.csrfHeader]: window.csrfToken,
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({ id, number })
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Не удалось сохранить номер');
+            }
+
+            const row = document.querySelector(`tr[data-track-id="${id}"]`);
+            if (row) {
+                const btn = row.querySelector('button.parcel-number');
+                if (btn) {
+                    btn.textContent = number;
+                    btn.classList.add('open-modal');
+                    btn.dataset.itemnumber = number;
+                }
+                row.dataset.trackNumber = number;
+                notifyUser('Трек-номер добавлен', 'success');
+            } else {
+                window.location.reload();
+            }
+        })
+        .catch(error => notifyUser('Ошибка: ' + error.message, 'danger'))
+        .finally(() => {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('trackNumberModal'));
+            modal?.hide();
+            form.reset();
+        });
+}
+
+/**
  * Копирует текст в буфер обмена и показывает уведомление о результате.
  * @param {string} text - копируемый текст
  */
@@ -1615,47 +1661,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // === Сохранение трек-номера через модальное окно ===
     const trackNumberForm = document.getElementById('set-track-number-form');
     if (trackNumberForm) {
-        trackNumberForm.addEventListener('submit', function (event) {
-            event.preventDefault();
-
-            const id = trackNumberForm.querySelector('input[name="id"]').value;
-            const number = trackNumberForm.querySelector('input[name="number"]').value;
-
-            fetch('/app/departures/set-number', {
-                method: 'POST',
-                headers: {
-                    [csrfHeader]: csrfToken,
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: new URLSearchParams({ id, number })
-            })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Не удалось сохранить номер');
-                    }
-
-                    const row = document.querySelector(`tr[data-track-id="${id}"]`);
-                    if (row) {
-                        const btn = row.querySelector('button.parcel-number');
-                        if (btn) {
-                            btn.textContent = number;
-                            btn.classList.add('open-modal');
-                            btn.dataset.itemnumber = number;
-                            btn.removeAttribute('onclick');
-                        }
-                        row.dataset.trackNumber = number;
-                        notifyUser('Трек-номер добавлен', 'success');
-                    } else {
-                        window.location.reload();
-                    }
-                })
-                .catch(error => notifyUser('Ошибка: ' + error.message, 'danger'))
-                .finally(() => {
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('trackNumberModal'));
-                    modal?.hide();
-                    trackNumberForm.reset();
-                });
-        });
+        trackNumberForm.addEventListener('submit', handleTrackNumberFormSubmit);
     }
 
     document.getElementById("updateAllForm")?.addEventListener("submit", function (event) {
