@@ -20,6 +20,8 @@ import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.entity.CustomerNotificationLog;
 import com.project.tracking_system.entity.NotificationType;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -58,6 +60,10 @@ public class DeliveryHistoryService {
     private final TelegramNotificationService telegramNotificationService;
     private final CustomerNotificationLogRepository customerNotificationLogRepository;
     private final SubscriptionService subscriptionService;
+
+    /** Менеджер сущностей для актуализации данных покупателя после обновления статистики. */
+    @PersistenceContext
+    private EntityManager entityManager;
 
     /**
      * Обновляет или создаёт запись {@link DeliveryHistory}, когда меняется статус посылки.
@@ -378,10 +384,15 @@ public class DeliveryHistoryService {
             updateDailyStats(store, history.getPostalService(), eventDate, status, deliveryDays, pickupDays);
         }
 
-        if (status == GlobalStatus.DELIVERED && trackParcel.getCustomer() != null) {
-            customerStatsService.incrementPickedUp(trackParcel.getCustomer());
-        } else if (status == GlobalStatus.RETURNED && trackParcel.getCustomer() != null) {
-            customerStatsService.incrementReturned(trackParcel.getCustomer());
+        Customer customer = trackParcel.getCustomer();
+        if (status == GlobalStatus.DELIVERED && customer != null) {
+            customerStatsService.incrementPickedUp(customer);
+            // Обновляем данные покупателя после изменения статистики
+            entityManager.refresh(customer);
+        } else if (status == GlobalStatus.RETURNED && customer != null) {
+            customerStatsService.incrementReturned(customer);
+            // Обновляем данные покупателя после изменения статистики
+            entityManager.refresh(customer);
         }
 
         // Устанавливаем флаг только при первом учёте
