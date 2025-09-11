@@ -19,14 +19,15 @@ public class CustomerStatsService {
     private final CustomerRepository customerRepository;
 
     /**
-     * Увеличить счётчик отправленных посылок покупателя.
+     * Увеличивает счётчик отправленных посылок покупателя.
      *
      * @param customer покупатель
+     * @return обновлённый экземпляр покупателя
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void incrementSent(Customer customer) {
+    public Customer incrementSent(Customer customer) {
         if (customer == null) {
-            return;
+            return null;
         }
         log.debug("🔄 Попытка атомарного увеличения отправленных для customerId={}", customer.getId());
         int updated = customerRepository.incrementSentCount(customer.getId(), customer.getVersion());
@@ -51,17 +52,19 @@ public class CustomerStatsService {
             // Сохраняем репутацию для согласованности с БД
             customerRepository.save(customer);
         }
+        return customer;
     }
 
     /**
-     * Увеличить счётчик забранных посылок покупателя.
+     * Увеличивает счётчик забранных посылок покупателя.
      *
      * @param customer покупатель
+     * @return обновлённый экземпляр покупателя
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void incrementPickedUp(Customer customer) {
+    public Customer incrementPickedUp(Customer customer) {
         if (customer == null) {
-            return;
+            return null;
         }
         log.debug("🔄 Попытка атомарного увеличения забранных для customerId={}", customer.getId());
         int updated = customerRepository.incrementPickedUpCount(customer.getId(), customer.getVersion());
@@ -86,17 +89,19 @@ public class CustomerStatsService {
             Customer saved = customerRepository.save(customer);
             customer.setVersion(saved.getVersion());
         }
+        return customer;
     }
 
     /**
-     * Увеличить счётчик возвращённых посылок покупателя.
+     * Увеличивает счётчик возвращённых посылок покупателя.
      *
      * @param customer покупатель
+     * @return обновлённый экземпляр покупателя
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void incrementReturned(Customer customer) {
+    public Customer incrementReturned(Customer customer) {
         if (customer == null) {
-            return;
+            return null;
         }
         log.debug("🔄 Попытка атомарного увеличения возвратов для customerId={}", customer.getId());
         int updated = customerRepository.incrementReturnedCount(customer.getId(), customer.getVersion());
@@ -119,5 +124,6 @@ public class CustomerStatsService {
             Customer saved = customerRepository.save(customer);
             customer.setVersion(saved.getVersion());
         }
+        return customer;
     }
 }
