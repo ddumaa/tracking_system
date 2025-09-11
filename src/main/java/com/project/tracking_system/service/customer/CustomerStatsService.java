@@ -82,9 +82,9 @@ public class CustomerStatsService {
             log.debug("✅ Атомарное увеличение забранных успешно для customerId={}", customer.getId());
             customer.setPickedUpCount(customer.getPickedUpCount() + 1);
             customer.recalculateReputation();
-            customer.setVersion(customer.getVersion() + 1);
-            // Сохраняем репутацию для согласованности с БД
-            customerRepository.save(customer);
+            // Сохраняем репутацию и получаем актуальную версию
+            Customer saved = customerRepository.save(customer);
+            customer.setVersion(saved.getVersion());
         }
     }
 
@@ -115,8 +115,9 @@ public class CustomerStatsService {
             log.debug("✅ Атомарное увеличение возвратов успешно для customerId={}", customer.getId());
             customer.setReturnedCount(customer.getReturnedCount() + 1);
             customer.recalculateReputation();
-            customer.setVersion(customer.getVersion() + 1);
-            customerRepository.save(customer);
+            // Сохраняем репутацию и актуализируем версию после сохранения
+            Customer saved = customerRepository.save(customer);
+            customer.setVersion(saved.getVersion());
         }
     }
 }
