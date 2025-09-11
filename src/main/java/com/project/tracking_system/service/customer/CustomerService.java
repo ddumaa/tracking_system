@@ -372,16 +372,20 @@ public class CustomerService {
         parcel.setCustomer(newCustomer);
         trackParcelRepository.save(parcel);
 
+        // Отсоединяем исходный экземпляр, чтобы его старые данные не сохранялись
+        entityManager.detach(newCustomer);
+
         log.debug("📦 Посылка ID={} привязана к покупателю ID={}", parcelId, newCustomer.getId());
 
-        // Обновляем статистику покупателя и получаем актуализированную сущность
+        // Обновляем статистику покупателя и получаем перечитанную сущность
         newCustomer = customerStatsService.incrementSent(newCustomer);
         if (parcel.getStatus() == GlobalStatus.DELIVERED) {
             newCustomer = customerStatsService.incrementPickedUp(newCustomer);
         } else if (parcel.getStatus() == GlobalStatus.RETURNED) {
             newCustomer = customerStatsService.incrementReturned(newCustomer);
         }
-        // Отсоединяем сущность, чтобы предотвратить повторное обновление при commit
+        // Подменяем ссылку у посылки на актуальную сущность и отсоединяем её
+        parcel.setCustomer(newCustomer);
         entityManager.detach(newCustomer);
 
         log.debug("📈 Статистика покупателя ID={} обновлена после привязки посылки ID={}",

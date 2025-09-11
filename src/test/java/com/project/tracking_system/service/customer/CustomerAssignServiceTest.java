@@ -19,7 +19,7 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -87,6 +87,7 @@ class CustomerAssignServiceTest {
         Customer fresh1 = buildCustomer(2L, 4, 2, 0); fresh1.setVersion(1);
         Customer fresh2 = buildCustomer(2L, 4, 3, 0); fresh2.setVersion(2);
         when(customerRepository.findById(2L)).thenReturn(Optional.of(fresh1), Optional.of(fresh2));
+        when(customerRepository.updateReputation(anyLong(), anyLong(), any())).thenReturn(1);
 
         service.assignCustomerToParcel(10L, "375111111111");
 
@@ -95,12 +96,12 @@ class CustomerAssignServiceTest {
         assertEquals(2, oldCustomer.getPickedUpCount());
         assertEquals(BuyerReputation.NEW, oldCustomer.getReputation());
 
-        // new customer increased
-        assertEquals(4, newCustomer.getSentCount());
-        assertEquals(3, newCustomer.getPickedUpCount());
-        assertEquals(BuyerReputation.RELIABLE, newCustomer.getReputation());
-
-        assertSame(newCustomer, parcel.getCustomer());
+        // new customer stats taken from обновлённой сущности у посылки
+        Customer refreshed = parcel.getCustomer();
+        assertEquals(4, refreshed.getSentCount());
+        assertEquals(3, refreshed.getPickedUpCount());
+        assertEquals(BuyerReputation.RELIABLE, refreshed.getReputation());
+        assertEquals(newCustomer.getId(), refreshed.getId());
     }
 
     /**
@@ -123,6 +124,7 @@ class CustomerAssignServiceTest {
         Customer fresh1 = buildCustomer(2L, 3, 1, 1); fresh1.setVersion(1);
         Customer fresh2 = buildCustomer(2L, 3, 1, 2); fresh2.setVersion(2);
         when(customerRepository.findById(2L)).thenReturn(Optional.of(fresh1), Optional.of(fresh2));
+        when(customerRepository.updateReputation(anyLong(), anyLong(), any())).thenReturn(1);
 
         service.assignCustomerToParcel(11L, "375222222222");
 
@@ -131,12 +133,12 @@ class CustomerAssignServiceTest {
         assertEquals(1, oldCustomer.getReturnedCount());
         assertEquals(BuyerReputation.NEW, oldCustomer.getReputation());
 
-        // new customer increased
-        assertEquals(3, newCustomer.getSentCount());
-        assertEquals(2, newCustomer.getReturnedCount());
-        assertEquals(BuyerReputation.UNRELIABLE, newCustomer.getReputation());
-
-        assertSame(newCustomer, parcel.getCustomer());
+        // new customer stats from refreshed entity on parcel
+        Customer refreshed = parcel.getCustomer();
+        assertEquals(3, refreshed.getSentCount());
+        assertEquals(2, refreshed.getReturnedCount());
+        assertEquals(BuyerReputation.UNRELIABLE, refreshed.getReputation());
+        assertEquals(newCustomer.getId(), refreshed.getId());
     }
 
     private static Customer buildCustomer(Long id, int sent, int picked, int returned) {
