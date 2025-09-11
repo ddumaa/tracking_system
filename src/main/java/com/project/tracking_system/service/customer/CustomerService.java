@@ -22,6 +22,8 @@ import org.springframework.web.server.ResponseStatusException;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -50,6 +52,10 @@ public class CustomerService {
     /** Фича-флаг для вывода маскированных ФИО в DEBUG. */
     @Value("${debug.log-masked-fio:false}")
     private boolean debugLogMaskedFio;
+
+    /** Менеджер сущностей для управления состоянием JPA-объектов. */
+    @PersistenceContext
+    private EntityManager entityManager;
 
     /**
      * Зарегистрировать нового покупателя или получить существующего по телефону.
@@ -201,7 +207,10 @@ public class CustomerService {
         }
         log.debug("📈 [updateStatsOnTrackAdd] Покупатель ID={} посылка ID={}",
                 track.getCustomer().getId(), track.getId());
-        customerStatsService.incrementSent(track.getCustomer());
+        // Пересчитываем статистику и получаем актуальную сущность покупателя
+        Customer customer = customerStatsService.incrementSent(track.getCustomer());
+        // Отсоединяем сущность, чтобы избежать повторного flush и конфликтов версий
+        entityManager.detach(customer);
     }
 
     /**
@@ -216,7 +225,10 @@ public class CustomerService {
         }
         log.debug("📦 [updateStatsOnTrackDelivered] Покупатель ID={} посылка ID={}",
                 track.getCustomer().getId(), track.getId());
-        customerStatsService.incrementPickedUp(track.getCustomer());
+        // Обновляем статистику получения и получаем актуальный объект покупателя
+        Customer customer = customerStatsService.incrementPickedUp(track.getCustomer());
+        // Отсоединяем покупателя, чтобы исключить повторное обновление при фиксации транзакции
+        entityManager.detach(customer);
     }
 
     /**
