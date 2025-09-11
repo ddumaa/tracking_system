@@ -2,6 +2,8 @@ package com.project.tracking_system.service.customer;
 
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.repository.CustomerRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -21,12 +23,16 @@ public class CustomerStatsService {
 
     private final CustomerRepository customerRepository;
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     /**
      * Универсальный метод увеличения счётчика статистики покупателя.
      * <p>Атомарно обновляет значение в БД, перечитывает сущность,
      * пересчитывает репутацию и пытается сохранить её атомарно по версии.
-     * При неудаче перечитывает сущность ещё раз и сохраняет через репозиторий.
-     * Возвращает свежий экземпляр, не изменяя переданный объект.</p>
+     * При неудаче отсоединяет и перечитывает сущность, затем сохраняет
+     * через репозиторий. Возвращает свежий экземпляр, не изменяя
+     * переданный объект.</p>
      *
      * @param customer     покупатель
      * @param counterName  имя счётчика для логирования
@@ -69,6 +75,8 @@ public class CustomerStatsService {
             );
             if (reputationUpdated == 0) {
                 log.warn("⚠️ Репутация для customerId={} не обновлена, сохраняем через save", customer.getId());
+                // отсоединяем сущность, чтобы следующая загрузка получила актуальное состояние
+                entityManager.detach(fresh);
                 // перечитываем покупателя, чтобы получить актуальную версию
                 fresh = customerRepository.findById(customer.getId())
                         .orElseThrow(() -> new IllegalStateException("Покупатель не найден"));
