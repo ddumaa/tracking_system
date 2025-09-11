@@ -16,6 +16,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -24,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 @DataJpaTest
 @Import(CustomerStatsService.class)
+@Transactional(propagation = Propagation.NOT_SUPPORTED)
 class CustomerStatsConcurrencyIT {
 
     @Autowired
@@ -43,6 +46,7 @@ class CustomerStatsConcurrencyIT {
     void concurrentIncrementDoesNotThrowOptimisticLock() throws Exception {
         Customer customer = new Customer();
         customer.setPhone("375000000000");
+        // Сохраняем клиента в отдельной транзакции, чтобы он был виден параллельным потокам
         customerRepository.saveAndFlush(customer);
 
         int iterations = 5;
