@@ -374,13 +374,15 @@ public class CustomerService {
 
         log.debug("📦 Посылка ID={} привязана к покупателю ID={}", parcelId, newCustomer.getId());
 
-        // Обновляем статистику покупателя в зависимости от статуса посылки
-        customerStatsService.incrementSent(newCustomer);
+        // Обновляем статистику покупателя и получаем актуализированную сущность
+        newCustomer = customerStatsService.incrementSent(newCustomer);
         if (parcel.getStatus() == GlobalStatus.DELIVERED) {
-            customerStatsService.incrementPickedUp(newCustomer);
+            newCustomer = customerStatsService.incrementPickedUp(newCustomer);
         } else if (parcel.getStatus() == GlobalStatus.RETURNED) {
-            customerStatsService.incrementReturned(newCustomer);
+            newCustomer = customerStatsService.incrementReturned(newCustomer);
         }
+        // Отсоединяем сущность, чтобы предотвратить повторное обновление при commit
+        entityManager.detach(newCustomer);
 
         log.debug("📈 Статистика покупателя ID={} обновлена после привязки посылки ID={}",
                 newCustomer.getId(), parcelId);
