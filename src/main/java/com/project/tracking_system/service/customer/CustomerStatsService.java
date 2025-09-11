@@ -24,8 +24,9 @@ public class CustomerStatsService {
     /**
      * Универсальный метод увеличения счётчика статистики покупателя.
      * <p>Атомарно обновляет значение в БД, перечитывает сущность,
-     * пересчитывает репутацию и возвращает свежий экземпляр, не изменяя
-     * переданный объект.</p>
+     * пересчитывает репутацию и пытается сохранить её атомарно по версии.
+     * При неудаче перечитывает сущность ещё раз и сохраняет через репозиторий.
+     * Возвращает свежий экземпляр, не изменяя переданный объект.</p>
      *
      * @param customer     покупатель
      * @param counterName  имя счётчика для логирования
@@ -60,7 +61,20 @@ public class CustomerStatsService {
             fresh = customerRepository.findById(customer.getId())
                     .orElseThrow(() -> new IllegalStateException("Покупатель не найден"));
             fresh.recalculateReputation();
-            customerRepository.updateReputation(fresh.getId(), fresh.getVersion(), fresh.getReputation());
+            // пытаемся обновить репутацию атомарно по версии
+            int reputationUpdated = customerRepository.updateReputation(
+                    fresh.getId(),
+                    fresh.getVersion(),
+                    fresh.getReputation()
+            );
+            if (reputationUpdated == 0) {
+                log.warn("⚠️ Репутация для customerId={} не обновлена, сохраняем через save", customer.getId());
+                // перечитываем покупателя, чтобы получить актуальную версию
+                fresh = customerRepository.findById(customer.getId())
+                        .orElseThrow(() -> new IllegalStateException("Покупатель не найден"));
+                fresh.recalculateReputation();
+                fresh = customerRepository.save(fresh);
+            }
         }
         return fresh;
     }
