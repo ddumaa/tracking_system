@@ -24,6 +24,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -58,6 +60,9 @@ public class DeliveryHistoryService {
     private final TelegramNotificationService telegramNotificationService;
     private final CustomerNotificationLogRepository customerNotificationLogRepository;
     private final SubscriptionService subscriptionService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
 
     /**
@@ -383,9 +388,13 @@ public class DeliveryHistoryService {
         if (status == GlobalStatus.DELIVERED && customer != null) {
             // Пересчитываем статистику покупателя и получаем актуальный экземпляр
             customer = customerStatsService.incrementPickedUp(customer);
+            // Отсоединяем покупателя, чтобы предотвратить повторный flush и конфликт версий
+            entityManager.detach(customer);
         } else if (status == GlobalStatus.RETURNED && customer != null) {
             // Актуализируем данные покупателя при возврате посылки
             customer = customerStatsService.incrementReturned(customer);
+            // Отсоединяем покупателя, чтобы исключить повторное обновление в текущей транзакции
+            entityManager.detach(customer);
         }
 
         // Устанавливаем флаг только при первом учёте

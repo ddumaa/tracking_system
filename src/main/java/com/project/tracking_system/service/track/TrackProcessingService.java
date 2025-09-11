@@ -17,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import java.time.*;
 
@@ -43,6 +45,9 @@ public class TrackProcessingService {
     private final UserRepository userRepository;
     private final TrackParcelRepository trackParcelRepository;
     private final TrackStatisticsUpdater trackStatisticsUpdater;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
 
     /**
@@ -232,6 +237,8 @@ public class TrackProcessingService {
         if (isNewParcel && customer != null) {
             // Фиксируем отправку в статистике покупателя и используем обновлённый объект
             customer = customerStatsService.incrementSent(customer);
+            // Отсоединяем покупателя, чтобы предотвратить повторное обновление при коммите
+            entityManager.detach(customer);
         }
 
         trackStatisticsUpdater.updateStatistics(trackParcel, isNewParcel, previousStoreId, previousDate);
