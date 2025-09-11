@@ -12,7 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -47,13 +47,15 @@ class CustomerStatsServiceTest {
         fresh.setVersion(1);
         fresh.setSentCount(1);
         when(customerRepository.findById(1L)).thenReturn(Optional.of(fresh));
+        when(customerRepository.updateReputation(anyLong(), anyLong(), any())).thenReturn(1);
 
         Customer result = service.incrementSent(customer);
 
-        assertEquals(1, customer.getSentCount());
+        assertEquals(0, customer.getSentCount());
         assertSame(fresh, result);
         verify(customerRepository).incrementSentCount(1L, 0L);
         verify(customerRepository).findById(1L);
+        verify(customerRepository).updateReputation(1L, 1L, fresh.getReputation());
         verify(customerRepository, never()).save(any());
     }
 
@@ -71,10 +73,11 @@ class CustomerStatsServiceTest {
 
         Customer result = service.incrementSent(customer);
 
-        assertEquals(1, customer.getSentCount());
+        assertEquals(0, customer.getSentCount());
         assertSame(fresh, result);
         verify(customerRepository).findById(1L);
         verify(customerRepository).save(fresh);
+        verify(customerRepository, never()).updateReputation(anyLong(), anyLong(), any());
     }
 
     /**
@@ -88,13 +91,15 @@ class CustomerStatsServiceTest {
         fresh.setVersion(1);
         fresh.setPickedUpCount(1);
         when(customerRepository.findById(1L)).thenReturn(Optional.of(fresh));
+        when(customerRepository.updateReputation(anyLong(), anyLong(), any())).thenReturn(1);
 
         Customer result = service.incrementPickedUp(customer);
 
-        assertEquals(1, customer.getPickedUpCount());
+        assertEquals(0, customer.getPickedUpCount());
         assertSame(fresh, result);
         verify(customerRepository).incrementPickedUpCount(1L, 0L);
         verify(customerRepository).findById(1L);
+        verify(customerRepository).updateReputation(1L, 1L, fresh.getReputation());
         verify(customerRepository, never()).save(any());
     }
 
@@ -112,10 +117,11 @@ class CustomerStatsServiceTest {
 
         Customer result = service.incrementPickedUp(customer);
 
-        assertEquals(1, customer.getPickedUpCount());
+        assertEquals(0, customer.getPickedUpCount());
         assertSame(fresh, result);
         verify(customerRepository).findById(1L);
         verify(customerRepository).save(fresh);
+        verify(customerRepository, never()).updateReputation(anyLong(), anyLong(), any());
     }
 
     /**
@@ -129,13 +135,15 @@ class CustomerStatsServiceTest {
         fresh.setVersion(1);
         fresh.setReturnedCount(1);
         when(customerRepository.findById(1L)).thenReturn(Optional.of(fresh));
+        when(customerRepository.updateReputation(anyLong(), anyLong(), any())).thenReturn(1);
 
         Customer result = service.incrementReturned(customer);
 
-        assertEquals(1, customer.getReturnedCount());
+        assertEquals(0, customer.getReturnedCount());
         assertSame(fresh, result);
         verify(customerRepository).incrementReturnedCount(1L, 0L);
         verify(customerRepository).findById(1L);
+        verify(customerRepository).updateReputation(1L, 1L, fresh.getReputation());
         verify(customerRepository, never()).save(any());
     }
 
@@ -153,9 +161,10 @@ class CustomerStatsServiceTest {
 
         Customer result = service.incrementReturned(customer);
 
-        assertEquals(1, customer.getReturnedCount());
+        assertEquals(0, customer.getReturnedCount());
         assertSame(fresh, result);
         verify(customerRepository).findById(1L);
         verify(customerRepository).save(fresh);
+        verify(customerRepository, never()).updateReputation(anyLong(), anyLong(), any());
     }
 }
