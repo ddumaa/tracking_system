@@ -96,6 +96,27 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     int incrementReturnedCount(@Param("id") Long id, @Param("version") long version);
 
     /**
+     * Обновить репутацию покупателя без изменения версии записи.
+     *
+     * @param id         идентификатор покупателя
+     * @param version    ожидаемая версия записи
+     * @param reputation новое значение репутации
+     * @return количество обновлённых записей
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE Customer c
+        SET c.reputation = :reputation
+        WHERE c.id = :id AND c.version = :version
+        """)
+    int updateReputation(
+            @Param("id") Long id,
+            @Param("version") long version,
+            @Param("reputation") BuyerReputation reputation
+    );
+
+    /**
      * Подсчитать количество покупателей с указанной репутацией.
      *
      * @param reputation репутация покупателя

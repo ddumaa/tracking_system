@@ -23,8 +23,9 @@ public class CustomerStatsService {
 
     /**
      * Универсальный метод увеличения счётчика статистики покупателя.
-     * Принимает функции для атомарного обновления в БД и изменения нужного поля
-     * в объекте. В случае конфликта версий выполняет ручное обновление.
+     * <p>Атомарно обновляет значение в БД, перечитывает сущность,
+     * пересчитывает репутацию и возвращает свежий экземпляр, не изменяя
+     * переданный объект.</p>
      *
      * @param customer     покупатель
      * @param counterName  имя счётчика для логирования
@@ -58,23 +59,21 @@ public class CustomerStatsService {
             log.debug("✅ Атомарное увеличение {} успешно для customerId={}", counterName, customer.getId());
             fresh = customerRepository.findById(customer.getId())
                     .orElseThrow(() -> new IllegalStateException("Покупатель не найден"));
+            fresh.recalculateReputation();
+            customerRepository.updateReputation(fresh.getId(), fresh.getVersion(), fresh.getReputation());
         }
-        // Перекладываем актуальные данные в переданный объект для дальнейших вызовов
-        setter.accept(customer, getter.apply(fresh));
-        customer.setReputation(fresh.getReputation());
-        customer.setVersion(fresh.getVersion());
         return fresh;
     }
 
     /**
-     * Увеличивает счётчик отправленных посылок покупателя.
+     * Увеличивает счётчик отправленных посылок и пересчитывает репутацию.
+     * <p>Возвращает нового покупателя из БД; исходный объект не меняется.</p>
      *
      * @param customer покупатель
      * @return обновлённый экземпляр покупателя
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Customer incrementSent(Customer customer) {
-        // Возвращаем перечитанного из БД покупателя с обновлённым счётчиком
         return updateStatistic(
                 customer,
                 "отправленных",
@@ -85,14 +84,14 @@ public class CustomerStatsService {
     }
 
     /**
-     * Увеличивает счётчик забранных посылок покупателя.
+     * Увеличивает счётчик забранных посылок с обновлением репутации.
+     * <p>Возвращает свежий экземпляр из БД, не изменяя переданный объект.</p>
      *
      * @param customer покупатель
      * @return обновлённый экземпляр покупателя
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Customer incrementPickedUp(Customer customer) {
-        // После атомарного обновления счётчика возвращаем актуальную сущность
         return updateStatistic(
                 customer,
                 "забранных",
@@ -103,14 +102,14 @@ public class CustomerStatsService {
     }
 
     /**
-     * Увеличивает счётчик возвращённых посылок покупателя.
+     * Увеличивает счётчик возвращённых посылок и корректирует репутацию.
+     * <p>Исходный объект остаётся неизменным, возвращается перечитанный покупатель.</p>
      *
      * @param customer покупатель
      * @return обновлённый экземпляр покупателя
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Customer incrementReturned(Customer customer) {
-        // Возвращаем из БД покупателя с актуальным количеством возвратов
         return updateStatistic(
                 customer,
                 "возвратов",
