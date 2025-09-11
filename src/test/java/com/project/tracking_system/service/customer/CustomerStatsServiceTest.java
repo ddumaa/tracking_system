@@ -42,12 +42,19 @@ class CustomerStatsServiceTest {
     @Test
     void incrementSent_AtomicSuccess() {
         when(customerRepository.incrementSentCount(1L, 0L)).thenReturn(1);
+        Customer fresh = new Customer();
+        fresh.setId(1L);
+        fresh.setVersion(1);
+        fresh.setSentCount(1);
+        when(customerRepository.findById(1L)).thenReturn(Optional.of(fresh));
 
-        service.incrementSent(customer);
+        Customer result = service.incrementSent(customer);
 
         assertEquals(1, customer.getSentCount());
+        assertSame(fresh, result);
         verify(customerRepository).incrementSentCount(1L, 0L);
-        verify(customerRepository).save(customer);
+        verify(customerRepository).findById(1L);
+        verify(customerRepository, never()).save(any());
     }
 
     /**
@@ -59,11 +66,14 @@ class CustomerStatsServiceTest {
         Customer fresh = new Customer();
         fresh.setId(1L);
         fresh.setVersion(1);
+        fresh.setSentCount(1);
         when(customerRepository.findById(1L)).thenReturn(Optional.of(fresh));
 
-        service.incrementSent(customer);
+        Customer result = service.incrementSent(customer);
 
         assertEquals(1, customer.getSentCount());
+        assertSame(fresh, result);
+        verify(customerRepository).findById(1L);
         verify(customerRepository).save(fresh);
     }
 
@@ -73,12 +83,19 @@ class CustomerStatsServiceTest {
     @Test
     void incrementPickedUp_AtomicSuccess() {
         when(customerRepository.incrementPickedUpCount(1L, 0L)).thenReturn(1);
+        Customer fresh = new Customer();
+        fresh.setId(1L);
+        fresh.setVersion(1);
+        fresh.setPickedUpCount(1);
+        when(customerRepository.findById(1L)).thenReturn(Optional.of(fresh));
 
-        service.incrementPickedUp(customer);
+        Customer result = service.incrementPickedUp(customer);
 
         assertEquals(1, customer.getPickedUpCount());
+        assertSame(fresh, result);
         verify(customerRepository).incrementPickedUpCount(1L, 0L);
-        verify(customerRepository).save(customer);
+        verify(customerRepository).findById(1L);
+        verify(customerRepository, never()).save(any());
     }
 
     /**
@@ -90,11 +107,14 @@ class CustomerStatsServiceTest {
         Customer fresh = new Customer();
         fresh.setId(1L);
         fresh.setVersion(1);
+        fresh.setPickedUpCount(1);
         when(customerRepository.findById(1L)).thenReturn(Optional.of(fresh));
 
-        service.incrementPickedUp(customer);
+        Customer result = service.incrementPickedUp(customer);
 
         assertEquals(1, customer.getPickedUpCount());
+        assertSame(fresh, result);
+        verify(customerRepository).findById(1L);
         verify(customerRepository).save(fresh);
     }
 
@@ -104,12 +124,19 @@ class CustomerStatsServiceTest {
     @Test
     void incrementReturned_AtomicSuccess() {
         when(customerRepository.incrementReturnedCount(1L, 0L)).thenReturn(1);
+        Customer fresh = new Customer();
+        fresh.setId(1L);
+        fresh.setVersion(1);
+        fresh.setReturnedCount(1);
+        when(customerRepository.findById(1L)).thenReturn(Optional.of(fresh));
 
-        service.incrementReturned(customer);
+        Customer result = service.incrementReturned(customer);
 
         assertEquals(1, customer.getReturnedCount());
+        assertSame(fresh, result);
         verify(customerRepository).incrementReturnedCount(1L, 0L);
-        verify(customerRepository).save(customer);
+        verify(customerRepository).findById(1L);
+        verify(customerRepository, never()).save(any());
     }
 
     /**
@@ -121,11 +148,14 @@ class CustomerStatsServiceTest {
         Customer fresh = new Customer();
         fresh.setId(1L);
         fresh.setVersion(1);
+        fresh.setReturnedCount(1);
         when(customerRepository.findById(1L)).thenReturn(Optional.of(fresh));
 
-        service.incrementReturned(customer);
+        Customer result = service.incrementReturned(customer);
 
         assertEquals(1, customer.getReturnedCount());
+        assertSame(fresh, result);
+        verify(customerRepository).findById(1L);
         verify(customerRepository).save(fresh);
     }
 }

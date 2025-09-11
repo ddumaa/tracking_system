@@ -45,27 +45,25 @@ public class CustomerStatsService {
         }
         log.debug("🔄 Попытка атомарного увеличения {} для customerId={}", counterName, customer.getId());
         int updated = atomicUpdate.apply(customer.getId(), customer.getVersion());
+        Customer fresh;
         if (updated == 0) {
             log.warn("⚠️ Не удалось атомарно обновить {} для customerId={}, переключаемся на ручной режим", counterName, customer.getId());
-            Customer fresh = customerRepository.findById(customer.getId())
+            fresh = customerRepository.findById(customer.getId())
                     .orElseThrow(() -> new IllegalStateException("Покупатель не найден"));
             setter.accept(fresh, getter.apply(fresh) + 1);
             fresh.recalculateReputation();
-            customerRepository.save(fresh);
-            setter.accept(customer, getter.apply(fresh));
-            customer.setReputation(fresh.getReputation());
-            customer.setVersion(fresh.getVersion());
+            fresh = customerRepository.save(fresh);
             log.debug("✅ Счётчик {} вручную увеличен для customerId={}", counterName, customer.getId());
         } else {
             log.debug("✅ Атомарное увеличение {} успешно для customerId={}", counterName, customer.getId());
-            setter.accept(customer, getter.apply(customer) + 1);
-            customer.recalculateReputation();
-            // Синхронизируем версию объекта с БД, иначе save() вызовет конфликт
-            customer.setVersion(customer.getVersion() + 1);
-            Customer saved = customerRepository.save(customer);
-            customer.setVersion(saved.getVersion());
+            fresh = customerRepository.findById(customer.getId())
+                    .orElseThrow(() -> new IllegalStateException("Покупатель не найден"));
         }
-        return customer;
+        // Перекладываем актуальные данные в переданный объект для дальнейших вызовов
+        setter.accept(customer, getter.apply(fresh));
+        customer.setReputation(fresh.getReputation());
+        customer.setVersion(fresh.getVersion());
+        return fresh;
     }
 
     /**
@@ -76,7 +74,7 @@ public class CustomerStatsService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Customer incrementSent(Customer customer) {
-        // Делегируем логику универсальному методу
+        // Возвращаем перечитанного из БД покупателя с обновлённым счётчиком
         return updateStatistic(
                 customer,
                 "отправленных",
@@ -94,7 +92,7 @@ public class CustomerStatsService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Customer incrementPickedUp(Customer customer) {
-        // Используем общий механизм обновления статистики
+        // После атомарного обновления счётчика возвращаем актуальную сущность
         return updateStatistic(
                 customer,
                 "забранных",
@@ -112,7 +110,7 @@ public class CustomerStatsService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Customer incrementReturned(Customer customer) {
-        // Универсальный метод позволяет избежать дублирования
+        // Возвращаем из БД покупателя с актуальным количеством возвратов
         return updateStatistic(
                 customer,
                 "возвратов",

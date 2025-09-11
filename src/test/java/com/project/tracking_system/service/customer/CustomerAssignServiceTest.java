@@ -84,6 +84,9 @@ class CustomerAssignServiceTest {
         when(transactionalService.findByPhone("375111111111")).thenReturn(Optional.of(newCustomer));
         when(customerRepository.incrementSentCount(2L, 0L)).thenReturn(1);
         when(customerRepository.incrementPickedUpCount(2L, 1L)).thenReturn(1);
+        Customer fresh1 = buildCustomer(2L, 4, 2, 0); fresh1.setVersion(1);
+        Customer fresh2 = buildCustomer(2L, 4, 3, 0); fresh2.setVersion(2);
+        when(customerRepository.findById(2L)).thenReturn(Optional.of(fresh1), Optional.of(fresh2));
 
         service.assignCustomerToParcel(10L, "375111111111");
 
@@ -117,6 +120,9 @@ class CustomerAssignServiceTest {
         when(transactionalService.findByPhone("375222222222")).thenReturn(Optional.of(newCustomer));
         when(customerRepository.incrementSentCount(2L, 0L)).thenReturn(1);
         when(customerRepository.incrementReturnedCount(2L, 1L)).thenReturn(1);
+        Customer fresh1 = buildCustomer(2L, 3, 1, 1); fresh1.setVersion(1);
+        Customer fresh2 = buildCustomer(2L, 3, 1, 2); fresh2.setVersion(2);
+        when(customerRepository.findById(2L)).thenReturn(Optional.of(fresh1), Optional.of(fresh2));
 
         service.assignCustomerToParcel(11L, "375222222222");
 
