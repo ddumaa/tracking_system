@@ -60,6 +60,8 @@ public class CustomerStatsService {
             log.debug("✅ Атомарное увеличение {} успешно для customerId={}", counterName, customer.getId());
             setter.accept(customer, getter.apply(customer) + 1);
             customer.recalculateReputation();
+            // Синхронизируем версию объекта с БД, иначе save() вызовет конфликт
+            customer.setVersion(customer.getVersion() + 1);
             Customer saved = customerRepository.save(customer);
             customer.setVersion(saved.getVersion());
         }
