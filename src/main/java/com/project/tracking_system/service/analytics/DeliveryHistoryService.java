@@ -24,8 +24,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -60,9 +58,6 @@ public class DeliveryHistoryService {
     private final TelegramNotificationService telegramNotificationService;
     private final CustomerNotificationLogRepository customerNotificationLogRepository;
     private final SubscriptionService subscriptionService;
-
-    @PersistenceContext
-    private EntityManager entityManager;
 
 
     /**
@@ -386,15 +381,15 @@ public class DeliveryHistoryService {
 
         Customer customer = trackParcel.getCustomer();
         if (status == GlobalStatus.DELIVERED && customer != null) {
-            // Пересчитываем статистику покупателя и получаем актуальный экземпляр
+            // Обновляем статистику забранных посылок и получаем свежую сущность
             customer = customerStatsService.incrementPickedUp(customer);
-            // Отсоединяем покупателя, чтобы предотвратить повторный flush и конфликт версий
-            entityManager.detach(customer);
+            // Переназначаем покупателя на треке, чтобы использовать актуальный экземпляр
+            trackParcel.setCustomer(customer);
         } else if (status == GlobalStatus.RETURNED && customer != null) {
-            // Актуализируем данные покупателя при возврате посылки
+            // Фиксируем возврат и возвращаем обновлённого покупателя
             customer = customerStatsService.incrementReturned(customer);
-            // Отсоединяем покупателя, чтобы исключить повторное обновление в текущей транзакции
-            entityManager.detach(customer);
+            // Обновляем ссылку на покупателя в посылке
+            trackParcel.setCustomer(customer);
         }
 
         // Устанавливаем флаг только при первом учёте
