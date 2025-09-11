@@ -254,6 +254,7 @@ public class DeliveryHistoryService {
             return;
         }
 
+        // Флаг показывает, была ли посылка уже включена в агрегированную статистику
         boolean alreadyRegistered = trackParcel.isIncludedInStatistics();
 
         Store store = history.getStore();
@@ -379,16 +380,35 @@ public class DeliveryHistoryService {
             updateDailyStats(store, history.getPostalService(), eventDate, status, deliveryDays, pickupDays);
         }
 
+        // Текущий покупатель на треке (может быть новым после редактирования)
         Customer customer = trackParcel.getCustomer();
-        if (status == GlobalStatus.DELIVERED && customer != null) {
-            // Обновляем статистику забранных посылок и получаем свежую сущность
+
+        // Проверяем, была ли посылка ранее учтена и сменился ли покупатель
+        Customer previousCustomer = null;
+        boolean customerChanged = false;
+        if (alreadyRegistered) {
+            previousCustomer = trackParcelRepository.findById(trackParcel.getId())
+                    .map(TrackParcel::getCustomer)
+                    .orElse(null);
+            customerChanged = !Objects.equals(previousCustomer, customer);
+        }
+
+        if (alreadyRegistered && customerChanged && previousCustomer != null) {
+            // Если покупатель изменился, откатываем его предыдущую статистику
+            TrackParcel oldParcel = new TrackParcel();
+            oldParcel.setId(trackParcel.getId());
+            oldParcel.setStatus(status);
+            oldParcel.setCustomer(previousCustomer);
+            customerService.rollbackStatsOnTrackDelete(oldParcel);
+        }
+
+        if (status == GlobalStatus.DELIVERED && customer != null && (!alreadyRegistered || customerChanged)) {
+            // Инкрементируем показатели получения для нового покупателя
             customer = customerStatsService.incrementPickedUp(customer);
-            // Переназначаем покупателя на треке, чтобы использовать актуальный экземпляр
             trackParcel.setCustomer(customer);
-        } else if (status == GlobalStatus.RETURNED && customer != null) {
-            // Фиксируем возврат и возвращаем обновлённого покупателя
+        } else if (status == GlobalStatus.RETURNED && customer != null && (!alreadyRegistered || customerChanged)) {
+            // Инкрементируем показатели возвратов для нового покупателя
             customer = customerStatsService.incrementReturned(customer);
-            // Обновляем ссылку на покупателя в посылке
             trackParcel.setCustomer(customer);
         }
 
