@@ -12,8 +12,6 @@ import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.utils.DateParserUtils;
 import com.project.tracking_system.utils.PhoneUtils;
 import com.project.tracking_system.utils.TrackNumberUtils;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -46,9 +44,6 @@ public class TrackProcessingService {
     private final TrackParcelRepository trackParcelRepository;
     private final TrackStatisticsUpdater trackStatisticsUpdater;
 
-    /** Менеджер сущностей для синхронизации состояния покупателя с базой данных. */
-    @PersistenceContext
-    private EntityManager entityManager;
 
     /**
      * Обрабатывает номер посылки: получает информацию и при необходимости сохраняет её.
@@ -235,9 +230,8 @@ public class TrackProcessingService {
         }
 
         if (isNewParcel && customer != null) {
-            customerStatsService.incrementSent(customer);
-            // Обновляем данные покупателя, чтобы получить актуальные счётчики
-            entityManager.refresh(customer);
+            // Фиксируем отправку в статистике покупателя и используем обновлённый объект
+            customer = customerStatsService.incrementSent(customer);
         }
 
         trackStatisticsUpdater.updateStatistics(trackParcel, isNewParcel, previousStoreId, previousDate);
