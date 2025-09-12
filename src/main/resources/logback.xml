@@ -49,4 +49,8 @@
     </logger>
 
     <logger name="org.springframework" level="WARN"/>
+
+    <!-- Скрываем предупреждения о версии CDP до появления поддержки Chrome 140 -->
+    <logger name="org.openqa.selenium.devtools" level="ERROR"/>
+    <logger name="org.openqa.selenium.chromium" level="ERROR"/>
 </configuration>
