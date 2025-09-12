@@ -9,7 +9,7 @@ RUN mvn clean package -DskipTests
 FROM openjdk:17-jdk-slim
 
 # Аргумент версии Chrome; при отсутствии внешнего аргумента применяется значение по умолчанию
-ARG CHROME_VERSION=138.0.7204.157
+ARG CHROME_VERSION=140.0.7339.82
 
 # Установка зависимостей
 RUN apt-get update && \
