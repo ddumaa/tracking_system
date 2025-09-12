@@ -38,11 +38,7 @@ RUN apt-get update && \
     curl -sSL https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${CHROME_VERSION}/linux64/chrome-linux64.zip -o /tmp/chrome.zip && \
     unzip /tmp/chrome.zip -d /opt/chrome && \
     ln -s /opt/chrome/chrome-linux64/chrome /usr/bin/google-chrome && \
-    curl -sSL https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${CHROME_VERSION}/linux64/chromedriver-linux64.zip -o /tmp/chromedriver.zip && \
-    unzip /tmp/chromedriver.zip -d /tmp && \
-    mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/ && \
-    chmod +x /usr/local/bin/chromedriver && \
-    rm -rf /tmp/*.zip /tmp/chromedriver-linux64 && \
+    rm -rf /tmp/*.zip && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ENV LANG=C.UTF-8
