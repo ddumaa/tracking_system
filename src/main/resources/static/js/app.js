@@ -62,6 +62,16 @@ function promptTrackNumber(id) {
 window.promptTrackNumber = promptTrackNumber;
 
 /**
+ * Формирует объект с CSRF-заголовком при наличии соответствующих метатегов.
+ * @returns {Object} объект с заголовком CSRF или пустой объект
+ */
+function getCsrfHeaders() {
+    const header = window.csrfHeader;
+    const token = window.csrfToken;
+    return header && token ? { [header]: token } : {};
+}
+
+/**
  * Отправляет трек-номер на сервер и обновляет интерфейс.
  * @param {SubmitEvent} event событие отправки формы
  */
@@ -75,7 +85,7 @@ function handleTrackNumberFormSubmit(event) {
     fetch('/app/departures/set-number', {
         method: 'POST',
         headers: {
-            [window.csrfHeader]: window.csrfToken,
+            ...getCsrfHeaders(),
             'Content-Type': 'application/x-www-form-urlencoded'
         },
         body: new URLSearchParams({ id, number })
@@ -270,7 +280,7 @@ function ajaxSubmitForm(formId, containerId, afterLoadCallbacks = []) {
             method: form.method,
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
-                [document.querySelector('meta[name="_csrf_header"]')?.content || '']: document.querySelector('meta[name="_csrf"]')?.content || ''
+                ...getCsrfHeaders()
             },
             body: new URLSearchParams(new FormData(form))
         })
@@ -317,7 +327,7 @@ function initializeCustomCredentialsCheckbox() {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
-                        [document.querySelector('meta[name="_csrf_header"]')?.content || '']: document.querySelector('meta[name="_csrf"]')?.content || ''
+                        ...getCsrfHeaders()
                     },
                     body: new URLSearchParams({ useCustomCredentials: checkbox.checked })
                 })
@@ -354,7 +364,7 @@ function initAutoUpdateToggle() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    [document.querySelector('meta[name="_csrf_header"]')?.content || '']: document.querySelector('meta[name="_csrf"]')?.content || ''
+                    ...getCsrfHeaders()
                 },
                 body: new URLSearchParams({ enabled: checkbox.checked })
             }).then(response => {
@@ -386,7 +396,7 @@ function initBulkButtonToggle() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    [document.querySelector('meta[name="_csrf_header"]')?.content || '']: document.querySelector('meta[name="_csrf"]')?.content || ''
+                    ...getCsrfHeaders()
                 },
                 body: new URLSearchParams({ show: checkbox.checked })
             }).then(response => {
@@ -436,7 +446,7 @@ function initTelegramNotificationsToggle() {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
-                        [document.querySelector('meta[name="_csrf_header"]')?.content || '']: document.querySelector('meta[name="_csrf"]')?.content || ''
+                        ...getCsrfHeaders()
                     },
                     body: new URLSearchParams({ enabled: checkbox.checked })
                 }).then(response => {
@@ -749,10 +759,7 @@ function autoFillFullName() {
         // Повторный номер или активный запрос — обрабатываем только один раз
         if (phone === lastRequestedPhone || isPhoneRequestActive) return;
 
-        const headers = {};
-        if (window.csrfHeader && window.csrfToken) {
-            headers[window.csrfHeader] = window.csrfToken;
-        }
+        const headers = getCsrfHeaders();
 
         // Сохраняем текущее состояние, чтобы не перезаписывать пользовательский ввод
         const initialFullNameValue = fullNameInput.value;
@@ -1635,7 +1642,7 @@ async function saveStore(storeId) {
         method: "PUT",
         headers: {
             "Content-Type": "application/json",
-            [document.querySelector('meta[name="_csrf_header"]')?.content || '']: document.querySelector('meta[name="_csrf"]')?.content || ''
+            ...getCsrfHeaders()
         },
         body: JSON.stringify({ name: newName })
     });
@@ -1707,7 +1714,7 @@ async function saveNewStore(event) {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
-            [document.querySelector('meta[name="_csrf_header"]')?.content || '']: document.querySelector('meta[name="_csrf"]')?.content || ''
+            ...getCsrfHeaders()
         },
         body: JSON.stringify({ name: newStoreName })
     });
@@ -1740,9 +1747,7 @@ async function deleteStore() {
 
     const response = await fetch(`${baseUrl}/${storeToDelete}`, { // ✅ Правильный путь
         method: "DELETE",
-        headers: {
-            [document.querySelector('meta[name="_csrf_header"]')?.content || '']: document.querySelector('meta[name="_csrf"]')?.content || ''
-        }
+        headers: getCsrfHeaders()
     });
 
     if (response.ok) {
@@ -1801,7 +1806,7 @@ function showResetModal(message) {
     confirmBtn.onclick = async function () {
         if (!analyticsActionUrl) return;
         try {
-            const response = await fetch(analyticsActionUrl, { method: 'POST', headers: { [window.csrfHeader]: window.csrfToken } });
+            const response = await fetch(analyticsActionUrl, { method: 'POST', headers: getCsrfHeaders() });
             if (response.ok) {
                 notifyUser('Аналитика успешно удалена.', 'success');
                 loadAnalyticsButtons();
@@ -1833,7 +1838,7 @@ if (storeTableBody) {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    [document.querySelector('meta[name="_csrf_header"]')?.content || '']: document.querySelector('meta[name="_csrf"]')?.content || ''
+                    ...getCsrfHeaders()
                 }
             });
 
@@ -1865,10 +1870,12 @@ document.addEventListener("DOMContentLoaded", function () {
     document.querySelector('form[action="/app"]')?.addEventListener('submit', showLoading);
 
     // === Добавляем CSRF-токен ===
-    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content || "";
-    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || "";
-    window.csrfToken = csrfToken;
-    window.csrfHeader = csrfHeader;
+    const csrfTokenMeta = document.querySelector('meta[name="_csrf"]');
+    const csrfHeaderMeta = document.querySelector('meta[name="_csrf_header"]');
+    if (csrfTokenMeta && csrfHeaderMeta) {
+        window.csrfToken = csrfTokenMeta.content;
+        window.csrfHeader = csrfHeaderMeta.content;
+    }
 
     // === WebSocket ===
     connectWebSocket();
@@ -2292,9 +2299,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         fetch("/app/departures/track-update", {
             method: "POST",
-            headers: {
-                [csrfHeader]: csrfToken // CSRF-токен
-            }
+            headers: getCsrfHeaders()
         })
             .then(response => {
                 if (!response.ok) {
@@ -2412,9 +2417,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         fetch("/app/departures/delete-selected", {
             method: "POST",
-            headers: {
-                [csrfHeader]: csrfToken // CSRF-токен
-            },
+            headers: getCsrfHeaders(),
             body: formData
         })
             .then(response => {
@@ -2458,9 +2461,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         fetch("/app/departures/track-update", {
             method: "POST",
-            headers: {
-                [csrfHeader]: csrfToken // CSRF-токен
-            },
+            headers: getCsrfHeaders(),
             body: formData
         })
             .then(response => {
