@@ -6,12 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.openqa.selenium.By;
-import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.WebDriver;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 /**
@@ -30,6 +25,14 @@ class WebBelPostBatchServiceTest {
 
     private WebBelPostBatchService service;
 
+    /**
+     * Подготавливает окружение перед каждым тестом.
+     *<p>
+     * Настраивает фабрику драйверов так, чтобы при последовательных
+     * вызовах {@code create()} возвращались разные объекты, имитируя
+     * создание нового {@link WebDriver} для каждого трека.
+     * </p>
+     */
     @BeforeEach
     void init() {
         // Возвращаем разные драйверы при последовательных вызовах
@@ -38,14 +41,14 @@ class WebBelPostBatchServiceTest {
         when(factory.create())
                 .thenReturn(driver1)
                 .thenReturn(driver2);
-        doNothing().when(driver1).get(anyString());
-        doNothing().when(driver2).get(anyString());
-        when(driver1.findElement(any(By.class))).thenThrow(new NoSuchElementException("mock"));
-        when(driver2.findElement(any(By.class))).thenThrow(new NoSuchElementException("mock"));
 
         service = new WebBelPostBatchService(factory);
     }
 
+    /**
+     * Проверяет, что при каждом обращении к {@link WebBelPostBatchService#parseTrack(String)}
+     * создаётся новый экземпляр драйвера и он корректно закрывается.
+     */
     @Test
     void parseTrack_CreatesNewDriverEachCall() {
         service.parseTrack("111");
