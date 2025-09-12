@@ -46,6 +46,7 @@ ENV LC_ALL=C.UTF-8
 
 # Отключаем отправку анонимной статистики Selenium Manager и лишние предупреждения
 ENV SELENIUM_MANAGER_ANALYTICS=false
+ENV SE_MANAGER_ANALYTICS=false
 
 # Копируем собранное приложение из предыдущего шага
 WORKDIR /app
