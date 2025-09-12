@@ -12,15 +12,19 @@ Belpost and Evropost
 
 ## Конфигурация ChromeDriver
 
-Для запуска веб-драйвера в файле `application.properties` используется свойство
-`webdriver.chrome.driver`, которое определяет путь к исполняемому файлу
-ChromeDriver. В контейнере по умолчанию применяется путь
-`/usr/local/bin/chromedriver`, задаваемый в `Dockerfile`. При локальном запуске
-приложения значение можно изменить, передав параметр JVM:
+Selenium Manager автоматически определяет и скачивает совместимый
+ChromeDriver, поэтому указывать `System.setProperty("webdriver.chrome.driver", …)`
+больше не требуется.
 
-```bash
-java -jar app.jar --webdriver.chrome.driver=/path/to/chromedriver
+```java
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
+
+WebDriver driver = new ChromeDriver();
 ```
+
+В Docker при необходимости путь к бинарнику можно задать через переменные
+окружения, например `CHROMEDRIVER_PATH`.
 
 ## Автообновление треков
 
