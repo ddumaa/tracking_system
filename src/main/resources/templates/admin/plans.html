@@ -35,7 +35,7 @@
         <tbody>
         <tr th:each="plan : ${plans}">
             <form th:action="@{/admin/plans/{id}(id=${plan.id})}" method="post">
-                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf != null}" />
                 <td><input type="text" name="code" class="form-control" th:value="${plan.code}" /></td>
                 <td><input type="text" name="name" class="form-control" th:value="${plan.name}" /></td>
                 <td><input type="number" name="limits.maxTracksPerFile" class="form-control" th:value="${plan.limits.maxTracksPerFile}" /></td>
@@ -62,7 +62,7 @@
 
     <h4 class="mt-4">Новый план</h4>
     <form th:action="@{/admin/plans}" method="post" class="row row-cols-lg-auto g-2 align-items-end">
-        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf != null}" />
         <div class="col-md-1">
             <label for="plan-code" class="form-label">Код</label>
             <input id="plan-code" type="text" name="code" class="form-control" />

@@ -33,12 +33,12 @@
         </div>
 
         <form th:action="@{/admin/parcels/{id}/force-update(id=${parcel.id})}" method="post" class="mb-3">
-            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf != null}">
             <button type="submit" class="btn btn-success">Обновить статус</button>
         </form>
 
         <form th:action="@{/admin/parcels/{id}/delete(id=${parcel.id})}" method="post">
-            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf != null}">
             <button type="submit" class="btn btn-danger">Удалить посылку</button>
         </form>
     </div>

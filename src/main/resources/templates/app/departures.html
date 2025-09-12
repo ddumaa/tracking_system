@@ -108,7 +108,7 @@
                     <!-- Таблица истории -->
                     <div th:if="${trackParcelDTO != null and !trackParcelDTO.isEmpty()}" class="mt-3">
                         <form action="/app/departures/delete-selected" method="post">
-                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf != null}">
                             <div class="table-responsive">
                                 <table class="table history-table">
                                     <thead>
@@ -295,7 +295,7 @@
                 <!-- Форма отправки трек-номера на сервер -->
                 <form id="set-track-number-form" th:action="@{/app/departures/set-number}" method="post">
                     <!-- CSRF-поля для защиты формы -->
-                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf != null}">
                     <div class="modal-header">
                         <h5 class="modal-title" id="trackNumberModalLabel">Укажите трек-номер</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>

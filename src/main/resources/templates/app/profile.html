@@ -150,7 +150,7 @@
                         </h5>
 
                         <form id="store-settings-form">
-                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf != null}"/>
 
                             <table class="table">
                                 <thead>
@@ -191,7 +191,7 @@
     <div class="card p-3 shadow-sm rounded-4 mb-4">
         <h5 class="mb-3">Уведомления (Telegram)</h5>
         <form id="telegram-notifications-form" class="mt-2">
-            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf != null}"/>
             <div class="form-check form-switch">
                 <!-- При недоступной функции переключатель всегда выключен -->
                 <input class="form-check-input" type="checkbox" id="telegramNotificationsToggle"
@@ -237,7 +237,7 @@
     <div class="card p-3 shadow-sm rounded-4 mb-4">
         <h5 class="mb-3">Функции и автоматизация</h5>
         <form id="auto-update-form" class="mt-2">
-            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf != null}"/>
             <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" id="autoUpdateToggle"
                        th:checked="${planDetails.allowAutoUpdate ? userProfile.autoUpdateEnabled : false}"
@@ -250,7 +250,7 @@
             <p class="form-text ms-4">Автообновления расходуют дневной лимит обновлений.</p>
         </form>
         <form id="bulk-button-form" class="mt-3">
-            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf != null}"/>
             <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" id="showBulkUpdateButton"
                        th:checked="${planDetails.allowBulkUpdate ? userSettingsDTO.showBulkUpdateButton : false}"
@@ -314,7 +314,7 @@
     <div class="d-flex mt-4">
         <form th:if="${userProfile.subscriptionCode != 'FREE'}"
               th:action="@{/subscription/renew}" method="post">
-            <input type="hidden" name="_csrf" th:value="${_csrf.token}"/>
+            <input type="hidden" name="_csrf" th:value="${_csrf.token}" th:if="${_csrf != null}"/>
             <button class="btn btn-outline-success">Продлить</button>
         </form>
         <a th:if="${userProfile.subscriptionCode != 'ENTERPRISE'}"
@@ -329,7 +329,7 @@
         <div id="evropost-content" th:fragment="evropostFragment">
             <h5 class="mb-3">Настройки Европочты</h5>
             <form id="evropost-settings-form" th:action="@{/app/profile/settings/evropost}" th:object="${evropostCredentialsDTO}" method="post">
-                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf != null}"/>
                 <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" id="useCustomCredentials" name="useCustomCredentials" th:field="*{useCustomCredentials}">
                     <label class="form-check-label" for="useCustomCredentials">Подключить API Европочты (договор – бесплатно)</label>
@@ -374,7 +374,7 @@
         <div id="password-content" th:fragment="passwordFragment">
             <h5 class="mb-3">Изменение пароля</h5>
             <form id="password-settings-form" th:action="@{/app/profile/settings/password}" th:object="${passwordChangeDTO}" method="post">
-                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf != null}"/>
                 <div class="form-floating mb-3 position-relative">
                     <input type="password" class="form-control password-input" id="currentPassword" name="currentPassword" th:field="*{currentPassword}" placeholder="Текущий пароль" autocomplete="off">
                     <label for="currentPassword">Текущий пароль</label>
@@ -458,7 +458,7 @@
              th:classappend="${first} ? ' expanded' : ' collapsed'">
             <form class="telegram-settings-form" th:action="@{/app/stores/{id}/telegram-settings(id=${store.id})}"
                   method="post">
-                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf != null}"/>
                 <div class="form-check form-switch mb-2">
                     <input class="form-check-input" type="checkbox" th:id="'tg-enable-' + ${store.id}" name="enabled"
                            th:checked="${store.telegramSettings != null and store.telegramSettings.enabled}"
@@ -588,7 +588,7 @@
                 <div class="modal-footer d-flex justify-content-between">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
                     <form th:action="@{/app/profile/settings/delete}" method="post">
-                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf != null}"/>
                         <button class="btn btn-danger">
                             <i class="bi bi-trash-fill"></i> Да, удалить
                         </button>
