@@ -28,7 +28,7 @@
             <!-- Блок авторизации -->
             <div class="auth-buttons">
                 <form th:action="@{/logout}" method="post">
-                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf != null}" />
                     <button type="submit" class="btn btn-danger btn-text">
                         <i class="bi bi-box-arrow-right"></i> Выйти
                     </button>
