@@ -9,6 +9,7 @@ import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.track.BelPostManualService;
 import com.project.tracking_system.service.track.TrackFacade;
 import com.project.tracking_system.service.track.TrackServiceClassifier;
+import com.project.tracking_system.service.admin.AppInfoService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
@@ -49,6 +50,8 @@ class HomeControllerTest {
     private PreRegistrationService preRegistrationService;
     @MockBean
     private CustomerService customerService;
+    @MockBean
+    private AppInfoService appInfoService;
 
     /**
      * Проверяем, что при подтверждённом пользователем имени поле ФИО
@@ -69,6 +72,8 @@ class HomeControllerTest {
         );
         when(customerService.getCustomerInfoByPhone("375291112233"))
                 .thenReturn(Optional.of(dto));
+        // Мокаем получение версии приложения, используемой глобальным советом контроллеров
+        when(appInfoService.getApplicationVersion()).thenReturn("1.0");
 
         mockMvc.perform(get("/app").param("phone", "375291112233"))
                 .andExpect(status().isOk())
