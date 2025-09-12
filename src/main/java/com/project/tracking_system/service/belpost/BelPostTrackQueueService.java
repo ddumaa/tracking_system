@@ -142,6 +142,7 @@ public class BelPostTrackQueueService {
         }
 
         // Инициализируем браузер при первом запросе после простоя
+        // или после ошибки, когда драйвер был закрыт
         if (sharedDriver == null) {
             sharedDriver = webDriverFactory.create();
         }
@@ -168,6 +169,8 @@ public class BelPostTrackQueueService {
         } catch (WebDriverException e) {
             log.error("\uD83D\uDEA7 Ошибка Selenium при обработке {}: {}", task.trackNumber(), e.getMessage());
             progress.failed.incrementAndGet();
+            // При сбое закрываем текущий браузер, чтобы следующий запуск создал новый
+            resetDriver();
             pauseUntil = Instant.now().plusSeconds(60).toEpochMilli();
             webSocketController.sendUpdateStatus(task.userId(), "Белпочта временно недоступна", false);
         } catch (Exception e) {
@@ -203,8 +206,25 @@ public class BelPostTrackQueueService {
 
         // После завершения обработки и опустошения очереди закрываем браузер
         if (queue.isEmpty() && sharedDriver != null) {
-            sharedDriver.quit();
-            sharedDriver = null;
+            resetDriver();
+        }
+    }
+
+    /**
+     * Закрывает текущий браузер и сбрасывает ссылку на него,
+     * чтобы при следующей итерации был создан новый экземпляр.
+     * <p>Используется при возникновении ошибок Selenium и
+     * после полной обработки очереди.</p>
+     */
+    private void resetDriver() {
+        try {
+            if (sharedDriver != null) {
+                sharedDriver.quit(); // закрываем браузер при сбое
+            }
+        } catch (Exception quitError) {
+            log.warn("Не удалось корректно закрыть браузер: {}", quitError.getMessage());
+        } finally {
+            sharedDriver = null; // новый драйвер будет создан при следующем запуске
         }
     }
 
