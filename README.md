@@ -13,6 +13,7 @@ Belpost and Evropost
 ## Конфигурация ChromeDriver
 
 Selenium Manager автоматически определяет и скачивает совместимый
+
 ChromeDriver, поэтому указывать путь к драйверу обычно не требуется.
 При необходимости использования локального бинарника задайте свойство
 `webdriver.chrome.driver` в `application.properties` или переменную окружения
