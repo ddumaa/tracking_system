@@ -8,11 +8,11 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZonedDateTime;
 
 /**
- * Daily statistics for a postal service.
+ * Ежедневная статистика по почтовой службе.
  */
 @Getter
 @Setter
@@ -52,11 +52,14 @@ public class PostalServiceDailyStatistics {
     @Column(name = "sum_pickup_days", nullable = false)
     private BigDecimal sumPickupDays = BigDecimal.ZERO;
 
+    /**
+     * Момент последнего обновления статистики (UTC).
+     */
     @Column(name = "updated_at")
-    private ZonedDateTime updatedAt;
+    private Instant updatedAt;
 
     /**
-     * Average number of days from send to delivery.
+     * Среднее количество дней от отправки до доставки.
      */
     @Transient
     public BigDecimal getAverageDeliveryDays() {
@@ -66,7 +69,7 @@ public class PostalServiceDailyStatistics {
     }
 
     /**
-     * Average number of days until parcel pick up (delivery only).
+     * Среднее количество дней нахождения посылки на пункте выдачи (только доставленные).
      */
     @Transient
     public BigDecimal getAveragePickupDays() {

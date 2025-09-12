@@ -130,7 +130,7 @@ public class TrackStatisticsUpdater {
                         return d;
                     });
             psDaily.setSent(psDaily.getSent() + 1);
-            psDaily.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+            psDaily.setUpdatedAt(Instant.now());
             postalServiceDailyStatisticsRepository.save(psDaily);
         }
     }
@@ -177,7 +177,7 @@ public class TrackStatisticsUpdater {
                         .orElse(null);
                 if (oldPsDaily != null && oldPsDaily.getSent() > 0) {
                     oldPsDaily.setSent(oldPsDaily.getSent() - 1);
-                    oldPsDaily.setUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                    oldPsDaily.setUpdatedAt(Instant.now());
                     postalServiceDailyStatisticsRepository.save(oldPsDaily);
                 }
             }
