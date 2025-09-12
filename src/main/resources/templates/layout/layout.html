@@ -69,8 +69,10 @@
 
 <div th:replace="~{partials/cookies :: cookieFragment}"></div>
 
+<!-- Скрытое поле для передачи идентификатора текущего пользователя,
+     отображается только при корректной аутентификации -->
 <input type="hidden" id="userId"
-       th:if="${#authorization.expression('isAuthenticated()') and #authentication.principal != null and #authentication.principal.id != null}"
+       th:if="${#authentication != null and #authorization.expression('isAuthenticated()') and #authentication.principal != null and #authentication.principal.id != null}"
        th:value="${#authentication.principal.id}">
 
 <!-- Общие скрипты -->
