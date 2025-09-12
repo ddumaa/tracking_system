@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.*;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -28,6 +29,20 @@ import java.util.Map;
 public class WebBelPostBatchService {
 
     private final WebDriverFactory webDriverFactory;
+
+    /**
+     * Задержка между повторными запросами к сайту Белпочты (мс).
+     * Позволяет избежать блокировок при превышении лимитов.
+     */
+    @Value("${belpost.retry.delay-ms:60000}")
+    private long retryDelayMs;
+
+    /**
+     * Максимальное число попыток запроса информации о треке.
+     * Позволяет ограничить длительность обработки при ошибках.
+     */
+    @Value("${belpost.retry.max-attempts:2}")
+    private int maxAttempts;
 
     /**
      * Обрабатывает список трек-номеров, возвращая информацию по каждому.
@@ -67,16 +82,24 @@ public class WebBelPostBatchService {
         return map.getOrDefault(trackNumber, new TrackInfoListDTO());
     }
 
+    /**
+     * Пытается получить данные по треку с указанным номером, повторяя запрос
+     * при возникновении временных ошибок.
+     *
+     * @param driver активный экземпляр {@link WebDriver}
+     * @param number трек-номер Белпочты
+     * @return список событий трека или пустой объект при неудаче
+     */
     private TrackInfoListDTO parseTrack(WebDriver driver, String number) {
-        for (int attempt = 1; attempt <= 2; attempt++) {
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 return tryParseTrack(driver, number);
             } catch (RateLimitException e) {
-                log.warn("⏳ Лимит запросов — ждём 60 секунд перед повтором ({}): {}", number, e.getMessage());
-                sleep(60_000);
+                log.warn("⏳ Лимит запросов — ждём {} сек. перед повтором ({}): {}", retryDelayMs / 1000, number, e.getMessage());
+                sleep(retryDelayMs);
             } catch (TimeoutException e) {
-                log.warn("⏳ TimeoutException на {} попытке для {}. Ждём 60 секунд...", attempt, number);
-                sleep(60_000);
+                log.warn("⏳ TimeoutException на {} попытке для {}. Ждём {} сек...", attempt, number, retryDelayMs / 1000);
+                sleep(retryDelayMs);
             } catch (Exception e) {
                 log.error("❌ Ошибка при парсинге {} на попытке {}: {}", number, attempt, e.getMessage(), e);
             }
@@ -127,6 +150,12 @@ public class WebBelPostBatchService {
         return dto;
     }
 
+    /**
+     * Проверяет, отображается ли на странице сообщение о превышении лимита запросов.
+     *
+     * @param driver активный {@link WebDriver}
+     * @return {@code true}, если сообщение о лимите найдено
+     */
     private boolean isRateLimitErrorDisplayed(WebDriver driver) {
         try {
             WebElement errorPopup = driver.findElement(By.cssSelector(".swal2-title"));
@@ -137,12 +166,20 @@ public class WebBelPostBatchService {
         }
     }
 
+    /**
+     * Исключение, сигнализирующее о превышении лимита запросов Белпочты.
+     */
     public class RateLimitException extends Exception {
         public RateLimitException(String message) {
             super(message);
         }
     }
 
+    /**
+     * Приостанавливает текущий поток на указанное число миллисекунд.
+     *
+     * @param millis задержка в миллисекундах
+     */
     private void sleep(long millis) {
         try {
             Thread.sleep(millis);
