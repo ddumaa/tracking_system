@@ -85,12 +85,15 @@ public class WebBelPostBatchService {
     /**
      * Пытается получить данные по треку с указанным номером, повторяя запрос
      * при возникновении временных ошибок.
+     * <p>Метод предполагает, что драйвер создаётся и закрывается вызывающей
+     * стороной. {@link WebDriver} не потокобезопасен, поэтому передавать
+     * один экземпляр между потоками нельзя.</p>
      *
      * @param driver активный экземпляр {@link WebDriver}
      * @param number трек-номер Белпочты
      * @return список событий трека или пустой объект при неудаче
      */
-    private TrackInfoListDTO parseTrack(WebDriver driver, String number) {
+    public TrackInfoListDTO parseTrack(WebDriver driver, String number) {
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 return tryParseTrack(driver, number);
