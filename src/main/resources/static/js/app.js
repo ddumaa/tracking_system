@@ -270,7 +270,7 @@ function ajaxSubmitForm(formId, containerId, afterLoadCallbacks = []) {
             method: form.method,
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
-                [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+                [document.querySelector('meta[name="_csrf_header"]')?.content || '']: document.querySelector('meta[name="_csrf"]')?.content || ''
             },
             body: new URLSearchParams(new FormData(form))
         })
@@ -317,7 +317,7 @@ function initializeCustomCredentialsCheckbox() {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
-                        [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+                        [document.querySelector('meta[name="_csrf_header"]')?.content || '']: document.querySelector('meta[name="_csrf"]')?.content || ''
                     },
                     body: new URLSearchParams({ useCustomCredentials: checkbox.checked })
                 })
@@ -354,7 +354,7 @@ function initAutoUpdateToggle() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+                    [document.querySelector('meta[name="_csrf_header"]')?.content || '']: document.querySelector('meta[name="_csrf"]')?.content || ''
                 },
                 body: new URLSearchParams({ enabled: checkbox.checked })
             }).then(response => {
@@ -386,7 +386,7 @@ function initBulkButtonToggle() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+                    [document.querySelector('meta[name="_csrf_header"]')?.content || '']: document.querySelector('meta[name="_csrf"]')?.content || ''
                 },
                 body: new URLSearchParams({ show: checkbox.checked })
             }).then(response => {
@@ -436,7 +436,7 @@ function initTelegramNotificationsToggle() {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
-                        [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+                        [document.querySelector('meta[name="_csrf_header"]')?.content || '']: document.querySelector('meta[name="_csrf"]')?.content || ''
                     },
                     body: new URLSearchParams({ enabled: checkbox.checked })
                 }).then(response => {
@@ -1635,7 +1635,7 @@ async function saveStore(storeId) {
         method: "PUT",
         headers: {
             "Content-Type": "application/json",
-            [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+            [document.querySelector('meta[name="_csrf_header"]')?.content || '']: document.querySelector('meta[name="_csrf"]')?.content || ''
         },
         body: JSON.stringify({ name: newName })
     });
@@ -1707,7 +1707,7 @@ async function saveNewStore(event) {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
-            [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+            [document.querySelector('meta[name="_csrf_header"]')?.content || '']: document.querySelector('meta[name="_csrf"]')?.content || ''
         },
         body: JSON.stringify({ name: newStoreName })
     });
@@ -1741,7 +1741,7 @@ async function deleteStore() {
     const response = await fetch(`${baseUrl}/${storeToDelete}`, { // ✅ Правильный путь
         method: "DELETE",
         headers: {
-            [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+            [document.querySelector('meta[name="_csrf_header"]')?.content || '']: document.querySelector('meta[name="_csrf"]')?.content || ''
         }
     });
 
@@ -1833,7 +1833,7 @@ if (storeTableBody) {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
+                    [document.querySelector('meta[name="_csrf_header"]')?.content || '']: document.querySelector('meta[name="_csrf"]')?.content || ''
                 }
             });
 
