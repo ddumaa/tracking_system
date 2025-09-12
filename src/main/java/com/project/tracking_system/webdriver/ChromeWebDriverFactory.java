@@ -9,34 +9,30 @@ import org.openqa.selenium.chrome.ChromeOptions;
  */
 public class ChromeWebDriverFactory implements WebDriverFactory {
 
-    /** Путь к исполняемому файлу chromedriver. */
-    private final String driverPath;
-
     /**
-     * Создаёт фабрику с указанным путём к драйверу.
-     *
-     * @param driverPath путь к исполняемому файлу chromedriver. Передача
-     *                   значения через конструктор позволяет конфигурировать
-     *                   запуск и избегать проблем с правами доступа.
+     * Конструктор по умолчанию.
+     * <p>
+     * Путь к исполняемому файлу ChromeDriver не указывается, поскольку
+     * <b>Selenium Manager</b> автоматически подберёт и скачает необходимый
+     * драйвер при первом запуске. Это упрощает конфигурацию и делает класс
+     * независимым от окружения.
+     * </p>
      */
-    public ChromeWebDriverFactory(String driverPath) {
-        this.driverPath = driverPath;
+    public ChromeWebDriverFactory() {
+        // Конструктор оставлен пустым намеренно
     }
 
     /**
      * Создаёт {@link ChromeDriver} с набором стандартных опций.
      * <p>
-     * Перед созданием драйвера устанавливается системное свойство
-     * {@code webdriver.chrome.driver}, что позволяет избежать проблем с
-     * доступом к бинарному файлу ChromeDriver.
+     * Путь к драйверу не задаётся вручную: Selenium Manager сам найдёт или
+     * скачает подходящую версию ChromeDriver.
      * </p>
      *
      * @return сконфигурированный экземпляр ChromeDriver
      */
     @Override
     public WebDriver create() {
-        System.setProperty("webdriver.chrome.driver", driverPath);
-
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--headless=new");
         options.addArguments("--disable-gpu");
