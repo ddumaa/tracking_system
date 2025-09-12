@@ -11,10 +11,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
 
 /**
- * Updates store and postal service statistics when a parcel is saved or moved.
+ * Обновляет статистику магазина и почтовых служб при сохранении или перемещении посылки.
  *
- * <p>The component encapsulates the logic of incrementing and decrementing
- * statistics for {@link Store} and {@link PostalServiceType}.</p>
+ * <p>Компонент инкапсулирует логику увеличения и уменьшения показателей для
+ * {@link Store} и {@link PostalServiceType}.</p>
  */
 @Slf4j
 @Service
@@ -28,12 +28,12 @@ public class TrackStatisticsUpdater {
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
 
     /**
-     * Updates statistics for the given parcel.
+     * Обновляет статистику для переданной посылки.
      *
-     * @param parcel          parcel being saved
-     * @param isNewParcel     {@code true} if the parcel is new
-     * @param previousStoreId store id before update (may be {@code null})
-     * @param previousDate    previous parcel timestamp
+     * @param parcel          сохраняемая или обновляемая посылка
+     * @param isNewParcel     {@code true}, если посылка создаётся впервые
+     * @param previousStoreId идентификатор магазина до изменения (может быть {@code null})
+     * @param previousDate    предыдущая отметка времени посылки
      */
     @Transactional
     public void updateStatistics(TrackParcel parcel,
@@ -55,14 +55,17 @@ public class TrackStatisticsUpdater {
         }
     }
 
-    // Increment statistics for a new track or when the store changed
+    /**
+     * Увеличивает статистику магазина и почтовой службы для новой посылки
+     * или при смене магазина.
+     */
     private void incrementNewStore(TrackParcel parcel,
                                    PostalServiceType serviceType) {
         Long storeId = parcel.getStore().getId();
         StoreStatistics statistics = storeAnalyticsRepository.findByStoreId(storeId)
                 .orElseThrow(() -> new IllegalStateException("Статистика не найдена"));
 
-        // total sent for store
+        // общее количество отправлений по магазину
         int updated = storeAnalyticsRepository.incrementTotalSent(storeId, 1);
         if (updated == 0) {
             statistics.setTotalSent(statistics.getTotalSent() + 1);
@@ -93,7 +96,9 @@ public class TrackStatisticsUpdater {
         }
     }
 
-    // Increment postal statistics for the new store
+    /**
+     * Увеличивает статистику по выбранной почтовой службе для магазина.
+     */
     private void updatePostalIncrement(Long storeId,
                                        Store store,
                                        PostalServiceType serviceType,
@@ -130,7 +135,9 @@ public class TrackStatisticsUpdater {
         }
     }
 
-    // Decrement statistics for the previous store when parcel was moved
+    /**
+     * Уменьшает статистику предыдущего магазина, если посылка была перемещена.
+     */
     private void decrementOldStore(Long previousStoreId,
                                    PostalServiceType serviceType,
                                    ZonedDateTime previousDate) {
