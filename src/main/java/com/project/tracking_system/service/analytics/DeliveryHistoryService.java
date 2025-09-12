@@ -137,7 +137,8 @@ public class DeliveryHistoryService {
 
             // Считаем и обновляем среднее время доставки только для финальных статусов
             if (newStatus.isFinal()) {
-                registerFinalStatus(history, newStatus);
+                // Предыдущий покупатель неизвестен в рамках обновления истории
+                registerFinalStatus(history, newStatus, null);
             }
         }
 
@@ -240,6 +241,23 @@ public class DeliveryHistoryService {
      */
     @Transactional
     public void registerFinalStatus(DeliveryHistory history, GlobalStatus status) {
+        // Дефолтная обёртка: предыдущий покупатель не передан
+        registerFinalStatus(history, status, null);
+    }
+
+    /**
+     * Учесть финальный статус посылки и при необходимости перерасчитать статистику покупателя.
+     *
+     * <p>Если посылка уже была включена в аналитику и клиент изменился, переданный
+     * {@code previousCustomer} позволяет откатить показатели старого клиента и
+     * начислить их новому. Без этого параметра изменение клиента не будет обнаружено.</p>
+     *
+     * @param history          история доставки, содержащая даты и связанные данные
+     * @param status           новый финальный статус (DELIVERED или RETURNED)
+     * @param previousCustomer покупатель, закреплённый за посылкой до изменения; {@code null}, если не применимо
+     */
+    @Transactional
+    public void registerFinalStatus(DeliveryHistory history, GlobalStatus status, Customer previousCustomer) {
         // Предварительная регистрация не участвует в статистике
         if (status == GlobalStatus.PRE_REGISTERED) {
             log.debug("Статус PRE_REGISTERED не влияет на статистику");
@@ -383,15 +401,10 @@ public class DeliveryHistoryService {
         // Текущий покупатель на треке (может быть новым после редактирования)
         Customer customer = trackParcel.getCustomer();
 
-        // Проверяем, была ли посылка ранее учтена и сменился ли покупатель
-        Customer previousCustomer = null;
-        boolean customerChanged = false;
-        if (alreadyRegistered) {
-            previousCustomer = trackParcelRepository.findById(trackParcel.getId())
-                    .map(TrackParcel::getCustomer)
-                    .orElse(null);
-            customerChanged = !Objects.equals(previousCustomer, customer);
-        }
+        // Проверяем, был ли трек ранее учтён и изменился ли покупатель
+        boolean customerChanged = alreadyRegistered
+                && previousCustomer != null
+                && !Objects.equals(previousCustomer, customer);
 
         if (alreadyRegistered && customerChanged && previousCustomer != null) {
             // Если покупатель изменился, откатываем его предыдущую статистику
@@ -448,7 +461,7 @@ public class DeliveryHistoryService {
     public void registerFinalStatus(Long parcelId) {
         deliveryHistoryRepository.findByTrackParcelId(parcelId)
                 .ifPresentOrElse(
-                        history -> registerFinalStatus(history, history.getTrackParcel().getStatus()),
+                        history -> registerFinalStatus(history, history.getTrackParcel().getStatus(), null),
                         () -> log.debug("История доставки для посылки {} не найдена", parcelId)
                 );
     }
