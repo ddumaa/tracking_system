@@ -9,8 +9,10 @@ import com.project.tracking_system.service.track.TrackProcessingService;
 import com.project.tracking_system.service.track.TrackConstants;
 import com.project.tracking_system.service.track.ProgressAggregatorService;
 import com.project.tracking_system.service.track.TrackingResultCacheService;
+import com.project.tracking_system.webdriver.WebDriverFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebDriverException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -49,6 +51,16 @@ public class BelPostTrackQueueService {
     private final ProgressAggregatorService progressAggregatorService;
     /** Кэш результатов трекинга для восстановления состояния страницы. */
     private final TrackingResultCacheService trackingResultCacheService;
+    /** Фабрика для создания экземпляров {@link WebDriver}. */
+    private final WebDriverFactory webDriverFactory;
+
+    /**
+     * Общий браузер для последовательной обработки.
+     * <p>Создаётся лениво и используется только потоком планировщика.
+     * После опустошения очереди драйвер закрывается и ссылка обнуляется,
+     * что предотвращает утечки ресурсов.</p>
+     */
+    private WebDriver sharedDriver;
 
     /** Хранилище заданий на обработку. */
     private final BlockingQueue<QueuedTrack> queue = new LinkedBlockingQueue<>();
@@ -129,6 +141,11 @@ public class BelPostTrackQueueService {
             return; // очередь пуста
         }
 
+        // Инициализируем браузер при первом запросе после простоя
+        if (sharedDriver == null) {
+            sharedDriver = webDriverFactory.create();
+        }
+
         BatchProgress progress = progressMap.computeIfAbsent(task.batchId(), id -> new BatchProgress());
         int processedBefore = progress.processed.get();
         int currentProcessed = progress.processed.incrementAndGet();
@@ -141,7 +158,7 @@ public class BelPostTrackQueueService {
 
         TrackInfoListDTO info = new TrackInfoListDTO();
         try {
-            info = webBelPostBatchService.parseTrack(task.trackNumber());
+            info = webBelPostBatchService.parseTrack(sharedDriver, task.trackNumber());
             if (!info.getList().isEmpty()) {
                 trackProcessingService.save(task.trackNumber(), info, task.storeId(), task.userId(), task.phone());
                 progress.success.incrementAndGet();
@@ -151,6 +168,8 @@ public class BelPostTrackQueueService {
         } catch (WebDriverException e) {
             log.error("\uD83D\uDEA7 Ошибка Selenium при обработке {}: {}", task.trackNumber(), e.getMessage());
             progress.failed.incrementAndGet();
+            // закрываем неисправный драйвер, чтобы следующая задача создала новый экземпляр
+            resetDriver();
             pauseUntil = Instant.now().plusSeconds(60).toEpochMilli();
             webSocketController.sendUpdateStatus(task.userId(), "Белпочта временно недоступна", false);
         } catch (Exception e) {
@@ -182,6 +201,29 @@ public class BelPostTrackQueueService {
                             progress.getFailed(),
                             progress.getElapsed()));
             progressMap.remove(task.batchId());
+        }
+
+        // После завершения обработки и опустошения очереди закрываем браузер
+        if (queue.isEmpty()) {
+            resetDriver();
+        }
+    }
+
+    /**
+     * Безопасно закрывает текущий {@link WebDriver} и освобождает ссылку.
+     * <p>Метод вызывается после завершения пачки или при критической ошибке
+     * Selenium, чтобы освободить ресурсы и обеспечить создание нового
+     * экземпляра при следующей задаче.</p>
+     */
+    private void resetDriver() {
+        if (sharedDriver != null) {
+            try {
+                sharedDriver.quit();
+            } catch (Exception e) {
+                log.warn("\u26A0\uFE0F Ошибка при закрытии WebDriver: {}", e.getMessage());
+            } finally {
+                sharedDriver = null;
+            }
         }
     }
 
