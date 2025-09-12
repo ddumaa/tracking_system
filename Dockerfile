@@ -8,6 +8,9 @@ RUN mvn clean package -DskipTests
 # Слой с рантаймом Java
 FROM openjdk:17-jdk-slim
 
+# Аргумент версии Chrome; при отсутствии внешнего аргумента применяется значение по умолчанию
+ARG CHROME_VERSION=138.0.7204.157
+
 # Установка зависимостей
 RUN apt-get update && \
     apt-get install -y \
@@ -32,10 +35,10 @@ RUN apt-get update && \
       libasound2 \
       libxshmfence1 \
       libappindicator3-1 && \
-    curl -sSL https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/138.0.7204.157/linux64/chrome-linux64.zip -o /tmp/chrome.zip && \
+    curl -sSL https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${CHROME_VERSION}/linux64/chrome-linux64.zip -o /tmp/chrome.zip && \
     unzip /tmp/chrome.zip -d /opt/chrome && \
     ln -s /opt/chrome/chrome-linux64/chrome /usr/bin/google-chrome && \
-    curl -sSL https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/138.0.7204.157/linux64/chromedriver-linux64.zip -o /tmp/chromedriver.zip && \
+    curl -sSL https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${CHROME_VERSION}/linux64/chromedriver-linux64.zip -o /tmp/chromedriver.zip && \
     unzip /tmp/chromedriver.zip -d /tmp && \
     mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/ && \
     chmod +x /usr/local/bin/chromedriver && \

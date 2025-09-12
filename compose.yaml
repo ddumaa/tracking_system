@@ -16,6 +16,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        CHROME_VERSION: ${CHROME_VERSION:-138.0.7204.157} # При отсутствии аргумента используется дефолт из Dockerfile
     container_name: app
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
