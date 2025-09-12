@@ -141,12 +141,6 @@ public class BelPostTrackQueueService {
             return; // очередь пуста
         }
 
-        // Инициализируем браузер при первом запросе после простоя
-        // или после ошибки, когда драйвер был закрыт
-        if (sharedDriver == null) {
-            sharedDriver = webDriverFactory.create();
-        }
-
         BatchProgress progress = progressMap.computeIfAbsent(task.batchId(), id -> new BatchProgress());
         int processedBefore = progress.processed.get();
         int currentProcessed = progress.processed.incrementAndGet();
@@ -159,6 +153,10 @@ public class BelPostTrackQueueService {
 
         TrackInfoListDTO info = new TrackInfoListDTO();
         try {
+            // Создаём браузер, если он ещё не инициализирован
+            if (sharedDriver == null) {
+                sharedDriver = webDriverFactory.create();
+            }
             info = webBelPostBatchService.parseTrack(sharedDriver, task.trackNumber());
             if (!info.getList().isEmpty()) {
                 trackProcessingService.save(task.trackNumber(), info, task.storeId(), task.userId(), task.phone());
@@ -167,12 +165,16 @@ public class BelPostTrackQueueService {
                 progress.failed.incrementAndGet();
             }
         } catch (WebDriverException e) {
+            // Обрабатываем сбой работы Selenium
             log.error("\uD83D\uDEA7 Ошибка Selenium при обработке {}: {}", task.trackNumber(), e.getMessage());
             progress.failed.incrementAndGet();
+            progress.processed.decrementAndGet();
+            queue.offer(task); // возвращаем задачу в очередь
             // При сбое закрываем текущий браузер, чтобы следующий запуск создал новый
             resetDriver();
             pauseUntil = Instant.now().plusSeconds(60).toEpochMilli();
             webSocketController.sendUpdateStatus(task.userId(), "Белпочта временно недоступна", false);
+            return; // не продолжаем обработку
         } catch (Exception e) {
             log.error("\u274C Не удалось обработать {}: {}", task.trackNumber(), e.getMessage());
             progress.failed.incrementAndGet();
