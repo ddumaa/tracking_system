@@ -56,12 +56,22 @@ public class WebBelPostBatchService {
             return result;
         }
 
-        WebDriver driver = webDriverFactory.create();
+        // Пытаемся создать WebDriver и корректно обработать возможные ошибки инициализации
+        WebDriver driver;
+        try {
+            driver = webDriverFactory.create();
+        } catch (WebDriverException e) {
+            log.error("❌ Не удалось создать WebDriver: {}", e.getMessage(), e);
+            // Возвращаем пустой результат, чтобы вызывающий код мог продолжить работу
+            return result;
+        }
+
         try {
             for (String number : trackNumbers) {
                 result.put(number, parseTrack(driver, number));
             }
         } finally {
+            // Закрываем драйвер в блоке finally, чтобы гарантировать освобождение ресурсов
             driver.quit();
         }
         return result;
