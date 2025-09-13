@@ -34,6 +34,7 @@ class WebBelPostBatchServiceNoDataWarningTest {
         WebElement warning = mock(WebElement.class);
         when(warning.isDisplayed()).thenReturn(true);
         when(warning.getText()).thenReturn("У нас пока нет данных");
+        when(warning.getAttribute("class")).thenReturn("alert-message alert-message--warning");
 
         when(driver.findElements(any(By.class))).thenAnswer(invocation -> {
             By by = invocation.getArgument(0);
@@ -44,7 +45,7 @@ class WebBelPostBatchServiceNoDataWarningTest {
         });
 
         try (MockedConstruction<WebDriverWait> mockWait = Mockito.mockConstruction(WebDriverWait.class,
-                (wait, context) -> when(wait.until(any())).thenReturn(true))) {
+                (wait, context) -> when(wait.until(any())).thenReturn(warning))) {
 
             WebBelPostBatchService service = new WebBelPostBatchService(mock(WebDriverFactory.class));
             ReflectionTestUtils.setField(service, "maxAttempts", 1);
