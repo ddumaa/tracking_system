@@ -7,6 +7,7 @@ import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
 import com.project.tracking_system.service.user.UserService;
+import com.project.tracking_system.service.track.TrackServiceClassifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,11 +35,22 @@ class TrackParcelServiceSortingTest {
     @Mock
     private UserSubscriptionRepository userSubscriptionRepository;
 
+    @Mock
+    private TrackServiceClassifier trackServiceClassifier;
+
     private TrackParcelService service;
 
+    /**
+     * Подготавливает сервис с заглушками зависимостей перед каждым тестом.
+     */
     @BeforeEach
     void setUp() {
-        service = new TrackParcelService(userService, trackParcelRepository, userSubscriptionRepository);
+        service = new TrackParcelService(
+                userService,
+                trackParcelRepository,
+                userSubscriptionRepository,
+                trackServiceClassifier
+        );
     }
 
     /**
