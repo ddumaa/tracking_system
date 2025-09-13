@@ -61,11 +61,14 @@
                             <i class="bi bi-info-circle text-primary" data-bs-toggle="tooltip"
                                data-bs-placement="right" title="Белпочта, Европочта"></i>
                         </label>
-                        <div class="input-group mb-3">
-                            <!-- Атрибут required устанавливается динамически через JS -->
-                            <input type="text" id="number" name="number" class="form-control" placeholder="Номер посылки">
+                        <div class="mb-3">
+                            <div class="input-group">
+                                <!-- Атрибут required устанавливается динамически через JS -->
+                                <input type="text" id="number" name="number" class="form-control" placeholder="Номер посылки">
+                                <button type="submit" class="btn btn-outline-primary btn-equal">Проверить</button>
+                            </div>
+                            <!-- Блок отображения ошибок ввода номера -->
                             <div id="numberError" class="invalid-feedback"></div>
-                            <button type="submit" class="btn btn-outline-primary btn-equal">Проверить</button>
                         </div>
 
                         <!-- Переключатели дополнительных полей -->
