@@ -10,6 +10,7 @@ import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import java.util.List;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,11 +33,18 @@ class WebBelPostBatchServiceNoDataWarningTest {
 
         WebElement warning = mock(WebElement.class);
         when(warning.isDisplayed()).thenReturn(true);
-        when(warning.getAttribute("class")).thenReturn("alert-message alert-message--warning");
         when(warning.getText()).thenReturn("У нас пока нет данных");
 
+        when(driver.findElements(any(By.class))).thenAnswer(invocation -> {
+            By by = invocation.getArgument(0);
+            if (by.toString().contains("alert-message--warning")) {
+                return List.of(warning);
+            }
+            return List.of();
+        });
+
         try (MockedConstruction<WebDriverWait> mockWait = Mockito.mockConstruction(WebDriverWait.class,
-                (wait, context) -> when(wait.until(any())).thenReturn(warning))) {
+                (wait, context) -> when(wait.until(any())).thenReturn(true))) {
 
             WebBelPostBatchService service = new WebBelPostBatchService(mock(WebDriverFactory.class));
             ReflectionTestUtils.setField(service, "maxAttempts", 1);
