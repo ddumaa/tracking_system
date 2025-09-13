@@ -16,11 +16,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        CHROME_VERSION: ${CHROME_VERSION:-140.0.7339.82} # При отсутствии аргумента используется дефолт из Dockerfile
     container_name: app
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
       - SPRING_DATASOURCE_USERNAME=${DB_USER}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - SE_MANAGER_ANALYTICS=false # отключает отправку статистики Selenium Manager и уменьшает шум в логах
     ports:
       - '8081:8080'
     depends_on:

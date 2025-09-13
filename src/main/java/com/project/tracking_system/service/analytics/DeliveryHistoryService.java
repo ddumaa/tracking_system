@@ -59,6 +59,7 @@ public class DeliveryHistoryService {
     private final CustomerNotificationLogRepository customerNotificationLogRepository;
     private final SubscriptionService subscriptionService;
 
+
     /**
      * Обновляет или создаёт запись {@link DeliveryHistory}, когда меняется статус посылки.
      * <p>
@@ -136,7 +137,8 @@ public class DeliveryHistoryService {
 
             // Считаем и обновляем среднее время доставки только для финальных статусов
             if (newStatus.isFinal()) {
-                registerFinalStatus(history, newStatus);
+                // Предыдущий покупатель неизвестен в рамках обновления истории
+                registerFinalStatus(history, newStatus, null);
             }
         }
 
@@ -239,6 +241,23 @@ public class DeliveryHistoryService {
      */
     @Transactional
     public void registerFinalStatus(DeliveryHistory history, GlobalStatus status) {
+        // Дефолтная обёртка: предыдущий покупатель не передан
+        registerFinalStatus(history, status, null);
+    }
+
+    /**
+     * Учесть финальный статус посылки и при необходимости перерасчитать статистику покупателя.
+     *
+     * <p>Если посылка уже была включена в аналитику и клиент изменился, переданный
+     * {@code previousCustomer} позволяет откатить показатели старого клиента и
+     * начислить их новому. Без этого параметра изменение клиента не будет обнаружено.</p>
+     *
+     * @param history          история доставки, содержащая даты и связанные данные
+     * @param status           новый финальный статус (DELIVERED или RETURNED)
+     * @param previousCustomer покупатель, закреплённый за посылкой до изменения; {@code null}, если не применимо
+     */
+    @Transactional
+    public void registerFinalStatus(DeliveryHistory history, GlobalStatus status, Customer previousCustomer) {
         // Предварительная регистрация не участвует в статистике
         if (status == GlobalStatus.PRE_REGISTERED) {
             log.debug("Статус PRE_REGISTERED не влияет на статистику");
@@ -253,6 +272,7 @@ public class DeliveryHistoryService {
             return;
         }
 
+        // Флаг показывает, была ли посылка уже включена в агрегированную статистику
         boolean alreadyRegistered = trackParcel.isIncludedInStatistics();
 
         Store store = history.getStore();
@@ -378,10 +398,31 @@ public class DeliveryHistoryService {
             updateDailyStats(store, history.getPostalService(), eventDate, status, deliveryDays, pickupDays);
         }
 
-        if (status == GlobalStatus.DELIVERED && trackParcel.getCustomer() != null) {
-            customerStatsService.incrementPickedUp(trackParcel.getCustomer());
-        } else if (status == GlobalStatus.RETURNED && trackParcel.getCustomer() != null) {
-            customerStatsService.incrementReturned(trackParcel.getCustomer());
+        // Текущий покупатель на треке (может быть новым после редактирования)
+        Customer customer = trackParcel.getCustomer();
+
+        // Проверяем, был ли трек ранее учтён и изменился ли покупатель
+        boolean customerChanged = alreadyRegistered
+                && previousCustomer != null
+                && !Objects.equals(previousCustomer, customer);
+
+        if (alreadyRegistered && customerChanged && previousCustomer != null) {
+            // Если покупатель изменился, откатываем его предыдущую статистику
+            TrackParcel oldParcel = new TrackParcel();
+            oldParcel.setId(trackParcel.getId());
+            oldParcel.setStatus(status);
+            oldParcel.setCustomer(previousCustomer);
+            customerService.rollbackStatsOnTrackDelete(oldParcel);
+        }
+
+        if (status == GlobalStatus.DELIVERED && customer != null && (!alreadyRegistered || customerChanged)) {
+            // Инкрементируем показатели получения для нового покупателя
+            customer = customerStatsService.incrementPickedUp(customer);
+            trackParcel.setCustomer(customer);
+        } else if (status == GlobalStatus.RETURNED && customer != null && (!alreadyRegistered || customerChanged)) {
+            // Инкрементируем показатели возвратов для нового покупателя
+            customer = customerStatsService.incrementReturned(customer);
+            trackParcel.setCustomer(customer);
         }
 
         // Устанавливаем флаг только при первом учёте
@@ -420,7 +461,7 @@ public class DeliveryHistoryService {
     public void registerFinalStatus(Long parcelId) {
         deliveryHistoryRepository.findByTrackParcelId(parcelId)
                 .ifPresentOrElse(
-                        history -> registerFinalStatus(history, history.getTrackParcel().getStatus()),
+                        history -> registerFinalStatus(history, history.getTrackParcel().getStatus(), null),
                         () -> log.debug("История доставки для посылки {} не найдена", parcelId)
                 );
     }

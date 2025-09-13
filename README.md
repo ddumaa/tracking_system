@@ -12,14 +12,38 @@ Belpost and Evropost
 
 ## Конфигурация ChromeDriver
 
-Для запуска веб-драйвера в файле `application.properties` используется свойство
-`webdriver.chrome.driver`, которое определяет путь к исполняемому файлу
-ChromeDriver. В контейнере по умолчанию применяется путь
-`/usr/local/bin/chromedriver`, задаваемый в `Dockerfile`. При локальном запуске
-приложения значение можно изменить, передав параметр JVM:
+Selenium Manager автоматически определяет и скачивает совместимый
+ChromeDriver, поэтому указывать `System.setProperty("webdriver.chrome.driver", …)`
+больше не требуется.
+
+```java
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
+
+WebDriver driver = new ChromeDriver();
+```
+
+В Docker при необходимости путь к бинарнику можно задать через переменные
+окружения, например `CHROMEDRIVER_PATH`.
+
+### Отключение аналитики Selenium Manager
+
+Переменная окружения `SE_MANAGER_ANALYTICS=false` (или `0`) отключает отправку
+статистики Selenium Manager и уменьшает шум в логах. Она уже прописана в
+`Dockerfile`, но при запуске вне контейнера её можно задать вручную.
+
+### Сборка Docker-образа
+
+По умолчанию Dockerfile собирает образ с Chrome версии `140.0.7339.82`. При необходимости указать другую версию передайте её через параметр `--build-arg`:
 
 ```bash
-java -jar app.jar --webdriver.chrome.driver=/path/to/chromedriver
+docker build --build-arg CHROME_VERSION=140.0.7339.82 .
+```
+
+Если используется `docker compose`, аргумент можно задать аналогично:
+
+```bash
+docker compose build --build-arg CHROME_VERSION=140.0.7339.82
 ```
 
 ## Автообновление треков

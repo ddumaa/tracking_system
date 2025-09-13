@@ -44,6 +44,7 @@ public class TrackProcessingService {
     private final TrackParcelRepository trackParcelRepository;
     private final TrackStatisticsUpdater trackStatisticsUpdater;
 
+
     /**
      * Обрабатывает номер посылки: получает информацию и при необходимости сохраняет её.
      *
@@ -149,7 +150,7 @@ public class TrackProcessingService {
         boolean isNewParcel = (trackParcel == null);
         GlobalStatus oldStatus = (!isNewParcel) ? trackParcel.getStatus() : null;
         ZonedDateTime previousDate = null; // дата отправления старого трека
-        Long previousStoreId = null;       // магазин, в котором хранился трек ранее
+        Long previousStoreId = null;       // идентификатор предыдущего магазина, фиксируем для статистики
 
         // Если трек новый, проверяем лимиты
         if (isNewParcel) {
@@ -171,14 +172,14 @@ public class TrackProcessingService {
             log.debug("Создан новый трек");
 
         } else {
-            // Запоминаем предыдущие значения для корректировки статистики
-            previousStoreId = trackParcel.getStore().getId();
+            // Запоминаем предыдущую дату для корректировки статистики
             previousDate = trackParcel.getTimestamp();
         }
         // Если трек уже существует, проверяем, соответствует ли магазин выбранному пользователем
         if (!trackParcel.getStore().getId().equals(storeId)) {
+            // Фиксируем старый магазин для последующей корректировки статистики
+            previousStoreId = trackParcel.getStore().getId();
             // Загружаем новый магазин
-            Long oldStoreId = trackParcel.getStore().getId();
             Store newStore = storeRepository.getReferenceById(storeId);
 
             // Обновляем магазин у трека
@@ -229,7 +230,10 @@ public class TrackProcessingService {
         }
 
         if (isNewParcel && customer != null) {
-            customerStatsService.incrementSent(customer);
+            // Обновляем статистику отправленных посылок и получаем свежий объект покупателя
+            customer = customerStatsService.incrementSent(customer);
+            // Переназначаем ссылку, чтобы трек указывал на актуальную сущность
+            trackParcel.setCustomer(customer);
         }
 
         trackStatisticsUpdater.updateStatistics(trackParcel, isNewParcel, previousStoreId, previousDate);

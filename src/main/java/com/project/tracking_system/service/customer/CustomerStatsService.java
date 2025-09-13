@@ -2,6 +2,11 @@ package com.project.tracking_system.service.customer;
 
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.repository.CustomerRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,105 +23,121 @@ public class CustomerStatsService {
 
     private final CustomerRepository customerRepository;
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     /**
-     * Увеличить счётчик отправленных посылок покупателя.
+     * Универсальный метод увеличения счётчика статистики покупателя.
+     * <p>Атомарно обновляет значение в БД, перечитывает сущность,
+     * пересчитывает репутацию и пытается сохранить её атомарно по версии.
+     * При неудаче отсоединяет и перечитывает сущность, затем сохраняет
+     * через репозиторий. Возвращает свежий экземпляр, не изменяя
+     * переданный объект.</p>
      *
-     * @param customer покупатель
+     * @param customer     покупатель
+     * @param counterName  имя счётчика для логирования
+     * @param atomicUpdate функция, выполняющая атомарное обновление в БД
+     * @param getter       функция получения значения счётчика
+     * @param setter       процедура установки значения счётчика
+     * @return обновлённый экземпляр покупателя
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void incrementSent(Customer customer) {
+    private Customer updateStatistic(
+            Customer customer,
+            String counterName,
+            BiFunction<Long, Long, Integer> atomicUpdate,
+            Function<Customer, Integer> getter,
+            BiConsumer<Customer, Integer> setter
+    ) {
         if (customer == null) {
-            return;
+            return null;
         }
-        log.debug("🔄 Попытка атомарного увеличения отправленных для customerId={}", customer.getId());
-        int updated = customerRepository.incrementSentCount(customer.getId(), customer.getVersion());
+        log.debug("🔄 Попытка атомарного увеличения {} для customerId={}", counterName, customer.getId());
+        int updated = atomicUpdate.apply(customer.getId(), customer.getVersion());
+        Customer fresh;
         if (updated == 0) {
-            log.warn("⚠️ Не удалось атомарно обновить отправленные для customerId={}, переключаемся на ручной режим", customer.getId());
-            // При неудаче загружаем сущность и обновляем вручную
-            Customer fresh = customerRepository.findById(customer.getId())
+            log.warn("⚠️ Не удалось атомарно обновить {} для customerId={}, переключаемся на ручной режим", counterName, customer.getId());
+            fresh = customerRepository.findById(customer.getId())
                     .orElseThrow(() -> new IllegalStateException("Покупатель не найден"));
-            fresh.setSentCount(fresh.getSentCount() + 1);
+            setter.accept(fresh, getter.apply(fresh) + 1);
             fresh.recalculateReputation();
-            customerRepository.save(fresh);
-            // Синхронизируем переданный объект
-            customer.setSentCount(fresh.getSentCount());
-            customer.setReputation(fresh.getReputation());
-            customer.setVersion(fresh.getVersion());
-            log.debug("✅ Счётчик отправленных вручную увеличен для customerId={}", customer.getId());
+            fresh = customerRepository.save(fresh);
+            log.debug("✅ Счётчик {} вручную увеличен для customerId={}", counterName, customer.getId());
         } else {
-            log.debug("✅ Атомарное увеличение отправленных успешно для customerId={}", customer.getId());
-            customer.setSentCount(customer.getSentCount() + 1);
-            customer.recalculateReputation();
-            customer.setVersion(customer.getVersion() + 1);
-            // Сохраняем репутацию для согласованности с БД
-            customerRepository.save(customer);
+            log.debug("✅ Атомарное увеличение {} успешно для customerId={}", counterName, customer.getId());
+            fresh = customerRepository.findById(customer.getId())
+                    .orElseThrow(() -> new IllegalStateException("Покупатель не найден"));
+            fresh.recalculateReputation();
+            // пытаемся обновить репутацию атомарно по версии
+            int reputationUpdated = customerRepository.updateReputation(
+                    fresh.getId(),
+                    fresh.getVersion(),
+                    fresh.getReputation()
+            );
+            if (reputationUpdated == 0) {
+                log.warn("⚠️ Репутация для customerId={} не обновлена, сохраняем через save", customer.getId());
+                // отсоединяем сущность, чтобы следующая загрузка получила актуальное состояние
+                entityManager.detach(fresh);
+                // перечитываем покупателя, чтобы получить актуальную версию
+                fresh = customerRepository.findById(customer.getId())
+                        .orElseThrow(() -> new IllegalStateException("Покупатель не найден"));
+                fresh.recalculateReputation();
+                fresh = customerRepository.save(fresh);
+            }
         }
+        return fresh;
     }
 
     /**
-     * Увеличить счётчик забранных посылок покупателя.
+     * Увеличивает счётчик отправленных посылок и пересчитывает репутацию.
+     * <p>Возвращает нового покупателя из БД; исходный объект не меняется.</p>
      *
      * @param customer покупатель
+     * @return обновлённый экземпляр покупателя
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void incrementPickedUp(Customer customer) {
-        if (customer == null) {
-            return;
-        }
-        log.debug("🔄 Попытка атомарного увеличения забранных для customerId={}", customer.getId());
-        int updated = customerRepository.incrementPickedUpCount(customer.getId(), customer.getVersion());
-        if (updated == 0) {
-            log.warn("⚠️ Не удалось атомарно обновить забранные для customerId={}, переключаемся на ручной режим", customer.getId());
-            // При неудаче читаем и обновляем вручную
-            Customer fresh = customerRepository.findById(customer.getId())
-                    .orElseThrow(() -> new IllegalStateException("Покупатель не найден"));
-            fresh.setPickedUpCount(fresh.getPickedUpCount() + 1);
-            fresh.recalculateReputation();
-            customerRepository.save(fresh);
-            // Обновляем переданный экземпляр
-            customer.setPickedUpCount(fresh.getPickedUpCount());
-            customer.setReputation(fresh.getReputation());
-            customer.setVersion(fresh.getVersion());
-            log.debug("✅ Счётчик забранных вручную увеличен для customerId={}", customer.getId());
-        } else {
-            log.debug("✅ Атомарное увеличение забранных успешно для customerId={}", customer.getId());
-            customer.setPickedUpCount(customer.getPickedUpCount() + 1);
-            customer.recalculateReputation();
-            customer.setVersion(customer.getVersion() + 1);
-            // Сохраняем репутацию для согласованности с БД
-            customerRepository.save(customer);
-        }
+    public Customer incrementSent(Customer customer) {
+        return updateStatistic(
+                customer,
+                "отправленных",
+                customerRepository::incrementSentCount,
+                Customer::getSentCount,
+                Customer::setSentCount
+        );
     }
 
     /**
-     * Увеличить счётчик возвращённых посылок покупателя.
+     * Увеличивает счётчик забранных посылок с обновлением репутации.
+     * <p>Возвращает свежий экземпляр из БД, не изменяя переданный объект.</p>
      *
      * @param customer покупатель
+     * @return обновлённый экземпляр покупателя
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void incrementReturned(Customer customer) {
-        if (customer == null) {
-            return;
-        }
-        log.debug("🔄 Попытка атомарного увеличения возвратов для customerId={}", customer.getId());
-        int updated = customerRepository.incrementReturnedCount(customer.getId(), customer.getVersion());
-        if (updated == 0) {
-            log.warn("⚠️ Не удалось атомарно обновить возвраты для customerId={}, переключаемся на ручной режим", customer.getId());
-            Customer fresh = customerRepository.findById(customer.getId())
-                    .orElseThrow(() -> new IllegalStateException("Покупатель не найден"));
-            fresh.setReturnedCount(fresh.getReturnedCount() + 1);
-            fresh.recalculateReputation();
-            customerRepository.save(fresh);
-            customer.setReturnedCount(fresh.getReturnedCount());
-            customer.setReputation(fresh.getReputation());
-            customer.setVersion(fresh.getVersion());
-            log.debug("✅ Счётчик возвратов вручную увеличен для customerId={}", customer.getId());
-        } else {
-            log.debug("✅ Атомарное увеличение возвратов успешно для customerId={}", customer.getId());
-            customer.setReturnedCount(customer.getReturnedCount() + 1);
-            customer.recalculateReputation();
-            customer.setVersion(customer.getVersion() + 1);
-            customerRepository.save(customer);
-        }
+    public Customer incrementPickedUp(Customer customer) {
+        return updateStatistic(
+                customer,
+                "забранных",
+                customerRepository::incrementPickedUpCount,
+                Customer::getPickedUpCount,
+                Customer::setPickedUpCount
+        );
+    }
+
+    /**
+     * Увеличивает счётчик возвращённых посылок и корректирует репутацию.
+     * <p>Исходный объект остаётся неизменным, возвращается перечитанный покупатель.</p>
+     *
+     * @param customer покупатель
+     * @return обновлённый экземпляр покупателя
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Customer incrementReturned(Customer customer) {
+        return updateStatistic(
+                customer,
+                "возвратов",
+                customerRepository::incrementReturnedCount,
+                Customer::getReturnedCount,
+                Customer::setReturnedCount
+        );
     }
 }
