@@ -30,6 +30,12 @@ public class WebBelPostBatchService {
 
     private final WebDriverFactory webDriverFactory;
 
+    /** CSS-селектор предупреждения об отсутствии данных. */
+    private static final By NO_DATA_WARNING = By.cssSelector(".alert-message.alert-message--warning");
+
+    /** CSS-селектор блока с данными по треку. */
+    private static final By TRACK_ITEM = By.cssSelector("article.track-item");
+
     /**
      * Задержка между повторными запросами к сайту Белпочты (мс).
      * Позволяет избежать блокировок при превышении лимитов.
@@ -130,20 +136,25 @@ public class WebBelPostBatchService {
         String url = "https://belpost.by/Otsleditotpravleniye?number=" + number;
         driver.get(url);
 
-        // СРАЗУ проверяем ошибку лимита
+        // Сразу проверяем сообщение о превышении лимита
         if (isRateLimitErrorDisplayed(driver)) {
             throw new RateLimitException("Превышено количество запросов");
         }
 
-        // Если Белпочта ещё не внесла данные по этому треку, возвращаем пустой результат
-        if (isNoDataWarningDisplayed(driver)) {
+        // Ожидаем появления либо предупреждения, либо блока с данными трека
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(12));
+        WebElement awaited = wait.until(ExpectedConditions.or(
+                ExpectedConditions.visibilityOfElementLocated(NO_DATA_WARNING),
+                ExpectedConditions.visibilityOfElementLocated(TRACK_ITEM)
+        ));
+
+        // Если пришло предупреждение, возвращаем пустой DTO
+        if (isNoDataWarningDisplayed(awaited)) {
             log.debug("Предупреждение об отсутствии данных для номера {}", number);
             return dto;
         }
 
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(12));
-        WebElement trackItem = wait.until(ExpectedConditions.visibilityOfElementLocated(
-                By.cssSelector("article.track-item")));
+        WebElement trackItem = awaited;
 
         WebElement trackItemHeader = trackItem.findElement(By.cssSelector("header"));
         if (!"true".equals(trackItemHeader.getAttribute("aria-expanded"))) {
@@ -170,17 +181,22 @@ public class WebBelPostBatchService {
     }
 
     /**
-     * Проверяет, появилось ли сообщение об отсутствии данных по трек-номеру.
+     * Проверяет, что найденный элемент является предупреждением об отсутствии данных.
+     * Метод не выполняет дополнительных поисков по DOM,
+     * полагаясь на уже ожидаемый элемент.
      *
-     * @param driver активный {@link WebDriver}
-     * @return {@code true}, если отображается предупреждение
+     * @param element элемент, возвращённый {@link WebDriverWait}
+     * @return {@code true}, если отображается предупреждение об отсутствии данных
      */
-    private boolean isNoDataWarningDisplayed(WebDriver driver) {
+    private boolean isNoDataWarningDisplayed(WebElement element) {
+        if (element == null) {
+            return false;
+        }
         try {
-            WebElement warning = driver.findElement(By.cssSelector(".alert-message.alert-message--warning"));
-            return warning.isDisplayed()
-                    && warning.getText().contains("У нас пока нет данных");
-        } catch (NoSuchElementException e) {
+            return element.isDisplayed()
+                    && element.getAttribute("class").contains("alert-message--warning")
+                    && element.getText().contains("У нас пока нет данных");
+        } catch (StaleElementReferenceException ignored) {
             return false;
         }
     }
