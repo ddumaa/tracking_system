@@ -141,9 +141,13 @@ public class WebBelPostBatchService {
             throw new RateLimitException("Превышено количество запросов");
         }
 
-        // Ожидаем появления либо предупреждения, либо блока с данными трека
+        // Ожидаем появления либо предупреждения, либо блока с данными трека.
+        // Дополнительно проверяем всплывающее окно о превышении лимита.
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(12));
         WebElement awaited = wait.until(d -> {
+            if (isRateLimitErrorDisplayed(d)) {
+                throw new RateLimitException("Превышено количество запросов");
+            }
             List<WebElement> warnings = d.findElements(NO_DATA_WARNING);
             if (!warnings.isEmpty() && warnings.get(0).isDisplayed()) {
                 return warnings.get(0);
@@ -235,8 +239,10 @@ public class WebBelPostBatchService {
 
     /**
      * Исключение, сигнализирующее о превышении лимита запросов Белпочты.
+     * Расширяет {@link RuntimeException}, чтобы его можно было выбрасывать
+     * внутри лямбд без обязательного объявления в сигнатурах методов.
      */
-    public class RateLimitException extends Exception {
+    public class RateLimitException extends RuntimeException {
         public RateLimitException(String message) {
             super(message);
         }
