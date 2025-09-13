@@ -13,8 +13,13 @@ Belpost and Evropost
 ## Конфигурация ChromeDriver
 
 Selenium Manager автоматически определяет и скачивает совместимый
-ChromeDriver, поэтому указывать `System.setProperty("webdriver.chrome.driver", …)`
-больше не требуется.
+
+ChromeDriver, поэтому указывать путь к драйверу обычно не требуется.
+При необходимости использования локального бинарника задайте свойство
+`webdriver.chrome.driver` в `application.properties` или переменную окружения
+`WEBDRIVER_CHROME_DRIVER`.
+Если файл существует и доступен для выполнения, Selenium Manager
+будет отключён, а указанный драйвер использован.
 
 ```java
 import org.openqa.selenium.WebDriver;
@@ -23,8 +28,8 @@ import org.openqa.selenium.chrome.ChromeDriver;
 WebDriver driver = new ChromeDriver();
 ```
 
-В Docker при необходимости путь к бинарнику можно задать через переменные
-окружения, например `CHROMEDRIVER_PATH`.
+В Docker путь к бинарнику также можно передать через переменную окружения
+`WEBDRIVER_CHROME_DRIVER` или `CHROMEDRIVER_PATH`.
 
 ### Отключение аналитики Selenium Manager
 

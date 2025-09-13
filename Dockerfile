@@ -38,6 +38,11 @@ RUN apt-get update && \
     curl -sSL https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${CHROME_VERSION}/linux64/chrome-linux64.zip -o /tmp/chrome.zip && \
     unzip /tmp/chrome.zip -d /opt/chrome && \
     ln -s /opt/chrome/chrome-linux64/chrome /usr/bin/google-chrome && \
+    # Загрузка ChromeDriver той же версии, что и браузер
+    curl -sSL https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${CHROME_VERSION}/linux64/chromedriver-linux64.zip -o /tmp/chromedriver.zip && \
+    unzip /tmp/chromedriver.zip -d /opt/chromedriver && \
+    mv /opt/chromedriver/chromedriver-linux64/chromedriver /usr/bin/chromedriver && \
+    chmod +x /usr/bin/chromedriver && \
     rm -rf /tmp/*.zip && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -47,6 +52,9 @@ ENV LC_ALL=C.UTF-8
 # Отключаем отправку анонимной статистики Selenium Manager и лишние предупреждения
 ENV SELENIUM_MANAGER_ANALYTICS=false
 ENV SE_MANAGER_ANALYTICS=false
+
+# Указываем путь до ChromeDriver для Selenium
+ENV WEBDRIVER_CHROME_DRIVER=/usr/bin/chromedriver
 
 # Копируем собранное приложение из предыдущего шага
 WORKDIR /app

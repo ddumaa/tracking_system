@@ -26,11 +26,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.time.Duration;
 import com.project.tracking_system.utils.DateParserUtils;
 import java.util.List;
 import java.util.Objects;
@@ -539,7 +540,7 @@ public class DeliveryHistoryService {
                 if (pickupDays != null) {
                     psDaily.setSumPickupDays(psDaily.getSumPickupDays().add(pickupDays));
                 }
-                psDaily.setUpdatedAt(ZonedDateTime.now());
+                psDaily.setUpdatedAt(Instant.now());
                 postalServiceDailyStatisticsRepository.save(psDaily);
             }
 
@@ -588,7 +589,7 @@ public class DeliveryHistoryService {
                 if (deliveryDays != null) {
                     psDaily.setSumDeliveryDays(psDaily.getSumDeliveryDays().add(deliveryDays));
                 }
-                psDaily.setUpdatedAt(ZonedDateTime.now());
+                psDaily.setUpdatedAt(Instant.now());
                 postalServiceDailyStatisticsRepository.save(psDaily);
             }
         }
@@ -681,7 +682,7 @@ public class DeliveryHistoryService {
                         .orElse(null);
                 if (psDaily != null && psDaily.getSent() > 0) {
                     psDaily.setSent(psDaily.getSent() - 1);
-                    psDaily.setUpdatedAt(ZonedDateTime.now());
+                    psDaily.setUpdatedAt(Instant.now());
                     postalServiceDailyStatisticsRepository.save(psDaily);
                 }
             }

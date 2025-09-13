@@ -9,6 +9,9 @@ import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.track.BelPostManualService;
 import com.project.tracking_system.service.track.TrackFacade;
 import com.project.tracking_system.service.track.TrackServiceClassifier;
+import com.project.tracking_system.service.admin.AppInfoService;
+import com.project.tracking_system.service.ratelimit.Bucket4jRateLimiter;
+import io.github.bucket4j.Bucket;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
@@ -49,6 +52,10 @@ class HomeControllerTest {
     private PreRegistrationService preRegistrationService;
     @MockBean
     private CustomerService customerService;
+    @MockBean
+    private AppInfoService appInfoService;
+    @MockBean
+    private Bucket4jRateLimiter bucket4jRateLimiter; // Мокаем ограничитель для ApiRateLimitFilter
 
     /**
      * Проверяем, что при подтверждённом пользователем имени поле ФИО
@@ -69,6 +76,14 @@ class HomeControllerTest {
         );
         when(customerService.getCustomerInfoByPhone("375291112233"))
                 .thenReturn(Optional.of(dto));
+        // Мокаем получение версии приложения, используемой глобальным советом контроллеров
+        when(appInfoService.getApplicationVersion()).thenReturn("1.0");
+
+        // Мокаем бакеты, чтобы фильтр ограничения запросов не вызывал реальных зависимостей
+        when(bucket4jRateLimiter.resolveCustomerBucket(Mockito.anyString()))
+                .thenReturn(Mockito.mock(Bucket.class));
+        when(bucket4jRateLimiter.resolveTelegramBucket(Mockito.anyString()))
+                .thenReturn(Mockito.mock(Bucket.class));
 
         mockMvc.perform(get("/app").param("phone", "375291112233"))
                 .andExpect(status().isOk())

@@ -121,7 +121,6 @@ class TrackProcessingServiceTest {
         when(statusTrackService.setStatus(any())).thenReturn(GlobalStatus.DELIVERED);
         when(userService.getUserZone(5L)).thenReturn(ZoneId.of("UTC"));
         when(trackParcelRepository.save(any())).thenReturn(parcel);
-        when(deliveryHistoryService.hasFinalStatus(any())).thenReturn(false);
 
         trackProcessingService.save("AB123", info, 1L, 5L, null);
 
@@ -129,5 +128,5 @@ class TrackProcessingServiceTest {
         assertFalse(parcel.isPreRegistered());
         verify(trackParcelRepository).save(parcel);
     }
-}
 
+}
