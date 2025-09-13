@@ -7,11 +7,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <meta name="_csrf" th:content="${_csrf.token}"/>
-    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+    <!-- Мета-теги для передачи CSRF-токена; выводятся только при наличии токена -->
+    <meta name="_csrf" th:if="${_csrf != null}" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:if="${_csrf != null}" th:content="${_csrf.headerName}"/>
 
     <!-- Здесь вы подключаете все общие стили/скрипты для всего сайта -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link th:href="@{/bootstrap/bootstrap.min.css}" rel="stylesheet">
 
@@ -68,8 +69,10 @@
 
 <div th:replace="~{partials/cookies :: cookieFragment}"></div>
 
+<!-- Скрытое поле для передачи идентификатора текущего пользователя,
+     отображается только при корректной аутентификации -->
 <input type="hidden" id="userId"
-       th:if="${#authorization.expression('isAuthenticated()') and #authentication.principal != null and #authentication.principal.id != null}"
+       th:if="${#authentication != null and #authorization.expression('isAuthenticated()') and #authentication.principal != null and #authentication.principal.id != null}"
        th:value="${#authentication.principal.id}">
 
 <!-- Общие скрипты -->
