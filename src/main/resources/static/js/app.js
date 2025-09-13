@@ -81,6 +81,8 @@ function handleTrackNumberFormSubmit(event) {
     const form = event.target;
     const id = form.querySelector('input[name="id"]').value;
     const number = form.querySelector('input[name="number"]').value;
+    // Нормализуем номер: удаляем пробелы и приводим к верхнему регистру
+    const normalized = number.toUpperCase().trim();
 
     fetch('/app/departures/set-number', {
         method: 'POST',
@@ -88,7 +90,7 @@ function handleTrackNumberFormSubmit(event) {
             ...getCsrfHeaders(),
             'Content-Type': 'application/x-www-form-urlencoded'
         },
-        body: new URLSearchParams({ id, number })
+        body: new URLSearchParams({ id, number: normalized })
     })
         .then(response => {
             if (!response.ok) {
@@ -99,11 +101,11 @@ function handleTrackNumberFormSubmit(event) {
             if (row) {
                 const btn = row.querySelector('button.parcel-number');
                 if (btn) {
-                    btn.textContent = number;
+                    btn.textContent = normalized;
                     btn.classList.add('open-modal');
-                    btn.dataset.itemnumber = number;
+                    btn.dataset.itemnumber = normalized;
                 }
-                row.dataset.trackNumber = number;
+                row.dataset.trackNumber = normalized;
                 notifyUser('Трек-номер добавлен', 'success');
             } else {
                 window.location.reload();
