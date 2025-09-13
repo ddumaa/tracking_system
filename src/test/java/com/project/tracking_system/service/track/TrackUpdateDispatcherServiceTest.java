@@ -58,9 +58,9 @@ class TrackUpdateDispatcherServiceTest {
     void dispatchSingle_ResolvesServiceAndCallsProcessor() {
         TrackMeta meta = new TrackMeta("B1", null, null, false);
         when(classifier.detect("B1")).thenReturn(PostalServiceType.BELPOST);
-        when(belpostProcessor.process(meta)).thenReturn(new TrackingResultAdd("B1", "ok", new TrackInfoListDTO()));
+        when(belpostProcessor.process(meta, 5L)).thenReturn(new TrackingResultAdd("B1", "ok", new TrackInfoListDTO()));
 
-        TrackingResultAdd result = dispatcher.dispatch(meta);
+        TrackingResultAdd result = dispatcher.dispatch(meta, 5L);
 
         assertEquals("B1", result.getTrackingNumber());
     }

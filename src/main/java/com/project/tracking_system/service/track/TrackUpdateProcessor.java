@@ -25,10 +25,11 @@ public interface TrackUpdateProcessor {
     List<TrackingResultAdd> process(List<TrackMeta> tracks, Long userId);
 
     /**
-     * Обрабатывает один трек без привязки к пользователю.
+     * Обрабатывает один трек.
      *
-     * @param meta метаданные трека
+     * @param meta   метаданные трека
+     * @param userId идентификатор пользователя, может быть {@code null}
      * @return результат обработки
      */
-    TrackingResultAdd process(TrackMeta meta);
+    TrackingResultAdd process(TrackMeta meta, Long userId);
 }
