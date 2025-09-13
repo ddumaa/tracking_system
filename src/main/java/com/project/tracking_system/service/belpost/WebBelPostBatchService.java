@@ -270,6 +270,22 @@ public class WebBelPostBatchService {
     }
 
     /**
+     * Проверяет, появилось ли сообщение об отсутствии данных по трек-номеру.
+     *
+     * @param driver активный {@link WebDriver}
+     * @return {@code true}, если отображается предупреждение
+     */
+    private boolean isNoDataWarningDisplayed(WebDriver driver) {
+        try {
+            WebElement warning = driver.findElement(By.cssSelector(".alert-message.alert-message--warning"));
+            return warning.isDisplayed()
+                    && warning.getText().contains("У нас пока нет данных");
+        } catch (NoSuchElementException e) {
+            return false;
+        }
+    }
+
+    /**
      * Проверяет, отображается ли на странице сообщение о превышении лимита запросов.
      *
      * @param driver активный {@link WebDriver}
