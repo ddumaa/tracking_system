@@ -50,28 +50,22 @@ public class JsonEvroTrackingService {
      * @throws IllegalStateException если произошла ошибка десериализации JSON или запроса
      */
     public JsonEvroTrackingResponse getJson(Long userId, String number) {
-        // Определяем, нужно ли применять личные учётные данные пользователя
-        boolean useCustomCredentials = userService.isUsingCustomCredentials(userId);
+        // Определяем, нужно ли применять личные учётные данные пользователя.
+        // При отсутствии userId не обращаемся к базе, чтобы не ломать анонимное отслеживание.
+        boolean useCustomCredentials = userId != null && userService.isUsingCustomCredentials(userId);
         ResolvedCredentialsDTO credentials;
 
         if (useCustomCredentials) {
-            // Флаг включён: ожидаем наличие идентификатора пользователя
-            if (userId != null) {
-                // Получаем личные креды пользователя
-                credentials = userService.resolveCredentials(userId);
-                if (credentials == null) {
-                    // Креды не найдены – логируем и прерываем выполнение
-                    log.warn("Личные учётные данные отсутствуют для пользователя ID={}", userId);
-                    throw new IllegalStateException("Личные учётные данные не найдены");
-                }
-                log.info("Используем личные учётные данные пользователя ID={}", userId);
-            } else {
-                // Включённый флаг без userId – критичная ситуация
-                log.warn("Флаг использования личных учётных данных включён, но userId не указан");
-                throw new IllegalStateException("Не указан идентификатор пользователя при включённых личных учётных данных");
+            // Флаг включён: получаем личные креды пользователя
+            credentials = userService.resolveCredentials(userId);
+            if (credentials == null) {
+                // Креды не найдены – логируем и прерываем выполнение
+                log.warn("Личные учётные данные отсутствуют для пользователя ID={}", userId);
+                throw new IllegalStateException("Личные учётные данные не найдены");
             }
+            log.info("Используем личные учётные данные пользователя ID={}", userId);
         } else {
-            // Флаг выключен: всегда берём системные креды
+            // Флаг выключен или userId отсутствует: всегда берём системные креды
             credentials = userCredentialsResolver.getSystemCredentials();
             log.info("User ID={} → интеграция с личными кредами отключена, используем системные", userId);
         }
