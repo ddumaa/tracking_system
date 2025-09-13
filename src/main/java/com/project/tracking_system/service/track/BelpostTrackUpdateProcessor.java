@@ -78,20 +78,19 @@ public class BelpostTrackUpdateProcessor implements TrackUpdateProcessor {
     /**
      * Загружает и сохраняет информацию по одному треку.
      *
-     * @param meta   метаданные трек-номера
-     * @param userId идентификатор пользователя, может быть {@code null}
+     * @param meta метаданные трек-номера
      * @return результат обработки
      */
     @Override
-    public TrackingResultAdd process(TrackMeta meta, Long userId) {
+    public TrackingResultAdd process(TrackMeta meta) {
         if (meta == null) {
             return new TrackingResultAdd(null, TrackConstants.NO_DATA_STATUS, new TrackInfoListDTO());
         }
         Map<String, TrackInfoListDTO> infoMap = webBelPostBatchService.processBatch(List.of(meta.number()));
         TrackInfoListDTO info = infoMap.getOrDefault(meta.number(), new TrackInfoListDTO());
         boolean hasStatus = !info.getList().isEmpty();
-        if (userId != null && meta.canSave()) {
-            trackProcessingService.save(meta.number(), info, meta.storeId(), userId, meta.phone());
+        if (meta.canSave()) {
+            trackProcessingService.save(meta.number(), info, meta.storeId(), null, meta.phone());
         }
         // Информируем о результате обработки без персональных данных
         log.debug(hasStatus ? "Статусы получены" : "Статусы отсутствуют");
