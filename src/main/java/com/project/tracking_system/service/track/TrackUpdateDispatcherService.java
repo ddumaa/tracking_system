@@ -66,10 +66,11 @@ public class TrackUpdateDispatcherService {
      * Обрабатывает одиночный трек-номер.
      * Если тип почтовой службы не указан, определяется автоматически.
      *
-     * @param meta метаданные трека
+     * @param meta   метаданные трека
+     * @param userId идентификатор пользователя, инициировавшего обновление
      * @return результат обработки
      */
-    public TrackingResultAdd dispatch(TrackMeta meta) {
+    public TrackingResultAdd dispatch(TrackMeta meta, Long userId) {
         if (meta == null) {
             return new TrackingResultAdd(null, TrackConstants.NO_DATA_STATUS, new TrackInfoListDTO());
         }
@@ -81,7 +82,7 @@ public class TrackUpdateDispatcherService {
         if (processor == null) {
             return new TrackingResultAdd(meta.number(), TrackConstants.NO_DATA_STATUS, new TrackInfoListDTO(), "Unsupported service");
         }
-        return processor.process(meta);
+        return processor.process(meta, userId);
     }
 
 }

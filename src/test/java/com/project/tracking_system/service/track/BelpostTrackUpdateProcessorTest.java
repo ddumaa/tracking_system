@@ -41,9 +41,9 @@ class BelpostTrackUpdateProcessorTest {
         TrackInfoListDTO info = new TrackInfoListDTO();
         when(webService.processBatch(List.of("B1"))).thenReturn(Map.of("B1", info));
 
-        TrackingResultAdd result = processor.process(meta);
+        TrackingResultAdd result = processor.process(meta, 7L);
 
-        verify(trackProcessingService).save("B1", info, 1L, null, null);
+        verify(trackProcessingService).save("B1", info, 1L, 7L, null);
         assertEquals(info, result.getTrackInfo());
     }
 }

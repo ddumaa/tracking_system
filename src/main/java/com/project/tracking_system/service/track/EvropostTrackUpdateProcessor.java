@@ -73,16 +73,17 @@ public class EvropostTrackUpdateProcessor implements TrackUpdateProcessor {
     /**
      * Обрабатывает один трек синхронно.
      *
-     * @param meta метаданные трек-номера
+     * @param meta   метаданные трек-номера
+     * @param userId идентификатор пользователя, инициировавшего обработку
      * @return результат обработки
      */
     @Override
-    public TrackingResultAdd process(TrackMeta meta) {
+    public TrackingResultAdd process(TrackMeta meta, Long userId) {
         if (meta == null) {
             return new TrackingResultAdd(null, TrackConstants.NO_DATA_STATUS, new TrackInfoListDTO());
         }
         TrackInfoListDTO info = trackProcessingService.processTrack(
-                meta.number(), meta.storeId(), null, meta.canSave(), meta.phone());
+                meta.number(), meta.storeId(), userId, meta.canSave(), meta.phone());
         boolean hasStatus = !info.getList().isEmpty();
         // Информируем о результате обработки без персональных данных
         log.debug(hasStatus ? "Статусы получены" : "Статусы отсутствуют");

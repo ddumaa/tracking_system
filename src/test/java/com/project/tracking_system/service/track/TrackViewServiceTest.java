@@ -21,6 +21,7 @@ import java.time.ZonedDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -62,7 +63,7 @@ class TrackViewServiceTest {
 
         service.getTrackDetails("A1", 1L);
 
-        verify(trackUpdateDispatcherService, never()).dispatch(any(TrackMeta.class));
+        verify(trackUpdateDispatcherService, never()).dispatch(any(TrackMeta.class), any());
         verify(trackProcessingService, never()).save(anyString(), any(), anyLong(), anyLong());
     }
 
@@ -78,12 +79,12 @@ class TrackViewServiceTest {
         when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(3);
         when(trackParcelService.getPostalServiceType("A1")).thenReturn(PostalServiceType.BELPOST);
         TrackInfoListDTO info = new TrackInfoListDTO();
-        when(trackUpdateDispatcherService.dispatch(any(TrackMeta.class)))
+        when(trackUpdateDispatcherService.dispatch(any(TrackMeta.class), eq(1L)))
                 .thenReturn(new TrackingResultAdd("A1", "ok", info));
 
         service.getTrackDetails("A1", 1L);
 
-        verify(trackUpdateDispatcherService).dispatch(any(TrackMeta.class));
+        verify(trackUpdateDispatcherService).dispatch(any(TrackMeta.class), eq(1L));
         verify(trackProcessingService).save("A1", info, 1L, 1L);
     }
 
@@ -101,7 +102,7 @@ class TrackViewServiceTest {
 
         service.getTrackDetails("A1", 1L);
 
-        verify(trackUpdateDispatcherService, never()).dispatch(any(TrackMeta.class));
+        verify(trackUpdateDispatcherService, never()).dispatch(any(TrackMeta.class), any());
         verify(trackProcessingService, never()).save(anyString(), any(), anyLong(), anyLong());
     }
 
