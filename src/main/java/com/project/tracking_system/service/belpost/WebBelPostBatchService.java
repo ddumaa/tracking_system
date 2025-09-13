@@ -135,6 +135,12 @@ public class WebBelPostBatchService {
             throw new RateLimitException("Превышено количество запросов");
         }
 
+        // Если Белпочта ещё не внесла данные по этому треку, возвращаем пустой результат
+        if (isNoDataWarningDisplayed(driver)) {
+            log.debug("Предупреждение об отсутствии данных для номера {}", number);
+            return dto;
+        }
+
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(12));
         WebElement trackItem = wait.until(ExpectedConditions.visibilityOfElementLocated(
                 By.cssSelector("article.track-item")));
@@ -161,6 +167,22 @@ public class WebBelPostBatchService {
         }
 
         return dto;
+    }
+
+    /**
+     * Проверяет, появилось ли сообщение об отсутствии данных по трек-номеру.
+     *
+     * @param driver активный {@link WebDriver}
+     * @return {@code true}, если отображается предупреждение
+     */
+    private boolean isNoDataWarningDisplayed(WebDriver driver) {
+        try {
+            WebElement warning = driver.findElement(By.cssSelector(".alert-message.alert-message--warning"));
+            return warning.isDisplayed()
+                    && warning.getText().contains("У нас пока нет данных");
+        } catch (NoSuchElementException e) {
+            return false;
+        }
     }
 
     /**
