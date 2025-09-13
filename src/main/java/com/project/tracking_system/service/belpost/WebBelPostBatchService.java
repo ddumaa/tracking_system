@@ -143,18 +143,18 @@ public class WebBelPostBatchService {
 
         // Ожидаем появления либо предупреждения, либо блока с данными трека
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(12));
-        WebElement awaited = wait.until(ExpectedConditions.or(
+        wait.until(ExpectedConditions.or(
                 ExpectedConditions.visibilityOfElementLocated(NO_DATA_WARNING),
                 ExpectedConditions.visibilityOfElementLocated(TRACK_ITEM)
         ));
 
-        // Если пришло предупреждение, возвращаем пустой DTO
-        if (isNoDataWarningDisplayed(awaited)) {
+        // Если появилось предупреждение об отсутствии данных, возвращаем пустой DTO
+        if (isNoDataWarningDisplayed(driver)) {
             log.debug("Предупреждение об отсутствии данных для номера {}", number);
             return dto;
         }
 
-        WebElement trackItem = awaited;
+        WebElement trackItem = driver.findElement(TRACK_ITEM);
 
         WebElement trackItemHeader = trackItem.findElement(By.cssSelector("header"));
         if (!"true".equals(trackItemHeader.getAttribute("aria-expanded"))) {
@@ -181,21 +181,20 @@ public class WebBelPostBatchService {
     }
 
     /**
-     * Проверяет, что найденный элемент является предупреждением об отсутствии данных.
-     * Метод не выполняет дополнительных поисков по DOM,
-     * полагаясь на уже ожидаемый элемент.
+     * Проверяет, отображается ли на странице предупреждение об отсутствии данных.
+     * Метод выполняет поиск элемента в уже загруженном DOM без дополнительных ожиданий.
      *
-     * @param element элемент, возвращённый {@link WebDriverWait}
-     * @return {@code true}, если отображается предупреждение об отсутствии данных
+     * @param driver активный {@link WebDriver}
+     * @return {@code true}, если предупреждение найдено
      */
-    private boolean isNoDataWarningDisplayed(WebElement element) {
-        if (element == null) {
-            return false;
-        }
+    private boolean isNoDataWarningDisplayed(WebDriver driver) {
         try {
-            return element.isDisplayed()
-                    && element.getAttribute("class").contains("alert-message--warning")
-                    && element.getText().contains("У нас пока нет данных");
+            List<WebElement> warnings = driver.findElements(NO_DATA_WARNING);
+            if (warnings.isEmpty()) {
+                return false;
+            }
+            WebElement warning = warnings.get(0);
+            return warning.isDisplayed() && warning.getText().contains("У нас пока нет данных");
         } catch (StaleElementReferenceException ignored) {
             return false;
         }
