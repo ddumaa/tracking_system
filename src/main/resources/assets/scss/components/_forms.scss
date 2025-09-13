@@ -98,6 +98,15 @@
   }
 }
 
+// Сообщение об ошибке для поля номера трека
+#numberError {
+  display: block; // показываем блок под полем ввода
+
+  &:empty {
+    display: none; // скрываем, если текст отсутствует
+  }
+}
+
 // Округление поля ввода телефона
 #phone {
   border-radius: ui.$border-radius !important;
