@@ -197,10 +197,21 @@ public class WebBelPostBatchService {
      */
     private boolean isNoDataWarningDisplayed(WebElement element) {
         try {
-            return element != null
-                    && element.getAttribute("class").contains("alert-message--warning")
-                    && element.isDisplayed()
-                    && element.getText().contains("У нас пока нет данных");
+            if (element == null || !element.isDisplayed()) {
+                return false;
+            }
+
+            // Проверяем, не является ли сам элемент предупреждением
+            if (element.getAttribute("class").contains("alert-message--warning")
+                    && element.getText().contains("У нас пока нет данных")) {
+                return true;
+            }
+
+            // Ищем предупреждение среди дочерних элементов
+            List<WebElement> nested = element.findElements(NO_DATA_WARNING);
+            return !nested.isEmpty()
+                    && nested.get(0).isDisplayed()
+                    && nested.get(0).getText().contains("У нас пока нет данных");
         } catch (StaleElementReferenceException ignored) {
             return false;
         }

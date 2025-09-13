@@ -56,5 +56,35 @@ class WebBelPostBatchServiceNoDataWarningTest {
             assertTrue(dto.getList().isEmpty(), "Трек не должен содержать событий");
         }
     }
+
+    /**
+     * Проверяем, что предупреждение распознаётся даже если оно вложено в блок трека.
+     */
+    @Test
+    void shouldSkipTrackWhenWarningInsideTrackItem() throws Exception {
+        WebDriver driver = mock(WebDriver.class);
+
+        WebElement trackItem = mock(WebElement.class);
+        when(trackItem.isDisplayed()).thenReturn(true);
+
+        WebElement warning = mock(WebElement.class);
+        when(warning.isDisplayed()).thenReturn(true);
+        when(warning.getText()).thenReturn("У нас пока нет данных");
+        when(warning.getAttribute("class")).thenReturn("alert-message alert-message--warning");
+
+        when(trackItem.findElements(any(By.class))).thenReturn(List.of(warning));
+
+        try (MockedConstruction<WebDriverWait> mockWait = Mockito.mockConstruction(WebDriverWait.class,
+                (wait, context) -> when(wait.until(any())).thenReturn(trackItem))) {
+
+            WebBelPostBatchService service = new WebBelPostBatchService(mock(WebDriverFactory.class));
+            ReflectionTestUtils.setField(service, "maxAttempts", 1);
+            ReflectionTestUtils.setField(service, "retryDelayMs", 0L);
+
+            TrackInfoListDTO dto = service.parseTrack(driver, "123");
+
+            assertTrue(dto.getList().isEmpty(), "Трек не должен содержать событий");
+        }
+    }
 }
 
