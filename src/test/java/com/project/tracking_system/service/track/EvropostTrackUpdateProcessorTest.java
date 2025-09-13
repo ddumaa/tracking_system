@@ -34,11 +34,11 @@ class EvropostTrackUpdateProcessorTest {
     void processSingle_ReturnsInfo() {
         TrackMeta meta = new TrackMeta("E1", 1L, null, false);
         TrackInfoListDTO info = new TrackInfoListDTO();
-        when(trackProcessingService.processTrack("E1", 1L, null, false, null)).thenReturn(info);
+        when(trackProcessingService.processTrack("E1", 1L, 2L, false, null)).thenReturn(info);
 
-        TrackingResultAdd result = processor.process(meta);
+        TrackingResultAdd result = processor.process(meta, 2L);
 
-        verify(trackProcessingService).processTrack("E1", 1L, null, false, null);
+        verify(trackProcessingService).processTrack("E1", 1L, 2L, false, null);
         assertEquals(info, result.getTrackInfo());
     }
 }
