@@ -27,12 +27,17 @@ public class CustomerStatsService {
     private EntityManager entityManager;
 
     /**
+     * Максимальное число попыток атомарного обновления репутации.
+     */
+    private static final int MAX_REPUTATION_RETRY = 3;
+
+    /**
      * Универсальный метод увеличения счётчика статистики покупателя.
      * <p>Атомарно обновляет значение в БД, перечитывает сущность,
      * пересчитывает репутацию и пытается сохранить её атомарно по версии.
-     * При неудаче отсоединяет и перечитывает сущность, затем сохраняет
-     * через репозиторий. Возвращает свежий экземпляр, не изменяя
-     * переданный объект.</p>
+     * При конфликте версий пытается повторить обновление с перечитыванием
+     * актуальной записи. После исчерпания попыток сохраняет сущность через
+     * репозиторий. Возвращает свежий экземпляр, не изменяя переданный объект.</p>
      *
      * @param customer     покупатель
      * @param counterName  имя счётчика для логирования
@@ -67,22 +72,8 @@ public class CustomerStatsService {
             fresh = customerRepository.findById(customer.getId())
                     .orElseThrow(() -> new IllegalStateException("Покупатель не найден"));
             fresh.recalculateReputation();
-            // пытаемся обновить репутацию атомарно по версии
-            int reputationUpdated = customerRepository.updateReputation(
-                    fresh.getId(),
-                    fresh.getVersion(),
-                    fresh.getReputation()
-            );
-            if (reputationUpdated == 0) {
-                log.warn("⚠️ Репутация для customerId={} не обновлена, сохраняем через save", customer.getId());
-                // отсоединяем сущность, чтобы следующая загрузка получила актуальное состояние
-                entityManager.detach(fresh);
-                // перечитываем покупателя, чтобы получить актуальную версию
-                fresh = customerRepository.findById(customer.getId())
-                        .orElseThrow(() -> new IllegalStateException("Покупатель не найден"));
-                fresh.recalculateReputation();
-                fresh = customerRepository.save(fresh);
-            }
+            // обновляем репутацию с повторными попытками при конфликте версий
+            fresh = updateReputationWithRetry(fresh);
         }
         return fresh;
     }
@@ -139,5 +130,45 @@ public class CustomerStatsService {
                 Customer::getReturnedCount,
                 Customer::setReturnedCount
         );
+    }
+
+    /**
+     * Атомарно обновляет репутацию покупателя, повторяя операцию при конфликте версии.
+     * <p>При каждом конфликте перечитывается актуальная версия записи, чтобы попытаться
+     * сохранить значение повторно. После исчерпания попыток репутация сохраняется
+     * через {@link CustomerRepository#save(Object)}.</p>
+     *
+     * @param customer покупатель с пересчитанной репутацией
+     * @return актуальный экземпляр после успешного обновления
+     */
+    private Customer updateReputationWithRetry(Customer customer) {
+        for (int attempt = 1; attempt <= MAX_REPUTATION_RETRY; attempt++) {
+            int updated = customerRepository.updateReputation(
+                    customer.getId(),
+                    customer.getVersion(),
+                    customer.getReputation()
+            );
+            if (updated > 0) {
+                log.debug(
+                        "✅ Репутация обновлена для customerId={} (версия={}) с попытки {}",
+                        customer.getId(), customer.getVersion(), attempt
+                );
+                return customer;
+            }
+            log.warn(
+                    "⚠️ Конфликт обновления репутации customerId={}: ожидалась версия={}, попытка {}",
+                    customer.getId(), customer.getVersion(), attempt
+            );
+            entityManager.detach(customer);
+            customer = customerRepository.findById(customer.getId())
+                    .orElseThrow(() -> new IllegalStateException("Покупатель не найден"));
+            log.debug("ℹ️ Получена актуальная версия {} для customerId={}", customer.getVersion(), customer.getId());
+            customer.recalculateReputation();
+        }
+        log.warn(
+                "⚠️ Репутация для customerId={} не обновлена атомарно после {} попыток, сохраняем через save",
+                customer.getId(), MAX_REPUTATION_RETRY
+        );
+        return customerRepository.save(customer);
     }
 }

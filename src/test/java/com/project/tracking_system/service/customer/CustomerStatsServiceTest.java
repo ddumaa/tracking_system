@@ -2,6 +2,7 @@ package com.project.tracking_system.service.customer;
 
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.repository.CustomerRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +24,9 @@ class CustomerStatsServiceTest {
 
     @Mock
     private CustomerRepository customerRepository;
+
+    @Mock
+    private EntityManager entityManager;
 
     @InjectMocks
     private CustomerStatsService service;
@@ -78,6 +82,38 @@ class CustomerStatsServiceTest {
         verify(customerRepository).findById(1L);
         verify(customerRepository).save(fresh);
         verify(customerRepository, never()).updateReputation(anyLong(), anyLong(), any());
+    }
+
+    /**
+     * Конфликт версий при обновлении репутации приводит к повторной попытке.
+     */
+    @Test
+    void incrementSent_ReputationConflictRetries() {
+        when(customerRepository.incrementSentCount(1L, 0L)).thenReturn(1);
+
+        Customer ver1 = new Customer();
+        ver1.setId(1L);
+        ver1.setVersion(1);
+        ver1.setSentCount(1);
+
+        Customer ver2 = new Customer();
+        ver2.setId(1L);
+        ver2.setVersion(2);
+        ver2.setSentCount(1);
+
+        when(customerRepository.findById(1L)).thenReturn(Optional.of(ver1), Optional.of(ver2));
+        when(customerRepository.updateReputation(1L, 1L, ver1.getReputation())).thenReturn(0);
+        when(customerRepository.updateReputation(1L, 2L, ver2.getReputation())).thenReturn(1);
+
+        Customer result = service.incrementSent(customer);
+
+        assertSame(ver2, result);
+        verify(customerRepository).incrementSentCount(1L, 0L);
+        verify(customerRepository, times(2)).findById(1L);
+        verify(customerRepository).updateReputation(1L, 1L, ver1.getReputation());
+        verify(customerRepository).updateReputation(1L, 2L, ver2.getReputation());
+        verify(entityManager).detach(ver1);
+        verify(customerRepository, never()).save(any());
     }
 
     /**
