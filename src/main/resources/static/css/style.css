@@ -1852,6 +1852,13 @@ body.loading {
   border-color: #ddd transparent transparent transparent;
 }
 
+/* Отключаем встроенную иконку ошибки Bootstrap,
+   чтобы поле не меняло ширину и не смещало кнопку */
+.form-control.is-invalid {
+  background-image: none;
+  padding-right: 0.75rem;
+}
+
 /*# sourceMappingURL=style.css.map */
 
 /*# sourceMappingURL=style.css.map */
