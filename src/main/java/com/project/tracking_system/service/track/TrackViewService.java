@@ -77,7 +77,7 @@ public class TrackViewService {
         if (canUpdate) {
             TrackMeta meta = new TrackMeta(itemNumber, null, null, false,
                     trackParcelService.getPostalServiceType(itemNumber));
-            trackInfo = trackUpdateDispatcherService.dispatch(meta, userId).getTrackInfo();
+            trackInfo = trackUpdateDispatcherService.dispatch(meta).getTrackInfo();
             trackProcessingService.save(itemNumber, trackInfo, parcel.getStore().getId(), userId);
             log.info("🎯 Передано {} записей для трека {}", trackInfo.getList().size(), itemNumber);
         } else {
