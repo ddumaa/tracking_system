@@ -2,54 +2,89 @@ package com.project.tracking_system.service.belpost;
 
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.webdriver.WebDriverFactory;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.openqa.selenium.*;
+import org.mockito.MockedConstruction;
+import org.mockito.Mockito;
+import org.openqa.selenium.By;
+import org.openqa.selenium.NoSuchElementException;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import java.util.List;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Проверка обработки ситуации, когда Белпочта не предоставляет данные по треку.
+ * Тестирует пропуск трека при отображении предупреждения об отсутствии данных.
  */
-@ExtendWith(MockitoExtension.class)
 class WebBelPostBatchServiceNoDataWarningTest {
 
-    @Mock
-    private WebDriverFactory factory;
-    @Mock
-    private WebDriver driver;
-    @Mock
-    private WebElement warning;
+    /**
+     * Убеждаемся, что при появлении предупреждения трек пропускается.
+     */
+    @Test
+    void shouldSkipTrackWhenWarningAppears() throws Exception {
+        WebDriver driver = mock(WebDriver.class);
+        when(driver.findElement(any(By.class))).thenThrow(NoSuchElementException.class);
 
-    private WebBelPostBatchService service;
+        WebElement warning = mock(WebElement.class);
+        when(warning.isDisplayed()).thenReturn(true);
+        when(warning.getText()).thenReturn("У нас пока нет данных");
+        when(warning.getAttribute("class")).thenReturn("alert-message alert-message--warning");
 
-    @BeforeEach
-    void setUp() {
-        service = new WebBelPostBatchService(factory);
-        // Устанавливаем одну попытку, чтобы цикл не повторялся
-        ReflectionTestUtils.setField(service, "maxAttempts", 1);
+        when(driver.findElements(any(By.class))).thenAnswer(invocation -> {
+            By by = invocation.getArgument(0);
+            if (by.toString().contains("alert-message--warning")) {
+                return List.of(warning);
+            }
+            return List.of();
+        });
+
+        try (MockedConstruction<WebDriverWait> mockWait = Mockito.mockConstruction(WebDriverWait.class,
+                (wait, context) -> when(wait.until(any())).thenReturn(warning))) {
+
+            WebBelPostBatchService service = new WebBelPostBatchService(mock(WebDriverFactory.class));
+            ReflectionTestUtils.setField(service, "maxAttempts", 1);
+            ReflectionTestUtils.setField(service, "retryDelayMs", 0L);
+
+            TrackInfoListDTO dto = service.parseTrack(driver, "123");
+
+            assertTrue(dto.getList().isEmpty(), "Трек не должен содержать событий");
+        }
     }
 
+    /**
+     * Проверяем, что предупреждение распознаётся даже если оно вложено в блок трека.
+     */
     @Test
-    void parseTrack_WarningShown_ReturnsEmpty() {
-        // Драйвер сообщает о наличии предупреждения «данных нет»
-        when(driver.findElement(any(By.class))).thenAnswer(invocation -> {
-            By by = invocation.getArgument(0, By.class);
-            if ("By.cssSelector: .alert-message.alert-message--warning".equals(by.toString())) {
-                return warning;
-            }
-            throw new NoSuchElementException("not found");
-        });
+    void shouldSkipTrackWhenWarningInsideTrackItem() throws Exception {
+        WebDriver driver = mock(WebDriver.class);
+
+        WebElement trackItem = mock(WebElement.class);
+        when(trackItem.isDisplayed()).thenReturn(true);
+
+        WebElement warning = mock(WebElement.class);
         when(warning.isDisplayed()).thenReturn(true);
-        when(warning.getText()).thenReturn("У нас пока нет данных об этом трек-номере. Попробуйте проверить позже");
-        // Вызов метода с подменённым драйвером
-        TrackInfoListDTO dto = service.parseTrack(driver, "PC123456789BY");
-        assertTrue(dto.getList().isEmpty());
+        when(warning.getText()).thenReturn("У нас пока нет данных");
+        when(warning.getAttribute("class")).thenReturn("alert-message alert-message--warning");
+
+        when(trackItem.findElements(any(By.class))).thenReturn(List.of(warning));
+
+        try (MockedConstruction<WebDriverWait> mockWait = Mockito.mockConstruction(WebDriverWait.class,
+                (wait, context) -> when(wait.until(any())).thenReturn(trackItem))) {
+
+            WebBelPostBatchService service = new WebBelPostBatchService(mock(WebDriverFactory.class));
+            ReflectionTestUtils.setField(service, "maxAttempts", 1);
+            ReflectionTestUtils.setField(service, "retryDelayMs", 0L);
+
+            TrackInfoListDTO dto = service.parseTrack(driver, "123");
+
+            assertTrue(dto.getList().isEmpty(), "Трек не должен содержать событий");
+        }
     }
 }
+

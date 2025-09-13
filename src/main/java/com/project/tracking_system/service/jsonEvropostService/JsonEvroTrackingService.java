@@ -41,6 +41,8 @@ public class JsonEvroTrackingService {
      * <p>
      * Метод выполняет запрос к внешнему API для получения данных о трекинге посылки по номеру,
      * а затем десериализует ответ в объект {@link JsonEvroTrackingResponse}.
+     * В зависимости от настроек пользователя и флага использования личных данных
+     * выбирает между персональными и системными учётными данными.
      * </p>
      *
      * @param number Номер посылки, для которой требуется получить информацию о трекинге.
@@ -48,20 +50,25 @@ public class JsonEvroTrackingService {
      * @throws IllegalStateException если произошла ошибка десериализации JSON или запроса
      */
     public JsonEvroTrackingResponse getJson(Long userId, String number) {
+        // Определяем, нужно ли применять личные учётные данные пользователя.
+        // При отсутствии userId не обращаемся к базе, чтобы не ломать анонимное отслеживание.
+        boolean useCustomCredentials = userId != null && userService.isUsingCustomCredentials(userId);
         ResolvedCredentialsDTO credentials;
-        boolean useCustomCredentials = false;
 
-        if (userId == null) {
-            log.warn("Анонимный пользователь делает запрос. Используем системные учетные данные.");
-            credentials = userCredentialsResolver.getSystemCredentials(); // Новый метод
-        } else {
-            useCustomCredentials = userService.isUsingCustomCredentials(userId);
-            log.info("Запрос на получение данных для пользователя ID: {}, почтовый номер: {}", userId, number);
+        if (useCustomCredentials) {
+            // Флаг включён: получаем личные креды пользователя
             credentials = userService.resolveCredentials(userId);
+            if (credentials == null) {
+                // Креды не найдены – логируем и прерываем выполнение
+                log.warn("Личные учётные данные отсутствуют для пользователя ID={}", userId);
+                throw new IllegalStateException("Личные учётные данные не найдены");
+            }
+            log.info("Используем личные учётные данные пользователя ID={}", userId);
+        } else {
+            // Флаг выключен или userId отсутствует: всегда берём системные креды
+            credentials = userCredentialsResolver.getSystemCredentials();
+            log.info("User ID={} → интеграция с личными кредами отключена, используем системные", userId);
         }
-
-        log.info("Данные для запроса определены. Используются {} данные.",
-                useCustomCredentials ? "пользовательские" : "системные");
 
         // Выполняем запрос
         JsonRequest jsonRequest = requestFactory.createTrackingRequest(
