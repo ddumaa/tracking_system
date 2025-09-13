@@ -118,6 +118,45 @@ function handleTrackNumberFormSubmit(event) {
 }
 
 /**
+ * Инициализирует проверку трек-номера на стороне клиента.
+ * Навешивает обработчик на поле ввода и управляет сообщением об ошибке.
+ */
+function initTrackNumberValidation() {
+    const input = document.getElementById('number');
+    const error = document.getElementById('numberError');
+    const submitBtn = input?.closest('form')?.querySelector('button[type="submit"]');
+    const preRegToggle = document.getElementById('togglePreRegistration');
+    if (!input || !error || !submitBtn) {
+        return;
+    }
+
+    // Функция обновляет состояние поля и кнопки
+    const updateState = () => {
+        const value = input.value;
+        // Пустой номер допустим при предрегистрации
+        if (preRegToggle?.checked && value.trim() === '') {
+            input.classList.remove('is-invalid');
+            error.textContent = '';
+            submitBtn.disabled = false;
+            return;
+        }
+        const result = trackValidator.validate(value);
+        if (result.valid) {
+            input.classList.remove('is-invalid');
+            error.textContent = '';
+            submitBtn.disabled = false;
+        } else {
+            input.classList.add('is-invalid');
+            error.textContent = result.message;
+            submitBtn.disabled = true;
+        }
+    };
+
+    input.addEventListener('input', updateState);
+    preRegToggle?.addEventListener('change', updateState);
+}
+
+/**
  * Копирует текст в буфер обмена и показывает уведомление о результате.
  * @param {string} text - копируемый текст
  */
@@ -1992,6 +2031,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initializePhoneToggle();
     autoFillFullName();
     initializePreRegistrationRequired();
+    initTrackNumberValidation();
     initAssignCustomerFormHandler();
     initEditCustomerPhoneFormHandler();
     initPhoneEditToggle();
