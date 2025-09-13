@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.*;
 import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.FluentWait;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -31,10 +32,14 @@ public class WebBelPostBatchService {
     private final WebDriverFactory webDriverFactory;
 
     /** CSS-селектор предупреждения об отсутствии данных. */
-    private static final By NO_DATA_WARNING = By.cssSelector(".alert-message.alert-message--warning");
+    private static final By NO_DATA_WARNING = By.cssSelector(
+            ".alert-message.alert-message--warning, app-alert-message .alert-message--warning"
+    );
 
-    /** CSS-селектор блока с данными по треку. */
+    /** блок трека и его детали */
     private static final By TRACK_ITEM = By.cssSelector("article.track-item");
+    private static final By DETAILS_ITEM = By.cssSelector("dl.track-item__details .track-details__item");
+
 
     /**
      * Задержка между повторными запросами к сайту Белпочты (мс).
@@ -114,16 +119,26 @@ public class WebBelPostBatchService {
             try {
                 return tryParseTrack(driver, number);
             } catch (RateLimitException e) {
-                log.warn("⏳ Лимит запросов — ждём {} сек. перед повтором ({}): {}", retryDelayMs / 1000, number, e.getMessage());
-                sleep(retryDelayMs);
+                // ✅ Ретрай только для сценария #1
+                boolean willRetry = attempt < maxAttempts;
+                log.warn("⏳ Лимит по {} (попытка {}/{}). {}",
+                        number, attempt, maxAttempts,
+                        willRetry ? "Ждём " + (retryDelayMs / 1000) + " сек. и повторяем" : "Достигнут предел попыток");
+                if (willRetry) {
+                    sleep(retryDelayMs);     // ждём только тут
+                    continue;                // вторая попытка
+                }
+                return new TrackInfoListDTO(); // всё, выходим без дополнительных ожиданий
             } catch (TimeoutException e) {
-                log.warn("⏳ TimeoutException на {} попытке для {}. Ждём {} сек...", attempt, number, retryDelayMs / 1000);
-                sleep(retryDelayMs);
+                // ❌ НЕ ретраим и НЕ ждём — по ТЗ ретрай только для сценария #1
+                log.warn("⏱️ Timeout при парсинге {} на попытке {} — пропускаем без ожиданий", number, attempt);
+                return new TrackInfoListDTO();
             } catch (Exception e) {
+                // Любая другая ошибка — лог и выход без ожиданий
                 log.error("❌ Ошибка при парсинге {} на попытке {}: {}", number, attempt, e.getMessage(), e);
+                return new TrackInfoListDTO();
             }
         }
-
         return new TrackInfoListDTO();
     }
 
@@ -133,63 +148,106 @@ public class WebBelPostBatchService {
     private TrackInfoListDTO tryParseTrack(WebDriver driver, String number) throws Exception {
         TrackInfoListDTO dto = new TrackInfoListDTO();
 
-        String url = "https://belpost.by/Otsleditotpravleniye?number=" + number;
-        driver.get(url);
+        driver.get("https://belpost.by/Otsleditotpravleniye?number=" + number);
 
-        // Сразу проверяем сообщение о превышении лимита
         if (isRateLimitErrorDisplayed(driver)) {
             throw new RateLimitException("Превышено количество запросов");
         }
 
-        // Ожидаем появления либо предупреждения, либо блока с данными трека.
-        // Дополнительно проверяем всплывающее окно о превышении лимита.
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(12));
-        WebElement awaited = wait.until(d -> {
-            if (isRateLimitErrorDisplayed(d)) {
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+
+        // 1) Ждём ЛИБО предупреждение, ЛИБО article.track-item (presence, без isDisplayed)
+        WebElement awaited;
+        try {
+            awaited = wait.until(d -> {
+                if (isRateLimitErrorDisplayed(d)) {
+                    throw new RateLimitException("Превышено количество запросов");
+                }
+                List<WebElement> warn = d.findElements(NO_DATA_WARNING);
+                if (!warn.isEmpty()) return warn.get(0);        // всегда отдаём приоритет предупреждению
+
+                List<WebElement> items = d.findElements(TRACK_ITEM);
+                if (!items.isEmpty()) return items.get(0);
+
+                return null;
+            });
+        } catch (TimeoutException te) {
+            // Last-chance пере-классификация: если к этому моменту DOM уже содержит текст «нет данных» — считаем сценарием #2
+            if (isRateLimitErrorDisplayed(driver)) {
                 throw new RateLimitException("Превышено количество запросов");
             }
-            List<WebElement> warnings = d.findElements(NO_DATA_WARNING);
-            if (!warnings.isEmpty() && warnings.get(0).isDisplayed()) {
-                return warnings.get(0);
+            if (pageSaysNoData(driver)) {
+                log.info("ℹ️ Нет данных по {} (обнаружено после таймаута по DOM-тексту) — пропускаем", number);
+                return dto;
             }
-            List<WebElement> items = d.findElements(TRACK_ITEM);
-            if (!items.isEmpty() && items.get(0).isDisplayed()) {
-                return items.get(0);
-            }
-            return null;
-        });
+            throw te;
+        }
 
-        // Если появилось предупреждение об отсутствии данных, возвращаем пустой DTO
+        // 2) Если вернулось предупреждение — это сценарий #2
         if (isNoDataWarningDisplayed(awaited)) {
-            log.debug("Предупреждение об отсутствии данных для номера {}", number);
+            log.info("ℹ️ Нет данных по номеру {} — пропускаем без ожиданий", number);
             return dto;
         }
 
-        // В противном случае awaited содержит блок с данными трека
+        // 3) Иначе это article.track-item. На всякий случай проверим, нет ли предупреждения ВНУТРИ него.
         WebElement trackItem = awaited;
-
-        WebElement trackItemHeader = trackItem.findElement(By.cssSelector("header"));
-        if (!"true".equals(trackItemHeader.getAttribute("aria-expanded"))) {
-            JavascriptExecutor js = (JavascriptExecutor) driver;
-            js.executeScript("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", trackItemHeader);
-            wait.until(ExpectedConditions.elementToBeClickable(trackItemHeader));
-            js.executeScript("arguments[0].click();", trackItemHeader);
-            wait.until(ExpectedConditions.attributeToBe(trackItemHeader, "aria-expanded", "true"));
+        if (!trackItem.findElements(NO_DATA_WARNING).isEmpty()) {
+            log.info("ℹ️ Нет данных по номеру {} (предупреждение внутри track-item) — пропускаем", number);
+            return dto;
         }
 
-        wait.until(ExpectedConditions.visibilityOfElementLocated(
-                By.cssSelector("dl.track-item__details .track-details__item")));
+        // 4) Раскрываем аккордеон при необходимости
+        WebElement header = trackItem.findElement(By.cssSelector("header"));
+        if (!"true".equals(header.getAttribute("aria-expanded"))) {
+            JavascriptExecutor js = (JavascriptExecutor) driver;
+            js.executeScript("arguments[0].scrollIntoView({block:'center', inline:'center'});", header);
+            wait.until(ExpectedConditions.elementToBeClickable(header));
+            js.executeScript("arguments[0].click();", header);
+            wait.until(ExpectedConditions.attributeToBe(header, "aria-expanded", "true"));
+        }
 
-        WebElement trackDetails = trackItem.findElement(By.cssSelector("dl.track-item__details"));
-        List<WebElement> trackItems = trackDetails.findElements(By.cssSelector("div.track-details__item"));
+        // 5) Ждём ИЛИ появление деталей, ИЛИ появление предупреждения внутри track-item
+        boolean ready = wait.until(drv -> {
+            try {
+                if (!trackItem.findElements(NO_DATA_WARNING).isEmpty()) return true; // это «нет данных»
+                return !trackItem.findElements(DETAILS_ITEM).isEmpty();              // это «есть данные»
+            } catch (StaleElementReferenceException e) {
+                return false;
+            }
+        });
 
-        for (WebElement item : trackItems) {
-            String title = item.findElement(By.cssSelector("dt")).getText().trim();
-            String date = item.findElement(By.cssSelector("dd li.text-secondary")).getText().trim();
-            dto.addTrackInfo(new TrackInfoDTO(date, title));
+        // 6) Если внутри появился warning — сценарий #2
+        if (!trackItem.findElements(NO_DATA_WARNING).isEmpty() || pageSaysNoData(driver)) {
+            log.info("ℹ️ Нет данных по номеру {} — пропускаем без ожиданий", number);
+            return dto;
+        }
+
+        // 7) Парсинг деталей. findElements, а не findElement — без исключений.
+        List<WebElement> items = trackItem.findElements(DETAILS_ITEM);
+        if (items.isEmpty()) {
+            // На всякий случай не кидаем NoSuchElement — трактуем как «нет данных»
+            log.info("ℹ️ Детали не найдены для {}, трактуем как «нет данных»", number);
+            return dto;
+        }
+
+        for (WebElement item : items) {
+            String title = safeText(item, By.cssSelector("dt"));
+            String date  = safeText(item, By.cssSelector("dd li.text-secondary"));
+            if (!title.isEmpty() || !date.isEmpty()) {
+                dto.addTrackInfo(new TrackInfoDTO(date, title));
+            }
         }
 
         return dto;
+    }
+
+    private String safeText(WebElement root, By by) {
+        try {
+            WebElement el = root.findElement(by);
+            return el.getText() == null ? "" : el.getText().trim();
+        } catch (NoSuchElementException | StaleElementReferenceException e) {
+            return "";
+        }
     }
 
     /**
@@ -201,21 +259,12 @@ public class WebBelPostBatchService {
      */
     private boolean isNoDataWarningDisplayed(WebElement element) {
         try {
-            if (element == null || !element.isDisplayed()) {
-                return false;
-            }
+            if (element == null) return false;
+            String text = element.getText();
+            if (text != null && text.contains("У нас пока нет данных")) return true;
 
-            // Проверяем, не является ли сам элемент предупреждением
-            if (element.getAttribute("class").contains("alert-message--warning")
-                    && element.getText().contains("У нас пока нет данных")) {
-                return true;
-            }
-
-            // Ищем предупреждение среди дочерних элементов
             List<WebElement> nested = element.findElements(NO_DATA_WARNING);
-            return !nested.isEmpty()
-                    && nested.get(0).isDisplayed()
-                    && nested.get(0).getText().contains("У нас пока нет данных");
+            return !nested.isEmpty() && nested.get(0).getText().contains("У нас пока нет данных");
         } catch (StaleElementReferenceException ignored) {
             return false;
         }
@@ -229,9 +278,9 @@ public class WebBelPostBatchService {
      */
     private boolean isRateLimitErrorDisplayed(WebDriver driver) {
         try {
-            WebElement errorPopup = driver.findElement(By.cssSelector(".swal2-title"));
-            WebElement errorText = driver.findElement(By.cssSelector("#swal2-content"));
-            return errorPopup.isDisplayed() && errorText.getText().contains("Превышено количество запросов");
+            WebElement title = driver.findElement(By.cssSelector(".swal2-title"));
+            WebElement text  = driver.findElement(By.cssSelector("#swal2-content, .swal2-html-container"));
+            return title.isDisplayed() && text.getText().contains("Превышено количество запросов");
         } catch (NoSuchElementException e) {
             return false;
         }
@@ -258,6 +307,18 @@ public class WebBelPostBatchService {
             Thread.sleep(millis);
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    /** Быстрый JS-чек текста предупреждения в DOM (обходит гонки visible/animation) */
+    private boolean pageSaysNoData(WebDriver driver) {
+        try {
+            JavascriptExecutor js = (JavascriptExecutor) driver;
+            String text = (String) js.executeScript(
+                    "const el=document.querySelector('.alert-message--warning');return el?el.textContent:'';");
+            return text != null && text.contains("У нас пока нет данных");
+        } catch (Exception ignore) {
+            return false;
         }
     }
 
