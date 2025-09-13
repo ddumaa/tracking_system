@@ -38,7 +38,6 @@ RUN apt-get update && \
     curl -sSL https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${CHROME_VERSION}/linux64/chrome-linux64.zip -o /tmp/chrome.zip && \
     unzip /tmp/chrome.zip -d /opt/chrome && \
     ln -s /opt/chrome/chrome-linux64/chrome /usr/bin/google-chrome && \
-    # Загрузка ChromeDriver той же версии, что и браузер
     curl -sSL https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${CHROME_VERSION}/linux64/chromedriver-linux64.zip -o /tmp/chromedriver.zip && \
     unzip /tmp/chromedriver.zip -d /opt/chromedriver && \
     mv /opt/chromedriver/chromedriver-linux64/chromedriver /usr/bin/chromedriver && \
