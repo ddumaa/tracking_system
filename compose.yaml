@@ -30,8 +30,7 @@ services:
       - db
     volumes:
       - ./logs:/app/logs
-    tmpfs:
-      - /tmp:rw,exec,nosuid,size=64m # хранение временных файлов в памяти с ограничением 64MB
+    shm_size: 1g
 
 volumes:
   db_data:
