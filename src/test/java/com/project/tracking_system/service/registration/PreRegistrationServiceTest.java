@@ -123,4 +123,26 @@ class PreRegistrationServiceTest {
 
         verify(trackParcelRepository, never()).save(any());
     }
+
+    /**
+     * Добавление трека без возможности определения службы
+     * должно завершаться исключением и не создавать записи
+     * ни в базе, ни в очереди.
+     */
+    @Test
+    void addTrack_UnknownType_ThrowsException() {
+        long storeId = 1L;
+        long userId = 2L;
+
+        when(storeService.getStore(storeId, userId)).thenReturn(new Store());
+        when(userRepository.findById(userId)).thenReturn(Optional.of(new User()));
+        // Мокаем детектор, чтобы он сигнализировал о невозможности определить сервис
+        when(trackTypeDetector.detect(any())).thenThrow(new IllegalArgumentException("unknown"));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> service.preRegister(null, storeId, userId));
+
+        verify(trackParcelRepository, never()).save(any());
+        verify(customerService, never()).updateStatsOnTrackAdd(any());
+    }
 }
