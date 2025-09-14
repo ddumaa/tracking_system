@@ -9,12 +9,16 @@ import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.customer.CustomerService;
+import com.project.tracking_system.service.track.PreRegistrationMeta;
+import com.project.tracking_system.service.track.TrackTypeDetector;
+import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.utils.PhoneUtils;
 import com.project.tracking_system.utils.TrackNumberUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
@@ -34,6 +38,8 @@ public class PreRegistrationService {
     private final StoreService storeService;
     /** Сервис работы с покупателями. */
     private final CustomerService customerService;
+    /** Определение почтового сервиса по номеру трека. */
+    private final TrackTypeDetector trackTypeDetector;
 
     /**
      * Выполняет предрегистрацию номера и сохраняет базовые данные о посылке.
@@ -83,6 +89,13 @@ public class PreRegistrationService {
                         PhoneUtils.maskPhone(phone), ex.getReason());
                 throw ex;
             }
+        }
+        // Определяем тип почтового сервиса
+        PreRegistrationMeta meta = new PreRegistrationMeta(normalized, storeId, phone);
+        PostalServiceType type = trackTypeDetector.detect(meta);
+        if (normalized != null && type == PostalServiceType.UNKNOWN) {
+            log.warn("Не удалось определить сервис для трека {}", meta.getTrackNumber());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Не удалось определить сервис для трека");
         }
 
         TrackParcel saved = trackParcelRepository.save(parcel);

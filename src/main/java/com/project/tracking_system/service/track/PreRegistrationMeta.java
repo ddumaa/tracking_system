@@ -13,4 +13,14 @@ package com.project.tracking_system.service.track;
  * @param phone   нормализованный номер телефона покупателя, может быть {@code null}
  */
 public record PreRegistrationMeta(String number, Long storeId, String phone) {
+    /**
+     * Возвращает номер трека.
+     * <p>
+     * Дополнительный метод, позволяющий обращаться к номеру
+     * трека в стиле обычного POJO.
+     * </p>
+     */
+    public String getTrackNumber() {
+        return number;
+    }
 }
