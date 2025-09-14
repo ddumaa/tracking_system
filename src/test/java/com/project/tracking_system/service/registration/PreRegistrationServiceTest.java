@@ -8,6 +8,9 @@ import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.customer.CustomerService;
+import com.project.tracking_system.service.track.TrackTypeDetector;
+import com.project.tracking_system.entity.PostalServiceType;
+import org.springframework.web.server.ResponseStatusException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,6 +22,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -38,12 +42,14 @@ class PreRegistrationServiceTest {
     private StoreService storeService;
     @Mock
     private CustomerService customerService;
+    @Mock
+    private TrackTypeDetector trackTypeDetector;
 
     private PreRegistrationService service;
 
     @BeforeEach
     void setUp() {
-        service = new PreRegistrationService(trackParcelRepository, userRepository, storeService, customerService);
+        service = new PreRegistrationService(trackParcelRepository, userRepository, storeService, customerService, trackTypeDetector);
     }
 
     /**
@@ -59,6 +65,7 @@ class PreRegistrationServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(new User()));
         when(trackParcelRepository.save(any(TrackParcel.class))).thenAnswer(inv -> inv.getArgument(0));
         doNothing().when(customerService).updateStatsOnTrackAdd(any());
+        when(trackTypeDetector.detect(any())).thenReturn(PostalServiceType.UNKNOWN);
 
         // Выполнение
         TrackParcel result = service.preRegister("   ", storeId, userId);
@@ -87,6 +94,7 @@ class PreRegistrationServiceTest {
         when(customerService.registerOrGetByPhone(phone)).thenReturn(customer);
         when(trackParcelRepository.save(any(TrackParcel.class))).thenAnswer(inv -> inv.getArgument(0));
         doNothing().when(customerService).updateStatsOnTrackAdd(any());
+        when(trackTypeDetector.detect(any())).thenReturn(PostalServiceType.BELPOST);
 
         TrackParcel result = service.preRegister(null, storeId, userId, phone);
 
@@ -94,5 +102,47 @@ class PreRegistrationServiceTest {
         verify(customerService).updateStatsOnTrackAdd(result);
         assertNull(result.getNumber());
         assertEquals(customer, result.getCustomer());
+    }
+
+    /**
+     * Если сервис доставки не определён, выбрасывается исключение,
+     * а запись не сохраняется.
+     */
+    @Test
+    void preRegister_UnknownType_ThrowsException() {
+        long storeId = 1L;
+        long userId = 2L;
+        String number = "XX123";
+
+        when(storeService.getStore(storeId, userId)).thenReturn(new Store());
+        when(userRepository.findById(userId)).thenReturn(Optional.of(new User()));
+        when(trackTypeDetector.detect(any())).thenReturn(PostalServiceType.UNKNOWN);
+
+        assertThrows(ResponseStatusException.class,
+                () -> service.preRegister(number, storeId, userId));
+
+        verify(trackParcelRepository, never()).save(any());
+    }
+
+    /**
+     * Добавление трека без возможности определения службы
+     * должно завершаться исключением и не создавать записи
+     * ни в базе, ни в очереди.
+     */
+    @Test
+    void addTrack_UnknownType_ThrowsException() {
+        long storeId = 1L;
+        long userId = 2L;
+
+        when(storeService.getStore(storeId, userId)).thenReturn(new Store());
+        when(userRepository.findById(userId)).thenReturn(Optional.of(new User()));
+        // Мокаем детектор, чтобы он сигнализировал о невозможности определить сервис
+        when(trackTypeDetector.detect(any())).thenThrow(new IllegalArgumentException("unknown"));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> service.preRegister(null, storeId, userId));
+
+        verify(trackParcelRepository, never()).save(any());
+        verify(customerService, never()).updateStatsOnTrackAdd(any());
     }
 }
