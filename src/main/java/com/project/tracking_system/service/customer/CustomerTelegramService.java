@@ -50,8 +50,9 @@ public class CustomerTelegramService {
     @Transactional
     public Customer linkTelegramToCustomer(String phone, Long chatId) {
         String normalized = PhoneUtils.normalizePhone(phone);
+        String maskedPhone = PhoneUtils.maskPhone(normalized);
         log.info("🔗 Попытка привязки телефона {} к чату {}",
-                PhoneUtils.maskPhone(normalized), chatId);
+                maskedPhone, chatId);
 
         // Регистрируем покупателя при необходимости
         Customer customer;
@@ -60,7 +61,7 @@ public class CustomerTelegramService {
         } catch (ResponseStatusException ex) {
             // При некорректном телефоне информируем пользователя кодом 400
             log.warn("Телефон {} не прошёл проверку: {}",
-                    PhoneUtils.maskPhone(normalized), ex.getReason());
+                    maskedPhone, ex.getReason());
             throw ex;
         }
 

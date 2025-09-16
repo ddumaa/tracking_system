@@ -71,7 +71,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      */
     @Override
     public void consume(Update update) {
-        log.info("📩 Обновление: {}", update);
+        log.info("📩 Получено обновление: {}", formatUpdateMetadata(update));
 
         if (update.hasMessage()) {
             var message = update.getMessage();
@@ -185,6 +185,147 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 handleContact(message.getChatId(), message.getContact());
             }
         }
+    }
+
+    /**
+     * Формирует краткое текстовое описание обновления для безопасного логирования.
+     *
+     * @param update объект обновления Telegram
+     * @return строка с типом события, идентификатором чата и маскированным телефоном (если есть)
+     */
+    private String formatUpdateMetadata(Update update) {
+        if (update == null) {
+            return "type=unknown";
+        }
+
+        String updateType = resolveUpdateType(update);
+        Long chatId = resolveChatId(update);
+        String maskedPhone = extractMaskedPhone(update);
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("type=").append(updateType);
+        builder.append(", chatId=").append(chatId != null ? chatId : "unknown");
+        if (maskedPhone != null) {
+            builder.append(", phone=").append(maskedPhone);
+        }
+        return builder.toString();
+    }
+
+    /**
+     * Определяет тип обновления, ориентируясь на заполненные поля объекта {@link Update}.
+     *
+     * @param update объект обновления Telegram
+     * @return строковое обозначение типа события
+     */
+    private String resolveUpdateType(Update update) {
+        if (update.hasMessage()) {
+            return "message";
+        }
+        if (update.hasEditedMessage()) {
+            return "edited_message";
+        }
+        if (update.hasCallbackQuery()) {
+            return "callback_query";
+        }
+        if (update.hasInlineQuery()) {
+            return "inline_query";
+        }
+        if (update.hasChosenInlineQuery()) {
+            return "chosen_inline_query";
+        }
+        if (update.hasChannelPost()) {
+            return "channel_post";
+        }
+        if (update.hasEditedChannelPost()) {
+            return "edited_channel_post";
+        }
+        if (update.hasShippingQuery()) {
+            return "shipping_query";
+        }
+        if (update.hasPreCheckoutQuery()) {
+            return "pre_checkout_query";
+        }
+        if (update.hasPoll()) {
+            return "poll";
+        }
+        if (update.hasPollAnswer()) {
+            return "poll_answer";
+        }
+        if (update.hasMyChatMember()) {
+            return "my_chat_member";
+        }
+        if (update.hasChatMember()) {
+            return "chat_member";
+        }
+        if (update.hasChatJoinRequest()) {
+            return "chat_join_request";
+        }
+        return "unknown";
+    }
+
+    /**
+     * Пытается извлечь идентификатор чата из обновления.
+     *
+     * @param update объект обновления Telegram
+     * @return идентификатор чата или {@code null}, если определить не удалось
+     */
+    private Long resolveChatId(Update update) {
+        if (update.hasMessage() && update.getMessage() != null) {
+            return update.getMessage().getChatId();
+        }
+        if (update.hasEditedMessage() && update.getEditedMessage() != null) {
+            return update.getEditedMessage().getChatId();
+        }
+        if (update.hasCallbackQuery()) {
+            var callback = update.getCallbackQuery();
+            if (callback != null && callback.getMessage() != null) {
+                return callback.getMessage().getChatId();
+            }
+        }
+        if (update.hasChannelPost() && update.getChannelPost() != null) {
+            return update.getChannelPost().getChatId();
+        }
+        if (update.hasEditedChannelPost() && update.getEditedChannelPost() != null) {
+            return update.getEditedChannelPost().getChatId();
+        }
+        if (update.hasMyChatMember()) {
+            var myChatMember = update.getMyChatMember();
+            if (myChatMember != null && myChatMember.getChat() != null) {
+                return myChatMember.getChat().getId();
+            }
+        }
+        if (update.hasChatMember()) {
+            var chatMember = update.getChatMember();
+            if (chatMember != null && chatMember.getChat() != null) {
+                return chatMember.getChat().getId();
+            }
+        }
+        if (update.hasChatJoinRequest()) {
+            var joinRequest = update.getChatJoinRequest();
+            if (joinRequest != null && joinRequest.getChat() != null) {
+                return joinRequest.getChat().getId();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Находит телефон в обновлении и возвращает его маскированный вариант.
+     *
+     * @param update объект обновления Telegram
+     * @return маскированный номер или {@code null}, если телефон отсутствует
+     */
+    private String extractMaskedPhone(Update update) {
+        if (update.hasMessage() && update.getMessage() != null) {
+            var message = update.getMessage();
+            if (message.hasContact() && message.getContact() != null) {
+                String phone = message.getContact().getPhoneNumber();
+                if (phone != null && !phone.isBlank()) {
+                    return PhoneUtils.maskPhone(phone);
+                }
+            }
+        }
+        return null;
     }
 
     /**
