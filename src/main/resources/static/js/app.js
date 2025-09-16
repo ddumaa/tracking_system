@@ -1363,7 +1363,7 @@ function showToast(message, type = "info") {
 }
 
 /**
- * Показывает toast об успешном автосохранении настроек.
+ * Показывает toast об успешном сохранении настроек.
  * <p>
  * Вынос в отдельную функцию позволяет переиспользовать
  * единый текст и оформление для всех чекбоксов,
@@ -1371,8 +1371,22 @@ function showToast(message, type = "info") {
  * </p>
  * @param {string} message - пользовательский текст уведомления
  */
-function showAutoSaveToast(message = 'Изменения сохранены автоматически.') {
+function showAutoSaveToast(message = 'Настройки сохранены') {
     showToast(message, 'success');
+}
+
+/**
+ * Формирует текст уведомления о состоянии настройки в формате
+ * «Настройка X: включено/выключено», добавляя название в кавычках,
+ * если оно передано.
+ * @param {string} settingLabel - название настройки
+ * @param {string} stateText - текстовое описание состояния
+ * @returns {string} итоговое сообщение для тоста
+ */
+function buildSettingStateMessage(settingLabel, stateText) {
+    const normalizedLabel = settingLabel ? settingLabel.trim() : '';
+    const labelPart = normalizedLabel ? ` «${normalizedLabel}»` : '';
+    return `Настройка${labelPart}: ${stateText}`;
 }
 
 /**
@@ -1382,8 +1396,7 @@ function showAutoSaveToast(message = 'Изменения сохранены ав
  */
 function announceAutoSaveToggle(settingLabel, isEnabled) {
     const stateText = isEnabled ? 'включено' : 'выключено';
-    const prefix = settingLabel ? `${settingLabel}: ` : '';
-    showAutoSaveToast(`${prefix}${stateText}. Изменения сохранены автоматически.`);
+    showAutoSaveToast(buildSettingStateMessage(settingLabel, stateText));
 }
 
 /**
@@ -1416,12 +1429,12 @@ function notifyStoreToggleAutoSave(form, input) {
     if (!form || !input) {
         return;
     }
-    const storeName = form.dataset.storeName ? `«${form.dataset.storeName}»` : '';
+    const storeName = form.dataset.storeName ? `«${form.dataset.storeName.trim()}»` : '';
     const labelText = getControlLabelText(input);
     const stateText = input.checked ? 'включено' : 'выключено';
     const storePrefix = storeName ? `Магазин ${storeName}: ` : '';
-    const labelPrefix = labelText ? `${labelText} — ` : '';
-    showAutoSaveToast(`${storePrefix}${labelPrefix}${stateText}. Изменения сохранены автоматически.`);
+    const settingMessage = buildSettingStateMessage(labelText, stateText);
+    showAutoSaveToast(`${storePrefix}${settingMessage}`);
 }
 
 /**
