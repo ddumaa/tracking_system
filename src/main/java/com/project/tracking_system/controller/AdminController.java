@@ -15,8 +15,6 @@ import com.project.tracking_system.service.tariff.TariffService;
 import com.project.tracking_system.service.DynamicSchedulerService;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.utils.EmailUtils;
-import com.project.tracking_system.utils.PaginationUtils;
-import com.project.tracking_system.utils.PaginationWindow;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -452,26 +450,21 @@ public class AdminController {
     public String parcels(@RequestParam(value = "page", defaultValue = "0") int page,
                           @RequestParam(value = "size", defaultValue = "20") int size,
                           Model model) {
-        int requestedPage = Math.max(page, 0);
-
         // Загружаем посылки постранично
-        org.springframework.data.domain.Page<TrackParcelAdminInfoDTO> parcelPage = adminService.getAllParcels(requestedPage, size);
+        org.springframework.data.domain.Page<TrackParcelAdminInfoDTO> parcelPage = adminService.getAllParcels(page, size);
 
+        int currentPageIndex = parcelPage.getNumber();
         int totalPages = parcelPage.getTotalPages();
-        PaginationWindow paginationWindow = PaginationUtils.calculateWindow(requestedPage, totalPages, PAGE_WINDOW);
 
-        if (totalPages > 0 && paginationWindow.currentPage() != parcelPage.getNumber()) {
-            // Повторно запрашиваем данные, если пользователь запросил страницу вне диапазона
-            parcelPage = adminService.getAllParcels(paginationWindow.currentPage(), size);
-            totalPages = parcelPage.getTotalPages();
-            paginationWindow = PaginationUtils.calculateWindow(paginationWindow.currentPage(), totalPages, PAGE_WINDOW);
-        }
+        // Рассчитываем диапазон отображаемых страниц
+        int startPage = (currentPageIndex / PAGE_WINDOW) * PAGE_WINDOW;
+        int endPage = Math.min(startPage + PAGE_WINDOW - 1, totalPages - 1);
 
         model.addAttribute("parcels", parcelPage.getContent());
-        model.addAttribute("currentPage", paginationWindow.currentPage());
+        model.addAttribute("currentPage", currentPageIndex);
         model.addAttribute("totalPages", totalPages);
-        model.addAttribute("startPage", paginationWindow.startPage());
-        model.addAttribute("endPage", paginationWindow.endPage());
+        model.addAttribute("startPage", startPage);
+        model.addAttribute("endPage", endPage);
         model.addAttribute("size", size);
 
         // Хлебные крошки
