@@ -371,7 +371,7 @@
                         </span>
                         <div th:errors="*{serviceNumber}" class="text-danger"></div>
                     </div>
-                    <button class="btn btn-primary btn-sm w-100" type="submit">Сохранить данные</button>
+                    <button class="btn btn-primary btn-sm w-100" type="submit">Сохранить</button>
                 </div>
             </form>
         </div>
@@ -577,13 +577,13 @@
                 </div>
                 <div class="manual-save-block mt-3">
                     <p class="form-text text-muted">
-                        Поля с текстом и числами сохраняются по кнопке ниже.
+                        Изменения в текстовых полях применяются вручную через кнопку ниже.
                     </p>
                     <button type="submit" class="btn btn-sm btn-primary w-100"
                             th:disabled="${!allowCustomTemplates}"
                             th:data-bs-toggle="${!allowCustomTemplates ? 'tooltip' : null}"
                             th:title="${!allowCustomTemplates ? 'Доступно в тарифе Бизнес и выше' : null}">
-                        Сохранить текстовые настройки
+                        Сохранить
                     </button>
                 </div>
             </form>
