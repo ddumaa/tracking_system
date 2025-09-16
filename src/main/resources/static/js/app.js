@@ -970,6 +970,44 @@ function initNameEditToggle() {
 }
 
 
+/**
+ * Сохраняет настройки Telegram, отправляя данные формы на сервер.
+ * Следуя принципу единственной ответственности (SRP), функция отвечает
+ * только за сетевой запрос и обработку результата, отображая ошибки
+ * пользователю через встроенное уведомление.
+ * @param {HTMLFormElement} form - форма с настройками Telegram
+ * @returns {Promise<boolean>} результат сохранения настроек
+ */
+async function saveTelegramSettings(form) {
+    if (!form) return false;
+
+    // Перед новой отправкой удаляем предыдущее уведомление об ошибке
+    form.querySelector('.inline-notification')?.remove();
+
+    const formData = new FormData(form);
+    const csrfToken = form.querySelector('input[name="_csrf"]')?.value;
+    const headers = csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {};
+
+    try {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            headers,
+            body: formData
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            showInlineNotification(form, errorText || 'Ошибка при сохранении', 'danger');
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        showInlineNotification(form, 'Ошибка сети при сохранении', 'danger');
+        return false;
+    }
+}
+
 // Инициализация форм настроек Telegram
 function initTelegramForms() {
     const tgToggle = document.getElementById('telegramNotificationsToggle');
@@ -988,28 +1026,16 @@ function initTelegramForms() {
 
         form.addEventListener('submit', async function (event) {
             event.preventDefault();
+            await saveTelegramSettings(form);
+        });
 
-            const formData = new FormData(form);
-            const csrfToken = form.querySelector('input[name="_csrf"]')?.value || '';
+        ['enabled', 'remindersEnabled'].forEach(name => {
+            const input = form.querySelector(`input[name="${name}"]`);
+            if (!input) return;
 
-            try {
-                const response = await fetch(form.action, {
-                    method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': csrfToken },
-                    body: formData
-                });
-
-                if (response.ok) {
-                    // Уведомление придёт через WebSocket
-                } else {
-                    const errorText = await response.text();
-                    // Показываем ошибку непосредственно в форме
-                    showInlineNotification(form, errorText || 'Ошибка при сохранении', 'danger');
-                }
-            } catch (e) {
-                // В случае сетевой ошибки также выводим сообщение в форме
-                showInlineNotification(form, 'Ошибка сети при сохранении', 'danger');
-            }
+            input.addEventListener('change', () => {
+                saveTelegramSettings(form);
+            });
         });
     });
 }
