@@ -23,13 +23,15 @@ import com.project.tracking_system.utils.ResponseBuilder;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.project.tracking_system.exception.TrackNumberAlreadyExistsException;
-import org.springframework.http.HttpStatus;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+
+import com.project.tracking_system.utils.PaginationUtils;
+import com.project.tracking_system.utils.PaginationWindow;
 
 /**
  * Контроллер для отображения и управления историей отслеживания посылок пользователя.
@@ -112,44 +114,24 @@ public class DeparturesController {
             }
         }
 
-        // Определяем начальную страницу (избегаем выхода за границы)
-        page = Math.max(page, 0);
+        int requestedPage = Math.max(page, 0);
+        String normalizedQuery = query != null ? query.trim() : null;
 
         // Загружаем посылки с учётом статуса, магазина и параметра поиска
-        Page<TrackParcelDTO> trackParcelPage;
-        if (query != null && !query.isBlank()) {
-            trackParcelPage = trackParcelService.searchByNumberOrPhone(
-                    filteredStoreIds, status, query.trim(), page, size, userId, sortOrder);
-        } else if (status != null) {
-            if (status == GlobalStatus.PRE_REGISTERED) {
-                // При фильтрации по PRE_REGISTERED добавляем также предзарегистрированные посылки
-                trackParcelPage = trackParcelService.findByStoreTracksWithPreRegistered(
-                        filteredStoreIds, page, size, userId, sortOrder);
-            } else {
-                trackParcelPage = trackParcelService.findByStoreTracksAndStatus(
-                        filteredStoreIds, status, page, size, userId, sortOrder);
-            }
-        } else {
-            trackParcelPage = trackParcelService.findByStoreTracks(
-                    filteredStoreIds, page, size, userId, sortOrder);
-        }
+        Page<TrackParcelDTO> trackParcelPage = loadTrackParcelPage(
+                filteredStoreIds, status, normalizedQuery, requestedPage, size, userId, sortOrder);
 
-        // Если запрошенная страница больше допустимой, загружаем первую страницу
-        if (page >= trackParcelPage.getTotalPages() && trackParcelPage.getTotalPages() > 0) {
-            log.warn("⚠ Выход за пределы страниц, сброс страницы на 0 для userId={} и storeId={}", userId, storeId);
+        int totalPages = trackParcelPage.getTotalPages();
+        PaginationWindow paginationWindow = PaginationUtils.calculateWindow(requestedPage, totalPages, PAGE_WINDOW);
 
-            // Повторный запрос только если нужно сбросить страницу
-            page = 0;
-            if (query != null && !query.isBlank()) {
-                trackParcelPage = trackParcelService.searchByNumberOrPhone(
-                        filteredStoreIds, status, query.trim(), page, size, userId, sortOrder);
-            } else if (status != null) {
-                trackParcelPage = trackParcelService.findByStoreTracksAndStatus(
-                        filteredStoreIds, status, page, size, userId, sortOrder);
-            } else {
-                trackParcelPage = trackParcelService.findByStoreTracks(
-                        filteredStoreIds, page, size, userId, sortOrder);
-            }
+        if (totalPages > 0 && paginationWindow.currentPage() != trackParcelPage.getNumber()) {
+            log.warn("⚠ Запрошена недоступная страница {}, переключаемся на {} для userId={} и storeId={}",
+                    requestedPage, paginationWindow.currentPage(), userId, storeId);
+
+            trackParcelPage = loadTrackParcelPage(
+                    filteredStoreIds, status, normalizedQuery, paginationWindow.currentPage(), size, userId, sortOrder);
+            totalPages = trackParcelPage.getTotalPages();
+            paginationWindow = PaginationUtils.calculateWindow(paginationWindow.currentPage(), totalPages, PAGE_WINDOW);
         }
 
         // Добавляем иконки в DTO перед передачей в шаблон
@@ -158,14 +140,8 @@ public class DeparturesController {
             dto.setIconHtml(statusTrackService.getIcon(statusEnum)); // Передаем Enum в сервис для получения иконки
         });
 
-        log.debug("Передача атрибутов в модель: stores={}, storeId={}, trackParcelDTO={}, currentPage={}, totalPages={}, size={}", stores, storeId, trackParcelPage.getContent(), trackParcelPage.getNumber(), trackParcelPage.getTotalPages(), size);
-
-        int currentPageIndex = trackParcelPage.getNumber();
-        int totalPages = trackParcelPage.getTotalPages();
-
-        // Определяем диапазон страниц для вывода, избегая длинных списков
-        int startPage = (currentPageIndex / PAGE_WINDOW) * PAGE_WINDOW;
-        int endPage = Math.min(startPage + PAGE_WINDOW - 1, totalPages - 1);
+        log.debug("Передача атрибутов в модель: stores={}, storeId={}, trackParcelDTO={}, currentPage={}, totalPages={}, size={}",
+                stores, storeId, trackParcelPage.getContent(), paginationWindow.currentPage(), totalPages, size);
 
         // Добавляем атрибуты в модель
         model.addAttribute("stores", stores);
@@ -174,10 +150,10 @@ public class DeparturesController {
         model.addAttribute("trackParcelDTO", trackParcelPage.getContent());
         model.addAttribute("statusString", statusString);
         model.addAttribute("query", query);
-        model.addAttribute("currentPage", currentPageIndex);
+        model.addAttribute("currentPage", paginationWindow.currentPage());
         model.addAttribute("totalPages", totalPages);
-        model.addAttribute("startPage", startPage);
-        model.addAttribute("endPage", endPage);
+        model.addAttribute("startPage", paginationWindow.startPage());
+        model.addAttribute("endPage", paginationWindow.endPage());
         model.addAttribute("trackParcelNotification", trackParcelPage.isEmpty() ? "Отслеживаемых посылок нет" : null);
         model.addAttribute("bulkUpdateButtonDTO",
                 new BulkUpdateButtonDTO(userService.isShowBulkUpdateButton(user.getId())));
@@ -333,6 +309,39 @@ public class DeparturesController {
             webSocketController.sendUpdateStatus(userId, "Ошибка при удалении посылок.", false);
             return ResponseBuilder.error(HttpStatus.INTERNAL_SERVER_ERROR, "Ошибка при удалении посылок.");
         }
+    }
+
+    /**
+     * Загружает страницу отправлений с учётом фильтров, сортировки и поиска.
+     *
+     * @param storeIds  идентификаторы магазинов для фильтрации
+     * @param status    глобальный статус посылки
+     * @param query     поисковый запрос (может быть {@code null})
+     * @param pageIndex индекс страницы, которую требуется получить
+     * @param size      размер страницы
+     * @param userId    идентификатор пользователя
+     * @param sortOrder порядок сортировки (asc/desc)
+     * @return страница с результатами выборки
+     */
+    private Page<TrackParcelDTO> loadTrackParcelPage(List<Long> storeIds,
+                                                     GlobalStatus status,
+                                                     String query,
+                                                     int pageIndex,
+                                                     int size,
+                                                     Long userId,
+                                                     String sortOrder) {
+        if (query != null && !query.isBlank()) {
+            return trackParcelService.searchByNumberOrPhone(storeIds, status, query, pageIndex, size, userId, sortOrder);
+        }
+
+        if (status != null) {
+            if (status == GlobalStatus.PRE_REGISTERED) {
+                return trackParcelService.findByStoreTracksWithPreRegistered(storeIds, pageIndex, size, userId, sortOrder);
+            }
+            return trackParcelService.findByStoreTracksAndStatus(storeIds, status, pageIndex, size, userId, sortOrder);
+        }
+
+        return trackParcelService.findByStoreTracks(storeIds, pageIndex, size, userId, sortOrder);
     }
 
 }
