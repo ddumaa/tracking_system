@@ -1153,8 +1153,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 telegramService.notifyActualStatuses(customer);
             }
 
-            sendMainMenu(chatId, customer.isNotificationsEnabled(),
-                    customer.getNameSource() == NameSource.USER_CONFIRMED);
+            sendMainMenu(chatId);
 
             if (customer.getFullName() != null) {
                 if (customer.getNameSource() != NameSource.USER_CONFIRMED) {
