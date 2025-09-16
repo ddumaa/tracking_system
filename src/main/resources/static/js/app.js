@@ -375,6 +375,7 @@ function initializeCustomCredentialsCheckbox() {
                     .then(response => {
                         if (response.ok) {
                             toggleFieldsVisibility(checkbox, fieldsContainer);
+                            announceAutoSaveToggle('Пользовательские данные Европочты', checkbox.checked);
                         } else {
                             alert("Ошибка при обновлении чекбокса.");
                         }
@@ -409,7 +410,9 @@ function initAutoUpdateToggle() {
                 },
                 body: new URLSearchParams({ enabled: checkbox.checked })
             }).then(response => {
-                if (!response.ok) {
+                if (response.ok) {
+                    announceAutoSaveToggle('Автообновление треков', checkbox.checked);
+                } else {
                     alert('Ошибка при обновлении настройки.');
                 }
             }).catch(() => {
@@ -441,7 +444,9 @@ function initBulkButtonToggle() {
                 },
                 body: new URLSearchParams({ show: checkbox.checked })
             }).then(response => {
-                if (!response.ok) {
+                if (response.ok) {
+                    announceAutoSaveToggle('Кнопка массового обновления', checkbox.checked);
+                } else {
                     alert('Ошибка при обновлении настройки.');
                 }
             }).catch(() => {
@@ -491,7 +496,9 @@ function initTelegramNotificationsToggle() {
                     },
                     body: new URLSearchParams({ enabled: checkbox.checked })
                 }).then(response => {
-                    if (!response.ok) {
+                    if (response.ok) {
+                        announceAutoSaveToggle('Telegram-уведомления', checkbox.checked);
+                    } else {
                         alert('Ошибка при обновлении настройки.');
                     }
                 }).catch(() => {
@@ -1059,15 +1066,19 @@ function initTelegramForms() {
 
         form.addEventListener('submit', async function (event) {
             event.preventDefault();
-            await enqueueTelegramSettingsSave(form);
+            const success = await enqueueTelegramSettingsSave(form);
+            if (success) {
+                notifyStoreManualSave(form);
+            }
         });
 
-        ['enabled', 'remindersEnabled'].forEach(name => {
-            const input = form.querySelector(`input[name="${name}"]`);
-            if (!input) return;
-
-            input.addEventListener('change', () => {
-                enqueueTelegramSettingsSave(form);
+        form.querySelectorAll('input[type="checkbox"]').forEach(input => {
+            input.addEventListener('change', event => {
+                enqueueTelegramSettingsSave(form).then(success => {
+                    if (success && event.isTrusted) {
+                        notifyStoreToggleAutoSave(form, input);
+                    }
+                });
             });
         });
     });
@@ -1349,6 +1360,80 @@ function showToast(message, type = "info") {
     toastElement.addEventListener("hidden.bs.toast", () => {
         toastElement.remove();
     });
+}
+
+/**
+ * Показывает toast об успешном автосохранении настроек.
+ * <p>
+ * Вынос в отдельную функцию позволяет переиспользовать
+ * единый текст и оформление для всех чекбоксов,
+ * соблюдая принцип DRY и упрощая дальнейшие изменения.
+ * </p>
+ * @param {string} message - пользовательский текст уведомления
+ */
+function showAutoSaveToast(message = 'Изменения сохранены автоматически.') {
+    showToast(message, 'success');
+}
+
+/**
+ * Формирует уведомление о сохранении состояния переключателя.
+ * @param {string} settingLabel - человекочитаемое название настройки
+ * @param {boolean} isEnabled - актуальное состояние переключателя
+ */
+function announceAutoSaveToggle(settingLabel, isEnabled) {
+    const stateText = isEnabled ? 'включено' : 'выключено';
+    const prefix = settingLabel ? `${settingLabel}: ` : '';
+    showAutoSaveToast(`${prefix}${stateText}. Изменения сохранены автоматически.`);
+}
+
+/**
+ * Возвращает нормализованный текст подписи элемента формы.
+ * @param {HTMLInputElement} input - элемент управления
+ * @returns {string} текст подписи без лишних пробелов
+ */
+function getControlLabelText(input) {
+    if (!input) {
+        return '';
+    }
+    if (input.dataset.toggleLabel) {
+        return input.dataset.toggleLabel;
+    }
+    const label = input.labels && input.labels.length > 0
+        ? input.labels[0]
+        : input.closest('label');
+    if (!label) {
+        return '';
+    }
+    return label.textContent.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Показывает уведомление об автосохранении настроек конкретного магазина.
+ * @param {HTMLFormElement} form - форма настроек магазина
+ * @param {HTMLInputElement} input - переключатель, изменивший состояние
+ */
+function notifyStoreToggleAutoSave(form, input) {
+    if (!form || !input) {
+        return;
+    }
+    const storeName = form.dataset.storeName ? `«${form.dataset.storeName}»` : '';
+    const labelText = getControlLabelText(input);
+    const stateText = input.checked ? 'включено' : 'выключено';
+    const storePrefix = storeName ? `Магазин ${storeName}: ` : '';
+    const labelPrefix = labelText ? `${labelText} — ` : '';
+    showAutoSaveToast(`${storePrefix}${labelPrefix}${stateText}. Изменения сохранены автоматически.`);
+}
+
+/**
+ * Показывает уведомление о ручном сохранении текстовых и числовых настроек магазина.
+ * @param {HTMLFormElement} form - форма настроек магазина
+ */
+function notifyStoreManualSave(form) {
+    if (!form) {
+        return;
+    }
+    const storeName = form.dataset.storeName ? `магазина «${form.dataset.storeName}»` : 'магазина';
+    showToast(`Настройки ${storeName} сохранены.`, 'success');
 }
 
 /**

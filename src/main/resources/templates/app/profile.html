@@ -199,6 +199,10 @@
                        th:disabled="${!planDetails.allowTelegramNotifications}">
                 <label class="form-check-label" for="telegramNotificationsToggle">Отправлять уведомления о статусах посылок</label>
             </div>
+            <p class="form-text text-muted ms-4 auto-save-hint"
+               th:if="${planDetails.allowTelegramNotifications}">
+                Переключатель сохраняется автоматически.
+            </p>
                 <p class="form-text text-muted ms-4">
                     Попросите покупателей запустить
                     <a th:href='@{${@environment.getProperty("telegram.bot.link")}}' target="_blank">бота Belivery</a>
@@ -244,6 +248,10 @@
                        th:disabled="${!planDetails.allowAutoUpdate}">
                 <label class="form-check-label" for="autoUpdateToggle">Автообновление треков</label>
             </div>
+            <p class="form-text text-muted ms-4 auto-save-hint"
+               th:if="${planDetails.allowAutoUpdate}">
+                Переключатель сохраняется автоматически.
+            </p>
             <p class="form-text text-danger ms-4" th:if="${!planDetails.allowAutoUpdate}">
                 Функция доступна в тарифе "Бизнес" и выше
             </p>
@@ -257,6 +265,10 @@
                        th:disabled="${!planDetails.allowBulkUpdate}">
                 <label class="form-check-label" for="showBulkUpdateButton">Показывать кнопку массового обновления</label>
             </div>
+            <p class="form-text text-muted ms-4 auto-save-hint"
+               th:if="${planDetails.allowBulkUpdate}">
+                Переключатель сохраняется автоматически.
+            </p>
             <p class="form-text text-danger ms-4" th:if="${!planDetails.allowBulkUpdate}">
                 Функция доступна в тарифе "Бизнес" и выше
             </p>
@@ -334,6 +346,9 @@
                     <input class="form-check-input" type="checkbox" id="useCustomCredentials" name="useCustomCredentials" th:field="*{useCustomCredentials}">
                     <label class="form-check-label" for="useCustomCredentials">Подключить API Европочты (договор – бесплатно)</label>
                 </div>
+                <p class="form-text text-muted ms-4 auto-save-hint">
+                    Переключатель сохраняется автоматически.
+                </p>
                 <div id="custom-credentials-fields" class="hidden">
                     <div class="form-floating mb-3">
                         <input type="text" class="form-control" id="evropostUsername" name="evropostUsername" th:field="*{evropostUsername}" placeholder="LoginName" autocomplete="off">
@@ -457,7 +472,8 @@
              th:attr="data-store-id=${store.id}"
              th:classappend="${first} ? ' expanded' : ' collapsed'">
             <form class="telegram-settings-form" th:action="@{/app/stores/{id}/telegram-settings(id=${store.id})}"
-                  method="post">
+                  method="post" th:data-store-id="${store.id}"
+                  th:data-store-name="${store.name}">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf != null}"/>
                 <div class="form-check form-switch mb-2">
                     <input class="form-check-input" type="checkbox" th:id="'tg-enable-' + ${store.id}" name="enabled"
@@ -481,6 +497,11 @@
                         Отправлять напоминания, если посылка не забрана
                     </label>
                 </div>
+
+                <p class="form-text text-muted ms-4 auto-save-hint"
+                   th:if="${planDetails.allowTelegramNotifications}">
+                    Переключатели сохраняются автоматически.
+                </p>
 
                 <div th:id="'tg-reminder-fields-' + ${store.id}" class="mb-3 ms-4 hidden reminder-fields">
                     <div class="mb-2">
@@ -554,12 +575,17 @@
                     </div>
                     <p class="form-text">Шаблоны должны содержать {track} и {store}</p>
                 </div>
-                <button type="submit" class="btn btn-sm btn-primary w-100"
-                        th:disabled="${!allowCustomTemplates}"
-                        th:data-bs-toggle="${!allowCustomTemplates ? 'tooltip' : null}"
-                        th:title="${!allowCustomTemplates ? 'Доступно в тарифе Бизнес и выше' : null}">
-                    Сохранить
-                </button>
+                <div class="manual-save-block mt-3">
+                    <p class="form-text text-muted">
+                        Поля с текстом и числами сохраняются по кнопке ниже.
+                    </p>
+                    <button type="submit" class="btn btn-sm btn-primary w-100"
+                            th:disabled="${!allowCustomTemplates}"
+                            th:data-bs-toggle="${!allowCustomTemplates ? 'tooltip' : null}"
+                            th:title="${!allowCustomTemplates ? 'Доступно в тарифе Бизнес и выше' : null}">
+                        Сохранить текстовые настройки
+                    </button>
+                </div>
             </form>
         </div>
     </div>
