@@ -61,7 +61,7 @@ class BuyerTelegramBotTest {
     @MethodSource("recognizedPhones")
     void shouldRecognizePhoneFormatsWhenAwaiting(String input, String expectedMask) throws Exception {
         Long chatId = 123L;
-        markAwaitingPhone(chatId);
+        markAwaitingContact(chatId);
 
         Update update = mockTextUpdate(chatId, input);
 
@@ -83,7 +83,7 @@ class BuyerTelegramBotTest {
     @Test
     void shouldShowFormatHintForUnrecognizedPhone() throws Exception {
         Long chatId = 456L;
-        markAwaitingPhone(chatId);
+        markAwaitingContact(chatId);
 
         Update update = mockTextUpdate(chatId, "random text");
 
@@ -136,16 +136,16 @@ class BuyerTelegramBotTest {
     }
 
     /**
-     * Помечает чат как ожидающий ввода телефона через отражение приватного состояния бота.
+     * Помечает чат как ожидающий контакта через отражение приватного состояния бота.
      *
      * @param chatId идентификатор чата Telegram
      */
-    private void markAwaitingPhone(Long chatId) throws Exception {
-        Field field = BuyerTelegramBot.class.getDeclaredField("awaitingPhone");
+    private void markAwaitingContact(Long chatId) throws Exception {
+        Field field = BuyerTelegramBot.class.getDeclaredField("chatStates");
         field.setAccessible(true);
         @SuppressWarnings("unchecked")
-        Map<Long, Boolean> awaiting = (Map<Long, Boolean>) field.get(bot);
-        awaiting.put(chatId, Boolean.TRUE);
+        Map<Long, BuyerTelegramBot.ChatState> states = (Map<Long, BuyerTelegramBot.ChatState>) field.get(bot);
+        states.put(chatId, BuyerTelegramBot.ChatState.AWAITING_CONTACT);
     }
 
     /**
