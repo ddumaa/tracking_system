@@ -229,8 +229,8 @@
                                 </a>
                             </li>
 
-                            <!-- Номера страниц (ограниченный диапазон) -->
-                            <li class="page-item" th:each="i : ${#numbers.sequence(startPage, endPage)}"
+                            <!-- Номера страниц -->
+                            <li class="page-item" th:each="i : ${#numbers.sequence(0, totalPages - 1)}"
                                 th:classappend="${i == currentPage} ? 'active'">
                                 <!-- Ссылка на определённую страницу, учитывающая поисковый запрос, если поле поиска не пустое -->
                                 <a class="page-link"

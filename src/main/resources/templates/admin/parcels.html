@@ -58,10 +58,10 @@
                 </a>
             </li>
 
-              <!-- Номера страниц (ограниченный диапазон) -->
-              <li class="page-item" th:each="i : ${#numbers.sequence(startPage, endPage)}" th:classappend="${i == currentPage} ? 'active'">
-                  <a class="page-link" th:href="@{/admin/parcels(page=${i}, size=${size})}" th:text="${i + 1}" aria-label="Страница ${i + 1}"></a>
-              </li>
+            <!-- Номера страниц -->
+            <li class="page-item" th:each="i : ${#numbers.sequence(0, totalPages - 1)}" th:classappend="${i == currentPage} ? 'active'">
+                <a class="page-link" th:href="@{/admin/parcels(page=${i}, size=${size})}" th:text="${i + 1}" aria-label="Страница ${i + 1}"></a>
+            </li>
 
             <!-- Кнопка "Вперёд" -->
             <li class="page-item" th:classappend="${currentPage == totalPages - 1} ? 'disabled'">
