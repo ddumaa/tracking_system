@@ -27,13 +27,23 @@ public final class PaginationUtils {
         }
 
         int normalizedTotalPages = Math.max(totalPages, 0);
-        int safeRequestedPage = Math.max(requestedPage, 0);
 
-        int maxPageIndex = normalizedTotalPages > 0 ? normalizedTotalPages - 1 : 0;
+        if (normalizedTotalPages == 0) {
+            // Нет данных — возвращаем пустое окно и фиксируем страницу на нуле
+            return new PaginationWindow(0, 0, -1);
+        }
+
+        int safeRequestedPage = Math.max(requestedPage, 0);
+        int maxPageIndex = normalizedTotalPages - 1;
         int currentPage = Math.min(safeRequestedPage, maxPageIndex);
 
-        int startPage = normalizedTotalPages > 0 ? (currentPage / windowSize) * windowSize : 0;
-        int endPage = normalizedTotalPages > 0 ? Math.min(startPage + windowSize - 1, maxPageIndex) : 0;
+        int startPage = (currentPage / windowSize) * windowSize;
+        int endPage = Math.min(startPage + windowSize - 1, maxPageIndex);
+
+        if (startPage > endPage) {
+            // Возможна ситуация при подмене номера страницы: гарантируем корректные границы окна
+            startPage = endPage;
+        }
 
         return new PaginationWindow(currentPage, startPage, endPage);
     }
