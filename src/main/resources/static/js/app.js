@@ -1071,6 +1071,8 @@ function showTelegramSaveResultToast(isSuccess) {
  * Таймер сбрасывается при каждом новом вводе, что предотвращает
  * избыточные запросы и снижает нагрузку на сервер, сохраняя при
  * этом последнюю введённую пользователем величину.
+ * Дополнительно выполняется проверка валидности поля, что исключает
+ * отправку незавершённых или пустых значений.
  * @param {HTMLFormElement} form - форма настроек Telegram
  * @param {HTMLInputElement} input - числовое поле, инициирующее сохранение
  */
@@ -1082,10 +1084,21 @@ function debouncedTelegramNumberSave(form, input) {
     const previousTimerId = telegramInputDebounceTimers.get(input);
     if (previousTimerId !== undefined) {
         clearTimeout(previousTimerId);
+        telegramInputDebounceTimers.delete(input);
+    }
+
+    const trimmedValue = input.value.trim();
+    if (!input.validity.valid || trimmedValue === '') {
+        return;
     }
 
     const timerId = setTimeout(async () => {
         telegramInputDebounceTimers.delete(input);
+
+        if (!input.validity.valid || input.value.trim() === '') {
+            return;
+        }
+
         try {
             const isSuccess = await enqueueTelegramSettingsSave(form);
             showTelegramSaveResultToast(Boolean(isSuccess));
