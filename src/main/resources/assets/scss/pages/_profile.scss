@@ -4,17 +4,17 @@
 
 .tg-settings-content {
   transition: max-height 0.3s ease, opacity 0.3s ease;
-  overflow: hidden;
 
   &.collapsed {
     max-height: 0;
     opacity: 0;
     padding: 0 !important;
     margin: 0 !important;
+    overflow: hidden;
   }
 
   &.expanded {
-    max-height: 1000px; // Достаточно большое значение
+    max-height: none; // Снимаем ограничение высоты при раскрытии
     opacity: 1;
   }
 }
