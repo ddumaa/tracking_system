@@ -55,6 +55,11 @@ public class AdminController {
     private final ApplicationSettingsService applicationSettingsService;
 
     /**
+     * Ограничение количества отображаемых ссылок пагинации для компактности.
+     */
+    private static final int PAGE_WINDOW = 6;
+
+    /**
      * Отображает дашборд администратора.
      * <p>
      * Метод подготавливает общую статистику по пользователям и отслеживаниям
@@ -448,9 +453,18 @@ public class AdminController {
         // Загружаем посылки постранично
         org.springframework.data.domain.Page<TrackParcelAdminInfoDTO> parcelPage = adminService.getAllParcels(page, size);
 
+        int currentPageIndex = parcelPage.getNumber();
+        int totalPages = parcelPage.getTotalPages();
+
+        // Рассчитываем диапазон отображаемых страниц
+        int startPage = (currentPageIndex / PAGE_WINDOW) * PAGE_WINDOW;
+        int endPage = Math.min(startPage + PAGE_WINDOW - 1, totalPages - 1);
+
         model.addAttribute("parcels", parcelPage.getContent());
-        model.addAttribute("currentPage", parcelPage.getNumber());
-        model.addAttribute("totalPages", parcelPage.getTotalPages());
+        model.addAttribute("currentPage", currentPageIndex);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("startPage", startPage);
+        model.addAttribute("endPage", endPage);
         model.addAttribute("size", size);
 
         // Хлебные крошки
