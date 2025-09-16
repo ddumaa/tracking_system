@@ -1470,16 +1470,16 @@ button:hover {
 
 .tg-settings-content {
   transition: max-height 0.3s ease, opacity 0.3s ease;
-  overflow: hidden;
 }
 .tg-settings-content.collapsed {
   max-height: 0;
   opacity: 0;
   padding: 0 !important;
   margin: 0 !important;
+  overflow: hidden;
 }
 .tg-settings-content.expanded {
-  max-height: 1000px;
+  max-height: none;
   opacity: 1;
 }
 
