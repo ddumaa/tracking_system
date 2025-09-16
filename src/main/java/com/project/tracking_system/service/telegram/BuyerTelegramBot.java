@@ -35,6 +35,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private final CustomerTelegramService telegramService;
     private final String botToken;
     private final Map<Long, Boolean> awaitingName = new ConcurrentHashMap<>();
+    private final Map<Long, Boolean> awaitingPhone = new ConcurrentHashMap<>();
 
     /**
      * Создаёт телеграм-бота для покупателей.
@@ -89,6 +90,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                     return;
                 }
 
+                if (awaitingPhone.containsKey(chatId) && !text.startsWith("/")) {
+                    handleAwaitedPhoneText(chatId, text);
+                    return;
+                }
+
                 if ("/start".equals(text)) {
                     log.info("✅ Команда /start получена от {}", chatId);
                     Optional<Customer> optional = telegramService.findByChatId(chatId);
@@ -96,6 +102,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                         sendSharePhoneKeyboard(chatId);
                         return;
                     }
+                    awaitingPhone.remove(chatId);
                     Customer customer = optional.get();
                     sendMainMenu(chatId, customer.isNotificationsEnabled(),
                             customer.getNameSource() == NameSource.USER_CONFIRMED);
@@ -334,21 +341,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param chatId идентификатор чата Telegram
      */
     private void sendSharePhoneKeyboard(Long chatId) {
-        KeyboardButton button = new KeyboardButton("📱 Поделиться номером");
-        button.setRequestContact(true);
-        KeyboardRow row = new KeyboardRow(List.of(button));
-        ReplyKeyboardMarkup markup = new ReplyKeyboardMarkup(List.of(row));
-        markup.setResizeKeyboard(true);
-        markup.setOneTimeKeyboard(true);
-
-        SendMessage message = new SendMessage(chatId.toString(), "👋 Чтобы получать уведомления о посылках, поделитесь номером телефона.");
-        message.setReplyMarkup(markup);
-
-        try {
-            telegramClient.execute(message);
-        } catch (TelegramApiException e) {
-            log.error("❌ Ошибка отправки клавиатуры", e);
-        }
+        awaitingPhone.put(chatId, Boolean.TRUE);
+        sendPhoneRequestMessage(chatId,
+                "👋 Чтобы получать уведомления о посылках, поделитесь номером телефона.");
     }
 
     /**
@@ -414,6 +409,92 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
+     * Обрабатывает текстовый ввод телефона, если бот ожидает номер.
+     * <p>
+     * При успешном распознавании отправляется маскированный номер и клавиатура
+     * с запросом контакта. В случае ошибки пользователю показываются примеры
+     * корректных форматов.
+     * </p>
+     *
+     * @param chatId идентификатор чата Telegram
+     * @param text   текст, введённый пользователем
+     */
+    private void handleAwaitedPhoneText(Long chatId, String text) {
+        String candidate = text == null ? "" : text.trim();
+        if (candidate.isEmpty()) {
+            sendPhoneFormatHint(chatId);
+            return;
+        }
+
+        try {
+            String normalized = PhoneUtils.normalizePhone(candidate);
+            String masked = PhoneUtils.maskPhone(normalized);
+            sendPhoneRecognitionMessage(chatId, masked);
+        } catch (IllegalArgumentException ex) {
+            log.info("⚠️ Не удалось распознать номер для чата {}", chatId);
+            sendPhoneFormatHint(chatId);
+        }
+    }
+
+    /**
+     * Создаёт клавиатуру с кнопкой запроса контакта.
+     *
+     * @return разметка клавиатуры Telegram
+     */
+    private ReplyKeyboardMarkup createPhoneRequestKeyboard() {
+        KeyboardButton button = new KeyboardButton("📱 Поделиться номером");
+        button.setRequestContact(true);
+        KeyboardRow row = new KeyboardRow(List.of(button));
+        ReplyKeyboardMarkup markup = new ReplyKeyboardMarkup(List.of(row));
+        markup.setResizeKeyboard(true);
+        markup.setOneTimeKeyboard(true);
+        return markup;
+    }
+
+    /**
+     * Отправляет сообщение с клавиатурой запроса телефона.
+     *
+     * @param chatId идентификатор чата
+     * @param text   текст, который увидит пользователь
+     */
+    private void sendPhoneRequestMessage(Long chatId, String text) {
+        SendMessage message = new SendMessage(chatId.toString(), text);
+        message.setReplyMarkup(createPhoneRequestKeyboard());
+
+        try {
+            telegramClient.execute(message);
+        } catch (TelegramApiException e) {
+            log.error("❌ Ошибка отправки запроса номера", e);
+        }
+    }
+
+    /**
+     * Уведомляет пользователя о распознанном номере и просит подтвердить его.
+     *
+     * @param chatId      идентификатор чата Telegram
+     * @param maskedPhone маскированный номер телефона
+     */
+    private void sendPhoneRecognitionMessage(Long chatId, String maskedPhone) {
+        String text = String.format("Похоже, ваш номер: %s\n" +
+                        "Пожалуйста, подтвердите его, поделившись контактом.",
+                maskedPhone);
+        sendPhoneRequestMessage(chatId, text);
+    }
+
+    /**
+     * Показывает пользователю примеры корректного ввода номера телефона.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void sendPhoneFormatHint(Long chatId) {
+        String text = "Пока не удалось распознать номер. Примеры корректных форматов:\n" +
+                "+375291234567\n" +
+                "80291234567\n" +
+                "8 029 123 45 67";
+        sendPhoneRequestMessage(chatId, text);
+    }
+
+    /**
      * Попросить пользователя ввести своё ФИО.
      *
      * @param chatId идентификатор чата
@@ -461,6 +542,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param contact объект контакта с номером телефона
      */
     private void handleContact(Long chatId, Contact contact) {
+        awaitingPhone.remove(chatId);
         String rawPhone = contact.getPhoneNumber();
         String phone = PhoneUtils.normalizePhone(rawPhone);
 
