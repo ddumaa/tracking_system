@@ -59,7 +59,7 @@
             </li>
 
               <!-- Номера страниц (ограниченный диапазон) -->
-              <li class="page-item" th:each="i : ${pageIndexes}" th:classappend="${i == currentPage} ? 'active'">
+              <li class="page-item" th:each="i : ${#numbers.sequence(startPage, endPage)}" th:classappend="${i == currentPage} ? 'active'">
                   <a class="page-link" th:href="@{/admin/parcels(page=${i}, size=${size})}" th:text="${i + 1}" aria-label="Страница ${i + 1}"></a>
               </li>
 

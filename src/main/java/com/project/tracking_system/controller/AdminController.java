@@ -467,14 +467,11 @@ public class AdminController {
             paginationWindow = PaginationUtils.calculateWindow(paginationWindow.currentPage(), totalPages, PAGE_WINDOW);
         }
 
-        List<Integer> pageIndexes = paginationWindow.pageIndexes();
-
         model.addAttribute("parcels", parcelPage.getContent());
         model.addAttribute("currentPage", paginationWindow.currentPage());
         model.addAttribute("totalPages", totalPages);
         model.addAttribute("startPage", paginationWindow.startPage());
         model.addAttribute("endPage", paginationWindow.endPage());
-        model.addAttribute("pageIndexes", pageIndexes);
         model.addAttribute("size", size);
 
         // Хлебные крошки
