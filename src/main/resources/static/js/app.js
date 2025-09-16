@@ -375,6 +375,7 @@ function initializeCustomCredentialsCheckbox() {
                     .then(response => {
                         if (response.ok) {
                             toggleFieldsVisibility(checkbox, fieldsContainer);
+                            announceAutoSaveToggle('Пользовательские данные Европочты', checkbox.checked);
                         } else {
                             alert("Ошибка при обновлении чекбокса.");
                         }
@@ -409,7 +410,9 @@ function initAutoUpdateToggle() {
                 },
                 body: new URLSearchParams({ enabled: checkbox.checked })
             }).then(response => {
-                if (!response.ok) {
+                if (response.ok) {
+                    announceAutoSaveToggle('Автообновление треков', checkbox.checked);
+                } else {
                     alert('Ошибка при обновлении настройки.');
                 }
             }).catch(() => {
@@ -441,7 +444,9 @@ function initBulkButtonToggle() {
                 },
                 body: new URLSearchParams({ show: checkbox.checked })
             }).then(response => {
-                if (!response.ok) {
+                if (response.ok) {
+                    announceAutoSaveToggle('Кнопка массового обновления', checkbox.checked);
+                } else {
                     alert('Ошибка при обновлении настройки.');
                 }
             }).catch(() => {
@@ -491,7 +496,9 @@ function initTelegramNotificationsToggle() {
                     },
                     body: new URLSearchParams({ enabled: checkbox.checked })
                 }).then(response => {
-                    if (!response.ok) {
+                    if (response.ok) {
+                        announceAutoSaveToggle('Telegram-уведомления', checkbox.checked);
+                    } else {
                         alert('Ошибка при обновлении настройки.');
                     }
                 }).catch(() => {
@@ -970,6 +977,140 @@ function initNameEditToggle() {
 }
 
 
+/**
+ * Сохраняет настройки Telegram, отправляя данные формы на сервер.
+ * Следуя принципу единственной ответственности (SRP), функция отвечает
+ * только за сетевой запрос и обработку результата, отображая ошибки
+ * пользователю через встроенное уведомление.
+ * @param {HTMLFormElement} form - форма с настройками Telegram
+ * @returns {Promise<boolean>} результат сохранения настроек
+ */
+async function saveTelegramSettings(form) {
+    if (!form) return false;
+
+    // Перед новой отправкой удаляем предыдущее уведомление об ошибке
+    form.querySelector('.inline-notification')?.remove();
+
+    const formData = new FormData(form);
+    const csrfToken = form.querySelector('input[name="_csrf"]')?.value;
+    const headers = csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {};
+
+    try {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            headers,
+            body: formData
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            showInlineNotification(form, errorText || 'Ошибка при сохранении', 'danger');
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        showInlineNotification(form, 'Ошибка сети при сохранении', 'danger');
+        return false;
+    }
+}
+
+// Очередь запросов сохранения настроек Telegram для каждой формы
+const telegramSettingsQueue = new WeakMap();
+
+// Хранилище таймеров для отложенного сохранения числовых полей Telegram
+const telegramInputDebounceTimers = new WeakMap();
+
+// Постоянная задержка перед отправкой числовых значений в Telegram
+const TELEGRAM_SAVE_DEBOUNCE_MS = 500;
+
+/**
+ * Ставит сохранение настроек в очередь, гарантируя выполнение
+ * запросов в порядке действий пользователя. Это исключает
+ * гонку состояний при быстром переключении чекбоксов и обеспечивает,
+ * что последняя операция определяет итоговое состояние на сервере.
+ * @param {HTMLFormElement} form - форма настроек Telegram
+ * @returns {Promise<boolean>} результат последней отправки
+ */
+function enqueueTelegramSettingsSave(form) {
+    if (!form) {
+        return Promise.resolve(false);
+    }
+
+    const previousTask = telegramSettingsQueue.get(form) || Promise.resolve();
+
+    const currentTask = previousTask
+        .catch(() => false)
+        .then(() => saveTelegramSettings(form));
+
+    telegramSettingsQueue.set(form, currentTask);
+
+    currentTask.finally(() => {
+        if (telegramSettingsQueue.get(form) === currentTask) {
+            telegramSettingsQueue.delete(form);
+        }
+    });
+
+    return currentTask;
+}
+
+/**
+ * Показывает toast о результате сохранения настроек Telegram.
+ * Функция инкапсулирует выбор текста и типа уведомления,
+ * что упрощает повторное использование и соблюдает принцип DRY.
+ * @param {boolean} isSuccess - флаг успешного завершения запроса
+ */
+function showTelegramSaveResultToast(isSuccess) {
+    const message = isSuccess ? 'Сохранено' : 'Ошибка сохранения';
+    const type = isSuccess ? 'success' : 'danger';
+    showToast(message, type);
+}
+
+/**
+ * Запускает сохранение настроек Telegram с задержкой.
+ * Таймер сбрасывается при каждом новом вводе, что предотвращает
+ * избыточные запросы и снижает нагрузку на сервер, сохраняя при
+ * этом последнюю введённую пользователем величину.
+ * Дополнительно выполняется проверка валидности поля, что исключает
+ * отправку незавершённых или пустых значений.
+ * @param {HTMLFormElement} form - форма настроек Telegram
+ * @param {HTMLInputElement} input - числовое поле, инициирующее сохранение
+ */
+function debouncedTelegramNumberSave(form, input) {
+    if (!form || !input) {
+        return;
+    }
+
+    const previousTimerId = telegramInputDebounceTimers.get(input);
+    if (previousTimerId !== undefined) {
+        clearTimeout(previousTimerId);
+        telegramInputDebounceTimers.delete(input);
+    }
+
+    const trimmedValue = input.value.trim();
+    if (!input.validity.valid || trimmedValue === '') {
+        return;
+    }
+
+    const timerId = setTimeout(async () => {
+        telegramInputDebounceTimers.delete(input);
+
+        if (!input.validity.valid || input.value.trim() === '') {
+            return;
+        }
+
+        try {
+            const isSuccess = await enqueueTelegramSettingsSave(form);
+            showTelegramSaveResultToast(Boolean(isSuccess));
+        } catch (error) {
+            debugLog('Ошибка при сохранении настроек Telegram:', error);
+            showTelegramSaveResultToast(false);
+        }
+    }, TELEGRAM_SAVE_DEBOUNCE_MS);
+
+    telegramInputDebounceTimers.set(input, timerId);
+}
+
 // Инициализация форм настроек Telegram
 function initTelegramForms() {
     const tgToggle = document.getElementById('telegramNotificationsToggle');
@@ -988,28 +1129,27 @@ function initTelegramForms() {
 
         form.addEventListener('submit', async function (event) {
             event.preventDefault();
-
-            const formData = new FormData(form);
-            const csrfToken = form.querySelector('input[name="_csrf"]')?.value || '';
-
-            try {
-                const response = await fetch(form.action, {
-                    method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': csrfToken },
-                    body: formData
-                });
-
-                if (response.ok) {
-                    // Уведомление придёт через WebSocket
-                } else {
-                    const errorText = await response.text();
-                    // Показываем ошибку непосредственно в форме
-                    showInlineNotification(form, errorText || 'Ошибка при сохранении', 'danger');
-                }
-            } catch (e) {
-                // В случае сетевой ошибки также выводим сообщение в форме
-                showInlineNotification(form, 'Ошибка сети при сохранении', 'danger');
+            const success = await enqueueTelegramSettingsSave(form);
+            if (success) {
+                notifyStoreManualSave(form);
             }
+        });
+
+        form.querySelectorAll('input[type="checkbox"]').forEach(input => {
+            input.addEventListener('change', event => {
+                enqueueTelegramSettingsSave(form).then(success => {
+                    if (success && event.isTrusted) {
+                        notifyStoreToggleAutoSave(form, input);
+                    }
+                });
+            });
+        });
+
+        const reminderNumberInputs = form.querySelectorAll(
+            'input[name="reminderStartAfterDays"], input[name="reminderRepeatIntervalDays"]'
+        );
+        reminderNumberInputs.forEach(numberInput => {
+            numberInput.addEventListener('input', () => debouncedTelegramNumberSave(form, numberInput));
         });
     });
 }
@@ -1290,6 +1430,93 @@ function showToast(message, type = "info") {
     toastElement.addEventListener("hidden.bs.toast", () => {
         toastElement.remove();
     });
+}
+
+/**
+ * Показывает toast об успешном сохранении настроек.
+ * <p>
+ * Вынос в отдельную функцию позволяет переиспользовать
+ * единый текст и оформление для всех чекбоксов,
+ * соблюдая принцип DRY и упрощая дальнейшие изменения.
+ * </p>
+ * @param {string} message - пользовательский текст уведомления
+ */
+function showAutoSaveToast(message = 'Настройки сохранены') {
+    showToast(message, 'success');
+}
+
+/**
+ * Формирует текст уведомления о состоянии настройки в формате
+ * «Настройка X: включено/выключено», добавляя название в кавычках,
+ * если оно передано.
+ * @param {string} settingLabel - название настройки
+ * @param {string} stateText - текстовое описание состояния
+ * @returns {string} итоговое сообщение для тоста
+ */
+function buildSettingStateMessage(settingLabel, stateText) {
+    const normalizedLabel = settingLabel ? settingLabel.trim() : '';
+    const labelPart = normalizedLabel ? ` «${normalizedLabel}»` : '';
+    return `Настройка${labelPart}: ${stateText}`;
+}
+
+/**
+ * Формирует уведомление о сохранении состояния переключателя.
+ * @param {string} settingLabel - человекочитаемое название настройки
+ * @param {boolean} isEnabled - актуальное состояние переключателя
+ */
+function announceAutoSaveToggle(settingLabel, isEnabled) {
+    const stateText = isEnabled ? 'включено' : 'выключено';
+    showAutoSaveToast(buildSettingStateMessage(settingLabel, stateText));
+}
+
+/**
+ * Возвращает нормализованный текст подписи элемента формы.
+ * @param {HTMLInputElement} input - элемент управления
+ * @returns {string} текст подписи без лишних пробелов
+ */
+function getControlLabelText(input) {
+    if (!input) {
+        return '';
+    }
+    if (input.dataset.toggleLabel) {
+        return input.dataset.toggleLabel;
+    }
+    const label = input.labels && input.labels.length > 0
+        ? input.labels[0]
+        : input.closest('label');
+    if (!label) {
+        return '';
+    }
+    return label.textContent.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Показывает уведомление об автосохранении настроек конкретного магазина.
+ * @param {HTMLFormElement} form - форма настроек магазина
+ * @param {HTMLInputElement} input - переключатель, изменивший состояние
+ */
+function notifyStoreToggleAutoSave(form, input) {
+    if (!form || !input) {
+        return;
+    }
+    const storeName = form.dataset.storeName ? `«${form.dataset.storeName.trim()}»` : '';
+    const labelText = getControlLabelText(input);
+    const stateText = input.checked ? 'включено' : 'выключено';
+    const storePrefix = storeName ? `Магазин ${storeName}: ` : '';
+    const settingMessage = buildSettingStateMessage(labelText, stateText);
+    showAutoSaveToast(`${storePrefix}${settingMessage}`);
+}
+
+/**
+ * Показывает уведомление о ручном сохранении текстовых и числовых настроек магазина.
+ * @param {HTMLFormElement} form - форма настроек магазина
+ */
+function notifyStoreManualSave(form) {
+    if (!form) {
+        return;
+    }
+    const storeName = form.dataset.storeName ? `магазина «${form.dataset.storeName}»` : 'магазина';
+    showToast(`Настройки ${storeName} сохранены.`, 'success');
 }
 
 /**

@@ -356,7 +356,7 @@
                         </span>
                         <div th:errors="*{serviceNumber}" class="text-danger"></div>
                     </div>
-                    <button class="btn btn-primary btn-sm w-100" type="submit">Сохранить данные</button>
+                    <button class="btn btn-primary btn-sm w-100" type="submit">Сохранить</button>
                 </div>
             </form>
         </div>
@@ -457,7 +457,8 @@
              th:attr="data-store-id=${store.id}"
              th:classappend="${first} ? ' expanded' : ' collapsed'">
             <form class="telegram-settings-form" th:action="@{/app/stores/{id}/telegram-settings(id=${store.id})}"
-                  method="post">
+                  method="post" th:data-store-id="${store.id}"
+                  th:data-store-name="${store.name}">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf != null}"/>
                 <div class="form-check form-switch mb-2">
                     <input class="form-check-input" type="checkbox" th:id="'tg-enable-' + ${store.id}" name="enabled"
@@ -554,12 +555,17 @@
                     </div>
                     <p class="form-text">Шаблоны должны содержать {track} и {store}</p>
                 </div>
-                <button type="submit" class="btn btn-sm btn-primary w-100"
-                        th:disabled="${!allowCustomTemplates}"
-                        th:data-bs-toggle="${!allowCustomTemplates ? 'tooltip' : null}"
-                        th:title="${!allowCustomTemplates ? 'Доступно в тарифе Бизнес и выше' : null}">
-                    Сохранить
-                </button>
+                <div class="manual-save-block mt-3">
+                    <p class="form-text text-muted">
+                        Изменения в текстовых полях применяются вручную через кнопку ниже.
+                    </p>
+                    <button type="submit" class="btn btn-sm btn-primary w-100"
+                            th:disabled="${!allowCustomTemplates}"
+                            th:data-bs-toggle="${!allowCustomTemplates ? 'tooltip' : null}"
+                            th:title="${!allowCustomTemplates ? 'Доступно в тарифе Бизнес и выше' : null}">
+                        Сохранить
+                    </button>
+                </div>
             </form>
         </div>
     </div>

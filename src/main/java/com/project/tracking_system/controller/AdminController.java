@@ -15,6 +15,8 @@ import com.project.tracking_system.service.tariff.TariffService;
 import com.project.tracking_system.service.DynamicSchedulerService;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.utils.EmailUtils;
+import com.project.tracking_system.utils.PaginationUtils;
+import com.project.tracking_system.utils.PaginationWindow;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -53,6 +55,11 @@ public class AdminController {
     private final DynamicSchedulerService dynamicSchedulerService;
     private final TariffService tariffService;
     private final ApplicationSettingsService applicationSettingsService;
+
+    /**
+     * Ограничение количества отображаемых ссылок пагинации для компактности.
+     */
+    private static final int PAGE_WINDOW = 6;
 
     /**
      * Отображает дашборд администратора.
@@ -445,12 +452,29 @@ public class AdminController {
     public String parcels(@RequestParam(value = "page", defaultValue = "0") int page,
                           @RequestParam(value = "size", defaultValue = "20") int size,
                           Model model) {
+        int requestedPage = Math.max(page, 0);
+
         // Загружаем посылки постранично
-        org.springframework.data.domain.Page<TrackParcelAdminInfoDTO> parcelPage = adminService.getAllParcels(page, size);
+        org.springframework.data.domain.Page<TrackParcelAdminInfoDTO> parcelPage = adminService.getAllParcels(requestedPage, size);
+
+        int totalPages = parcelPage.getTotalPages();
+        PaginationWindow paginationWindow = PaginationUtils.calculateWindow(requestedPage, totalPages, PAGE_WINDOW);
+
+        if (totalPages > 0 && paginationWindow.currentPage() != parcelPage.getNumber()) {
+            // Повторно запрашиваем данные, если пользователь запросил страницу вне диапазона
+            parcelPage = adminService.getAllParcels(paginationWindow.currentPage(), size);
+            totalPages = parcelPage.getTotalPages();
+            paginationWindow = PaginationUtils.calculateWindow(paginationWindow.currentPage(), totalPages, PAGE_WINDOW);
+        }
+
+        List<Integer> pageIndexes = paginationWindow.pageIndexes();
 
         model.addAttribute("parcels", parcelPage.getContent());
-        model.addAttribute("currentPage", parcelPage.getNumber());
-        model.addAttribute("totalPages", parcelPage.getTotalPages());
+        model.addAttribute("currentPage", paginationWindow.currentPage());
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("startPage", paginationWindow.startPage());
+        model.addAttribute("endPage", paginationWindow.endPage());
+        model.addAttribute("pageIndexes", pageIndexes);
         model.addAttribute("size", size);
 
         // Хлебные крошки
