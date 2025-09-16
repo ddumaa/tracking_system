@@ -1008,6 +1008,39 @@ async function saveTelegramSettings(form) {
     }
 }
 
+// Очередь запросов сохранения настроек Telegram для каждой формы
+const telegramSettingsQueue = new WeakMap();
+
+/**
+ * Ставит сохранение настроек в очередь, гарантируя выполнение
+ * запросов в порядке действий пользователя. Это исключает
+ * гонку состояний при быстром переключении чекбоксов и обеспечивает,
+ * что последняя операция определяет итоговое состояние на сервере.
+ * @param {HTMLFormElement} form - форма настроек Telegram
+ * @returns {Promise<boolean>} результат последней отправки
+ */
+function enqueueTelegramSettingsSave(form) {
+    if (!form) {
+        return Promise.resolve(false);
+    }
+
+    const previousTask = telegramSettingsQueue.get(form) || Promise.resolve();
+
+    const currentTask = previousTask
+        .catch(() => false)
+        .then(() => saveTelegramSettings(form));
+
+    telegramSettingsQueue.set(form, currentTask);
+
+    currentTask.finally(() => {
+        if (telegramSettingsQueue.get(form) === currentTask) {
+            telegramSettingsQueue.delete(form);
+        }
+    });
+
+    return currentTask;
+}
+
 // Инициализация форм настроек Telegram
 function initTelegramForms() {
     const tgToggle = document.getElementById('telegramNotificationsToggle');
@@ -1026,7 +1059,7 @@ function initTelegramForms() {
 
         form.addEventListener('submit', async function (event) {
             event.preventDefault();
-            await saveTelegramSettings(form);
+            await enqueueTelegramSettingsSave(form);
         });
 
         ['enabled', 'remindersEnabled'].forEach(name => {
@@ -1034,7 +1067,7 @@ function initTelegramForms() {
             if (!input) return;
 
             input.addEventListener('change', () => {
-                saveTelegramSettings(form);
+                enqueueTelegramSettingsSave(form);
             });
         });
     });
