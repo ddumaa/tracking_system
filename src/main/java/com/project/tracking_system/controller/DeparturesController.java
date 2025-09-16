@@ -143,6 +143,8 @@ public class DeparturesController {
         log.debug("Передача атрибутов в модель: stores={}, storeId={}, trackParcelDTO={}, currentPage={}, totalPages={}, size={}",
                 stores, storeId, trackParcelPage.getContent(), paginationWindow.currentPage(), totalPages, size);
 
+        List<Integer> pageIndexes = paginationWindow.pageIndexes();
+
         // Добавляем атрибуты в модель
         model.addAttribute("stores", stores);
         model.addAttribute("storeId", storeId != null ? storeId : ""); // Если null, передаем пустую строку
@@ -154,6 +156,7 @@ public class DeparturesController {
         model.addAttribute("totalPages", totalPages);
         model.addAttribute("startPage", paginationWindow.startPage());
         model.addAttribute("endPage", paginationWindow.endPage());
+        model.addAttribute("pageIndexes", pageIndexes);
         model.addAttribute("trackParcelNotification", trackParcelPage.isEmpty() ? "Отслеживаемых посылок нет" : null);
         model.addAttribute("bulkUpdateButtonDTO",
                 new BulkUpdateButtonDTO(userService.isShowBulkUpdateButton(user.getId())));
