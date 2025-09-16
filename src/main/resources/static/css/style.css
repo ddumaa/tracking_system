@@ -1263,9 +1263,12 @@ button:hover {
   margin-top: 2rem;
   list-style: none;
   padding: 0;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  max-width: 100%;
 }
 .pagination .page-item {
-  margin: 0 5px;
+  margin: 0;
 }
 .pagination .page-item .page-link {
   display: flex;
@@ -1302,6 +1305,27 @@ button:hover {
   cursor: not-allowed;
   opacity: 0.6;
   transform: none;
+}
+@media (max-width: 768px) {
+  .pagination {
+    gap: 0.4rem;
+  }
+  .pagination .page-item .page-link {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+  }
+}
+@media (max-width: 576px) {
+  .pagination {
+    gap: 0.35rem;
+    padding: 0 0.5rem;
+  }
+  .pagination .page-item .page-link {
+    width: 32px;
+    height: 32px;
+    font-size: 0.85rem;
+  }
 }
 
 .modal-dialog-centered {

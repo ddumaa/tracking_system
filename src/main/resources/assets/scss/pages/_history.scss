@@ -279,9 +279,12 @@
   margin-top: 2rem;
   list-style: none;
   padding: 0;
+  flex-wrap: wrap; // Позволяет переносить элементы пагинации на небольших экранах
+  gap: 0.5rem; // Формирует равномерные отступы между кнопками
+  max-width: 100%; // Исключает выход списка за границы контейнера
 
   .page-item {
-    margin: 0 5px;
+    margin: 0; // Управление отступами полностью возложено на gap
 
     .page-link {
       display: flex;
@@ -321,6 +324,31 @@
       cursor: not-allowed;
       opacity: 0.6;
       transform: none;
+    }
+  }
+
+  @include ui.respond-to(md) {
+    gap: 0.4rem; // Уменьшаем расстояние между элементами на планшетах
+
+    .page-item {
+      .page-link {
+        width: 36px;
+        height: 36px;
+        font-size: 0.9rem;
+      }
+    }
+  }
+
+  @include ui.respond-to(sm) {
+    gap: 0.35rem; // Дополнительно сжимаем пагинацию на телефонах
+    padding: 0 0.5rem; // Добавляем минимальные отступы от краёв экрана
+
+    .page-item {
+      .page-link {
+        width: 32px;
+        height: 32px;
+        font-size: 0.85rem;
+      }
     }
   }
 }
