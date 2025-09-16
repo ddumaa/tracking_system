@@ -56,6 +56,12 @@ public class DeparturesController {
     private final TrackViewService trackViewService;
 
     /**
+     * Максимальное количество ссылок пагинации, отображаемых одновременно.
+     * Помогает избежать длинных списков страниц на экране.
+     */
+    private static final int PAGE_WINDOW = 6;
+
+    /**
      * Метод для отображения списка отслеживаемых посылок пользователя с
      * возможностью фильтрации по магазину, статусу и сортировки по дате.
      *
@@ -154,6 +160,13 @@ public class DeparturesController {
 
         log.debug("Передача атрибутов в модель: stores={}, storeId={}, trackParcelDTO={}, currentPage={}, totalPages={}, size={}", stores, storeId, trackParcelPage.getContent(), trackParcelPage.getNumber(), trackParcelPage.getTotalPages(), size);
 
+        int currentPageIndex = trackParcelPage.getNumber();
+        int totalPages = trackParcelPage.getTotalPages();
+
+        // Определяем диапазон страниц для вывода, избегая длинных списков
+        int startPage = (currentPageIndex / PAGE_WINDOW) * PAGE_WINDOW;
+        int endPage = Math.min(startPage + PAGE_WINDOW - 1, totalPages - 1);
+
         // Добавляем атрибуты в модель
         model.addAttribute("stores", stores);
         model.addAttribute("storeId", storeId != null ? storeId : ""); // Если null, передаем пустую строку
@@ -161,8 +174,10 @@ public class DeparturesController {
         model.addAttribute("trackParcelDTO", trackParcelPage.getContent());
         model.addAttribute("statusString", statusString);
         model.addAttribute("query", query);
-        model.addAttribute("currentPage", trackParcelPage.getNumber());
-        model.addAttribute("totalPages", trackParcelPage.getTotalPages());
+        model.addAttribute("currentPage", currentPageIndex);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("startPage", startPage);
+        model.addAttribute("endPage", endPage);
         model.addAttribute("trackParcelNotification", trackParcelPage.isEmpty() ? "Отслеживаемых посылок нет" : null);
         model.addAttribute("bulkUpdateButtonDTO",
                 new BulkUpdateButtonDTO(userService.isShowBulkUpdateButton(user.getId())));
