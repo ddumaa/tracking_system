@@ -1018,6 +1018,12 @@ async function saveTelegramSettings(form) {
 // Очередь запросов сохранения настроек Telegram для каждой формы
 const telegramSettingsQueue = new WeakMap();
 
+// Хранилище таймеров для отложенного сохранения числовых полей Telegram
+const telegramInputDebounceTimers = new WeakMap();
+
+// Постоянная задержка перед отправкой числовых значений в Telegram
+const TELEGRAM_SAVE_DEBOUNCE_MS = 500;
+
 /**
  * Ставит сохранение настроек в очередь, гарантируя выполнение
  * запросов в порядке действий пользователя. Это исключает
@@ -1046,6 +1052,50 @@ function enqueueTelegramSettingsSave(form) {
     });
 
     return currentTask;
+}
+
+/**
+ * Показывает toast о результате сохранения настроек Telegram.
+ * Функция инкапсулирует выбор текста и типа уведомления,
+ * что упрощает повторное использование и соблюдает принцип DRY.
+ * @param {boolean} isSuccess - флаг успешного завершения запроса
+ */
+function showTelegramSaveResultToast(isSuccess) {
+    const message = isSuccess ? 'Сохранено' : 'Ошибка сохранения';
+    const type = isSuccess ? 'success' : 'danger';
+    showToast(message, type);
+}
+
+/**
+ * Запускает сохранение настроек Telegram с задержкой.
+ * Таймер сбрасывается при каждом новом вводе, что предотвращает
+ * избыточные запросы и снижает нагрузку на сервер, сохраняя при
+ * этом последнюю введённую пользователем величину.
+ * @param {HTMLFormElement} form - форма настроек Telegram
+ * @param {HTMLInputElement} input - числовое поле, инициирующее сохранение
+ */
+function debouncedTelegramNumberSave(form, input) {
+    if (!form || !input) {
+        return;
+    }
+
+    const previousTimerId = telegramInputDebounceTimers.get(input);
+    if (previousTimerId !== undefined) {
+        clearTimeout(previousTimerId);
+    }
+
+    const timerId = setTimeout(async () => {
+        telegramInputDebounceTimers.delete(input);
+        try {
+            const isSuccess = await enqueueTelegramSettingsSave(form);
+            showTelegramSaveResultToast(Boolean(isSuccess));
+        } catch (error) {
+            debugLog('Ошибка при сохранении настроек Telegram:', error);
+            showTelegramSaveResultToast(false);
+        }
+    }, TELEGRAM_SAVE_DEBOUNCE_MS);
+
+    telegramInputDebounceTimers.set(input, timerId);
 }
 
 // Инициализация форм настроек Telegram
@@ -1080,6 +1130,13 @@ function initTelegramForms() {
                     }
                 });
             });
+        });
+
+        const reminderNumberInputs = form.querySelectorAll(
+            'input[name="reminderStartAfterDays"], input[name="reminderRepeatIntervalDays"]'
+        );
+        reminderNumberInputs.forEach(numberInput => {
+            numberInput.addEventListener('input', () => debouncedTelegramNumberSave(form, numberInput));
         });
     });
 }
