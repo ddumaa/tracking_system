@@ -1,5 +1,8 @@
 package com.project.tracking_system.service.telegram;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
@@ -13,12 +16,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Contact;
-import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
@@ -509,10 +513,11 @@ class BuyerTelegramBotStateIntegrationTest {
     }
 
     /**
-     * Проверяет, что повторная команда /start при неизменном содержимом якорного сообщения приводит к новой отправке меню.
+     * Убеждается, что при неизменном тексте главного меню бот не создаёт новое якорное сообщение.
+     * <p>Дополнительно проверяется отсутствие повторной записи о главном меню в логах.</p>
      */
     @Test
-    void shouldResendMenuMessageWhenTelegramReportsNotModified() throws Exception {
+    void shouldKeepAnchorWhenMenuMessageUnchanged() throws Exception {
         Long chatId = 4040L;
         Customer customer = new Customer();
         customer.setTelegramConfirmed(true);
@@ -538,47 +543,50 @@ class BuyerTelegramBotStateIntegrationTest {
 
             Integer initialAnchor = chatSessionRepository.find(chatId)
                     .map(ChatSession::getAnchorMessageId)
-                    .orElse(null);
-            assertNotNull(initialAnchor,
-                    "После первой команды /start бот должен сохранить идентификатор якорного сообщения меню");
+                    .orElseThrow(() -> new AssertionError("После старта должен сохраниться якорь главного меню"));
 
             clearInvocations(telegramClient);
 
-            bot.consume(textUpdate(chatId, "/start"));
+            Logger logger = (Logger) LoggerFactory.getLogger(BuyerTelegramBot.class);
+            ListAppender<ILoggingEvent> appender = new ListAppender<>();
+            appender.start();
+            logger.addAppender(appender);
+
+            List<ILoggingEvent> logEvents = List.of();
+            try {
+                bot.consume(textUpdate(chatId, "/start"));
+                logEvents = List.copyOf(appender.list);
+            } finally {
+                logger.detachAppender(appender);
+                appender.stop();
+            }
 
             ChatSession session = chatSessionRepository.find(chatId)
                     .orElseThrow(() -> new AssertionError("Сессия должна существовать после повторного запуска"));
+
+            assertEquals(initialAnchor, session.getAnchorMessageId(),
+                    "Бот не должен отправлять новое якорное сообщение при неизменном тексте");
             assertEquals(BuyerBotScreen.MENU, session.getLastScreen(),
-                    "Последний отображённый экран должен остаться главным меню");
-
-            Integer newAnchor = session.getAnchorMessageId();
-            assertNotNull(newAnchor,
-                    "Бот обязан сохранить новый идентификатор якорного сообщения после повторной отправки");
-            assertNotEquals(initialAnchor, newAnchor,
-                    "При ошибке message is not modified бот должен отправить новое сообщение с меню");
-
+                    "Последний экран обязан оставаться главным меню после повторного запуска");
             assertFalse(chatSessionRepository.isKeyboardHidden(chatId),
-                    "После повторной отправки меню клавиатура должна считаться показанной");
+                    "После повторной команды /start клавиатура должна считаться видимой");
 
             verify(telegramClient).execute(any(EditMessageText.class));
 
             ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
-            verify(telegramClient, atLeast(2)).execute(captor.capture());
+            verify(telegramClient, atMost(1)).execute(captor.capture());
             List<SendMessage> messages = captor.getAllValues();
+            boolean hasMainMenuMessage = messages.stream()
+                    .anyMatch(this::isMainMenuAnchorMessage);
+            assertFalse(hasMainMenuMessage,
+                    "Повторная команда /start не должна создавать новое сообщение «Главное меню»");
 
-            boolean hasInlineMenu = messages.stream()
-                    .map(SendMessage::getReplyMarkup)
-                    .filter(InlineKeyboardMarkup.class::isInstance)
-                    .map(InlineKeyboardMarkup.class::cast)
-                    .anyMatch(this::containsMenuInlineButtons);
-            assertTrue(hasInlineMenu,
-                    "Бот должен переотправить главное меню с инлайн-кнопками после ошибки message is not modified");
-
-            boolean hasReplyKeyboard = messages.stream()
-                    .map(SendMessage::getReplyMarkup)
-                    .anyMatch(ReplyKeyboardMarkup.class::isInstance);
-            assertTrue(hasReplyKeyboard,
-                    "После повторной команды /start должна отправляться постоянная клавиатура меню");
+            boolean hasLogAboutMainMenu = logEvents.stream()
+                    .map(ILoggingEvent::getFormattedMessage)
+                    .filter(message -> message != null)
+                    .anyMatch(message -> message.toLowerCase().contains("главн"));
+            assertFalse(hasLogAboutMainMenu,
+                    "Логи повторного /start не должны содержать записи о новом главном меню");
         } finally {
             doReturn(null).when(telegramClient).execute(any(EditMessageText.class));
             doReturn(null).when(telegramClient).execute(any(SendMessage.class));
@@ -743,6 +751,29 @@ class BuyerTelegramBotStateIntegrationTest {
         }
 
         return hasStats && hasSettings && hasHelp;
+    }
+
+    /**
+     * Определяет, относится ли сообщение к якорному главному меню.
+     *
+     * @param message сообщение, отправленное ботом
+     * @return {@code true}, если сообщение содержит текст или инлайн-кнопки главного меню
+     */
+    private boolean isMainMenuAnchorMessage(SendMessage message) {
+        if (message == null) {
+            return false;
+        }
+
+        String text = message.getText();
+        if (text != null && text.contains("Главное меню")) {
+            return true;
+        }
+
+        if (message.getReplyMarkup() instanceof InlineKeyboardMarkup inlineMarkup) {
+            return containsMenuInlineButtons(inlineMarkup);
+        }
+
+        return false;
     }
 
     /**
