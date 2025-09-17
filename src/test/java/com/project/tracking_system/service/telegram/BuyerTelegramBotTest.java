@@ -23,6 +23,7 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -100,6 +101,31 @@ class BuyerTelegramBotTest {
         assertTrue(message.getText().contains("8029"));
         assertPhoneKeyboard(message.getReplyMarkup());
         verifyNoInteractions(telegramService);
+    }
+
+    /**
+     * Проверяет, что команда подтверждения имени отправляет сообщение об успешной операции.
+     */
+    @Test
+    void shouldSendSuccessMessageWhenConfirmingNameFromMenu() throws Exception {
+        Long chatId = 789L;
+        when(telegramService.confirmName(chatId)).thenReturn(true);
+
+        Update update = mockTextUpdate(chatId, "✅ Подтвердить имя");
+
+        bot.consume(update);
+
+        verify(telegramService).confirmName(chatId);
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+
+        boolean hasSuccess = captor.getAllValues().stream()
+                .map(SendMessage::getText)
+                .filter(Objects::nonNull)
+                .anyMatch(text -> text.contains("данные подтверждены"));
+
+        assertTrue(hasSuccess, "Бот обязан уведомить пользователя об успешном подтверждении");
     }
 
     /**
