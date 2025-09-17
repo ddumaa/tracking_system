@@ -1,5 +1,6 @@
 package com.project.tracking_system.service.telegram;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
@@ -50,7 +51,8 @@ class BuyerTelegramBotStateIntegrationTest {
     void setUp() throws Exception {
         fullNameValidator = new FullNameValidator();
         chatSessionRepository = new InMemoryChatSessionRepository();
-        bot = new BuyerTelegramBot(telegramClient, "token", telegramService, fullNameValidator, chatSessionRepository);
+        bot = new BuyerTelegramBot(telegramClient, "token", telegramService, fullNameValidator, chatSessionRepository,
+                new ObjectMapper());
         when(telegramClient.execute(any(SendMessage.class))).thenReturn(null);
     }
 

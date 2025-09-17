@@ -1,5 +1,7 @@
 package com.project.tracking_system.service.telegram;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
@@ -24,7 +26,6 @@ import org.telegram.telegrambots.meta.api.objects.message.MaybeInaccessibleMessa
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
@@ -68,6 +69,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private final CustomerTelegramService telegramService;
     private final FullNameValidator fullNameValidator;
     private final ChatSessionRepository chatSessionRepository;
+    private final ObjectMapper objectMapper;
     private final String botToken;
 
     /**
@@ -76,17 +78,22 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param telegramClient       клиент Telegram, предоставляемый Spring
      * @param token                токен бота (может отсутствовать)
      * @param telegramService      сервис привязки покупателей к Telegram
+     * @param fullNameValidator    валидатор для проверки корректности ФИО
+     * @param chatSessionRepository репозиторий состояния чатов покупателей
+     * @param objectMapper         преобразователь объектов Telegram в JSON-структуры
      */
     public BuyerTelegramBot(TelegramClient telegramClient,
                             @Value("${telegram.bot.token:}") String token,
                             CustomerTelegramService telegramService,
                             FullNameValidator fullNameValidator,
-                            ChatSessionRepository chatSessionRepository) {
+                            ChatSessionRepository chatSessionRepository,
+                            ObjectMapper objectMapper) {
         this.telegramClient = telegramClient;
         this.botToken = token;
         this.telegramService = telegramService;
         this.fullNameValidator = fullNameValidator;
         this.chatSessionRepository = chatSessionRepository;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -1334,12 +1341,19 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return false;
         }
 
-        if (!message.hasReplyMarkup()) {
+        JsonNode messageJson;
+        try {
+            messageJson = objectMapper.convertValue(message, JsonNode.class);
+        } catch (IllegalArgumentException e) {
             return false;
         }
 
-        var replyMarkup = message.getReplyMarkup();
-        if (replyMarkup instanceof ReplyKeyboardRemove remove && Boolean.TRUE.equals(remove.getRemoveKeyboard())) {
+        if (messageJson == null || messageJson.isNull() || messageJson.isMissingNode()) {
+            return false;
+        }
+
+        JsonNode replyMarkupNode = messageJson.path("reply_markup");
+        if (!replyMarkupNode.isMissingNode() && replyMarkupNode.path("remove_keyboard").asBoolean(false)) {
             chatSessionRepository.markKeyboardHidden(chatId);
             return true;
         }

@@ -1,5 +1,6 @@
 package com.project.tracking_system.service.telegram;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
@@ -47,7 +48,7 @@ class BuyerTelegramBotLoggingTest {
     void setUp() {
         chatSessionRepository = new InMemoryChatSessionRepository();
         buyerTelegramBot = new BuyerTelegramBot(telegramClient, "token", customerTelegramService,
-                new FullNameValidator(), chatSessionRepository);
+                new FullNameValidator(), chatSessionRepository, new ObjectMapper());
         when(telegramClient.execute(any(SendMessage.class))).thenReturn(null);
         logger = (Logger) LoggerFactory.getLogger(BuyerTelegramBot.class);
         appender = new ListAppender<>();

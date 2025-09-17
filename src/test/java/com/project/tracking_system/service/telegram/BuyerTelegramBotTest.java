@@ -1,5 +1,9 @@
 package com.project.tracking_system.service.telegram;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
@@ -47,6 +51,7 @@ class BuyerTelegramBotTest {
     private BuyerTelegramBot bot;
     private FullNameValidator fullNameValidator;
     private InMemoryChatSessionRepository chatSessionRepository;
+    private ObjectMapper objectMapper;
 
     /**
      * Подготавливает экземпляр бота и стаб под клиента Telegram перед каждым тестом.
@@ -55,7 +60,8 @@ class BuyerTelegramBotTest {
     void setUp() {
         fullNameValidator = new FullNameValidator();
         chatSessionRepository = new InMemoryChatSessionRepository();
-        bot = new BuyerTelegramBot(telegramClient, "token", telegramService, fullNameValidator, chatSessionRepository);
+        objectMapper = new ObjectMapper();
+        bot = new BuyerTelegramBot(telegramClient, "token", telegramService, fullNameValidator, chatSessionRepository, objectMapper);
         doReturn(null).when(telegramClient).execute(any(SendMessage.class));
         when(telegramService.findByChatId(anyLong())).thenReturn(Optional.empty());
     }
@@ -201,6 +207,36 @@ class BuyerTelegramBotTest {
     }
 
     /**
+     * Убеждается, что служебное сообщение Telegram со скрытием клавиатуры фиксирует состояние сессии.
+     */
+    @Test
+    void shouldMarkKeyboardHiddenWhenReplyMarkupRequestsRemoval() throws Exception {
+        Long chatId = 555L;
+
+        Update update = serviceReplyUpdate(chatId, createRemoveKeyboardMarkup());
+
+        bot.consume(update);
+
+        assertTrue(chatSessionRepository.isKeyboardHidden(chatId),
+                "После сообщения remove_keyboard клавиатура должна считаться скрытой");
+    }
+
+    /**
+     * Проверяет, что наличие обычной inline-клавиатуры не изменяет состояние скрытой клавиатуры.
+     */
+    @Test
+    void shouldIgnoreInlineKeyboardWhileDetectingPersistentRemoval() throws Exception {
+        Long chatId = 556L;
+
+        Update update = serviceReplyUpdate(chatId, createInlineKeyboardMarkup());
+
+        bot.consume(update);
+
+        assertFalse(chatSessionRepository.isKeyboardHidden(chatId),
+                "Сообщение с inline-клавиатурой не должно скрывать постоянную клавиатуру");
+    }
+
+    /**
      * Убеждается, что отсутствие идентификаторов Telegram не позволяет привязать номер.
      *
      * @param senderId      идентификатор отправителя сообщения или {@code null}
@@ -336,6 +372,55 @@ class BuyerTelegramBotTest {
         when(contact.getPhoneNumber()).thenReturn(phoneNumber);
 
         return update;
+    }
+
+    /**
+     * Создаёт обновление Telegram со служебным reply_markup.
+     *
+     * @param chatId      идентификатор чата Telegram
+     * @param replyMarkup узел с данными reply_markup
+     * @return объект {@link Update} с заполненным сообщением
+     */
+    private Update serviceReplyUpdate(Long chatId, ObjectNode replyMarkup) throws JsonProcessingException {
+        ObjectNode root = objectMapper.createObjectNode();
+        root.put("message_id", 1);
+        root.put("date", 0);
+        ObjectNode chat = root.putObject("chat");
+        chat.put("id", chatId);
+        chat.put("type", "private");
+        root.set("reply_markup", replyMarkup);
+
+        Message message = objectMapper.treeToValue(root, Message.class);
+
+        Update update = new Update();
+        update.setMessage(message);
+        return update;
+    }
+
+    /**
+     * Формирует JSON-инструкцию для скрытия постоянной клавиатуры.
+     *
+     * @return узел reply_markup с флагом remove_keyboard
+     */
+    private ObjectNode createRemoveKeyboardMarkup() {
+        ObjectNode replyMarkup = objectMapper.createObjectNode();
+        replyMarkup.put("remove_keyboard", true);
+        return replyMarkup;
+    }
+
+    /**
+     * Формирует JSON inline-клавиатуры для проверки отсутствия скрытия клавиатуры.
+     *
+     * @return узел reply_markup с обычной inline-клавиатурой
+     */
+    private ObjectNode createInlineKeyboardMarkup() {
+        ObjectNode replyMarkup = objectMapper.createObjectNode();
+        ArrayNode keyboard = replyMarkup.putArray("inline_keyboard");
+        ArrayNode row = keyboard.addArray();
+        ObjectNode button = row.addObject();
+        button.put("text", "Demo");
+        button.put("callback_data", "demo");
+        return replyMarkup;
     }
 
     /**

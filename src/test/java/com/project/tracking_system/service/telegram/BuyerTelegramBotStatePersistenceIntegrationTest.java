@@ -1,5 +1,6 @@
 package com.project.tracking_system.service.telegram;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
@@ -62,7 +63,7 @@ class BuyerTelegramBotStatePersistenceIntegrationTest {
         doNothing().when(telegramService).notifyActualStatuses(customer);
 
         BuyerTelegramBot bot = new BuyerTelegramBot(telegramClient, "token", telegramService,
-                fullNameValidator, chatSessionRepository);
+                fullNameValidator, chatSessionRepository, new ObjectMapper());
 
         bot.consume(contactUpdate(chatId, "+375291112233"));
 
@@ -72,7 +73,7 @@ class BuyerTelegramBotStatePersistenceIntegrationTest {
         TelegramClient restartedClient = mock(TelegramClient.class);
         when(restartedClient.execute(any(SendMessage.class))).thenReturn(null);
         BuyerTelegramBot restartedBot = new BuyerTelegramBot(restartedClient, "token", telegramService,
-                fullNameValidator, chatSessionRepository);
+                fullNameValidator, chatSessionRepository, new ObjectMapper());
 
         clearInvocations(telegramService);
         when(telegramService.updateNameFromTelegram(chatId, "Иван Иванов")).thenAnswer(invocation -> {
@@ -110,7 +111,7 @@ class BuyerTelegramBotStatePersistenceIntegrationTest {
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
         BuyerTelegramBot bot = new BuyerTelegramBot(initialClient, "token", telegramService,
-                fullNameValidator, chatSessionRepository);
+                fullNameValidator, chatSessionRepository, new ObjectMapper());
         bot.consume(textUpdate(chatId, "/start"));
 
         ChatSession savedSession = chatSessionRepository.find(chatId).orElse(null);
@@ -125,7 +126,7 @@ class BuyerTelegramBotStatePersistenceIntegrationTest {
         when(restartedClient.execute(any(EditMessageText.class))).thenReturn(null);
 
         BuyerTelegramBot restartedBot = new BuyerTelegramBot(restartedClient, "token", telegramService,
-                fullNameValidator, chatSessionRepository);
+                fullNameValidator, chatSessionRepository, new ObjectMapper());
 
         CallbackQuery callbackQuery = mock(CallbackQuery.class);
         MaybeInaccessibleMessage callbackMessage = mock(MaybeInaccessibleMessage.class);
