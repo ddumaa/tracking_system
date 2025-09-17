@@ -403,6 +403,43 @@ class BuyerTelegramBotStateIntegrationTest {
     }
 
     /**
+     * Проверяет, что при потере якоря бот повторно отправляет постоянную клавиатуру.
+     */
+    @Test
+    void shouldResendReplyKeyboardAfterAnchorCleared() throws Exception {
+        Long chatId = 2020L;
+        Customer customer = new Customer();
+        customer.setTelegramConfirmed(true);
+        customer.setNameSource(NameSource.USER_CONFIRMED);
+        customer.setFullName("Иван Иванов");
+
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        chatSessionRepository.markKeyboardVisible(chatId);
+
+        bot.consume(textUpdate(chatId, "/start"));
+
+        clearInvocations(telegramClient);
+
+        chatSessionRepository.clearAnchor(chatId);
+
+        assertTrue(chatSessionRepository.isKeyboardHidden(chatId),
+                "После потери якоря клавиатура должна помечаться как скрытая");
+
+        bot.consume(textUpdate(chatId, "/menu"));
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+
+        boolean hasReplyKeyboard = captor.getAllValues().stream()
+                .map(SendMessage::getReplyMarkup)
+                .anyMatch(ReplyKeyboardMarkup.class::isInstance);
+
+        assertTrue(hasReplyKeyboard,
+                "Повторный показ меню обязан переотправить reply-клавиатуру");
+    }
+
+    /**
      * Создаёт обновление Telegram с текстовым сообщением пользователя.
      *
      * @param chatId идентификатор чата Telegram

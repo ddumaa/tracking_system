@@ -117,6 +117,7 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
         }
         repository.findById(chatId).ifPresent(entity -> {
             entity.setAnchorMessageId(null);
+            entity.setKeyboardHidden(true);
             repository.save(entity);
         });
     }

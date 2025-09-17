@@ -82,6 +82,7 @@ public class InMemoryChatSessionRepository implements ChatSessionRepository {
         ChatSession session = sessions.get(chatId);
         if (session != null) {
             session.setAnchorMessageId(null);
+            session.setPersistentKeyboardHidden(true);
         }
     }
 

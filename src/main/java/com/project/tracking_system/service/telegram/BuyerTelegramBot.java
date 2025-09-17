@@ -1458,6 +1458,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 }
                 log.warn("⚠️ Не удалось обновить якорное сообщение для чата {}", chatId, e);
                 chatSessionRepository.clearAnchor(chatId);
+                chatSessionRepository.markKeyboardHidden(chatId);
             }
         }
 
