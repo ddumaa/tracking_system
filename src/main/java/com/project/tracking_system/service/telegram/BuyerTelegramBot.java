@@ -1,5 +1,7 @@
 package com.project.tracking_system.service.telegram;
 
+import com.project.tracking_system.entity.BuyerBotScreen;
+import com.project.tracking_system.entity.BuyerBotScreenState;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
@@ -13,6 +15,7 @@ import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateC
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Contact;
@@ -30,8 +33,8 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -66,13 +69,15 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
     private static final String NAME_CONFIRMATION_MISSING_MESSAGE =
             "⚠️ Пока в системе нет ФИО для подтверждения. Пожалуйста, укажите его полностью.";
+    private static final String NAME_EDIT_ANCHOR_TEXT =
+            "✍️ Отправьте новое ФИО сообщением.\n\nПосле ввода воспользуйтесь кнопкой «🏠 Меню», чтобы вернуться.";
 
     private final TelegramClient telegramClient;
     private final CustomerTelegramService telegramService;
     private final FullNameValidator fullNameValidator;
+    private final BuyerBotScreenStateService screenStateService;
     private final String botToken;
     private final Map<Long, ChatState> chatStates = new ConcurrentHashMap<>();
-    private final Map<Long, Integer> anchorMessageIds = new ConcurrentHashMap<>();
     private final Set<Long> configuredKeyboards = ConcurrentHashMap.newKeySet();
 
     /**
@@ -85,11 +90,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     public BuyerTelegramBot(TelegramClient telegramClient,
                             @Value("${telegram.bot.token:}") String token,
                             CustomerTelegramService telegramService,
-                            FullNameValidator fullNameValidator) {
+                            FullNameValidator fullNameValidator,
+                            BuyerBotScreenStateService screenStateService) {
         this.telegramClient = telegramClient;
         this.botToken = token;
         this.telegramService = telegramService;
         this.fullNameValidator = fullNameValidator;
+        this.screenStateService = screenStateService;
     }
 
     /**
@@ -211,6 +218,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
+        BuyerBotScreenState state = screenStateService.findState(chatId).orElse(null);
+        if (isCallbackFromOutdatedMessage(messageId, state)) {
+            handleOutdatedCallback(chatId, messageId, callbackQuery, state);
+            return;
+        }
+
         rememberAnchorMessage(chatId, messageId);
 
         switch (data) {
@@ -241,8 +254,91 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (chatId == null || messageId == null) {
             return;
         }
-        anchorMessageIds.put(chatId, messageId);
+        screenStateService.updateAnchor(chatId, messageId);
     }
+
+    /**
+     * Проверяет, относится ли callback к устаревшему сообщению, отличному от текущего якоря.
+     *
+     * @param messageId идентификатор сообщения, из которого пришёл callback
+     * @param state     сохранённое состояние чата
+     * @return {@code true}, если callback относится к устаревшему сообщению
+     */
+    private boolean isCallbackFromOutdatedMessage(Integer messageId, BuyerBotScreenState state) {
+        return state != null
+                && state.getAnchorMessageId() != null
+                && messageId != null
+                && !state.getAnchorMessageId().equals(messageId);
+    }
+
+    /**
+     * Обрабатывает нажатия на устаревшие сообщения: уведомляет пользователя и перерисовывает актуальный экран.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param messageId     идентификатор устаревшего сообщения
+     * @param callbackQuery исходный callback-запрос
+     * @param state         сохранённое состояние чата с данными о последнем экране
+     */
+    private void handleOutdatedCallback(Long chatId,
+                                        Integer messageId,
+                                        CallbackQuery callbackQuery,
+                                        BuyerBotScreenState state) {
+        answerCallbackQuery(callbackQuery, "Экран обновлён");
+        removeInlineKeyboard(chatId, messageId);
+        BuyerBotScreen screen = state != null ? state.getLastScreen() : null;
+        renderScreen(chatId, screen);
+    }
+
+    /**
+     * Удаляет инлайн-клавиатуру со старого сообщения, чтобы предотвратить повторные клики.
+     *
+     * @param chatId    идентификатор чата Telegram
+     * @param messageId идентификатор устаревшего сообщения
+     */
+    private void removeInlineKeyboard(Long chatId, Integer messageId) {
+        if (chatId == null || messageId == null) {
+            return;
+        }
+
+        EditMessageReplyMarkup editMarkup = EditMessageReplyMarkup.builder()
+                .chatId(chatId.toString())
+                .messageId(messageId)
+                .replyMarkup(null)
+                .build();
+        try {
+            telegramClient.execute(editMarkup);
+        } catch (TelegramApiException e) {
+            log.debug("ℹ️ Не удалось снять клавиатуру с сообщения {} в чате {}", messageId, chatId, e);
+        }
+    }
+
+    /**
+     * Перерисовывает актуальный экран в якорном сообщении.
+     *
+     * @param chatId идентификатор чата Telegram
+     * @param screen последний сохранённый экран
+     */
+    private void renderScreen(Long chatId, BuyerBotScreen screen) {
+        if (chatId == null) {
+            return;
+        }
+
+        if (screen == null) {
+            sendMainMenu(chatId);
+            return;
+        }
+
+        switch (screen) {
+            case MENU -> sendMainMenu(chatId);
+            case STATISTICS -> sendStatisticsScreen(chatId);
+            case SETTINGS -> sendSettingsScreen(chatId);
+            case HELP -> sendHelpScreen(chatId);
+            case NAME_CONFIRMATION -> renderNameConfirmationScreen(chatId);
+            case NAME_EDIT_PROMPT -> sendNameEditPromptScreen(chatId);
+            default -> sendMainMenu(chatId);
+        }
+    }
+
 
     /**
      * Обрабатывает команду /start, инициируя ожидание контакта или показывая меню.
@@ -362,9 +458,16 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         String prompt = "✍️ Отправьте новое ФИО сообщением.";
         sendSimpleMessage(chatId, prompt);
-        showAnchorScreen(chatId,
-                prompt + "\n\nПосле ввода воспользуйтесь кнопкой «🏠 Меню», чтобы вернуться.",
-                createBackInlineKeyboard());
+        sendNameEditPromptScreen(chatId);
+    }
+
+    /**
+     * Показывает инструкцию по вводу нового ФИО в якорном сообщении.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void sendNameEditPromptScreen(Long chatId) {
+        sendInlineMessage(chatId, NAME_EDIT_ANCHOR_TEXT, createBackInlineKeyboard(), BuyerBotScreen.NAME_EDIT_PROMPT);
     }
 
     /**
@@ -483,10 +586,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                             stores,
                             stats.getReputation().getDisplayName()
                     );
-                    showAnchorScreen(chatId, text, backMarkup);
-                }, () -> showAnchorScreen(chatId,
+                    sendInlineMessage(chatId, text, backMarkup, BuyerBotScreen.STATISTICS);
+                }, () -> sendInlineMessage(chatId,
                         "\uD83D\uDCCA Статистика пока недоступна. Попробуйте позже или проверьте, есть ли у вас активные заказы.",
-                        backMarkup));
+                        backMarkup,
+                        BuyerBotScreen.STATISTICS));
     }
 
     /**
@@ -510,7 +614,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         boolean awaitingName = getState(chatId) == ChatState.AWAITING_NAME_INPUT;
         String text = buildSettingsText(customer, awaitingName);
         InlineKeyboardMarkup markup = buildSettingsKeyboard(customer);
-        showAnchorScreen(chatId, text, markup);
+        sendInlineMessage(chatId, text, markup, BuyerBotScreen.SETTINGS);
     }
 
     /**
@@ -528,7 +632,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
                 Управляйте уведомлениями и ФИО через раздел "⚙️ Настройки".
                 """;
-        showAnchorScreen(chatId, helpText, createBackInlineKeyboard());
+        sendInlineMessage(chatId, helpText, createBackInlineKeyboard(), BuyerBotScreen.HELP);
     }
 
     /**
@@ -651,7 +755,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      */
     private void handleCallbackBackToMenu(Long chatId, CallbackQuery callbackQuery) {
         transitionToState(chatId, ChatState.IDLE);
-        answerCallbackQuery(callbackQuery, "Главное меню");
+        answerCallbackQuery(callbackQuery, "Открыл меню");
         sendMainMenu(chatId);
     }
 
@@ -670,7 +774,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         boolean awaitingName = getState(chatId) == ChatState.AWAITING_NAME_INPUT;
         String settingsText = buildSettingsText(customer, awaitingName);
         InlineKeyboardMarkup settingsKeyboard = buildSettingsKeyboard(customer);
-        showAnchorScreen(chatId, settingsText, settingsKeyboard);
+        sendInlineMessage(chatId, settingsText, settingsKeyboard, BuyerBotScreen.SETTINGS);
     }
 
     /**
@@ -1110,7 +1214,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         Customer customer = optional.orElse(null);
         String text = buildMainMenuText(customer);
         InlineKeyboardMarkup markup = buildMainMenuKeyboard(customer);
-        showAnchorScreen(chatId, text, markup);
+        sendInlineMessage(chatId, text, markup, BuyerBotScreen.MENU);
     }
 
     /**
@@ -1283,18 +1387,25 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
-     * Показывает или обновляет якорное сообщение с инлайн-кнопками.
+     * Показывает или обновляет якорное сообщение, сохраняя данные в устойчивом хранилище.
      *
      * @param chatId идентификатор чата Telegram
      * @param text   текст, который необходимо отобразить
      * @param markup инлайн-клавиатура для сообщения
+     * @param screen экран, который следует зафиксировать для последующего восстановления
      */
-    private void showAnchorScreen(Long chatId, String text, InlineKeyboardMarkup markup) {
+    private void sendInlineMessage(Long chatId,
+                                   String text,
+                                   InlineKeyboardMarkup markup,
+                                   BuyerBotScreen screen) {
         if (chatId == null) {
             return;
         }
 
-        Integer messageId = anchorMessageIds.get(chatId);
+        Integer messageId = screenStateService.findState(chatId)
+                .map(BuyerBotScreenState::getAnchorMessageId)
+                .orElse(null);
+
         if (messageId != null) {
             EditMessageText edit = EditMessageText.builder()
                     .chatId(chatId.toString())
@@ -1304,15 +1415,17 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                     .build();
             try {
                 telegramClient.execute(edit);
+                screenStateService.saveState(chatId, messageId, screen);
                 return;
             } catch (TelegramApiException e) {
                 String errorMessage = e.getMessage();
                 if (errorMessage != null && errorMessage.contains("message is not modified")) {
+                    screenStateService.saveState(chatId, messageId, screen);
                     log.debug("ℹ️ Содержимое якорного сообщения для чата {} не изменилось", chatId);
                     return;
                 }
                 log.warn("⚠️ Не удалось обновить якорное сообщение для чата {}", chatId, e);
-                anchorMessageIds.remove(chatId);
+                screenStateService.clearAnchor(chatId);
             }
         }
 
@@ -1322,7 +1435,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         try {
             Message sent = telegramClient.execute(message);
             if (sent != null) {
-                anchorMessageIds.put(chatId, sent.getMessageId());
+                screenStateService.saveState(chatId, sent.getMessageId(), screen);
             }
         } catch (TelegramApiException e) {
             log.error("❌ Ошибка отправки якорного сообщения", e);
@@ -1486,7 +1599,33 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      */
     private void sendNameConfirmation(Long chatId, String fullName) {
         String text = String.format("У нас указано ваше ФИО: %s\nЭто верно?", fullName);
-        showAnchorScreen(chatId, text, buildNameConfirmationKeyboard());
+        sendInlineMessage(chatId, text, buildNameConfirmationKeyboard(), BuyerBotScreen.NAME_CONFIRMATION);
+    }
+
+    /**
+     * Перерисовывает экран подтверждения ФИО на основе актуальных данных покупателя.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void renderNameConfirmationScreen(Long chatId) {
+        Optional<Customer> optional = telegramService.findByChatId(chatId);
+        if (optional.isEmpty()) {
+            sendMainMenu(chatId);
+            return;
+        }
+
+        Customer customer = optional.get();
+        if (!ensureValidStoredNameOrRequestUpdate(chatId, customer)) {
+            return;
+        }
+
+        String fullName = customer.getFullName();
+        if (fullName == null || fullName.isBlank()) {
+            sendMainMenu(chatId);
+            return;
+        }
+
+        sendNameConfirmation(chatId, fullName);
     }
 
     /**

@@ -19,6 +19,8 @@ import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
+import java.util.Optional;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -34,6 +36,9 @@ class BuyerTelegramBotLoggingTest {
     @Mock
     private CustomerTelegramService customerTelegramService;
 
+    @Mock
+    private BuyerBotScreenStateService screenStateService;
+
     private BuyerTelegramBot buyerTelegramBot;
 
     private Logger logger;
@@ -41,8 +46,10 @@ class BuyerTelegramBotLoggingTest {
 
     @BeforeEach
     void setUp() {
-        buyerTelegramBot = new BuyerTelegramBot(telegramClient, "token", customerTelegramService, new FullNameValidator());
+        buyerTelegramBot = new BuyerTelegramBot(telegramClient, "token", customerTelegramService,
+                new FullNameValidator(), screenStateService);
         when(telegramClient.execute(any(SendMessage.class))).thenReturn(null);
+        when(screenStateService.findState(anyLong())).thenReturn(Optional.empty());
         logger = (Logger) LoggerFactory.getLogger(BuyerTelegramBot.class);
         appender = new ListAppender<>();
         appender.start();
