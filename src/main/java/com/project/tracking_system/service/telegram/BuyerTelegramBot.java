@@ -24,6 +24,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMar
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
@@ -613,46 +614,52 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @return готовая инлайн-клавиатура
      */
     private InlineKeyboardMarkup buildSettingsKeyboard(Customer customer) {
-        List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+        List<InlineKeyboardRow> rows = new ArrayList<>();
 
-        InlineKeyboardButton notifyButton = new InlineKeyboardButton();
-        notifyButton.setText(customer.isNotificationsEnabled()
-                ? "🔕 Отключить уведомления"
-                : "🔔 Включить уведомления");
-        notifyButton.setCallbackData(CALLBACK_SETTINGS_TOGGLE_NOTIFICATIONS);
-        rows.add(List.of(notifyButton));
+        InlineKeyboardButton notifyButton = InlineKeyboardButton.builder()
+                .text(customer.isNotificationsEnabled()
+                        ? "🔕 Отключить уведомления"
+                        : "🔔 Включить уведомления")
+                .callbackData(CALLBACK_SETTINGS_TOGGLE_NOTIFICATIONS)
+                .build();
+        rows.add(new InlineKeyboardRow(notifyButton));
 
         String fullName = customer.getFullName();
         boolean hasName = fullName != null && !fullName.isBlank();
         if (!hasName) {
-            InlineKeyboardButton setNameButton = new InlineKeyboardButton();
-            setNameButton.setText("✍️ Указать имя");
-            setNameButton.setCallbackData(CALLBACK_SETTINGS_EDIT_NAME);
-            rows.add(List.of(setNameButton));
+            InlineKeyboardButton setNameButton = InlineKeyboardButton.builder()
+                    .text("✍️ Указать имя")
+                    .callbackData(CALLBACK_SETTINGS_EDIT_NAME)
+                    .build();
+            rows.add(new InlineKeyboardRow(setNameButton));
         } else if (customer.getNameSource() == NameSource.USER_CONFIRMED) {
-            InlineKeyboardButton editNameButton = new InlineKeyboardButton();
-            editNameButton.setText("✏️ Изменить имя");
-            editNameButton.setCallbackData(CALLBACK_SETTINGS_EDIT_NAME);
-            rows.add(List.of(editNameButton));
+            InlineKeyboardButton editNameButton = InlineKeyboardButton.builder()
+                    .text("✏️ Изменить имя")
+                    .callbackData(CALLBACK_SETTINGS_EDIT_NAME)
+                    .build();
+            rows.add(new InlineKeyboardRow(editNameButton));
         } else {
-            InlineKeyboardButton confirmButton = new InlineKeyboardButton();
-            confirmButton.setText("✅ Подтвердить имя");
-            confirmButton.setCallbackData(CALLBACK_SETTINGS_CONFIRM_NAME);
+            InlineKeyboardButton confirmButton = InlineKeyboardButton.builder()
+                    .text("✅ Подтвердить имя")
+                    .callbackData(CALLBACK_SETTINGS_CONFIRM_NAME)
+                    .build();
 
-            InlineKeyboardButton editNameButton = new InlineKeyboardButton();
-            editNameButton.setText("✏️ Изменить имя");
-            editNameButton.setCallbackData(CALLBACK_SETTINGS_EDIT_NAME);
-            rows.add(List.of(confirmButton, editNameButton));
+            InlineKeyboardButton editNameButton = InlineKeyboardButton.builder()
+                    .text("✏️ Изменить имя")
+                    .callbackData(CALLBACK_SETTINGS_EDIT_NAME)
+                    .build();
+            rows.add(new InlineKeyboardRow(confirmButton, editNameButton));
         }
 
-        InlineKeyboardButton backButton = new InlineKeyboardButton();
-        backButton.setText(BUTTON_BACK);
-        backButton.setCallbackData(CALLBACK_BACK_TO_MENU);
-        rows.add(List.of(backButton));
+        InlineKeyboardButton backButton = InlineKeyboardButton.builder()
+                .text(BUTTON_BACK)
+                .callbackData(CALLBACK_BACK_TO_MENU)
+                .build();
+        rows.add(new InlineKeyboardRow(backButton));
 
-        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
-        markup.setKeyboard(rows);
-        return markup;
+        return InlineKeyboardMarkup.builder()
+                .keyboard(rows)
+                .build();
     }
 
     /**
@@ -661,13 +668,14 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @return клавиатура с кнопкой «Назад»
      */
     private InlineKeyboardMarkup createBackInlineKeyboard() {
-        InlineKeyboardButton backButton = new InlineKeyboardButton();
-        backButton.setText(BUTTON_BACK);
-        backButton.setCallbackData(CALLBACK_BACK_TO_MENU);
+        InlineKeyboardButton backButton = InlineKeyboardButton.builder()
+                .text(BUTTON_BACK)
+                .callbackData(CALLBACK_BACK_TO_MENU)
+                .build();
 
-        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
-        markup.setKeyboard(List.of(List.of(backButton)));
-        return markup;
+        return InlineKeyboardMarkup.builder()
+                .keyboard(List.of(new InlineKeyboardRow(backButton)))
+                .build();
     }
 
     /**
