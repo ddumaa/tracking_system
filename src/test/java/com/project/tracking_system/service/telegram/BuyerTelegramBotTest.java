@@ -1,7 +1,9 @@
 package com.project.tracking_system.service.telegram;
 
+import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
+import com.project.tracking_system.service.telegram.support.InMemoryChatSessionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,9 +24,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.Keyboard
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
-import java.lang.reflect.Field;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -44,11 +44,9 @@ class BuyerTelegramBotTest {
     @Mock
     private CustomerTelegramService telegramService;
 
-    @Mock
-    private BuyerBotScreenStateService screenStateService;
-
     private BuyerTelegramBot bot;
     private FullNameValidator fullNameValidator;
+    private InMemoryChatSessionRepository chatSessionRepository;
 
     /**
      * Подготавливает экземпляр бота и стаб под клиента Telegram перед каждым тестом.
@@ -56,10 +54,10 @@ class BuyerTelegramBotTest {
     @BeforeEach
     void setUp() {
         fullNameValidator = new FullNameValidator();
-        bot = new BuyerTelegramBot(telegramClient, "token", telegramService, fullNameValidator, screenStateService);
+        chatSessionRepository = new InMemoryChatSessionRepository();
+        bot = new BuyerTelegramBot(telegramClient, "token", telegramService, fullNameValidator, chatSessionRepository);
         doReturn(null).when(telegramClient).execute(any(SendMessage.class));
         when(telegramService.findByChatId(anyLong())).thenReturn(Optional.empty());
-        when(screenStateService.findState(anyLong())).thenReturn(Optional.empty());
     }
 
     /**
@@ -198,7 +196,7 @@ class BuyerTelegramBotTest {
         assertEquals(chatId.toString(), response.getChatId());
         assertTrue(response.getText().contains("Не удалось подтвердить, что номер принадлежит вам"));
         assertPhoneKeyboard(response.getReplyMarkup());
-        assertEquals(BuyerTelegramBot.ChatState.AWAITING_CONTACT, bot.getState(chatId),
+        assertEquals(BuyerChatState.AWAITING_CONTACT, bot.getState(chatId),
                 "После отказа бот должен продолжить ожидать контакт");
     }
 
@@ -230,7 +228,7 @@ class BuyerTelegramBotTest {
         assertTrue(response.getText().contains("Не удалось подтвердить, что номер принадлежит вам"),
                 () -> "При сценарии '" + reason + "' бот обязан повторно запросить подтверждение");
         assertPhoneKeyboard(response.getReplyMarkup());
-        assertEquals(BuyerTelegramBot.ChatState.AWAITING_CONTACT, bot.getState(chatId),
+        assertEquals(BuyerChatState.AWAITING_CONTACT, bot.getState(chatId),
                 "После отказа бот должен продолжить ожидать контакт");
     }
 
@@ -346,11 +344,7 @@ class BuyerTelegramBotTest {
      * @param chatId идентификатор чата Telegram
      */
     private void markAwaitingContact(Long chatId) throws Exception {
-        Field field = BuyerTelegramBot.class.getDeclaredField("chatStates");
-        field.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        Map<Long, BuyerTelegramBot.ChatState> states = (Map<Long, BuyerTelegramBot.ChatState>) field.get(bot);
-        states.put(chatId, BuyerTelegramBot.ChatState.AWAITING_CONTACT);
+        chatSessionRepository.updateState(chatId, BuyerChatState.AWAITING_CONTACT);
     }
 
     /**

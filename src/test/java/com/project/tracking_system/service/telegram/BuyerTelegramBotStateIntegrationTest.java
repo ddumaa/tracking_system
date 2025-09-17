@@ -1,8 +1,10 @@
 package com.project.tracking_system.service.telegram;
 
+import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
+import com.project.tracking_system.service.telegram.support.InMemoryChatSessionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,11 +39,9 @@ class BuyerTelegramBotStateIntegrationTest {
     @Mock
     private CustomerTelegramService telegramService;
 
-    @Mock
-    private BuyerBotScreenStateService screenStateService;
-
     private BuyerTelegramBot bot;
     private FullNameValidator fullNameValidator;
+    private InMemoryChatSessionRepository chatSessionRepository;
 
     /**
      * Создаёт экземпляр бота перед каждым сценарием и стабилизирует клиент Telegram.
@@ -49,9 +49,9 @@ class BuyerTelegramBotStateIntegrationTest {
     @BeforeEach
     void setUp() throws Exception {
         fullNameValidator = new FullNameValidator();
-        bot = new BuyerTelegramBot(telegramClient, "token", telegramService, fullNameValidator, screenStateService);
+        chatSessionRepository = new InMemoryChatSessionRepository();
+        bot = new BuyerTelegramBot(telegramClient, "token", telegramService, fullNameValidator, chatSessionRepository);
         when(telegramClient.execute(any(SendMessage.class))).thenReturn(null);
-        when(screenStateService.findState(anyLong())).thenReturn(Optional.empty());
     }
 
     /**
@@ -64,7 +64,7 @@ class BuyerTelegramBotStateIntegrationTest {
 
         bot.consume(textUpdate(chatId, "/start"));
 
-        assertEquals(BuyerTelegramBot.ChatState.AWAITING_CONTACT, bot.getState(chatId),
+        assertEquals(BuyerChatState.AWAITING_CONTACT, bot.getState(chatId),
                 "Состояние должно перейти в ожидание контакта");
 
         ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
@@ -92,7 +92,7 @@ class BuyerTelegramBotStateIntegrationTest {
 
         bot.consume(textUpdate(chatId, "/start"));
 
-        assertEquals(BuyerTelegramBot.ChatState.AWAITING_NAME_INPUT, bot.getState(chatId),
+        assertEquals(BuyerChatState.AWAITING_NAME_INPUT, bot.getState(chatId),
                 "Бот должен запросить корректное ФИО вместо подтверждения");
         verify(telegramService).markNameUnconfirmed(chatId);
         verify(telegramService, never()).confirmName(chatId);
@@ -123,7 +123,7 @@ class BuyerTelegramBotStateIntegrationTest {
 
         bot.consume(contactUpdate(chatId, "+375291112233"));
 
-        assertEquals(BuyerTelegramBot.ChatState.AWAITING_NAME_INPUT, bot.getState(chatId),
+        assertEquals(BuyerChatState.AWAITING_NAME_INPUT, bot.getState(chatId),
                 "После контакта без имени бот должен ожидать ввод ФИО");
         verify(telegramService).confirmTelegram(customer);
         verify(telegramService).notifyActualStatuses(customer);
@@ -163,7 +163,7 @@ class BuyerTelegramBotStateIntegrationTest {
 
         bot.consume(textUpdate(chatId, "  Иван Иванов  "));
 
-        assertEquals(BuyerTelegramBot.ChatState.IDLE, bot.getState(chatId),
+        assertEquals(BuyerChatState.IDLE, bot.getState(chatId),
                 "После ввода имени бот должен перейти в состояние IDLE");
         verify(telegramService).updateNameFromTelegram(chatId, "Иван Иванов");
 
@@ -184,12 +184,12 @@ class BuyerTelegramBotStateIntegrationTest {
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.empty());
 
         bot.consume(textUpdate(chatId, "/start"));
-        assertEquals(BuyerTelegramBot.ChatState.AWAITING_CONTACT, bot.getState(chatId));
+        assertEquals(BuyerChatState.AWAITING_CONTACT, bot.getState(chatId));
         clearInvocations(telegramClient);
 
         bot.consume(textUpdate(chatId, "/stats"));
 
-        assertEquals(BuyerTelegramBot.ChatState.AWAITING_CONTACT, bot.getState(chatId),
+        assertEquals(BuyerChatState.AWAITING_CONTACT, bot.getState(chatId),
                 "Бот должен продолжать ожидать контакт");
         ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
         verify(telegramClient).execute(captor.capture());
@@ -215,12 +215,12 @@ class BuyerTelegramBotStateIntegrationTest {
         when(telegramService.confirmTelegram(customer)).thenReturn(customer);
 
         bot.consume(contactUpdate(chatId, "+375296666666"));
-        assertEquals(BuyerTelegramBot.ChatState.AWAITING_NAME_INPUT, bot.getState(chatId));
+        assertEquals(BuyerChatState.AWAITING_NAME_INPUT, bot.getState(chatId));
         clearInvocations(telegramClient);
 
         bot.consume(textUpdate(chatId, "Верно"));
 
-        assertEquals(BuyerTelegramBot.ChatState.AWAITING_NAME_INPUT, bot.getState(chatId),
+        assertEquals(BuyerChatState.AWAITING_NAME_INPUT, bot.getState(chatId),
                 "Бот не должен завершать ожидание ФИО после неподходящей команды");
         ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
         verify(telegramClient).execute(captor.capture());
@@ -245,14 +245,14 @@ class BuyerTelegramBotStateIntegrationTest {
         when(telegramService.confirmTelegram(customer)).thenReturn(customer);
 
         bot.consume(contactUpdate(chatId, "+375295555555"));
-        assertEquals(BuyerTelegramBot.ChatState.AWAITING_NAME_INPUT, bot.getState(chatId));
+        assertEquals(BuyerChatState.AWAITING_NAME_INPUT, bot.getState(chatId));
         clearInvocations(telegramClient);
 
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
         bot.consume(textUpdate(chatId, "/menu"));
 
-        assertEquals(BuyerTelegramBot.ChatState.IDLE, bot.getState(chatId),
+        assertEquals(BuyerChatState.IDLE, bot.getState(chatId),
                 "Команда /menu должна переводить бот в состояние IDLE");
         ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
         verify(telegramClient, atLeastOnce()).execute(captor.capture());
@@ -278,12 +278,12 @@ class BuyerTelegramBotStateIntegrationTest {
         when(telegramService.confirmTelegram(customer)).thenReturn(customer);
 
         bot.consume(contactUpdate(chatId, "+375294444444"));
-        assertEquals(BuyerTelegramBot.ChatState.AWAITING_NAME_INPUT, bot.getState(chatId));
+        assertEquals(BuyerChatState.AWAITING_NAME_INPUT, bot.getState(chatId));
         clearInvocations(telegramClient);
 
         bot.consume(textUpdate(chatId, "Иван123"));
 
-        assertEquals(BuyerTelegramBot.ChatState.AWAITING_NAME_INPUT, bot.getState(chatId),
+        assertEquals(BuyerChatState.AWAITING_NAME_INPUT, bot.getState(chatId),
                 "Состояние не должно меняться при некорректном вводе");
         verify(telegramService, never()).updateNameFromTelegram(anyLong(), anyString());
 
@@ -312,12 +312,12 @@ class BuyerTelegramBotStateIntegrationTest {
         when(telegramService.confirmName(chatId)).thenReturn(true);
 
         bot.consume(contactUpdate(chatId, "+375293333333"));
-        assertEquals(BuyerTelegramBot.ChatState.AWAITING_NAME_INPUT, bot.getState(chatId));
+        assertEquals(BuyerChatState.AWAITING_NAME_INPUT, bot.getState(chatId));
         clearInvocations(telegramClient);
 
         bot.consume(textUpdate(chatId, "да"));
 
-        assertEquals(BuyerTelegramBot.ChatState.IDLE, bot.getState(chatId),
+        assertEquals(BuyerChatState.IDLE, bot.getState(chatId),
                 "После подтверждения бот должен вернуться в режим команд");
         verify(telegramService).confirmName(chatId);
         verify(telegramService, never()).updateNameFromTelegram(anyLong(), anyString());
@@ -347,12 +347,12 @@ class BuyerTelegramBotStateIntegrationTest {
         when(telegramService.confirmName(chatId)).thenReturn(false);
 
         bot.consume(contactUpdate(chatId, "+375292222222"));
-        assertEquals(BuyerTelegramBot.ChatState.AWAITING_NAME_INPUT, bot.getState(chatId));
+        assertEquals(BuyerChatState.AWAITING_NAME_INPUT, bot.getState(chatId));
         clearInvocations(telegramClient);
 
         bot.consume(textUpdate(chatId, "ок"));
 
-        assertEquals(BuyerTelegramBot.ChatState.AWAITING_NAME_INPUT, bot.getState(chatId),
+        assertEquals(BuyerChatState.AWAITING_NAME_INPUT, bot.getState(chatId),
                 "Имя остаётся неподтверждённым, бот продолжает ожидать ввод");
         verify(telegramService).confirmName(chatId);
         verify(telegramService, never()).updateNameFromTelegram(anyLong(), anyString());
@@ -385,7 +385,7 @@ class BuyerTelegramBotStateIntegrationTest {
 
         bot.consume(textUpdate(chatId, "Верно"));
 
-        assertEquals(BuyerTelegramBot.ChatState.IDLE, bot.getState(chatId),
+        assertEquals(BuyerChatState.IDLE, bot.getState(chatId),
                 "Подтверждение не должно менять состояние меню");
         verify(telegramService).confirmName(chatId);
         verify(telegramService, never()).updateNameFromTelegram(anyLong(), anyString());

@@ -15,7 +15,7 @@ import lombok.Setter;
  * Состояние якорного сообщения покупателя в Telegram.
  * <p>
  * Хранит идентификатор последнего сообщения с инлайн-кнопками и экран,
- * который должен отображаться при его перерисовке.
+ * который должен отображаться при его перерисовке, а также сценарное состояние диалога.
  * </p>
  */
 @Getter
@@ -45,5 +45,12 @@ public class BuyerBotScreenState {
     @Enumerated(EnumType.STRING)
     @Column(name = "last_screen")
     private BuyerBotScreen lastScreen;
+
+    /**
+     * Текущее сценарное состояние диалога покупателя.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "chat_state")
+    private BuyerChatState chatState;
 }
 

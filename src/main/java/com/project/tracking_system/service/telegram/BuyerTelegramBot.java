@@ -1,7 +1,7 @@
 package com.project.tracking_system.service.telegram;
 
 import com.project.tracking_system.entity.BuyerBotScreen;
-import com.project.tracking_system.entity.BuyerBotScreenState;
+import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
@@ -33,7 +33,6 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,12 +43,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 @Slf4j
 public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
-
-    enum ChatState {
-        IDLE,
-        AWAITING_CONTACT,
-        AWAITING_NAME_INPUT
-    }
 
     private static final String BUTTON_STATS = "📊 Статистика";
     private static final String BUTTON_SETTINGS = "⚙️ Настройки";
@@ -75,9 +68,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private final TelegramClient telegramClient;
     private final CustomerTelegramService telegramService;
     private final FullNameValidator fullNameValidator;
-    private final BuyerBotScreenStateService screenStateService;
+    private final ChatSessionRepository chatSessionRepository;
     private final String botToken;
-    private final Map<Long, ChatState> chatStates = new ConcurrentHashMap<>();
     private final Set<Long> configuredKeyboards = ConcurrentHashMap.newKeySet();
 
     /**
@@ -91,12 +83,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                             @Value("${telegram.bot.token:}") String token,
                             CustomerTelegramService telegramService,
                             FullNameValidator fullNameValidator,
-                            BuyerBotScreenStateService screenStateService) {
+                            ChatSessionRepository chatSessionRepository) {
         this.telegramClient = telegramClient;
         this.botToken = token;
         this.telegramService = telegramService;
         this.fullNameValidator = fullNameValidator;
-        this.screenStateService = screenStateService;
+        this.chatSessionRepository = chatSessionRepository;
     }
 
     /**
@@ -161,9 +153,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         String trimmed = text.trim();
-        ChatState state = getState(chatId);
+        BuyerChatState state = getState(chatId);
 
-        if (state == ChatState.AWAITING_CONTACT) {
+        if (state == BuyerChatState.AWAITING_CONTACT) {
             if (trimmed.isEmpty() || trimmed.startsWith("/")) {
                 remindContactRequired(chatId);
                 return;
@@ -187,7 +179,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        if (state == ChatState.AWAITING_NAME_INPUT) {
+        if (state == BuyerChatState.AWAITING_NAME_INPUT) {
             if (trimmed.startsWith("/") || isNameControlCommand(trimmed)) {
                 remindNameRequired(chatId);
             } else {
@@ -219,9 +211,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        BuyerBotScreenState state = screenStateService.findState(chatId).orElse(null);
-        if (isCallbackFromOutdatedMessage(messageId, state)) {
-            handleOutdatedCallback(chatId, messageId, callbackQuery, state);
+        ChatSession session = chatSessionRepository.find(chatId).orElse(null);
+        if (isCallbackFromOutdatedMessage(messageId, session)) {
+            handleOutdatedCallback(chatId, messageId, callbackQuery, session);
             return;
         }
 
@@ -255,7 +247,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (chatId == null || messageId == null) {
             return;
         }
-        screenStateService.updateAnchor(chatId, messageId);
+        chatSessionRepository.updateAnchor(chatId, messageId);
     }
 
     /**
@@ -265,11 +257,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param state     сохранённое состояние чата
      * @return {@code true}, если callback относится к устаревшему сообщению
      */
-    private boolean isCallbackFromOutdatedMessage(Integer messageId, BuyerBotScreenState state) {
-        return state != null
-                && state.getAnchorMessageId() != null
+    private boolean isCallbackFromOutdatedMessage(Integer messageId, ChatSession session) {
+        return session != null
+                && session.getAnchorMessageId() != null
                 && messageId != null
-                && !state.getAnchorMessageId().equals(messageId);
+                && !session.getAnchorMessageId().equals(messageId);
     }
 
     /**
@@ -283,10 +275,10 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private void handleOutdatedCallback(Long chatId,
                                         Integer messageId,
                                         CallbackQuery callbackQuery,
-                                        BuyerBotScreenState state) {
+                                        ChatSession session) {
         answerCallbackQuery(callbackQuery, "Экран обновлён");
         removeInlineKeyboard(chatId, messageId);
-        BuyerBotScreen screen = state != null ? state.getLastScreen() : null;
+        BuyerBotScreen screen = session != null ? session.getLastScreen() : null;
         renderScreen(chatId, screen);
     }
 
@@ -350,13 +342,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         log.info("✅ Команда /start получена от {}", chatId);
         Optional<Customer> optional = telegramService.findByChatId(chatId);
         if (optional.isEmpty()) {
-            transitionToState(chatId, ChatState.AWAITING_CONTACT);
+            transitionToState(chatId, BuyerChatState.AWAITING_CONTACT);
             sendSharePhoneKeyboard(chatId);
             return;
         }
 
         Customer customer = optional.get();
-        transitionToState(chatId, ChatState.IDLE);
+        transitionToState(chatId, BuyerChatState.IDLE);
         sendMainMenu(chatId);
 
         if (!ensureValidStoredNameOrRequestUpdate(chatId, customer)) {
@@ -455,7 +447,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         answerCallbackQuery(callbackQuery, "Ожидаю ввод ФИО");
         telegramService.markNameUnconfirmed(chatId);
-        transitionToState(chatId, ChatState.AWAITING_NAME_INPUT);
+        transitionToState(chatId, BuyerChatState.AWAITING_NAME_INPUT);
 
         String prompt = "✍️ Отправьте новое ФИО сообщением.";
         sendSimpleMessage(chatId, prompt);
@@ -477,7 +469,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param chatId идентификатор чата Telegram
      */
     private void handleMenuCommand(Long chatId) {
-        transitionToState(chatId, ChatState.IDLE);
+        transitionToState(chatId, BuyerChatState.IDLE);
         Optional<Customer> optional = telegramService.findByChatId(chatId);
         if (optional.isPresent()) {
             Customer customer = optional.get();
@@ -612,7 +604,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        boolean awaitingName = getState(chatId) == ChatState.AWAITING_NAME_INPUT;
+        boolean awaitingName = getState(chatId) == BuyerChatState.AWAITING_NAME_INPUT;
         String text = buildSettingsText(customer, awaitingName);
         InlineKeyboardMarkup markup = buildSettingsKeyboard(customer);
         sendInlineMessage(chatId, text, markup, BuyerBotScreen.SETTINGS);
@@ -743,7 +735,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 ? "✍️ Отправьте своё ФИО сообщением."
                 : "✍️ Отправьте новое ФИО сообщением.";
         answerCallbackQuery(callbackQuery, "Ожидаю ввод ФИО");
-        transitionToState(chatId, ChatState.AWAITING_NAME_INPUT);
+        transitionToState(chatId, BuyerChatState.AWAITING_NAME_INPUT);
         sendSimpleMessage(chatId, prompt);
         renderSettingsScreen(chatId, customer);
     }
@@ -755,7 +747,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param callbackQuery исходный callback-запрос
      */
     private void handleCallbackBackToMenu(Long chatId, CallbackQuery callbackQuery) {
-        transitionToState(chatId, ChatState.IDLE);
+        transitionToState(chatId, BuyerChatState.IDLE);
         answerCallbackQuery(callbackQuery, "Открыл меню");
         sendMainMenu(chatId);
     }
@@ -772,7 +764,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        boolean awaitingName = getState(chatId) == ChatState.AWAITING_NAME_INPUT;
+        boolean awaitingName = getState(chatId) == BuyerChatState.AWAITING_NAME_INPUT;
         String settingsText = buildSettingsText(customer, awaitingName);
         InlineKeyboardMarkup settingsKeyboard = buildSettingsKeyboard(customer);
         sendInlineMessage(chatId, settingsText, settingsKeyboard, BuyerBotScreen.SETTINGS);
@@ -935,7 +927,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (validation.error() == FullNameValidator.FullNameValidationError.CONFIRMATION_PHRASE) {
             boolean confirmed = confirmNameAndNotify(chatId);
             if (confirmed) {
-                transitionToState(chatId, ChatState.IDLE);
+                transitionToState(chatId, BuyerChatState.IDLE);
                 refreshMainMenu(chatId);
             } else {
                 sendNameConfirmationFailure(chatId);
@@ -956,7 +948,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         sendSimpleMessage(chatId, "✅ ФИО сохранено и подтверждено");
-        transitionToState(chatId, ChatState.IDLE);
+        transitionToState(chatId, BuyerChatState.IDLE);
         refreshMainMenu(chatId);
     }
 
@@ -989,7 +981,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param chatId идентификатор чата Telegram
      */
     private void remindContactRequired(Long chatId) {
-        transitionToState(chatId, ChatState.AWAITING_CONTACT);
+        transitionToState(chatId, BuyerChatState.AWAITING_CONTACT);
         sendPhoneRequestMessage(chatId,
                 "📱 Пожалуйста, поделитесь контактом через кнопку ниже — только так мы сможем принять номер. После получения телефона мы продолжим настройку.");
     }
@@ -1023,29 +1015,22 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param chatId идентификатор чата Telegram
      * @param state  состояние, в которое нужно перевести сценарий
      */
-    private void transitionToState(Long chatId, ChatState state) {
+    private void transitionToState(Long chatId, BuyerChatState state) {
         if (chatId == null || state == null) {
             return;
         }
 
-        if (state == ChatState.IDLE) {
-            chatStates.remove(chatId);
-        } else {
-            chatStates.put(chatId, state);
-        }
+        chatSessionRepository.updateState(chatId, state);
     }
 
     /**
      * Возвращает зафиксированное состояние чата.
      *
      * @param chatId идентификатор чата Telegram
-     * @return сохранённое состояние или {@link ChatState#IDLE}, если чат не отслеживается
+     * @return сохранённое состояние или {@link BuyerChatState#IDLE}, если чат не отслеживается
      */
-    ChatState getState(Long chatId) {
-        if (chatId == null) {
-            return ChatState.IDLE;
-        }
-        return chatStates.getOrDefault(chatId, ChatState.IDLE);
+    BuyerChatState getState(Long chatId) {
+        return chatSessionRepository.getState(chatId);
     }
 
     /**
@@ -1404,8 +1389,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        Integer messageId = screenStateService.findState(chatId)
-                .map(BuyerBotScreenState::getAnchorMessageId)
+        Integer messageId = chatSessionRepository.find(chatId)
+                .map(ChatSession::getAnchorMessageId)
                 .orElse(null);
 
         if (messageId != null) {
@@ -1417,17 +1402,17 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                     .build();
             try {
                 telegramClient.execute(edit);
-                screenStateService.saveState(chatId, messageId, screen);
+                chatSessionRepository.updateAnchorAndScreen(chatId, messageId, screen);
                 return;
             } catch (TelegramApiException e) {
                 String errorMessage = e.getMessage();
                 if (errorMessage != null && errorMessage.contains("message is not modified")) {
-                    screenStateService.saveState(chatId, messageId, screen);
+                    chatSessionRepository.updateAnchorAndScreen(chatId, messageId, screen);
                     log.debug("ℹ️ Содержимое якорного сообщения для чата {} не изменилось", chatId);
                     return;
                 }
                 log.warn("⚠️ Не удалось обновить якорное сообщение для чата {}", chatId, e);
-                screenStateService.clearAnchor(chatId);
+                chatSessionRepository.clearAnchor(chatId);
             }
         }
 
@@ -1437,7 +1422,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         try {
             Message sent = telegramClient.execute(message);
             if (sent != null) {
-                screenStateService.saveState(chatId, sent.getMessageId(), screen);
+                chatSessionRepository.updateAnchorAndScreen(chatId, sent.getMessageId(), screen);
             }
         } catch (TelegramApiException e) {
             log.error("❌ Ошибка отправки якорного сообщения", e);
@@ -1560,7 +1545,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param chatId идентификатор чата
      */
     private void promptForName(Long chatId) {
-        transitionToState(chatId, ChatState.AWAITING_NAME_INPUT);
+        transitionToState(chatId, BuyerChatState.AWAITING_NAME_INPUT);
         sendSimpleMessage(chatId, "✍️ Пожалуйста, укажите своё ФИО");
     }
 
@@ -1588,7 +1573,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         telegramService.markNameUnconfirmed(chatId);
         customer.setNameSource(NameSource.MERCHANT_PROVIDED);
-        transitionToState(chatId, ChatState.AWAITING_NAME_INPUT);
+        transitionToState(chatId, BuyerChatState.AWAITING_NAME_INPUT);
         sendSimpleMessage(chatId, "Укажите своё ФИО");
         return false;
     }
@@ -1691,7 +1676,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (!isContactOwnedBySender(senderId, contactUserId)) {
             log.warn("⚠️ Не удалось подтвердить владение номером: chatId={}, contactUserId={}, senderId={}",
                     chatId, contactUserId, senderId);
-            transitionToState(chatId, ChatState.AWAITING_CONTACT);
+            transitionToState(chatId, BuyerChatState.AWAITING_CONTACT);
             sendContactOwnershipRejectedMessage(chatId);
             return;
         }
@@ -1724,7 +1709,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 return;
             }
 
-            transitionToState(chatId, ChatState.IDLE);
+            transitionToState(chatId, BuyerChatState.IDLE);
         } catch (Exception e) {
             log.error("❌ Ошибка регистрации телефона {} для чата {}",
                     PhoneUtils.maskPhone(phone), chatId, e);

@@ -6,6 +6,7 @@ import ch.qos.logback.core.read.ListAppender;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
+import com.project.tracking_system.service.telegram.support.InMemoryChatSessionRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,20 +37,18 @@ class BuyerTelegramBotLoggingTest {
     @Mock
     private CustomerTelegramService customerTelegramService;
 
-    @Mock
-    private BuyerBotScreenStateService screenStateService;
-
     private BuyerTelegramBot buyerTelegramBot;
+    private InMemoryChatSessionRepository chatSessionRepository;
 
     private Logger logger;
     private ListAppender<ILoggingEvent> appender;
 
     @BeforeEach
     void setUp() {
+        chatSessionRepository = new InMemoryChatSessionRepository();
         buyerTelegramBot = new BuyerTelegramBot(telegramClient, "token", customerTelegramService,
-                new FullNameValidator(), screenStateService);
+                new FullNameValidator(), chatSessionRepository);
         when(telegramClient.execute(any(SendMessage.class))).thenReturn(null);
-        when(screenStateService.findState(anyLong())).thenReturn(Optional.empty());
         logger = (Logger) LoggerFactory.getLogger(BuyerTelegramBot.class);
         appender = new ListAppender<>();
         appender.start();
