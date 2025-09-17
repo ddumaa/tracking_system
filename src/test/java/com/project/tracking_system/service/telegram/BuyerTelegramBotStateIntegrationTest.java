@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Contact;
@@ -34,6 +35,7 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -674,6 +676,82 @@ class BuyerTelegramBotStateIntegrationTest {
 
         assertTrue(hasReplyKeyboard,
                 "Повторный показ меню обязан переотправить reply-клавиатуру");
+    }
+
+    /**
+     * Проверяет, что повторное нажатие кнопки «🏠 Меню» приводит к созданию нового сообщения
+     * главного меню, а у старого сообщения исчезают инлайн-кнопки.
+     */
+    @Test
+    void shouldRefreshMenuMessageWhenMenuButtonPressedTwice() throws Exception {
+        Long chatId = 9090L;
+        int previousAnchorId = 777;
+
+        Customer customer = new Customer();
+        customer.setTelegramConfirmed(true);
+        customer.setNotificationsEnabled(true);
+        customer.setNameSource(NameSource.USER_CONFIRMED);
+        customer.setFullName("Иван Иванов");
+
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        chatSessionRepository.updateAnchorAndScreen(chatId, previousAnchorId, BuyerBotScreen.MENU);
+        chatSessionRepository.markKeyboardVisible(chatId);
+
+        AtomicInteger messageIdSequence = new AtomicInteger(500);
+        AtomicInteger newMenuAnchorId = new AtomicInteger();
+
+        try {
+            when(telegramClient.execute(any(SendMessage.class))).thenAnswer(invocation -> {
+                SendMessage request = invocation.getArgument(0);
+                Message sent = new Message();
+                int assignedId = messageIdSequence.incrementAndGet();
+                sent.setMessageId(assignedId);
+                if (request.getText() != null && request.getText().contains("Главное меню")) {
+                    newMenuAnchorId.set(assignedId);
+                }
+                return sent;
+            });
+
+            bot.consume(textUpdate(chatId, "🏠 Меню"));
+
+            ArgumentCaptor<EditMessageReplyMarkup> markupCaptor = ArgumentCaptor.forClass(EditMessageReplyMarkup.class);
+            verify(telegramClient, atLeastOnce()).execute(markupCaptor.capture());
+            boolean keyboardDetached = markupCaptor.getAllValues().stream()
+                    .filter(Objects::nonNull)
+                    .anyMatch(request -> Objects.equals(request.getMessageId(), previousAnchorId)
+                            && request.getReplyMarkup() == null);
+
+            assertTrue(keyboardDetached,
+                    "Старое сообщение меню должно лишиться инлайн-кнопок после повторного нажатия");
+
+            ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
+            verify(telegramClient, atLeastOnce()).execute(messageCaptor.capture());
+            boolean hasMenuMessage = messageCaptor.getAllValues().stream()
+                    .map(SendMessage::getText)
+                    .filter(Objects::nonNull)
+                    .anyMatch(text -> text.contains("Главное меню"));
+
+            assertTrue(hasMenuMessage,
+                    "При повторном нажатии кнопки «🏠 Меню» бот обязан отправить новое сообщение меню");
+
+            ChatSession session = chatSessionRepository.find(chatId)
+                    .orElseThrow(() -> new AssertionError("Данные сессии должны сохраняться после повторного меню"));
+
+            assertEquals(BuyerBotScreen.MENU, session.getLastScreen(),
+                    "Последний экран должен оставаться главным меню");
+            assertNotNull(session.getAnchorMessageId(),
+                    "После переотправки меню должен быть зафиксирован новый идентификатор сообщения");
+            assertNotEquals(previousAnchorId, session.getAnchorMessageId(),
+                    "Новый якорь меню не может совпадать со старым идентификатором");
+            assertEquals(newMenuAnchorId.get(), session.getAnchorMessageId(),
+                    "В сессии должен сохраниться идентификатор нового сообщения меню");
+
+            verify(telegramClient, never()).execute(any(EditMessageText.class));
+        } finally {
+            clearInvocations(telegramClient);
+            doReturn(null).when(telegramClient).execute(any(SendMessage.class));
+        }
     }
 
     /**
