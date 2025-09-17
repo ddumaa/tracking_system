@@ -16,7 +16,6 @@ import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
@@ -1211,13 +1210,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        ensurePersistentKeyboard(chatId);
-
         Optional<Customer> optional = telegramService.findByChatId(chatId);
         Customer customer = optional.orElse(null);
         String text = buildMainMenuText(customer);
         InlineKeyboardMarkup markup = buildMainMenuKeyboard(customer);
         sendInlineMessage(chatId, text, markup, BuyerBotScreen.MENU);
+
+        ensurePersistentKeyboard(chatId);
     }
 
     /**
@@ -1396,10 +1395,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
-     * Обеспечивает наличие новой reply-клавиатуры в чате.
+     * Обеспечивает наличие постоянной reply-клавиатуры внизу диалога.
      * <p>
-     * Клавиатура меню не переотправляется, если бот всё ещё ждёт контакт
-     * пользователя, чтобы не сбивать сценарий запроса телефона.
+     * Сообщение, которое содержит клавиатуру, остаётся последним, чтобы кнопки
+     * «🏠 Меню» и «❓ Помощь» были доступны даже после перезапуска бота и ручного
+     * скрытия клавиатуры пользователем. Во время ожидания контакта клавиатура не
+     * восстанавливается, чтобы не мешать сценарию отправки номера телефона.
      * </p>
      *
      * @param chatId идентификатор чата Telegram
@@ -1418,41 +1419,19 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         SendMessage message = new SendMessage(chatId.toString(),
-                "Клавиатура обновлена. Используйте кнопки «🏠 Меню» и «❓ Помощь».\n");
+                "Клавиши быстрого доступа доступны на панели ниже: «🏠 Меню» и «❓ Помощь».");
         message.setReplyMarkup(createPersistentMenuKeyboard());
         message.setDisableNotification(true);
 
         try {
             Message sent = telegramClient.execute(message);
             chatSessionRepository.markKeyboardVisible(chatId);
-            if (sent != null) {
-                deleteMessageSilently(chatId, sent.getMessageId());
+            if (sent == null) {
+                log.debug("ℹ️ Telegram не вернул данные отправленного сообщения для чата {}", chatId);
             }
         } catch (TelegramApiException e) {
             chatSessionRepository.markKeyboardHidden(chatId);
             log.error("❌ Ошибка применения reply-клавиатуры", e);
-        }
-    }
-
-    /**
-     * Удаляет служебное сообщение, оставляя настроенную клавиатуру у пользователя.
-     *
-     * @param chatId    идентификатор чата Telegram
-     * @param messageId идентификатор сообщения, которое требуется удалить
-     */
-    private void deleteMessageSilently(Long chatId, Integer messageId) {
-        if (chatId == null || messageId == null) {
-            return;
-        }
-
-        DeleteMessage deleteMessage = DeleteMessage.builder()
-                .chatId(chatId.toString())
-                .messageId(messageId)
-                .build();
-        try {
-            telegramClient.execute(deleteMessage);
-        } catch (TelegramApiException e) {
-            log.debug("ℹ️ Не удалось удалить служебное сообщение клавиатуры для чата {}", chatId, e);
         }
     }
 
