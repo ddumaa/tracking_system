@@ -351,6 +351,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         Optional<Customer> optional = telegramService.findByChatId(chatId);
         if (optional.isEmpty()) {
             transitionToState(chatId, BuyerChatState.AWAITING_CONTACT);
+            chatSessionRepository.markKeyboardHidden(chatId);
             sendSharePhoneKeyboard(chatId);
             return;
         }
@@ -990,6 +991,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      */
     private void remindContactRequired(Long chatId) {
         transitionToState(chatId, BuyerChatState.AWAITING_CONTACT);
+        chatSessionRepository.markKeyboardHidden(chatId);
         sendPhoneRequestMessage(chatId,
                 "📱 Пожалуйста, поделитесь контактом через кнопку ниже — только так мы сможем принять номер. После получения телефона мы продолжим настройку.");
     }
@@ -1558,11 +1560,19 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
     /**
      * Отправляет сообщение с клавиатурой запроса телефона.
+     * <p>
+     * Дополнительно фиксирует, что постоянная клавиатура скрыта, чтобы при возврате в меню её переотправить.
+     * </p>
      *
      * @param chatId идентификатор чата
      * @param text   текст, который увидит пользователь
      */
     private void sendPhoneRequestMessage(Long chatId, String text) {
+        if (chatId == null) {
+            return;
+        }
+
+        chatSessionRepository.markKeyboardHidden(chatId);
         SendMessage message = new SendMessage(chatId.toString(), text);
         message.setReplyMarkup(createPhoneRequestKeyboard());
 
@@ -1737,6 +1747,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             log.warn("⚠️ Не удалось подтвердить владение номером: chatId={}, contactUserId={}, senderId={}",
                     chatId, contactUserId, senderId);
             transitionToState(chatId, BuyerChatState.AWAITING_CONTACT);
+            chatSessionRepository.markKeyboardHidden(chatId);
             sendContactOwnershipRejectedMessage(chatId);
             return;
         }
