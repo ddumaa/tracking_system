@@ -24,6 +24,7 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -41,6 +42,9 @@ class BuyerTelegramBotTest {
     @Mock
     private CustomerTelegramService telegramService;
 
+    @Mock
+    private BuyerBotScreenStateService screenStateService;
+
     private BuyerTelegramBot bot;
     private FullNameValidator fullNameValidator;
 
@@ -50,8 +54,9 @@ class BuyerTelegramBotTest {
     @BeforeEach
     void setUp() {
         fullNameValidator = new FullNameValidator();
-        bot = new BuyerTelegramBot(telegramClient, "token", telegramService, fullNameValidator);
+        bot = new BuyerTelegramBot(telegramClient, "token", telegramService, fullNameValidator, screenStateService);
         doReturn(null).when(telegramClient).execute(any(SendMessage.class));
+        when(screenStateService.findState(anyLong())).thenReturn(Optional.empty());
     }
 
     /**

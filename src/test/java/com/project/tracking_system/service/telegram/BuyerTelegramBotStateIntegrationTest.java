@@ -33,6 +33,9 @@ class BuyerTelegramBotStateIntegrationTest {
     @Mock
     private CustomerTelegramService telegramService;
 
+    @Mock
+    private BuyerBotScreenStateService screenStateService;
+
     private BuyerTelegramBot bot;
     private FullNameValidator fullNameValidator;
 
@@ -42,8 +45,9 @@ class BuyerTelegramBotStateIntegrationTest {
     @BeforeEach
     void setUp() throws Exception {
         fullNameValidator = new FullNameValidator();
-        bot = new BuyerTelegramBot(telegramClient, "token", telegramService, fullNameValidator);
+        bot = new BuyerTelegramBot(telegramClient, "token", telegramService, fullNameValidator, screenStateService);
         when(telegramClient.execute(any(SendMessage.class))).thenReturn(null);
+        when(screenStateService.findState(anyLong())).thenReturn(Optional.empty());
     }
 
     /**
