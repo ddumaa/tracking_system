@@ -161,6 +161,18 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         String trimmed = text.trim();
+        ChatState state = getState(chatId);
+
+        if (state == ChatState.AWAITING_CONTACT) {
+            if (trimmed.isEmpty() || trimmed.startsWith("/")) {
+                remindContactRequired(chatId);
+                return;
+            }
+
+            handleAwaitedPhoneText(chatId, trimmed);
+            return;
+        }
+
         if (trimmed.isEmpty()) {
             return;
         }
@@ -172,17 +184,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         if ("/start".equals(trimmed)) {
             handleStartCommand(chatId);
-            return;
-        }
-
-        ChatState state = getState(chatId);
-
-        if (state == ChatState.AWAITING_CONTACT) {
-            if (trimmed.startsWith("/")) {
-                remindContactRequired(chatId);
-            } else {
-                handleAwaitedPhoneText(chatId, trimmed);
-            }
             return;
         }
 

@@ -14,8 +14,12 @@ import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Contact;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -69,8 +73,7 @@ class BuyerTelegramBotStateIntegrationTest {
 
         assertTrue(message.getText().contains("номер"),
                 "Пользователь должен получить приглашение поделиться номером");
-        assertNotNull(message.getReplyMarkup(),
-                "Должна отправляться клавиатура запроса контакта");
+        assertPhoneKeyboard(message);
     }
 
     /**
@@ -190,8 +193,10 @@ class BuyerTelegramBotStateIntegrationTest {
                 "Бот должен продолжать ожидать контакт");
         ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
         verify(telegramClient).execute(captor.capture());
-        assertTrue(captor.getValue().getText().contains("поделитесь контактом"),
+        SendMessage message = captor.getValue();
+        assertTrue(message.getText().contains("поделитесь контактом"),
                 "Пользователь должен получить напоминание об отправке контакта");
+        assertPhoneKeyboard(message);
         verify(telegramService, never()).getStatistics(chatId);
     }
 
@@ -444,5 +449,37 @@ class BuyerTelegramBotStateIntegrationTest {
         chat.setId(chatId);
         chat.setType("private");
         return chat;
+    }
+
+    /**
+     * Проверяет, что сообщение содержит клавиатуру с запросом контакта.
+     *
+     * @param message отправленное ботом сообщение
+     */
+    private void assertPhoneKeyboard(SendMessage message) {
+        assertNotNull(message, "Сообщение не должно быть null");
+        assertNotNull(message.getReplyMarkup(), "Ожидалась клавиатура с запросом контакта");
+        assertTrue(message.getReplyMarkup() instanceof ReplyKeyboardMarkup,
+                "Клавиатура должна быть типа ReplyKeyboardMarkup");
+
+        ReplyKeyboardMarkup markup = (ReplyKeyboardMarkup) message.getReplyMarkup();
+        List<KeyboardRow> rows = markup.getKeyboard();
+        assertNotNull(rows, "Список строк клавиатуры не должен быть пустым");
+        assertFalse(rows.isEmpty(), "Клавиатура должна содержать хотя бы одну строку");
+
+        boolean hasContactButton = false;
+        for (KeyboardRow row : rows) {
+            for (KeyboardButton button : row) {
+                if (Boolean.TRUE.equals(button.getRequestContact())) {
+                    hasContactButton = true;
+                    break;
+                }
+            }
+            if (hasContactButton) {
+                break;
+            }
+        }
+
+        assertTrue(hasContactButton, "Кнопка запроса контакта должна присутствовать");
     }
 }

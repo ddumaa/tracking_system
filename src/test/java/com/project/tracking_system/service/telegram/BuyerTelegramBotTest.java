@@ -58,6 +58,7 @@ class BuyerTelegramBotTest {
         fullNameValidator = new FullNameValidator();
         bot = new BuyerTelegramBot(telegramClient, "token", telegramService, fullNameValidator, screenStateService);
         doReturn(null).when(telegramClient).execute(any(SendMessage.class));
+        when(telegramService.findByChatId(anyLong())).thenReturn(Optional.empty());
         when(screenStateService.findState(anyLong())).thenReturn(Optional.empty());
     }
 
@@ -108,6 +109,72 @@ class BuyerTelegramBotTest {
         assertTrue(message.getText().contains("8029"));
         assertPhoneKeyboard(message.getReplyMarkup());
         verifyNoInteractions(telegramService);
+    }
+
+    /**
+     * Проверяет, что после команды /start бот отправляет клавиатуру запроса контакта.
+     */
+    @Test
+    void shouldShowPhoneKeyboardOnStartWhenCustomerMissing() throws Exception {
+        Long chatId = 321L;
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.empty());
+
+        Update update = mockTextUpdate(chatId, "/start");
+
+        bot.consume(update);
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient).execute(captor.capture());
+        SendMessage message = captor.getValue();
+
+        assertEquals(chatId.toString(), message.getChatId());
+        assertPhoneKeyboard(message.getReplyMarkup());
+        assertTrue(message.getText().contains("поделитесь"),
+                "Пользователь должен получить просьбу поделиться номером");
+    }
+
+    /**
+     * Убеждается, что при любой слеш-команде в ожидании контакта бот повторно показывает клавиатуру.
+     */
+    @Test
+    void shouldRepeatContactRequestForSlashCommandWhileAwaitingContact() throws Exception {
+        Long chatId = 322L;
+        markAwaitingContact(chatId);
+
+        Update update = mockTextUpdate(chatId, "/stats");
+
+        bot.consume(update);
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient).execute(captor.capture());
+        SendMessage message = captor.getValue();
+
+        assertEquals(chatId.toString(), message.getChatId());
+        assertPhoneKeyboard(message.getReplyMarkup());
+        assertTrue(message.getText().contains("кнопк"),
+                "Бот должен напомнить о необходимости воспользоваться кнопкой контакта");
+    }
+
+    /**
+     * Проверяет, что пустая строка в ожидании контакта тоже приводит к повторному показу клавиатуры.
+     */
+    @Test
+    void shouldRepeatContactRequestForEmptyTextWhileAwaitingContact() throws Exception {
+        Long chatId = 323L;
+        markAwaitingContact(chatId);
+
+        Update update = mockTextUpdate(chatId, "   ");
+
+        bot.consume(update);
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient).execute(captor.capture());
+        SendMessage message = captor.getValue();
+
+        assertEquals(chatId.toString(), message.getChatId());
+        assertPhoneKeyboard(message.getReplyMarkup());
+        assertTrue(message.getText().contains("кнопк"),
+                "Бот должен повторно показать кнопку запроса контакта");
     }
 
     /**
