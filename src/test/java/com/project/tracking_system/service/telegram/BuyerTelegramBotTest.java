@@ -129,7 +129,39 @@ class BuyerTelegramBotTest {
         SendMessage response = captor.getValue();
 
         assertEquals(chatId.toString(), response.getChatId());
-        assertTrue(response.getText().contains("номер принадлежит другому пользователю"));
+        assertTrue(response.getText().contains("Не удалось подтвердить, что номер принадлежит вам"));
+        assertPhoneKeyboard(response.getReplyMarkup());
+        assertEquals(BuyerTelegramBot.ChatState.AWAITING_CONTACT, bot.getState(chatId),
+                "После отказа бот должен продолжить ожидать контакт");
+    }
+
+    /**
+     * Убеждается, что отсутствие идентификаторов Telegram не позволяет привязать номер.
+     *
+     * @param senderId      идентификатор отправителя сообщения или {@code null}
+     * @param contactUserId идентификатор владельца контакта или {@code null}
+     * @param reason        пояснение сценария для сообщений об ошибке
+     */
+    @ParameterizedTest
+    @MethodSource("missingOwnershipIdentifiers")
+    void shouldRejectContactWhenOwnershipIdentifiersMissing(Long senderId,
+                                                            Long contactUserId,
+                                                            String reason) throws Exception {
+        Long chatId = 654L;
+        markAwaitingContact(chatId);
+
+        Update update = mockContactUpdate(chatId, senderId, contactUserId, "+375291234567");
+
+        bot.consume(update);
+
+        verify(telegramService, never()).linkTelegramToCustomer(anyString(), eq(chatId));
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient).execute(captor.capture());
+        SendMessage response = captor.getValue();
+
+        assertTrue(response.getText().contains("Не удалось подтвердить, что номер принадлежит вам"),
+                () -> "При сценарии '" + reason + "' бот обязан повторно запросить подтверждение");
         assertPhoneKeyboard(response.getReplyMarkup());
         assertEquals(BuyerTelegramBot.ChatState.AWAITING_CONTACT, bot.getState(chatId),
                 "После отказа бот должен продолжить ожидать контакт");
@@ -172,6 +204,19 @@ class BuyerTelegramBotTest {
                 "8 029 123 45 67"
         ).map(number -> Arguments.of(number,
                 PhoneUtils.maskPhone(PhoneUtils.normalizePhone(number))));
+    }
+
+    /**
+     * Набор сценариев, в которых идентификаторы для подтверждения контакта отсутствуют.
+     *
+     * @return поток аргументов с комбинациями senderId/contactUserId
+     */
+    private static Stream<Arguments> missingOwnershipIdentifiers() {
+        return Stream.of(
+                Arguments.of(null, 2_000_000_002L, "отсутствует идентификатор отправителя"),
+                Arguments.of(1_000_000_001L, null, "отсутствует идентификатор владельца контакта"),
+                Arguments.of(null, null, "оба идентификатора отсутствуют")
+        );
     }
 
     /**
