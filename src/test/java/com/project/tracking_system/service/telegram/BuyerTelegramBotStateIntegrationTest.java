@@ -455,6 +455,37 @@ class BuyerTelegramBotStateIntegrationTest {
     }
 
     /**
+     * Проверяет, что команда /start заново отправляет клавиатуру меню, даже если флаг скрытия сброшен вручную.
+     */
+    @Test
+    void shouldResendReplyKeyboardOnStartWhenFlagReset() throws Exception {
+        Long chatId = 3031L;
+        Customer customer = new Customer();
+        customer.setTelegramConfirmed(true);
+        customer.setNameSource(NameSource.USER_CONFIRMED);
+        customer.setNotificationsEnabled(true);
+        customer.setFullName("Анна Смирнова");
+
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        chatSessionRepository.markKeyboardVisible(chatId);
+
+        bot.consume(textUpdate(chatId, "/start"));
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+
+        boolean hasMenuKeyboard = captor.getAllValues().stream()
+                .map(SendMessage::getReplyMarkup)
+                .filter(ReplyKeyboardMarkup.class::isInstance)
+                .map(ReplyKeyboardMarkup.class::cast)
+                .anyMatch(this::containsMenuButtons);
+
+        assertTrue(hasMenuKeyboard,
+                "После повторной команды /start бот обязан вернуть клавиатуру с кнопками «🏠 Меню» и «❓ Помощь»");
+    }
+
+    /**
      * Проверяет, что при потере якоря бот повторно отправляет постоянную клавиатуру.
      */
     @Test

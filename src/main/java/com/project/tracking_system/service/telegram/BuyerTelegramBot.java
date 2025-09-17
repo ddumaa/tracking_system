@@ -355,7 +355,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         Customer customer = optional.get();
+        BuyerChatState previousState = getState(chatId);
         transitionToState(chatId, BuyerChatState.IDLE);
+        if (previousState != BuyerChatState.AWAITING_CONTACT) {
+            chatSessionRepository.markKeyboardHidden(chatId);
+        }
         sendMainMenu(chatId);
 
         if (!ensureValidStoredNameOrRequestUpdate(chatId, customer)) {
