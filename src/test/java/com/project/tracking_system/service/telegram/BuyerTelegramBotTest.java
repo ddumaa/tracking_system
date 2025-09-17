@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.project.tracking_system.entity.BuyerChatState;
+import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
 import com.project.tracking_system.service.telegram.support.InMemoryChatSessionRepository;
@@ -18,6 +19,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Contact;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
@@ -26,6 +28,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
+import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberUpdated;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.util.List;
@@ -41,6 +44,8 @@ import static org.mockito.Mockito.*;
  */
 @ExtendWith(MockitoExtension.class)
 class BuyerTelegramBotTest {
+
+    private static final String MENU_BUTTON_TEXT = "🏠 Меню";
 
     @Mock
     private TelegramClient telegramClient;
@@ -237,6 +242,36 @@ class BuyerTelegramBotTest {
     }
 
     /**
+     * Проверяет, что после события my_chat_member бот восстанавливает главное меню с постоянной клавиатурой.
+     */
+    @Test
+    void shouldRestorePersistentKeyboardWhenMyChatMemberArrives() throws Exception {
+        Long chatId = 558L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        Update update = mockMyChatMemberUpdate(chatId);
+
+        bot.consume(update);
+
+        assertEquals(BuyerChatState.IDLE, bot.getState(chatId),
+                "Привязанный покупатель должен вернуться в состояние ожидания команд");
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+
+        boolean hasPersistentKeyboard = captor.getAllValues().stream()
+                .map(SendMessage::getReplyMarkup)
+                .filter(ReplyKeyboardMarkup.class::isInstance)
+                .map(ReplyKeyboardMarkup.class::cast)
+                .anyMatch(this::keyboardContainsMenuButton);
+
+        assertTrue(hasPersistentKeyboard,
+                "После возврата бота в чат клавиатура с кнопкой «🏠 Меню» должна быть переотправлена");
+    }
+
+    /**
      * Убеждается, что отсутствие идентификаторов Telegram не позволяет привязать номер.
      *
      * @param senderId      идентификатор отправителя сообщения или {@code null}
@@ -375,6 +410,25 @@ class BuyerTelegramBotTest {
     }
 
     /**
+     * Создаёт обновление Telegram типа my_chat_member для проверки восстановления клавиатуры.
+     *
+     * @param chatId идентификатор чата Telegram
+     * @return сконфигурированный объект {@link Update}
+     */
+    private Update mockMyChatMemberUpdate(Long chatId) {
+        Update update = mock(Update.class);
+        ChatMemberUpdated myChatMember = mock(ChatMemberUpdated.class);
+        Chat chat = mock(Chat.class);
+
+        when(update.hasMyChatMember()).thenReturn(true);
+        when(update.getMyChatMember()).thenReturn(myChatMember);
+        when(myChatMember.getChat()).thenReturn(chat);
+        when(chat.getId()).thenReturn(chatId);
+
+        return update;
+    }
+
+    /**
      * Создаёт обновление Telegram со служебным reply_markup.
      *
      * @param chatId      идентификатор чата Telegram
@@ -459,5 +513,23 @@ class BuyerTelegramBotTest {
             }
         }
         assertTrue(hasRequestContact, "Кнопка с запросом контакта должна присутствовать");
+    }
+
+    /**
+     * Проверяет наличие кнопки «🏠 Меню» в постоянной клавиатуре.
+     *
+     * @param markup проверяемая клавиатура
+     * @return {@code true}, если кнопка найдена
+     */
+    private boolean keyboardContainsMenuButton(ReplyKeyboardMarkup markup) {
+        if (markup == null || markup.getKeyboard() == null) {
+            return false;
+        }
+
+        return markup.getKeyboard().stream()
+                .filter(Objects::nonNull)
+                .flatMap(row -> row.stream().filter(Objects::nonNull))
+                .map(KeyboardButton::getText)
+                .anyMatch(MENU_BUTTON_TEXT::equals);
     }
 }
