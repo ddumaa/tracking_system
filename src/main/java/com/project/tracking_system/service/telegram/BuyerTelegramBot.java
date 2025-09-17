@@ -12,10 +12,11 @@ import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Contact;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.message.MaybeInaccessibleMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
@@ -31,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -49,12 +51,18 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String BUTTON_STATS = "📊 Статистика";
     private static final String BUTTON_SETTINGS = "⚙️ Настройки";
     private static final String BUTTON_HELP = "❓ Помощь";
+    private static final String BUTTON_MENU = "🏠 Меню";
     private static final String BUTTON_BACK = "⬅️ Назад";
 
     private static final String CALLBACK_BACK_TO_MENU = "menu:back";
+    private static final String CALLBACK_MENU_SHOW_STATS = "menu:stats";
+    private static final String CALLBACK_MENU_SHOW_SETTINGS = "menu:settings";
+    private static final String CALLBACK_MENU_SHOW_HELP = "menu:help";
     private static final String CALLBACK_SETTINGS_TOGGLE_NOTIFICATIONS = "settings:toggle_notifications";
     private static final String CALLBACK_SETTINGS_CONFIRM_NAME = "settings:confirm_name";
     private static final String CALLBACK_SETTINGS_EDIT_NAME = "settings:edit_name";
+    private static final String CALLBACK_NAME_CONFIRM = "name:confirm";
+    private static final String CALLBACK_NAME_EDIT = "name:edit";
 
     private static final String NAME_CONFIRMATION_MISSING_MESSAGE =
             "⚠️ Пока в системе нет ФИО для подтверждения. Пожалуйста, укажите его полностью.";
@@ -64,6 +72,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private final FullNameValidator fullNameValidator;
     private final String botToken;
     private final Map<Long, ChatState> chatStates = new ConcurrentHashMap<>();
+    private final Map<Long, Integer> anchorMessageIds = new ConcurrentHashMap<>();
+    private final Set<Long> configuredKeyboards = ConcurrentHashMap.newKeySet();
 
     /**
      * Создаёт телеграм-бота для покупателей.
@@ -201,17 +211,37 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
+        rememberAnchorMessage(chatId, messageId);
+
         switch (data) {
+            case CALLBACK_MENU_SHOW_STATS -> handleMenuOpenStats(chatId, callbackQuery);
+            case CALLBACK_MENU_SHOW_SETTINGS -> handleMenuOpenSettings(chatId, callbackQuery);
+            case CALLBACK_MENU_SHOW_HELP -> handleMenuOpenHelp(chatId, callbackQuery);
             case CALLBACK_SETTINGS_TOGGLE_NOTIFICATIONS ->
-                    handleSettingsToggleNotifications(chatId, messageId, callbackQuery);
+                    handleSettingsToggleNotifications(chatId, callbackQuery);
             case CALLBACK_SETTINGS_CONFIRM_NAME ->
-                    handleSettingsConfirmName(chatId, messageId, callbackQuery);
+                    handleSettingsConfirmName(chatId, callbackQuery);
             case CALLBACK_SETTINGS_EDIT_NAME ->
-                    handleSettingsEditName(chatId, messageId, callbackQuery);
+                    handleSettingsEditName(chatId, callbackQuery);
+            case CALLBACK_NAME_CONFIRM -> handleNameConfirmationCallback(chatId, callbackQuery);
+            case CALLBACK_NAME_EDIT -> handleNameEditCallback(chatId, callbackQuery);
             case CALLBACK_BACK_TO_MENU ->
-                    handleCallbackBackToMenu(chatId, messageId, callbackQuery);
+                    handleCallbackBackToMenu(chatId, callbackQuery);
             default -> answerCallbackQuery(callbackQuery, "Неизвестная команда");
         }
+    }
+
+    /**
+     * Запоминает идентификатор якорного сообщения для дальнейшего редактирования.
+     *
+     * @param chatId    идентификатор чата Telegram
+     * @param messageId идентификатор сообщения, отправленного ботом
+     */
+    private void rememberAnchorMessage(Long chatId, Integer messageId) {
+        if (chatId == null || messageId == null) {
+            return;
+        }
+        anchorMessageIds.put(chatId, messageId);
     }
 
     /**
@@ -244,6 +274,97 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         } else if (fullName == null) {
             promptForName(chatId);
         }
+    }
+
+    /**
+     * Показывает экран статистики при выборе пункта главного меню.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     */
+    private void handleMenuOpenStats(Long chatId, CallbackQuery callbackQuery) {
+        if (chatId == null) {
+            answerCallbackQuery(callbackQuery, "Команда недоступна");
+            return;
+        }
+        answerCallbackQuery(callbackQuery, "Статистика");
+        sendStatisticsScreen(chatId);
+    }
+
+    /**
+     * Показывает экран настроек из главного меню.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     */
+    private void handleMenuOpenSettings(Long chatId, CallbackQuery callbackQuery) {
+        if (chatId == null) {
+            answerCallbackQuery(callbackQuery, "Команда недоступна");
+            return;
+        }
+        answerCallbackQuery(callbackQuery, "Настройки");
+        sendSettingsScreen(chatId);
+    }
+
+    /**
+     * Показывает раздел помощи по нажатию кнопки главного меню.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     */
+    private void handleMenuOpenHelp(Long chatId, CallbackQuery callbackQuery) {
+        if (chatId == null) {
+            answerCallbackQuery(callbackQuery, "Команда недоступна");
+            return;
+        }
+        answerCallbackQuery(callbackQuery, "Помощь");
+        sendHelpScreen(chatId);
+    }
+
+    /**
+     * Подтверждает имя из якорного сообщения главного меню.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     */
+    private void handleNameConfirmationCallback(Long chatId, CallbackQuery callbackQuery) {
+        if (chatId == null) {
+            answerCallbackQuery(callbackQuery, "Команда недоступна");
+            return;
+        }
+
+        boolean confirmed = confirmNameAndNotify(chatId);
+        if (confirmed) {
+            answerCallbackQuery(callbackQuery, "Имя подтверждено");
+            sendMainMenu(chatId);
+        } else {
+            answerCallbackQuery(callbackQuery, "Не удалось подтвердить имя");
+            sendNameConfirmationFailure(chatId);
+            sendMainMenu(chatId);
+        }
+    }
+
+    /**
+     * Переводит пользователя в режим ввода нового имени из якорного сообщения.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     */
+    private void handleNameEditCallback(Long chatId, CallbackQuery callbackQuery) {
+        if (chatId == null) {
+            answerCallbackQuery(callbackQuery, "Команда недоступна");
+            return;
+        }
+
+        answerCallbackQuery(callbackQuery, "Ожидаю ввод ФИО");
+        telegramService.markNameUnconfirmed(chatId);
+        transitionToState(chatId, ChatState.AWAITING_NAME_INPUT);
+
+        String prompt = "✍️ Отправьте новое ФИО сообщением.";
+        sendSimpleMessage(chatId, prompt);
+        showAnchorScreen(chatId,
+                prompt + "\n\nПосле ввода воспользуйтесь кнопкой «🏠 Меню», чтобы вернуться.",
+                createBackInlineKeyboard());
     }
 
     /**
@@ -293,6 +414,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
+        if (BUTTON_MENU.equals(text)) {
+            sendMainMenu(chatId);
+            return;
+        }
+
         if ("/stats".equals(text) || BUTTON_STATS.equals(text) || "📊 Моя статистика".equals(text)) {
             sendStatisticsScreen(chatId);
             return;
@@ -324,15 +450,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        if ("✅ Подтвердить имя".equals(text)) {
-            boolean confirmed = confirmNameAndNotify(chatId);
-            if (!confirmed) {
-                sendNameConfirmationFailure(chatId);
-            }
-            refreshMainMenu(chatId);
-            return;
-        }
-
         if (fullNameValidator.isConfirmationPhrase(text)) {
             boolean confirmed = confirmNameAndNotify(chatId);
             if (confirmed) {
@@ -341,22 +458,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 sendNameConfirmationFailure(chatId);
             }
             return;
-        }
-
-        if ("✏️ Изменить имя".equals(text)) {
-            promptForName(chatId);
-            return;
-        }
-
-        if ("Неверно".equalsIgnoreCase(text)) {
-            telegramService.markNameUnconfirmed(chatId);
-            promptForName(chatId);
-            refreshMainMenu(chatId);
-            return;
-        }
-
-        if ("Изменить".equalsIgnoreCase(text)) {
-            promptForName(chatId);
         }
     }
 
@@ -382,8 +483,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                             stores,
                             stats.getReputation().getDisplayName()
                     );
-                    sendInlineMessage(chatId, text, backMarkup);
-                }, () -> sendInlineMessage(chatId,
+                    showAnchorScreen(chatId, text, backMarkup);
+                }, () -> showAnchorScreen(chatId,
                         "\uD83D\uDCCA Статистика пока недоступна. Попробуйте позже или проверьте, есть ли у вас активные заказы.",
                         backMarkup));
     }
@@ -409,7 +510,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         boolean awaitingName = getState(chatId) == ChatState.AWAITING_NAME_INPUT;
         String text = buildSettingsText(customer, awaitingName);
         InlineKeyboardMarkup markup = buildSettingsKeyboard(customer);
-        sendInlineMessage(chatId, text, markup);
+        showAnchorScreen(chatId, text, markup);
     }
 
     /**
@@ -427,17 +528,16 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
                 Управляйте уведомлениями и ФИО через раздел "⚙️ Настройки".
                 """;
-        sendInlineMessage(chatId, helpText, createBackInlineKeyboard());
+        showAnchorScreen(chatId, helpText, createBackInlineKeyboard());
     }
 
     /**
      * Переключает состояние уведомлений при нажатии инлайн-кнопки.
      *
      * @param chatId        идентификатор чата Telegram
-     * @param messageId     идентификатор сообщения с настройками
      * @param callbackQuery исходный callback-запрос
      */
-    private void handleSettingsToggleNotifications(Long chatId, Integer messageId, CallbackQuery callbackQuery) {
+    private void handleSettingsToggleNotifications(Long chatId, CallbackQuery callbackQuery) {
         if (chatId == null) {
             answerCallbackQuery(callbackQuery, "Команда недоступна");
             return;
@@ -465,17 +565,16 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             answerCallbackQuery(callbackQuery, "Настройки не изменились");
         }
 
-        updateSettingsMessage(chatId, messageId, customer);
+        renderSettingsScreen(chatId, customer);
     }
 
     /**
      * Подтверждает имя пользователя из раздела настроек.
      *
      * @param chatId        идентификатор чата Telegram
-     * @param messageId     идентификатор сообщения с настройками
      * @param callbackQuery исходный callback-запрос
      */
-    private void handleSettingsConfirmName(Long chatId, Integer messageId, CallbackQuery callbackQuery) {
+    private void handleSettingsConfirmName(Long chatId, CallbackQuery callbackQuery) {
         if (chatId == null) {
             answerCallbackQuery(callbackQuery, "Команда недоступна");
             return;
@@ -498,7 +597,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         if (customer.getNameSource() == NameSource.USER_CONFIRMED) {
             answerCallbackQuery(callbackQuery, "Имя уже подтверждено");
-            updateSettingsMessage(chatId, messageId, customer);
+            renderSettingsScreen(chatId, customer);
             return;
         }
 
@@ -511,17 +610,16 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             answerCallbackQuery(callbackQuery, "Не удалось подтвердить имя");
         }
 
-        updateSettingsMessage(chatId, messageId, customer);
+        renderSettingsScreen(chatId, customer);
     }
 
     /**
      * Переводит пользователя в режим ввода имени из раздела настроек.
      *
      * @param chatId        идентификатор чата Telegram
-     * @param messageId     идентификатор сообщения с настройками
      * @param callbackQuery исходный callback-запрос
      */
-    private void handleSettingsEditName(Long chatId, Integer messageId, CallbackQuery callbackQuery) {
+    private void handleSettingsEditName(Long chatId, CallbackQuery callbackQuery) {
         if (chatId == null) {
             answerCallbackQuery(callbackQuery, "Команда недоступна");
             return;
@@ -542,21 +640,19 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         answerCallbackQuery(callbackQuery, "Ожидаю ввод ФИО");
         transitionToState(chatId, ChatState.AWAITING_NAME_INPUT);
         sendSimpleMessage(chatId, prompt);
-        updateSettingsMessage(chatId, messageId, customer);
+        renderSettingsScreen(chatId, customer);
     }
 
     /**
      * Возвращает пользователя в главное меню из инлайн-режима.
      *
      * @param chatId        идентификатор чата Telegram
-     * @param messageId     идентификатор исходного сообщения
      * @param callbackQuery исходный callback-запрос
      */
-    private void handleCallbackBackToMenu(Long chatId, Integer messageId, CallbackQuery callbackQuery) {
+    private void handleCallbackBackToMenu(Long chatId, CallbackQuery callbackQuery) {
         transitionToState(chatId, ChatState.IDLE);
         answerCallbackQuery(callbackQuery, "Главное меню");
         sendMainMenu(chatId);
-        removeInlineKeyboard(chatId, messageId);
     }
 
     /**
@@ -566,26 +662,15 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param messageId идентификатор сообщения, которое требуется изменить
      * @param customer состояние покупателя для отображения
      */
-    private void updateSettingsMessage(Long chatId, Integer messageId, Customer customer) {
-        if (chatId == null || messageId == null || customer == null) {
+    private void renderSettingsScreen(Long chatId, Customer customer) {
+        if (chatId == null || customer == null) {
             return;
         }
 
         boolean awaitingName = getState(chatId) == ChatState.AWAITING_NAME_INPUT;
         String settingsText = buildSettingsText(customer, awaitingName);
         InlineKeyboardMarkup settingsKeyboard = buildSettingsKeyboard(customer);
-
-        EditMessageText edit = EditMessageText.builder()
-                .chatId(chatId.toString())
-                .messageId(messageId)
-                .text(settingsText)
-                .replyMarkup(settingsKeyboard)
-                .build();
-        try {
-            telegramClient.execute(edit);
-        } catch (TelegramApiException e) {
-            log.error("❌ Ошибка обновления сообщения настроек", e);
-        }
+        showAnchorScreen(chatId, settingsText, settingsKeyboard);
     }
 
     /**
@@ -680,37 +765,27 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      *
      * @return клавиатура с кнопкой «Назад»
      */
-    private InlineKeyboardMarkup createBackInlineKeyboard() {
-        InlineKeyboardButton backButton = InlineKeyboardButton.builder()
+    /**
+     * Создаёт кнопку возврата к главному меню.
+     *
+     * @return инлайн-кнопка «Назад»
+     */
+    private InlineKeyboardButton buildBackButton() {
+        return InlineKeyboardButton.builder()
                 .text(BUTTON_BACK)
                 .callbackData(CALLBACK_BACK_TO_MENU)
-                .build();
-
-        return InlineKeyboardMarkup.builder()
-                .keyboard(List.of(new InlineKeyboardRow(backButton)))
                 .build();
     }
 
     /**
-     * Удаляет инлайн-клавиатуру из сообщения, чтобы предотвратить повторные нажатия.
+     * Создаёт инлайн-клавиатуру только с кнопкой возврата.
      *
-     * @param chatId    идентификатор чата Telegram
-     * @param messageId идентификатор сообщения
+     * @return клавиатура с кнопкой «Назад»
      */
-    private void removeInlineKeyboard(Long chatId, Integer messageId) {
-        if (chatId == null || messageId == null) {
-            return;
-        }
-
-        EditMessageReplyMarkup editMarkup = new EditMessageReplyMarkup();
-        editMarkup.setChatId(chatId.toString());
-        editMarkup.setMessageId(messageId);
-        editMarkup.setReplyMarkup(null);
-        try {
-            telegramClient.execute(editMarkup);
-        } catch (TelegramApiException e) {
-            log.error("❌ Ошибка удаления инлайн-клавиатуры", e);
-        }
+    private InlineKeyboardMarkup createBackInlineKeyboard() {
+        return InlineKeyboardMarkup.builder()
+                .keyboard(List.of(new InlineKeyboardRow(buildBackButton())))
+                .build();
     }
 
     /**
@@ -734,23 +809,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             telegramClient.execute(answer);
         } catch (TelegramApiException e) {
             log.error("❌ Ошибка ответа на callback", e);
-        }
-    }
-
-    /**
-     * Отправляет сообщение с инлайн-клавиатурой.
-     *
-     * @param chatId идентификатор чата Telegram
-     * @param text   текст сообщения
-     * @param markup инлайн-клавиатура, которую необходимо показать
-     */
-    private void sendInlineMessage(Long chatId, String text, InlineKeyboardMarkup markup) {
-        SendMessage message = new SendMessage(chatId.toString(), text);
-        message.setReplyMarkup(markup);
-        try {
-            telegramClient.execute(message);
-        } catch (TelegramApiException e) {
-            log.error("❌ Ошибка отправки сообщения с инлайн-кнопками", e);
         }
     }
 
@@ -1042,23 +1100,232 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param chatId идентификатор чата Telegram
      */
     private void sendMainMenu(Long chatId) {
-        KeyboardButton statsButton = new KeyboardButton(BUTTON_STATS);
-        KeyboardButton settingsButton = new KeyboardButton(BUTTON_SETTINGS);
-        KeyboardButton helpButton = new KeyboardButton(BUTTON_HELP);
+        if (chatId == null) {
+            return;
+        }
 
-        KeyboardRow firstRow = new KeyboardRow(List.of(statsButton, settingsButton));
-        KeyboardRow secondRow = new KeyboardRow(List.of(helpButton));
-        ReplyKeyboardMarkup markup = new ReplyKeyboardMarkup(List.of(firstRow, secondRow));
+        ensurePersistentKeyboard(chatId);
+
+        Optional<Customer> optional = telegramService.findByChatId(chatId);
+        Customer customer = optional.orElse(null);
+        String text = buildMainMenuText(customer);
+        InlineKeyboardMarkup markup = buildMainMenuKeyboard(customer);
+        showAnchorScreen(chatId, text, markup);
+    }
+
+    /**
+     * Формирует текст якорного сообщения главного меню в зависимости от состояния покупателя.
+     *
+     * @param customer покупатель, для которого отображается меню
+     * @return текст для отображения в сообщении меню
+     */
+    private String buildMainMenuText(Customer customer) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("📋 Главное меню\n\n");
+
+        if (customer == null) {
+            builder.append("Поделитесь номером телефона командой /start, чтобы получать уведомления и статистику.\n\n");
+        } else {
+            builder.append("Уведомления: ")
+                    .append(customer.isNotificationsEnabled() ? "включены" : "отключены")
+                    .append('\n');
+
+            String fullName = customer.getFullName();
+            if (fullName == null || fullName.isBlank()) {
+                builder.append("Имя: не указано");
+            } else if (customer.getNameSource() == NameSource.USER_CONFIRMED) {
+                builder.append("Имя: ").append(fullName).append(" (подтверждено)");
+            } else {
+                builder.append("Имя: ").append(fullName).append(" (ожидает подтверждения)");
+            }
+            builder.append("\n\n");
+        }
+
+        builder.append("Выберите раздел через кнопки ниже или воспользуйтесь клавишами «🏠 Меню» и «❓ Помощь» на клавиатуре.");
+        return builder.toString();
+    }
+
+    /**
+     * Создаёт инлайн-клавиатуру главного меню.
+     *
+     * @param customer покупатель, для которого строится клавиатура (резерв на будущие условия)
+     * @return клавиатура с основными разделами
+     */
+    private InlineKeyboardMarkup buildMainMenuKeyboard(Customer customer) {
+        InlineKeyboardButton statsButton = InlineKeyboardButton.builder()
+                .text(BUTTON_STATS)
+                .callbackData(CALLBACK_MENU_SHOW_STATS)
+                .build();
+        InlineKeyboardButton settingsButton = InlineKeyboardButton.builder()
+                .text(BUTTON_SETTINGS)
+                .callbackData(CALLBACK_MENU_SHOW_SETTINGS)
+                .build();
+        InlineKeyboardButton helpButton = InlineKeyboardButton.builder()
+                .text(BUTTON_HELP)
+                .callbackData(CALLBACK_MENU_SHOW_HELP)
+                .build();
+
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        rows.add(new InlineKeyboardRow(statsButton, settingsButton));
+        rows.add(new InlineKeyboardRow(helpButton));
+
+        if (customer != null) {
+            String fullName = customer.getFullName();
+            boolean hasName = fullName != null && !fullName.isBlank();
+            if (hasName && customer.getNameSource() != NameSource.USER_CONFIRMED) {
+                InlineKeyboardButton confirmButton = InlineKeyboardButton.builder()
+                        .text("✅ Подтвердить имя")
+                        .callbackData(CALLBACK_NAME_CONFIRM)
+                        .build();
+                InlineKeyboardButton editButton = InlineKeyboardButton.builder()
+                        .text("✏️ Изменить имя")
+                        .callbackData(CALLBACK_NAME_EDIT)
+                        .build();
+                rows.add(new InlineKeyboardRow(confirmButton, editButton));
+            }
+        }
+
+        return InlineKeyboardMarkup.builder()
+                .keyboard(rows)
+                .build();
+    }
+
+    /**
+     * Формирует инлайн-клавиатуру для подтверждения или изменения имени.
+     *
+     * @return клавиатура с действиями по управлению именем
+     */
+    private InlineKeyboardMarkup buildNameConfirmationKeyboard() {
+        InlineKeyboardButton confirmButton = InlineKeyboardButton.builder()
+                .text("✅ Подтвердить имя")
+                .callbackData(CALLBACK_NAME_CONFIRM)
+                .build();
+        InlineKeyboardButton editButton = InlineKeyboardButton.builder()
+                .text("✏️ Изменить имя")
+                .callbackData(CALLBACK_NAME_EDIT)
+                .build();
+
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        rows.add(new InlineKeyboardRow(confirmButton, editButton));
+        rows.add(new InlineKeyboardRow(buildBackButton()));
+
+        return InlineKeyboardMarkup.builder()
+                .keyboard(rows)
+                .build();
+    }
+
+    /**
+     * Создаёт постоянную reply-клавиатуру с быстрыми действиями меню.
+     *
+     * @return разметка reply-клавиатуры
+     */
+    private ReplyKeyboardMarkup createPersistentMenuKeyboard() {
+        KeyboardButton menuButton = new KeyboardButton(BUTTON_MENU);
+        KeyboardButton helpButton = new KeyboardButton(BUTTON_HELP);
+        KeyboardRow row = new KeyboardRow(List.of(menuButton, helpButton));
+
+        ReplyKeyboardMarkup markup = new ReplyKeyboardMarkup(List.of(row));
         markup.setResizeKeyboard(true);
         markup.setOneTimeKeyboard(false);
+        return markup;
+    }
 
-        SendMessage message = new SendMessage(chatId.toString(), "📋 Главное меню");
-        message.setReplyMarkup(markup);
+    /**
+     * Обеспечивает наличие новой reply-клавиатуры в чате.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void ensurePersistentKeyboard(Long chatId) {
+        if (chatId == null) {
+            return;
+        }
+
+        if (!configuredKeyboards.add(chatId)) {
+            return;
+        }
+
+        SendMessage message = new SendMessage(chatId.toString(),
+                "Клавиатура обновлена. Используйте кнопки «🏠 Меню» и «❓ Помощь».\n");
+        message.setReplyMarkup(createPersistentMenuKeyboard());
+        message.setDisableNotification(true);
 
         try {
-            telegramClient.execute(message);
+            Message sent = telegramClient.execute(message);
+            if (sent != null) {
+                deleteMessageSilently(chatId, sent.getMessageId());
+            }
         } catch (TelegramApiException e) {
-            log.error("❌ Ошибка отправки главного меню", e);
+            configuredKeyboards.remove(chatId);
+            log.error("❌ Ошибка применения reply-клавиатуры", e);
+        }
+    }
+
+    /**
+     * Удаляет служебное сообщение, оставляя настроенную клавиатуру у пользователя.
+     *
+     * @param chatId    идентификатор чата Telegram
+     * @param messageId идентификатор сообщения, которое требуется удалить
+     */
+    private void deleteMessageSilently(Long chatId, Integer messageId) {
+        if (chatId == null || messageId == null) {
+            return;
+        }
+
+        DeleteMessage deleteMessage = DeleteMessage.builder()
+                .chatId(chatId.toString())
+                .messageId(messageId)
+                .build();
+        try {
+            telegramClient.execute(deleteMessage);
+        } catch (TelegramApiException e) {
+            log.debug("ℹ️ Не удалось удалить служебное сообщение клавиатуры для чата {}", chatId, e);
+        }
+    }
+
+    /**
+     * Показывает или обновляет якорное сообщение с инлайн-кнопками.
+     *
+     * @param chatId идентификатор чата Telegram
+     * @param text   текст, который необходимо отобразить
+     * @param markup инлайн-клавиатура для сообщения
+     */
+    private void showAnchorScreen(Long chatId, String text, InlineKeyboardMarkup markup) {
+        if (chatId == null) {
+            return;
+        }
+
+        Integer messageId = anchorMessageIds.get(chatId);
+        if (messageId != null) {
+            EditMessageText edit = EditMessageText.builder()
+                    .chatId(chatId.toString())
+                    .messageId(messageId)
+                    .text(text)
+                    .replyMarkup(markup)
+                    .build();
+            try {
+                telegramClient.execute(edit);
+                return;
+            } catch (TelegramApiException e) {
+                String errorMessage = e.getMessage();
+                if (errorMessage != null && errorMessage.contains("message is not modified")) {
+                    log.debug("ℹ️ Содержимое якорного сообщения для чата {} не изменилось", chatId);
+                    return;
+                }
+                log.warn("⚠️ Не удалось обновить якорное сообщение для чата {}", chatId, e);
+                anchorMessageIds.remove(chatId);
+            }
+        }
+
+        SendMessage message = new SendMessage(chatId.toString(), text);
+        message.setReplyMarkup(markup);
+        message.setDisableNotification(true);
+        try {
+            Message sent = telegramClient.execute(message);
+            if (sent != null) {
+                anchorMessageIds.put(chatId, sent.getMessageId());
+            }
+        } catch (TelegramApiException e) {
+            log.error("❌ Ошибка отправки якорного сообщения", e);
         }
     }
 
@@ -1218,24 +1485,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param fullName имя, известное системе
      */
     private void sendNameConfirmation(Long chatId, String fullName) {
-        KeyboardButton ok = new KeyboardButton("Верно");
-        KeyboardButton wrong = new KeyboardButton("Неверно");
-        KeyboardButton change = new KeyboardButton("Изменить");
-        KeyboardRow first = new KeyboardRow(List.of(ok, wrong));
-        KeyboardRow second = new KeyboardRow(List.of(change));
-        ReplyKeyboardMarkup markup = new ReplyKeyboardMarkup(List.of(first, second));
-        markup.setResizeKeyboard(true);
-        // Клавиатура остаётся на экране, пока пользователь не выберет действие
-        markup.setOneTimeKeyboard(false);
-
         String text = String.format("У нас указано ваше ФИО: %s\nЭто верно?", fullName);
-        SendMessage msg = new SendMessage(chatId.toString(), text);
-        msg.setReplyMarkup(markup);
-        try {
-            telegramClient.execute(msg);
-        } catch (TelegramApiException e) {
-            log.error("❌ Ошибка отправки подтверждения имени", e);
-        }
+        showAnchorScreen(chatId, text, buildNameConfirmationKeyboard());
     }
 
     /**
