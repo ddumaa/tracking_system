@@ -121,10 +121,16 @@ public class CustomerTelegramService {
     public boolean confirmName(Long chatId) {
         return customerRepository.findByTelegramChatId(chatId)
                 .map(c -> {
-                    if (c.getFullName() == null) {
+                    String fullName = c.getFullName();
+                    if (fullName == null || fullName.isBlank()) {
                         return false;
                     }
-                    return customerService.updateCustomerName(c, c.getFullName(), NameSource.USER_CONFIRMED);
+                    if (c.getNameSource() != NameSource.USER_CONFIRMED) {
+                        c.setNameSource(NameSource.USER_CONFIRMED);
+                        c.setNameUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                        customerRepository.save(c);
+                    }
+                    return true;
                 })
                 .orElse(false);
     }
