@@ -562,12 +562,16 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        EditMessageText edit = new EditMessageText();
-        edit.setChatId(chatId.toString());
-        edit.setMessageId(messageId);
         boolean awaitingName = getState(chatId) == ChatState.AWAITING_NAME_INPUT;
-        edit.setText(buildSettingsText(customer, awaitingName));
-        edit.setReplyMarkup(buildSettingsKeyboard(customer));
+        String settingsText = buildSettingsText(customer, awaitingName);
+        InlineKeyboardMarkup settingsKeyboard = buildSettingsKeyboard(customer);
+
+        EditMessageText edit = EditMessageText.builder()
+                .chatId(chatId.toString())
+                .messageId(messageId)
+                .text(settingsText)
+                .replyMarkup(settingsKeyboard)
+                .build();
         try {
             telegramClient.execute(edit);
         } catch (TelegramApiException e) {
@@ -711,11 +715,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        AnswerCallbackQuery answer = new AnswerCallbackQuery();
-        answer.setCallbackQueryId(callbackQuery.getId());
+        AnswerCallbackQuery.AnswerCallbackQueryBuilder builder = AnswerCallbackQuery.builder()
+                .callbackQueryId(callbackQuery.getId());
         if (text != null && !text.isBlank()) {
-            answer.setText(text);
+            builder.text(text);
         }
+        AnswerCallbackQuery answer = builder.build();
         try {
             telegramClient.execute(answer);
         } catch (TelegramApiException e) {
