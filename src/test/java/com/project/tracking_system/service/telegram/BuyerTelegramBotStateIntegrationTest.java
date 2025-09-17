@@ -156,6 +156,52 @@ class BuyerTelegramBotStateIntegrationTest {
     }
 
     /**
+     * Убеждается, что повторная команда /start не дублирует сообщение о быстрых клавишах,
+     * когда клавиатура уже показана пользователю.
+     */
+    @Test
+    void shouldSendQuickAccessHintOnlyOnceWhenKeyboardVisible() throws Exception {
+        Long chatId = 6060L;
+        Customer customer = new Customer();
+        customer.setTelegramConfirmed(true);
+        customer.setNameSource(NameSource.USER_CONFIRMED);
+        customer.setNotificationsEnabled(true);
+        customer.setFullName("Иван Иванов");
+
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        AtomicInteger messageIdSequence = new AtomicInteger(1000);
+
+        try {
+            when(telegramClient.execute(any(SendMessage.class))).thenAnswer(invocation -> {
+                Message sent = new Message();
+                sent.setMessageId(messageIdSequence.incrementAndGet());
+                return sent;
+            });
+
+            bot.consume(textUpdate(chatId, "/start"));
+            bot.consume(textUpdate(chatId, "/start"));
+
+            ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+            verify(telegramClient, atLeastOnce()).execute(captor.capture());
+
+            long quickAccessMessages = captor.getAllValues().stream()
+                    .map(SendMessage::getText)
+                    .filter(text -> text != null)
+                    .filter(text -> text.contains("Клавиши быстрого доступа доступны"))
+                    .count();
+
+            assertEquals(1L, quickAccessMessages,
+                    "Подсказка о быстрых клавишах должна отправляться единожды при повторном /start");
+            assertFalse(chatSessionRepository.isKeyboardHidden(chatId),
+                    "После повторного /start клавиатура должна считаться видимой");
+        } finally {
+            clearInvocations(telegramClient);
+            doReturn(null).when(telegramClient).execute(any(SendMessage.class));
+        }
+    }
+
+    /**
      * Проверяет, что при сохранённом однословном ФИО бот требует указать корректные данные.
      */
     @Test
