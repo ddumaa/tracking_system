@@ -352,6 +352,32 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
+     * Сбрасывает якорное сообщение главного меню, если оно уже отображается пользователю.
+     * <p>
+     * Метод используется при повторном выборе пункта «🏠 Меню», чтобы бот заново отправил
+     * сообщение с главной навигацией. При наличии предыдущего сообщения его инлайн-клавиатура
+     * удаляется, чтобы пользователь не взаимодействовал с устаревшим экземпляром.
+     * </p>
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void resetMenuAnchorIfAlreadyShown(Long chatId) {
+        if (chatId == null) {
+            return;
+        }
+
+        chatSessionRepository.find(chatId)
+                .filter(session -> session.getLastScreen() == BuyerBotScreen.MENU)
+                .ifPresent(session -> {
+                    Integer anchorMessageId = session.getAnchorMessageId();
+                    chatSessionRepository.clearAnchor(chatId);
+                    if (anchorMessageId != null) {
+                        removeInlineKeyboard(chatId, anchorMessageId);
+                    }
+                });
+    }
+
+    /**
      * Перерисовывает актуальный экран в якорном сообщении.
      *
      * @param chatId идентификатор чата Telegram
@@ -527,6 +553,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         Optional<Customer> optional = telegramService.findByChatId(chatId);
         if (optional.isPresent()) {
             Customer customer = optional.get();
+            resetMenuAnchorIfAlreadyShown(chatId);
             sendMainMenu(chatId);
             if (customer.getFullName() == null || customer.getFullName().isBlank()) {
                 sendSimpleMessage(chatId,
@@ -565,6 +592,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         if (BUTTON_MENU.equals(text)) {
+            resetMenuAnchorIfAlreadyShown(chatId);
             sendMainMenu(chatId);
             return;
         }
@@ -1498,13 +1526,15 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        Integer messageId = chatSessionRepository.find(chatId)
-                .map(ChatSession::getAnchorMessageId)
-                .orElse(null);
+        ChatSession session = chatSessionRepository.find(chatId).orElse(null);
+        boolean manualAnchorReset = session != null
+                && session.getLastScreen() == screen
+                && session.getAnchorMessageId() == null;
+        Integer messageId = session != null ? session.getAnchorMessageId() : null;
 
-        boolean shouldSendNewMessage = messageId == null;
+        boolean shouldSendNewMessage = manualAnchorReset || messageId == null;
 
-        if (messageId != null) {
+        if (messageId != null && !manualAnchorReset) {
             EditMessageText edit = EditMessageText.builder()
                     .chatId(chatId.toString())
                     .messageId(messageId)
