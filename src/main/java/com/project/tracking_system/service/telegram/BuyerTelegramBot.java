@@ -1499,7 +1499,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 .orElse(null);
 
         boolean shouldSendNewMessage = messageId == null;
-        boolean restoreKeyboardVisibility = false;
 
         if (messageId != null) {
             EditMessageText edit = EditMessageText.builder()
@@ -1515,13 +1514,15 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             } catch (TelegramApiException e) {
                 String errorMessage = e.getMessage();
                 if (errorMessage != null && errorMessage.contains("message is not modified")) {
-                    boolean keyboardInitiallyVisible = !chatSessionRepository.isKeyboardHidden(chatId);
-                    chatSessionRepository.clearAnchor(chatId);
-                    if (keyboardInitiallyVisible) {
-                        restoreKeyboardVisibility = true;
+                    boolean keyboardHiddenBeforeUpdate = chatSessionRepository.isKeyboardHidden(chatId);
+                    chatSessionRepository.updateAnchorAndScreen(chatId, messageId, screen);
+                    if (keyboardHiddenBeforeUpdate) {
+                        ensurePersistentKeyboard(chatId);
+                    } else {
+                        chatSessionRepository.markKeyboardVisible(chatId);
                     }
-                    shouldSendNewMessage = true;
-                    log.debug("ℹ️ Содержимое якорного сообщения для чата {} не изменилось, выполняем повторную отправку", chatId);
+                    log.debug("ℹ️ Содержимое якорного сообщения для чата {} не изменилось, якорь обновлён без повторной отправки", chatId);
+                    return;
                 } else {
                     log.warn("⚠️ Не удалось обновить якорное сообщение для чата {}", chatId, e);
                     chatSessionRepository.clearAnchor(chatId);
@@ -1542,9 +1543,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             Message sent = telegramClient.execute(message);
             Integer newAnchorId = sent != null ? sent.getMessageId() : null;
             chatSessionRepository.updateAnchorAndScreen(chatId, newAnchorId, screen);
-            if (restoreKeyboardVisibility) {
-                chatSessionRepository.markKeyboardVisible(chatId);
-            }
         } catch (TelegramApiException e) {
             log.error("❌ Ошибка отправки якорного сообщения", e);
         }
