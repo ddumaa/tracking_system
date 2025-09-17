@@ -18,6 +18,7 @@ import org.telegram.telegrambots.meta.api.objects.Contact;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
@@ -111,13 +112,28 @@ class BuyerTelegramBotStateIntegrationTest {
         verify(telegramClient, atLeastOnce()).execute(captor.capture());
         List<SendMessage> messages = captor.getAllValues();
 
-        boolean hasMenuKeyboard = messages.stream()
-                .map(SendMessage::getReplyMarkup)
-                .filter(ReplyKeyboardMarkup.class::isInstance)
-                .map(ReplyKeyboardMarkup.class::cast)
-                .anyMatch(this::containsMenuButtons);
-        assertTrue(hasMenuKeyboard,
-                "После привязки номера бот должен вернуть клавиатуру меню");
+        int removalMessageIndex = -1;
+        int menuKeyboardIndex = -1;
+
+        for (int i = 0; i < messages.size(); i++) {
+            var markup = messages.get(i).getReplyMarkup();
+            if (markup instanceof ReplyKeyboardRemove) {
+                removalMessageIndex = i;
+            }
+            if (markup instanceof ReplyKeyboardMarkup replyKeyboardMarkup
+                    && containsMenuButtons(replyKeyboardMarkup)) {
+                if (menuKeyboardIndex < 0) {
+                    menuKeyboardIndex = i;
+                }
+            }
+        }
+
+        assertTrue(removalMessageIndex >= 0,
+                "После получения контакта бот должен скрыть временную клавиатуру запросом ReplyKeyboardRemove");
+        assertTrue(menuKeyboardIndex >= 0,
+                "После удаления временной клавиатуры бот должен вернуть постоянную клавиатуру меню");
+        assertTrue(menuKeyboardIndex > removalMessageIndex,
+                "Клавиатура меню должна появляться после сообщения с ReplyKeyboardRemove");
 
         boolean hasContactButton = messages.stream()
                 .map(SendMessage::getReplyMarkup)

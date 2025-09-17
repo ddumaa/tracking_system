@@ -25,6 +25,7 @@ import org.telegram.telegrambots.meta.api.objects.message.MaybeInaccessibleMessa
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
@@ -1761,9 +1762,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         try {
             Customer customer = telegramService.linkTelegramToCustomer(phone, chatId);
-            if (!customer.isTelegramConfirmed()) {
-                SendMessage confirm = new SendMessage(chatId.toString(), "✅ Номер сохранён. Спасибо!");
-                telegramClient.execute(confirm);
+
+            if (customer.isTelegramConfirmed()) {
+                sendKeyboardRemovalMessage(chatId, "✅ Номер уже подтверждён. Обновляю меню...");
+            } else {
+                sendKeyboardRemovalMessage(chatId, "✅ Номер сохранён. Спасибо!");
                 telegramService.confirmTelegram(customer);
                 telegramService.notifyActualStatuses(customer);
             }
@@ -1787,6 +1790,45 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         } catch (Exception e) {
             log.error("❌ Ошибка регистрации телефона {} для чата {}",
                     PhoneUtils.maskPhone(phone), chatId, e);
+        }
+    }
+
+    /**
+     * Отправляет сообщение с удалением временной клавиатуры, скрывая кнопку «📱 Поделиться номером».
+     * <p>
+     * Метод уведомляет пользователя о результате обработки контакта и фиксирует факт скрытия
+     * клавиатуры в репозитории сессий, чтобы последующее меню смогло вернуть постоянные кнопки.
+     * </p>
+     *
+     * @param chatId идентификатор чата Telegram
+     * @param text   текст сообщения для пользователя (если пустой, применяется дефолтная фраза)
+     */
+    private void sendKeyboardRemovalMessage(Long chatId, String text) {
+        if (chatId == null) {
+            return;
+        }
+
+        chatSessionRepository.markKeyboardHidden(chatId);
+
+        String safeText = (text == null || text.isBlank())
+                ? "⌨️ Клавиатура скрыта. Меню появится в следующем сообщении."
+                : text;
+
+        SendMessage removalMessage = new SendMessage(chatId.toString(), safeText);
+        ReplyKeyboardRemove removeMarkup = ReplyKeyboardRemove.builder()
+                .removeKeyboard(true)
+                .selective(false)
+                .build();
+        removalMessage.setReplyMarkup(removeMarkup);
+
+        if (text == null || text.isBlank()) {
+            removalMessage.setDisableNotification(true);
+        }
+
+        try {
+            telegramClient.execute(removalMessage);
+        } catch (TelegramApiException e) {
+            log.error("❌ Ошибка скрытия клавиатуры в чате {}", chatId, e);
         }
     }
 }
