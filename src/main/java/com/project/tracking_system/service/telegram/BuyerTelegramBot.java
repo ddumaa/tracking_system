@@ -23,6 +23,7 @@ import org.telegram.telegrambots.meta.api.objects.Contact;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.message.MaybeInaccessibleMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberUpdated;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
@@ -130,6 +131,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
+        if (update.hasMyChatMember()) {
+            handleMyChatMember(update.getMyChatMember());
+            return;
+        }
+
         if (!update.hasMessage() || update.getMessage() == null) {
             return;
         }
@@ -147,6 +153,38 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (message.hasContact()) {
             handleContact(chatId, message, message.getContact());
         }
+    }
+
+    /**
+     * Обрабатывает обновление статуса чата бота и переотправляет нужный экран.
+     * <p>
+     * Если покупатель уже привязан к Telegram, бот возвращается в состояние ожидания команд
+     * и заново отправляет главное меню вместе с постоянной клавиатурой. Для непривязанных
+     * пользователей повторно запрашивается контакт с кнопкой «📱 Поделиться номером».
+     * </p>
+     *
+     * @param myChatMember данные обновления chat_member от Telegram
+     */
+    private void handleMyChatMember(ChatMemberUpdated myChatMember) {
+        if (myChatMember == null || myChatMember.getChat() == null) {
+            return;
+        }
+
+        Long chatId = myChatMember.getChat().getId();
+        if (chatId == null) {
+            return;
+        }
+
+        Optional<Customer> optional = telegramService.findByChatId(chatId);
+        if (optional.isPresent()) {
+            transitionToState(chatId, BuyerChatState.IDLE);
+            chatSessionRepository.markKeyboardHidden(chatId);
+            sendMainMenu(chatId);
+            return;
+        }
+
+        transitionToState(chatId, BuyerChatState.AWAITING_CONTACT);
+        sendSharePhoneKeyboard(chatId);
     }
 
     /**
