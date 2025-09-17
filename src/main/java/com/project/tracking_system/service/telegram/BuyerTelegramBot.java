@@ -55,8 +55,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String CALLBACK_SETTINGS_CONFIRM_NAME = "settings:confirm_name";
     private static final String CALLBACK_SETTINGS_EDIT_NAME = "settings:edit_name";
 
+    private static final String NAME_CONFIRMATION_MISSING_MESSAGE =
+            "⚠️ Пока в системе нет ФИО для подтверждения. Пожалуйста, укажите его полностью.";
+
     private final TelegramClient telegramClient;
     private final CustomerTelegramService telegramService;
+    private final FullNameValidator fullNameValidator;
     private final String botToken;
     private final Map<Long, ChatState> chatStates = new ConcurrentHashMap<>();
 
@@ -69,10 +73,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      */
     public BuyerTelegramBot(TelegramClient telegramClient,
                             @Value("${telegram.bot.token:}") String token,
-                            CustomerTelegramService telegramService) {
+                            CustomerTelegramService telegramService,
+                            FullNameValidator fullNameValidator) {
         this.telegramClient = telegramClient;
         this.botToken = token;
         this.telegramService = telegramService;
+        this.fullNameValidator = fullNameValidator;
     }
 
     /**
@@ -305,23 +311,26 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         if ("✅ Подтвердить имя".equals(text)) {
-            if (telegramService.confirmName(chatId)) {
-                sendSimpleMessage(chatId, "✅ Спасибо, данные подтверждены");
+            boolean confirmed = confirmNameAndNotify(chatId);
+            if (!confirmed) {
+                sendNameConfirmationFailure(chatId);
             }
             refreshMainMenu(chatId);
+            return;
+        }
+
+        if (fullNameValidator.isConfirmationPhrase(text)) {
+            boolean confirmed = confirmNameAndNotify(chatId);
+            if (confirmed) {
+                refreshMainMenu(chatId);
+            } else {
+                sendNameConfirmationFailure(chatId);
+            }
             return;
         }
 
         if ("✏️ Изменить имя".equals(text)) {
             promptForName(chatId);
-            return;
-        }
-
-        if ("Верно".equalsIgnoreCase(text)) {
-            if (telegramService.confirmName(chatId)) {
-                sendSimpleMessage(chatId, "✅ Спасибо, данные подтверждены");
-            }
-            refreshMainMenu(chatId);
             return;
         }
 
@@ -716,19 +725,37 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
-     * Сохраняет ФИО, введённое пользователем, и переводит диалог в состояние ожидания команд.
+     * Валидирует и сохраняет ФИО, введённое пользователем, переводя сценарий в режим команд.
      *
      * @param chatId идентификатор чата Telegram
      * @param text   введённое пользователем ФИО
      */
     private void handleNameInput(Long chatId, String text) {
-        String fullName = text.trim();
-        if (fullName.isEmpty()) {
+        String candidate = text == null ? "" : text.trim();
+        if (candidate.isEmpty()) {
             remindNameRequired(chatId);
             return;
         }
 
-        boolean saved = telegramService.updateNameFromTelegram(chatId, fullName);
+        FullNameValidator.FullNameValidationResult validation = fullNameValidator.validate(candidate);
+
+        if (validation.error() == FullNameValidator.FullNameValidationError.CONFIRMATION_PHRASE) {
+            boolean confirmed = confirmNameAndNotify(chatId);
+            if (confirmed) {
+                transitionToState(chatId, ChatState.IDLE);
+                refreshMainMenu(chatId);
+            } else {
+                sendNameConfirmationFailure(chatId);
+            }
+            return;
+        }
+
+        if (!validation.valid()) {
+            sendSimpleMessage(chatId, validation.message());
+            return;
+        }
+
+        boolean saved = telegramService.updateNameFromTelegram(chatId, validation.normalizedFullName());
         if (!saved) {
             sendSimpleMessage(chatId,
                     "⚠️ Не удалось сохранить ФИО. Попробуйте отправить его ещё раз или воспользуйтесь /menu.");
@@ -738,6 +765,29 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         sendSimpleMessage(chatId, "✅ ФИО сохранено и подтверждено");
         transitionToState(chatId, ChatState.IDLE);
         refreshMainMenu(chatId);
+    }
+
+    /**
+     * Подтверждает ФИО в профиле покупателя и уведомляет о результате.
+     *
+     * @param chatId идентификатор чата Telegram
+     * @return {@code true}, если подтверждение прошло успешно
+     */
+    private boolean confirmNameAndNotify(Long chatId) {
+        boolean confirmed = telegramService.confirmName(chatId);
+        if (confirmed) {
+            sendSimpleMessage(chatId, "✅ Спасибо, данные подтверждены");
+        }
+        return confirmed;
+    }
+
+    /**
+     * Сообщает пользователю, что подтвердить ФИО не удалось, и просит указать его полностью.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void sendNameConfirmationFailure(Long chatId) {
+        sendSimpleMessage(chatId, NAME_CONFIRMATION_MISSING_MESSAGE);
     }
 
     /**
@@ -769,7 +819,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private boolean isNameControlCommand(String text) {
         return "✅ Подтвердить имя".equals(text)
                 || "✏️ Изменить имя".equals(text)
-                || "Верно".equalsIgnoreCase(text)
                 || "Неверно".equalsIgnoreCase(text)
                 || "Изменить".equalsIgnoreCase(text);
     }
