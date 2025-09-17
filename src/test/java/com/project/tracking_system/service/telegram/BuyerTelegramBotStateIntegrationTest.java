@@ -79,6 +79,50 @@ class BuyerTelegramBotStateIntegrationTest {
     }
 
     /**
+     * Проверяет, что после привязки контакта клавиатура меню возвращается, а кнопка запроса номера исчезает.
+     */
+    @Test
+    void shouldShowMenuKeyboardAfterContactForNewUser() throws Exception {
+        Long chatId = 3030L;
+        Customer customer = new Customer();
+        customer.setTelegramConfirmed(false);
+        customer.setNameSource(NameSource.MERCHANT_PROVIDED);
+        customer.setNotificationsEnabled(true);
+        customer.setFullName(null);
+
+        when(telegramService.findByChatId(chatId))
+                .thenReturn(Optional.empty(), Optional.of(customer));
+        when(telegramService.linkTelegramToCustomer(anyString(), eq(chatId))).thenReturn(customer);
+        when(telegramService.confirmTelegram(customer)).thenReturn(customer);
+        doNothing().when(telegramService).notifyActualStatuses(customer);
+
+        bot.consume(textUpdate(chatId, "/start"));
+        clearInvocations(telegramClient);
+
+        bot.consume(contactUpdate(chatId, "+375291234567"));
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+        List<SendMessage> messages = captor.getAllValues();
+
+        boolean hasMenuKeyboard = messages.stream()
+                .map(SendMessage::getReplyMarkup)
+                .filter(ReplyKeyboardMarkup.class::isInstance)
+                .map(ReplyKeyboardMarkup.class::cast)
+                .anyMatch(this::containsMenuButtons);
+        assertTrue(hasMenuKeyboard,
+                "После привязки номера бот должен вернуть клавиатуру меню");
+
+        boolean hasContactButton = messages.stream()
+                .map(SendMessage::getReplyMarkup)
+                .filter(ReplyKeyboardMarkup.class::isInstance)
+                .map(ReplyKeyboardMarkup.class::cast)
+                .anyMatch(this::containsContactButton);
+        assertFalse(hasContactButton,
+                "Кнопка «📱 Поделиться номером» не должна присутствовать после возврата в меню");
+    }
+
+    /**
      * Проверяет, что при сохранённом однословном ФИО бот требует указать корректные данные.
      */
     @Test
@@ -571,5 +615,35 @@ class BuyerTelegramBotStateIntegrationTest {
             }
         }
         return hasMenu && hasHelp;
+    }
+
+    /**
+     * Проверяет, содержит ли клавиатура кнопку запроса контакта.
+     *
+     * @param markup проверяемая клавиатура
+     * @return {@code true}, если присутствует кнопка «📱 Поделиться номером» или кнопка запроса контакта
+     */
+    private boolean containsContactButton(ReplyKeyboardMarkup markup) {
+        if (markup == null || markup.getKeyboard() == null) {
+            return false;
+        }
+
+        for (KeyboardRow row : markup.getKeyboard()) {
+            if (row == null) {
+                continue;
+            }
+            for (KeyboardButton button : row) {
+                if (button == null) {
+                    continue;
+                }
+                if (Boolean.TRUE.equals(button.getRequestContact())) {
+                    return true;
+                }
+                if ("📱 Поделиться номером".equals(button.getText())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }
