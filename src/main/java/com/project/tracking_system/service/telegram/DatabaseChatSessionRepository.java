@@ -45,6 +45,7 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
         entity.setAnchorMessageId(session.getAnchorMessageId());
         entity.setLastScreen(session.getLastScreen());
         entity.setKeyboardHidden(session.isPersistentKeyboardHidden());
+        entity.setContactRequestSent(session.isContactRequestSent());
         BuyerBotScreenState saved = repository.save(entity);
         return toSession(saved);
     }
@@ -166,6 +167,49 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isContactRequestSent(Long chatId) {
+        if (chatId == null) {
+            return false;
+        }
+        return repository.findById(chatId)
+                .map(BuyerBotScreenState::getContactRequestSent)
+                .map(Boolean::booleanValue)
+                .orElse(false);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional
+    public void markContactRequestSent(Long chatId) {
+        if (chatId == null) {
+            return;
+        }
+        BuyerBotScreenState entity = getOrCreateEntity(chatId);
+        entity.setContactRequestSent(true);
+        repository.save(entity);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional
+    public void clearContactRequestSent(Long chatId) {
+        if (chatId == null) {
+            return;
+        }
+        BuyerBotScreenState entity = getOrCreateEntity(chatId);
+        entity.setContactRequestSent(false);
+        repository.save(entity);
+    }
+
+    /**
      * Возвращает сущность состояния, создавая новую запись с настройками по умолчанию.
      *
      * @param chatId идентификатор чата Telegram
@@ -173,7 +217,7 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
      */
     private BuyerBotScreenState getOrCreateEntity(Long chatId) {
         return repository.findById(chatId)
-                .orElseGet(() -> new BuyerBotScreenState(chatId, null, null, BuyerChatState.IDLE, Boolean.TRUE));
+                .orElseGet(() -> new BuyerBotScreenState(chatId, null, null, BuyerChatState.IDLE, Boolean.TRUE, Boolean.FALSE));
     }
 
     /**
@@ -191,7 +235,8 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
                 entity.getChatState(),
                 entity.getAnchorMessageId(),
                 entity.getLastScreen(),
-                Boolean.TRUE.equals(entity.getKeyboardHidden())
+                Boolean.TRUE.equals(entity.getKeyboardHidden()),
+                Boolean.TRUE.equals(entity.getContactRequestSent())
         );
     }
 }

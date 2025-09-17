@@ -16,6 +16,7 @@ public class ChatSession {
     private Integer anchorMessageId;
     private BuyerBotScreen lastScreen;
     private boolean persistentKeyboardHidden;
+    private boolean contactRequestSent;
 
     /**
      * Создаёт представление состояния чата.
@@ -29,7 +30,7 @@ public class ChatSession {
                        BuyerChatState state,
                        Integer anchorMessageId,
                        BuyerBotScreen lastScreen) {
-        this(chatId, state, anchorMessageId, lastScreen, true);
+        this(chatId, state, anchorMessageId, lastScreen, true, false);
     }
 
     /**
@@ -46,11 +47,31 @@ public class ChatSession {
                        Integer anchorMessageId,
                        BuyerBotScreen lastScreen,
                        boolean persistentKeyboardHidden) {
+        this(chatId, state, anchorMessageId, lastScreen, persistentKeyboardHidden, false);
+    }
+
+    /**
+     * Создаёт представление состояния чата с расширенной информацией о показанных сообщениях.
+     *
+     * @param chatId                  идентификатор чата Telegram
+     * @param state                   сценарное состояние диалога
+     * @param anchorMessageId         идентификатор якорного сообщения
+     * @param lastScreen              последний отображённый экран
+     * @param persistentKeyboardHidden признак того, что меню-клавиатура скрыта
+     * @param contactRequestSent      признак того, что запрос контакта уже отправлен
+     */
+    public ChatSession(Long chatId,
+                       BuyerChatState state,
+                       Integer anchorMessageId,
+                       BuyerBotScreen lastScreen,
+                       boolean persistentKeyboardHidden,
+                       boolean contactRequestSent) {
         this.chatId = chatId;
         this.state = state != null ? state : BuyerChatState.IDLE;
         this.anchorMessageId = anchorMessageId;
         this.lastScreen = lastScreen;
         this.persistentKeyboardHidden = persistentKeyboardHidden;
+        this.contactRequestSent = contactRequestSent;
     }
 
     /**
@@ -132,5 +153,23 @@ public class ChatSession {
      */
     public void setPersistentKeyboardHidden(boolean persistentKeyboardHidden) {
         this.persistentKeyboardHidden = persistentKeyboardHidden;
+    }
+
+    /**
+     * Показывает, отправлялся ли запрос контакта в текущей сессии.
+     *
+     * @return {@code true}, если запрос контакта уже был отправлен
+     */
+    public boolean isContactRequestSent() {
+        return contactRequestSent;
+    }
+
+    /**
+     * Фиксирует факт отправки запроса контакта.
+     *
+     * @param contactRequestSent {@code true}, если сообщение уже показано пользователю
+     */
+    public void setContactRequestSent(boolean contactRequestSent) {
+        this.contactRequestSent = contactRequestSent;
     }
 }

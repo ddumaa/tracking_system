@@ -90,4 +90,26 @@ public interface ChatSessionRepository {
      * @param chatId идентификатор чата Telegram
      */
     void markKeyboardVisible(Long chatId);
+
+    /**
+     * Проверяет, зафиксирован ли факт отправки запроса контакта в чате.
+     *
+     * @param chatId идентификатор чата Telegram
+     * @return {@code true}, если запрос контакта уже был отправлен
+     */
+    boolean isContactRequestSent(Long chatId);
+
+    /**
+     * Помечает, что пользователю отправлено сообщение с запросом контакта.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    void markContactRequestSent(Long chatId);
+
+    /**
+     * Сбрасывает признак отправленного запроса контакта.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    void clearContactRequestSent(Long chatId);
 }

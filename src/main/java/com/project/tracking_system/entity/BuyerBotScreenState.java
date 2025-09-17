@@ -58,5 +58,11 @@ public class BuyerBotScreenState {
      */
     @Column(name = "keyboard_hidden")
     private Boolean keyboardHidden;
+
+    /**
+     * Признак того, что запрос контакта уже был отправлен покупателю.
+     */
+    @Column(name = "contact_request_sent")
+    private Boolean contactRequestSent;
 }
 
