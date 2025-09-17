@@ -68,4 +68,26 @@ public interface ChatSessionRepository {
      * @param chatId идентификатор чата Telegram
      */
     void clearAnchor(Long chatId);
+
+    /**
+     * Проверяет, скрыта ли постоянная клавиатура меню у пользователя.
+     *
+     * @param chatId идентификатор чата Telegram
+     * @return {@code true}, если клавиатура отсутствует и требуется переотправка
+     */
+    boolean isKeyboardHidden(Long chatId);
+
+    /**
+     * Помечает клавиатуру меню как скрытую пользователем.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    void markKeyboardHidden(Long chatId);
+
+    /**
+     * Фиксирует, что клавиатура меню успешно показана пользователю.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    void markKeyboardVisible(Long chatId);
 }

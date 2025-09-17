@@ -44,6 +44,7 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
         entity.setChatState(session.getState());
         entity.setAnchorMessageId(session.getAnchorMessageId());
         entity.setLastScreen(session.getLastScreen());
+        entity.setKeyboardHidden(session.isPersistentKeyboardHidden());
         BuyerBotScreenState saved = repository.save(entity);
         return toSession(saved);
     }
@@ -121,6 +122,49 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isKeyboardHidden(Long chatId) {
+        if (chatId == null) {
+            return false;
+        }
+        return repository.findById(chatId)
+                .map(BuyerBotScreenState::getKeyboardHidden)
+                .map(Boolean::booleanValue)
+                .orElse(true);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional
+    public void markKeyboardHidden(Long chatId) {
+        if (chatId == null) {
+            return;
+        }
+        BuyerBotScreenState entity = getOrCreateEntity(chatId);
+        entity.setKeyboardHidden(true);
+        repository.save(entity);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional
+    public void markKeyboardVisible(Long chatId) {
+        if (chatId == null) {
+            return;
+        }
+        BuyerBotScreenState entity = getOrCreateEntity(chatId);
+        entity.setKeyboardHidden(false);
+        repository.save(entity);
+    }
+
+    /**
      * Возвращает сущность состояния, создавая новую запись с настройками по умолчанию.
      *
      * @param chatId идентификатор чата Telegram
@@ -128,7 +172,7 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
      */
     private BuyerBotScreenState getOrCreateEntity(Long chatId) {
         return repository.findById(chatId)
-                .orElseGet(() -> new BuyerBotScreenState(chatId, null, null, BuyerChatState.IDLE));
+                .orElseGet(() -> new BuyerBotScreenState(chatId, null, null, BuyerChatState.IDLE, Boolean.TRUE));
     }
 
     /**
@@ -145,7 +189,8 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
                 entity.getChatId(),
                 entity.getChatState(),
                 entity.getAnchorMessageId(),
-                entity.getLastScreen()
+                entity.getLastScreen(),
+                Boolean.TRUE.equals(entity.getKeyboardHidden())
         );
     }
 }

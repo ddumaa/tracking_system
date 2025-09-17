@@ -24,6 +24,7 @@ import org.telegram.telegrambots.meta.api.objects.message.MaybeInaccessibleMessa
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
@@ -34,8 +35,6 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Telegram-бот для покупателей.
@@ -70,7 +69,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private final FullNameValidator fullNameValidator;
     private final ChatSessionRepository chatSessionRepository;
     private final String botToken;
-    private final Set<Long> configuredKeyboards = ConcurrentHashMap.newKeySet();
 
     /**
      * Создаёт телеграм-бота для покупателей.
@@ -131,6 +129,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         var message = update.getMessage();
         Long chatId = message.getChatId();
+
+        boolean keyboardRemoved = detectPersistentKeyboardRemoval(chatId, message);
+        restorePersistentKeyboardIfNeeded(chatId, keyboardRemoved);
 
         if (message.hasText()) {
             handleTextMessage(chatId, message.getText());
@@ -1322,6 +1323,49 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
+     * Фиксирует факт скрытия постоянной клавиатуры пользователем.
+     *
+     * @param chatId  идентификатор чата Telegram
+     * @param message входящее сообщение пользователя
+     * @return {@code true}, если клавиатура была скрыта в рамках текущего сообщения
+     */
+    private boolean detectPersistentKeyboardRemoval(Long chatId, Message message) {
+        if (chatId == null || message == null) {
+            return false;
+        }
+
+        if (!message.hasReplyMarkup()) {
+            return false;
+        }
+
+        var replyMarkup = message.getReplyMarkup();
+        if (replyMarkup instanceof ReplyKeyboardRemove remove && Boolean.TRUE.equals(remove.getRemoveKeyboard())) {
+            chatSessionRepository.markKeyboardHidden(chatId);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Возвращает меню-клавиатуру, если она была скрыта ранее.
+     *
+     * @param chatId            идентификатор чата Telegram
+     * @param skipCurrentUpdate {@code true}, если клавиатура скрыта прямо сейчас и её не нужно восстанавливать немедленно
+     */
+    private void restorePersistentKeyboardIfNeeded(Long chatId, boolean skipCurrentUpdate) {
+        if (chatId == null || skipCurrentUpdate) {
+            return;
+        }
+
+        if (!chatSessionRepository.isKeyboardHidden(chatId)) {
+            return;
+        }
+
+        ensurePersistentKeyboard(chatId);
+    }
+
+    /**
      * Обеспечивает наличие новой reply-клавиатуры в чате.
      *
      * @param chatId идентификатор чата Telegram
@@ -1331,7 +1375,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        if (!configuredKeyboards.add(chatId)) {
+        if (!chatSessionRepository.isKeyboardHidden(chatId)) {
             return;
         }
 
@@ -1342,11 +1386,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         try {
             Message sent = telegramClient.execute(message);
+            chatSessionRepository.markKeyboardVisible(chatId);
             if (sent != null) {
                 deleteMessageSilently(chatId, sent.getMessageId());
             }
         } catch (TelegramApiException e) {
-            configuredKeyboards.remove(chatId);
+            chatSessionRepository.markKeyboardHidden(chatId);
             log.error("❌ Ошибка применения reply-клавиатуры", e);
         }
     }
