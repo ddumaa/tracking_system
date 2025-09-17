@@ -52,5 +52,11 @@ public class BuyerBotScreenState {
     @Enumerated(EnumType.STRING)
     @Column(name = "chat_state")
     private BuyerChatState chatState;
+
+    /**
+     * Признак того, что клавиатура меню скрыта у пользователя.
+     */
+    @Column(name = "keyboard_hidden")
+    private Boolean keyboardHidden;
 }
 

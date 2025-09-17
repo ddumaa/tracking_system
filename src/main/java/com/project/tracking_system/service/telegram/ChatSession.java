@@ -15,6 +15,7 @@ public class ChatSession {
     private BuyerChatState state;
     private Integer anchorMessageId;
     private BuyerBotScreen lastScreen;
+    private boolean persistentKeyboardHidden;
 
     /**
      * Создаёт представление состояния чата.
@@ -28,10 +29,28 @@ public class ChatSession {
                        BuyerChatState state,
                        Integer anchorMessageId,
                        BuyerBotScreen lastScreen) {
+        this(chatId, state, anchorMessageId, lastScreen, true);
+    }
+
+    /**
+     * Создаёт представление состояния чата с указанием статуса клавиатуры.
+     *
+     * @param chatId                  идентификатор чата Telegram
+     * @param state                   сценарное состояние диалога
+     * @param anchorMessageId         идентификатор якорного сообщения
+     * @param lastScreen              последний отображённый экран
+     * @param persistentKeyboardHidden признак того, что меню-клавиатура скрыта
+     */
+    public ChatSession(Long chatId,
+                       BuyerChatState state,
+                       Integer anchorMessageId,
+                       BuyerBotScreen lastScreen,
+                       boolean persistentKeyboardHidden) {
         this.chatId = chatId;
         this.state = state != null ? state : BuyerChatState.IDLE;
         this.anchorMessageId = anchorMessageId;
         this.lastScreen = lastScreen;
+        this.persistentKeyboardHidden = persistentKeyboardHidden;
     }
 
     /**
@@ -95,5 +114,23 @@ public class ChatSession {
      */
     public void setLastScreen(BuyerBotScreen lastScreen) {
         this.lastScreen = lastScreen;
+    }
+
+    /**
+     * Показывает, скрыта ли клавиатура постоянного меню у пользователя.
+     *
+     * @return {@code true}, если клавиатура отсутствует и требует переотправки
+     */
+    public boolean isPersistentKeyboardHidden() {
+        return persistentKeyboardHidden;
+    }
+
+    /**
+     * Фиксирует состояние постоянной клавиатуры меню.
+     *
+     * @param persistentKeyboardHidden {@code true}, если клавиатура скрыта
+     */
+    public void setPersistentKeyboardHidden(boolean persistentKeyboardHidden) {
+        this.persistentKeyboardHidden = persistentKeyboardHidden;
     }
 }

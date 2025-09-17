@@ -248,6 +248,7 @@ class BuyerTelegramBotStateIntegrationTest {
         assertEquals(BuyerChatState.AWAITING_NAME_INPUT, bot.getState(chatId));
         clearInvocations(telegramClient);
 
+        chatSessionRepository.markKeyboardHidden(chatId);
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
         bot.consume(textUpdate(chatId, "/menu"));
@@ -256,11 +257,13 @@ class BuyerTelegramBotStateIntegrationTest {
                 "Команда /menu должна переводить бот в состояние IDLE");
         ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
         verify(telegramClient, atLeastOnce()).execute(captor.capture());
-        boolean hasMenuMessage = captor.getAllValues().stream()
+        var messages = captor.getAllValues();
+        boolean hasMenuMessage = messages.stream()
                 .map(SendMessage::getText)
                 .filter(text -> text != null)
                 .anyMatch(text -> text.contains("Главное меню"));
         assertTrue(hasMenuMessage, "Бот должен показать главное меню");
+        assertMenuKeyboard(messages);
     }
 
     /**
@@ -481,5 +484,53 @@ class BuyerTelegramBotStateIntegrationTest {
         }
 
         assertTrue(hasContactButton, "Кнопка запроса контакта должна присутствовать");
+    }
+
+    /**
+     * Проверяет наличие клавиатуры меню среди отправленных сообщений.
+     *
+     * @param messages сообщения, отправленные ботом в рамках сценария
+     */
+    private void assertMenuKeyboard(List<SendMessage> messages) {
+        boolean hasKeyboard = messages.stream()
+                .map(SendMessage::getReplyMarkup)
+                .filter(ReplyKeyboardMarkup.class::isInstance)
+                .map(ReplyKeyboardMarkup.class::cast)
+                .anyMatch(this::containsMenuButtons);
+        assertTrue(hasKeyboard,
+                "После скрытия клавиатуры бот обязан вернуть кнопки «🏠 Меню» и «❓ Помощь»");
+    }
+
+    /**
+     * Проверяет, содержит ли клавиатура кнопки меню и помощи.
+     *
+     * @param markup проверяемая клавиатура
+     * @return {@code true}, если обе кнопки присутствуют
+     */
+    private boolean containsMenuButtons(ReplyKeyboardMarkup markup) {
+        if (markup == null || markup.getKeyboard() == null) {
+            return false;
+        }
+
+        boolean hasMenu = false;
+        boolean hasHelp = false;
+        for (KeyboardRow row : markup.getKeyboard()) {
+            if (row == null) {
+                continue;
+            }
+            for (KeyboardButton button : row) {
+                if (button == null) {
+                    continue;
+                }
+                String text = button.getText();
+                if ("🏠 Меню".equals(text)) {
+                    hasMenu = true;
+                }
+                if ("❓ Помощь".equals(text)) {
+                    hasHelp = true;
+                }
+            }
+        }
+        return hasMenu && hasHelp;
     }
 }
