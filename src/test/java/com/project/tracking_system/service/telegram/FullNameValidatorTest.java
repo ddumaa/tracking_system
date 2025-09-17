@@ -47,6 +47,30 @@ class FullNameValidatorTest {
     }
 
     /**
+     * Проверяет, что одно слово без фамилии отклоняется.
+     */
+    @Test
+    void shouldRejectSingleWordFullName() {
+        FullNameValidator.FullNameValidationResult result = validator.validate("Иван");
+
+        assertFalse(result.valid());
+        assertEquals(FullNameValidator.FullNameValidationError.NAME_AND_SURNAME_REQUIRED, result.error());
+        assertTrue(result.message().contains("имя и фамилию"));
+    }
+
+    /**
+     * Проверяет, что при пустом вводе возвращается подсказка с примером полного ФИО.
+     */
+    @Test
+    void shouldRequestFullNameExampleWhenEmpty() {
+        FullNameValidator.FullNameValidationResult result = validator.validate("   ");
+
+        assertFalse(result.valid());
+        assertEquals(FullNameValidator.FullNameValidationError.EMPTY, result.error());
+        assertTrue(result.message().contains("Иванов Иван Иванович"));
+    }
+
+    /**
      * Проверяет, что подтверждающие слова попадают в чёрный список.
      */
     @Test
@@ -78,5 +102,19 @@ class FullNameValidatorTest {
         assertFalse(result.valid());
         assertEquals(FullNameValidator.FullNameValidationError.TOO_LONG, result.error());
         assertTrue(result.message().contains("не более"));
+    }
+
+    /**
+     * Убеждается, что корректные варианты ФИО принимаются валидатором.
+     */
+    @Test
+    void shouldAcceptValidFullNames() {
+        FullNameValidator.FullNameValidationResult regular = validator.validate("мария   иВанова");
+        assertTrue(regular.valid());
+        assertEquals("Мария Иванова", regular.normalizedFullName());
+
+        FullNameValidator.FullNameValidationResult hyphenated = validator.validate("  олег   смирнов-петров  ");
+        assertTrue(hyphenated.valid());
+        assertEquals("Олег Смирнов-Петров", hyphenated.normalizedFullName());
     }
 }
