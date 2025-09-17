@@ -16,7 +16,8 @@ import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageRe
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Contact;
-import org.telegram.telegrambots.meta.api.objects.Message;
+import org.telegram.telegrambots.meta.api.objects.message.Message;
+import org.telegram.telegrambots.meta.api.objects.message.MaybeInaccessibleMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
@@ -91,13 +92,20 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         return botToken;
     }
 
+    /**
+     * Возвращает обработчик обновлений, регистрируя самого бота как потребителя.
+     *
+     * @return обработчик обновлений Telegram
+     */
     @Override
     public LongPollingUpdateConsumer getUpdatesConsumer() {
         return this;
     }
 
     /**
-     * Новый метод, который вызывает TelegramBots v9
+     * Обрабатывает входящее обновление Telegram, реагируя на сообщения и callback-запросы.
+     *
+     * @param update объект обновления Telegram
      */
     @Override
     public void consume(Update update) {
@@ -184,9 +192,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         String data = callbackQuery.getData();
-        Message message = callbackQuery.getMessage();
-        Long chatId = message != null ? message.getChatId() : null;
-        Integer messageId = message != null ? message.getMessageId() : null;
+        MaybeInaccessibleMessage callbackMessage = callbackQuery.getMessage();
+        Long chatId = callbackMessage != null ? callbackMessage.getChatId() : null;
+        Integer messageId = callbackMessage != null ? callbackMessage.getMessageId() : null;
 
         if (data == null || chatId == null) {
             answerCallbackQuery(callbackQuery, "Команда недоступна");
