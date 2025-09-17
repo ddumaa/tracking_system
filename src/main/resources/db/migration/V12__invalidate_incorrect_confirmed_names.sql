@@ -42,6 +42,6 @@ WHERE c.id = a.id
         OR length(a.normalized_full_name) < 2
         OR length(a.normalized_full_name) > 100
         OR lower(a.normalized_full_name) IN ('да', 'верно', 'ок', 'окей', 'ага', 'yes', 'y')
-        OR a.normalized_full_name !~ '^[\\p{L}\\s''-]+$'
+        OR a.normalized_full_name !~ '^[[:alpha:][:space:]''-]+$'
         OR a.word_count < 2
       );
