@@ -1498,6 +1498,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 .map(ChatSession::getAnchorMessageId)
                 .orElse(null);
 
+        boolean shouldSendNewMessage = messageId == null;
+        boolean restoreKeyboardVisibility = false;
+
         if (messageId != null) {
             EditMessageText edit = EditMessageText.builder()
                     .chatId(chatId.toString())
@@ -1512,14 +1515,24 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             } catch (TelegramApiException e) {
                 String errorMessage = e.getMessage();
                 if (errorMessage != null && errorMessage.contains("message is not modified")) {
-                    chatSessionRepository.updateAnchorAndScreen(chatId, messageId, screen);
-                    log.debug("ℹ️ Содержимое якорного сообщения для чата {} не изменилось", chatId);
-                    return;
+                    boolean keyboardInitiallyVisible = !chatSessionRepository.isKeyboardHidden(chatId);
+                    chatSessionRepository.clearAnchor(chatId);
+                    if (keyboardInitiallyVisible) {
+                        restoreKeyboardVisibility = true;
+                    }
+                    shouldSendNewMessage = true;
+                    log.debug("ℹ️ Содержимое якорного сообщения для чата {} не изменилось, выполняем повторную отправку", chatId);
+                } else {
+                    log.warn("⚠️ Не удалось обновить якорное сообщение для чата {}", chatId, e);
+                    chatSessionRepository.clearAnchor(chatId);
+                    chatSessionRepository.markKeyboardHidden(chatId);
+                    shouldSendNewMessage = true;
                 }
-                log.warn("⚠️ Не удалось обновить якорное сообщение для чата {}", chatId, e);
-                chatSessionRepository.clearAnchor(chatId);
-                chatSessionRepository.markKeyboardHidden(chatId);
             }
+        }
+
+        if (!shouldSendNewMessage) {
+            return;
         }
 
         SendMessage message = new SendMessage(chatId.toString(), text);
@@ -1527,8 +1540,10 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         message.setDisableNotification(true);
         try {
             Message sent = telegramClient.execute(message);
-            if (sent != null) {
-                chatSessionRepository.updateAnchorAndScreen(chatId, sent.getMessageId(), screen);
+            Integer newAnchorId = sent != null ? sent.getMessageId() : null;
+            chatSessionRepository.updateAnchorAndScreen(chatId, newAnchorId, screen);
+            if (restoreKeyboardVisibility) {
+                chatSessionRepository.markKeyboardVisible(chatId);
             }
         } catch (TelegramApiException e) {
             log.error("❌ Ошибка отправки якорного сообщения", e);
