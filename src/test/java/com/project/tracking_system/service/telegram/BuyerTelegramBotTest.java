@@ -41,13 +41,15 @@ class BuyerTelegramBotTest {
     private CustomerTelegramService telegramService;
 
     private BuyerTelegramBot bot;
+    private FullNameValidator fullNameValidator;
 
     /**
      * Подготавливает экземпляр бота и стаб под клиента Telegram перед каждым тестом.
      */
     @BeforeEach
     void setUp() {
-        bot = new BuyerTelegramBot(telegramClient, "token", telegramService);
+        fullNameValidator = new FullNameValidator();
+        bot = new BuyerTelegramBot(telegramClient, "token", telegramService, fullNameValidator);
         doReturn(null).when(telegramClient).execute(any(SendMessage.class));
     }
 

@@ -10,10 +10,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Contact;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -34,7 +34,6 @@ class BuyerTelegramBotLoggingTest {
     @Mock
     private CustomerTelegramService customerTelegramService;
 
-    @InjectMocks
     private BuyerTelegramBot buyerTelegramBot;
 
     private Logger logger;
@@ -42,6 +41,8 @@ class BuyerTelegramBotLoggingTest {
 
     @BeforeEach
     void setUp() {
+        buyerTelegramBot = new BuyerTelegramBot(telegramClient, "token", customerTelegramService, new FullNameValidator());
+        when(telegramClient.execute(any(SendMessage.class))).thenReturn(null);
         logger = (Logger) LoggerFactory.getLogger(BuyerTelegramBot.class);
         appender = new ListAppender<>();
         appender.start();
