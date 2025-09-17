@@ -232,10 +232,16 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         transitionToState(chatId, ChatState.IDLE);
         sendMainMenu(chatId);
 
-        if (customer.getFullName() != null
+        if (!ensureValidStoredNameOrRequestUpdate(chatId, customer)) {
+            return;
+        }
+
+        String fullName = customer.getFullName();
+        if (fullName != null
+                && !fullName.isBlank()
                 && customer.getNameSource() != NameSource.USER_CONFIRMED) {
-            sendNameConfirmation(chatId, customer.getFullName());
-        } else if (customer.getFullName() == null) {
+            sendNameConfirmation(chatId, fullName);
+        } else if (fullName == null) {
             promptForName(chatId);
         }
     }
@@ -396,6 +402,10 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         Customer customer = optional.get();
+        if (!ensureValidStoredNameOrRequestUpdate(chatId, customer)) {
+            return;
+        }
+
         boolean awaitingName = getState(chatId) == ChatState.AWAITING_NAME_INPUT;
         String text = buildSettingsText(customer, awaitingName);
         InlineKeyboardMarkup markup = buildSettingsKeyboard(customer);
@@ -1173,6 +1183,35 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
+     * Проверяет сохранённое ФИО покупателя и при некорректном значении запрашивает его повторно.
+     *
+     * @param chatId   идентификатор чата Telegram
+     * @param customer сущность покупателя с сохранёнными данными
+     * @return {@code true}, если сохранённое ФИО валидно и может быть показано
+     */
+    private boolean ensureValidStoredNameOrRequestUpdate(Long chatId, Customer customer) {
+        if (customer == null) {
+            return true;
+        }
+
+        String fullName = customer.getFullName();
+        if (fullName == null) {
+            return true;
+        }
+
+        FullNameValidator.FullNameValidationResult validation = fullNameValidator.validate(fullName);
+        if (validation.valid()) {
+            return true;
+        }
+
+        telegramService.markNameUnconfirmed(chatId);
+        customer.setNameSource(NameSource.MERCHANT_PROVIDED);
+        transitionToState(chatId, ChatState.AWAITING_NAME_INPUT);
+        sendSimpleMessage(chatId, "Укажите своё ФИО");
+        return false;
+    }
+
+    /**
      * Отправить пользователю ФИО из системы для подтверждения.
      *
      * @param chatId   идентификатор чата
@@ -1224,9 +1263,14 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
             sendMainMenu(chatId);
 
-            if (customer.getFullName() != null) {
+            if (!ensureValidStoredNameOrRequestUpdate(chatId, customer)) {
+                return;
+            }
+
+            String fullName = customer.getFullName();
+            if (fullName != null && !fullName.isBlank()) {
                 if (customer.getNameSource() != NameSource.USER_CONFIRMED) {
-                    sendNameConfirmation(chatId, customer.getFullName());
+                    sendNameConfirmation(chatId, fullName);
                 }
             } else {
                 promptForName(chatId);

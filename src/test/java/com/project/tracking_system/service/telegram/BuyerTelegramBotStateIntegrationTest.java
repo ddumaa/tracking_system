@@ -70,6 +70,36 @@ class BuyerTelegramBotStateIntegrationTest {
     }
 
     /**
+     * Проверяет, что при сохранённом однословном ФИО бот требует указать корректные данные.
+     */
+    @Test
+    void shouldRequestFullNameWhenStoredNameInvalid() throws Exception {
+        Long chatId = 1011L;
+        Customer customer = new Customer();
+        customer.setTelegramConfirmed(true);
+        customer.setNameSource(NameSource.MERCHANT_PROVIDED);
+        customer.setNotificationsEnabled(true);
+        customer.setFullName("Иван");
+
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        bot.consume(textUpdate(chatId, "/start"));
+
+        assertEquals(BuyerTelegramBot.ChatState.AWAITING_NAME_INPUT, bot.getState(chatId),
+                "Бот должен запросить корректное ФИО вместо подтверждения");
+        verify(telegramService).markNameUnconfirmed(chatId);
+        verify(telegramService, never()).confirmName(chatId);
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+        boolean hasPrompt = captor.getAllValues().stream()
+                .map(SendMessage::getText)
+                .filter(text -> text != null)
+                .anyMatch("Укажите своё ФИО"::equals);
+        assertTrue(hasPrompt, "Пользователь должен получить подсказку указать своё ФИО");
+    }
+
+    /**
      * Убеждается, что после получения контакта без ФИО бот ждёт ввод имени.
      */
     @Test

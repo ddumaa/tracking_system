@@ -8,6 +8,7 @@ import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
+import com.project.tracking_system.service.telegram.FullNameValidator;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -40,6 +42,9 @@ class CustomerTelegramServiceLoggingTest {
     private CustomerNotificationLogRepository notificationLogRepository;
     @Mock
     private TelegramNotificationService telegramNotificationService;
+
+    @Spy
+    private FullNameValidator fullNameValidator = new FullNameValidator();
 
     @InjectMocks
     private CustomerTelegramService customerTelegramService;

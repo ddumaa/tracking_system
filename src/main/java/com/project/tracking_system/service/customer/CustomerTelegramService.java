@@ -5,6 +5,7 @@ import com.project.tracking_system.mapper.BuyerStatusMapper;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
+import com.project.tracking_system.service.telegram.FullNameValidator;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -33,6 +34,7 @@ public class CustomerTelegramService {
     private final TrackParcelRepository trackParcelRepository;
     private final CustomerNotificationLogRepository notificationLogRepository;
     private final TelegramNotificationService telegramNotificationService;
+    private final FullNameValidator fullNameValidator;
 
     /**
      * Привязать чат Telegram к покупателю по номеру телефона.
@@ -123,6 +125,15 @@ public class CustomerTelegramService {
                 .map(c -> {
                     String fullName = c.getFullName();
                     if (fullName == null || fullName.isBlank()) {
+                        return false;
+                    }
+                    FullNameValidator.FullNameValidationResult validation = fullNameValidator.validate(fullName);
+                    if (!validation.valid()) {
+                        if (c.getNameSource() == NameSource.USER_CONFIRMED) {
+                            c.setNameSource(NameSource.MERCHANT_PROVIDED);
+                            c.setNameUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                            customerRepository.save(c);
+                        }
                         return false;
                     }
                     if (c.getNameSource() != NameSource.USER_CONFIRMED) {
