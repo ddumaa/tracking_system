@@ -19,6 +19,9 @@ public class FullNameValidator {
     /** Максимально допустимая длина ФИО после нормализации. */
     static final int MAX_LENGTH = 100;
 
+    /** Пример корректного ФИО для подсказок пользователю. */
+    private static final String FULL_NAME_EXAMPLE = "Иванов Иван Иванович";
+
     /** Разрешённый набор символов: буквы, пробелы, дефисы и апострофы. */
     private static final Pattern ALLOWED_SYMBOLS = Pattern.compile("^[\\p{L}\\s'\\-]+$");
     /** Паттерн для схлопывания последовательных пробелов. */
@@ -49,7 +52,7 @@ public class FullNameValidator {
         if (rawFullName == null) {
             return FullNameValidationResult.invalid(
                     FullNameValidationError.EMPTY,
-                    "⚠️ Пожалуйста, укажите ФИО полностью, например: Иван Иванов."
+                    "⚠️ Пожалуйста, укажите полное ФИО, например: " + FULL_NAME_EXAMPLE + "."
             );
         }
 
@@ -57,7 +60,7 @@ public class FullNameValidator {
         if (trimmed.isEmpty()) {
             return FullNameValidationResult.invalid(
                     FullNameValidationError.EMPTY,
-                    "⚠️ Пожалуйста, укажите ФИО полностью, например: Иван Иванов."
+                    "⚠️ Пожалуйста, укажите полное ФИО, например: " + FULL_NAME_EXAMPLE + "."
             );
         }
 
@@ -91,6 +94,14 @@ public class FullNameValidator {
             );
         }
 
+        if (!hasAtLeastTwoWords(normalizedWhitespace)) {
+            return FullNameValidationResult.invalid(
+                    FullNameValidationError.NAME_AND_SURNAME_REQUIRED,
+                    "⚠️ Для корректной обработки укажите как минимум имя и фамилию полностью, например: "
+                            + FULL_NAME_EXAMPLE + "."
+            );
+        }
+
         String normalizedCase = normalizeCase(normalizedWhitespace);
         return FullNameValidationResult.valid(normalizedCase);
     }
@@ -119,6 +130,26 @@ public class FullNameValidator {
         String collapsed = COLLAPSE_SPACES.matcher(value).replaceAll(" ");
         String trimmedHyphen = TRIM_HYPHEN_SPACES.matcher(collapsed).replaceAll("-");
         return TRIM_APOSTROPHE_SPACES.matcher(trimmedHyphen).replaceAll("'").strip();
+    }
+
+    /**
+     * Проверяет, содержит ли строка минимум два слова, разделённых пробелами или дефисами.
+     *
+     * @param value строка с нормализованными пробелами
+     * @return {@code true}, если найдено как минимум два непустых слова
+     */
+    private boolean hasAtLeastTwoWords(String value) {
+        String[] parts = value.split("[-\\s]+");
+        int words = 0;
+        for (String part : parts) {
+            if (!part.isBlank()) {
+                words++;
+                if (words >= 2) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -204,6 +235,8 @@ public class FullNameValidator {
         /** ФИО содержит недопустимые символы. */
         INVALID_SYMBOLS,
         /** ФИО совпало с подтверждающей фразой. */
-        CONFIRMATION_PHRASE
+        CONFIRMATION_PHRASE,
+        /** Требуются как минимум имя и фамилия. */
+        NAME_AND_SURNAME_REQUIRED
     }
 }
