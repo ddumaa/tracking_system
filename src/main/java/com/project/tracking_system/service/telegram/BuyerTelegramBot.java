@@ -1630,39 +1630,48 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
-     * Проверяет, принадлежит ли контакт отправителю сообщения.
+     * Извлекает идентификатор отправителя из сообщения, если Telegram предоставил эти данные.
      *
-     * @param message исходное сообщение с контактом
-     * @param contact контакт, отправленный пользователем
-     * @return {@code true}, если контакт можно принять как принадлежащий отправителю
+     * @param message исходное сообщение с контактными данными
+     * @return идентификатор пользователя или {@code null}, если он отсутствует
      */
-    private boolean isContactOwnedBySender(Message message, Contact contact) {
-        if (contact == null) {
-            return false;
+    private Long extractSenderId(Message message) {
+        if (message == null || message.getFrom() == null) {
+            return null;
         }
-        Long contactUserId = contact.getUserId();
-        Long senderId = message != null && message.getFrom() != null ? message.getFrom().getId() : null;
-        if (contactUserId == null || senderId == null) {
-            return true;
+        return message.getFrom().getId();
+    }
+
+    /**
+     * Проверяет, что контакт однозначно принадлежит отправителю по идентификаторам Telegram.
+     *
+     * @param senderId      идентификатор отправителя сообщения
+     * @param contactUserId идентификатор владельца контакта
+     * @return {@code true}, если оба идентификатора присутствуют и совпадают
+     */
+    private boolean isContactOwnedBySender(Long senderId, Long contactUserId) {
+        if (senderId == null || contactUserId == null) {
+            return false;
         }
         return contactUserId.equals(senderId);
     }
 
     /**
-     * Сообщает пользователю об отказе принять чужой контакт и повторно запрашивает номер.
+     * Сообщает пользователю, что не удалось подтвердить владение номером, и повторно запрашивает контакт.
      *
      * @param chatId идентификатор чата Telegram
      */
-    private void sendForeignContactRejectedMessage(Long chatId) {
+    private void sendContactOwnershipRejectedMessage(Long chatId) {
         sendPhoneRequestMessage(chatId,
-                "❌ Не удалось принять контакт: номер принадлежит другому пользователю. Пожалуйста, поделитесь своим номером через кнопку ниже.");
+                "❌ Не удалось подтвердить, что номер принадлежит вам. Пожалуйста, поделитесь своим номером через кнопку ниже.");
     }
 
     /**
      * Обработать контакт с номером телефона от пользователя.
      * <p>
      * Привязывает номер к покупателю, подтверждает Telegram и предлагает
-     * подтвердить или указать ФИО. Если контакт принадлежит другому аккаунту,
+     * подтвердить или указать ФИО. Если контакт принадлежит другому аккаунту
+     * либо Telegram не предоставил идентификаторы для проверки владения,
      * бот откажет в обработке и повторно попросит номер.
      * </p>
      *
@@ -1675,12 +1684,14 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        if (!isContactOwnedBySender(message, contact)) {
-            Long senderId = message != null && message.getFrom() != null ? message.getFrom().getId() : null;
-            log.warn("⚠️ Получен контакт другого пользователя: chatId={}, contactUserId={}, senderId={}",
-                    chatId, contact.getUserId(), senderId);
+        Long senderId = extractSenderId(message);
+        Long contactUserId = contact.getUserId();
+
+        if (!isContactOwnedBySender(senderId, contactUserId)) {
+            log.warn("⚠️ Не удалось подтвердить владение номером: chatId={}, contactUserId={}, senderId={}",
+                    chatId, contactUserId, senderId);
             transitionToState(chatId, ChatState.AWAITING_CONTACT);
-            sendForeignContactRejectedMessage(chatId);
+            sendContactOwnershipRejectedMessage(chatId);
             return;
         }
 
