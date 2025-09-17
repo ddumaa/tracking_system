@@ -202,6 +202,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         BuyerChatState state = getState(chatId);
 
         if (state == BuyerChatState.AWAITING_CONTACT) {
+            if ("/start".equals(trimmed)) {
+                handleStartWhileAwaitingContact(chatId);
+                return;
+            }
+
             if (trimmed.isEmpty() || trimmed.startsWith("/")) {
                 remindContactRequired(chatId);
                 return;
@@ -442,6 +447,28 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             sendNameConfirmation(chatId, fullName);
         } else if (fullName == null) {
             promptForName(chatId);
+        }
+    }
+
+    /**
+     * Обрабатывает повторный вызов команды /start, когда бот уже ждёт контакт пользователя.
+     * <p>
+     * Метод проверяет, отправлялось ли ранее сообщение с просьбой поделиться номером.
+     * Если сообщение ещё не отправлялось (например, сессия была восстановлена), бот повторно
+     * напоминает о необходимости контакта. В остальных случаях команда игнорируется, чтобы
+     * не дублировать приветствие и не засорять диалог.
+     * </p>
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void handleStartWhileAwaitingContact(Long chatId) {
+        if (chatId == null) {
+            return;
+        }
+
+        boolean contactRequestSent = chatSessionRepository.isContactRequestSent(chatId);
+        if (!contactRequestSent) {
+            remindContactRequired(chatId);
         }
     }
 
@@ -1109,8 +1136,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         chatSessionRepository.updateState(chatId, state);
 
         if (state == BuyerChatState.AWAITING_CONTACT) {
+            chatSessionRepository.clearContactRequestSent(chatId);
             chatSessionRepository.markKeyboardHidden(chatId);
+            return;
         }
+
+        chatSessionRepository.clearContactRequestSent(chatId);
     }
 
     /**
@@ -1664,6 +1695,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         chatSessionRepository.markKeyboardHidden(chatId);
+        chatSessionRepository.markContactRequestSent(chatId);
         SendMessage message = new SendMessage(chatId.toString(), text);
         message.setReplyMarkup(createPhoneRequestKeyboard());
 

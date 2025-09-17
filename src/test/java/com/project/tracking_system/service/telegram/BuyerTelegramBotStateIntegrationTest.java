@@ -21,6 +21,7 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Chat;
+import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberUpdated;
 import org.telegram.telegrambots.meta.api.objects.Contact;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
@@ -90,6 +91,28 @@ class BuyerTelegramBotStateIntegrationTest {
         assertTrue(message.getText().contains("номер"),
                 "Пользователь должен получить приглашение поделиться номером");
         assertPhoneKeyboard(message);
+    }
+
+    /**
+     * Проверяет, что при сценарии «my_chat_member → /start» запрос контакта отправляется один раз.
+     */
+    @Test
+    void shouldNotDuplicateContactRequestAfterMyChatMemberAndStart() throws Exception {
+        Long chatId = 1111L;
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.empty());
+
+        bot.consume(myChatMemberUpdate(chatId));
+        bot.consume(textUpdate(chatId, "/start"));
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, times(1)).execute(captor.capture());
+
+        SendMessage message = captor.getValue();
+        assertPhoneKeyboard(message);
+        assertEquals(BuyerChatState.AWAITING_CONTACT, bot.getState(chatId),
+                "После повторного /start бот должен оставаться в ожидании контакта без лишних сообщений");
+        assertTrue(chatSessionRepository.isContactRequestSent(chatId),
+                "Флаг отправленного запроса контакта обязан сохраняться в сессии");
     }
 
     /**
@@ -752,6 +775,21 @@ class BuyerTelegramBotStateIntegrationTest {
             clearInvocations(telegramClient);
             doReturn(null).when(telegramClient).execute(any(SendMessage.class));
         }
+    }
+
+    /**
+     * Создаёт обновление типа my_chat_member для сценария онбординга.
+     *
+     * @param chatId идентификатор чата Telegram
+     * @return объект {@link Update} с заполненными данными чата
+     */
+    private Update myChatMemberUpdate(Long chatId) {
+        ChatMemberUpdated myChatMember = new ChatMemberUpdated();
+        myChatMember.setChat(createChat(chatId));
+
+        Update update = new Update();
+        update.setMyChatMember(myChatMember);
+        return update;
     }
 
     /**

@@ -115,6 +115,35 @@ public class InMemoryChatSessionRepository implements ChatSessionRepository {
         session.setPersistentKeyboardHidden(false);
     }
 
+    @Override
+    public boolean isContactRequestSent(Long chatId) {
+        if (chatId == null) {
+            return false;
+        }
+        return sessions.getOrDefault(chatId, new ChatSession(chatId, BuyerChatState.IDLE, null, null))
+                .isContactRequestSent();
+    }
+
+    @Override
+    public void markContactRequestSent(Long chatId) {
+        if (chatId == null) {
+            return;
+        }
+        ChatSession session = sessions.computeIfAbsent(chatId,
+                id -> new ChatSession(id, BuyerChatState.IDLE, null, null));
+        session.setContactRequestSent(true);
+    }
+
+    @Override
+    public void clearContactRequestSent(Long chatId) {
+        if (chatId == null) {
+            return;
+        }
+        ChatSession session = sessions.computeIfAbsent(chatId,
+                id -> new ChatSession(id, BuyerChatState.IDLE, null, null));
+        session.setContactRequestSent(false);
+    }
+
     /**
      * Создаёт копию сессии, чтобы тесты не изменяли внутреннее состояние напрямую.
      *
@@ -127,6 +156,7 @@ public class InMemoryChatSessionRepository implements ChatSessionRepository {
         }
         return new ChatSession(session.getChatId(), session.getState(),
                 session.getAnchorMessageId(), session.getLastScreen(),
-                session.isPersistentKeyboardHidden());
+                session.isPersistentKeyboardHidden(),
+                session.isContactRequestSent());
     }
 }
