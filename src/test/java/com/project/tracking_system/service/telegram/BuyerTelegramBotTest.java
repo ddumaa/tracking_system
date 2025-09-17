@@ -12,6 +12,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.Contact;
+import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
@@ -109,6 +111,31 @@ class BuyerTelegramBotTest {
     }
 
     /**
+     * Гарантирует, что бот отклоняет контакт, который принадлежит другому пользователю.
+     */
+    @Test
+    void shouldRejectContactFromAnotherUser() throws Exception {
+        Long chatId = 987L;
+        markAwaitingContact(chatId);
+
+        Update update = mockContactUpdate(chatId, 1_000_000_001L, 2_000_000_002L, "+375291234567");
+
+        bot.consume(update);
+
+        verify(telegramService, never()).linkTelegramToCustomer(anyString(), eq(chatId));
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient).execute(captor.capture());
+        SendMessage response = captor.getValue();
+
+        assertEquals(chatId.toString(), response.getChatId());
+        assertTrue(response.getText().contains("номер принадлежит другому пользователю"));
+        assertPhoneKeyboard(response.getReplyMarkup());
+        assertEquals(BuyerTelegramBot.ChatState.AWAITING_CONTACT, bot.getState(chatId),
+                "После отказа бот должен продолжить ожидать контакт");
+    }
+
+    /**
      * Проверяет, что команда подтверждения имени отправляет сообщение об успешной операции.
      */
     @Test
@@ -164,6 +191,39 @@ class BuyerTelegramBotTest {
         when(message.getText()).thenReturn(text);
         when(message.getChatId()).thenReturn(chatId);
         when(message.hasContact()).thenReturn(false);
+
+        return update;
+    }
+
+    /**
+     * Создаёт мок обновления Telegram с контактом для проверки сценариев обработки номеров.
+     *
+     * @param chatId         идентификатор чата Telegram
+     * @param senderUserId   идентификатор отправителя сообщения
+     * @param contactUserId  идентификатор владельца контакта
+     * @param phoneNumber    номер телефона, указанный в контакте
+     * @return сконфигурированный объект {@link Update}
+     */
+    private Update mockContactUpdate(Long chatId,
+                                     Long senderUserId,
+                                     Long contactUserId,
+                                     String phoneNumber) {
+        Update update = mock(Update.class);
+        Message message = mock(Message.class);
+        Contact contact = mock(Contact.class);
+        User fromUser = mock(User.class);
+
+        when(update.hasMessage()).thenReturn(true);
+        when(update.getMessage()).thenReturn(message);
+        when(message.getChatId()).thenReturn(chatId);
+        when(message.hasText()).thenReturn(false);
+        when(message.hasContact()).thenReturn(true);
+        when(message.getContact()).thenReturn(contact);
+        when(message.getFrom()).thenReturn(fromUser);
+
+        when(fromUser.getId()).thenReturn(senderUserId);
+        when(contact.getUserId()).thenReturn(contactUserId);
+        when(contact.getPhoneNumber()).thenReturn(phoneNumber);
 
         return update;
     }
