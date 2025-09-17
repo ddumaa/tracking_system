@@ -101,6 +101,12 @@ class BuyerTelegramBotStateIntegrationTest {
 
         bot.consume(contactUpdate(chatId, "+375291234567"));
 
+        assertEquals(BuyerChatState.AWAITING_NAME_INPUT, bot.getState(chatId),
+                "После привязки номера бот должен ждать ввод ФИО и показывать меню-клавиатуру");
+
+        assertFalse(chatSessionRepository.isKeyboardHidden(chatId),
+                "После возврата в меню клавиатура с кнопками «🏠 Меню»/«❓ Помощь» должна считаться видимой");
+
         ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
         verify(telegramClient, atLeastOnce()).execute(captor.capture());
         List<SendMessage> messages = captor.getAllValues();

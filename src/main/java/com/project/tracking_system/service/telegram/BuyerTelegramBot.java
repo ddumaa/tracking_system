@@ -351,7 +351,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         Optional<Customer> optional = telegramService.findByChatId(chatId);
         if (optional.isEmpty()) {
             transitionToState(chatId, BuyerChatState.AWAITING_CONTACT);
-            chatSessionRepository.markKeyboardHidden(chatId);
             sendSharePhoneKeyboard(chatId);
             return;
         }
@@ -991,7 +990,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      */
     private void remindContactRequired(Long chatId) {
         transitionToState(chatId, BuyerChatState.AWAITING_CONTACT);
-        chatSessionRepository.markKeyboardHidden(chatId);
         sendPhoneRequestMessage(chatId,
                 "📱 Пожалуйста, поделитесь контактом через кнопку ниже — только так мы сможем принять номер. После получения телефона мы продолжим настройку.");
     }
@@ -1021,6 +1019,10 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
     /**
      * Фиксирует новое состояние сценария для указанного чата.
+     * <p>
+     * При переводе в режим ожидания контакта дополнительно помечает, что
+     * постоянная клавиатура скрыта и должна быть заменена кнопкой запроса номера.
+     * </p>
      *
      * @param chatId идентификатор чата Telegram
      * @param state  состояние, в которое нужно перевести сценарий
@@ -1031,6 +1033,10 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         chatSessionRepository.updateState(chatId, state);
+
+        if (state == BuyerChatState.AWAITING_CONTACT) {
+            chatSessionRepository.markKeyboardHidden(chatId);
+        }
     }
 
     /**
@@ -1365,6 +1371,10 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
     /**
      * Возвращает меню-клавиатуру, если она была скрыта ранее.
+     * <p>
+     * В режиме ожидания контакта клавиатура не восстанавливается, чтобы
+     * пользователь видел только кнопку отправки номера телефона.
+     * </p>
      *
      * @param chatId            идентификатор чата Telegram
      * @param skipCurrentUpdate {@code true}, если клавиатура скрыта прямо сейчас и её не нужно восстанавливать немедленно
@@ -1378,16 +1388,28 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
+        if (getState(chatId) == BuyerChatState.AWAITING_CONTACT) {
+            return;
+        }
+
         ensurePersistentKeyboard(chatId);
     }
 
     /**
      * Обеспечивает наличие новой reply-клавиатуры в чате.
+     * <p>
+     * Клавиатура меню не переотправляется, если бот всё ещё ждёт контакт
+     * пользователя, чтобы не сбивать сценарий запроса телефона.
+     * </p>
      *
      * @param chatId идентификатор чата Telegram
      */
     private void ensurePersistentKeyboard(Long chatId) {
         if (chatId == null) {
+            return;
+        }
+
+        if (getState(chatId) == BuyerChatState.AWAITING_CONTACT) {
             return;
         }
 
@@ -1747,7 +1769,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             log.warn("⚠️ Не удалось подтвердить владение номером: chatId={}, contactUserId={}, senderId={}",
                     chatId, contactUserId, senderId);
             transitionToState(chatId, BuyerChatState.AWAITING_CONTACT);
-            chatSessionRepository.markKeyboardHidden(chatId);
             sendContactOwnershipRejectedMessage(chatId);
             return;
         }
@@ -1764,6 +1785,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 telegramService.notifyActualStatuses(customer);
             }
 
+            transitionToState(chatId, BuyerChatState.IDLE);
             sendMainMenu(chatId);
 
             if (!ensureValidStoredNameOrRequestUpdate(chatId, customer)) {
@@ -1779,8 +1801,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 promptForName(chatId);
                 return;
             }
-
-            transitionToState(chatId, BuyerChatState.IDLE);
         } catch (Exception e) {
             log.error("❌ Ошибка регистрации телефона {} для чата {}",
                     PhoneUtils.maskPhone(phone), chatId, e);
