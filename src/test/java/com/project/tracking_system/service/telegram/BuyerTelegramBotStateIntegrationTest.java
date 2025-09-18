@@ -184,6 +184,66 @@ class BuyerTelegramBotStateIntegrationTest {
     }
 
     /**
+     * Проверяет, что после my_chat_member и последующего /start в чате остаётся одно сообщение главного меню
+     * с активной reply-клавиатурой.
+     */
+    @Test
+    void shouldKeepSingleMenuMessageWithReplyKeyboardAfterMemberAndStart() throws Exception {
+        Long chatId = 4545L;
+
+        Customer customer = new Customer();
+        customer.setTelegramConfirmed(true);
+        customer.setNameSource(NameSource.USER_CONFIRMED);
+        customer.setNotificationsEnabled(true);
+        customer.setFullName("Иван Иванов");
+
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        AtomicInteger messageIdSequence = new AtomicInteger(500);
+        when(telegramClient.execute(any(SendMessage.class))).thenAnswer(invocation -> {
+            Message sent = new Message();
+            sent.setMessageId(messageIdSequence.incrementAndGet());
+            return sent;
+        });
+        when(telegramClient.execute(any(EditMessageText.class))).thenReturn(null);
+        when(telegramClient.execute(any(EditMessageReplyMarkup.class))).thenReturn(null);
+
+        bot.consume(myChatMemberUpdate(chatId));
+
+        ArgumentCaptor<SendMessage> myChatMemberCaptor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(myChatMemberCaptor.capture());
+        List<SendMessage> messagesAfterMember = myChatMemberCaptor.getAllValues();
+
+        SendMessage menuMessage = messagesAfterMember.stream()
+                .filter(this::isMainMenuAnchorMessage)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("После my_chat_member должно появиться сообщение главного меню"));
+
+        assertTrue(menuMessage.getReplyMarkup() instanceof ReplyKeyboardMarkup,
+                "Главное меню должно сопровождаться reply-клавиатурой");
+        ReplyKeyboardMarkup replyKeyboardMarkup = (ReplyKeyboardMarkup) menuMessage.getReplyMarkup();
+        assertTrue(containsMenuButtons(replyKeyboardMarkup),
+                "Reply-клавиатура обязана содержать кнопки \"🏠 Меню\" и \"❓ Помощь\"");
+
+        long menuMessagesCount = messagesAfterMember.stream()
+                .filter(this::isMainMenuAnchorMessage)
+                .count();
+        assertEquals(1L, menuMessagesCount,
+                "После обработки my_chat_member должно быть только одно сообщение \"Главное меню\"");
+
+        clearInvocations(telegramClient);
+
+        bot.consume(textUpdate(chatId, "/start"));
+
+        verify(telegramClient, never()).execute(argThat(
+                (SendMessage message) -> message != null && isMainMenuAnchorMessage(message)));
+        verify(telegramClient).execute(any(EditMessageText.class));
+
+        assertFalse(chatSessionRepository.isKeyboardHidden(chatId),
+                "Reply-клавиатура должна оставаться активной после повторного /start");
+    }
+
+    /**
      * Проверяет, что после привязки контакта клавиатура меню возвращается, а кнопка запроса номера исчезает.
      */
     @Test
@@ -304,11 +364,11 @@ class BuyerTelegramBotStateIntegrationTest {
     }
 
     /**
-     * Убеждается, что повторная команда /start не дублирует сообщение о быстрых клавишах,
-     * когда клавиатура уже показана пользователю.
+     * Убеждается, что повторная команда /start не приводит к дополнительной подсказке о клавиатуре,
+     * когда она уже активна у пользователя.
      */
     @Test
-    void shouldSendQuickAccessHintOnlyOnceWhenKeyboardVisible() throws Exception {
+    void shouldSkipQuickAccessHintWhenKeyboardVisible() throws Exception {
         Long chatId = 6060L;
         Customer customer = new Customer();
         customer.setTelegramConfirmed(true);
@@ -339,8 +399,8 @@ class BuyerTelegramBotStateIntegrationTest {
                     .filter(text -> text.contains("Клавиши быстрого доступа доступны"))
                     .count();
 
-            assertEquals(1L, quickAccessMessages,
-                    "Подсказка о быстрых клавишах должна отправляться единожды при повторном /start");
+            assertEquals(0L, quickAccessMessages,
+                    "При повторном /start не должно появляться отдельных сообщений о быстрых клавишах");
             assertFalse(chatSessionRepository.isKeyboardHidden(chatId),
                     "После повторного /start клавиатура должна считаться видимой");
         } finally {
