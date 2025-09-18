@@ -59,6 +59,12 @@ public class Customer {
     private BuyerReputation reputation = BuyerReputation.NEW;
 
     /**
+     * Дата и время последней активности покупателя в Telegram.
+     */
+    @Column(name = "last_active_at")
+    private ZonedDateTime lastActiveAt;
+
+    /**
      * Версия записи для реализации оптимистичной блокировки.
      */
     @Version

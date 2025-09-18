@@ -156,6 +156,46 @@ public class InMemoryChatSessionRepository implements ChatSessionRepository {
     }
 
     /**
+     * Показывает, просмотрено ли объявление в текущей сессии.
+     */
+    @Override
+    public boolean isAnnouncementSeen(Long chatId) {
+        if (chatId == null) {
+            return false;
+        }
+        return sessions.getOrDefault(chatId, new ChatSession(chatId, BuyerChatState.IDLE, null, null))
+                .isAnnouncementSeen();
+    }
+
+    /**
+     * Помечает объявление как прочитанное пользователем.
+     */
+    @Override
+    public void markAnnouncementSeen(Long chatId) {
+        if (chatId == null) {
+            return;
+        }
+        ChatSession session = sessions.computeIfAbsent(chatId,
+                id -> new ChatSession(id, BuyerChatState.IDLE, null, null));
+        session.setAnnouncementSeen(true);
+    }
+
+    /**
+     * Сохраняет параметры текущего объявления, сбрасывая признак просмотра.
+     */
+    @Override
+    public void updateAnnouncement(Long chatId, Long notificationId, Integer anchorMessageId) {
+        if (chatId == null) {
+            return;
+        }
+        ChatSession session = sessions.computeIfAbsent(chatId,
+                id -> new ChatSession(id, BuyerChatState.IDLE, null, null));
+        session.setCurrentNotificationId(notificationId);
+        session.setAnnouncementAnchorMessageId(anchorMessageId);
+        session.setAnnouncementSeen(false);
+    }
+
+    /**
      * Создаёт копию сессии, чтобы тесты не изменяли внутреннее состояние напрямую.
      *
      * @param session исходная сессия
@@ -165,9 +205,13 @@ public class InMemoryChatSessionRepository implements ChatSessionRepository {
         if (session == null) {
             return null;
         }
-        return new ChatSession(session.getChatId(), session.getState(),
+        ChatSession copy = new ChatSession(session.getChatId(), session.getState(),
                 session.getAnchorMessageId(), session.getLastScreen(),
                 session.isPersistentKeyboardHidden(),
                 session.isContactRequestSent());
+        copy.setCurrentNotificationId(session.getCurrentNotificationId());
+        copy.setAnnouncementAnchorMessageId(session.getAnnouncementAnchorMessageId());
+        copy.setAnnouncementSeen(session.isAnnouncementSeen());
+        return copy;
     }
 }

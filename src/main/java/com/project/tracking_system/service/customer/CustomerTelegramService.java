@@ -74,6 +74,7 @@ public class CustomerTelegramService {
         }
 
         customer.setTelegramChatId(chatId);
+        customer.setLastActiveAt(ZonedDateTime.now(ZoneOffset.UTC));
         Customer saved = customerRepository.save(customer);
         log.info("✅ Чат {} привязан к покупателю {}", chatId, saved.getId());
         return saved;
@@ -106,6 +107,7 @@ public class CustomerTelegramService {
         }
         if (!customer.isTelegramConfirmed()) {
             customer.setTelegramConfirmed(true);
+            customer.setLastActiveAt(ZonedDateTime.now(ZoneOffset.UTC));
             customer = customerRepository.save(customer);
             log.info("✅ Покупатель {} подтвердил Telegram", customer.getId());
         }
@@ -132,6 +134,7 @@ public class CustomerTelegramService {
                         if (c.getNameSource() == NameSource.USER_CONFIRMED) {
                             c.setNameSource(NameSource.MERCHANT_PROVIDED);
                             c.setNameUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                            c.setLastActiveAt(ZonedDateTime.now(ZoneOffset.UTC));
                             customerRepository.save(c);
                         }
                         return false;
@@ -139,6 +142,7 @@ public class CustomerTelegramService {
                     if (c.getNameSource() != NameSource.USER_CONFIRMED) {
                         c.setNameSource(NameSource.USER_CONFIRMED);
                         c.setNameUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                        c.setLastActiveAt(ZonedDateTime.now(ZoneOffset.UTC));
                         customerRepository.save(c);
                     }
                     return true;
@@ -171,6 +175,7 @@ public class CustomerTelegramService {
                 .ifPresent(c -> {
                     c.setNameSource(NameSource.MERCHANT_PROVIDED);
                     c.setNameUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                    c.setLastActiveAt(ZonedDateTime.now(ZoneOffset.UTC));
                     customerRepository.save(c);
                 });
     }
@@ -237,6 +242,7 @@ public class CustomerTelegramService {
                 .filter(Customer::isNotificationsEnabled)
                 .map(customer -> {
                     customer.setNotificationsEnabled(false);
+                    customer.setLastActiveAt(ZonedDateTime.now(ZoneOffset.UTC));
                     customerRepository.save(customer);
                     log.info("🔕 Уведомления отключены для покупателя {}", customer.getId());
                     return true;
@@ -260,11 +266,30 @@ public class CustomerTelegramService {
                 .filter(c -> !c.isNotificationsEnabled())
                 .map(customer -> {
                     customer.setNotificationsEnabled(true);
+                    customer.setLastActiveAt(ZonedDateTime.now(ZoneOffset.UTC));
                     customerRepository.save(customer);
                     log.info("🔔 Уведомления включены для покупателя {}", customer.getId());
                     return true;
                 })
                 .orElse(false);
+    }
+
+    /**
+     * Обновить отметку о последней активности покупателя по идентификатору чата.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    @Transactional
+    public void updateLastActive(Long chatId) {
+        if (chatId == null) {
+            return;
+        }
+        customerRepository.findByTelegramChatId(chatId)
+                .ifPresent(customer -> {
+                    customer.setLastActiveAt(ZonedDateTime.now(ZoneOffset.UTC));
+                    customerRepository.save(customer);
+                    log.debug("🕒 Обновлена активность покупателя {}", customer.getId());
+                });
     }
 
     /**
