@@ -59,6 +59,23 @@ class FullNameValidatorTest {
     }
 
     /**
+     * Проверяет, что инициалы и короткие части слова отклоняются.
+     */
+    @Test
+    void shouldRejectInitialsAndShortParts() {
+        FullNameValidator.FullNameValidationResult surnameWithInitial = validator.validate("Иванов И");
+
+        assertFalse(surnameWithInitial.valid());
+        assertEquals(FullNameValidator.FullNameValidationError.WORD_PART_TOO_SHORT, surnameWithInitial.error());
+        assertTrue(surnameWithInitial.message().contains("полностью"));
+
+        FullNameValidator.FullNameValidationResult hyphenWithShortSegment = validator.validate("Мария С-петрова");
+
+        assertFalse(hyphenWithShortSegment.valid());
+        assertEquals(FullNameValidator.FullNameValidationError.WORD_PART_TOO_SHORT, hyphenWithShortSegment.error());
+    }
+
+    /**
      * Проверяет, что при пустом вводе возвращается подсказка с примером полного ФИО.
      */
     @Test
@@ -116,5 +133,9 @@ class FullNameValidatorTest {
         FullNameValidator.FullNameValidationResult hyphenated = validator.validate("  олег   смирнов-петров  ");
         assertTrue(hyphenated.valid());
         assertEquals("Олег Смирнов-Петров", hyphenated.normalizedFullName());
+
+        FullNameValidator.FullNameValidationResult complex = validator.validate("  жан-поль   де'лор  ");
+        assertTrue(complex.valid());
+        assertEquals("Жан-Поль Де'Лор", complex.normalizedFullName());
     }
 }
