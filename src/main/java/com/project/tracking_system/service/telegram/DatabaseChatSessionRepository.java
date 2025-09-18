@@ -127,6 +127,21 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
      * {@inheritDoc}
      */
     @Override
+    @Transactional
+    public void deactivateAnchor(Long chatId) {
+        if (chatId == null) {
+            return;
+        }
+        repository.findById(chatId).ifPresent(entity -> {
+            entity.setAnchorMessageId(null);
+            repository.save(entity);
+        });
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     @Transactional(readOnly = true)
     public boolean isKeyboardHidden(Long chatId) {
         if (chatId == null) {
