@@ -179,7 +179,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (optional.isPresent()) {
             transitionToState(chatId, BuyerChatState.IDLE);
             chatSessionRepository.markKeyboardHidden(chatId);
-            sendMainMenu(chatId);
+            sendMainMenu(chatId, true);
             return;
         }
 
@@ -434,7 +434,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (shouldResetKeyboardFlag) {
             chatSessionRepository.markKeyboardHidden(chatId);
         }
-        sendMainMenu(chatId);
+        sendMainMenu(chatId, true);
 
         if (!ensureValidStoredNameOrRequestUpdate(chatId, customer)) {
             return;
@@ -532,11 +532,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         boolean confirmed = confirmNameAndNotify(chatId);
         if (confirmed) {
             answerCallbackQuery(callbackQuery, "Имя подтверждено");
-            sendMainMenu(chatId);
+            sendMainMenu(chatId, true);
         } else {
             answerCallbackQuery(callbackQuery, "Не удалось подтвердить имя");
             sendNameConfirmationFailure(chatId);
-            sendMainMenu(chatId);
+            sendMainMenu(chatId, true);
         }
     }
 
@@ -858,7 +858,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private void handleCallbackBackToMenu(Long chatId, CallbackQuery callbackQuery) {
         transitionToState(chatId, BuyerChatState.IDLE);
         answerCallbackQuery(callbackQuery, "Открыл меню");
-        sendMainMenu(chatId);
+        sendMainMenu(chatId, true);
     }
 
     /**
@@ -1312,6 +1312,17 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param chatId идентификатор чата Telegram
      */
     private void sendMainMenu(Long chatId) {
+        sendMainMenu(chatId, false);
+    }
+
+    /**
+     * Отправляет главное меню с основными разделами бота.
+     * <p>Меню содержит кнопки статистики, настроек и помощи.</p>
+     *
+     * @param chatId                     идентификатор чата Telegram
+     * @param forceResendOnNotModified   требует ли сценарий повторной отправки при ошибке «message is not modified»
+     */
+    private void sendMainMenu(Long chatId, boolean forceResendOnNotModified) {
         if (chatId == null) {
             return;
         }
@@ -1320,7 +1331,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         Customer customer = optional.orElse(null);
         String text = buildMainMenuText(customer);
         InlineKeyboardMarkup markup = buildMainMenuKeyboard(customer);
-        sendInlineMessage(chatId, text, markup, BuyerBotScreen.MENU);
+        sendInlineMessage(chatId, text, markup, BuyerBotScreen.MENU, forceResendOnNotModified);
 
         ensurePersistentKeyboard(chatId);
     }
@@ -1553,6 +1564,23 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                                    String text,
                                    InlineKeyboardMarkup markup,
                                    BuyerBotScreen screen) {
+        sendInlineMessage(chatId, text, markup, screen, false);
+    }
+
+    /**
+     * Показывает или обновляет якорное сообщение, сохраняя данные в устойчивом хранилище.
+     *
+     * @param chatId                   идентификатор чата Telegram
+     * @param text                     текст, который необходимо отобразить
+     * @param markup                   инлайн-клавиатура для сообщения
+     * @param screen                   экран, который следует зафиксировать для последующего восстановления
+     * @param forceResendOnNotModified требовать переотправку при ответе «message is not modified»
+     */
+    private void sendInlineMessage(Long chatId,
+                                   String text,
+                                   InlineKeyboardMarkup markup,
+                                   BuyerBotScreen screen,
+                                   boolean forceResendOnNotModified) {
         if (chatId == null) {
             return;
         }
@@ -1578,20 +1606,26 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 return;
             } catch (TelegramApiException e) {
                 String errorMessage = e.getMessage();
-                if (errorMessage != null && errorMessage.contains("message is not modified")) {
-                    boolean keyboardHiddenBeforeUpdate = chatSessionRepository.isKeyboardHidden(chatId);
-                    chatSessionRepository.updateAnchorAndScreen(chatId, messageId, screen);
-                    if (keyboardHiddenBeforeUpdate) {
-                        ensurePersistentKeyboard(chatId);
+                boolean notModified = errorMessage != null && errorMessage.contains("message is not modified");
+                if (notModified) {
+                    if (forceResendOnNotModified) {
+                        log.debug("ℹ️ Telegram сообщил об отсутствии изменений для чата {}, переотправляю сообщение", chatId);
+                        deactivateAnchorAndRemoveKeyboard(chatId, messageId, true);
+                        shouldSendNewMessage = true;
                     } else {
-                        chatSessionRepository.markKeyboardVisible(chatId);
+                        boolean keyboardHiddenBeforeUpdate = chatSessionRepository.isKeyboardHidden(chatId);
+                        chatSessionRepository.updateAnchorAndScreen(chatId, messageId, screen);
+                        if (keyboardHiddenBeforeUpdate) {
+                            ensurePersistentKeyboard(chatId);
+                        } else {
+                            chatSessionRepository.markKeyboardVisible(chatId);
+                        }
+                        log.debug("ℹ️ Содержимое якорного сообщения для чата {} не изменилось, якорь обновлён без повторной отправки", chatId);
+                        return;
                     }
-                    log.debug("ℹ️ Содержимое якорного сообщения для чата {} не изменилось, якорь обновлён без повторной отправки", chatId);
-                    return;
                 } else {
                     log.warn("⚠️ Не удалось обновить якорное сообщение для чата {}", chatId, e);
-                    chatSessionRepository.clearAnchor(chatId);
-                    chatSessionRepository.markKeyboardHidden(chatId);
+                    deactivateAnchorAndRemoveKeyboard(chatId, messageId, false);
                     shouldSendNewMessage = true;
                 }
             }
@@ -1614,12 +1648,38 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
+     * Деактивирует старое якорное сообщение и снимает с него инлайн-клавиатуру перед повторной отправкой.
+     *
+     * @param chatId                 идентификатор чата Telegram
+     * @param messageId              идентификатор устаревшего сообщения
+     * @param preserveKeyboardStatus следует ли сохранять признак видимости постоянной клавиатуры
+     */
+    private void deactivateAnchorAndRemoveKeyboard(Long chatId,
+                                                   Integer messageId,
+                                                   boolean preserveKeyboardStatus) {
+        if (chatId == null) {
+            return;
+        }
+
+        if (preserveKeyboardStatus) {
+            chatSessionRepository.deactivateAnchor(chatId);
+        } else {
+            chatSessionRepository.clearAnchor(chatId);
+            chatSessionRepository.markKeyboardHidden(chatId);
+        }
+
+        if (messageId != null) {
+            removeInlineKeyboard(chatId, messageId);
+        }
+    }
+
+    /**
      * Переотправляет главное меню, чтобы обновить клавиатуру у пользователя.
      *
      * @param chatId идентификатор чата Telegram
      */
     private void refreshMainMenu(Long chatId) {
-        sendMainMenu(chatId);
+        sendMainMenu(chatId, true);
     }
 
     /**
@@ -1889,7 +1949,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             }
 
             transitionToState(chatId, BuyerChatState.IDLE);
-            sendMainMenu(chatId);
+            sendMainMenu(chatId, true);
 
             if (!ensureValidStoredNameOrRequestUpdate(chatId, customer)) {
                 return;
