@@ -5,6 +5,7 @@ import com.project.tracking_system.mapper.BuyerStatusMapper;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
+import com.project.tracking_system.service.telegram.FullNameValidator;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -33,6 +34,7 @@ public class CustomerTelegramService {
     private final TrackParcelRepository trackParcelRepository;
     private final CustomerNotificationLogRepository notificationLogRepository;
     private final TelegramNotificationService telegramNotificationService;
+    private final FullNameValidator fullNameValidator;
 
     /**
      * Привязать чат Telegram к покупателю по номеру телефона.
@@ -50,8 +52,9 @@ public class CustomerTelegramService {
     @Transactional
     public Customer linkTelegramToCustomer(String phone, Long chatId) {
         String normalized = PhoneUtils.normalizePhone(phone);
+        String maskedPhone = PhoneUtils.maskPhone(normalized);
         log.info("🔗 Попытка привязки телефона {} к чату {}",
-                PhoneUtils.maskPhone(normalized), chatId);
+                maskedPhone, chatId);
 
         // Регистрируем покупателя при необходимости
         Customer customer;
@@ -60,7 +63,7 @@ public class CustomerTelegramService {
         } catch (ResponseStatusException ex) {
             // При некорректном телефоне информируем пользователя кодом 400
             log.warn("Телефон {} не прошёл проверку: {}",
-                    PhoneUtils.maskPhone(normalized), ex.getReason());
+                    maskedPhone, ex.getReason());
             throw ex;
         }
 
@@ -120,10 +123,25 @@ public class CustomerTelegramService {
     public boolean confirmName(Long chatId) {
         return customerRepository.findByTelegramChatId(chatId)
                 .map(c -> {
-                    if (c.getFullName() == null) {
+                    String fullName = c.getFullName();
+                    if (fullName == null || fullName.isBlank()) {
                         return false;
                     }
-                    return customerService.updateCustomerName(c, c.getFullName(), NameSource.USER_CONFIRMED);
+                    FullNameValidator.FullNameValidationResult validation = fullNameValidator.validate(fullName);
+                    if (!validation.valid()) {
+                        if (c.getNameSource() == NameSource.USER_CONFIRMED) {
+                            c.setNameSource(NameSource.MERCHANT_PROVIDED);
+                            c.setNameUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                            customerRepository.save(c);
+                        }
+                        return false;
+                    }
+                    if (c.getNameSource() != NameSource.USER_CONFIRMED) {
+                        c.setNameSource(NameSource.USER_CONFIRMED);
+                        c.setNameUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+                        customerRepository.save(c);
+                    }
+                    return true;
                 })
                 .orElse(false);
     }
