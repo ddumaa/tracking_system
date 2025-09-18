@@ -18,6 +18,8 @@ public class FullNameValidator {
     static final int MIN_LENGTH = 2;
     /** Максимально допустимая длина ФИО после нормализации. */
     static final int MAX_LENGTH = 100;
+    /** Минимально допустимая длина каждой части ФИО. */
+    private static final int MIN_WORD_PART_LENGTH = 2;
 
     /** Пример корректного ФИО для подсказок пользователю. */
     private static final String FULL_NAME_EXAMPLE = "Иванов Иван Иванович";
@@ -94,10 +96,20 @@ public class FullNameValidator {
             );
         }
 
-        if (!hasAtLeastTwoWords(normalizedWhitespace)) {
+        WordStructure wordStructure = analyzeWordStructure(normalizedWhitespace);
+
+        if (wordStructure.hasTooShortPart()) {
+            return FullNameValidationResult.invalid(
+                    FullNameValidationError.WORD_PART_TOO_SHORT,
+                    "⚠️ Пожалуйста, укажите имя и фамилию полностью, без инициалов. Например: "
+                            + FULL_NAME_EXAMPLE + "."
+            );
+        }
+
+        if (!hasAtLeastTwoWords(wordStructure)) {
             return FullNameValidationResult.invalid(
                     FullNameValidationError.NAME_AND_SURNAME_REQUIRED,
-                    "⚠️ Для корректной обработки укажите как минимум имя и фамилию полностью, например: "
+                    "⚠️ Для корректной обработки укажите как минимум имя и фамилию полностью, без сокращений. Например: "
                             + FULL_NAME_EXAMPLE + "."
             );
         }
@@ -139,17 +151,90 @@ public class FullNameValidator {
      * @return {@code true}, если найдено как минимум два непустых слова
      */
     private boolean hasAtLeastTwoWords(String value) {
-        String[] parts = value.split("[-\\s]+");
-        int words = 0;
+        return hasAtLeastTwoWords(analyzeWordStructure(value));
+    }
+
+    /**
+     * Проверяет наличие минимум двух слов на основе ранее рассчитанной структуры.
+     *
+     * @param structure структура ФИО после анализа
+     * @return {@code true}, если слова присутствуют и не содержат коротких частей
+     */
+    private boolean hasAtLeastTwoWords(WordStructure structure) {
+        return !structure.hasTooShortPart() && structure.hasAtLeastTwoWords();
+    }
+
+    /**
+     * Проводит структурный анализ ФИО: считает слова и проверяет длину их частей.
+     *
+     * @param value строка с нормализованными пробелами
+     * @return агрегированная информация о структуре ФИО
+     */
+    private WordStructure analyzeWordStructure(String value) {
+        String[] words = value.split(" ");
+        int wordCount = 0;
+        boolean hasTooShortPart = false;
+
+        for (String word : words) {
+            if (word.isBlank()) {
+                continue;
+            }
+
+            if (!isWordLongEnough(word)) {
+                hasTooShortPart = true;
+            }
+
+            wordCount++;
+        }
+
+        return new WordStructure(wordCount, hasTooShortPart);
+    }
+
+    /**
+     * Проверяет, что каждая часть слова (между дефисами или апострофами) имеет достаточную длину.
+     *
+     * @param word отдельное слово ФИО
+     * @return {@code true}, если все части содержат минимум два символа
+     */
+    private boolean isWordLongEnough(String word) {
+        String[] parts = word.split("[-']");
         for (String part : parts) {
-            if (!part.isBlank()) {
-                words++;
-                if (words >= 2) {
-                    return true;
-                }
+            if (part.isBlank()) {
+                continue;
+            }
+            int length = part.codePointCount(0, part.length());
+            if (length < MIN_WORD_PART_LENGTH) {
+                return false;
             }
         }
-        return false;
+        return true;
+    }
+
+    /**
+     * Агрегирует результаты структурной проверки ФИО.
+     *
+     * @param wordCount      количество слов в строке
+     * @param hasTooShortPart флаг наличия слишком коротких частей
+     */
+    private record WordStructure(int wordCount, boolean hasTooShortPart) {
+
+        /**
+         * Сообщает о наличии частей, которые короче допустимой длины.
+         *
+         * @return {@code true}, если в словах присутствуют короткие части
+         */
+        boolean hasTooShortPart() {
+            return hasTooShortPart;
+        }
+
+        /**
+         * Указывает, что в ФИО присутствует минимум имя и фамилия.
+         *
+         * @return {@code true}, если найдено не менее двух слов
+         */
+        boolean hasAtLeastTwoWords() {
+            return wordCount >= 2;
+        }
     }
 
     /**
@@ -237,6 +322,8 @@ public class FullNameValidator {
         /** ФИО совпало с подтверждающей фразой. */
         CONFIRMATION_PHRASE,
         /** Требуются как минимум имя и фамилия. */
-        NAME_AND_SURNAME_REQUIRED
+        NAME_AND_SURNAME_REQUIRED,
+        /** Встречены слишком короткие части слова (инициалы). */
+        WORD_PART_TOO_SHORT
     }
 }
