@@ -1332,6 +1332,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         String text = buildMainMenuText(customer);
         InlineKeyboardMarkup markup = buildMainMenuKeyboard(customer);
         sendInlineMessage(chatId, text, markup, BuyerBotScreen.MENU, forceResendOnNotModified);
+
+        ensurePersistentKeyboard(chatId);
     }
 
     /**
@@ -1506,17 +1508,16 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        BuyerBotScreen screen = chatSessionRepository.find(chatId)
-                .map(ChatSession::getLastScreen)
-                .orElse(null);
-        renderScreen(chatId, screen);
+        ensurePersistentKeyboard(chatId);
     }
 
     /**
-     * Фиксирует в сессии факт отображения постоянной reply-клавиатуры.
+     * Обеспечивает наличие постоянной reply-клавиатуры внизу диалога.
      * <p>
-     * Метод не обращается к Telegram напрямую, а лишь обновляет состояние хранилища,
-     * позволяя сценариям понимать, что клавиатура уже активна и не требует повторной отправки.
+     * Сообщение, которое содержит клавиатуру, остаётся последним, чтобы кнопки
+     * «🏠 Меню» и «❓ Помощь» были доступны даже после перезапуска бота и ручного
+     * скрытия клавиатуры пользователем. Во время ожидания контакта клавиатура не
+     * восстанавливается, чтобы не мешать сценарию отправки номера телефона.
      * </p>
      *
      * @param chatId идентификатор чата Telegram
@@ -1526,25 +1527,29 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        chatSessionRepository.markKeyboardVisible(chatId);
-    }
-
-    /**
-     * Определяет, требуется ли повторно показать постоянную клавиатуру меню.
-     *
-     * @param chatId идентификатор чата Telegram
-     * @return {@code true}, если клавиатура скрыта и её нужно вернуть
-     */
-    private boolean shouldRestorePersistentKeyboard(Long chatId) {
-        if (chatId == null) {
-            return false;
+        if (getState(chatId) == BuyerChatState.AWAITING_CONTACT) {
+            return;
         }
 
         if (!chatSessionRepository.isKeyboardHidden(chatId)) {
-            return false;
+            return;
         }
 
-        return getState(chatId) != BuyerChatState.AWAITING_CONTACT;
+        SendMessage message = new SendMessage(chatId.toString(),
+                "Клавиши быстрого доступа доступны на панели ниже: «🏠 Меню» и «❓ Помощь».");
+        message.setReplyMarkup(createPersistentMenuKeyboard());
+        message.setDisableNotification(true);
+
+        try {
+            Message sent = telegramClient.execute(message);
+            chatSessionRepository.markKeyboardVisible(chatId);
+            if (sent == null) {
+                log.debug("ℹ️ Telegram не вернул данные отправленного сообщения для чата {}", chatId);
+            }
+        } catch (TelegramApiException e) {
+            chatSessionRepository.markKeyboardHidden(chatId);
+            log.error("❌ Ошибка применения reply-клавиатуры", e);
+        }
     }
 
     /**
@@ -1586,10 +1591,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 && session.getAnchorMessageId() == null;
         Integer messageId = session != null ? session.getAnchorMessageId() : null;
 
-        boolean shouldRestoreKeyboard = shouldRestorePersistentKeyboard(chatId);
-        boolean shouldSendNewMessage = manualAnchorReset || messageId == null || shouldRestoreKeyboard;
+        boolean shouldSendNewMessage = manualAnchorReset || messageId == null;
 
-        if (messageId != null && !manualAnchorReset && !shouldRestoreKeyboard) {
+        if (messageId != null && !manualAnchorReset) {
             EditMessageText edit = EditMessageText.builder()
                     .chatId(chatId.toString())
                     .messageId(messageId)
@@ -1599,7 +1603,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             try {
                 telegramClient.execute(edit);
                 chatSessionRepository.updateAnchorAndScreen(chatId, messageId, screen);
-                ensurePersistentKeyboard(chatId);
                 return;
             } catch (TelegramApiException e) {
                 String errorMessage = e.getMessage();
@@ -1618,8 +1621,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                     shouldSendNewMessage = true;
                 }
             }
-        } else if (messageId != null && shouldRestoreKeyboard) {
-            deactivateAnchorAndRemoveKeyboard(chatId, messageId, true);
         }
 
         if (!shouldSendNewMessage) {
@@ -1627,37 +1628,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         SendMessage message = new SendMessage(chatId.toString(), text);
-        if (shouldRestoreKeyboard) {
-            message.setReplyMarkup(createPersistentMenuKeyboard());
-        } else {
-            message.setReplyMarkup(markup);
-        }
+        message.setReplyMarkup(markup);
         message.setDisableNotification(true);
         try {
             Message sent = telegramClient.execute(message);
             Integer newAnchorId = sent != null ? sent.getMessageId() : null;
             chatSessionRepository.updateAnchorAndScreen(chatId, newAnchorId, screen);
-            if (shouldRestoreKeyboard) {
-                chatSessionRepository.markKeyboardVisible(chatId);
-                if (newAnchorId != null && markup != null) {
-                    EditMessageReplyMarkup editMarkup = EditMessageReplyMarkup.builder()
-                            .chatId(chatId.toString())
-                            .messageId(newAnchorId)
-                            .replyMarkup(markup)
-                            .build();
-                    try {
-                        telegramClient.execute(editMarkup);
-                    } catch (TelegramApiException e) {
-                        log.warn("⚠️ Не удалось восстановить инлайн-клавиатуру для чата {}", chatId, e);
-                    }
-                }
-            } else {
-                ensurePersistentKeyboard(chatId);
-            }
         } catch (TelegramApiException e) {
-            if (shouldRestoreKeyboard) {
-                chatSessionRepository.markKeyboardHidden(chatId);
-            }
             log.error("❌ Ошибка отправки якорного сообщения", e);
         }
     }
@@ -1681,7 +1658,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         boolean keyboardHiddenBeforeUpdate = chatSessionRepository.isKeyboardHidden(chatId);
         chatSessionRepository.updateAnchorAndScreen(chatId, messageId, screen);
         if (keyboardHiddenBeforeUpdate) {
-            chatSessionRepository.markKeyboardHidden(chatId);
+            ensurePersistentKeyboard(chatId);
         } else {
             chatSessionRepository.markKeyboardVisible(chatId);
         }
