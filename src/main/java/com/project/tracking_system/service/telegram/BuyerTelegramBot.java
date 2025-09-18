@@ -36,7 +36,6 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -1637,20 +1636,22 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         try {
             Message sent = telegramClient.execute(message);
             Integer newAnchorId = sent != null ? sent.getMessageId() : null;
-
+            chatSessionRepository.updateAnchorAndScreen(chatId, newAnchorId, screen);
             if (shouldRestoreKeyboard) {
                 chatSessionRepository.markKeyboardVisible(chatId);
-                Integer finalAnchorId = attachInlineKeyboardAfterReplyRestore(chatId, newAnchorId, text, markup);
-                if (finalAnchorId != null) {
-                    chatSessionRepository.updateAnchorAndScreen(chatId, finalAnchorId, screen);
-                    ensurePersistentKeyboard(chatId);
-                } else {
-                    chatSessionRepository.updateAnchorAndScreen(chatId, null, screen);
-                    chatSessionRepository.markKeyboardHidden(chatId);
-                    log.warn("⚠️ Не удалось восстановить инлайн-клавиатуру главного меню для чата {}", chatId);
+                if (newAnchorId != null && markup != null) {
+                    EditMessageReplyMarkup editMarkup = EditMessageReplyMarkup.builder()
+                            .chatId(chatId.toString())
+                            .messageId(newAnchorId)
+                            .replyMarkup(markup)
+                            .build();
+                    try {
+                        telegramClient.execute(editMarkup);
+                    } catch (TelegramApiException e) {
+                        log.warn("⚠️ Не удалось восстановить инлайн-клавиатуру для чата {}", chatId, e);
+                    }
                 }
             } else {
-                chatSessionRepository.updateAnchorAndScreen(chatId, newAnchorId, screen);
                 ensurePersistentKeyboard(chatId);
             }
         } catch (TelegramApiException e) {
@@ -1659,77 +1660,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             }
             log.error("❌ Ошибка отправки якорного сообщения", e);
         }
-    }
-
-    /**
-     * Дополняет сообщение, отправленное с ReplyKeyboardMarkup, актуальной инлайн-клавиатурой.
-     * <p>
-     * Метод сначала пытается отредактировать исходное сообщение. Если Telegram запрещает
-     * редактирование (возвращает ошибку «message can't be edited»), бот отправляет новое
-     * сообщение только с инлайн-разметкой и использует его как актуальный якорь.
-     * </p>
-     *
-     * @param chatId    идентификатор чата Telegram
-     * @param messageId идентификатор сообщения с ReplyKeyboardMarkup
-     * @param text      текст, который необходимо сохранить в якорном сообщении
-     * @param markup    инлайн-клавиатура, которую нужно прикрепить
-     * @return идентификатор сообщения, которое можно использовать как якорь, или {@code null} при неуспехе
-     */
-    private Integer attachInlineKeyboardAfterReplyRestore(Long chatId,
-                                                          Integer messageId,
-                                                          String text,
-                                                          InlineKeyboardMarkup markup) {
-        if (chatId == null || messageId == null) {
-            return null;
-        }
-
-        if (markup == null) {
-            return messageId;
-        }
-
-        EditMessageText editText = EditMessageText.builder()
-                .chatId(chatId.toString())
-                .messageId(messageId)
-                .text(text)
-                .replyMarkup(markup)
-                .build();
-
-        try {
-            telegramClient.execute(editText);
-            return messageId;
-        } catch (TelegramApiException e) {
-            if (isMessageCannotBeEdited(e)) {
-                log.info("ℹ️ Telegram запретил редактирование сообщения {} в чате {}, будет отправлена новая копия", messageId,
-                        chatId);
-                SendMessage inlineMessage = new SendMessage(chatId.toString(), text);
-                inlineMessage.setReplyMarkup(markup);
-                inlineMessage.setDisableNotification(true);
-                try {
-                    Message resent = telegramClient.execute(inlineMessage);
-                    return resent != null ? resent.getMessageId() : null;
-                } catch (TelegramApiException resendError) {
-                    log.warn("⚠️ Не удалось повторно отправить сообщение с инлайн-клавиатурой для чата {}", chatId, resendError);
-                    return null;
-                }
-            }
-
-            log.warn("⚠️ Не удалось прикрепить инлайн-клавиатуру к сообщению {} в чате {}", messageId, chatId, e);
-            return null;
-        }
-    }
-
-    /**
-     * Проверяет, сигнализирует ли исключение Telegram о запрете редактирования сообщения.
-     *
-     * @param exception исключение API Telegram
-     * @return {@code true}, если ошибка содержит текст «message can't be edited»
-     */
-    private boolean isMessageCannotBeEdited(TelegramApiException exception) {
-        if (exception == null || exception.getMessage() == null) {
-            return false;
-        }
-
-        return exception.getMessage().toLowerCase(Locale.ROOT).contains("message can't be edited");
     }
 
     /**
