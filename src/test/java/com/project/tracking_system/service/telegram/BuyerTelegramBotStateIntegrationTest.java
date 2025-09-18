@@ -37,7 +37,6 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.Keyboard
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -785,12 +784,10 @@ class BuyerTelegramBotStateIntegrationTest {
 
         AtomicInteger messageIdSequence = new AtomicInteger(900);
         AtomicInteger inlineAnchorId = new AtomicInteger();
-        List<SendMessage> sentMessages = new ArrayList<>();
 
         try {
             when(telegramClient.execute(any(SendMessage.class))).thenAnswer(invocation -> {
                 SendMessage request = invocation.getArgument(0);
-                sentMessages.add(request);
                 Message response = new Message();
                 int generatedId = messageIdSequence.incrementAndGet();
                 if (request.getReplyMarkup() instanceof InlineKeyboardMarkup) {
@@ -805,18 +802,18 @@ class BuyerTelegramBotStateIntegrationTest {
 
             bot.consume(textUpdate(chatId, "/start"));
 
-            verify(telegramClient, atLeast(2)).execute(any(SendMessage.class));
+            ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+            verify(telegramClient, atLeast(2)).execute(captor.capture());
 
-            assertTrue(sentMessages.size() >= 2,
-                    "Восстановление клавиатуры должно приводить к двум отправкам SendMessage");
+            List<SendMessage> messages = captor.getAllValues();
 
-            boolean hasReplyKeyboard = sentMessages.stream()
+            boolean hasReplyKeyboard = messages.stream()
                     .map(SendMessage::getReplyMarkup)
                     .anyMatch(ReplyKeyboardMarkup.class::isInstance);
             assertTrue(hasReplyKeyboard,
                     "Восстановление клавиатуры должно сопровождаться сообщением с ReplyKeyboardMarkup");
 
-            InlineKeyboardMarkup inlineMarkup = sentMessages.stream()
+            InlineKeyboardMarkup inlineMarkup = messages.stream()
                     .map(SendMessage::getReplyMarkup)
                     .filter(InlineKeyboardMarkup.class::isInstance)
                     .map(InlineKeyboardMarkup.class::cast)
