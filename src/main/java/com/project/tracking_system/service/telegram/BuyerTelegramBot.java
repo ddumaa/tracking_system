@@ -361,7 +361,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * <p>
      * Метод используется при повторном выборе пункта «🏠 Меню», чтобы бот заново отправил
      * сообщение с главной навигацией. При наличии предыдущего сообщения его инлайн-клавиатура
-     * удаляется, чтобы пользователь не взаимодействовал с устаревшим экземпляром.
+     * удаляется, чтобы пользователь не взаимодействовал с устаревшим экземпляром. При этом
+     * сохраняется признак видимости постоянной клавиатуры, чтобы не отправлять лишние подсказки.
      * </p>
      *
      * @param chatId идентификатор чата Telegram
@@ -375,7 +376,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 .filter(session -> session.getLastScreen() == BuyerBotScreen.MENU)
                 .ifPresent(session -> {
                     Integer anchorMessageId = session.getAnchorMessageId();
-                    chatSessionRepository.clearAnchor(chatId);
+                    chatSessionRepository.deactivateAnchor(chatId);
                     if (anchorMessageId != null) {
                         removeInlineKeyboard(chatId, anchorMessageId);
                     }

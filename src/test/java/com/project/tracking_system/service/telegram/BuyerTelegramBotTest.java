@@ -4,11 +4,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
 import com.project.tracking_system.service.telegram.support.InMemoryChatSessionRepository;
+import com.project.tracking_system.service.telegram.ChatSession;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -269,6 +271,41 @@ class BuyerTelegramBotTest {
 
         assertTrue(hasPersistentKeyboard,
                 "После возврата бота в чат клавиатура с кнопкой «🏠 Меню» должна быть переотправлена");
+    }
+
+    /**
+     * Проверяет, что повторное нажатие кнопки «🏠 Меню» в состоянии ожидания команд
+     * приводит лишь к обновлению якорного сообщения без дополнительного уведомления о клавиатуре.
+     */
+    @Test
+    void shouldNotSendKeyboardHintWhenMenuPressedTwiceInIdleState() throws Exception {
+        Long chatId = 559L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        customer.setNotificationsEnabled(true);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        ChatSession session = new ChatSession(chatId,
+                BuyerChatState.IDLE,
+                101,
+                BuyerBotScreen.MENU,
+                false,
+                false);
+        chatSessionRepository.save(session);
+
+        Update update = mockTextUpdate(chatId, MENU_BUTTON_TEXT);
+
+        bot.consume(update);
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, times(1)).execute(captor.capture());
+
+        SendMessage message = captor.getValue();
+        assertEquals(chatId.toString(), message.getChatId(),
+                "Ответ должен быть отправлен в исходный чат");
+        assertNotNull(message.getText(), "Главное меню должно быть переотправлено");
+        assertTrue(message.getText().contains("📋 Главное меню"),
+                "Переотправленное сообщение должно содержать текст главного меню");
     }
 
     /**
