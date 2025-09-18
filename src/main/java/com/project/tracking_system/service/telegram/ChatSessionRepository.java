@@ -124,4 +124,28 @@ public interface ChatSessionRepository {
      * @param chatId идентификатор чата Telegram
      */
     void clearContactRequestSent(Long chatId);
+
+    /**
+     * Проверяет, просмотрено ли последнее объявление пользователем.
+     *
+     * @param chatId идентификатор чата Telegram
+     * @return {@code true}, если объявление уже просмотрено
+     */
+    boolean isAnnouncementSeen(Long chatId);
+
+    /**
+     * Помечает текущее объявление как просмотренное.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    void markAnnouncementSeen(Long chatId);
+
+    /**
+     * Устанавливает новое объявление и сбрасывает признак просмотра.
+     *
+     * @param chatId              идентификатор чата Telegram
+     * @param notificationId      идентификатор уведомления для показа
+     * @param anchorMessageId     идентификатор сообщения Telegram, в котором отображено объявление
+     */
+    void updateAnnouncement(Long chatId, Long notificationId, Integer anchorMessageId);
 }

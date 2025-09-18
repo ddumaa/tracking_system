@@ -126,6 +126,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     public void consume(Update update) {
         log.info("📩 Получено обновление: {}", formatUpdateMetadata(update));
 
+        Long chatIdForActivity = extractChatId(update);
+        if (chatIdForActivity != null) {
+            telegramService.updateLastActive(chatIdForActivity);
+        }
+
         if (update.hasCallbackQuery()) {
             handleCallbackQuery(update.getCallbackQuery());
             return;
@@ -153,6 +158,43 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (message.hasContact()) {
             handleContact(chatId, message, message.getContact());
         }
+    }
+
+    /**
+     * Определяет идентификатор чата, связанный с обновлением Telegram.
+     *
+     * @param update входящее обновление Telegram
+     * @return идентификатор чата или {@code null}, если его нельзя определить
+     */
+    private Long extractChatId(Update update) {
+        if (update == null) {
+            return null;
+        }
+
+        if (update.hasCallbackQuery()) {
+            CallbackQuery callbackQuery = update.getCallbackQuery();
+            if (callbackQuery != null) {
+                MaybeInaccessibleMessage callbackMessage = callbackQuery.getMessage();
+                if (callbackMessage != null) {
+                    return callbackMessage.getChatId();
+                }
+            }
+        }
+
+        if (update.hasMessage()) {
+            Message message = update.getMessage();
+            if (message != null && message.getChat() != null) {
+                return message.getChatId();
+            }
+        }
+
+        if (update.hasMyChatMember()
+                && update.getMyChatMember() != null
+                && update.getMyChatMember().getChat() != null) {
+            return update.getMyChatMember().getChat().getId();
+        }
+
+        return null;
     }
 
     /**
