@@ -5,6 +5,7 @@ import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
+import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.service.telegram.support.InMemoryChatSessionRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,7 +51,9 @@ class BuyerTelegramBotStatePersistenceIntegrationTest {
         Long chatId = 2001L;
         TelegramClient telegramClient = mock(TelegramClient.class);
         CustomerTelegramService telegramService = mock(CustomerTelegramService.class);
+        AdminNotificationService adminNotificationService = mock(AdminNotificationService.class);
         when(telegramClient.execute(any(SendMessage.class))).thenReturn(null);
+        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
 
         Customer customer = new Customer();
         customer.setTelegramConfirmed(false);
@@ -62,7 +65,7 @@ class BuyerTelegramBotStatePersistenceIntegrationTest {
         when(telegramService.confirmTelegram(customer)).thenReturn(customer);
         doNothing().when(telegramService).notifyActualStatuses(customer);
 
-        BuyerTelegramBot bot = new BuyerTelegramBot(telegramClient, "token", telegramService,
+        BuyerTelegramBot bot = new BuyerTelegramBot(telegramClient, "token", telegramService, adminNotificationService,
                 fullNameValidator, chatSessionRepository, new ObjectMapper());
 
         bot.consume(contactUpdate(chatId, "+375291112233"));
@@ -72,7 +75,8 @@ class BuyerTelegramBotStatePersistenceIntegrationTest {
 
         TelegramClient restartedClient = mock(TelegramClient.class);
         when(restartedClient.execute(any(SendMessage.class))).thenReturn(null);
-        BuyerTelegramBot restartedBot = new BuyerTelegramBot(restartedClient, "token", telegramService,
+        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
+        BuyerTelegramBot restartedBot = new BuyerTelegramBot(restartedClient, "token", telegramService, adminNotificationService,
                 fullNameValidator, chatSessionRepository, new ObjectMapper());
 
         clearInvocations(telegramService);
@@ -98,10 +102,12 @@ class BuyerTelegramBotStatePersistenceIntegrationTest {
         Long chatId = 2002L;
         TelegramClient initialClient = mock(TelegramClient.class);
         CustomerTelegramService telegramService = mock(CustomerTelegramService.class);
+        AdminNotificationService adminNotificationService = mock(AdminNotificationService.class);
 
         Message menuMessage = new Message();
         menuMessage.setMessageId(555);
         when(initialClient.execute(any(SendMessage.class))).thenReturn(menuMessage);
+        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
 
         Customer customer = new Customer();
         customer.setTelegramConfirmed(true);
@@ -110,7 +116,7 @@ class BuyerTelegramBotStatePersistenceIntegrationTest {
         customer.setNameSource(NameSource.USER_CONFIRMED);
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
-        BuyerTelegramBot bot = new BuyerTelegramBot(initialClient, "token", telegramService,
+        BuyerTelegramBot bot = new BuyerTelegramBot(initialClient, "token", telegramService, adminNotificationService,
                 fullNameValidator, chatSessionRepository, new ObjectMapper());
         bot.consume(textUpdate(chatId, "/start"));
 
@@ -125,7 +131,8 @@ class BuyerTelegramBotStatePersistenceIntegrationTest {
         when(restartedClient.execute(any(EditMessageReplyMarkup.class))).thenReturn(null);
         when(restartedClient.execute(any(EditMessageText.class))).thenReturn(null);
 
-        BuyerTelegramBot restartedBot = new BuyerTelegramBot(restartedClient, "token", telegramService,
+        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
+        BuyerTelegramBot restartedBot = new BuyerTelegramBot(restartedClient, "token", telegramService, adminNotificationService,
                 fullNameValidator, chatSessionRepository, new ObjectMapper());
 
         CallbackQuery callbackQuery = mock(CallbackQuery.class);

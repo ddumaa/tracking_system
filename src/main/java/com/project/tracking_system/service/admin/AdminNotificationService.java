@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Сервис управления административными уведомлениями.
@@ -47,6 +48,16 @@ public class AdminNotificationService {
         notification.setStatus(AdminNotificationStatus.INACTIVE);
         notification.setResetRequested(true);
         return notificationRepository.save(notification);
+    }
+
+    /**
+     * Ищет активное уведомление, которое должно отображаться пользователям.
+     *
+     * @return опциональное уведомление в статусе {@link AdminNotificationStatus#ACTIVE}
+     */
+    @Transactional(readOnly = true)
+    public Optional<AdminNotification> findActiveNotification() {
+        return notificationRepository.findFirstByStatus(AdminNotificationStatus.ACTIVE);
     }
 
     /**

@@ -2,10 +2,12 @@ package com.project.tracking_system.service.telegram;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.project.tracking_system.entity.AdminNotification;
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
+import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +36,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -60,6 +63,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String CALLBACK_SETTINGS_EDIT_NAME = "settings:edit_name";
     private static final String CALLBACK_NAME_CONFIRM = "name:confirm";
     private static final String CALLBACK_NAME_EDIT = "name:edit";
+    private static final String CALLBACK_ANNOUNCEMENT_ACK = "announcement:ack";
 
     private static final String NAME_CONFIRMATION_MISSING_MESSAGE =
             "⚠️ Пока в системе нет ФИО для подтверждения. Пожалуйста, укажите его полностью.";
@@ -68,6 +72,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
     private final TelegramClient telegramClient;
     private final CustomerTelegramService telegramService;
+    private final AdminNotificationService adminNotificationService;
     private final FullNameValidator fullNameValidator;
     private final ChatSessionRepository chatSessionRepository;
     private final ObjectMapper objectMapper;
@@ -86,12 +91,14 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     public BuyerTelegramBot(TelegramClient telegramClient,
                             @Value("${telegram.bot.token:}") String token,
                             CustomerTelegramService telegramService,
+                            AdminNotificationService adminNotificationService,
                             FullNameValidator fullNameValidator,
                             ChatSessionRepository chatSessionRepository,
                             ObjectMapper objectMapper) {
         this.telegramClient = telegramClient;
         this.botToken = token;
         this.telegramService = telegramService;
+        this.adminNotificationService = adminNotificationService;
         this.fullNameValidator = fullNameValidator;
         this.chatSessionRepository = chatSessionRepository;
         this.objectMapper = objectMapper;
@@ -127,7 +134,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         log.info("📩 Получено обновление: {}", formatUpdateMetadata(update));
 
         Long chatIdForActivity = extractChatId(update);
+        Customer customerForActivity = null;
         if (chatIdForActivity != null) {
+            customerForActivity = telegramService.findByChatId(chatIdForActivity)
+                    .orElse(null);
+            synchronizeAnnouncementState(chatIdForActivity, customerForActivity);
             telegramService.updateLastActive(chatIdForActivity);
         }
 
@@ -152,7 +163,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         restorePersistentKeyboardIfNeeded(chatId, keyboardRemoved);
 
         if (message.hasText()) {
-            handleTextMessage(chatId, message.getText());
+            handleTextMessage(chatId, message.getText(), customerForActivity);
         }
 
         if (message.hasContact()) {
@@ -198,6 +209,42 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
+     * Синхронизирует состояние объявлений для текущего пользователя.
+     * <p>
+     * Метод определяет, появилось ли новое активное объявление или обновилась
+     * его версия, и сбрасывает признак просмотра для последующего показа.
+     * </p>
+     *
+     * @param chatId   идентификатор чата Telegram
+     * @param customer покупатель, привязанный к чату
+     */
+    private void synchronizeAnnouncementState(Long chatId, Customer customer) {
+        if (chatId == null || customer == null || customer.getLastActiveAt() == null) {
+            return;
+        }
+
+        adminNotificationService.findActiveNotification()
+                .ifPresent(notification -> {
+                    ChatSession session = chatSessionRepository.find(chatId).orElse(null);
+                    Long storedId = session != null ? session.getCurrentNotificationId() : null;
+                    boolean seen = session != null && session.isAnnouncementSeen();
+                    ZonedDateTime updatedAt = notification.getUpdatedAt();
+                    ZonedDateTime lastActiveAt = customer.getLastActiveAt();
+
+                    boolean shouldReset = storedId == null || !notification.getId().equals(storedId);
+                    if (!shouldReset && seen && updatedAt != null && lastActiveAt != null
+                            && lastActiveAt.isBefore(updatedAt)) {
+                        shouldReset = true;
+                    }
+
+                    if (shouldReset) {
+                        Integer anchorId = session != null ? session.getAnchorMessageId() : null;
+                        chatSessionRepository.updateAnnouncement(chatId, notification.getId(), anchorId);
+                    }
+                });
+    }
+
+    /**
      * Обрабатывает обновление статуса чата бота и переотправляет нужный экран.
      * <p>
      * Если покупатель уже привязан к Telegram, бот возвращается в состояние ожидания команд
@@ -235,7 +282,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param chatId идентификатор чата Telegram
      * @param text   текст сообщения
      */
-    private void handleTextMessage(Long chatId, String text) {
+    private void handleTextMessage(Long chatId, String text, Customer knownCustomer) {
         if (chatId == null || text == null) {
             return;
         }
@@ -268,7 +315,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         if ("/start".equals(trimmed)) {
-            handleStartCommand(chatId);
+            handleStartCommand(chatId, knownCustomer);
             return;
         }
 
@@ -316,6 +363,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             case CALLBACK_MENU_SHOW_STATS -> handleMenuOpenStats(chatId, callbackQuery);
             case CALLBACK_MENU_SHOW_SETTINGS -> handleMenuOpenSettings(chatId, callbackQuery);
             case CALLBACK_MENU_SHOW_HELP -> handleMenuOpenHelp(chatId, callbackQuery);
+            case CALLBACK_ANNOUNCEMENT_ACK -> handleAnnouncementAcknowledgement(chatId, callbackQuery);
             case CALLBACK_SETTINGS_TOGGLE_NOTIFICATIONS ->
                     handleSettingsToggleNotifications(chatId, callbackQuery);
             case CALLBACK_SETTINGS_CONFIRM_NAME ->
@@ -458,16 +506,19 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      *
      * @param chatId идентификатор чата Telegram
      */
-    private void handleStartCommand(Long chatId) {
+    private void handleStartCommand(Long chatId, Customer knownCustomer) {
         log.info("✅ Команда /start получена от {}", chatId);
-        Optional<Customer> optional = telegramService.findByChatId(chatId);
+        Optional<Customer> optional = knownCustomer != null
+                ? Optional.of(knownCustomer)
+                : telegramService.findByChatId(chatId);
+        Customer customer = optional.orElse(null);
+        synchronizeAnnouncementState(chatId, customer);
         if (optional.isEmpty()) {
             transitionToState(chatId, BuyerChatState.AWAITING_CONTACT);
             sendSharePhoneKeyboard(chatId);
             return;
         }
 
-        Customer customer = optional.get();
         BuyerChatState previousState = getState(chatId);
         transitionToState(chatId, BuyerChatState.IDLE);
 
@@ -477,7 +528,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (shouldResetKeyboardFlag) {
             chatSessionRepository.markKeyboardHidden(chatId);
         }
-        sendMainMenu(chatId);
+        sendMainMenu(chatId, customer);
 
         if (!ensureValidStoredNameOrRequestUpdate(chatId, customer)) {
             return;
@@ -558,6 +609,34 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
         answerCallbackQuery(callbackQuery, "Помощь");
         sendHelpScreen(chatId);
+    }
+
+    /**
+     * Обрабатывает подтверждение просмотра административного объявления.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос Telegram
+     */
+    private void handleAnnouncementAcknowledgement(Long chatId, CallbackQuery callbackQuery) {
+        if (callbackQuery == null || chatId == null) {
+            answerCallbackQuery(callbackQuery, "Команда недоступна");
+            return;
+        }
+
+        ChatSession session = chatSessionRepository.find(chatId).orElse(null);
+        if (session == null || session.getCurrentNotificationId() == null) {
+            answerCallbackQuery(callbackQuery, "Уведомление недоступно");
+            return;
+        }
+
+        if (session.isAnnouncementSeen()) {
+            answerCallbackQuery(callbackQuery, "Уведомление уже закрыто");
+            return;
+        }
+
+        chatSessionRepository.markAnnouncementSeen(chatId);
+        answerCallbackQuery(callbackQuery, "Готово");
+        sendMainMenu(chatId, true);
     }
 
     /**
@@ -1355,28 +1434,51 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param chatId идентификатор чата Telegram
      */
     private void sendMainMenu(Long chatId) {
-        sendMainMenu(chatId, false);
+        sendMainMenu(chatId, null, false);
     }
 
     /**
      * Отправляет главное меню с основными разделами бота.
      * <p>Меню содержит кнопки статистики, настроек и помощи.</p>
      *
-     * @param chatId                     идентификатор чата Telegram
-     * @param forceResendOnNotModified   требует ли сценарий повторной отправки при ошибке «message is not modified»
+     * @param chatId                   идентификатор чата Telegram
+     * @param forceResendOnNotModified требует ли сценарий повторной отправки при ошибке «message is not modified»
      */
     private void sendMainMenu(Long chatId, boolean forceResendOnNotModified) {
+        sendMainMenu(chatId, null, forceResendOnNotModified);
+    }
+
+    /**
+     * Отправляет главное меню, используя заранее загруженные данные о покупателе.
+     *
+     * @param chatId   идентификатор чата Telegram
+     * @param customer покупатель, информация о котором уже загружена
+     */
+    private void sendMainMenu(Long chatId, Customer customer) {
+        sendMainMenu(chatId, customer, false);
+    }
+
+    /**
+     * Отправляет главное меню, переиспользуя загруженного покупателя и контролируя пересылку при отсутствии изменений.
+     *
+     * @param chatId                   идентификатор чата Telegram
+     * @param customer                 покупатель, информация о котором уже загружена
+     * @param forceResendOnNotModified требует ли сценарий повторной отправки при ответе «message is not modified»
+     */
+    private void sendMainMenu(Long chatId, Customer customer, boolean forceResendOnNotModified) {
         if (chatId == null) {
             return;
         }
 
-        Optional<Customer> optional = telegramService.findByChatId(chatId);
-        Customer customer = optional.orElse(null);
-        String text = buildMainMenuText(customer);
-        InlineKeyboardMarkup markup = buildMainMenuKeyboard(customer);
+        Customer resolvedCustomer = customer != null
+                ? customer
+                : telegramService.findByChatId(chatId).orElse(null);
+        String text = buildMainMenuText(resolvedCustomer);
+        InlineKeyboardMarkup markup = buildMainMenuKeyboard(resolvedCustomer);
         sendInlineMessage(chatId, text, markup, BuyerBotScreen.MENU, forceResendOnNotModified);
 
         ensurePersistentKeyboard(chatId);
+        renderActiveAnnouncement(chatId, resolvedCustomer);
     }
 
     /**
@@ -1453,6 +1555,105 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         return InlineKeyboardMarkup.builder()
                 .keyboard(rows)
+                .build();
+    }
+
+    /**
+     * Показывает актуальное объявление администратора, если оно доступно пользователю.
+     *
+     * @param chatId   идентификатор чата Telegram
+     * @param customer покупатель, привязанный к чату
+     */
+    private void renderActiveAnnouncement(Long chatId, Customer customer) {
+        if (chatId == null || customer == null || customer.getLastActiveAt() == null) {
+            return;
+        }
+
+        adminNotificationService.findActiveNotification()
+                .ifPresent(notification -> {
+                    ChatSession session = chatSessionRepository.find(chatId).orElse(null);
+                    Long storedId = session != null ? session.getCurrentNotificationId() : null;
+                    boolean seen = session != null && session.isAnnouncementSeen();
+                    ZonedDateTime updatedAt = notification.getUpdatedAt();
+                    ZonedDateTime lastActiveAt = customer.getLastActiveAt();
+
+                    boolean shouldShow = storedId == null || !notification.getId().equals(storedId);
+                    if (!shouldShow && !seen) {
+                        shouldShow = true;
+                    }
+                    if (!shouldShow && seen && updatedAt != null && lastActiveAt != null
+                            && lastActiveAt.isBefore(updatedAt)) {
+                        shouldShow = true;
+                    }
+
+                    if (shouldShow) {
+                        renderAnnouncementBanner(chatId, notification);
+                    }
+                });
+    }
+
+    /**
+     * Отрисовывает баннер объявления в якорном сообщении главного меню.
+     *
+     * @param chatId       идентификатор чата Telegram
+     * @param notification активное объявление администратора
+     */
+    private void renderAnnouncementBanner(Long chatId, AdminNotification notification) {
+        if (chatId == null || notification == null) {
+            return;
+        }
+
+        String text = buildAnnouncementText(notification);
+        InlineKeyboardMarkup markup = buildAnnouncementKeyboard();
+        sendInlineMessage(chatId, text, markup, BuyerBotScreen.MENU, true);
+
+        Integer anchorId = chatSessionRepository.find(chatId)
+                .map(ChatSession::getAnchorMessageId)
+                .orElse(null);
+        chatSessionRepository.updateAnnouncement(chatId, notification.getId(), anchorId);
+    }
+
+    /**
+     * Формирует текст баннера объявления с заголовком и пунктами списка.
+     *
+     * @param notification объявление, подготовленное администраторами
+     * @return текстовое содержимое баннера
+     */
+    private String buildAnnouncementText(AdminNotification notification) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("📣 ").append(notification.getTitle()).append("\n\n");
+
+        boolean hasBody = false;
+        List<String> lines = notification.getBodyLines();
+        if (lines != null) {
+            for (String line : lines) {
+                if (line == null || line.isBlank()) {
+                    continue;
+                }
+                builder.append("• ").append(line).append('\n');
+                hasBody = true;
+            }
+        }
+
+        if (hasBody) {
+            builder.append('\n');
+        }
+        builder.append("Нажмите «Ок», чтобы вернуться в меню.");
+        return builder.toString();
+    }
+
+    /**
+     * Создаёт инлайн-клавиатуру для баннера объявления с единственной кнопкой подтверждения.
+     *
+     * @return клавиатура с кнопкой «Ок»
+     */
+    private InlineKeyboardMarkup buildAnnouncementKeyboard() {
+        InlineKeyboardButton okButton = InlineKeyboardButton.builder()
+                .text("Ок")
+                .callbackData(CALLBACK_ANNOUNCEMENT_ACK)
+                .build();
+        return InlineKeyboardMarkup.builder()
+                .keyboard(List.of(new InlineKeyboardRow(okButton)))
                 .build();
     }
 
