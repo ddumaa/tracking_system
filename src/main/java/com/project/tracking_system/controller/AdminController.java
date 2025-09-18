@@ -8,6 +8,7 @@ import com.project.tracking_system.service.analytics.StatsAggregationService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.admin.AdminService;
+import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.admin.AppInfoService;
 import com.project.tracking_system.service.admin.SubscriptionPlanService;
 import com.project.tracking_system.service.admin.ApplicationSettingsService;
@@ -24,9 +25,11 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +54,7 @@ public class AdminController {
     private final StoreRepository storeRepository;
     private final StatsAggregationService statsAggregationService;
     private final AdminService adminService;
+    private final AdminNotificationService adminNotificationService;
     private final AppInfoService appInfoService;
     private final DynamicSchedulerService dynamicSchedulerService;
     private final TariffService tariffService;
@@ -543,7 +547,7 @@ public class AdminController {
      */
     @PostMapping("/parcels/{id}/force-update")
     public String forceUpdateParcel(@PathVariable Long id,
-                                    org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes) {
+                                    RedirectAttributes redirectAttributes) {
         var result = adminService.forceUpdateParcel(id);
         redirectAttributes.addFlashAttribute("updateStatus", result.getStatus());
         return "redirect:/admin/parcels/" + id;
@@ -756,6 +760,152 @@ public class AdminController {
     public String movePlanDown(@PathVariable Long id) {
         subscriptionPlanService.movePlanDown(id);
         return "redirect:/admin/plans";
+    }
+
+    /**
+     * Отображает список административных уведомлений и историю изменений.
+     *
+     * @param model модель для передачи данных в шаблон
+     * @return имя шаблона списка уведомлений
+     */
+    @GetMapping("/notifications")
+    public String notifications(Model model) {
+        List<AdminNotification> notifications = adminNotificationService.getHistory();
+        model.addAttribute("notifications", notifications);
+        model.addAttribute("activeStatus", AdminNotificationStatus.ACTIVE);
+        addNotificationBreadcrumbs(model, List.of());
+        return "admin/notifications/list";
+    }
+
+    /**
+     * Показывает форму создания нового уведомления.
+     *
+     * @param model модель с параметрами формы
+     * @return имя шаблона формы
+     */
+    @GetMapping("/notifications/new")
+    public String newNotification(Model model) {
+        AdminNotificationForm form = new AdminNotificationForm();
+        model.addAttribute("notificationForm", form);
+        model.addAttribute("isEdit", false);
+        addNotificationBreadcrumbs(model, List.of(new BreadcrumbItemDTO("Новое уведомление", "")));
+        return "admin/notifications/form";
+    }
+
+    /**
+     * Показывает форму редактирования существующего уведомления.
+     *
+     * @param id    идентификатор уведомления
+     * @param model модель с параметрами формы
+     * @return имя шаблона формы
+     */
+    @GetMapping("/notifications/{id}/edit")
+    public String editNotification(@PathVariable Long id, Model model) {
+        AdminNotification notification = adminNotificationService.getNotification(id);
+        model.addAttribute("notificationForm", AdminNotificationForm.fromEntity(notification));
+        model.addAttribute("notification", notification);
+        model.addAttribute("isEdit", true);
+        addNotificationBreadcrumbs(model, List.of(new BreadcrumbItemDTO("Редактирование", "")));
+        return "admin/notifications/form";
+    }
+
+    /**
+     * Создаёт новое уведомление на основании формы.
+     *
+     * @param form               данные формы
+     * @param redirectAttributes атрибуты редиректа для сообщений
+     * @return редирект на список уведомлений
+     */
+    @PostMapping("/notifications")
+    public String createNotification(@ModelAttribute("notificationForm") AdminNotificationForm form,
+                                     RedirectAttributes redirectAttributes) {
+        adminNotificationService.createNotification(form.getTitle(), form.toBodyLines());
+        redirectAttributes.addFlashAttribute("successMessage", "Уведомление создано");
+        return "redirect:/admin/notifications";
+    }
+
+    /**
+     * Обновляет текст и заголовок уведомления.
+     *
+     * @param id                 идентификатор уведомления
+     * @param form               данные формы
+     * @param redirectAttributes атрибуты редиректа для сообщений
+     * @return редирект на список уведомлений
+     */
+    @PostMapping("/notifications/{id}/update")
+    public String updateNotification(@PathVariable Long id,
+                                     @ModelAttribute("notificationForm") AdminNotificationForm form,
+                                     RedirectAttributes redirectAttributes) {
+        adminNotificationService.updateNotification(id, form.getTitle(), form.toBodyLines());
+        redirectAttributes.addFlashAttribute("successMessage", "Уведомление обновлено");
+        return "redirect:/admin/notifications";
+    }
+
+    /**
+     * Активирует выбранное уведомление, делая его единственным активным.
+     *
+     * @param id                 идентификатор уведомления
+     * @param redirectAttributes атрибуты редиректа
+     * @return редирект на список уведомлений
+     */
+    @PostMapping("/notifications/{id}/activate")
+    public String activateNotification(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        adminNotificationService.activateNotification(id);
+        redirectAttributes.addFlashAttribute("successMessage", "Уведомление активировано");
+        return "redirect:/admin/notifications";
+    }
+
+    /**
+     * Переводит уведомление в неактивное состояние.
+     *
+     * @param id                 идентификатор уведомления
+     * @param redirectAttributes атрибуты редиректа
+     * @return редирект на список уведомлений
+     */
+    @PostMapping("/notifications/{id}/deactivate")
+    public String deactivateNotification(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        adminNotificationService.deactivateNotification(id);
+        redirectAttributes.addFlashAttribute("successMessage", "Уведомление деактивировано");
+        return "redirect:/admin/notifications";
+    }
+
+    /**
+     * Удаляет уведомление из истории.
+     *
+     * @param id                 идентификатор уведомления
+     * @param redirectAttributes атрибуты редиректа
+     * @return редирект на список уведомлений
+     */
+    @PostMapping("/notifications/{id}/delete")
+    public String deleteNotification(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        adminNotificationService.deleteNotification(id);
+        redirectAttributes.addFlashAttribute("successMessage", "Уведомление удалено");
+        return "redirect:/admin/notifications";
+    }
+
+    /**
+     * Запрашивает повторное отображение уведомления пользователям.
+     *
+     * @param id                 идентификатор уведомления
+     * @param redirectAttributes атрибуты редиректа
+     * @return редирект на список уведомлений
+     */
+    @PostMapping("/notifications/{id}/reset")
+    public String resetNotification(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        adminNotificationService.requestReset(id);
+        redirectAttributes.addFlashAttribute("successMessage", "Показ уведомления будет повторён");
+        return "redirect:/admin/notifications";
+    }
+
+    /**
+     * Формирует хлебные крошки для раздела уведомлений.
+     */
+    private void addNotificationBreadcrumbs(Model model, List<BreadcrumbItemDTO> tail) {
+        List<BreadcrumbItemDTO> breadcrumbs = new ArrayList<>();
+        breadcrumbs.add(new BreadcrumbItemDTO("Админ Панель", "/admin"));
+        breadcrumbs.add(new BreadcrumbItemDTO("Уведомления", tail.isEmpty() ? "" : "/admin/notifications"));
+        breadcrumbs.addAll(tail);
+        model.addAttribute("breadcrumbs", breadcrumbs);
     }
 
 }
