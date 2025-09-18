@@ -118,6 +118,72 @@ class BuyerTelegramBotStateIntegrationTest {
     }
 
     /**
+     * Проверяет, что после цепочки «my_chat_member → /start» остаётся одно сообщение главного меню с актуальной клавиатурой.
+     */
+    @Test
+    void shouldKeepSingleMenuMessageAfterMyChatMemberAndStart() throws Exception {
+        Long chatId = 2222L;
+        int anchorId = 321;
+
+        Customer customer = new Customer();
+        customer.setTelegramConfirmed(true);
+        customer.setNameSource(NameSource.USER_CONFIRMED);
+        customer.setNotificationsEnabled(true);
+        customer.setFullName("Иван Иванов");
+
+        chatSessionRepository.updateAnchorAndScreen(chatId, anchorId, BuyerBotScreen.MENU);
+        chatSessionRepository.updateState(chatId, BuyerChatState.IDLE);
+        chatSessionRepository.markKeyboardVisible(chatId);
+
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        AtomicInteger editCalls = new AtomicInteger();
+        when(telegramClient.execute(any(EditMessageText.class))).thenAnswer(invocation -> {
+            if (editCalls.incrementAndGet() == 2) {
+                throw new TelegramApiException("Bad Request: message is not modified");
+            }
+            return null;
+        });
+
+        bot.consume(myChatMemberUpdate(chatId));
+        bot.consume(textUpdate(chatId, "/start"));
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient, times(2)).execute(editCaptor.capture());
+        List<EditMessageText> editRequests = editCaptor.getAllValues();
+
+        for (EditMessageText edit : editRequests) {
+            assertEquals(anchorId, edit.getMessageId(),
+                    "Бот обязан переиспользовать исходное сообщение главного меню");
+            assertNotNull(edit.getReplyMarkup(),
+                    "Главное меню должно оставаться с инлайн-клавиатурой");
+            assertTrue(edit.getText().contains("Главное меню"),
+                    "Текст сообщения должен содержать заголовок главного меню");
+            InlineKeyboardMarkup markup = (InlineKeyboardMarkup) edit.getReplyMarkup();
+            assertTrue(containsMenuInlineButtons(markup),
+                    "Клавиатура главного меню должна содержать стандартные кнопки");
+        }
+
+        ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(messageCaptor.capture());
+        long menuMessages = messageCaptor.getAllValues().stream()
+                .filter(this::isMainMenuAnchorMessage)
+                .count();
+        assertEquals(0L, menuMessages,
+                "Бот не должен создавать дополнительное сообщение «Главное меню» после команды /start");
+
+        ChatSession session = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("После обновления должна существовать сессия чата"));
+
+        assertEquals(anchorId, session.getAnchorMessageId(),
+                "В сессии необходимо сохранить идентификатор исходного сообщения главного меню");
+        assertEquals(BuyerBotScreen.MENU, session.getLastScreen(),
+                "Последний экран обязан соответствовать главному меню");
+        assertFalse(chatSessionRepository.isKeyboardHidden(chatId),
+                "После восстановления меню постоянная клавиатура должна считаться показанной");
+    }
+
+    /**
      * Проверяет, что после привязки контакта клавиатура меню возвращается, а кнопка запроса номера исчезает.
      */
     @Test
@@ -183,10 +249,10 @@ class BuyerTelegramBotStateIntegrationTest {
     }
 
     /**
-     * Проверяет, что при ответе Telegram «message is not modified» бот пересоздаёт главное меню.
+     * Проверяет, что при ответе Telegram «message is not modified» бот повторно использует существующее меню.
      */
     @Test
-    void shouldResendMenuWhenMessageNotModifiedAfterContact() throws Exception {
+    void shouldKeepMenuAnchorWhenMessageNotModifiedAfterContact() throws Exception {
         Long chatId = 9090L;
         Integer previousAnchorId = 555;
 
@@ -211,14 +277,6 @@ class BuyerTelegramBotStateIntegrationTest {
 
         doThrow(new TelegramApiException("Bad Request: message is not modified"))
                 .when(telegramClient).execute(any(EditMessageText.class));
-        when(telegramClient.execute(any(EditMessageReplyMarkup.class))).thenReturn(null);
-
-        AtomicInteger messageIdSequence = new AtomicInteger(2000);
-        when(telegramClient.execute(any(SendMessage.class))).thenAnswer(invocation -> {
-            Message response = new Message();
-            response.setMessageId(messageIdSequence.incrementAndGet());
-            return response;
-        });
 
         Update update = contactUpdate(chatId, "+375298888888");
         User user = new User();
@@ -231,23 +289,18 @@ class BuyerTelegramBotStateIntegrationTest {
         verify(telegramClient, atLeastOnce()).execute(captor.capture());
 
         boolean hasMenuMessage = captor.getAllValues().stream()
-                .anyMatch(msg -> msg.getText() != null
-                        && msg.getText().contains("Главное меню")
-                        && msg.getReplyMarkup() instanceof InlineKeyboardMarkup);
-        assertTrue(hasMenuMessage,
-                "После ошибки message is not modified бот обязан отправить новое сообщение главного меню");
+                .anyMatch(this::isMainMenuAnchorMessage);
+        assertFalse(hasMenuMessage,
+                "При ошибке message is not modified бот не должен создавать новое сообщение главного меню");
 
         ChatSession updatedSession = chatSessionRepository.find(chatId).orElseThrow();
-        assertNotNull(updatedSession.getAnchorMessageId(),
-                "После переотправки якорь должен содержать идентификатор нового сообщения");
-        assertNotEquals(previousAnchorId, updatedSession.getAnchorMessageId(),
-                "Новый якорь обязан отличаться от прежнего идентификатора");
+        assertEquals(previousAnchorId, updatedSession.getAnchorMessageId(),
+                "После ошибки message is not modified должен сохраняться прежний якорь меню");
         assertEquals(BuyerBotScreen.MENU, updatedSession.getLastScreen(),
-                "Последний экран после переотправки должен оставаться главном меню");
+                "Последний экран обязан оставаться главным меню при повторном использовании сообщения");
 
-        verify(telegramClient, atLeastOnce()).execute(argThat(argument ->
-                argument instanceof EditMessageReplyMarkup editMarkup
-                        && editMarkup.getMessageId().equals(previousAnchorId)));
+        verify(telegramClient).execute(any(EditMessageText.class));
+        verify(telegramClient, never()).execute(any(EditMessageReplyMarkup.class));
     }
 
     /**
