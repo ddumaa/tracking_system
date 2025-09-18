@@ -210,7 +210,7 @@ class BuyerTelegramBotStateIntegrationTest {
                 "После привязки номера бот должен ждать ввод ФИО и показывать меню-клавиатуру");
 
         assertFalse(chatSessionRepository.isKeyboardHidden(chatId),
-                "После возврата в меню клавиатура с кнопками «🏠 Меню»/«❓ Помощь» должна считаться видимой");
+                "После возврата в меню клавиатура с кнопкой «🏠 Меню» должна считаться видимой");
 
         ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
         verify(telegramClient, atLeastOnce()).execute(captor.capture());
@@ -225,7 +225,7 @@ class BuyerTelegramBotStateIntegrationTest {
                 removalMessageIndex = i;
             }
             if (markup instanceof ReplyKeyboardMarkup replyKeyboardMarkup
-                    && containsMenuButtons(replyKeyboardMarkup)) {
+                    && containsOnlyMenuButton(replyKeyboardMarkup)) {
                 if (menuKeyboardIndex < 0) {
                     menuKeyboardIndex = i;
                 }
@@ -700,10 +700,10 @@ class BuyerTelegramBotStateIntegrationTest {
                 .map(SendMessage::getReplyMarkup)
                 .filter(ReplyKeyboardMarkup.class::isInstance)
                 .map(ReplyKeyboardMarkup.class::cast)
-                .anyMatch(this::containsMenuButtons);
+                .anyMatch(this::containsOnlyMenuButton);
 
         assertTrue(hasMenuKeyboard,
-                "После повторной команды /start бот обязан вернуть клавиатуру с кнопками «🏠 Меню» и «❓ Помощь»");
+                "После повторной команды /start бот обязан вернуть клавиатуру с кнопкой «🏠 Меню»");
     }
 
     /**
@@ -1071,24 +1071,23 @@ class BuyerTelegramBotStateIntegrationTest {
                 .map(SendMessage::getReplyMarkup)
                 .filter(ReplyKeyboardMarkup.class::isInstance)
                 .map(ReplyKeyboardMarkup.class::cast)
-                .anyMatch(this::containsMenuButtons);
+                .anyMatch(this::containsOnlyMenuButton);
         assertTrue(hasKeyboard,
-                "После скрытия клавиатуры бот обязан вернуть кнопки «🏠 Меню» и «❓ Помощь»");
+                "После скрытия клавиатуры бот обязан вернуть кнопку «🏠 Меню»");
     }
 
     /**
-     * Проверяет, содержит ли клавиатура кнопки меню и помощи.
+     * Проверяет, содержит ли клавиатура только кнопку меню.
      *
      * @param markup проверяемая клавиатура
-     * @return {@code true}, если обе кнопки присутствуют
+     * @return {@code true}, если единственная активная кнопка — «🏠 Меню»
      */
-    private boolean containsMenuButtons(ReplyKeyboardMarkup markup) {
+    private boolean containsOnlyMenuButton(ReplyKeyboardMarkup markup) {
         if (markup == null || markup.getKeyboard() == null) {
             return false;
         }
 
         boolean hasMenu = false;
-        boolean hasHelp = false;
         for (KeyboardRow row : markup.getKeyboard()) {
             if (row == null) {
                 continue;
@@ -1099,14 +1098,18 @@ class BuyerTelegramBotStateIntegrationTest {
                 }
                 String text = button.getText();
                 if ("🏠 Меню".equals(text)) {
+                    if (hasMenu) {
+                        return false;
+                    }
                     hasMenu = true;
+                    continue;
                 }
-                if ("❓ Помощь".equals(text)) {
-                    hasHelp = true;
+                if (text != null && !text.isBlank()) {
+                    return false;
                 }
             }
         }
-        return hasMenu && hasHelp;
+        return hasMenu;
     }
 
     /**
