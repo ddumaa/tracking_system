@@ -48,6 +48,22 @@ class StatusTrackServiceTest {
     }
 
     /**
+     * Если вручение отменено, то итоговый статус должен вернуться к ожиданию клиента,
+     * даже если ранее отправление отмечалось как вручённое.
+     */
+    @Test
+    void setStatus_AnnulmentOverridesDelivered() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO("20.07.2025, 15:30", "Аннулирование операции вручения"),
+                new TrackInfoDTO("20.07.2025, 14:00", "Вручено")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.WAITING_FOR_CUSTOMER, status);
+    }
+
+    /**
      * Проверяет, что статус «Подготовлено для возврата» приводит к
      * {@link GlobalStatus#RETURN_IN_PROGRESS}.
      */
