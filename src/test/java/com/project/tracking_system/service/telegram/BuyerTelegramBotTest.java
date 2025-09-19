@@ -4,9 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.project.tracking_system.entity.AdminNotification;
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.entity.NameSource;
+import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
 import com.project.tracking_system.service.telegram.support.InMemoryChatSessionRepository;
@@ -21,6 +24,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Contact;
 import org.telegram.telegrambots.meta.api.objects.User;
@@ -28,14 +32,18 @@ import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberUpdated;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -55,10 +63,14 @@ class BuyerTelegramBotTest {
     @Mock
     private CustomerTelegramService telegramService;
 
+    @Mock
+    private AdminNotificationService adminNotificationService;
+
     private BuyerTelegramBot bot;
     private FullNameValidator fullNameValidator;
     private InMemoryChatSessionRepository chatSessionRepository;
     private ObjectMapper objectMapper;
+    private AtomicInteger messageIdSequence;
 
     /**
      * Подготавливает экземпляр бота и стаб под клиента Telegram перед каждым тестом.
@@ -68,8 +80,16 @@ class BuyerTelegramBotTest {
         fullNameValidator = new FullNameValidator();
         chatSessionRepository = new InMemoryChatSessionRepository();
         objectMapper = new ObjectMapper();
-        bot = new BuyerTelegramBot(telegramClient, "token", telegramService, fullNameValidator, chatSessionRepository, objectMapper);
-        doReturn(null).when(telegramClient).execute(any(SendMessage.class));
+        messageIdSequence = new AtomicInteger(100);
+        bot = new BuyerTelegramBot(telegramClient, "token", telegramService, adminNotificationService,
+                fullNameValidator, chatSessionRepository, objectMapper);
+        doAnswer(invocation -> {
+            Message response = new Message();
+            response.setMessageId(messageIdSequence.getAndIncrement());
+            return response;
+        }).when(telegramClient).execute(any(SendMessage.class));
+        when(telegramClient.execute(any(EditMessageText.class))).thenReturn(null);
+        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
         when(telegramService.findByChatId(anyLong())).thenReturn(Optional.empty());
     }
 
@@ -96,7 +116,8 @@ class BuyerTelegramBotTest {
         assertEquals(chatId.toString(), message.getChatId());
         assertTrue(message.getText().contains(expectedMask));
         assertPhoneKeyboard(message.getReplyMarkup());
-        verifyNoInteractions(telegramService);
+        verify(telegramService).findByChatId(chatId);
+        verifyNoMoreInteractions(telegramService);
     }
 
     /**
@@ -119,7 +140,8 @@ class BuyerTelegramBotTest {
         assertTrue(message.getText().contains("+375"));
         assertTrue(message.getText().contains("8029"));
         assertPhoneKeyboard(message.getReplyMarkup());
-        verifyNoInteractions(telegramService);
+        verify(telegramService).findByChatId(chatId);
+        verifyNoMoreInteractions(telegramService);
     }
 
     /**
@@ -142,6 +164,318 @@ class BuyerTelegramBotTest {
         assertPhoneKeyboard(message.getReplyMarkup());
         assertTrue(message.getText().contains("поделитесь"),
                 "Пользователь должен получить просьбу поделиться номером");
+    }
+
+    /**
+     * Проверяет, что при активном объявлении баннер отображается поверх главного меню.
+     */
+    @Test
+    void shouldRenderActiveAnnouncementInMenu() throws Exception {
+        Long chatId = 777L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        customer.setTelegramConfirmed(true);
+        customer.setNotificationsEnabled(true);
+        customer.setFullName("Иван Иванов");
+        customer.setNameSource(NameSource.USER_CONFIRMED);
+
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        AdminNotification notification = new AdminNotification();
+        notification.setId(42L);
+        notification.setTitle("Новое объявление");
+        notification.setBodyLines(List.of("Первый пункт", "Второй пункт"));
+        notification.setUpdatedAt(ZonedDateTime.now().minusMinutes(5));
+        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.of(notification));
+
+        bot.consume(mockTextUpdate(chatId, "/start"));
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient, atLeastOnce()).execute(editCaptor.capture());
+        EditMessageText bannerEdit = editCaptor.getAllValues().get(editCaptor.getAllValues().size() - 1);
+
+        assertTrue(bannerEdit.getText().contains(notification.getTitle()),
+                "Текст баннера должен содержать заголовок объявления");
+        assertTrue(bannerEdit.getText().contains("Первый пункт"));
+        assertTrue(bannerEdit.getText().contains("Второй пункт"));
+
+        assertNotNull(bannerEdit.getReplyMarkup(), "Ожидалась клавиатура баннера объявления");
+        assertTrue(bannerEdit.getReplyMarkup() instanceof InlineKeyboardMarkup,
+                "Клавиатура должна быть типа InlineKeyboardMarkup");
+        InlineKeyboardMarkup markup = (InlineKeyboardMarkup) bannerEdit.getReplyMarkup();
+        InlineKeyboardButton okButton = markup.getKeyboard().get(0).get(0);
+        assertEquals("Ок", okButton.getText(), "Кнопка баннера должна называться «Ок»");
+        assertEquals("announcement:ack", okButton.getCallbackData());
+
+        ChatSession session = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("Сессия должна быть сохранена"));
+        assertEquals(notification.getId(), session.getCurrentNotificationId(),
+                "В сессии должен сохраняться идентификатор объявления");
+        assertFalse(session.isAnnouncementSeen(),
+                "Перед подтверждением объявление не должно считаться просмотренным");
+        assertEquals(notification.getUpdatedAt(), session.getAnnouncementUpdatedAt(),
+                "В сессии должно сохраняться время обновления объявления");
+    }
+
+    /**
+     * Проверяет, что баннер объявления отображается для подтверждённого покупателя.
+     */
+    @Test
+    void shouldRenderAnnouncementForConfirmedCustomer() throws Exception {
+        Long chatId = 779L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        customer.setTelegramConfirmed(true);
+        customer.setNotificationsEnabled(true);
+        customer.setFullName("Пётр Петров");
+        customer.setNameSource(NameSource.USER_CONFIRMED);
+
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        AdminNotification notification = new AdminNotification();
+        notification.setId(43L);
+        notification.setTitle("Свежая новость");
+        notification.setBodyLines(List.of("Пункт один"));
+        notification.setUpdatedAt(ZonedDateTime.now().minusMinutes(1));
+        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.of(notification));
+
+        bot.consume(mockTextUpdate(chatId, "/start"));
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient, atLeastOnce()).execute(editCaptor.capture());
+        boolean bannerRendered = editCaptor.getAllValues().stream()
+                .anyMatch(edit -> edit.getText() != null && edit.getText().contains(notification.getTitle()));
+
+        assertTrue(bannerRendered,
+                "Баннер объявления должен отображаться для подтверждённых покупателей");
+
+        ChatSession session = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("Сессия должна сохраняться для отображения объявления"));
+        assertEquals(notification.getId(), session.getCurrentNotificationId(),
+                "Объявление должно фиксироваться в состоянии сессии для дальнейшего контроля показов");
+        assertEquals(notification.getUpdatedAt(), session.getAnnouncementUpdatedAt(),
+                "В состоянии сессии должно храниться время обновления объявления");
+    }
+
+    /**
+     * Проверяет, что обновлённое объявление с тем же идентификатором снова показывается пользователю.
+     */
+    @Test
+    void shouldResendAnnouncementWhenContentRefreshed() throws Exception {
+        Long chatId = 780L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        customer.setTelegramConfirmed(true);
+        customer.setNotificationsEnabled(true);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        AdminNotification notification = new AdminNotification();
+        notification.setId(44L);
+        notification.setTitle("Объявление для обновления");
+        notification.setBodyLines(List.of("Первая версия"));
+        ZonedDateTime initialUpdatedAt = ZonedDateTime.now().minusMinutes(15);
+        notification.setUpdatedAt(initialUpdatedAt);
+        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.of(notification));
+
+        bot.consume(mockTextUpdate(chatId, "/start"));
+
+        chatSessionRepository.markAnnouncementSeen(chatId);
+        clearInvocations(telegramClient);
+
+        ZonedDateTime refreshedAt = initialUpdatedAt.plusMinutes(5);
+        notification.setUpdatedAt(refreshedAt);
+        notification.setBodyLines(List.of("Обновлённая версия"));
+
+        bot.consume(mockTextUpdate(chatId, "/start"));
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient, atLeastOnce()).execute(editCaptor.capture());
+        boolean bannerUpdated = editCaptor.getAllValues().stream()
+                .map(EditMessageText::getText)
+                .filter(Objects::nonNull)
+                .anyMatch(text -> text.contains("Обновлённая версия"));
+
+        assertTrue(bannerUpdated,
+                "После обновления содержимого баннер должен быть переотправлен пользователю");
+
+        ChatSession session = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("Состояние сессии должно быть сохранено"));
+        assertEquals(refreshedAt, session.getAnnouncementUpdatedAt(),
+                "В сессии должна храниться новая отметка обновления объявления");
+        assertFalse(session.isAnnouncementSeen(),
+                "После обновления содержимого признак просмотра должен быть сброшен");
+    }
+
+    /**
+     * Проверяет, что после сброса состояния баннер объявления вновь отображается пользователю.
+     */
+    @Test
+    void shouldRenderAnnouncementAgainAfterReset() throws Exception {
+        Long chatId = 781L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        customer.setTelegramConfirmed(true);
+        customer.setNotificationsEnabled(true);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        AdminNotification notification = new AdminNotification();
+        notification.setId(46L);
+        notification.setTitle("Повторный баннер");
+        notification.setBodyLines(List.of("Первое сообщение", "Второе сообщение"));
+        ZonedDateTime initialUpdatedAt = ZonedDateTime.now().minusMinutes(30);
+        notification.setUpdatedAt(initialUpdatedAt);
+        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.of(notification));
+
+        bot.consume(mockTextUpdate(chatId, "/start"));
+        assertTrue(wasAnnouncementRendered(notification.getTitle()),
+                "Первый запуск должен отрисовать баннер объявления");
+
+        clearInvocations(telegramClient);
+        chatSessionRepository.markAnnouncementSeen(chatId);
+
+        bot.consume(mockTextUpdate(chatId, "/start"));
+        assertFalse(wasAnnouncementRendered(notification.getTitle()),
+                "После подтверждения баннер не должен отображаться повторно без сброса");
+
+        clearInvocations(telegramClient);
+        ChatSession session = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("Сессия должна существовать для повторного показа"));
+        ZonedDateTime resetTimestamp = initialUpdatedAt.plusMinutes(10);
+        session.setAnnouncementSeen(false);
+        session.setAnnouncementUpdatedAt(resetTimestamp);
+        chatSessionRepository.save(session);
+        notification.setUpdatedAt(resetTimestamp);
+
+        bot.consume(mockTextUpdate(chatId, "/start"));
+        assertTrue(wasAnnouncementRendered(notification.getTitle()),
+                "После сброса баннер должен быть показан заново");
+
+        ChatSession refreshed = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("Состояние сессии должно обновиться"));
+        assertEquals(resetTimestamp, refreshed.getAnnouncementUpdatedAt(),
+                "После повторного показа должна обновиться отметка времени объявления");
+        assertFalse(refreshed.isAnnouncementSeen(),
+                "До подтверждения повторного показа объявление должно считаться непросмотренным");
+    }
+
+    /**
+     * Убеждается, что новым пользователям не показывается баннер объявления до привязки.
+     */
+    @Test
+    void shouldNotShowAnnouncementForNewUser() throws Exception {
+        Long chatId = 888L;
+
+        AdminNotification notification = new AdminNotification();
+        notification.setId(55L);
+        notification.setTitle("Объявление");
+        notification.setBodyLines(List.of("Важно"));
+        notification.setUpdatedAt(ZonedDateTime.now());
+        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.of(notification));
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.empty());
+
+        bot.consume(mockTextUpdate(chatId, "/start"));
+
+        verify(telegramClient, never()).execute(any(EditMessageText.class));
+
+        verify(telegramService).findByChatId(chatId);
+        verifyNoMoreInteractions(telegramService);
+    }
+
+    /**
+     * Гарантирует, что новый подтверждённый пользователь пропускает текущее объявление, но получает следующее активированное.
+     */
+    @Test
+    void shouldSkipCurrentAnnouncementAfterContactButRenderNextActivation() throws Exception {
+        Long chatId = 889L;
+
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        customer.setTelegramConfirmed(false);
+        customer.setNotificationsEnabled(true);
+        customer.setFullName("Иван Иванов");
+        customer.setNameSource(NameSource.USER_CONFIRMED);
+
+        when(telegramService.linkTelegramToCustomer(anyString(), eq(chatId))).thenAnswer(invocation -> {
+            customer.setTelegramChatId(chatId);
+            return customer;
+        });
+        when(telegramService.confirmTelegram(customer)).thenAnswer(invocation -> {
+            customer.setTelegramConfirmed(true);
+            return customer;
+        });
+        doNothing().when(telegramService).notifyActualStatuses(customer);
+        when(telegramService.findByChatId(chatId)).thenReturn(
+                Optional.empty(),
+                Optional.of(customer),
+                Optional.of(customer),
+                Optional.of(customer));
+
+        AdminNotification initialNotification = new AdminNotification();
+        initialNotification.setId(66L);
+        initialNotification.setTitle("Текущее объявление");
+        initialNotification.setBodyLines(List.of("Старое сообщение"));
+        ZonedDateTime initialUpdatedAt = ZonedDateTime.now().minusMinutes(30);
+        initialNotification.setUpdatedAt(initialUpdatedAt);
+
+        AdminNotification nextNotification = new AdminNotification();
+        nextNotification.setId(67L);
+        nextNotification.setTitle("Новое объявление");
+        nextNotification.setBodyLines(List.of("Обновлённая информация"));
+        ZonedDateTime nextUpdatedAt = initialUpdatedAt.plusMinutes(10);
+        nextNotification.setUpdatedAt(nextUpdatedAt);
+
+        AtomicReference<AdminNotification> activeNotification = new AtomicReference<>(initialNotification);
+        when(adminNotificationService.findActiveNotification())
+                .thenAnswer(invocation -> Optional.ofNullable(activeNotification.get()));
+
+        Update contactUpdate = mockContactUpdate(chatId, chatId, chatId, "+375291234567");
+        bot.consume(contactUpdate);
+
+        ChatSession sessionAfterContact = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("После контакта должна сохраняться сессия"));
+        assertEquals(initialNotification.getId(), sessionAfterContact.getCurrentNotificationId(),
+                "Активное объявление должно фиксироваться сразу после привязки");
+        assertTrue(sessionAfterContact.isAnnouncementSeen(),
+                "Новый пользователь должен считаться ознакомившимся с текущим объявлением");
+        assertEquals(initialUpdatedAt, sessionAfterContact.getAnnouncementUpdatedAt(),
+                "В сессии должно сохраняться время актуального объявления");
+        assertNull(sessionAfterContact.getAnnouncementAnchorMessageId(),
+                "Баннер не должен отправляться новому пользователю до смены объявления");
+
+        clearInvocations(telegramClient);
+
+        activeNotification.set(nextNotification);
+
+        bot.consume(mockTextUpdate(chatId, "/start"));
+
+        boolean nextAnnouncementShown = mockingDetails(telegramClient).getInvocations().stream()
+                .filter(invocation -> "execute".equals(invocation.getMethod().getName()))
+                .map(invocation -> invocation.getArgument(0))
+                .flatMap(request -> {
+                    if (request instanceof SendMessage sendMessage) {
+                        return Stream.ofNullable(sendMessage.getText());
+                    }
+                    if (request instanceof EditMessageText editMessageText) {
+                        return Stream.ofNullable(editMessageText.getText());
+                    }
+                    return Stream.empty();
+                })
+                .filter(Objects::nonNull)
+                .anyMatch(text -> text.contains(nextNotification.getTitle()));
+
+        assertTrue(nextAnnouncementShown,
+                "После активации нового объявления пользователь должен увидеть баннер");
+
+        ChatSession sessionAfterReset = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("После смены объявления должна существовать сессия"));
+        assertEquals(nextNotification.getId(), sessionAfterReset.getCurrentNotificationId(),
+                "Сессия должна ссылаться на новое активное объявление");
+        assertFalse(sessionAfterReset.isAnnouncementSeen(),
+                "Новое объявление не должно считаться просмотренным до подтверждения");
+        assertEquals(nextUpdatedAt, sessionAfterReset.getAnnouncementUpdatedAt(),
+                "После активации новое время обновления должно сохраняться в сессии");
+        assertNotNull(sessionAfterReset.getAnnouncementAnchorMessageId(),
+                "После показа нового объявления должен сохраняться идентификатор сообщения баннера");
     }
 
     /**
@@ -251,6 +585,7 @@ class BuyerTelegramBotTest {
         Long chatId = 558L;
         Customer customer = new Customer();
         customer.setTelegramChatId(chatId);
+        customer.setTelegramConfirmed(true);
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
         Update update = mockMyChatMemberUpdate(chatId);
@@ -282,6 +617,7 @@ class BuyerTelegramBotTest {
         Long chatId = 559L;
         Customer customer = new Customer();
         customer.setTelegramChatId(chatId);
+        customer.setTelegramConfirmed(true);
         customer.setNotificationsEnabled(true);
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
@@ -363,6 +699,23 @@ class BuyerTelegramBotTest {
                 .anyMatch(text -> text.contains("данные подтверждены"));
 
         assertTrue(hasSuccess, "Бот обязан уведомить пользователя об успешном подтверждении");
+    }
+
+    /**
+     * Проверяет, что клиент Telegram получил команду на отображение баннера с указанным заголовком.
+     *
+     * @param title заголовок, по которому определяется баннер
+     * @return {@code true}, если среди отправленных обновлений найден нужный баннер
+     */
+    private boolean wasAnnouncementRendered(String title) {
+        return mockingDetails(telegramClient).getInvocations().stream()
+                .filter(invocation -> "execute".equals(invocation.getMethod().getName()))
+                .map(invocation -> invocation.getArgument(0))
+                .filter(EditMessageText.class::isInstance)
+                .map(EditMessageText.class::cast)
+                .map(EditMessageText::getText)
+                .filter(Objects::nonNull)
+                .anyMatch(text -> text.contains(title));
     }
 
     /**

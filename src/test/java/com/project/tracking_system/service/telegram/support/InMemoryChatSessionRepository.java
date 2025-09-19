@@ -5,6 +5,7 @@ import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.service.telegram.ChatSession;
 import com.project.tracking_system.service.telegram.ChatSessionRepository;
 
+import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -156,6 +157,65 @@ public class InMemoryChatSessionRepository implements ChatSessionRepository {
     }
 
     /**
+     * Показывает, просмотрено ли объявление в текущей сессии.
+     */
+    @Override
+    public boolean isAnnouncementSeen(Long chatId) {
+        if (chatId == null) {
+            return false;
+        }
+        return sessions.getOrDefault(chatId, new ChatSession(chatId, BuyerChatState.IDLE, null, null))
+                .isAnnouncementSeen();
+    }
+
+    /**
+     * Помечает объявление как прочитанное пользователем.
+     */
+    @Override
+    public void markAnnouncementSeen(Long chatId) {
+        if (chatId == null) {
+            return;
+        }
+        ChatSession session = sessions.computeIfAbsent(chatId,
+                id -> new ChatSession(id, BuyerChatState.IDLE, null, null));
+        session.setAnnouncementSeen(true);
+    }
+
+    /**
+     * Сохраняет параметры текущего объявления, сбрасывая признак просмотра.
+     */
+    @Override
+    public void updateAnnouncement(Long chatId,
+                                   Long notificationId,
+                                   Integer anchorMessageId,
+                                   ZonedDateTime notificationUpdatedAt) {
+        if (chatId == null) {
+            return;
+        }
+        ChatSession session = sessions.computeIfAbsent(chatId,
+                id -> new ChatSession(id, BuyerChatState.IDLE, null, null));
+        session.setCurrentNotificationId(notificationId);
+        session.setAnnouncementAnchorMessageId(anchorMessageId);
+        session.setAnnouncementSeen(false);
+        session.setAnnouncementUpdatedAt(notificationUpdatedAt);
+    }
+
+    /**
+     * Помечает активное объявление как просмотренное без изменения якоря.
+     */
+    @Override
+    public void setAnnouncementAsSeen(Long chatId, Long notificationId, ZonedDateTime updatedAt) {
+        if (chatId == null) {
+            return;
+        }
+        ChatSession session = sessions.computeIfAbsent(chatId,
+                id -> new ChatSession(id, BuyerChatState.IDLE, null, null));
+        session.setCurrentNotificationId(notificationId);
+        session.setAnnouncementSeen(true);
+        session.setAnnouncementUpdatedAt(updatedAt);
+    }
+
+    /**
      * Создаёт копию сессии, чтобы тесты не изменяли внутреннее состояние напрямую.
      *
      * @param session исходная сессия
@@ -165,9 +225,14 @@ public class InMemoryChatSessionRepository implements ChatSessionRepository {
         if (session == null) {
             return null;
         }
-        return new ChatSession(session.getChatId(), session.getState(),
+        ChatSession copy = new ChatSession(session.getChatId(), session.getState(),
                 session.getAnchorMessageId(), session.getLastScreen(),
                 session.isPersistentKeyboardHidden(),
                 session.isContactRequestSent());
+        copy.setCurrentNotificationId(session.getCurrentNotificationId());
+        copy.setAnnouncementAnchorMessageId(session.getAnnouncementAnchorMessageId());
+        copy.setAnnouncementSeen(session.isAnnouncementSeen());
+        copy.setAnnouncementUpdatedAt(session.getAnnouncementUpdatedAt());
+        return copy;
     }
 }

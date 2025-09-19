@@ -3,6 +3,7 @@ package com.project.tracking_system.service.telegram;
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 
+import java.time.ZonedDateTime;
 import java.util.Optional;
 
 /**
@@ -124,4 +125,41 @@ public interface ChatSessionRepository {
      * @param chatId идентификатор чата Telegram
      */
     void clearContactRequestSent(Long chatId);
+
+    /**
+     * Проверяет, просмотрено ли последнее объявление пользователем.
+     *
+     * @param chatId идентификатор чата Telegram
+     * @return {@code true}, если объявление уже просмотрено
+     */
+    boolean isAnnouncementSeen(Long chatId);
+
+    /**
+     * Помечает текущее объявление как просмотренное.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    void markAnnouncementSeen(Long chatId);
+
+    /**
+     * Устанавливает новое объявление и сбрасывает признак просмотра.
+     *
+     * @param chatId              идентификатор чата Telegram
+     * @param notificationId      идентификатор уведомления для показа
+     * @param anchorMessageId     идентификатор сообщения Telegram, в котором отображено объявление
+     * @param notificationUpdatedAt момент последнего обновления содержимого объявления
+     */
+    void updateAnnouncement(Long chatId,
+                            Long notificationId,
+                            Integer anchorMessageId,
+                            ZonedDateTime notificationUpdatedAt);
+
+    /**
+     * Фиксирует, что активное объявление уже просмотрено пользователем без смены якорного сообщения.
+     *
+     * @param chatId         идентификатор чата Telegram
+     * @param notificationId идентификатор активного уведомления администратора
+     * @param updatedAt      момент последнего обновления уведомления
+     */
+    void setAnnouncementAsSeen(Long chatId, Long notificationId, ZonedDateTime updatedAt);
 }

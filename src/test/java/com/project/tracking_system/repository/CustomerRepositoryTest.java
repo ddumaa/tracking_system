@@ -36,4 +36,5 @@ class CustomerRepositoryTest {
         assertThrows(OptimisticLockingFailureException.class,
                 () -> customerRepository.saveAndFlush(second));
     }
+
 }

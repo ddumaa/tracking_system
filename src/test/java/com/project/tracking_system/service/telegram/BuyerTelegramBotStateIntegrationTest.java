@@ -4,10 +4,12 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.project.tracking_system.entity.AdminNotification;
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
+import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.service.telegram.ChatSession;
 import com.project.tracking_system.service.telegram.support.InMemoryChatSessionRepository;
@@ -18,9 +20,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
+import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
+import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberUpdated;
 import org.telegram.telegrambots.meta.api.objects.Contact;
@@ -37,10 +41,13 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.Keyboard
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -57,9 +64,13 @@ class BuyerTelegramBotStateIntegrationTest {
     @Mock
     private CustomerTelegramService telegramService;
 
+    @Mock
+    private AdminNotificationService adminNotificationService;
+
     private BuyerTelegramBot bot;
     private FullNameValidator fullNameValidator;
     private InMemoryChatSessionRepository chatSessionRepository;
+    private AtomicInteger messageIdSequence;
 
     /**
      * Создаёт экземпляр бота перед каждым сценарием и стабилизирует клиент Telegram.
@@ -68,9 +79,19 @@ class BuyerTelegramBotStateIntegrationTest {
     void setUp() throws Exception {
         fullNameValidator = new FullNameValidator();
         chatSessionRepository = new InMemoryChatSessionRepository();
-        bot = new BuyerTelegramBot(telegramClient, "token", telegramService, fullNameValidator, chatSessionRepository,
-                new ObjectMapper());
-        when(telegramClient.execute(any(SendMessage.class))).thenReturn(null);
+        messageIdSequence = new AtomicInteger(500);
+        bot = new BuyerTelegramBot(telegramClient, "token", telegramService, adminNotificationService,
+                fullNameValidator, chatSessionRepository, new ObjectMapper());
+        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
+        when(telegramService.findByChatId(anyLong())).thenReturn(Optional.empty());
+        when(telegramClient.execute(any(EditMessageText.class))).thenReturn(null);
+        when(telegramClient.execute(any(EditMessageReplyMarkup.class))).thenReturn(null);
+        when(telegramClient.execute(any(AnswerCallbackQuery.class))).thenReturn(null);
+        doAnswer(invocation -> {
+            Message sent = new Message();
+            sent.setMessageId(messageIdSequence.getAndIncrement());
+            return sent;
+        }).when(telegramClient).execute(any(SendMessage.class));
     }
 
     /**
@@ -115,6 +136,65 @@ class BuyerTelegramBotStateIntegrationTest {
                 "После повторного /start бот должен оставаться в ожидании контакта без лишних сообщений");
         assertTrue(chatSessionRepository.isContactRequestSent(chatId),
                 "Флаг отправленного запроса контакта обязан сохраняться в сессии");
+    }
+
+    /**
+     * Проверяет, что подтверждение объявления помечает его просмотренным и предотвращает повторные клики.
+     */
+    @Test
+    void shouldHandleRepeatedAnnouncementAck() throws Exception {
+        Long chatId = 1313L;
+
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        customer.setNotificationsEnabled(true);
+        customer.setFullName("Иван Иванов");
+        customer.setNameSource(NameSource.USER_CONFIRMED);
+        customer.setTelegramConfirmed(true);
+
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        AdminNotification notification = new AdminNotification();
+        notification.setId(77L);
+        notification.setTitle("Новое объявление");
+        notification.setBodyLines(List.of("Тестовое сообщение"));
+        notification.setUpdatedAt(ZonedDateTime.now().minusMinutes(20));
+        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.of(notification));
+
+        bot.consume(textUpdate(chatId, "/start"));
+
+        ChatSession session = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("После /start должна появиться сессия"));
+        Integer anchorMessageId = session.getAnchorMessageId();
+        assertNotNull(anchorMessageId, "После показа баннера должен фиксироваться якорь");
+
+        clearInvocations(telegramClient);
+
+        bot.consume(callbackUpdate(chatId, anchorMessageId, "announcement:ack"));
+
+        ArgumentCaptor<AnswerCallbackQuery> answerCaptor = ArgumentCaptor.forClass(AnswerCallbackQuery.class);
+        verify(telegramClient).execute(answerCaptor.capture());
+        assertEquals("Готово", answerCaptor.getValue().getText(),
+                "Первое подтверждение должно завершаться сообщением о готовности");
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(editCaptor.capture());
+        assertTrue(editCaptor.getValue().getText().contains("Главное меню"),
+                "После подтверждения бот обязан вернуть экран меню");
+
+        assertTrue(chatSessionRepository.isAnnouncementSeen(chatId),
+                "После подтверждения объявление должно помечаться просмотренным");
+
+        clearInvocations(telegramClient);
+
+        bot.consume(callbackUpdate(chatId, anchorMessageId, "announcement:ack"));
+
+        verify(telegramClient).execute(answerCaptor.capture());
+        AnswerCallbackQuery spamAnswer = answerCaptor.getAllValues()
+                .get(answerCaptor.getAllValues().size() - 1);
+        assertEquals("Уведомление уже закрыто", spamAnswer.getText(),
+                "Повторный клик должен завершаться антиспам-сообщением");
+        verify(telegramClient, never()).execute(any(EditMessageText.class));
     }
 
     /**
@@ -246,6 +326,101 @@ class BuyerTelegramBotStateIntegrationTest {
                 .anyMatch(this::containsContactButton);
         assertFalse(hasContactButton,
                 "Кнопка «📱 Поделиться номером» не должна присутствовать после возврата в меню");
+    }
+
+    /**
+     * Проверяет, что после привязки контакта пользователь пропускает текущее объявление, но видит следующее активное.
+     */
+    @Test
+    void shouldSkipExistingAnnouncementAfterContactAndShowNextActivation() throws Exception {
+        Long chatId = 3131L;
+
+        Customer customer = new Customer();
+        customer.setNotificationsEnabled(true);
+        customer.setFullName("Иван Иванов");
+        customer.setNameSource(NameSource.USER_CONFIRMED);
+        customer.setTelegramConfirmed(false);
+
+        when(telegramService.linkTelegramToCustomer(anyString(), eq(chatId))).thenAnswer(invocation -> {
+            customer.setTelegramChatId(chatId);
+            return customer;
+        });
+        when(telegramService.confirmTelegram(customer)).thenAnswer(invocation -> {
+            customer.setTelegramConfirmed(true);
+            return customer;
+        });
+        doNothing().when(telegramService).notifyActualStatuses(customer);
+        when(telegramService.findByChatId(chatId)).thenAnswer(invocation ->
+                Optional.ofNullable(customer.getTelegramChatId() != null ? customer : null));
+
+        AdminNotification initialNotification = new AdminNotification();
+        initialNotification.setId(88L);
+        initialNotification.setTitle("Старое объявление");
+        initialNotification.setBodyLines(List.of("Первая версия"));
+        ZonedDateTime initialUpdatedAt = ZonedDateTime.now().minusMinutes(40);
+        initialNotification.setUpdatedAt(initialUpdatedAt);
+
+        AdminNotification nextNotification = new AdminNotification();
+        nextNotification.setId(89L);
+        nextNotification.setTitle("Обновлённое объявление");
+        nextNotification.setBodyLines(List.of("Новый пункт"));
+        ZonedDateTime nextUpdatedAt = initialUpdatedAt.plusMinutes(5);
+        nextNotification.setUpdatedAt(nextUpdatedAt);
+
+        AtomicReference<AdminNotification> activeNotification = new AtomicReference<>(initialNotification);
+        when(adminNotificationService.findActiveNotification()).thenAnswer(invocation ->
+                Optional.ofNullable(activeNotification.get()));
+
+        bot.consume(textUpdate(chatId, "/start"));
+        clearInvocations(telegramClient);
+
+        bot.consume(contactUpdate(chatId, "+375297000000"));
+
+        ChatSession afterContact = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("После привязки должна существовать сессия"));
+        assertEquals(initialNotification.getId(), afterContact.getCurrentNotificationId(),
+                "Активное объявление должно быть зафиксировано после привязки");
+        assertTrue(afterContact.isAnnouncementSeen(),
+                "Новый пользователь должен считаться ознакомленным с текущим объявлением");
+        assertEquals(initialUpdatedAt, afterContact.getAnnouncementUpdatedAt(),
+                "В сессии должно сохраняться время актуального объявления");
+        assertNull(afterContact.getAnnouncementAnchorMessageId(),
+                "Баннер не должен отправляться до смены объявления");
+
+        clearInvocations(telegramClient);
+
+        activeNotification.set(nextNotification);
+
+        bot.consume(textUpdate(chatId, "/start"));
+
+        boolean nextAnnouncementShown = mockingDetails(telegramClient).getInvocations().stream()
+                .filter(invocation -> "execute".equals(invocation.getMethod().getName()))
+                .map(invocation -> invocation.getArgument(0))
+                .flatMap(request -> {
+                    if (request instanceof SendMessage sendMessage) {
+                        return Stream.ofNullable(sendMessage.getText());
+                    }
+                    if (request instanceof EditMessageText editMessageText) {
+                        return Stream.ofNullable(editMessageText.getText());
+                    }
+                    return Stream.empty();
+                })
+                .filter(Objects::nonNull)
+                .anyMatch(text -> text.contains(nextNotification.getTitle()));
+
+        assertTrue(nextAnnouncementShown,
+                "После активации нового объявления пользователь обязан увидеть баннер");
+
+        ChatSession afterActivation = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("Сессия должна обновиться после активации объявления"));
+        assertEquals(nextNotification.getId(), afterActivation.getCurrentNotificationId(),
+                "Состояние должно ссылаться на новое объявление");
+        assertFalse(afterActivation.isAnnouncementSeen(),
+                "Новое объявление не считается просмотренным до подтверждения");
+        assertEquals(nextUpdatedAt, afterActivation.getAnnouncementUpdatedAt(),
+                "В сессии должно сохраняться время обновления нового объявления");
+        assertNotNull(afterActivation.getAnnouncementAnchorMessageId(),
+                "После показа баннера должен сохраняться идентификатор сообщения");
     }
 
     /**
@@ -951,6 +1126,29 @@ class BuyerTelegramBotStateIntegrationTest {
 
         Update update = new Update();
         update.setMessage(message);
+        return update;
+    }
+
+    /**
+     * Создаёт callback-запрос от пользователя с заданным сообщением и данными.
+     *
+     * @param chatId    идентификатор чата Telegram
+     * @param messageId идентификатор сообщения, с которого пришёл callback
+     * @param data      полезная нагрузка callback-запроса
+     * @return объект {@link Update} для передачи в бота
+     */
+    private Update callbackUpdate(Long chatId, Integer messageId, String data) {
+        Message message = new Message();
+        message.setMessageId(messageId);
+        message.setChat(createChat(chatId));
+
+        CallbackQuery callbackQuery = new CallbackQuery();
+        callbackQuery.setId("cb-" + messageId);
+        callbackQuery.setMessage(message);
+        callbackQuery.setData(data);
+
+        Update update = new Update();
+        update.setCallbackQuery(callbackQuery);
         return update;
     }
 

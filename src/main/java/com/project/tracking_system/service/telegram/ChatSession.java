@@ -3,6 +3,8 @@ package com.project.tracking_system.service.telegram;
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 
+import java.time.ZonedDateTime;
+
 /**
  * Представление состояния чата покупателя, хранящееся в устойчивом хранилище.
  * <p>
@@ -17,6 +19,10 @@ public class ChatSession {
     private BuyerBotScreen lastScreen;
     private boolean persistentKeyboardHidden;
     private boolean contactRequestSent;
+    private Long currentNotificationId;
+    private Integer announcementAnchorMessageId;
+    private boolean announcementSeen;
+    private ZonedDateTime announcementUpdatedAt;
 
     /**
      * Создаёт представление состояния чата.
@@ -72,6 +78,10 @@ public class ChatSession {
         this.lastScreen = lastScreen;
         this.persistentKeyboardHidden = persistentKeyboardHidden;
         this.contactRequestSent = contactRequestSent;
+        this.currentNotificationId = null;
+        this.announcementAnchorMessageId = null;
+        this.announcementSeen = false;
+        this.announcementUpdatedAt = null;
     }
 
     /**
@@ -171,5 +181,77 @@ public class ChatSession {
      */
     public void setContactRequestSent(boolean contactRequestSent) {
         this.contactRequestSent = contactRequestSent;
+    }
+
+    /**
+     * Возвращает идентификатор текущего объявления для покупателя.
+     *
+     * @return идентификатор объявления или {@code null}
+     */
+    public Long getCurrentNotificationId() {
+        return currentNotificationId;
+    }
+
+    /**
+     * Сохраняет идентификатор актуального объявления для последующего показа.
+     *
+     * @param currentNotificationId идентификатор объявления или {@code null}
+     */
+    public void setCurrentNotificationId(Long currentNotificationId) {
+        this.currentNotificationId = currentNotificationId;
+    }
+
+    /**
+     * Возвращает идентификатор сообщения с объявлением, отправленного пользователю.
+     *
+     * @return идентификатор сообщения или {@code null}
+     */
+    public Integer getAnnouncementAnchorMessageId() {
+        return announcementAnchorMessageId;
+    }
+
+    /**
+     * Сохраняет сообщение, содержащее объявление и его элементы управления.
+     *
+     * @param announcementAnchorMessageId идентификатор сообщения или {@code null}
+     */
+    public void setAnnouncementAnchorMessageId(Integer announcementAnchorMessageId) {
+        this.announcementAnchorMessageId = announcementAnchorMessageId;
+    }
+
+    /**
+     * Проверяет, видел ли пользователь актуальное объявление.
+     *
+     * @return {@code true}, если объявление уже просмотрено
+     */
+    public boolean isAnnouncementSeen() {
+        return announcementSeen;
+    }
+
+    /**
+     * Фиксирует факт просмотра текущего объявления пользователем.
+     *
+     * @param announcementSeen {@code true}, если объявление просмотрено
+     */
+    public void setAnnouncementSeen(boolean announcementSeen) {
+        this.announcementSeen = announcementSeen;
+    }
+
+    /**
+     * Возвращает время обновления объявления, которое видел пользователь.
+     *
+     * @return момент обновления или {@code null}, если информация отсутствует
+     */
+    public ZonedDateTime getAnnouncementUpdatedAt() {
+        return announcementUpdatedAt;
+    }
+
+    /**
+     * Сохраняет отметку о времени обновления показанного объявления.
+     *
+     * @param announcementUpdatedAt момент обновления объявления или {@code null}
+     */
+    public void setAnnouncementUpdatedAt(ZonedDateTime announcementUpdatedAt) {
+        this.announcementUpdatedAt = announcementUpdatedAt;
     }
 }

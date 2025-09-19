@@ -1,13 +1,16 @@
 package com.project.tracking_system.service.telegram;
 
+import com.project.tracking_system.entity.BuyerAnnouncementState;
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerBotScreenState;
 import com.project.tracking_system.entity.BuyerChatState;
+import com.project.tracking_system.repository.BuyerAnnouncementStateRepository;
 import com.project.tracking_system.repository.BuyerBotScreenStateRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZonedDateTime;
 import java.util.Optional;
 
 /**
@@ -18,6 +21,7 @@ import java.util.Optional;
 public class DatabaseChatSessionRepository implements ChatSessionRepository {
 
     private final BuyerBotScreenStateRepository repository;
+    private final BuyerAnnouncementStateRepository announcementRepository;
 
     /**
      * {@inheritDoc}
@@ -28,7 +32,18 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
         if (chatId == null) {
             return Optional.empty();
         }
-        return repository.findById(chatId).map(this::toSession);
+        Optional<BuyerBotScreenState> screenState = repository.findById(chatId);
+        Optional<BuyerAnnouncementState> announcementState = announcementRepository.findById(chatId);
+
+        if (screenState.isEmpty() && announcementState.isEmpty()) {
+            return Optional.empty();
+        }
+
+        ChatSession session = screenState
+                .map(this::toSession)
+                .orElseGet(() -> new ChatSession(chatId, BuyerChatState.IDLE, null, null));
+        announcementState.ifPresent(state -> populateAnnouncement(session, state));
+        return Optional.of(session);
     }
 
     /**
@@ -40,14 +55,25 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
         if (session == null || session.getChatId() == null) {
             return session;
         }
-        BuyerBotScreenState entity = getOrCreateEntity(session.getChatId());
+        Long chatId = session.getChatId();
+        BuyerBotScreenState entity = getOrCreateEntity(chatId);
         entity.setChatState(session.getState());
         entity.setAnchorMessageId(session.getAnchorMessageId());
         entity.setLastScreen(session.getLastScreen());
         entity.setKeyboardHidden(session.isPersistentKeyboardHidden());
         entity.setContactRequestSent(session.isContactRequestSent());
         BuyerBotScreenState saved = repository.save(entity);
-        return toSession(saved);
+
+        BuyerAnnouncementState announcement = getOrCreateAnnouncementEntity(chatId);
+        announcement.setCurrentNotificationId(session.getCurrentNotificationId());
+        announcement.setAnchorMessageId(session.getAnnouncementAnchorMessageId());
+        announcement.setAnnouncementSeen(session.isAnnouncementSeen());
+        announcement.setNotificationUpdatedAt(session.getAnnouncementUpdatedAt());
+        BuyerAnnouncementState savedAnnouncement = announcementRepository.save(announcement);
+
+        ChatSession result = toSession(saved);
+        populateAnnouncement(result, savedAnnouncement);
+        return result;
     }
 
     /**
@@ -225,6 +251,74 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isAnnouncementSeen(Long chatId) {
+        if (chatId == null) {
+            return false;
+        }
+        return announcementRepository.findById(chatId)
+                .map(BuyerAnnouncementState::getAnnouncementSeen)
+                .map(Boolean::booleanValue)
+                .orElse(false);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional
+    public void markAnnouncementSeen(Long chatId) {
+        if (chatId == null) {
+            return;
+        }
+        announcementRepository.findById(chatId).ifPresent(state -> {
+            if (!Boolean.TRUE.equals(state.getAnnouncementSeen())) {
+                state.setAnnouncementSeen(true);
+                announcementRepository.save(state);
+            }
+        });
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional
+    public void updateAnnouncement(Long chatId,
+                                   Long notificationId,
+                                   Integer anchorMessageId,
+                                   ZonedDateTime notificationUpdatedAt) {
+        if (chatId == null) {
+            return;
+        }
+        BuyerAnnouncementState state = getOrCreateAnnouncementEntity(chatId);
+        state.setCurrentNotificationId(notificationId);
+        state.setAnchorMessageId(anchorMessageId);
+        state.setAnnouncementSeen(false);
+        state.setNotificationUpdatedAt(notificationUpdatedAt);
+        announcementRepository.save(state);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional
+    public void setAnnouncementAsSeen(Long chatId, Long notificationId, ZonedDateTime updatedAt) {
+        if (chatId == null) {
+            return;
+        }
+        BuyerAnnouncementState state = getOrCreateAnnouncementEntity(chatId);
+        state.setCurrentNotificationId(notificationId);
+        state.setAnnouncementSeen(true);
+        state.setNotificationUpdatedAt(updatedAt);
+        announcementRepository.save(state);
+    }
+
+    /**
      * Возвращает сущность состояния, создавая новую запись с настройками по умолчанию.
      *
      * @param chatId идентификатор чата Telegram
@@ -233,6 +327,22 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
     private BuyerBotScreenState getOrCreateEntity(Long chatId) {
         return repository.findById(chatId)
                 .orElseGet(() -> new BuyerBotScreenState(chatId, null, null, BuyerChatState.IDLE, Boolean.TRUE, Boolean.FALSE));
+    }
+
+    /**
+     * Возвращает состояние объявлений, создавая запись с настройками по умолчанию.
+     *
+     * @param chatId идентификатор чата Telegram
+     * @return сущность состояния объявлений
+     */
+    private BuyerAnnouncementState getOrCreateAnnouncementEntity(Long chatId) {
+        return announcementRepository.findById(chatId)
+                .orElseGet(() -> {
+                    BuyerAnnouncementState state = new BuyerAnnouncementState();
+                    state.setChatId(chatId);
+                    state.setAnnouncementSeen(false);
+                    return state;
+                });
     }
 
     /**
@@ -253,5 +363,21 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
                 Boolean.TRUE.equals(entity.getKeyboardHidden()),
                 Boolean.TRUE.equals(entity.getContactRequestSent())
         );
+    }
+
+    /**
+     * Переносит данные об объявлении в объект сессии.
+     *
+     * @param session     доменная модель сессии
+     * @param announcement состояние объявлений, загруженное из базы
+     */
+    private void populateAnnouncement(ChatSession session, BuyerAnnouncementState announcement) {
+        if (session == null || announcement == null) {
+            return;
+        }
+        session.setCurrentNotificationId(announcement.getCurrentNotificationId());
+        session.setAnnouncementAnchorMessageId(announcement.getAnchorMessageId());
+        session.setAnnouncementSeen(Boolean.TRUE.equals(announcement.getAnnouncementSeen()));
+        session.setAnnouncementUpdatedAt(announcement.getNotificationUpdatedAt());
     }
 }
