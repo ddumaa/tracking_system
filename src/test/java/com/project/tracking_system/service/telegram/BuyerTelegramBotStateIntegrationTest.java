@@ -454,9 +454,7 @@ class BuyerTelegramBotStateIntegrationTest {
                 .when(telegramClient).execute(any(EditMessageText.class));
 
         Update update = contactUpdate(chatId, "+375298888888");
-        User user = new User();
-        user.setId(chatId);
-        update.getMessage().setFrom(user);
+        update.getMessage().setFrom(createUser(chatId));
 
         bot.consume(update);
 
@@ -476,6 +474,16 @@ class BuyerTelegramBotStateIntegrationTest {
 
         verify(telegramClient).execute(any(EditMessageText.class));
         verify(telegramClient, never()).execute(any(EditMessageReplyMarkup.class));
+    }
+
+    /**
+     * Создаёт пользователя Telegram с минимально необходимыми данными для тестов.
+     *
+     * @param chatId идентификатор пользователя Telegram
+     * @return объект {@link User} с заполненным идентификатором
+     */
+    private User createUser(Long chatId) {
+        return new User(chatId, "TestUser", false);
     }
 
     /**
