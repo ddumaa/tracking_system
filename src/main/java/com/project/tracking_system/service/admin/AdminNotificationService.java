@@ -38,15 +38,14 @@ public class AdminNotificationService {
     }
 
     /**
-     * Создаёт новое уведомление и запрашивает его показ пользователям.
+     * Создаёт новое уведомление, переводит его в активное состояние и инициирует показ.
      */
     @Transactional
     public AdminNotification createNotification(String title, List<String> bodyLines) {
         AdminNotification notification = new AdminNotification();
         notification.setTitle(title);
         notification.setBodyLines(new ArrayList<>(bodyLines));
-        notification.setStatus(AdminNotificationStatus.INACTIVE);
-        notification.setResetRequested(true);
+        activateNotificationEntity(notification);
         return notificationRepository.save(notification);
     }
 
@@ -77,11 +76,7 @@ public class AdminNotificationService {
     @Transactional
     public void activateNotification(Long id) {
         AdminNotification toActivate = getNotification(id);
-        notificationRepository.findFirstByStatus(AdminNotificationStatus.ACTIVE)
-                .filter(active -> !active.getId().equals(id))
-                .ifPresent(active -> active.setStatus(AdminNotificationStatus.INACTIVE));
-        toActivate.setStatus(AdminNotificationStatus.ACTIVE);
-        toActivate.setResetRequested(true);
+        activateNotificationEntity(toActivate);
     }
 
     /**
@@ -108,5 +103,33 @@ public class AdminNotificationService {
     public void requestReset(Long id) {
         AdminNotification notification = getNotification(id);
         notification.setResetRequested(true);
+    }
+
+    /**
+     * Переключает статус активного уведомления на переданный экземпляр.
+     * <p>
+     * Метод деактивирует текущее активное уведомление (если таковое существует),
+     * устанавливает статус {@link AdminNotificationStatus#ACTIVE} и инициирует повторный показ.
+     * </p>
+     *
+     * @param notification уведомление, которое должно стать активным
+     */
+    private void activateNotificationEntity(AdminNotification notification) {
+        notificationRepository.findFirstByStatus(AdminNotificationStatus.ACTIVE)
+                .filter(current -> !isSameNotification(current, notification))
+                .ifPresent(current -> current.setStatus(AdminNotificationStatus.INACTIVE));
+        notification.setStatus(AdminNotificationStatus.ACTIVE);
+        notification.setResetRequested(true);
+    }
+
+    /**
+     * Проверяет, что два уведомления представляют одну и ту же сущность.
+     *
+     * @param first  сравниваемое уведомление
+     * @param second уведомление-кандидат на активацию
+     * @return {@code true}, если оба экземпляра ссылаются на одну запись
+     */
+    private boolean isSameNotification(AdminNotification first, AdminNotification second) {
+        return first.getId() != null && first.getId().equals(second.getId());
     }
 }

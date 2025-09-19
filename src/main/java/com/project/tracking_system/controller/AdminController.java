@@ -819,8 +819,9 @@ public class AdminController {
     @PostMapping("/notifications")
     public String createNotification(@ModelAttribute("notificationForm") AdminNotificationForm form,
                                      RedirectAttributes redirectAttributes) {
-        adminNotificationService.createNotification(form.getTitle(), form.toBodyLines());
+        AdminNotification notification = adminNotificationService.createNotification(form.getTitle(), form.toBodyLines());
         redirectAttributes.addFlashAttribute("successMessage", "Уведомление создано");
+        redirectAttributes.addFlashAttribute("createdNotification", notification);
         return "redirect:/admin/notifications";
     }
 
