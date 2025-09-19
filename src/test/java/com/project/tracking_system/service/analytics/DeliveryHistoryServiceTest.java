@@ -3,6 +3,7 @@ package com.project.tracking_system.service.analytics;
 import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.entity.*;
+import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.*;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.customer.CustomerService;
@@ -19,9 +20,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -138,5 +141,99 @@ class DeliveryHistoryServiceTest {
         );
 
         verify(deliveryMetricsRollbackService).rollbackFinalStatusMetrics(history, trackParcel, GlobalStatus.DELIVERED);
+    }
+
+    /**
+     * Убеждаемся, что при первом сохранении трека с финальным статусом
+     * уведомление в Telegram не отправляется.
+     */
+    @Test
+    void updateDeliveryHistory_InitialFinalStatus_DoesNotSendNotification() {
+        TrackParcel trackParcel = buildParcelWithCustomer(2L);
+
+        when(deliveryHistoryRepository.findByTrackParcelId(trackParcel.getId())).thenReturn(Optional.empty());
+        when(typeDefinitionTrackPostService.detectPostalService(anyString())).thenReturn(PostalServiceType.UNKNOWN);
+        when(statusTrackService.setStatus(anyList())).thenReturn(GlobalStatus.DELIVERED);
+        when(subscriptionService.isFeatureEnabled(trackParcel.getStore().getOwner().getId(), FeatureKey.TELEGRAM_NOTIFICATIONS))
+                .thenReturn(true);
+        when(deliveryHistoryRepository.save(any(DeliveryHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TrackInfoListDTO trackInfoListDTO = buildDeliveredTrackInfo();
+
+        deliveryHistoryService.updateDeliveryHistory(trackParcel, null, GlobalStatus.DELIVERED, trackInfoListDTO);
+
+        verify(telegramNotificationService, never()).sendStatusUpdate(any(TrackParcel.class), any(GlobalStatus.class));
+        verify(customerNotificationLogRepository, never())
+                .existsByParcelIdAndStatusAndNotificationType(anyLong(), any(), any());
+    }
+
+    /**
+     * Проверяет, что при переходе из промежуточного статуса в финальный уведомление отправляется
+     * и фиксируется в журнале отправки.
+     */
+    @Test
+    void updateDeliveryHistory_TransitionToFinalStatus_SendsNotification() {
+        TrackParcel trackParcel = buildParcelWithCustomer(3L);
+
+        when(deliveryHistoryRepository.findByTrackParcelId(trackParcel.getId())).thenReturn(Optional.empty());
+        when(typeDefinitionTrackPostService.detectPostalService(anyString())).thenReturn(PostalServiceType.UNKNOWN);
+        when(statusTrackService.setStatus(anyList())).thenReturn(GlobalStatus.DELIVERED);
+        when(subscriptionService.isFeatureEnabled(trackParcel.getStore().getOwner().getId(), FeatureKey.TELEGRAM_NOTIFICATIONS))
+                .thenReturn(true);
+        when(customerNotificationLogRepository.existsByParcelIdAndStatusAndNotificationType(
+                trackParcel.getId(),
+                GlobalStatus.DELIVERED,
+                NotificationType.INSTANT
+        )).thenReturn(false);
+        when(deliveryHistoryRepository.save(any(DeliveryHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TrackInfoListDTO trackInfoListDTO = buildDeliveredTrackInfo();
+
+        deliveryHistoryService.updateDeliveryHistory(
+                trackParcel,
+                GlobalStatus.IN_TRANSIT,
+                GlobalStatus.DELIVERED,
+                trackInfoListDTO
+        );
+
+        verify(telegramNotificationService).sendStatusUpdate(eq(trackParcel), eq(GlobalStatus.DELIVERED));
+        verify(customerNotificationLogRepository).save(any(CustomerNotificationLog.class));
+    }
+
+    /**
+     * Создаёт тестовую посылку с привязанным магазином и покупателем.
+     */
+    private TrackParcel buildParcelWithCustomer(Long parcelId) {
+        TrackParcel trackParcel = new TrackParcel();
+        trackParcel.setId(parcelId);
+        trackParcel.setNumber("RB123456789BY");
+        trackParcel.setStatus(GlobalStatus.IN_TRANSIT);
+
+        User owner = new User();
+        owner.setId(500L);
+        owner.setTimeZone("UTC");
+
+        Store store = new Store();
+        store.setId(200L);
+        store.setName("Test Store");
+        store.setOwner(owner);
+        trackParcel.setStore(store);
+        trackParcel.setUser(owner);
+
+        Customer customer = new Customer();
+        customer.setId(300L);
+        customer.setTelegramChatId(123456L);
+        trackParcel.setCustomer(customer);
+
+        return trackParcel;
+    }
+
+    /**
+     * Формирует список трекинг-событий с финальным статусом доставки.
+     */
+    private TrackInfoListDTO buildDeliveredTrackInfo() {
+        TrackInfoListDTO trackInfoListDTO = new TrackInfoListDTO();
+        trackInfoListDTO.setList(List.of(new TrackInfoDTO("10.03.2025, 12:00", "DELIVERED")));
+        return trackInfoListDTO;
     }
 }
