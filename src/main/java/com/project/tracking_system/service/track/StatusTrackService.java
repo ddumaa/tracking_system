@@ -43,6 +43,13 @@ public class StatusTrackService {
     private static final Pattern RETURN_START_PATTERN = Pattern.compile(
             "^Почтовое отправление готово к возврату$|^Подготовлено для возврата$");
 
+    /**
+     * Специальный шаблон для статусов Европочты о прибытии отправления в ОПС
+     * для выдачи отправителю, когда начинается ожидание на возврат.
+     */
+    private static final Pattern EUROPOST_RETURN_PICKUP_PATTERN = Pattern.compile(
+            "^Отправление [A-Z]{2}[A-Z0-9]+ прибыло для возврата в ОПС №\\d+.*$");
+
     static {
         // Инициализация карты регулярных выражений и статусов
         // Специальное правило для отмены выдачи, чтобы оно имело приоритет над успешным вручением
@@ -61,6 +68,7 @@ public class StatusTrackService {
                         "^Почтовое отправление подготовлено в сортировочном пункте к доставке на ОПС назначения$"),
                 GlobalStatus.IN_TRANSIT);
         statusPatterns.put(RETURN_START_PATTERN, GlobalStatus.RETURN_IN_PROGRESS);
+        statusPatterns.put(EUROPOST_RETURN_PICKUP_PATTERN, GlobalStatus.RETURN_PENDING_PICKUP);
         statusPatterns.put(Pattern.compile("^Почтовое отправление прибыло на Отделение №\\d+.*для возврата.*"),
                 GlobalStatus.RETURN_PENDING_PICKUP);
         statusPatterns.put(Pattern.compile("^Почтовое отправление возвращено отправителю$"), GlobalStatus.RETURNED);
