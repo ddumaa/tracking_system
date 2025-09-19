@@ -48,7 +48,16 @@ public class StatusTrackService {
      * для выдачи отправителю, когда начинается ожидание на возврат.
      */
     private static final Pattern EUROPOST_RETURN_PICKUP_PATTERN = Pattern.compile(
-            "^Отправление [A-Z]{2}[A-Z0-9]+ прибыло для возврата в ОПС №\\d+.*$");
+            "^Отправление [A-Z]{2}[A-Z0-9]+ прибыло для возврата в ОПС №\\s*\\d+.*$",
+            Pattern.UNICODE_CASE | Pattern.CASE_INSENSITIVE);
+
+    /**
+     * Шаблон для статусов Белпочты, указывающих на прибытие отправления в конкретное
+     * отделение для возврата отправителю и ожидания выдачи.
+     */
+    private static final Pattern RETURN_BRANCH_PICKUP_PATTERN = Pattern.compile(
+            "^Почтовое отправление прибыло на отделение №\\s*\\d+.*$",
+            Pattern.UNICODE_CASE | Pattern.CASE_INSENSITIVE);
 
     static {
         // Инициализация карты регулярных выражений и статусов
@@ -69,8 +78,7 @@ public class StatusTrackService {
                 GlobalStatus.IN_TRANSIT);
         statusPatterns.put(RETURN_START_PATTERN, GlobalStatus.RETURN_IN_PROGRESS);
         statusPatterns.put(EUROPOST_RETURN_PICKUP_PATTERN, GlobalStatus.RETURN_PENDING_PICKUP);
-        statusPatterns.put(Pattern.compile("^Почтовое отправление прибыло на Отделение №\\d+.*для возврата.*"),
-                GlobalStatus.RETURN_PENDING_PICKUP);
+        statusPatterns.put(RETURN_BRANCH_PICKUP_PATTERN, GlobalStatus.RETURN_PENDING_PICKUP);
         statusPatterns.put(Pattern.compile("^Почтовое отправление возвращено отправителю$"), GlobalStatus.RETURNED);
         statusPatterns.put(Pattern.compile("^Заявка на почтовое отправление зарегистрирована$"), GlobalStatus.REGISTERED);
         statusPatterns.put(Pattern.compile("^Добрый день\\. Отправление [A-Z0-9]+ не востребовано получателем.*|" +

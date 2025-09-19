@@ -101,7 +101,22 @@ class StatusTrackServiceTest {
     @Test
     void setStatus_MapsEuroPostReturnPendingPickup() {
         List<TrackInfoDTO> list = List.of(
-                new TrackInfoDTO(null, "Отправление BY123456789BY прибыло для возврата в ОПС №25")
+                new TrackInfoDTO(null, "Отправление BY123456789BY прибыло для возврата в ОПС № 152, г. Минск")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.RETURN_PENDING_PICKUP, status);
+    }
+
+    /**
+     * Проверяет, что сообщение о прибытии отправления на отделение для возврата
+     * корректно интерпретируется как ожидание получения отправителем.
+     */
+    @Test
+    void setStatus_MapsBranchReturnPendingPickup() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO(null, "Почтовое отправление прибыло на отделение № 152 (г. Минск)")
         );
 
         GlobalStatus status = service.setStatus(list);
