@@ -16,6 +16,7 @@ import com.project.tracking_system.service.tariff.TariffService;
 import com.project.tracking_system.service.DynamicSchedulerService;
 import com.project.tracking_system.exception.UserAlreadyExistsException;
 import com.project.tracking_system.utils.EmailUtils;
+import com.project.tracking_system.utils.PaginationItem;
 import com.project.tracking_system.utils.PaginationUtils;
 import com.project.tracking_system.utils.PaginationWindow;
 import lombok.RequiredArgsConstructor;
@@ -63,7 +64,7 @@ public class AdminController {
     /**
      * Ограничение количества отображаемых ссылок пагинации для компактности.
      */
-    private static final int PAGE_WINDOW = 6;
+    private static final int PAGE_WINDOW = 5;
 
     /**
      * Отображает дашборд администратора.
@@ -471,14 +472,14 @@ public class AdminController {
             paginationWindow = PaginationUtils.calculateWindow(paginationWindow.currentPage(), totalPages, PAGE_WINDOW);
         }
 
-        List<Integer> pageIndexes = paginationWindow.pageIndexes();
+        List<PaginationItem> paginationItems = paginationWindow.paginationItems();
 
         model.addAttribute("parcels", parcelPage.getContent());
         model.addAttribute("currentPage", paginationWindow.currentPage());
         model.addAttribute("totalPages", totalPages);
         model.addAttribute("startPage", paginationWindow.startPage());
         model.addAttribute("endPage", paginationWindow.endPage());
-        model.addAttribute("pageIndexes", pageIndexes);
+        model.addAttribute("paginationItems", paginationItems);
         model.addAttribute("size", size);
 
         // Хлебные крошки

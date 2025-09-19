@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+import com.project.tracking_system.utils.PaginationItem;
 import com.project.tracking_system.utils.PaginationUtils;
 import com.project.tracking_system.utils.PaginationWindow;
 
@@ -61,7 +62,7 @@ public class DeparturesController {
      * Максимальное количество ссылок пагинации, отображаемых одновременно.
      * Помогает избежать длинных списков страниц на экране.
      */
-    private static final int PAGE_WINDOW = 6;
+    private static final int PAGE_WINDOW = 5;
 
     /**
      * Метод для отображения списка отслеживаемых посылок пользователя с
@@ -143,7 +144,7 @@ public class DeparturesController {
         log.debug("Передача атрибутов в модель: stores={}, storeId={}, trackParcelDTO={}, currentPage={}, totalPages={}, size={}",
                 stores, storeId, trackParcelPage.getContent(), paginationWindow.currentPage(), totalPages, size);
 
-        List<Integer> pageIndexes = paginationWindow.pageIndexes();
+        List<PaginationItem> paginationItems = paginationWindow.paginationItems();
 
         // Добавляем атрибуты в модель
         model.addAttribute("stores", stores);
@@ -156,7 +157,7 @@ public class DeparturesController {
         model.addAttribute("totalPages", totalPages);
         model.addAttribute("startPage", paginationWindow.startPage());
         model.addAttribute("endPage", paginationWindow.endPage());
-        model.addAttribute("pageIndexes", pageIndexes);
+        model.addAttribute("paginationItems", paginationItems);
         model.addAttribute("trackParcelNotification", trackParcelPage.isEmpty() ? "Отслеживаемых посылок нет" : null);
         model.addAttribute("bulkUpdateButtonDTO",
                 new BulkUpdateButtonDTO(userService.isShowBulkUpdateButton(user.getId())));
