@@ -2,11 +2,15 @@ package com.project.tracking_system.service.admin;
 
 import com.project.tracking_system.entity.AdminNotification;
 import com.project.tracking_system.entity.AdminNotificationStatus;
+import com.project.tracking_system.entity.BuyerAnnouncementState;
 import com.project.tracking_system.repository.AdminNotificationRepository;
+import com.project.tracking_system.repository.BuyerAnnouncementStateRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -19,6 +23,7 @@ import java.util.Optional;
 public class AdminNotificationService {
 
     private final AdminNotificationRepository notificationRepository;
+    private final BuyerAnnouncementStateRepository announcementStateRepository;
 
     /**
      * Возвращает историю уведомлений в порядке создания.
@@ -97,12 +102,13 @@ public class AdminNotificationService {
     }
 
     /**
-     * Запрашивает повторный показ уведомления пользователям.
+     * Запрашивает повторный показ уведомления пользователям, сбрасывая признак просмотра у подписчиков.
      */
     @Transactional
     public void requestReset(Long id) {
         AdminNotification notification = getNotification(id);
-        notification.setResetRequested(true);
+        resetAnnouncementViews(notification);
+        notification.setResetRequested(false);
     }
 
     /**
@@ -115,11 +121,40 @@ public class AdminNotificationService {
      * @param notification уведомление, которое должно стать активным
      */
     private void activateNotificationEntity(AdminNotification notification) {
+        boolean alreadyActive = notification.getStatus() == AdminNotificationStatus.ACTIVE;
         notificationRepository.findFirstByStatus(AdminNotificationStatus.ACTIVE)
                 .filter(current -> !isSameNotification(current, notification))
                 .ifPresent(current -> current.setStatus(AdminNotificationStatus.INACTIVE));
         notification.setStatus(AdminNotificationStatus.ACTIVE);
-        notification.setResetRequested(true);
+        if (!alreadyActive) {
+            notification.setResetRequested(true);
+        }
+    }
+
+    /**
+     * Сбрасывает признак просмотра объявления у покупателей, которым оно уже демонстрировалось.
+     * <p>
+     * Метод находит все состояния с указанным уведомлением, устанавливает флаг просмотра в {@code false},
+     * обновляет отметку времени получения уведомления и тем самым инициирует повторный показ баннера.
+     * </p>
+     *
+     * @param notification уведомление администратора, для которого требуется сбросить просмотры
+     */
+    private void resetAnnouncementViews(AdminNotification notification) {
+        if (notification == null || notification.getId() == null) {
+            return;
+        }
+        List<BuyerAnnouncementState> states =
+                announcementStateRepository.findAllByCurrentNotificationId(notification.getId());
+        if (states.isEmpty()) {
+            return;
+        }
+        ZonedDateTime resetTimestamp = ZonedDateTime.now(ZoneOffset.UTC);
+        states.forEach(state -> {
+            state.setAnnouncementSeen(false);
+            state.setNotificationUpdatedAt(resetTimestamp);
+        });
+        announcementStateRepository.saveAll(states);
     }
 
     /**

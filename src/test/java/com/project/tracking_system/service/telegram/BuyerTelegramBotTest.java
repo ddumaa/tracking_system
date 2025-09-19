@@ -306,6 +306,58 @@ class BuyerTelegramBotTest {
     }
 
     /**
+     * Проверяет, что после сброса состояния баннер объявления вновь отображается пользователю.
+     */
+    @Test
+    void shouldRenderAnnouncementAgainAfterReset() throws Exception {
+        Long chatId = 781L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        customer.setTelegramConfirmed(true);
+        customer.setNotificationsEnabled(true);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        AdminNotification notification = new AdminNotification();
+        notification.setId(46L);
+        notification.setTitle("Повторный баннер");
+        notification.setBodyLines(List.of("Первое сообщение", "Второе сообщение"));
+        ZonedDateTime initialUpdatedAt = ZonedDateTime.now().minusMinutes(30);
+        notification.setUpdatedAt(initialUpdatedAt);
+        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.of(notification));
+
+        bot.consume(mockTextUpdate(chatId, "/start"));
+        assertTrue(wasAnnouncementRendered(notification.getTitle()),
+                "Первый запуск должен отрисовать баннер объявления");
+
+        clearInvocations(telegramClient);
+        chatSessionRepository.markAnnouncementSeen(chatId);
+
+        bot.consume(mockTextUpdate(chatId, "/start"));
+        assertFalse(wasAnnouncementRendered(notification.getTitle()),
+                "После подтверждения баннер не должен отображаться повторно без сброса");
+
+        clearInvocations(telegramClient);
+        ChatSession session = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("Сессия должна существовать для повторного показа"));
+        ZonedDateTime resetTimestamp = initialUpdatedAt.plusMinutes(10);
+        session.setAnnouncementSeen(false);
+        session.setAnnouncementUpdatedAt(resetTimestamp);
+        chatSessionRepository.save(session);
+        notification.setUpdatedAt(resetTimestamp);
+
+        bot.consume(mockTextUpdate(chatId, "/start"));
+        assertTrue(wasAnnouncementRendered(notification.getTitle()),
+                "После сброса баннер должен быть показан заново");
+
+        ChatSession refreshed = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("Состояние сессии должно обновиться"));
+        assertEquals(resetTimestamp, refreshed.getAnnouncementUpdatedAt(),
+                "После повторного показа должна обновиться отметка времени объявления");
+        assertFalse(refreshed.isAnnouncementSeen(),
+                "До подтверждения повторного показа объявление должно считаться непросмотренным");
+    }
+
+    /**
      * Убеждается, что новым пользователям не показывается баннер объявления до привязки.
      */
     @Test
@@ -549,6 +601,23 @@ class BuyerTelegramBotTest {
                 .anyMatch(text -> text.contains("данные подтверждены"));
 
         assertTrue(hasSuccess, "Бот обязан уведомить пользователя об успешном подтверждении");
+    }
+
+    /**
+     * Проверяет, что клиент Telegram получил команду на отображение баннера с указанным заголовком.
+     *
+     * @param title заголовок, по которому определяется баннер
+     * @return {@code true}, если среди отправленных обновлений найден нужный баннер
+     */
+    private boolean wasAnnouncementRendered(String title) {
+        return mockingDetails(telegramClient).getInvocations().stream()
+                .filter(invocation -> "execute".equals(invocation.getMethod().getName()))
+                .map(invocation -> invocation.getArgument(0))
+                .filter(EditMessageText.class::isInstance)
+                .map(EditMessageText.class::cast)
+                .map(EditMessageText::getText)
+                .filter(Objects::nonNull)
+                .anyMatch(text -> text.contains(title));
     }
 
     /**
