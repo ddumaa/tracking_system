@@ -56,6 +56,14 @@ public class StatusTrackService {
      * отделение для возврата отправителю и ожидания выдачи.
      */
     private static final Pattern RETURN_BRANCH_PICKUP_PATTERN = Pattern.compile(
+            "^Почтовое отправление прибыло на отделение №\\s*\\d+.*(?:для возврата|для выдачи отправителю|возврат[а-я]*).*$",
+            Pattern.UNICODE_CASE | Pattern.CASE_INSENSITIVE);
+
+    /**
+     * Шаблон для статусов о прибытии на отделение без признаков возврата,
+     * которые должны трактоваться как ожидание клиента.
+     */
+    private static final Pattern BRANCH_WAITING_PATTERN = Pattern.compile(
             "^Почтовое отправление прибыло на отделение №\\s*\\d+.*$",
             Pattern.UNICODE_CASE | Pattern.CASE_INSENSITIVE);
 
@@ -104,25 +112,58 @@ public class StatusTrackService {
         // Получаем последний статус и нормализуем его
         String lastStatus = norm(trackInfoDTOList.get(0).getInfoTrack());
 
+        boolean returnStartChecked = false;
+        boolean hasReturnStart = false;
+
         // Проверяем последний статус
         for (Map.Entry<Pattern, GlobalStatus> entry : statusPatterns.entrySet()) {
-
             if (entry.getKey().matcher(lastStatus).find()) {
-                // Если последний статус соответствует определенному паттерну
                 if (RETURN_PATTERN.matcher(lastStatus).find()) {
-                    // Проверяем историю на наличие начального статуса возврата
-                    for (TrackInfoDTO trackInfoDTO : trackInfoDTOList) {
-                        String status = norm(trackInfoDTO.getInfoTrack());
-                        if (RETURN_START_PATTERN.matcher(status).find()) {
-                            return GlobalStatus.RETURN_IN_PROGRESS;
-                        }
+                    if (!returnStartChecked) {
+                        hasReturnStart = hasReturnStartStatus(trackInfoDTOList);
+                        returnStartChecked = true;
+                    }
+                    if (hasReturnStart) {
+                        return GlobalStatus.RETURN_IN_PROGRESS;
                     }
                 }
-                return entry.getValue();
+
+                GlobalStatus matchedStatus = entry.getValue();
+                if (matchedStatus == GlobalStatus.RETURN_PENDING_PICKUP) {
+                    if (!returnStartChecked) {
+                        hasReturnStart = hasReturnStartStatus(trackInfoDTOList);
+                        returnStartChecked = true;
+                    }
+                    if (!hasReturnStart) {
+                        return GlobalStatus.WAITING_FOR_CUSTOMER;
+                    }
+                }
+                return matchedStatus;
             }
         }
+
+        if (BRANCH_WAITING_PATTERN.matcher(lastStatus).find()) {
+            return GlobalStatus.WAITING_FOR_CUSTOMER;
+        }
+
         // Дефолтный статус, если не найдено (отладка новых статусов)
         return GlobalStatus.UNKNOWN_STATUS;
+    }
+
+    /**
+     * Проверяет, содержит ли история трекинга события, указывающие на старт процесса возврата.
+     *
+     * @param trackInfoDTOList список событий трекинга
+     * @return {@code true}, если найдено событие из {@link #RETURN_START_PATTERN}, иначе {@code false}
+     */
+    private boolean hasReturnStartStatus(List<TrackInfoDTO> trackInfoDTOList) {
+        for (TrackInfoDTO trackInfoDTO : trackInfoDTOList) {
+            String status = norm(trackInfoDTO.getInfoTrack());
+            if (RETURN_START_PATTERN.matcher(status).find()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
