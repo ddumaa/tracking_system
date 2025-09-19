@@ -153,4 +153,13 @@ public interface ChatSessionRepository {
                             Long notificationId,
                             Integer anchorMessageId,
                             ZonedDateTime notificationUpdatedAt);
+
+    /**
+     * Фиксирует, что активное объявление уже просмотрено пользователем без смены якорного сообщения.
+     *
+     * @param chatId         идентификатор чата Telegram
+     * @param notificationId идентификатор активного уведомления администратора
+     * @param updatedAt      момент последнего обновления уведомления
+     */
+    void setAnnouncementAsSeen(Long chatId, Long notificationId, ZonedDateTime updatedAt);
 }

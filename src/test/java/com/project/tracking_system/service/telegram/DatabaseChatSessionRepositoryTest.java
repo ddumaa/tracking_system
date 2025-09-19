@@ -82,5 +82,42 @@ class DatabaseChatSessionRepositoryTest {
         assertEquals(updatedAt, loaded.getAnnouncementUpdatedAt(),
                 "Должна сохраняться отметка времени обновления объявления");
     }
+
+    /**
+     * Проверяет, что отметка просмотра объявления не сбрасывает якорь и создаёт запись для нового чата.
+     */
+    @Test
+    void shouldSetAnnouncementAsSeenWithoutResettingAnchor() {
+        Long chatId = 303L;
+        ZonedDateTime initialUpdatedAt = ZonedDateTime.now().minusMinutes(20).withNano(0);
+        repository.updateAnnouncement(chatId, 90L, 702, initialUpdatedAt);
+
+        ZonedDateTime seenAt = initialUpdatedAt.plusMinutes(1);
+        repository.setAnnouncementAsSeen(chatId, 90L, seenAt);
+
+        ChatSession loaded = repository.find(chatId).orElseThrow();
+        assertEquals(90L, loaded.getCurrentNotificationId(),
+                "После фиксации просмотра должен сохраняться идентификатор объявления");
+        assertEquals(702, loaded.getAnnouncementAnchorMessageId(),
+                "Якорное сообщение не должно сбрасываться при отметке просмотра");
+        assertTrue(loaded.isAnnouncementSeen(),
+                "Отметка просмотра обязана сохраняться в сессии после фиксации");
+        assertEquals(seenAt, loaded.getAnnouncementUpdatedAt(),
+                "Должно сохраняться время актуального объявления после фиксации просмотра");
+
+        Long freshChatId = 404L;
+        ZonedDateTime freshSeenAt = ZonedDateTime.now().minusMinutes(2).withNano(0);
+        repository.setAnnouncementAsSeen(freshChatId, 91L, freshSeenAt);
+
+        ChatSession freshSession = repository.find(freshChatId).orElseThrow();
+        assertEquals(91L, freshSession.getCurrentNotificationId(),
+                "Для нового чата должен сохраняться идентификатор активного объявления");
+        assertNull(freshSession.getAnnouncementAnchorMessageId(),
+                "Без показанного баннера якорь должен оставаться пустым");
+        assertTrue(freshSession.isAnnouncementSeen(),
+                "Новому чату после отметки просмотренным объявление должно считаться изученным");
+        assertEquals(freshSeenAt, freshSession.getAnnouncementUpdatedAt(),
+                "Для нового чата должно сохраняться время последнего обновления объявления");
+    }
 }
 
