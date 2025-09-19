@@ -174,9 +174,13 @@ public class DeliveryHistoryService {
         }
 
         if (!initialFinalStatus && newStatus != GlobalStatus.PRE_REGISTERED && shouldNotifyCustomer(trackParcel, newStatus)) {
-            telegramNotificationService.sendStatusUpdate(trackParcel, newStatus);
-            log.info("✅ Уведомление о статусе {} отправлено для трека {}", newStatus, trackParcel.getNumber());
-            saveNotificationLog(trackParcel, newStatus);
+            boolean notificationSent = telegramNotificationService.sendStatusUpdate(trackParcel, newStatus);
+            if (notificationSent) {
+                log.info("✅ Уведомление о статусе {} отправлено для трека {}", newStatus, trackParcel.getNumber());
+                saveNotificationLog(trackParcel, newStatus);
+            } else {
+                log.debug("Уведомление о статусе {} не было отправлено для трека {}", newStatus, trackParcel.getNumber());
+            }
         }
     }
 
