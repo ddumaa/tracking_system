@@ -72,6 +72,11 @@ public class DeliveryHistoryService {
      * {@link #registerFinalStatus(DeliveryHistory, GlobalStatus)}, чтобы обновить
      * накопительную статистику.
      * </p>
+     * <p>
+     * При первом сохранении трека сразу в финальном статусе уведомление в Telegram
+     * не отправляется, чтобы избежать ложных оповещений без фактического изменения
+     * состояния.
+     * </p>
      *
      * <p><strong>Безопасность:</strong> не логируем персональные данные или токены.</p>
      *
@@ -159,7 +164,16 @@ public class DeliveryHistoryService {
 
         // Отправляем уведомление в Telegram при выполнении условий
         // Уведомления стартуют только после выхода из предрегистрации
-        if (newStatus != GlobalStatus.PRE_REGISTERED && shouldNotifyCustomer(trackParcel, newStatus)) {
+        boolean initialFinalStatus = isInitialFinalStatus(oldStatus, newStatus);
+        if (initialFinalStatus) {
+            log.debug(
+                    "Пропускаем уведомление для трека {}: первый статус уже финальный ({})",
+                    trackParcel.getNumber(),
+                    newStatus
+            );
+        }
+
+        if (!initialFinalStatus && newStatus != GlobalStatus.PRE_REGISTERED && shouldNotifyCustomer(trackParcel, newStatus)) {
             telegramNotificationService.sendStatusUpdate(trackParcel, newStatus);
             log.info("✅ Уведомление о статусе {} отправлено для трека {}", newStatus, trackParcel.getNumber());
             saveNotificationLog(trackParcel, newStatus);
@@ -706,6 +720,17 @@ public class DeliveryHistoryService {
             log.info("{}: {}", logMessage, newDate);
             setter.accept(newDate);
         }
+    }
+
+    /**
+     * Проверяет, создан ли трек сразу с финальным статусом без исторических изменений.
+     *
+     * @param oldStatus предыдущий статус (может отсутствовать при создании трека)
+     * @param newStatus актуальный статус после обновления
+     * @return {@code true}, если посылка появилась сразу в финальном статусе
+     */
+    private boolean isInitialFinalStatus(GlobalStatus oldStatus, GlobalStatus newStatus) {
+        return oldStatus == null && newStatus != null && newStatus.isFinal();
     }
 
     /**
