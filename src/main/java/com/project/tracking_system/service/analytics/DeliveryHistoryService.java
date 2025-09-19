@@ -35,6 +35,7 @@ import java.time.ZonedDateTime;
 import com.project.tracking_system.utils.DateParserUtils;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 /**
@@ -59,6 +60,7 @@ public class DeliveryHistoryService {
     private final TelegramNotificationService telegramNotificationService;
     private final CustomerNotificationLogRepository customerNotificationLogRepository;
     private final SubscriptionService subscriptionService;
+    private final DeliveryMetricsRollbackService deliveryMetricsRollbackService;
 
 
     /**
@@ -107,6 +109,10 @@ public class DeliveryHistoryService {
         } else {
             log.debug("Статус не изменился, обновление истории не требуется для {}", trackParcel.getNumber());
             return;
+        }
+
+        if (oldStatus != null && oldStatus.isFinal() && (newStatus == null || !newStatus.isFinal())) {
+            deliveryMetricsRollbackService.rollbackFinalStatusMetrics(history, trackParcel, oldStatus);
         }
 
         //  Определяем часовой пояс пользователя и извлекаем даты из трека
