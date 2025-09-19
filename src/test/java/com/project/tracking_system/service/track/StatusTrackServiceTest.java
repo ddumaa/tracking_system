@@ -95,6 +95,21 @@ class StatusTrackServiceTest {
     }
 
     /**
+     * Проверяет, что статус от Европочты о прибытии в ОПС для возврата
+     * корректно классифицируется как ожидание выдачи отправителю.
+     */
+    @Test
+    void setStatus_MapsEuroPostReturnPendingPickup() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO(null, "Отправление BY123456789BY прибыло для возврата в ОПС №25")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.RETURN_PENDING_PICKUP, status);
+    }
+
+    /**
      * Проверяет, что формулировка о прибытии отправления для выдачи
      * относится к статусу {@link GlobalStatus#WAITING_FOR_CUSTOMER}.
      */
