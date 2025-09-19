@@ -20,6 +20,7 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Contact;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.util.Optional;
@@ -52,7 +53,11 @@ class BuyerTelegramBotLoggingTest {
         chatSessionRepository = new InMemoryChatSessionRepository();
         buyerTelegramBot = new BuyerTelegramBot(telegramClient, "token", customerTelegramService, adminNotificationService,
                 new FullNameValidator(), chatSessionRepository, new ObjectMapper());
-        when(telegramClient.execute(any(SendMessage.class))).thenReturn(null);
+        try {
+            when(telegramClient.execute(any(SendMessage.class))).thenReturn(null);
+        } catch (TelegramApiException e) {
+            throw new RuntimeException(e);
+        }
         when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
         logger = (Logger) LoggerFactory.getLogger(BuyerTelegramBot.class);
         appender = new ListAppender<>();

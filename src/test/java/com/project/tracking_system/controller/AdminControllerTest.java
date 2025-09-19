@@ -4,18 +4,8 @@ import com.project.tracking_system.dto.AdminNotificationForm;
 import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.entity.AdminNotification;
 import com.project.tracking_system.entity.AdminNotificationStatus;
-import com.project.tracking_system.repository.StoreRepository;
-import com.project.tracking_system.service.DynamicSchedulerService;
-import com.project.tracking_system.service.SubscriptionService;
-import com.project.tracking_system.service.analytics.StatsAggregationService;
 import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.admin.AdminService;
-import com.project.tracking_system.service.admin.AppInfoService;
-import com.project.tracking_system.service.admin.ApplicationSettingsService;
-import com.project.tracking_system.service.admin.SubscriptionPlanService;
-import com.project.tracking_system.service.tariff.TariffService;
-import com.project.tracking_system.service.track.TrackParcelService;
-import com.project.tracking_system.service.user.UserService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -37,40 +27,10 @@ import static org.mockito.Mockito.*;
 class AdminControllerTest {
 
     @Mock
-    private UserService userService;
-
-    @Mock
-    private TrackParcelService trackParcelService;
-
-    @Mock
-    private SubscriptionService subscriptionService;
-
-    @Mock
-    private SubscriptionPlanService subscriptionPlanService;
-
-    @Mock
-    private StoreRepository storeRepository;
-
-    @Mock
-    private StatsAggregationService statsAggregationService;
-
-    @Mock
     private AdminService adminService;
 
     @Mock
     private AdminNotificationService adminNotificationService;
-
-    @Mock
-    private AppInfoService appInfoService;
-
-    @Mock
-    private DynamicSchedulerService dynamicSchedulerService;
-
-    @Mock
-    private TariffService tariffService;
-
-    @Mock
-    private ApplicationSettingsService applicationSettingsService;
 
     @InjectMocks
     private AdminController controller;

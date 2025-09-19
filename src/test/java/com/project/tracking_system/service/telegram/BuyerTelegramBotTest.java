@@ -13,7 +13,6 @@ import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
 import com.project.tracking_system.service.telegram.support.InMemoryChatSessionRepository;
-import com.project.tracking_system.service.telegram.ChatSession;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,7 +24,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
-import org.telegram.telegrambots.meta.api.objects.Chat;
+import org.telegram.telegrambots.meta.api.objects.chat.Chat;
 import org.telegram.telegrambots.meta.api.objects.Contact;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
@@ -33,9 +32,11 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberUpdated;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.time.ZonedDateTime;
@@ -83,12 +84,20 @@ class BuyerTelegramBotTest {
         messageIdSequence = new AtomicInteger(100);
         bot = new BuyerTelegramBot(telegramClient, "token", telegramService, adminNotificationService,
                 fullNameValidator, chatSessionRepository, objectMapper);
-        doAnswer(invocation -> {
-            Message response = new Message();
-            response.setMessageId(messageIdSequence.getAndIncrement());
-            return response;
-        }).when(telegramClient).execute(any(SendMessage.class));
-        when(telegramClient.execute(any(EditMessageText.class))).thenReturn(null);
+        try {
+            doAnswer(invocation -> {
+                Message response = new Message();
+                response.setMessageId(messageIdSequence.getAndIncrement());
+                return response;
+            }).when(telegramClient).execute(any(SendMessage.class));
+        } catch (TelegramApiException e) {
+            throw new RuntimeException(e);
+        }
+        try {
+            when(telegramClient.execute(any(EditMessageText.class))).thenReturn(null);
+        } catch (TelegramApiException e) {
+            throw new RuntimeException(e);
+        }
         when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
         when(telegramService.findByChatId(anyLong())).thenReturn(Optional.empty());
     }

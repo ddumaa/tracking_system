@@ -41,16 +41,6 @@ class HomeControllerTest {
     private MockMvc mockMvc;
 
     @MockBean
-    private TrackFacade trackFacade;
-    @MockBean
-    private StoreService storeService;
-    @MockBean
-    private TrackServiceClassifier trackServiceClassifier;
-    @MockBean
-    private BelPostManualService belPostManualService;
-    @MockBean
-    private PreRegistrationService preRegistrationService;
-    @MockBean
     private CustomerService customerService;
     @MockBean
     private AppInfoService appInfoService;
