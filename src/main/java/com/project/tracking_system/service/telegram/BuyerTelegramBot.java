@@ -36,7 +36,6 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -139,7 +138,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             customerForActivity = telegramService.findByChatId(chatIdForActivity)
                     .orElse(null);
             synchronizeAnnouncementState(chatIdForActivity, customerForActivity);
-            telegramService.updateLastActive(chatIdForActivity);
         }
 
         if (update.hasCallbackQuery()) {
@@ -209,17 +207,17 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
-     * Синхронизирует состояние объявлений для текущего пользователя.
+     * Синхронизирует состояние объявлений для подтверждённого покупателя.
      * <p>
-     * Метод определяет, появилось ли новое активное объявление или обновилась
-     * его версия, и сбрасывает признак просмотра для последующего показа.
+     * Если появилось новое активное объявление, сохраняет его идентификатор в сессии и
+     * сбрасывает признак просмотра, чтобы баннер показался пользователю ровно один раз.
      * </p>
      *
      * @param chatId   идентификатор чата Telegram
      * @param customer покупатель, привязанный к чату
      */
     private void synchronizeAnnouncementState(Long chatId, Customer customer) {
-        if (chatId == null || customer == null || customer.getLastActiveAt() == null) {
+        if (chatId == null || customer == null || !customer.isTelegramConfirmed()) {
             return;
         }
 
@@ -227,17 +225,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 .ifPresent(notification -> {
                     ChatSession session = chatSessionRepository.find(chatId).orElse(null);
                     Long storedId = session != null ? session.getCurrentNotificationId() : null;
-                    boolean seen = session != null && session.isAnnouncementSeen();
-                    ZonedDateTime updatedAt = notification.getUpdatedAt();
-                    ZonedDateTime lastActiveAt = customer.getLastActiveAt();
 
-                    boolean shouldReset = storedId == null || !notification.getId().equals(storedId);
-                    if (!shouldReset && seen && updatedAt != null && lastActiveAt != null
-                            && lastActiveAt.isBefore(updatedAt)) {
-                        shouldReset = true;
-                    }
-
-                    if (shouldReset) {
+                    if (storedId == null || !notification.getId().equals(storedId)) {
                         Integer anchorId = session != null ? session.getAnchorMessageId() : null;
                         chatSessionRepository.updateAnnouncement(chatId, notification.getId(), anchorId);
                     }
@@ -1559,13 +1548,18 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
-     * Показывает актуальное объявление администратора, если оно доступно пользователю.
+     * Показывает актуальное объявление администратора для подтверждённого покупателя.
+     * <p>
+     * Баннер отправляется только если пользователь ещё не видел текущее объявление.
+     * При появлении нового объявления состояние синхронизируется повторно, после чего
+     * баннер будет показан один раз до подтверждения.
+     * </p>
      *
      * @param chatId   идентификатор чата Telegram
      * @param customer покупатель, привязанный к чату
      */
     private void renderActiveAnnouncement(Long chatId, Customer customer) {
-        if (chatId == null || customer == null || customer.getLastActiveAt() == null) {
+        if (chatId == null || customer == null || !customer.isTelegramConfirmed()) {
             return;
         }
 
@@ -1574,19 +1568,16 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                     ChatSession session = chatSessionRepository.find(chatId).orElse(null);
                     Long storedId = session != null ? session.getCurrentNotificationId() : null;
                     boolean seen = session != null && session.isAnnouncementSeen();
-                    ZonedDateTime updatedAt = notification.getUpdatedAt();
-                    ZonedDateTime lastActiveAt = customer.getLastActiveAt();
 
-                    boolean shouldShow = storedId == null || !notification.getId().equals(storedId);
-                    if (!shouldShow && !seen) {
-                        shouldShow = true;
-                    }
-                    if (!shouldShow && seen && updatedAt != null && lastActiveAt != null
-                            && lastActiveAt.isBefore(updatedAt)) {
-                        shouldShow = true;
+                    boolean matchesActive = storedId != null && notification.getId().equals(storedId);
+                    if (!matchesActive) {
+                        Integer anchorId = session != null ? session.getAnchorMessageId() : null;
+                        chatSessionRepository.updateAnnouncement(chatId, notification.getId(), anchorId);
+                        matchesActive = true;
+                        seen = false;
                     }
 
-                    if (shouldShow) {
+                    if (matchesActive && !seen) {
                         renderAnnouncementBanner(chatId, notification);
                     }
                 });
