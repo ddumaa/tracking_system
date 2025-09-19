@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZonedDateTime;
 import java.util.Optional;
 
 /**
@@ -67,6 +68,7 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
         announcement.setCurrentNotificationId(session.getCurrentNotificationId());
         announcement.setAnchorMessageId(session.getAnnouncementAnchorMessageId());
         announcement.setAnnouncementSeen(session.isAnnouncementSeen());
+        announcement.setNotificationUpdatedAt(session.getAnnouncementUpdatedAt());
         BuyerAnnouncementState savedAnnouncement = announcementRepository.save(announcement);
 
         ChatSession result = toSession(saved);
@@ -285,7 +287,10 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
      */
     @Override
     @Transactional
-    public void updateAnnouncement(Long chatId, Long notificationId, Integer anchorMessageId) {
+    public void updateAnnouncement(Long chatId,
+                                   Long notificationId,
+                                   Integer anchorMessageId,
+                                   ZonedDateTime notificationUpdatedAt) {
         if (chatId == null) {
             return;
         }
@@ -293,6 +298,7 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
         state.setCurrentNotificationId(notificationId);
         state.setAnchorMessageId(anchorMessageId);
         state.setAnnouncementSeen(false);
+        state.setNotificationUpdatedAt(notificationUpdatedAt);
         announcementRepository.save(state);
     }
 
@@ -356,5 +362,6 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
         session.setCurrentNotificationId(announcement.getCurrentNotificationId());
         session.setAnnouncementAnchorMessageId(announcement.getAnchorMessageId());
         session.setAnnouncementSeen(Boolean.TRUE.equals(announcement.getAnnouncementSeen()));
+        session.setAnnouncementUpdatedAt(announcement.getNotificationUpdatedAt());
     }
 }

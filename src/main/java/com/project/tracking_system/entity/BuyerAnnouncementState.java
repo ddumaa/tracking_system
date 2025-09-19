@@ -9,6 +9,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.ZonedDateTime;
+
 /**
  * Состояние рассылки объявлений для покупателя в Telegram.
  * <p>
@@ -50,6 +52,12 @@ public class BuyerAnnouncementState {
      */
     @Column(name = "anchor_message_id")
     private Integer anchorMessageId;
+
+    /**
+     * Время последнего обновления объявления, отображённого пользователю.
+     */
+    @Column(name = "notification_updated_at")
+    private ZonedDateTime notificationUpdatedAt;
 
 }
 

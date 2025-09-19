@@ -3,6 +3,8 @@ package com.project.tracking_system.service.telegram;
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 
+import java.time.ZonedDateTime;
+
 /**
  * Представление состояния чата покупателя, хранящееся в устойчивом хранилище.
  * <p>
@@ -20,6 +22,7 @@ public class ChatSession {
     private Long currentNotificationId;
     private Integer announcementAnchorMessageId;
     private boolean announcementSeen;
+    private ZonedDateTime announcementUpdatedAt;
 
     /**
      * Создаёт представление состояния чата.
@@ -78,6 +81,7 @@ public class ChatSession {
         this.currentNotificationId = null;
         this.announcementAnchorMessageId = null;
         this.announcementSeen = false;
+        this.announcementUpdatedAt = null;
     }
 
     /**
@@ -231,5 +235,23 @@ public class ChatSession {
      */
     public void setAnnouncementSeen(boolean announcementSeen) {
         this.announcementSeen = announcementSeen;
+    }
+
+    /**
+     * Возвращает время обновления объявления, которое видел пользователь.
+     *
+     * @return момент обновления или {@code null}, если информация отсутствует
+     */
+    public ZonedDateTime getAnnouncementUpdatedAt() {
+        return announcementUpdatedAt;
+    }
+
+    /**
+     * Сохраняет отметку о времени обновления показанного объявления.
+     *
+     * @param announcementUpdatedAt момент обновления объявления или {@code null}
+     */
+    public void setAnnouncementUpdatedAt(ZonedDateTime announcementUpdatedAt) {
+        this.announcementUpdatedAt = announcementUpdatedAt;
     }
 }

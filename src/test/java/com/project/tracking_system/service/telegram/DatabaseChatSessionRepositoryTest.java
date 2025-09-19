@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 
+import java.time.ZonedDateTime;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -41,6 +43,8 @@ class DatabaseChatSessionRepositoryTest {
         session.setCurrentNotificationId(77L);
         session.setAnnouncementAnchorMessageId(555);
         session.setAnnouncementSeen(false);
+        ZonedDateTime updatedAt = ZonedDateTime.now().minusHours(1).withNano(0);
+        session.setAnnouncementUpdatedAt(updatedAt);
 
         repository.save(session);
 
@@ -49,6 +53,8 @@ class DatabaseChatSessionRepositoryTest {
         assertEquals(555, loaded.getAnnouncementAnchorMessageId(),
                 "Якорное сообщение объявления должно считываться из БД");
         assertFalse(loaded.isAnnouncementSeen(), "Признак просмотра не должен устанавливаться автоматически");
+        assertEquals(updatedAt, loaded.getAnnouncementUpdatedAt(),
+                "Отметка времени последнего обновления объявления должна сохраняться");
     }
 
     /**
@@ -57,7 +63,8 @@ class DatabaseChatSessionRepositoryTest {
     @Test
     void shouldMarkAnnouncementSeen() {
         Long chatId = 202L;
-        repository.updateAnnouncement(chatId, 88L, 501);
+        ZonedDateTime updatedAt = ZonedDateTime.now().minusMinutes(5).withNano(0);
+        repository.updateAnnouncement(chatId, 88L, 501, updatedAt);
         assertFalse(repository.isAnnouncementSeen(chatId),
                 "После установки объявления оно не должно считаться просмотренным");
 
@@ -72,6 +79,8 @@ class DatabaseChatSessionRepositoryTest {
                 "У сессии должен сохраняться идентификатор текущего объявления");
         assertEquals(501, loaded.getAnnouncementAnchorMessageId(),
                 "Должен сохраняться идентификатор сообщения с объявлением");
+        assertEquals(updatedAt, loaded.getAnnouncementUpdatedAt(),
+                "Должна сохраняться отметка времени обновления объявления");
     }
 }
 
