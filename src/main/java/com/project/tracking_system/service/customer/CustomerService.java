@@ -150,18 +150,14 @@ public class CustomerService {
             return false;
         }
         // Запрещаем магазинам менять подтверждённое имя
+        boolean shouldNotifyCustomer = false;
         if (customer.getNameSource() == NameSource.USER_CONFIRMED
                 && source == NameSource.MERCHANT_PROVIDED) {
             if (actorRole != Role.ROLE_ADMIN) {
                 log.warn("🚫 Попытка магазина изменить подтверждённое имя клиента ID={}", customer.getId());
                 throw new ConfirmedNameChangeException("Имя подтверждено пользователем");
             } else {
-                log.info("⚠️ Администратор изменяет подтверждённое имя клиента ID={}", customer.getId());
-                if (debugLogMaskedFio && log.isDebugEnabled()) {
-                    log.debug("⚠️ Администратор изменяет подтверждённое имя клиента ID={} на '{}'",
-                            customer.getId(), NameUtils.maskName(newName));
-                }
-                notifyCustomer(customer, newName);
+                shouldNotifyCustomer = true;
             }
         }
         if (newName.equals(customer.getFullName())) {
@@ -173,6 +169,16 @@ public class CustomerService {
         customer.setNameUpdatedAt(ZonedDateTime.now(ZoneOffset.UTC));
         customerRepository.save(customer);
         customerNameEventService.recordEvent(customer, oldName, newName);
+        if (shouldNotifyCustomer) {
+            log.info("⚠️ Администратор изменил подтверждённое имя клиента ID={}", customer.getId());
+            if (debugLogMaskedFio && log.isDebugEnabled()) {
+                log.debug("⚠️ Администратор изменил подтверждённое имя клиента ID={} с '{}' на '{}'",
+                        customer.getId(),
+                        NameUtils.maskName(oldName),
+                        NameUtils.maskName(newName));
+            }
+            notifyCustomer(customer, newName);
+        }
         return true;
     }
 

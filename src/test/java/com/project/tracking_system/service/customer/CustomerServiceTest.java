@@ -1,6 +1,8 @@
 package com.project.tracking_system.service.customer;
 
 import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.entity.NameSource;
+import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.SubscriptionService;
@@ -145,5 +147,29 @@ class CustomerServiceTest {
                 () -> service.registerOrGetByPhone("abc"));
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
         verifyNoInteractions(transactionalService);
+    }
+
+    /**
+     * Проверяем, что при попытке установить прежнее ФИО уведомление не отправляется.
+     */
+    @Test
+    void updateCustomerName_SameValueForConfirmedName_DoesNotNotify() {
+        Customer customer = new Customer();
+        customer.setId(42L);
+        customer.setFullName("Иван Иванов");
+        customer.setNameSource(NameSource.USER_CONFIRMED);
+        customer.setTelegramChatId(123456789L);
+
+        boolean updated = service.updateCustomerName(
+                customer,
+                "Иван Иванов",
+                NameSource.MERCHANT_PROVIDED,
+                Role.ROLE_ADMIN
+        );
+
+        assertFalse(updated);
+        verifyNoInteractions(customerRepository);
+        verifyNoInteractions(customerNameEventService);
+        verifyNoInteractions(telegramClient);
     }
 }
