@@ -81,8 +81,9 @@ public class StatusTrackService {
 
     /**
      * Определяет итоговый статус для списка трекинговых записей.
-     * Метод анализирует последний статус, игнорируя пробелы в начале
-     * и в конце строки, и проверяет его соответствие известным шаблонам.
+     * Метод предварительно нормализует последний статус, устраняя лишние пробелы
+     * и служебные символы в конце строки, после чего проверяет его соответствие
+     * известным шаблонам.
      *
      * @param trackInfoDTOList список событий трекинга в обратном хронологическом порядке
      * @return статус, соответствующий последнему событию
@@ -92,8 +93,8 @@ public class StatusTrackService {
             return GlobalStatus.UNKNOWN_STATUS; // Если список пустой, статус неизвестен
         }
 
-        // Получаем последний статус и убираем лишние пробелы
-        String lastStatus = trackInfoDTOList.get(0).getInfoTrack().trim();
+        // Получаем последний статус и нормализуем его
+        String lastStatus = norm(trackInfoDTOList.get(0).getInfoTrack());
 
         // Проверяем последний статус
         for (Map.Entry<Pattern, GlobalStatus> entry : statusPatterns.entrySet()) {
@@ -103,7 +104,7 @@ public class StatusTrackService {
                 if (RETURN_PATTERN.matcher(lastStatus).find()) {
                     // Проверяем историю на наличие начального статуса возврата
                     for (TrackInfoDTO trackInfoDTO : trackInfoDTOList) {
-                        String status = trackInfoDTO.getInfoTrack().trim();
+                        String status = norm(trackInfoDTO.getInfoTrack());
                         if (RETURN_START_PATTERN.matcher(status).find()) {
                             return GlobalStatus.RETURN_IN_PROGRESS;
                         }
@@ -114,6 +115,32 @@ public class StatusTrackService {
         }
         // Дефолтный статус, если не найдено (отладка новых статусов)
         return GlobalStatus.UNKNOWN_STATUS;
+    }
+
+    /**
+     * Нормализует строку статуса: заменяет неразрывные пробелы на обычные,
+     * схлопывает повторяющиеся пробелы и удаляет завершающие точки или
+     * скобки вместе с их содержимым.
+     *
+     * @param rawStatus исходное текстовое представление статуса
+     * @return очищенная строка, готовая к сопоставлению с паттернами
+     */
+    private String norm(String rawStatus) {
+        if (rawStatus == null) {
+            return "";
+        }
+
+        String normalized = rawStatus.replace('\u00A0', ' ').trim();
+        normalized = normalized.replaceAll(" {2,}", " ");
+
+        String previous;
+        do {
+            previous = normalized;
+            normalized = normalized.replaceAll("\\s*\\([^)]*\\)$", "").trim();
+            normalized = normalized.replaceAll("[\\.)]+$", "").trim();
+        } while (!normalized.equals(previous));
+
+        return normalized;
     }
 
     /**
