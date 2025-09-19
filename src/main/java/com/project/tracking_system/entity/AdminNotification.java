@@ -29,6 +29,7 @@ public class AdminNotification {
 
     @ElementCollection
     @CollectionTable(name = "tb_admin_notification_lines", joinColumns = @JoinColumn(name = "notification_id"))
+    @OrderColumn(name = "body_lines_order")
     @Column(name = "line", nullable = false, columnDefinition = "TEXT")
     private List<String> bodyLines = new ArrayList<>();
 
