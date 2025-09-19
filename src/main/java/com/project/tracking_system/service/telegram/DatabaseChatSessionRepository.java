@@ -303,6 +303,22 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional
+    public void setAnnouncementAsSeen(Long chatId, Long notificationId, ZonedDateTime updatedAt) {
+        if (chatId == null) {
+            return;
+        }
+        BuyerAnnouncementState state = getOrCreateAnnouncementEntity(chatId);
+        state.setCurrentNotificationId(notificationId);
+        state.setAnnouncementSeen(true);
+        state.setNotificationUpdatedAt(updatedAt);
+        announcementRepository.save(state);
+    }
+
+    /**
      * Возвращает сущность состояния, создавая новую запись с настройками по умолчанию.
      *
      * @param chatId идентификатор чата Telegram

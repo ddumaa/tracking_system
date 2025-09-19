@@ -1599,6 +1599,28 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
+     * Фиксирует просмотр активного объявления сразу после привязки номера телефона.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void markActiveAnnouncementSeen(Long chatId) {
+        if (chatId == null) {
+            return;
+        }
+
+        adminNotificationService.findActiveNotification()
+                .ifPresent(notification -> {
+                    Long notificationId = notification.getId();
+                    if (notificationId == null) {
+                        return;
+                    }
+                    chatSessionRepository.setAnnouncementAsSeen(chatId,
+                            notificationId,
+                            notification.getUpdatedAt());
+                });
+    }
+
+    /**
      * Отрисовывает баннер объявления в якорном сообщении главного меню.
      *
      * @param chatId       идентификатор чата Telegram
@@ -2230,6 +2252,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 telegramService.confirmTelegram(customer);
                 telegramService.notifyActualStatuses(customer);
             }
+
+            markActiveAnnouncementSeen(chatId);
 
             transitionToState(chatId, BuyerChatState.IDLE);
             sendMainMenu(chatId);

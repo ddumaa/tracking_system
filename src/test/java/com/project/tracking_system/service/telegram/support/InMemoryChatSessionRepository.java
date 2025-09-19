@@ -5,6 +5,7 @@ import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.service.telegram.ChatSession;
 import com.project.tracking_system.service.telegram.ChatSessionRepository;
 
+import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -187,7 +188,7 @@ public class InMemoryChatSessionRepository implements ChatSessionRepository {
     public void updateAnnouncement(Long chatId,
                                    Long notificationId,
                                    Integer anchorMessageId,
-                                   java.time.ZonedDateTime notificationUpdatedAt) {
+                                   ZonedDateTime notificationUpdatedAt) {
         if (chatId == null) {
             return;
         }
@@ -197,6 +198,21 @@ public class InMemoryChatSessionRepository implements ChatSessionRepository {
         session.setAnnouncementAnchorMessageId(anchorMessageId);
         session.setAnnouncementSeen(false);
         session.setAnnouncementUpdatedAt(notificationUpdatedAt);
+    }
+
+    /**
+     * Помечает активное объявление как просмотренное без изменения якоря.
+     */
+    @Override
+    public void setAnnouncementAsSeen(Long chatId, Long notificationId, ZonedDateTime updatedAt) {
+        if (chatId == null) {
+            return;
+        }
+        ChatSession session = sessions.computeIfAbsent(chatId,
+                id -> new ChatSession(id, BuyerChatState.IDLE, null, null));
+        session.setCurrentNotificationId(notificationId);
+        session.setAnnouncementSeen(true);
+        session.setAnnouncementUpdatedAt(updatedAt);
     }
 
     /**
