@@ -43,8 +43,26 @@ public class StatusTrackService {
     private static final Pattern RETURN_START_PATTERN = Pattern.compile(
             "^Почтовое отправление готово к возврату$|^Подготовлено для возврата$");
 
+    /**
+     * Специальный шаблон для статусов Европочты о прибытии отправления в ОПС
+     * для выдачи отправителю, когда начинается ожидание на возврат.
+     */
+    private static final Pattern EUROPOST_RETURN_PICKUP_PATTERN = Pattern.compile(
+            "^Отправление [A-Z]{2}[A-Z0-9]+ прибыло для возврата в ОПС №\\s*\\d+.*$",
+            Pattern.UNICODE_CASE | Pattern.CASE_INSENSITIVE);
+
+    /**
+     * Шаблон для статусов Белпочты, указывающих на прибытие отправления в конкретное
+     * отделение для возврата отправителю и ожидания выдачи.
+     */
+    private static final Pattern RETURN_BRANCH_PICKUP_PATTERN = Pattern.compile(
+            "^Почтовое отправление прибыло на отделение №\\s*\\d+.*$",
+            Pattern.UNICODE_CASE | Pattern.CASE_INSENSITIVE);
+
     static {
         // Инициализация карты регулярных выражений и статусов
+        // Специальное правило для отмены выдачи, чтобы оно имело приоритет над успешным вручением
+        statusPatterns.put(Pattern.compile("^Аннулирование операции вручения$"), GlobalStatus.WAITING_FOR_CUSTOMER);
         statusPatterns.put(Pattern.compile("^Почтовое отправление выдано|^Вручено"), GlobalStatus.DELIVERED);
         statusPatterns.put(Pattern.compile("^Почтовое отправление прибыло на ОПС выдачи|" +
                 "^Почтовое отправление прибыло для выдачи|" +
@@ -59,8 +77,8 @@ public class StatusTrackService {
                         "^Почтовое отправление подготовлено в сортировочном пункте к доставке на ОПС назначения$"),
                 GlobalStatus.IN_TRANSIT);
         statusPatterns.put(RETURN_START_PATTERN, GlobalStatus.RETURN_IN_PROGRESS);
-        statusPatterns.put(Pattern.compile("^Почтовое отправление прибыло на Отделение №\\d+.*для возврата.*"),
-                GlobalStatus.RETURN_PENDING_PICKUP);
+        statusPatterns.put(EUROPOST_RETURN_PICKUP_PATTERN, GlobalStatus.RETURN_PENDING_PICKUP);
+        statusPatterns.put(RETURN_BRANCH_PICKUP_PATTERN, GlobalStatus.RETURN_PENDING_PICKUP);
         statusPatterns.put(Pattern.compile("^Почтовое отправление возвращено отправителю$"), GlobalStatus.RETURNED);
         statusPatterns.put(Pattern.compile("^Заявка на почтовое отправление зарегистрирована$"), GlobalStatus.REGISTERED);
         statusPatterns.put(Pattern.compile("^Добрый день\\. Отправление [A-Z0-9]+ не востребовано получателем.*|" +
@@ -71,8 +89,9 @@ public class StatusTrackService {
 
     /**
      * Определяет итоговый статус для списка трекинговых записей.
-     * Метод анализирует последний статус, игнорируя пробелы в начале
-     * и в конце строки, и проверяет его соответствие известным шаблонам.
+     * Метод предварительно нормализует последний статус, устраняя лишние пробелы
+     * и служебные символы в конце строки, после чего проверяет его соответствие
+     * известным шаблонам.
      *
      * @param trackInfoDTOList список событий трекинга в обратном хронологическом порядке
      * @return статус, соответствующий последнему событию
@@ -82,8 +101,8 @@ public class StatusTrackService {
             return GlobalStatus.UNKNOWN_STATUS; // Если список пустой, статус неизвестен
         }
 
-        // Получаем последний статус и убираем лишние пробелы
-        String lastStatus = trackInfoDTOList.get(0).getInfoTrack().trim();
+        // Получаем последний статус и нормализуем его
+        String lastStatus = norm(trackInfoDTOList.get(0).getInfoTrack());
 
         // Проверяем последний статус
         for (Map.Entry<Pattern, GlobalStatus> entry : statusPatterns.entrySet()) {
@@ -93,7 +112,7 @@ public class StatusTrackService {
                 if (RETURN_PATTERN.matcher(lastStatus).find()) {
                     // Проверяем историю на наличие начального статуса возврата
                     for (TrackInfoDTO trackInfoDTO : trackInfoDTOList) {
-                        String status = trackInfoDTO.getInfoTrack().trim();
+                        String status = norm(trackInfoDTO.getInfoTrack());
                         if (RETURN_START_PATTERN.matcher(status).find()) {
                             return GlobalStatus.RETURN_IN_PROGRESS;
                         }
@@ -104,6 +123,32 @@ public class StatusTrackService {
         }
         // Дефолтный статус, если не найдено (отладка новых статусов)
         return GlobalStatus.UNKNOWN_STATUS;
+    }
+
+    /**
+     * Нормализует строку статуса: заменяет неразрывные пробелы на обычные,
+     * схлопывает повторяющиеся пробелы и удаляет завершающие точки или
+     * скобки вместе с их содержимым.
+     *
+     * @param rawStatus исходное текстовое представление статуса
+     * @return очищенная строка, готовая к сопоставлению с паттернами
+     */
+    private String norm(String rawStatus) {
+        if (rawStatus == null) {
+            return "";
+        }
+
+        String normalized = rawStatus.replace('\u00A0', ' ').trim();
+        normalized = normalized.replaceAll(" {2,}", " ");
+
+        String previous;
+        do {
+            previous = normalized;
+            normalized = normalized.replaceAll("\\s*\\([^)]*\\)$", "").trim();
+            normalized = normalized.replaceAll("[\\.)]+$", "").trim();
+        } while (!normalized.equals(previous));
+
+        return normalized;
     }
 
     /**

@@ -35,6 +35,7 @@ import java.time.ZonedDateTime;
 import com.project.tracking_system.utils.DateParserUtils;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 /**
@@ -59,6 +60,7 @@ public class DeliveryHistoryService {
     private final TelegramNotificationService telegramNotificationService;
     private final CustomerNotificationLogRepository customerNotificationLogRepository;
     private final SubscriptionService subscriptionService;
+    private final DeliveryMetricsRollbackService deliveryMetricsRollbackService;
 
 
     /**
@@ -69,6 +71,11 @@ public class DeliveryHistoryService {
      * Если новый статус считается финальным, метод передаёт управление в
      * {@link #registerFinalStatus(DeliveryHistory, GlobalStatus)}, чтобы обновить
      * накопительную статистику.
+     * </p>
+     * <p>
+     * При первом сохранении трека сразу в финальном статусе уведомление в Telegram
+     * не отправляется, чтобы избежать ложных оповещений без фактического изменения
+     * состояния.
      * </p>
      *
      * <p><strong>Безопасность:</strong> не логируем персональные данные или токены.</p>
@@ -107,6 +114,10 @@ public class DeliveryHistoryService {
         } else {
             log.debug("Статус не изменился, обновление истории не требуется для {}", trackParcel.getNumber());
             return;
+        }
+
+        if (oldStatus != null && oldStatus.isFinal() && (newStatus == null || !newStatus.isFinal())) {
+            deliveryMetricsRollbackService.rollbackFinalStatusMetrics(history, trackParcel, oldStatus);
         }
 
         //  Определяем часовой пояс пользователя и извлекаем даты из трека
@@ -153,10 +164,23 @@ public class DeliveryHistoryService {
 
         // Отправляем уведомление в Telegram при выполнении условий
         // Уведомления стартуют только после выхода из предрегистрации
-        if (newStatus != GlobalStatus.PRE_REGISTERED && shouldNotifyCustomer(trackParcel, newStatus)) {
-            telegramNotificationService.sendStatusUpdate(trackParcel, newStatus);
-            log.info("✅ Уведомление о статусе {} отправлено для трека {}", newStatus, trackParcel.getNumber());
-            saveNotificationLog(trackParcel, newStatus);
+        boolean initialFinalStatus = isInitialFinalStatus(oldStatus, newStatus);
+        if (initialFinalStatus) {
+            log.debug(
+                    "Пропускаем уведомление для трека {}: первый статус уже финальный ({})",
+                    trackParcel.getNumber(),
+                    newStatus
+            );
+        }
+
+        if (!initialFinalStatus && newStatus != GlobalStatus.PRE_REGISTERED && shouldNotifyCustomer(trackParcel, newStatus)) {
+            boolean notificationSent = telegramNotificationService.sendStatusUpdate(trackParcel, newStatus);
+            if (notificationSent) {
+                log.info("✅ Уведомление о статусе {} отправлено для трека {}", newStatus, trackParcel.getNumber());
+                saveNotificationLog(trackParcel, newStatus);
+            } else {
+                log.debug("Уведомление о статусе {} не было отправлено для трека {}", newStatus, trackParcel.getNumber());
+            }
         }
     }
 
@@ -700,6 +724,17 @@ public class DeliveryHistoryService {
             log.info("{}: {}", logMessage, newDate);
             setter.accept(newDate);
         }
+    }
+
+    /**
+     * Проверяет, создан ли трек сразу с финальным статусом без исторических изменений.
+     *
+     * @param oldStatus предыдущий статус (может отсутствовать при создании трека)
+     * @param newStatus актуальный статус после обновления
+     * @return {@code true}, если посылка появилась сразу в финальном статусе
+     */
+    private boolean isInitialFinalStatus(GlobalStatus oldStatus, GlobalStatus newStatus) {
+        return oldStatus == null && newStatus != null && newStatus.isFinal();
     }
 
     /**

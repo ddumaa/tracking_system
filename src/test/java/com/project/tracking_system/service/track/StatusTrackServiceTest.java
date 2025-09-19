@@ -48,6 +48,22 @@ class StatusTrackServiceTest {
     }
 
     /**
+     * Если вручение отменено, то итоговый статус должен вернуться к ожиданию клиента,
+     * даже если ранее отправление отмечалось как вручённое.
+     */
+    @Test
+    void setStatus_AnnulmentOverridesDelivered() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO("20.07.2025, 15:30", "Аннулирование операции вручения"),
+                new TrackInfoDTO("20.07.2025, 14:00", "Вручено")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.WAITING_FOR_CUSTOMER, status);
+    }
+
+    /**
      * Проверяет, что статус «Подготовлено для возврата» приводит к
      * {@link GlobalStatus#RETURN_IN_PROGRESS}.
      */
@@ -79,6 +95,36 @@ class StatusTrackServiceTest {
     }
 
     /**
+     * Проверяет, что статус от Европочты о прибытии в ОПС для возврата
+     * корректно классифицируется как ожидание выдачи отправителю.
+     */
+    @Test
+    void setStatus_MapsEuroPostReturnPendingPickup() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO(null, "Отправление BY123456789BY прибыло для возврата в ОПС № 152, г. Минск")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.RETURN_PENDING_PICKUP, status);
+    }
+
+    /**
+     * Проверяет, что сообщение о прибытии отправления на отделение для возврата
+     * корректно интерпретируется как ожидание получения отправителем.
+     */
+    @Test
+    void setStatus_MapsBranchReturnPendingPickup() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO(null, "Почтовое отправление прибыло на отделение № 152 (г. Минск)")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.RETURN_PENDING_PICKUP, status);
+    }
+
+    /**
      * Проверяет, что формулировка о прибытии отправления для выдачи
      * относится к статусу {@link GlobalStatus#WAITING_FOR_CUSTOMER}.
      */
@@ -91,5 +137,36 @@ class StatusTrackServiceTest {
         GlobalStatus status = service.setStatus(list);
 
         assertEquals(GlobalStatus.WAITING_FOR_CUSTOMER, status);
+    }
+
+    /**
+     * Проверяет, что наличие неразрывного пробела в статусе не мешает корректному
+     * сопоставлению и строка распознаётся как ожидание клиента.
+     */
+    @Test
+    void setStatus_HandlesNonBreakingSpace() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO("21.07.2025, 09:00", "Почтовое\u00A0отправление прибыло на ОПС выдачи")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.WAITING_FOR_CUSTOMER, status);
+    }
+
+    /**
+     * Убеждается, что дополнительная информация в скобках в конце статуса не препятствует
+     * распознаванию возврата после появления соответствующего стартового события.
+     */
+    @Test
+    void setStatus_ReturnInProgressWithLocationTail() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO(null, "Почтовое отправление прибыло на сортировочный пункт (Минск)"),
+                new TrackInfoDTO(null, "Подготовлено для возврата")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.RETURN_IN_PROGRESS, status);
     }
 }
