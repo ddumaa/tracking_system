@@ -101,7 +101,8 @@ class StatusTrackServiceTest {
     @Test
     void setStatus_MapsEuroPostReturnPendingPickup() {
         List<TrackInfoDTO> list = List.of(
-                new TrackInfoDTO(null, "Отправление BY123456789BY прибыло для возврата в ОПС № 152, г. Минск")
+                new TrackInfoDTO(null, "Отправление BY123456789BY прибыло для возврата в ОПС № 152, г. Минск"),
+                new TrackInfoDTO(null, "Подготовлено для возврата")
         );
 
         GlobalStatus status = service.setStatus(list);
@@ -110,13 +111,29 @@ class StatusTrackServiceTest {
     }
 
     /**
-     * Проверяет, что сообщение о прибытии отправления на отделение для возврата
-     * корректно интерпретируется как ожидание получения отправителем.
+     * Проверяет, что сообщение о прибытии отправления на отделение без указания на возврат
+     * трактуется как ожидание клиента.
      */
     @Test
-    void setStatus_MapsBranchReturnPendingPickup() {
+    void setStatus_BranchArrivalWithoutReturnMarkersMapsToWaiting() {
         List<TrackInfoDTO> list = List.of(
                 new TrackInfoDTO(null, "Почтовое отправление прибыло на отделение № 152 (г. Минск)")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.WAITING_FOR_CUSTOMER, status);
+    }
+
+    /**
+     * Убеждается, что прибытие на отделение с явным указанием на возврат
+     * при наличии стартового события возврата приводит к статусу ожидания выдачи отправителю.
+     */
+    @Test
+    void setStatus_BranchReturnPendingPickupRequiresReturnStart() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO(null, "Почтовое отправление прибыло на отделение № 152 для возврата отправителю"),
+                new TrackInfoDTO(null, "Подготовлено для возврата")
         );
 
         GlobalStatus status = service.setStatus(list);
