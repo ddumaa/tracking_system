@@ -2,6 +2,7 @@ package com.project.tracking_system.repository;
 
 import com.project.tracking_system.entity.AdminNotification;
 import com.project.tracking_system.entity.AdminNotificationStatus;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -15,6 +16,7 @@ public interface AdminNotificationRepository extends JpaRepository<AdminNotifica
     /**
      * Находит активное уведомление, если оно существует.
      */
+    @EntityGraph(attributePaths = "bodyLines")
     Optional<AdminNotification> findFirstByStatus(AdminNotificationStatus status);
 
     /**

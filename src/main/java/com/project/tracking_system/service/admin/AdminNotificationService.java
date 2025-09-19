@@ -61,7 +61,11 @@ public class AdminNotificationService {
      */
     @Transactional(readOnly = true)
     public Optional<AdminNotification> findActiveNotification() {
-        return notificationRepository.findFirstByStatus(AdminNotificationStatus.ACTIVE);
+        Optional<AdminNotification> activeNotification =
+                notificationRepository.findFirstByStatus(AdminNotificationStatus.ACTIVE);
+        // Принудительно загружаем строки тела уведомления в пределах транзакции.
+        activeNotification.ifPresent(notification -> notification.getBodyLines().size());
+        return activeNotification;
     }
 
     /**
