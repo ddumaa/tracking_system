@@ -5,4 +5,4 @@ ALTER TABLE tb_admin_notifications
 
 UPDATE tb_admin_notifications
 SET reset_requested = FALSE
-WHERE reset_requested IS NULL;
+WHERE reset_requested = TRUE;
