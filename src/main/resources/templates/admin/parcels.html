@@ -58,9 +58,14 @@
                 </a>
             </li>
 
-              <!-- Номера страниц (ограниченный диапазон) -->
-              <li class="page-item" th:each="i : ${pageIndexes}" th:classappend="${i == currentPage} ? 'active'">
-                  <a class="page-link" th:href="@{/admin/parcels(page=${i}, size=${size})}" th:text="${i + 1}" aria-label="Страница ${i + 1}"></a>
+            <!-- Номера страниц (динамическое окно с учётом крайних значений) -->
+              <li class="page-item" th:each="item : ${paginationItems}"
+                  th:classappend="${item.ellipsis} ? ' disabled' : (item.pageIndex == currentPage ? ' active' : '')">
+                  <span class="page-link" th:if="${item.ellipsis}" aria-hidden="true">&hellip;</span>
+                  <a class="page-link" th:if="${!item.ellipsis}"
+                     th:href="@{/admin/parcels(page=${item.pageIndex}, size=${size})}"
+                     th:text="${item.pageIndex + 1}"
+                     th:attr="aria-label=${'Страница ' + (item.pageIndex + 1)}"></a>
               </li>
 
             <!-- Кнопка "Вперёд" -->

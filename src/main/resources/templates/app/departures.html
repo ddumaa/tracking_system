@@ -223,19 +223,20 @@
                             <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled'">
                                 <!-- При наличии поискового запроса (непустого) добавляем его к ссылке -->
                                 <a class="page-link"
-                                   th:href="${!#strings.isEmpty(query)} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size}, query=${query})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size})}"
+                                   th:href="${!#strings.isEmpty(query)} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size}, query=${query}, sortOrder=${sortOrder})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size}, sortOrder=${sortOrder})}"
                                    aria-label="Предыдущая страница">
                                     <i class="bi bi-chevron-left"></i>
                                 </a>
                             </li>
 
-                            <!-- Номера страниц (ограниченный диапазон) -->
-                            <li class="page-item" th:each="i : ${pageIndexes}"
-                                th:classappend="${i == currentPage} ? 'active'">
-                                <!-- Ссылка на определённую страницу, учитывающая поисковый запрос, если поле поиска не пустое -->
-                                <a class="page-link"
-                                   th:href="${!#strings.isEmpty(query)} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${i}, size=${size}, query=${query})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${i}, size=${size})}"
-                                   th:text="${i + 1}" aria-label="Страница ${i + 1}">
+                            <!-- Номера страниц (динамическое окно с учётом крайних значений) -->
+                            <li class="page-item" th:each="item : ${paginationItems}"
+                                th:classappend="${item.ellipsis} ? ' disabled' : (item.pageIndex == currentPage ? ' active' : '')">
+                                <span class="page-link" th:if="${item.ellipsis}" aria-hidden="true">&hellip;</span>
+                                <a class="page-link" th:if="${!item.ellipsis}"
+                                   th:href="${!#strings.isEmpty(query)} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${item.pageIndex}, size=${size}, query=${query}, sortOrder=${sortOrder})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${item.pageIndex}, size=${size}, sortOrder=${sortOrder})}"
+                                   th:text="${item.pageIndex + 1}"
+                                   th:attr="aria-label=${'Страница ' + (item.pageIndex + 1)}">
                                 </a>
                             </li>
 
@@ -243,7 +244,7 @@
                             <li class="page-item" th:classappend="${currentPage == totalPages - 1} ? 'disabled'">
                                 <!-- Кнопка перехода вперёд: добавляем параметр query, если он задан -->
                                 <a class="page-link"
-                                   th:href="${!#strings.isEmpty(query)} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size}, query=${query})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size})}"
+                                   th:href="${!#strings.isEmpty(query)} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size}, query=${query}, sortOrder=${sortOrder})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size}, sortOrder=${sortOrder})}"
                                    aria-label="Следующая страница">
                                     <i class="bi bi-chevron-right"></i>
                                 </a>
