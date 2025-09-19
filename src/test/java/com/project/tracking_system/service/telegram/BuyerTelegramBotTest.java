@@ -212,6 +212,8 @@ class BuyerTelegramBotTest {
                 "В сессии должен сохраняться идентификатор объявления");
         assertFalse(session.isAnnouncementSeen(),
                 "Перед подтверждением объявление не должно считаться просмотренным");
+        assertEquals(notification.getUpdatedAt(), session.getAnnouncementUpdatedAt(),
+                "В сессии должно сохраняться время обновления объявления");
     }
 
     /**
@@ -250,6 +252,57 @@ class BuyerTelegramBotTest {
                 .orElseThrow(() -> new AssertionError("Сессия должна сохраняться для отображения объявления"));
         assertEquals(notification.getId(), session.getCurrentNotificationId(),
                 "Объявление должно фиксироваться в состоянии сессии для дальнейшего контроля показов");
+        assertEquals(notification.getUpdatedAt(), session.getAnnouncementUpdatedAt(),
+                "В состоянии сессии должно храниться время обновления объявления");
+    }
+
+    /**
+     * Проверяет, что обновлённое объявление с тем же идентификатором снова показывается пользователю.
+     */
+    @Test
+    void shouldResendAnnouncementWhenContentRefreshed() throws Exception {
+        Long chatId = 780L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        customer.setTelegramConfirmed(true);
+        customer.setNotificationsEnabled(true);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        AdminNotification notification = new AdminNotification();
+        notification.setId(44L);
+        notification.setTitle("Объявление для обновления");
+        notification.setBodyLines(List.of("Первая версия"));
+        ZonedDateTime initialUpdatedAt = ZonedDateTime.now().minusMinutes(15);
+        notification.setUpdatedAt(initialUpdatedAt);
+        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.of(notification));
+
+        bot.consume(mockTextUpdate(chatId, "/start"));
+
+        chatSessionRepository.markAnnouncementSeen(chatId);
+        clearInvocations(telegramClient);
+
+        ZonedDateTime refreshedAt = initialUpdatedAt.plusMinutes(5);
+        notification.setUpdatedAt(refreshedAt);
+        notification.setBodyLines(List.of("Обновлённая версия"));
+
+        bot.consume(mockTextUpdate(chatId, "/start"));
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient, atLeastOnce()).execute(editCaptor.capture());
+        boolean bannerUpdated = editCaptor.getAllValues().stream()
+                .map(EditMessageText::getText)
+                .filter(Objects::nonNull)
+                .anyMatch(text -> text.contains("Обновлённая версия"));
+
+        assertTrue(bannerUpdated,
+                "После обновления содержимого баннер должен быть переотправлен пользователю");
+
+        ChatSession session = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("Состояние сессии должно быть сохранено"));
+        assertEquals(refreshedAt, session.getAnnouncementUpdatedAt(),
+                "В сессии должна храниться новая отметка обновления объявления");
+        assertFalse(session.isAnnouncementSeen(),
+                "После обновления содержимого признак просмотра должен быть сброшен");
     }
 
     /**

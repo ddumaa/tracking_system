@@ -3,6 +3,7 @@ package com.project.tracking_system.service.telegram;
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 
+import java.time.ZonedDateTime;
 import java.util.Optional;
 
 /**
@@ -146,6 +147,10 @@ public interface ChatSessionRepository {
      * @param chatId              идентификатор чата Telegram
      * @param notificationId      идентификатор уведомления для показа
      * @param anchorMessageId     идентификатор сообщения Telegram, в котором отображено объявление
+     * @param notificationUpdatedAt момент последнего обновления содержимого объявления
      */
-    void updateAnnouncement(Long chatId, Long notificationId, Integer anchorMessageId);
+    void updateAnnouncement(Long chatId,
+                            Long notificationId,
+                            Integer anchorMessageId,
+                            ZonedDateTime notificationUpdatedAt);
 }

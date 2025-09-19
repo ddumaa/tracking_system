@@ -184,7 +184,10 @@ public class InMemoryChatSessionRepository implements ChatSessionRepository {
      * Сохраняет параметры текущего объявления, сбрасывая признак просмотра.
      */
     @Override
-    public void updateAnnouncement(Long chatId, Long notificationId, Integer anchorMessageId) {
+    public void updateAnnouncement(Long chatId,
+                                   Long notificationId,
+                                   Integer anchorMessageId,
+                                   java.time.ZonedDateTime notificationUpdatedAt) {
         if (chatId == null) {
             return;
         }
@@ -193,6 +196,7 @@ public class InMemoryChatSessionRepository implements ChatSessionRepository {
         session.setCurrentNotificationId(notificationId);
         session.setAnnouncementAnchorMessageId(anchorMessageId);
         session.setAnnouncementSeen(false);
+        session.setAnnouncementUpdatedAt(notificationUpdatedAt);
     }
 
     /**
@@ -212,6 +216,7 @@ public class InMemoryChatSessionRepository implements ChatSessionRepository {
         copy.setCurrentNotificationId(session.getCurrentNotificationId());
         copy.setAnnouncementAnchorMessageId(session.getAnnouncementAnchorMessageId());
         copy.setAnnouncementSeen(session.isAnnouncementSeen());
+        copy.setAnnouncementUpdatedAt(session.getAnnouncementUpdatedAt());
         return copy;
     }
 }
