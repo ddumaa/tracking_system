@@ -223,7 +223,7 @@ public class FullNameValidator {
          *
          * @return {@code true}, если в словах присутствуют короткие части
          */
-        boolean hasTooShortPart() {
+        public boolean hasTooShortPart() {
             return hasTooShortPart;
         }
 
