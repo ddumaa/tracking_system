@@ -31,29 +31,41 @@ public class TelegramNotificationService {
 
     /**
      * Отправить уведомление о смене статуса посылки.
+     * <p>
+     * Метод возвращает {@code true}, только если сообщение действительно было
+     * доставлено в Telegram. Во всех случаях раннего выхода возвращается
+     * {@code false}, что позволяет вызывающему коду не сохранять запись об
+     * уведомлении в журнале.
+     * </p>
      *
      * @param parcel посылка
      * @param status новый статус
+     * @return {@code true}, если сообщение отправлено успешно
      */
-    public void sendStatusUpdate(TrackParcel parcel, GlobalStatus status) {
+    public boolean sendStatusUpdate(TrackParcel parcel, GlobalStatus status) {
         if (!customerService.isNotifiable(parcel.getCustomer(), parcel.getStore())) {
             log.warn("⛔ Уведомление не отправлено: условия не выполнены для трека {}", parcel.getNumber());
-            return;
+            return false;
         }
 
         StoreTelegramSettings settings = parcel.getStore().getTelegramSettings();
         if (settings != null && !settings.isEnabled()) {
             log.debug("Уведомления Telegram отключены для магазина {}", parcel.getStore().getId());
-            return;
+            return false;
         }
 
         BuyerStatus buyerStatus = BuyerStatusMapper.map(status);
         if (buyerStatus == null) {
             log.debug("Статус {} не предназначен для уведомления покупателя", status);
-            return;
+            return false;
         }
 
         Long chatId = getChatId(parcel);
+        if (chatId == null) {
+            log.warn("⛔ Уведомление не отправлено: отсутствует чат для покупателя трека {}", parcel.getNumber());
+            return false;
+        }
+
         String text;
         if (settings != null && settings.getTemplatesMap().containsKey(buyerStatus)) {
             text = settings.getTemplatesMap().get(buyerStatus)
@@ -63,15 +75,16 @@ public class TelegramNotificationService {
             text = buyerStatus.formatMessage(parcel.getNumber(), parcel.getStore().getName());
         }
 
-
         SendMessage message = new SendMessage(chatId.toString(), text);
 
         try {
             telegramClient.execute(message);
             log.info("📨 Уведомление отправлено: {} (статус {}) в чат {} для трека {}",
                     text, status, chatId, parcel.getNumber());
+            return true;
         } catch (TelegramApiException e) {
             log.error("❌ Ошибка отправки уведомления в чат {}: {}", chatId, e.getMessage(), e);
+            return false;
         }
     }
 

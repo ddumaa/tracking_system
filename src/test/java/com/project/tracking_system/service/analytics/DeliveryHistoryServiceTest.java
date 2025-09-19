@@ -186,6 +186,7 @@ class DeliveryHistoryServiceTest {
                 NotificationType.INSTANT
         )).thenReturn(false);
         when(deliveryHistoryRepository.save(any(DeliveryHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(telegramNotificationService.sendStatusUpdate(trackParcel, GlobalStatus.DELIVERED)).thenReturn(true);
 
         TrackInfoListDTO trackInfoListDTO = buildDeliveredTrackInfo();
 
@@ -198,6 +199,39 @@ class DeliveryHistoryServiceTest {
 
         verify(telegramNotificationService).sendStatusUpdate(eq(trackParcel), eq(GlobalStatus.DELIVERED));
         verify(customerNotificationLogRepository).save(any(CustomerNotificationLog.class));
+    }
+
+    /**
+     * Убеждаемся, что при неудачной отправке уведомления запись в журнале не создаётся.
+     */
+    @Test
+    void updateDeliveryHistory_NotificationFailed_DoesNotPersistLog() {
+        TrackParcel trackParcel = buildParcelWithCustomer(4L);
+
+        when(deliveryHistoryRepository.findByTrackParcelId(trackParcel.getId())).thenReturn(Optional.empty());
+        when(typeDefinitionTrackPostService.detectPostalService(anyString())).thenReturn(PostalServiceType.UNKNOWN);
+        when(statusTrackService.setStatus(anyList())).thenReturn(GlobalStatus.DELIVERED);
+        when(subscriptionService.isFeatureEnabled(trackParcel.getStore().getOwner().getId(), FeatureKey.TELEGRAM_NOTIFICATIONS))
+                .thenReturn(true);
+        when(customerNotificationLogRepository.existsByParcelIdAndStatusAndNotificationType(
+                trackParcel.getId(),
+                GlobalStatus.DELIVERED,
+                NotificationType.INSTANT
+        )).thenReturn(false);
+        when(deliveryHistoryRepository.save(any(DeliveryHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(telegramNotificationService.sendStatusUpdate(trackParcel, GlobalStatus.DELIVERED)).thenReturn(false);
+
+        TrackInfoListDTO trackInfoListDTO = buildDeliveredTrackInfo();
+
+        deliveryHistoryService.updateDeliveryHistory(
+                trackParcel,
+                GlobalStatus.IN_TRANSIT,
+                GlobalStatus.DELIVERED,
+                trackInfoListDTO
+        );
+
+        verify(telegramNotificationService).sendStatusUpdate(eq(trackParcel), eq(GlobalStatus.DELIVERED));
+        verify(customerNotificationLogRepository, never()).save(any(CustomerNotificationLog.class));
     }
 
     /**

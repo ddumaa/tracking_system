@@ -209,7 +209,12 @@ public class CustomerTelegramService {
                 continue; // статус не подлежит уведомлению
             }
 
-            telegramNotificationService.sendStatusUpdate(parcel, status);
+            boolean sent = telegramNotificationService.sendStatusUpdate(parcel, status);
+            if (!sent) {
+                log.debug("Уведомление для посылки {} со статусом {} не отправлено, запись в журнал пропущена",
+                        parcel.getNumber(), status);
+                continue;
+            }
 
             CustomerNotificationLog logEntry = new CustomerNotificationLog();
             logEntry.setCustomer(customer);
