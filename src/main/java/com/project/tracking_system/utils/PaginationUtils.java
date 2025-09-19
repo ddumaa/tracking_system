@@ -82,7 +82,7 @@ public final class PaginationUtils {
         if (startPage > 0) {
             items.add(PaginationItem.page(0));
             if (startPage > 1) {
-                items.add(PaginationItem.ellipsis());
+                items.add(PaginationItem.ellipsisItem());
             }
         }
 
@@ -92,7 +92,7 @@ public final class PaginationUtils {
 
         if (endPage < lastIndex) {
             if (endPage < lastIndex - 1) {
-                items.add(PaginationItem.ellipsis());
+                items.add(PaginationItem.ellipsisItem());
             }
             items.add(PaginationItem.page(lastIndex));
         }

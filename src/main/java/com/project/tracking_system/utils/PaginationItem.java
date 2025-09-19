@@ -28,10 +28,11 @@ public record PaginationItem(Integer pageIndex, boolean ellipsis) {
 
     /**
      * Создаёт элемент разделителя «…», используемый при скрытии диапазона страниц.
+     * Метод получает уникальное имя, чтобы явно указывать на создание разделителя и избежать неоднозначности.
      *
      * @return элемент, обозначающий разрыв между страницами
      */
-    public static PaginationItem ellipsis() {
+    public static PaginationItem ellipsisItem() {
         return new PaginationItem(null, true);
     }
 

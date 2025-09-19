@@ -21,13 +21,13 @@ class PaginationUtilsTest {
         assertEquals(7, window.endPage(), "Окно должно охватывать пять последовательных страниц");
         assertEquals(List.of(
                         PaginationItem.page(0),
-                        PaginationItem.ellipsis(),
+                        PaginationItem.ellipsisItem(),
                         PaginationItem.page(3),
                         PaginationItem.page(4),
                         PaginationItem.page(5),
                         PaginationItem.page(6),
                         PaginationItem.page(7),
-                        PaginationItem.ellipsis(),
+                        PaginationItem.ellipsisItem(),
                         PaginationItem.page(31)
                 ),
                 window.paginationItems(),
@@ -59,7 +59,7 @@ class PaginationUtilsTest {
         assertEquals(9, window.endPage(), "Последняя страница должна быть включена в окно");
         assertEquals(List.of(
                         PaginationItem.page(0),
-                        PaginationItem.ellipsis(),
+                        PaginationItem.ellipsisItem(),
                         PaginationItem.page(5),
                         PaginationItem.page(6),
                         PaginationItem.page(7),
