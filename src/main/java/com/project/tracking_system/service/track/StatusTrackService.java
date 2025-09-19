@@ -45,6 +45,8 @@ public class StatusTrackService {
 
     static {
         // Инициализация карты регулярных выражений и статусов
+        // Специальное правило для отмены выдачи, чтобы оно имело приоритет над успешным вручением
+        statusPatterns.put(Pattern.compile("^Аннулирование операции вручения$"), GlobalStatus.WAITING_FOR_CUSTOMER);
         statusPatterns.put(Pattern.compile("^Почтовое отправление выдано|^Вручено"), GlobalStatus.DELIVERED);
         statusPatterns.put(Pattern.compile("^Почтовое отправление прибыло на ОПС выдачи|" +
                 "^Почтовое отправление прибыло для выдачи|" +
