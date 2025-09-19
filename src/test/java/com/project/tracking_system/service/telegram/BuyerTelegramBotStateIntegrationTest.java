@@ -148,7 +148,7 @@ class BuyerTelegramBotStateIntegrationTest {
         customer.setNotificationsEnabled(true);
         customer.setFullName("Иван Иванов");
         customer.setNameSource(NameSource.USER_CONFIRMED);
-        customer.setLastActiveAt(ZonedDateTime.now().minusHours(6));
+        customer.setTelegramConfirmed(true);
 
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 

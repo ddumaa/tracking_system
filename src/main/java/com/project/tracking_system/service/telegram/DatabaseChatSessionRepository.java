@@ -10,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashSet;
 import java.util.Optional;
 
 /**
@@ -68,9 +67,6 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
         announcement.setCurrentNotificationId(session.getCurrentNotificationId());
         announcement.setAnchorMessageId(session.getAnnouncementAnchorMessageId());
         announcement.setAnnouncementSeen(session.isAnnouncementSeen());
-        if (session.isAnnouncementSeen() && session.getCurrentNotificationId() != null) {
-            announcement.getSeenNotificationIds().add(session.getCurrentNotificationId());
-        }
         BuyerAnnouncementState savedAnnouncement = announcementRepository.save(announcement);
 
         ChatSession result = toSession(saved);
@@ -279,13 +275,6 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
         announcementRepository.findById(chatId).ifPresent(state -> {
             if (!Boolean.TRUE.equals(state.getAnnouncementSeen())) {
                 state.setAnnouncementSeen(true);
-                Long notificationId = state.getCurrentNotificationId();
-                if (notificationId != null) {
-                    if (state.getSeenNotificationIds() == null) {
-                        state.setSeenNotificationIds(new HashSet<>());
-                    }
-                    state.getSeenNotificationIds().add(notificationId);
-                }
                 announcementRepository.save(state);
             }
         });

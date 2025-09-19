@@ -1,28 +1,21 @@
 package com.project.tracking_system.entity;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.ElementCollection;
-import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.HashSet;
-import java.util.Set;
-
 /**
  * Состояние рассылки объявлений для покупателя в Telegram.
  * <p>
  * Позволяет хранить идентификатор текущего уведомления и признак того,
  * что пользователь уже ознакомился с его содержимым. Дополнительно
- * сохраняется история просмотренных уведомлений, чтобы не дублировать
- * показ при повторных рассылках.
+ * сохраняется идентификатор якорного сообщения, чтобы бот мог обновить
+ * показанный баннер без повторной отправки.
  * </p>
  */
 @Getter
@@ -58,12 +51,5 @@ public class BuyerAnnouncementState {
     @Column(name = "anchor_message_id")
     private Integer anchorMessageId;
 
-    /**
-     * Набор идентификаторов объявлений, уже показанных пользователю ранее.
-     */
-    @ElementCollection(fetch = FetchType.LAZY)
-    @CollectionTable(name = "tb_buyer_seen_announcements", joinColumns = @JoinColumn(name = "chat_id"))
-    @Column(name = "notification_id")
-    private Set<Long> seenNotificationIds = new HashSet<>();
 }
 

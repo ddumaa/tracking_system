@@ -116,7 +116,6 @@ class BuyerTelegramBotTest {
         assertTrue(message.getText().contains(expectedMask));
         assertPhoneKeyboard(message.getReplyMarkup());
         verify(telegramService).findByChatId(chatId);
-        verify(telegramService).updateLastActive(chatId);
         verifyNoMoreInteractions(telegramService);
     }
 
@@ -141,7 +140,6 @@ class BuyerTelegramBotTest {
         assertTrue(message.getText().contains("8029"));
         assertPhoneKeyboard(message.getReplyMarkup());
         verify(telegramService).findByChatId(chatId);
-        verify(telegramService).updateLastActive(chatId);
         verifyNoMoreInteractions(telegramService);
     }
 
@@ -175,10 +173,10 @@ class BuyerTelegramBotTest {
         Long chatId = 777L;
         Customer customer = new Customer();
         customer.setTelegramChatId(chatId);
+        customer.setTelegramConfirmed(true);
         customer.setNotificationsEnabled(true);
         customer.setFullName("Иван Иванов");
         customer.setNameSource(NameSource.USER_CONFIRMED);
-        customer.setLastActiveAt(ZonedDateTime.now().minusHours(2));
 
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
@@ -217,6 +215,44 @@ class BuyerTelegramBotTest {
     }
 
     /**
+     * Проверяет, что баннер объявления отображается для подтверждённого покупателя.
+     */
+    @Test
+    void shouldRenderAnnouncementForConfirmedCustomer() throws Exception {
+        Long chatId = 779L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        customer.setTelegramConfirmed(true);
+        customer.setNotificationsEnabled(true);
+        customer.setFullName("Пётр Петров");
+        customer.setNameSource(NameSource.USER_CONFIRMED);
+
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        AdminNotification notification = new AdminNotification();
+        notification.setId(43L);
+        notification.setTitle("Свежая новость");
+        notification.setBodyLines(List.of("Пункт один"));
+        notification.setUpdatedAt(ZonedDateTime.now().minusMinutes(1));
+        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.of(notification));
+
+        bot.consume(mockTextUpdate(chatId, "/start"));
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient, atLeastOnce()).execute(editCaptor.capture());
+        boolean bannerRendered = editCaptor.getAllValues().stream()
+                .anyMatch(edit -> edit.getText() != null && edit.getText().contains(notification.getTitle()));
+
+        assertTrue(bannerRendered,
+                "Баннер объявления должен отображаться для подтверждённых покупателей");
+
+        ChatSession session = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("Сессия должна сохраняться для отображения объявления"));
+        assertEquals(notification.getId(), session.getCurrentNotificationId(),
+                "Объявление должно фиксироваться в состоянии сессии для дальнейшего контроля показов");
+    }
+
+    /**
      * Убеждается, что новым пользователям не показывается баннер объявления до привязки.
      */
     @Test
@@ -236,7 +272,6 @@ class BuyerTelegramBotTest {
         verify(telegramClient, never()).execute(any(EditMessageText.class));
 
         verify(telegramService).findByChatId(chatId);
-        verify(telegramService).updateLastActive(chatId);
         verifyNoMoreInteractions(telegramService);
     }
 
@@ -347,6 +382,7 @@ class BuyerTelegramBotTest {
         Long chatId = 558L;
         Customer customer = new Customer();
         customer.setTelegramChatId(chatId);
+        customer.setTelegramConfirmed(true);
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
         Update update = mockMyChatMemberUpdate(chatId);
@@ -378,6 +414,7 @@ class BuyerTelegramBotTest {
         Long chatId = 559L;
         Customer customer = new Customer();
         customer.setTelegramChatId(chatId);
+        customer.setTelegramConfirmed(true);
         customer.setNotificationsEnabled(true);
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
