@@ -123,4 +123,35 @@ class StatusTrackServiceTest {
 
         assertEquals(GlobalStatus.WAITING_FOR_CUSTOMER, status);
     }
+
+    /**
+     * Проверяет, что наличие неразрывного пробела в статусе не мешает корректному
+     * сопоставлению и строка распознаётся как ожидание клиента.
+     */
+    @Test
+    void setStatus_HandlesNonBreakingSpace() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO("21.07.2025, 09:00", "Почтовое\u00A0отправление прибыло на ОПС выдачи")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.WAITING_FOR_CUSTOMER, status);
+    }
+
+    /**
+     * Убеждается, что дополнительная информация в скобках в конце статуса не препятствует
+     * распознаванию возврата после появления соответствующего стартового события.
+     */
+    @Test
+    void setStatus_ReturnInProgressWithLocationTail() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO(null, "Почтовое отправление прибыло на сортировочный пункт (Минск)"),
+                new TrackInfoDTO(null, "Подготовлено для возврата")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.RETURN_IN_PROGRESS, status);
+    }
 }
