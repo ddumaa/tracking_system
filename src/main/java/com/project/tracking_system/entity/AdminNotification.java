@@ -38,7 +38,7 @@ public class AdminNotification {
     private AdminNotificationStatus status = AdminNotificationStatus.INACTIVE;
 
     @Column(name = "reset_requested", nullable = false)
-    private boolean resetRequested = true;
+    private boolean resetRequested = false;
 
     @Column(name = "created_at", nullable = false)
     private ZonedDateTime createdAt;
