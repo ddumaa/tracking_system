@@ -1167,10 +1167,10 @@ class BuyerTelegramBotStateIntegrationTest {
      * @return объект {@link Chat} с заданным идентификатором
      */
     private Chat createChat(Long chatId) {
-        Chat chat = new Chat();
-        chat.setId(chatId);
-        chat.setType("private");
-        return chat;
+        return Chat.builder()
+                .id(chatId)
+                .type("private")
+                .build();
     }
 
     /**

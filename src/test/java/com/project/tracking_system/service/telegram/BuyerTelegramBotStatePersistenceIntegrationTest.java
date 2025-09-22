@@ -181,8 +181,9 @@ class BuyerTelegramBotStatePersistenceIntegrationTest {
     }
 
     private Chat createChat(Long chatId) {
-        Chat chat = new Chat();
-        chat.setId(chatId);
-        return chat;
+        return Chat.builder()
+                .id(chatId)
+                .type("private")
+                .build();
     }
 }
