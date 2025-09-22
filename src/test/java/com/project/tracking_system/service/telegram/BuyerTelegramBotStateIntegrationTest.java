@@ -82,11 +82,11 @@ class BuyerTelegramBotStateIntegrationTest {
         messageIdSequence = new AtomicInteger(500);
         bot = new BuyerTelegramBot(telegramClient, "token", telegramService, adminNotificationService,
                 fullNameValidator, chatSessionRepository, new ObjectMapper());
-        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
-        when(telegramService.findByChatId(anyLong())).thenReturn(Optional.empty());
-        when(telegramClient.execute(any(EditMessageText.class))).thenReturn(null);
-        when(telegramClient.execute(any(EditMessageReplyMarkup.class))).thenReturn(null);
-        when(telegramClient.execute(any(AnswerCallbackQuery.class))).thenReturn(null);
+        lenient().when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
+        lenient().when(telegramService.findByChatId(anyLong())).thenReturn(Optional.empty());
+        lenient().when(telegramClient.execute(any(EditMessageText.class))).thenReturn(null);
+        lenient().when(telegramClient.execute(any(EditMessageReplyMarkup.class))).thenReturn(null);
+        lenient().when(telegramClient.execute(any(AnswerCallbackQuery.class))).thenReturn(null);
         doAnswer(invocation -> {
             Message sent = new Message();
             sent.setMessageId(messageIdSequence.getAndIncrement());
@@ -905,13 +905,13 @@ class BuyerTelegramBotStateIntegrationTest {
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
         AtomicInteger messageIdSequence = new AtomicInteger(500);
-        when(telegramClient.execute(any(SendMessage.class))).thenAnswer(invocation -> {
+        lenient().when(telegramClient.execute(any(SendMessage.class))).thenAnswer(invocation -> {
             Message message = new Message();
             message.setMessageId(messageIdSequence.incrementAndGet());
             return message;
         });
 
-        doAnswer(invocation -> {
+        lenient().doAnswer(invocation -> {
             throw new TelegramApiException("Bad Request: message is not modified");
         }).when(telegramClient).execute(any(EditMessageText.class));
 
