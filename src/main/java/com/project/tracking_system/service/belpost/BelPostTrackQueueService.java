@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebDriverException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -53,6 +54,10 @@ public class BelPostTrackQueueService {
     private final TrackingResultCacheService trackingResultCacheService;
     /** Фабрика для создания экземпляров {@link WebDriver}. */
     private final WebDriverFactory webDriverFactory;
+
+    /** Максимальное количество попыток обработки при ошибках Selenium. */
+    @Value("${belpost.queue.webdriver-max-attempts:3}")
+    private int webDriverMaxAttempts;
 
     /**
      * Общий браузер для последовательной обработки.
@@ -165,16 +170,35 @@ public class BelPostTrackQueueService {
                 progress.failed.incrementAndGet();
             }
         } catch (WebDriverException e) {
-            // Обрабатываем сбой работы Selenium
-            log.error("\uD83D\uDEA7 Ошибка Selenium при обработке {}: {}", task.trackNumber(), e.getMessage());
-            progress.retries.incrementAndGet();
-            progress.processed.decrementAndGet();
-            queue.offer(task); // возвращаем задачу в очередь
-            // При сбое закрываем текущий браузер, чтобы следующий запуск создал новый
+            int nextAttempt = task.attempt() + 1;
+            log.error("\uD83D\uDEA7 Ошибка Selenium при обработке {} (попытка {} из {}): {}", task.trackNumber(), nextAttempt, webDriverMaxAttempts, e.getMessage());
             resetDriver();
-            pauseUntil = Instant.now().plusSeconds(60).toEpochMilli();
-            webSocketController.sendUpdateStatus(task.userId(), "Белпочта временно недоступна", false);
-            return; // не продолжаем обработку
+
+            if (nextAttempt < webDriverMaxAttempts) {
+                progress.retries.incrementAndGet();
+                progress.processed.decrementAndGet();
+                queue.offer(task.withAttempt(nextAttempt));
+                pauseUntil = Instant.now().plusSeconds(60).toEpochMilli();
+                String retryMessage = String.format(
+                        "Белпочта временно недоступна для %s, повторяем попытку (%d/%d)",
+                        task.trackNumber(),
+                        nextAttempt,
+                        webDriverMaxAttempts);
+                webSocketController.sendUpdateStatus(task.userId(), retryMessage, false);
+                return; // ждём перед повторным запуском
+            }
+
+            progress.failed.incrementAndGet();
+            String errorStatus = String.format("Ошибка Белпочты: превышен лимит попыток (%d)", webDriverMaxAttempts);
+            String errorNotification = String.format(
+                    "Не удалось обработать трек %s: превышен лимит попыток (%d)",
+                    task.trackNumber(),
+                    webDriverMaxAttempts);
+            webSocketController.sendUpdateStatus(task.userId(), errorNotification, false);
+            notifyTrackProcessed(task, progress, errorStatus);
+            progressAggregatorService.trackProcessed(task.batchId());
+            finalizeBatchIfFinished(task, progress);
+            return;
         } catch (Exception e) {
             log.error("\u274C Не удалось обработать {}: {}", task.trackNumber(), e.getMessage());
             progress.failed.incrementAndGet();
@@ -183,6 +207,25 @@ public class BelPostTrackQueueService {
         String status = info.getList().isEmpty()
                 ? TrackConstants.NO_DATA_STATUS
                 : info.getList().get(0).getInfoTrack();
+        notifyTrackProcessed(task, progress, status);
+
+        progressAggregatorService.trackProcessed(task.batchId());
+        finalizeBatchIfFinished(task, progress);
+
+        // После завершения обработки и опустошения очереди закрываем браузер
+        if (queue.isEmpty() && sharedDriver != null) {
+            resetDriver();
+        }
+    }
+
+    /**
+     * Отправляет информацию об обработанном треке и сохраняет её в кэше пользователя.
+     *
+     * @param task     текущее задание в очереди
+     * @param progress агрегированная статистика по партии
+     * @param status   текстовый статус, отображаемый пользователю
+     */
+    private void notifyTrackProcessed(QueuedTrack task, BatchProgress progress, String status) {
         TrackStatusUpdateDTO dto = new TrackStatusUpdateDTO(
                 task.batchId(),
                 task.trackNumber(),
@@ -191,10 +234,16 @@ public class BelPostTrackQueueService {
                 progress.getTotal());
         webSocketController.sendBelPostTrackProcessed(task.userId(), dto);
         trackingResultCacheService.addResult(task.userId(), dto);
+    }
 
-        progressAggregatorService.trackProcessed(task.batchId());
-
-        if (currentProcessed >= progress.getTotal()) {
+    /**
+     * Проверяет завершена ли партия треков и при необходимости отправляет итоговую сводку.
+     *
+     * @param task     текущее задание в очереди
+     * @param progress агрегированная статистика по партии
+     */
+    private void finalizeBatchIfFinished(QueuedTrack task, BatchProgress progress) {
+        if (progress.getProcessed() >= progress.getTotal()) {
             webSocketController.sendBelPostBatchFinished(
                     task.userId(),
                     new BelPostBatchFinishedDTO(
@@ -205,11 +254,6 @@ public class BelPostTrackQueueService {
                             progress.getRetries(),
                             progress.getElapsed()));
             progressMap.remove(task.batchId());
-        }
-
-        // После завершения обработки и опустошения очереди закрываем браузер
-        if (queue.isEmpty() && sharedDriver != null) {
-            resetDriver();
         }
     }
 
