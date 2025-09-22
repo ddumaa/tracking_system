@@ -115,6 +115,7 @@
      * Последнее резюме партии, полученное из уведомления о завершении.
      * Сохраняется до тех пор, пока прогресс не будет завершён на клиенте.
      * Количество повторных попыток доступно только для внутренней аналитики и не показывается пользователю.
+     * Устаревшие резюме других партий игнорируются и не кэшируются.
      * @type {{batchId:number,processed:number,success:number,failed:number,retries:number,elapsed:string}|null}
      */
     let lastBatchSummary = null;
@@ -231,7 +232,20 @@
             // суммарным значениям processed и total, поэтому здесь
             // оставляем пустой обработчик события.
             stompClient.subscribe(`/topic/belpost/batch-finished/${userId}`, message => {
-                const summary = JSON.parse(message.body);
+                const rawSummary = JSON.parse(message.body);
+                const summaryBatchId = typeof rawSummary.batchId === "number"
+                    ? rawSummary.batchId
+                    : Number(rawSummary.batchId);
+
+                if (!Number.isFinite(summaryBatchId) || !isSummaryRelevant(summaryBatchId)) {
+                    return;
+                }
+
+                const summary = {
+                    ...rawSummary,
+                    batchId: summaryBatchId
+                };
+
                 lastBatchSummary = summary;
                 if (batchFinished) {
                     if (batchFinishFallbackId) {
@@ -509,7 +523,7 @@
         stopTimer();
         hideDisplay(container);
         hidePopup();
-        if (lastBatchSummary) {
+        if (lastBatchSummary && isSummaryRelevant(lastBatchSummary.batchId)) {
             showBatchFinishedToast(lastBatchSummary);
             lastBatchSummary = null;
         } else {
@@ -518,6 +532,20 @@
                 batchFinishFallbackId = null;
             }, 1000);
         }
+    }
+
+    /**
+     * Проверяет, относится ли пришедшее резюме к текущей партии.
+     * Используется, чтобы отбрасывать опоздавшие сообщения прошлых запусков.
+     *
+     * @param {number} summaryBatchId идентификатор партии из резюме
+     * @returns {boolean} {@code true}, если резюме соответствует текущей партии
+     */
+    function isSummaryRelevant(summaryBatchId) {
+        if (!Number.isFinite(summaryBatchId)) {
+            return false;
+        }
+        return summaryBatchId === lastBatchId || Boolean(batchProgress[summaryBatchId]);
     }
 
     /**
