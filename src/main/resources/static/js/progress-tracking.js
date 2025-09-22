@@ -111,6 +111,18 @@
      * @type {boolean}
      */
     let batchFinished = false;
+    /**
+     * Последнее резюме партии, полученное из уведомления о завершении.
+     * Сохраняется до тех пор, пока прогресс не будет завершён на клиенте.
+     * Количество повторных попыток доступно только для внутренней аналитики и не показывается пользователю.
+     * @type {{batchId:number,processed:number,success:number,failed:number,retries:number,elapsed:string}|null}
+     */
+    let lastBatchSummary = null;
+    /**
+     * Таймер показа базового уведомления, если резюме не поступило вовремя.
+     * @type {number|null}
+     */
+    let batchFinishFallbackId = null;
 
     /**
      * Сводные данные о прогрессе по каждой партии.
@@ -195,6 +207,11 @@
                 // При получении сообщения другой партии сбрасываем флаг окончания
                 if (data.batchId !== lastBatchId) {
                     batchFinished = false;
+                    lastBatchSummary = null;
+                    if (batchFinishFallbackId) {
+                        clearTimeout(batchFinishFallbackId);
+                        batchFinishFallbackId = null;
+                    }
                 }
                 lastBatchId = data.batchId;
                 updateDisplay(data, container);
@@ -213,8 +230,17 @@
             // Итог обработки теперь вычисляется в updateDisplay по
             // суммарным значениям processed и total, поэтому здесь
             // оставляем пустой обработчик события.
-            stompClient.subscribe(`/topic/belpost/batch-finished/${userId}`, () => {
-                // завершение обрабатывается после агрегации прогресса
+            stompClient.subscribe(`/topic/belpost/batch-finished/${userId}`, message => {
+                const summary = JSON.parse(message.body);
+                lastBatchSummary = summary;
+                if (batchFinished) {
+                    if (batchFinishFallbackId) {
+                        clearTimeout(batchFinishFallbackId);
+                        batchFinishFallbackId = null;
+                    }
+                    showBatchFinishedToast(summary);
+                    lastBatchSummary = null;
+                }
             });
 
             // Событие с информацией о некорректных строках файла
@@ -442,8 +468,28 @@
         showToast(message, "text-bg-info");
     }
 
-    /** Показывает сообщение о завершении обработки всех треков. */
-    function showBatchFinishedToast() {
+    /**
+     * Показывает сообщение о завершении обработки всех треков.
+     * При наличии резюме партии отображает фактические показатели успехов
+     * и ошибок, скрывая внутренние данные по повторным попыткам.
+     *
+     * @param {{processed:number,success:number,failed:number,retries:number,elapsed:string}|null} [summary=null]
+     *        агрегированная статистика партии
+     */
+    function showBatchFinishedToast(summary = null) {
+        if (summary) {
+            const messageParts = [
+                `Обработано ${summary.processed} треков`,
+                `успешно: ${summary.success}`,
+                `ошибок: ${summary.failed}`
+            ];
+            if (summary.elapsed) {
+                messageParts.push(`время: ${summary.elapsed}`);
+            }
+            const bg = summary.failed > 0 ? "text-bg-warning" : "text-bg-success";
+            showToast(messageParts.join(" | "), bg);
+            return;
+        }
         showToast("Все треки обработаны", "text-bg-success");
     }
 
@@ -461,9 +507,17 @@
         batchFinished = true;
         // Останавливаем локальный таймер и уведомляем пользователя
         stopTimer();
-        showBatchFinishedToast();
         hideDisplay(container);
         hidePopup();
+        if (lastBatchSummary) {
+            showBatchFinishedToast(lastBatchSummary);
+            lastBatchSummary = null;
+        } else {
+            batchFinishFallbackId = window.setTimeout(() => {
+                showBatchFinishedToast();
+                batchFinishFallbackId = null;
+            }, 1000);
+        }
     }
 
     /**

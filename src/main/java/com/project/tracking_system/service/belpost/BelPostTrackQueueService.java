@@ -167,7 +167,7 @@ public class BelPostTrackQueueService {
         } catch (WebDriverException e) {
             // Обрабатываем сбой работы Selenium
             log.error("\uD83D\uDEA7 Ошибка Selenium при обработке {}: {}", task.trackNumber(), e.getMessage());
-            progress.failed.incrementAndGet();
+            progress.retries.incrementAndGet();
             progress.processed.decrementAndGet();
             queue.offer(task); // возвращаем задачу в очередь
             // При сбое закрываем текущий браузер, чтобы следующий запуск создал новый
@@ -202,6 +202,7 @@ public class BelPostTrackQueueService {
                             progress.getProcessed(),
                             progress.getSuccess(),
                             progress.getFailed(),
+                            progress.getRetries(),
                             progress.getElapsed()));
             progressMap.remove(task.batchId());
         }
@@ -238,6 +239,8 @@ public class BelPostTrackQueueService {
         private final AtomicInteger processed = new AtomicInteger();
         private final AtomicInteger success = new AtomicInteger();
         private final AtomicInteger failed = new AtomicInteger();
+        /** Количество повторных попыток после временных сбоев Selenium. */
+        private final AtomicInteger retries = new AtomicInteger();
         /** Время начала обработки партии. */
         private final long startTime = System.currentTimeMillis();
 
@@ -255,6 +258,13 @@ public class BelPostTrackQueueService {
 
         public int getFailed() {
             return failed.get();
+        }
+
+        /**
+         * Возвращает количество повторных попыток, выполненных из-за временных ошибок Selenium.
+         */
+        public int getRetries() {
+            return retries.get();
         }
 
         /**
