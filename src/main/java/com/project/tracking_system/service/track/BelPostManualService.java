@@ -4,6 +4,7 @@ import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
 import com.project.tracking_system.service.belpost.QueuedTrack;
 import com.project.tracking_system.service.track.TrackSource;
 import com.project.tracking_system.service.track.BatchIdGenerator;
+import com.project.tracking_system.service.track.ProgressAggregatorService;
 import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.utils.DurationUtils;
 import com.project.tracking_system.utils.TrackNumberUtils;
@@ -23,6 +24,8 @@ public class BelPostManualService {
     private final WebSocketController webSocketController;
     /** Генератор уникальных идентификаторов партий очереди. */
     private final BatchIdGenerator batchIdGenerator;
+    /** Сервис агрегации прогресса обработки, информирующий клиента. */
+    private final ProgressAggregatorService progressAggregatorService;
 
     /**
      * Добавляет трек в очередь, если разрешено его обновлять.
@@ -37,6 +40,8 @@ public class BelPostManualService {
         String normalized = TrackNumberUtils.normalize(number);
         if (trackUpdateEligibilityService.canUpdate(normalized, userId)) {
             long batchId = batchIdGenerator.nextId();
+            // Регистрируем партию из одного трека и отправляем стартовый прогресс
+            progressAggregatorService.registerBatch(batchId, 1, userId);
             belPostTrackQueueService.enqueue(new QueuedTrack(
                     normalized,
                     userId,
