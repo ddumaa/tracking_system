@@ -9,6 +9,7 @@ import com.project.tracking_system.service.belpost.QueuedTrack;
 import com.project.tracking_system.service.track.ProgressAggregatorService;
 import com.project.tracking_system.service.track.TrackingResultCacheService;
 import com.project.tracking_system.service.track.TrackSource;
+import com.project.tracking_system.service.track.BatchIdGenerator;
 import com.project.tracking_system.service.admin.ApplicationSettingsService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.dto.TrackProcessingProgressDTO;
@@ -58,6 +59,8 @@ public class TrackUpdateService {
     private final ApplicationSettingsService applicationSettingsService;
     /** Сервис управления пользователями для получения часового пояса. */
     private final UserService userService;
+    /** Генератор уникальных идентификаторов партий обработки. */
+    private final BatchIdGenerator batchIdGenerator;
 
     /**
      * Обновляет историю всех посылок пользователя.
@@ -332,7 +335,7 @@ public class TrackUpdateService {
      * @return список объединенных результатов
      */
     public List<TrackingResultAdd> process(List<TrackMeta> tracks, Long userId) {
-        long batchId = System.currentTimeMillis();
+        long batchId = batchIdGenerator.nextId();
         progressAggregatorService.registerBatch(batchId, tracks.size(), userId);
         Map<PostalServiceType, List<TrackMeta>> grouped = groupingService.group(tracks);
 

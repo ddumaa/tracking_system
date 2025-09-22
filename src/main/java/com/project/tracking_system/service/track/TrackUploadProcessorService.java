@@ -14,6 +14,7 @@ import com.project.tracking_system.service.track.TrackUploadGroupingService;
 import com.project.tracking_system.service.track.TrackUpdateDispatcherService;
 import com.project.tracking_system.service.track.TrackingResultCacheService;
 import com.project.tracking_system.service.track.InvalidTrackCacheService;
+import com.project.tracking_system.service.track.BatchIdGenerator;
 import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.dto.TrackStatusUpdateDTO;
 import com.project.tracking_system.dto.TrackProcessingProgressDTO;
@@ -62,6 +63,8 @@ public class TrackUploadProcessorService {
     private final InvalidTrackCacheService invalidTrackCacheService;
     /** Сервис предрегистрации отправлений. */
     private final PreRegistrationService preRegistrationService;
+    /** Генератор уникальных идентификаторов партий обработки. */
+    private final BatchIdGenerator batchIdGenerator;
 
     /**
      * Принимает Excel-файл, валидирует строки и конвертирует их
@@ -85,7 +88,7 @@ public class TrackUploadProcessorService {
      */
     public TrackMetaValidationResult process(MultipartFile file, Long userId) throws IOException {
         List<TrackExcelRow> rows = parser.parse(file);
-        long batchId = System.currentTimeMillis();
+        long batchId = batchIdGenerator.nextId();
 
         List<TrackMeta> metas;
         List<InvalidTrack> invalid = List.of();
