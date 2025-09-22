@@ -15,6 +15,7 @@ import com.project.tracking_system.service.track.TrackUploadGroupingService;
 import com.project.tracking_system.service.track.TrackUpdateDispatcherService;
 import com.project.tracking_system.service.track.TrackingResultCacheService;
 import com.project.tracking_system.service.track.InvalidTrackCacheService;
+import com.project.tracking_system.service.track.BatchIdGenerator;
 import com.project.tracking_system.service.registration.PreRegistrationService;
 import com.project.tracking_system.service.track.PreRegistrationMeta;
 import com.project.tracking_system.entity.PostalServiceType;
@@ -61,6 +62,8 @@ class TrackUploadProcessorServiceTest {
     private InvalidTrackCacheService invalidTrackCacheService;
     @Mock
     private PreRegistrationService preRegistrationService;
+    @Mock
+    private BatchIdGenerator batchIdGenerator;
 
     private TrackUploadProcessorService processor;
 
@@ -77,8 +80,10 @@ class TrackUploadProcessorServiceTest {
                 dispatcherService,
                 trackingResultCacheService,
                 invalidTrackCacheService,
-                preRegistrationService
+                preRegistrationService,
+                batchIdGenerator
         );
+        when(batchIdGenerator.nextId()).thenReturn(1L);
     }
 
     /**

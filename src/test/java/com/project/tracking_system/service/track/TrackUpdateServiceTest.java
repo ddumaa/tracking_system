@@ -6,6 +6,7 @@ import com.project.tracking_system.dto.TrackingResultAdd;
 import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.service.belpost.QueuedTrack;
 import com.project.tracking_system.service.track.TrackSource;
+import com.project.tracking_system.service.track.BatchIdGenerator;
 import com.project.tracking_system.repository.StoreRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.SubscriptionService;
@@ -64,6 +65,8 @@ class TrackUpdateServiceTest {
     private ApplicationSettingsService applicationSettingsService;
     @Mock
     private UserService userService;
+    @Mock
+    private BatchIdGenerator batchIdGenerator;
     // endregion
 
     /**
@@ -87,8 +90,10 @@ class TrackUpdateServiceTest {
                 progressAggregatorService,
                 trackingResultCacheService,
                 applicationSettingsService,
-                userService
+                userService,
+                batchIdGenerator
         );
+        when(batchIdGenerator.nextId()).thenReturn(1L);
     }
 
     /**

@@ -3,6 +3,7 @@ package com.project.tracking_system.service.track;
 import com.project.tracking_system.service.belpost.BelPostTrackQueueService;
 import com.project.tracking_system.service.belpost.QueuedTrack;
 import com.project.tracking_system.service.track.TrackSource;
+import com.project.tracking_system.service.track.BatchIdGenerator;
 import com.project.tracking_system.controller.WebSocketController;
 import com.project.tracking_system.utils.DurationUtils;
 import com.project.tracking_system.utils.TrackNumberUtils;
@@ -20,6 +21,8 @@ public class BelPostManualService {
     private final BelPostTrackQueueService belPostTrackQueueService;
     private final TrackUpdateEligibilityService trackUpdateEligibilityService;
     private final WebSocketController webSocketController;
+    /** Генератор уникальных идентификаторов партий очереди. */
+    private final BatchIdGenerator batchIdGenerator;
 
     /**
      * Добавляет трек в очередь, если разрешено его обновлять.
@@ -33,12 +36,13 @@ public class BelPostManualService {
     public boolean enqueueIfAllowed(String number, Long storeId, Long userId, String phone) {
         String normalized = TrackNumberUtils.normalize(number);
         if (trackUpdateEligibilityService.canUpdate(normalized, userId)) {
+            long batchId = batchIdGenerator.nextId();
             belPostTrackQueueService.enqueue(new QueuedTrack(
                     normalized,
                     userId,
                     storeId,
                     TrackSource.MANUAL,
-                    System.currentTimeMillis(),
+                    batchId,
                     phone
             ));
 

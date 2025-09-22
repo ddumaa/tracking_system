@@ -11,6 +11,7 @@ import com.project.tracking_system.service.track.TrackSource;
 import com.project.tracking_system.service.track.TrackMeta;
 import com.project.tracking_system.service.track.TrackUpdateService;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
+import com.project.tracking_system.service.track.BatchIdGenerator;
 import com.project.tracking_system.service.admin.ApplicationSettingsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +37,8 @@ public class TrackAutoUpdateProcessor {
     private final BelPostTrackQueueService belPostTrackQueueService;
     private final TypeDefinitionTrackPostService typeDefinitionTrackPostService;
     private final ApplicationSettingsService applicationSettingsService;
+    /** Генератор уникальных идентификаторов для партий автообновления. */
+    private final BatchIdGenerator batchIdGenerator;
 
     /**
      * Обновляет треки для указанного пользователя.
@@ -71,7 +74,7 @@ public class TrackAutoUpdateProcessor {
 
         List<TrackMeta> others = new ArrayList<>();
         List<QueuedTrack> belpostTracks = new ArrayList<>();
-        long batchId = System.currentTimeMillis();
+        long batchId = batchIdGenerator.nextId();
 
         for (TrackParcel parcel : limited) {
             PostalServiceType type = parcel.getDeliveryHistory() != null
