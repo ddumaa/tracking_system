@@ -328,7 +328,7 @@ public class TrackUpdateService {
     }
 
     /**
-     * Обрабатывает набор треков для указанного пользователя.
+     * Обрабатывает набор треков для указанного пользователя, создавая новую партию обновления.
      *
      * @param tracks список метаданных треков
      * @param userId идентификатор пользователя
@@ -337,6 +337,21 @@ public class TrackUpdateService {
     public List<TrackingResultAdd> process(List<TrackMeta> tracks, Long userId) {
         long batchId = batchIdGenerator.nextId();
         progressAggregatorService.registerBatch(batchId, tracks.size(), userId);
+        return process(tracks, userId, batchId);
+    }
+
+    /**
+     * Обрабатывает треки, используя заранее созданный идентификатор партии.
+     * <p>Метод не регистрирует партию в агрегаторе, предполагая, что это уже
+     * сделано вызывающей стороной, и просто синхронизирует очередь Белпочты
+     * и параллельный диспетчер с общим batchId.</p>
+     *
+     * @param tracks набор треков для обработки
+     * @param userId идентификатор владельца треков
+     * @param batchId внешний идентификатор партии
+     * @return объединённый список результатов трекинга
+     */
+    public List<TrackingResultAdd> process(List<TrackMeta> tracks, Long userId, long batchId) {
         Map<PostalServiceType, List<TrackMeta>> grouped = groupingService.group(tracks);
 
         // Отдельно обрабатываем номера Белпочты через централизованную очередь
