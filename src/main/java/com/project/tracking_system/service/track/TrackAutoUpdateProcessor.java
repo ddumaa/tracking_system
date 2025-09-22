@@ -12,6 +12,8 @@ import com.project.tracking_system.service.track.TrackMeta;
 import com.project.tracking_system.service.track.TrackUpdateService;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.track.BatchIdGenerator;
+import com.project.tracking_system.service.track.ProgressAggregatorService;
+import com.project.tracking_system.service.track.TrackConstants;
 import com.project.tracking_system.service.admin.ApplicationSettingsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +41,8 @@ public class TrackAutoUpdateProcessor {
     private final ApplicationSettingsService applicationSettingsService;
     /** Генератор уникальных идентификаторов для партий автообновления. */
     private final BatchIdGenerator batchIdGenerator;
+    /** Агрегатор прогресса, синхронизирующий очередь и параллельную обработку. */
+    private final ProgressAggregatorService progressAggregatorService;
 
     /**
      * Обновляет треки для указанного пользователя.
@@ -72,9 +76,12 @@ public class TrackAutoUpdateProcessor {
 
         List<TrackParcel> limited = active.subList(0, Math.min(allowed, active.size()));
 
+        int totalTracks = limited.size();
+        long batchId = batchIdGenerator.nextId();
+        progressAggregatorService.registerBatch(batchId, totalTracks, userId);
+
         List<TrackMeta> others = new ArrayList<>();
         List<QueuedTrack> belpostTracks = new ArrayList<>();
-        long batchId = batchIdGenerator.nextId();
 
         for (TrackParcel parcel : limited) {
             PostalServiceType type = parcel.getDeliveryHistory() != null
@@ -107,7 +114,7 @@ public class TrackAutoUpdateProcessor {
         }
 
         if (!others.isEmpty()) {
-            List<TrackingResultAdd> results = trackUpdateService.process(others, userId);
+            List<TrackingResultAdd> results = trackUpdateService.process(others, userId, batchId);
 
             long updated = results.stream()
                     .filter(r -> !TrackConstants.NO_DATA_STATUS.equals(r.getStatus()))
