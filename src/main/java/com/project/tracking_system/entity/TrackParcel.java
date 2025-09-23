@@ -10,7 +10,6 @@ import java.time.ZoneOffset;
 /**
  * Представляет посылку с трек-номером в системе.
  */
-
 @Getter
 @Setter
 @AllArgsConstructor
@@ -129,4 +128,3 @@ public class TrackParcel {
         return preRegistered || (number != null && !number.isBlank());
     }
 }
-

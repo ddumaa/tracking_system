@@ -2,11 +2,10 @@ package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.entity.GlobalStatus;
+import com.project.tracking_system.entity.RouteDirection;
 import org.springframework.stereotype.Service;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -19,6 +18,8 @@ import java.util.regex.Pattern;
  */
 @Service
 public class StatusTrackService {
+
+    // ===================== ПАТТЕРНЫ =====================
 
     // === Приоритетные/терминальные ===
     private static final Pattern CANCEL_ISSUANCE = Pattern.compile("^Аннулирование операции вручения$");
@@ -85,29 +86,41 @@ public class StatusTrackService {
                     "Добрый день\\. Ваше почтовое отправление [A-Z0-9]+ будет возвращено отправителю через 10 дней\\.)$"
     );
 
-    /**
-     * Определяет итоговый статус по последней записи, учитывая контекст возврата во всей истории.
-     * @param trackInfoDTOList события трекинга (0 — самое свежее)
-     */
-    public GlobalStatus setStatus(List<TrackInfoDTO> trackInfoDTOList) {
-        if (trackInfoDTOList == null || trackInfoDTOList.isEmpty()) {
-            return GlobalStatus.UNKNOWN_STATUS;
-        }
+    // ======= ТРИГГЕРЫ НАПРАВЛЕНИЯ (применяются при импорте/обновлении) =======
 
-        final String last = norm(trackInfoDTOList.get(0).getInfoTrack());
-        final boolean isReturnFlow = hasReturnStartStatus(trackInfoDTOList);
+    /** Любая из формулировок, которая однозначно говорит: уже возврат. */
+    private static final Pattern[] RETURN_DIRECTION_MARKERS = new Pattern[] {
+            RETURN_START_PATTERN,
+            Pattern.compile("\\bдля возврата\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE),
+            Pattern.compile("выдачи отправителю", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE),
+            Pattern.compile("возврат[а-я]*", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE),
+            Pattern.compile("ожидает вручения .*для возврата.*", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE),
+            Pattern.compile("^Почтовое отправление возвращено отправителю$", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE)
+    };
+
+    // ===================== ПУБЛИЧНЫЕ МЕТОДЫ =====================
+
+    /**
+     * Новый основной метод: определяет глобальный статус по последнему событию с учётом направления.
+     * Вызывай везде, где есть доступ к parcel.getRouteDirection().
+     */
+    public GlobalStatus setStatus(List<TrackInfoDTO> events, RouteDirection direction) {
+        if (events == null || events.isEmpty()) return GlobalStatus.UNKNOWN_STATUS;
+
+        final String last = norm(events.get(0).getInfoTrack());
+        final boolean isReturnFlow = (direction == RouteDirection.RETURN_TO_SENDER);
 
         // 1) Приоритетные
         if (CANCEL_ISSUANCE.matcher(last).matches()) return GlobalStatus.WAITING_FOR_CUSTOMER;
-        if (DELIVERED.matcher(last).matches())      return GlobalStatus.DELIVERED;
-        if (RETURNED.matcher(last).matches())       return GlobalStatus.RETURNED;
+        if (DELIVERED.matcher(last).matches())       return GlobalStatus.DELIVERED;
+        if (RETURNED.matcher(last).matches())        return GlobalStatus.RETURNED;
 
         // 2) Возврат: явные статусы прибытия/ожидания с отметкой возврата
         if (RETURN_PICKUP_EUROPOST.matcher(last).matches() || RETURN_PICKUP_BELPOST.matcher(last).matches()) {
             return isReturnFlow ? GlobalStatus.RETURN_PENDING_PICKUP : GlobalStatus.WAITING_FOR_CUSTOMER;
         }
 
-        // 3) Ожидание вручения в конкретном ОПС/Отделении (без явных слов о возврате)
+        // 3) Ожидает вручения в конкретном ОПС/Отделении (без явных слов о возврате)
         if (PICKUP_WAITING_OPS.matcher(last).matches() || PICKUP_WAITING_BRANCH.matcher(last).matches()) {
             return isReturnFlow ? GlobalStatus.RETURN_PENDING_PICKUP : GlobalStatus.WAITING_FOR_CUSTOMER;
         }
@@ -123,19 +136,50 @@ public class StatusTrackService {
         // 6) Явный старт возврата (если это и есть последний статус)
         if (RETURN_START_PATTERN.matcher(last).matches()) return GlobalStatus.RETURN_IN_PROGRESS;
 
-        // 7) Двусмысленные сортер-этапы: в зав-ти от контекста — «возврат в пути» или «в пути»
+        // 7) Сортер/перевалка (двусмысленно)
         if (SORTING_CENTER_STEPS.matcher(last).matches()) {
             return isReturnFlow ? GlobalStatus.RETURN_IN_PROGRESS : GlobalStatus.IN_TRANSIT;
         }
 
-        // 8) В пути
+        // 8) В пути (однозначные)
         if (IN_TRANSIT_GROUP.matcher(last).matches()) return GlobalStatus.IN_TRANSIT;
 
         // 9) Прочее
-        if (REGISTERED.matcher(last).matches()) return GlobalStatus.REGISTERED;
+        if (REGISTERED.matcher(last).matches())             return GlobalStatus.REGISTERED;
         if (CUSTOMER_NOT_PICKING_UP.matcher(last).matches()) return GlobalStatus.CUSTOMER_NOT_PICKING_UP;
 
         return GlobalStatus.UNKNOWN_STATUS;
+    }
+
+    /**
+     * Легаси-перегрузка для совместимости: если пока не пробросили direction,
+     * определяем его по истории (как раньше) и делегируем в новый метод.
+     * Рекомендуется убрать, когда всё будет переведено на новую сигнатуру.
+     */
+    public GlobalStatus setStatus(List<TrackInfoDTO> events) {
+        if (events == null || events.isEmpty()) return GlobalStatus.UNKNOWN_STATUS;
+        // fallback: если в истории есть триггеры — считаем возвратом
+        boolean hasReturn = hasReturnTriggerInHistory(events);
+        return setStatus(events, hasReturn ? RouteDirection.RETURN_TO_SENDER : RouteDirection.TO_CUSTOMER);
+    }
+
+    /**
+     * Импорт посылки с историей: один вызов перед первым расчётом статуса.
+     * Если в истории есть возвратные триггеры — сразу переводим направление в RETURN_TO_SENDER.
+     */
+    public RouteDirection resolveDirectionOnImport(List<TrackInfoDTO> history, RouteDirection current) {
+        if (current == RouteDirection.RETURN_TO_SENDER) return current;
+        return hasReturnTriggerInHistory(history) ? RouteDirection.RETURN_TO_SENDER : RouteDirection.TO_CUSTOMER;
+    }
+
+    /**
+     * Обновление истории: одноразовая промоция направления при первом «возвратном» статусе.
+     * Вызывай при каждом новом событии ДО пересчёта глобального статуса.
+     */
+    public RouteDirection maybePromoteDirectionOnAppend(RouteDirection currentDirection, String newEventRawText) {
+        if (currentDirection == RouteDirection.RETURN_TO_SENDER) return currentDirection;
+        String normalized = norm(newEventRawText);
+        return isReturnTrigger(normalized) ? RouteDirection.RETURN_TO_SENDER : RouteDirection.TO_CUSTOMER;
     }
 
     /**
@@ -150,9 +194,16 @@ public class StatusTrackService {
     }
 
     /**
-     * Нормализует строку: NBSP/NNBSP → пробел, схлопывает пробелы, срезает завершающие скобки/точки/многоточие.
+     * Возвращает HTML-иконку для статуса.
      */
-    private String norm(String rawStatus) {
+    public String getIcon(GlobalStatus status) {
+        return status != null ? status.getIconHtml() : GlobalStatus.UNKNOWN_STATUS.getIconHtml();
+    }
+
+    // ===================== ВНУТРЕННИЕ УТИЛИТЫ =====================
+
+    /** Нормализует строку: NBSP/NNBSP → пробел, схлопывает пробелы, срезает завершающие скобки/точки/многоточие. */
+    public static String norm(String rawStatus) {
         if (rawStatus == null) return "";
         String normalized = rawStatus
                 .replace('\u00A0', ' ')   // NBSP
@@ -174,10 +225,22 @@ public class StatusTrackService {
         return normalized;
     }
 
-    /**
-     * Возвращает HTML-иконку для статуса.
-     */
-    public String getIcon(GlobalStatus status) {
-        return status != null ? status.getIconHtml() : GlobalStatus.UNKNOWN_STATUS.getIconHtml();
+    /** True, если строка — явный триггер возврата. */
+    private boolean isReturnTrigger(String normalized) {
+        if (normalized == null || normalized.isBlank()) return false;
+        for (Pattern p : RETURN_DIRECTION_MARKERS) {
+            if (p.matcher(normalized).find()) return true; // для RETURN_START_PATTERN сработает и find(), и matches()
+        }
+        return false;
     }
+
+    /** Пробегает историю и ищет любой возвратный триггер. */
+    private boolean hasReturnTriggerInHistory(List<TrackInfoDTO> events) {
+        if (events == null) return false;
+        for (TrackInfoDTO dto : events) {
+            if (isReturnTrigger(norm(dto.getInfoTrack()))) return true;
+        }
+        return false;
+    }
+
 }
