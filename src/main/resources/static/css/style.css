@@ -1286,17 +1286,19 @@ button:hover {
   transition: all 0.3s ease-in-out;
 }
 .pagination .page-item .page-link:hover {
-  background: #007bff;
+  background: rgb(51, 149.4, 255);
   color: #ffffff;
-  border-color: #007bff;
-  transform: scale(1.1);
+  border-color: rgb(12.75, 129.6, 255);
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+  transform: scale(1.08);
 }
 .pagination .page-item.active .page-link {
-  background: #007bff;
+  background: rgb(0, 110.7, 229.5);
   color: #ffffff;
-  border-color: #007bff;
+  border-color: rgb(0, 104.55, 216.75);
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.35);
   cursor: default;
-  transform: scale(1);
+  transform: none;
 }
 .pagination .page-item.disabled .page-link {
   color: #6c757d;
