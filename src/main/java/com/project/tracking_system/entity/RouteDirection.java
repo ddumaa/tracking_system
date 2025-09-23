@@ -16,6 +16,6 @@ public enum RouteDirection {
     /**
      * Посылка возвращается в магазин или на склад.
      */
-    TO_STORE
+    RETURN_TO_SENDER
 }
 
