@@ -44,11 +44,11 @@ public class StatusTrackService {
             "^Почтовое отправление готово к возврату$|^Подготовлено для возврата$");
 
     /**
-     * Специальный шаблон для статусов Европочты о прибытии отправления в ОПС
-     * для выдачи отправителю, когда начинается ожидание на возврат.
+     * Специальный шаблон для статусов Европочты, которые сигнализируют о прибытии
+     * или ожидании выдачи отправления в ОПС при оформленном возврате отправителю.
      */
     private static final Pattern EUROPOST_RETURN_PICKUP_PATTERN = Pattern.compile(
-            "^Отправление [A-Z]{2}[A-Z0-9]+ прибыло для возврата в ОПС №\\s*\\d+.*$",
+            "^Отправление [A-Z]{2}[A-Z0-9]+ (?:(?:прибыло.*для возврата.*)|(?:ожидает вручения .*для возврата.*))$",
             Pattern.UNICODE_CASE | Pattern.CASE_INSENSITIVE);
 
     /**
@@ -134,9 +134,7 @@ public class StatusTrackService {
                         hasReturnStart = hasReturnStartStatus(trackInfoDTOList);
                         returnStartChecked = true;
                     }
-                    if (!hasReturnStart) {
-                        return GlobalStatus.WAITING_FOR_CUSTOMER;
-                    }
+                    return hasReturnStart ? GlobalStatus.RETURN_PENDING_PICKUP : GlobalStatus.WAITING_FOR_CUSTOMER;
                 }
                 return matchedStatus;
             }
