@@ -2,11 +2,12 @@ package com.project.tracking_system.configuration;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import org.springframework.core.task.TaskExecutor;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * Конфигурация асинхронного выполнения задач.
@@ -86,10 +87,11 @@ public class AsyncConfig {
     @Bean(name = "batchUploadExecutor")
     public TaskExecutor batchUploadExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(2); // минимально 2 потока
-        executor.setMaxPoolSize(4); // не более 4 одновременных задач
-        executor.setQueueCapacity(50); // очередь на 50 задач
+        executor.setCorePoolSize(4); // минимально 4 потока для повышения пропускной способности
+        executor.setMaxPoolSize(12); // увеличиваем верхнюю границу параллелизма
+        executor.setQueueCapacity(500); // расширенная очередь для пиковых нагрузок
         executor.setThreadNamePrefix("BatchUpload-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy()); // не отклоняем задачи при перегрузке
         executor.initialize();
         return executor;
     }
