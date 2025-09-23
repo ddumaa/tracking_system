@@ -47,6 +47,9 @@ public class StatusTrackService {
                         + "Добрый день\\. Ваше почтовое отправление [A-Z0-9]+ будет возвращено отправителю через 10 дней\\.)$",
                 F
         );
+        private static final Pattern REGISTRATION_CANCELLED =
+                Pattern.compile("^Заявка отменена, срок предоставления почтового отправления истек$", F);
+
 
         // --- Явные возвратные (по последнему статусу) ---
         private static final Pattern RETURN_START_PATTERN = Pattern.compile(
