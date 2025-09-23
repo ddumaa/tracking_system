@@ -2,7 +2,6 @@ package com.project.tracking_system.dto;
 
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
-import com.project.tracking_system.entity.RouteDirection;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.utils.NameUtils;
 import lombok.AllArgsConstructor;
@@ -21,7 +20,6 @@ public class TrackParcelDTO {
     private Long id;
     private String number;
     private String status;
-    private RouteDirection routeDirection;
     private String timestamp;
     private transient String iconHtml;
     private Long storeId;
@@ -47,7 +45,6 @@ public class TrackParcelDTO {
         this.id = trackParcel.getId();
         this.number = trackParcel.getNumber();
         this.status = trackParcel.getStatus().getDescription();
-        this.routeDirection = trackParcel.getRouteDirection();
         this.storeId = trackParcel.getStore().getId();
         this.timestamp = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss")
                 .withZone(userZone)

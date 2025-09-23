@@ -36,14 +36,6 @@ public class TrackParcel {
     private GlobalStatus status;
 
     /**
-     * Направление движения посылки относительно покупателя.
-     * Значение используется для разделения исходящих отправлений и возвратов.
-     */
-    @Enumerated(EnumType.STRING)
-    @Column(name = "route_direction", nullable = false)
-    private RouteDirection routeDirection = RouteDirection.TO_CUSTOMER;
-
-    /**
      * Флаг предварительной регистрации посылки. Если установлен,
      * поле {@link #number} может быть пустым.
      */
