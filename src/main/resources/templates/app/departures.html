@@ -233,7 +233,11 @@
                             <li class="page-item" th:each="item : ${paginationItems}"
                                 th:classappend="${item.ellipsis} ? ' disabled' : (item.pageIndex == currentPage ? ' active' : '')">
                                 <span class="page-link" th:if="${item.ellipsis}" aria-hidden="true">&hellip;</span>
-                                <a class="page-link" th:if="${!item.ellipsis}"
+                                <span class="page-link"
+                                      th:if="${!item.ellipsis and item.pageIndex == currentPage}"
+                                      th:text="${item.pageIndex + 1}"
+                                      th:attr="aria-current='page'"></span>
+                                <a class="page-link" th:if="${!item.ellipsis and item.pageIndex != currentPage}"
                                    th:href="${!#strings.isEmpty(query)} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${item.pageIndex}, size=${size}, query=${query}, sortOrder=${sortOrder})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${item.pageIndex}, size=${size}, sortOrder=${sortOrder})}"
                                    th:text="${item.pageIndex + 1}"
                                    th:attr="aria-label=${'Страница ' + (item.pageIndex + 1)}">
