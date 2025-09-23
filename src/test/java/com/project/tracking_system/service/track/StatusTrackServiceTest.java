@@ -48,6 +48,22 @@ class StatusTrackServiceTest {
     }
 
     /**
+     * Убеждается, что отмена заявки преобразуется в статус
+     * {@link GlobalStatus#REGISTRATION_CANCELLED}, перекрывая ранее зарегистрированную заявку.
+     */
+    @Test
+    void setStatus_MapsRegistrationCancelled() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO("22.07.2025, 08:15", "Заявка отменена, срок предоставления почтового отправления истек"),
+                new TrackInfoDTO("21.07.2025, 19:00", "Заявка на почтовое отправление зарегистрирована")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.REGISTRATION_CANCELLED, status);
+    }
+
+    /**
      * Если вручение отменено, то итоговый статус должен вернуться к ожиданию клиента,
      * даже если ранее отправление отмечалось как вручённое.
      */
