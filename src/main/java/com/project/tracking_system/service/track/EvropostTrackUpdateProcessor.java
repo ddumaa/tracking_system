@@ -106,14 +106,28 @@ public class EvropostTrackUpdateProcessor implements TrackUpdateProcessor {
         try {
             return CompletableFuture.supplyAsync(() -> executeTrackTask(meta, userId), batchUploadExecutor)
                     .whenComplete((result, throwable) -> submissionLimiter.release());
-        } catch (TaskRejectedException | RejectedExecutionException ex) {
-            submissionLimiter.release();
-            log.warn("Пул потоков обновления Европочты перегружен, выполняем задачу синхронно: {}", meta.number(), ex);
-            return CompletableFuture.completedFuture(executeTrackTask(meta, userId));
+        } catch (TaskRejectedException ex) {
+            return handleRejectedSubmission(meta, userId, ex);
+        } catch (RejectedExecutionException ex) {
+            return handleRejectedSubmission(meta, userId, ex);
         } catch (RuntimeException ex) {
             submissionLimiter.release();
             throw ex;
         }
+    }
+
+    /**
+     * Обрабатывает ситуацию отказа пула потоков, возвращая синхронный результат.
+     *
+     * @param meta   метаданные трека
+     * @param userId идентификатор пользователя
+     * @param ex     исключение отказа в обработке
+     * @return результат, полученный синхронно в текущем потоке
+     */
+    private CompletableFuture<TrackingResultAdd> handleRejectedSubmission(TrackMeta meta, Long userId, RuntimeException ex) {
+        submissionLimiter.release();
+        log.warn("Пул потоков обновления Европочты перегружен, выполняем задачу синхронно: {}", meta.number(), ex);
+        return CompletableFuture.completedFuture(executeTrackTask(meta, userId));
     }
 
     /**
