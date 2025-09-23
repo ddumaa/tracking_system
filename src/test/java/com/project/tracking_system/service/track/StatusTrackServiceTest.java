@@ -111,6 +111,24 @@ class StatusTrackServiceTest {
     }
 
     /**
+     * Симулирует последовательность от Европочты с переходом от прибытия к ожиданию
+     * вручения и убеждается, что при наличии стартового события возврата итоговый
+     * статус остаётся {@link GlobalStatus#RETURN_PENDING_PICKUP}.
+     */
+    @Test
+    void setStatus_MapsEuroPostAwaitingReturnAfterArrival() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO(null, "Отправление BY123456789BY ожидает вручения в ОПС № 152 для возврата"),
+                new TrackInfoDTO(null, "Отправление BY123456789BY прибыло для возврата в ОПС № 152, г. Минск"),
+                new TrackInfoDTO(null, "Подготовлено для возврата")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.RETURN_PENDING_PICKUP, status);
+    }
+
+    /**
      * Проверяет, что сообщение о прибытии отправления на отделение без указания на возврат
      * трактуется как ожидание клиента.
      */
