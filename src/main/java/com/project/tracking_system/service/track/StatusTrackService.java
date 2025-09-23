@@ -113,6 +113,7 @@ public class StatusTrackService {
             if (DELIVERED.matcher(last).matches())               return GlobalStatus.DELIVERED;
             if (RETURNED.matcher(last).matches())                return GlobalStatus.RETURNED;
             if (REGISTERED.matcher(last).matches())              return GlobalStatus.REGISTERED;
+            if (REGISTRATION_CANCELLED.matcher(last).matches())  return GlobalStatus.REGISTRATION_CANCELLED;
             if (CUSTOMER_NOT_PICKING_UP.matcher(last).matches()) return GlobalStatus.CUSTOMER_NOT_PICKING_UP;
 
             // === 2) Явные возвратные шаги (без истории) ===
