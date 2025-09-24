@@ -1270,7 +1270,8 @@ button:hover {
 .pagination .page-item {
   margin: 0;
 }
-.pagination .page-item .page-link {
+.pagination .page-item .page-link,
+.pagination .page-item .page-link-current {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1285,14 +1286,16 @@ button:hover {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease-in-out;
 }
-.pagination .page-item .page-link:hover {
+.pagination .page-item .page-link:hover,
+.pagination .page-item .page-link-current:hover {
   background: rgb(51, 149.4, 255);
   color: #ffffff;
   border-color: rgb(12.75, 129.6, 255);
   box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
   transform: scale(1.08);
 }
-.pagination .page-item.active .page-link {
+.pagination .page-item.active .page-link,
+.pagination .page-item .page-link-current {
   background: rgb(0, 110.7, 229.5);
   color: #ffffff;
   border-color: rgb(0, 104.55, 216.75);
@@ -1300,19 +1303,15 @@ button:hover {
   cursor: default;
   transform: none;
 }
-.page-link-current {
-  background-color: #0d6efd;
-  color: #ffffff;
-  border-color: #0d6efd;
-  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.35);
-  cursor: default;
+.pagination .page-item .page-link-current {
   pointer-events: none;
-  transition: none;
 }
-.page-link-current:hover {
-  background-color: #0d6efd;
+.pagination .page-item .page-link-current:hover {
+  background: rgb(0, 110.7, 229.5);
   color: #ffffff;
-  border-color: #0d6efd;
+  border-color: rgb(0, 104.55, 216.75);
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.35);
+  transform: none;
 }
 .pagination .page-item.disabled .page-link {
   color: #6c757d;
@@ -1321,16 +1320,6 @@ button:hover {
   cursor: not-allowed;
   opacity: 0.6;
   transform: none;
-}
-@media (max-width: 768px) {
-  .pagination {
-    gap: 0.4rem;
-  }
-  .pagination .page-item .page-link {
-    width: 36px;
-    height: 36px;
-    font-size: 0.9rem;
-  }
 }
 @media (max-width: 576px) {
   .pagination {
@@ -1898,3 +1887,5 @@ body.loading {
   border-style: solid;
   border-color: #ddd transparent transparent transparent;
 }
+
+/*# sourceMappingURL=style.css.map */
