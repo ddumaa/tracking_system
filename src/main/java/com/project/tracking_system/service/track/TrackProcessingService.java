@@ -187,9 +187,10 @@ public class TrackProcessingService {
             log.debug("Обновлён магазин трека");
         }
 
-        // Для предварительно зарегистрированного трека без статусов сохраняем текущее состояние
+        // Для предварительно зарегистрированного трека без статусов обновляем лишь отметку последнего обновления
         if (!isNewParcel && trackParcel.isPreRegistered() && trackInfoListDTO.getList().isEmpty()) {
-            log.debug("Статусы не получены, изменения не применены");
+            log.debug("Статусы не получены, обновлено только время последнего обновления");
+            refreshLastUpdate(trackParcel);
             return;
         }
 
@@ -242,6 +243,17 @@ public class TrackProcessingService {
         deliveryHistoryService.updateDeliveryHistory(trackParcel, oldStatus, newStatus, trackInfoListDTO);
 
         log.debug("Трек обновлён");
+    }
+
+    /**
+     * Обновляет время последнего обновления предрегистрационной посылки,
+     * чтобы соблюсти ограничение на повторный запуск обновления.
+     *
+     * @param trackParcel посылка, для которой нужно освежить отметку времени
+     */
+    private void refreshLastUpdate(TrackParcel trackParcel) {
+        trackParcel.setLastUpdate(ZonedDateTime.now(ZoneOffset.UTC));
+        trackParcelRepository.save(trackParcel);
     }
 
 }

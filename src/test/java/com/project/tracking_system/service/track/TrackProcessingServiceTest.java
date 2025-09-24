@@ -21,6 +21,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -78,10 +80,11 @@ class TrackProcessingServiceTest {
 
     /**
      * Убеждаемся, что при отсутствии статусов
-     * предварительно зарегистрированный трек остаётся без изменений.
+     * предварительно зарегистрированный трек обновляет только
+     * отметку времени последнего обновления.
      */
     @Test
-    void preRegisteredWithoutStatuses_noChanges() {
+    void preRegisteredWithoutStatuses_updatesLastUpdateOnly() {
         // подготавливаем трек
         TrackParcel parcel = new TrackParcel();
         parcel.setNumber("AB123");
@@ -89,7 +92,10 @@ class TrackProcessingServiceTest {
         Store store = new Store();
         store.setId(1L);
         parcel.setStore(store);
+        ZonedDateTime previousUpdate = ZonedDateTime.now(ZoneOffset.UTC).minusHours(3);
+        parcel.setLastUpdate(previousUpdate);
         when(trackParcelRepository.findByNumberAndUserId("AB123", 5L)).thenReturn(parcel);
+        when(trackParcelRepository.save(parcel)).thenReturn(parcel);
 
         TrackInfoListDTO info = new TrackInfoListDTO();
 
@@ -97,7 +103,8 @@ class TrackProcessingServiceTest {
 
         assertEquals(GlobalStatus.PRE_REGISTERED, parcel.getStatus());
         assertTrue(parcel.isPreRegistered());
-        verify(trackParcelRepository, never()).save(any());
+        assertTrue(parcel.getLastUpdate().isAfter(previousUpdate));
+        verify(trackParcelRepository).save(parcel);
         verify(statusTrackService, never()).setStatus(any());
     }
 
