@@ -5,11 +5,14 @@ import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.BelPostBatchStartedDTO;
 import com.project.tracking_system.dto.TrackStatusUpdateDTO;
 import com.project.tracking_system.dto.BelPostBatchFinishedDTO;
+import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.track.TrackProcessingService;
 import com.project.tracking_system.service.track.TrackConstants;
 import com.project.tracking_system.service.track.ProgressAggregatorService;
 import com.project.tracking_system.service.track.TrackingResultCacheService;
 import com.project.tracking_system.webdriver.WebDriverFactory;
+import com.project.tracking_system.utils.TrackNumberUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.WebDriver;
@@ -54,6 +57,8 @@ public class BelPostTrackQueueService {
     private final TrackingResultCacheService trackingResultCacheService;
     /** Фабрика для создания экземпляров {@link WebDriver}. */
     private final WebDriverFactory webDriverFactory;
+    /** Репозиторий посылок для проверки предрегистраций. */
+    private final TrackParcelRepository trackParcelRepository;
 
     /** Максимальное количество попыток обработки при ошибках Selenium. */
     @Value("${belpost.queue.webdriver-max-attempts:3}")
@@ -166,6 +171,8 @@ public class BelPostTrackQueueService {
             if (!info.getList().isEmpty()) {
                 trackProcessingService.save(task.trackNumber(), info, task.storeId(), task.userId(), task.phone());
                 progress.success.incrementAndGet();
+            } else if (isPreRegisteredWithNumber(task)) {
+                log.debug("Предрегистрация {} без новых статусов пропущена без ошибки", task.trackNumber());
             } else {
                 progress.failed.incrementAndGet();
             }
@@ -234,6 +241,28 @@ public class BelPostTrackQueueService {
                 progress.getTotal());
         webSocketController.sendBelPostTrackProcessed(task.userId(), dto);
         trackingResultCacheService.addResult(task.userId(), dto);
+    }
+
+    /**
+     * Проверяет, относится ли задача к предрегистрации с указанным номером.
+     * <p>
+     * Такие записи могут не иметь готовых статусов на стороне Белпочты,
+     * поэтому отсутствие данных не считается ошибкой обновления.
+     * </p>
+     *
+     * @param task элемент очереди, для которого требуется проверка
+     * @return {@code true}, если посылка всё ещё находится в статусе предрегистрации
+     */
+    private boolean isPreRegisteredWithNumber(QueuedTrack task) {
+        if (task == null || task.userId() == null) {
+            return false;
+        }
+        String number = TrackNumberUtils.normalize(task.trackNumber());
+        if (number == null || number.isBlank()) {
+            return false;
+        }
+        TrackParcel parcel = trackParcelRepository.findByNumberAndUserId(number, task.userId());
+        return parcel != null && parcel.isPreRegistered();
     }
 
     /**
