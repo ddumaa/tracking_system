@@ -5,6 +5,8 @@ import com.project.tracking_system.dto.TrackInfoDTO;
 import com.project.tracking_system.dto.TrackInfoListDTO;
 import com.project.tracking_system.dto.BelPostBatchFinishedDTO;
 import com.project.tracking_system.dto.TrackStatusUpdateDTO;
+import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.track.ProgressAggregatorService;
 import com.project.tracking_system.service.track.TrackProcessingService;
 import com.project.tracking_system.service.track.TrackSource;
@@ -24,9 +26,12 @@ import java.lang.reflect.Field;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import java.util.List;
 
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -51,6 +56,8 @@ class BelPostTrackQueueServiceTest {
     @Mock
     private WebDriverFactory webDriverFactory;
     @Mock
+    private TrackParcelRepository trackParcelRepository;
+    @Mock
     private WebDriver firstDriver;
     @Mock
     private WebDriver secondDriver;
@@ -70,8 +77,48 @@ class BelPostTrackQueueServiceTest {
                 webSocketController,
                 progressAggregatorService,
                 trackingResultCacheService,
-                webDriverFactory
+                webDriverFactory,
+                trackParcelRepository
         );
+    }
+
+    /**
+     * Предрегистрации с присвоенным номером не должны учитываться как ошибки при отсутствии статусов.
+     */
+    @Test
+    void processQueue_PreRegisteredTrackWithoutStatusesDoesNotCountAsFailed() throws Exception {
+        String trackNumber = "BY000000001";
+        long batchId = 3L;
+        Long userId = 15L;
+        QueuedTrack track = new QueuedTrack(trackNumber, userId, 4L, TrackSource.MANUAL, batchId, null);
+
+        when(webDriverFactory.create()).thenReturn(firstDriver);
+        when(webBelPostBatchService.parseTrack(any(WebDriver.class), eq(trackNumber)))
+                .thenReturn(new TrackInfoListDTO());
+
+        TrackParcel parcel = new TrackParcel();
+        parcel.setPreRegistered(true);
+        when(trackParcelRepository.findByNumberAndUserId(trackNumber, userId)).thenReturn(parcel);
+
+        queueService.enqueue(track);
+        queueService.processQueue();
+
+        verify(trackProcessingService, never()).save(anyString(), any(), anyLong(), anyLong(), any());
+        verify(trackParcelRepository).findByNumberAndUserId(trackNumber, userId);
+        verify(progressAggregatorService).trackProcessed(batchId);
+
+        ArgumentCaptor<BelPostBatchFinishedDTO> summaryCaptor = ArgumentCaptor.forClass(BelPostBatchFinishedDTO.class);
+        verify(webSocketController).sendBelPostBatchFinished(eq(userId), summaryCaptor.capture());
+        BelPostBatchFinishedDTO summary = summaryCaptor.getValue();
+        assertThat(summary.failed()).isZero();
+        assertThat(summary.success()).isZero();
+
+        ArgumentCaptor<TrackStatusUpdateDTO> statusCaptor = ArgumentCaptor.forClass(TrackStatusUpdateDTO.class);
+        verify(webSocketController).sendBelPostTrackProcessed(eq(userId), statusCaptor.capture());
+        TrackStatusUpdateDTO statusDto = statusCaptor.getValue();
+        assertThat(statusDto.status()).isEqualTo("Нет данных");
+        assertThat(statusDto.completed()).isEqualTo(1);
+        assertThat(statusDto.total()).isEqualTo(1);
     }
 
     /**
