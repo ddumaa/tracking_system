@@ -48,6 +48,22 @@ class StatusTrackServiceTest {
     }
 
     /**
+     * Убеждается, что отмена заявки преобразуется в статус
+     * {@link GlobalStatus#REGISTRATION_CANCELLED}, перекрывая ранее зарегистрированную заявку.
+     */
+    @Test
+    void setStatus_MapsRegistrationCancelled() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO("22.07.2025, 08:15", "Заявка отменена, срок предоставления почтового отправления истек"),
+                new TrackInfoDTO("21.07.2025, 19:00", "Заявка на почтовое отправление зарегистрирована")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.REGISTRATION_CANCELLED, status);
+    }
+
+    /**
      * Если вручение отменено, то итоговый статус должен вернуться к ожиданию клиента,
      * даже если ранее отправление отмечалось как вручённое.
      */
@@ -101,6 +117,24 @@ class StatusTrackServiceTest {
     @Test
     void setStatus_MapsEuroPostReturnPendingPickup() {
         List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO(null, "Отправление BY123456789BY прибыло для возврата в ОПС № 152, г. Минск"),
+                new TrackInfoDTO(null, "Подготовлено для возврата")
+        );
+
+        GlobalStatus status = service.setStatus(list);
+
+        assertEquals(GlobalStatus.RETURN_PENDING_PICKUP, status);
+    }
+
+    /**
+     * Симулирует последовательность от Европочты с переходом от прибытия к ожиданию
+     * вручения и убеждается, что при наличии стартового события возврата итоговый
+     * статус остаётся {@link GlobalStatus#RETURN_PENDING_PICKUP}.
+     */
+    @Test
+    void setStatus_MapsEuroPostAwaitingReturnAfterArrival() {
+        List<TrackInfoDTO> list = List.of(
+                new TrackInfoDTO(null, "Отправление BY123456789BY ожидает вручения в ОПС № 152 для возврата"),
                 new TrackInfoDTO(null, "Отправление BY123456789BY прибыло для возврата в ОПС № 152, г. Минск"),
                 new TrackInfoDTO(null, "Подготовлено для возврата")
         );

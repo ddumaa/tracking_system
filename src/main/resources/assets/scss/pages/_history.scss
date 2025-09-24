@@ -286,7 +286,7 @@
   .page-item {
     margin: 0; // Управление отступами полностью возложено на gap
 
-    .page-link {
+    %pagination-link-base {
       display: flex;
       align-items: center;
       justify-content: center;
@@ -300,21 +300,39 @@
       border-radius: 50%;
       box-shadow: ui.$box-shadow;
       transition: all 0.3s ease-in-out;
-
-      &:hover {
-        background: ui.$primary;
-        color: ui.$white;
-        border-color: ui.$primary;
-        transform: scale(1.1);
-      }
     }
 
-    &.active .page-link {
-      background: ui.$primary;
+    .page-link,
+    .page-link-current {
+      @extend %pagination-link-base;
+
+      &:hover {
+        background: color.scale(ui.$primary, $lightness: 20%);
+        color: ui.$white;
+        border-color: color.scale(ui.$primary, $lightness: 5%);
+        box-shadow: 0 0 0 3px color.change(ui.$primary, $alpha: 0.2);
+        transform: scale(1.08);
+      }
+    }
+    &.active .page-link,
+    .page-link-current {
+      background: color.scale(ui.$primary, $lightness: -10%);
       color: ui.$white;
-      border-color: ui.$primary;
+      border-color: color.scale(ui.$primary, $lightness: -15%);
+      box-shadow: 0 0 0 3px color.change(ui.$primary, $alpha: 0.35);
       cursor: default;
-      transform: scale(1);
+      transform: none;
+    }
+
+    .page-link-current {
+      pointer-events: none; // Отключаем взаимодействие, чтобы подчеркнуть, что ссылка не кликабельна
+      &:hover {
+        background: color.scale(ui.$primary, $lightness: -10%);
+        color: ui.$white;
+        border-color: color.scale(ui.$primary, $lightness: -15%);
+        box-shadow: 0 0 0 3px color.change(ui.$primary, $alpha: 0.35);
+        transform: none;
+      }
     }
 
     &.disabled .page-link {
@@ -324,18 +342,6 @@
       cursor: not-allowed;
       opacity: 0.6;
       transform: none;
-    }
-  }
-
-  @include ui.respond-to(md) {
-    gap: 0.4rem; // Уменьшаем расстояние между элементами на планшетах
-
-    .page-item {
-      .page-link {
-        width: 36px;
-        height: 36px;
-        font-size: 0.9rem;
-      }
     }
   }
 

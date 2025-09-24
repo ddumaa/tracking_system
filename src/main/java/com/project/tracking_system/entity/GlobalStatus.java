@@ -24,6 +24,7 @@ public enum GlobalStatus {
     RETURNED("Возврат забран", "<i class='bi bi-check2-circle status-icon returned'></i>"),
     PRE_REGISTERED("Предрегистрация", "<i class='bi bi-hourglass status-icon preregistered'></i>"),
     REGISTERED("Заявка зарегистрирована", "<i class='bi bi-file-earmark-text status-icon registered'></i>"),
+    REGISTRATION_CANCELLED("Регистрация отменена", "<i class='bi bi-x-octagon status-icon registration-cancelled'></i>"),
     UNKNOWN_STATUS("Неизвестный статус", "<i class='bi bi-question-circle status-icon unknown'></i>");
 
     private final String description;
