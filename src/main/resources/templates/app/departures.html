@@ -233,7 +233,7 @@
                             <li class="page-item" th:each="item : ${paginationItems}"
                                 th:classappend="${item.ellipsis} ? ' disabled' : (item.pageIndex == currentPage ? ' active' : '')">
                                 <span class="page-link" th:if="${item.ellipsis}" aria-hidden="true">&hellip;</span>
-                                <span class="page-link"
+                                <span class="page-link page-link-current"
                                       th:if="${!item.ellipsis and item.pageIndex == currentPage}"
                                       th:text="${item.pageIndex + 1}"
                                       th:attr="aria-current='page'"></span>
