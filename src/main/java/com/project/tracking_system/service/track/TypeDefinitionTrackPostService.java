@@ -48,7 +48,7 @@ public class TypeDefinitionTrackPostService {
             return PostalServiceType.UNKNOWN;
         }
 
-        if (number.matches("^(PC|BV|BP|PE)\\d{9}BY$")) {
+        if (number.matches("^(PC|BV|BP|PE|VV)\\d{9}BY$")) {
             return PostalServiceType.BELPOST;
         }
         if (number.matches("^BY\\d{12}$")) {
