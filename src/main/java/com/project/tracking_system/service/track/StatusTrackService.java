@@ -38,13 +38,20 @@ public class StatusTrackService {
 
         // --- Приоритетные/терминальные ---
         private static final Pattern CANCEL_ISSUANCE = Pattern.compile("^Аннулирование операции вручения$", F);
-        private static final Pattern DELIVERED       = Pattern.compile("^(Почтовое отправление выдано|Вручено)$", F);
-        private static final Pattern RETURNED        = Pattern.compile("^Почтовое отправление возвращено отправителю$", F);
+        private static final Pattern DELIVERED = Pattern.compile(
+                "^(?:Почтовое отправление\\s+)?(?:выдано|вручено)(?!\\s+отправителю)(?:\\s+(?:получателю|адресату))?(?:\\b|\\.|\\s).*?$",
+                F
+        );
+        private static final Pattern RETURNED = Pattern.compile(
+                "^(?:Почтовое отправление\\s+)?(?:(?:вручено|выдано)\\s+отправителю|возвращено\\s+отправителю)(?:\\b|\\.|\\s).*?$",
+                F
+        );
         private static final Pattern REGISTERED      = Pattern.compile("^Заявка на почтовое отправление зарегистрирована$", F);
         private static final Pattern CUSTOMER_NOT_PICKING_UP = Pattern.compile(
                 "^(Добрый день\\. Отправление [A-Z0-9]+ не востребовано получателем.*|"
                         + "Отправление с \\d{2}\\.\\d{2}\\.\\d{4} ожидает вручения в Отделение.*|"
-                        + "Добрый день\\. Ваше почтовое отправление [A-Z0-9]+ будет возвращено отправителю через 10 дней\\.)$",
+                        + "Добрый день\\. Ваше почтовое отправление [A-Z0-9]+ будет возвращено отправителю через 10 дней\\.?$"
+                        + ")",
                 F
         );
         private static final Pattern REGISTRATION_CANCELLED =
@@ -81,7 +88,7 @@ public class StatusTrackService {
         // --- Прочие группы ---
         private static final Pattern WAITING_GROUP = Pattern.compile(
                 "^(Почтовое отправление прибыло (?:на ОПС выдачи|для выдачи)|"
-                        + "Добрый день\\. Срок бесплатного хранения|"
+                        + "Добрый день\\.\\s*Срок бесплатного хранения.*|"
                         + "Поступило в учреждение доставки.*)$",
                 F
         );
@@ -109,7 +116,7 @@ public class StatusTrackService {
             final String last = norm(events.get(0).getInfoTrack());
 
             // === 1) Жёсткий приоритет: TERMINAL ===
-            if (CANCEL_ISSUANCE.matcher(last).matches())         return GlobalStatus.WAITING_FOR_CUSTOMER; // как у тебя было
+            if (CANCEL_ISSUANCE.matcher(last).matches())         return GlobalStatus.WAITING_FOR_CUSTOMER;
             if (DELIVERED.matcher(last).matches())               return GlobalStatus.DELIVERED;
             if (RETURNED.matcher(last).matches())                return GlobalStatus.RETURNED;
             if (REGISTERED.matcher(last).matches())              return GlobalStatus.REGISTERED;
