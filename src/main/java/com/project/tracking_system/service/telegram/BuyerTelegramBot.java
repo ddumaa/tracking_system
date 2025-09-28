@@ -731,7 +731,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         Map<String, List<TelegramParcelInfoDTO>> parcelsByStore = groupParcelsByStore(parcels);
         parcelsByStore.forEach((storeName, storeParcels) -> {
-            builder.append("**").append(escapeMarkdown(storeName)).append("**").append('\n');
+            builder.append('*').append(escapeMarkdown(storeName)).append('*').append('\n');
             for (TelegramParcelInfoDTO parcel : storeParcels) {
                 builder.append("• ").append(formatParcelLine(parcel, section)).append('\n');
             }
