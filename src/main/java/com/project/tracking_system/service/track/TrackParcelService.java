@@ -9,6 +9,7 @@ import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.track.TrackServiceClassifier;
+import com.project.tracking_system.utils.NameSearchUtils;
 import com.project.tracking_system.utils.PhoneUtils;
 import com.project.tracking_system.utils.TrackNumberUtils;
 import com.project.tracking_system.exception.TrackNumberAlreadyExistsException;
@@ -231,7 +232,7 @@ public class TrackParcelService {
     }
 
     /**
-     * Выполняет поиск посылок по номеру или номеру телефона покупателя.
+     * Выполняет поиск посылок по номеру, телефону или ФИО покупателя.
      *
      * @param storeIds список магазинов
      * @param status   фильтр статуса (может быть {@code null})
@@ -243,19 +244,28 @@ public class TrackParcelService {
      * @return страница найденных посылок
      */
     @Transactional(readOnly = true)
-    public Page<TrackParcelDTO> searchByNumberOrPhone(List<Long> storeIds,
-                                                      GlobalStatus status,
-                                                      String query,
-                                                      int page,
-                                                      int size,
-                                                      Long userId,
-                                                      String sortOrder) {
+    public Page<TrackParcelDTO> searchByNumberPhoneOrName(List<Long> storeIds,
+                                                          GlobalStatus status,
+                                                          String query,
+                                                          int page,
+                                                          int size,
+                                                          Long userId,
+                                                          String sortOrder) {
         Sort sort = Sort.by("timestamp");
         sort = "asc".equalsIgnoreCase(sortOrder) ? sort.ascending() : sort.descending();
         Pageable pageable = PageRequest.of(page, size, sort);
         String phoneDigits = PhoneUtils.extractDigits(query);
-        Page<TrackParcel> parcels = trackParcelRepository.searchByNumberOrPhone(
-                storeIds, userId, status, query, phoneDigits, pageable);
+        List<String> nameTokens = NameSearchUtils.extractNameTokens(query);
+        Page<TrackParcel> parcels = trackParcelRepository.searchByNumberPhoneOrName(
+                storeIds,
+                userId,
+                status,
+                query,
+                phoneDigits,
+                NameSearchUtils.getTokenOrEmpty(nameTokens, 0),
+                NameSearchUtils.getTokenOrEmpty(nameTokens, 1),
+                NameSearchUtils.getTokenOrEmpty(nameTokens, 2),
+                pageable);
         ZoneId userZone = userService.getUserZone(userId);
         return parcels.map(track -> toDto(track, userZone));
     }
