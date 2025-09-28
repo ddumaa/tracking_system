@@ -866,7 +866,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private void sendNameEditPromptScreen(Long chatId) {
         List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.NAME_EDIT_PROMPT);
         InlineKeyboardMarkup markup = buildNavigationKeyboard(navigationPath);
-        sendInlineMessage(chatId, NAME_EDIT_ANCHOR_TEXT, markup, BuyerBotScreen.NAME_EDIT_PROMPT, navigationPath);
+        sendInlineMessage(chatId,
+                escapeMarkdown(NAME_EDIT_ANCHOR_TEXT),
+                markup,
+                BuyerBotScreen.NAME_EDIT_PROMPT,
+                navigationPath);
     }
 
     /**
@@ -1215,7 +1219,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param chatId идентификатор чата Telegram
      */
     private void sendHelpScreen(Long chatId) {
-        String helpText = """
+        String rawHelpText = """
                 ❓ Помощь
 
                 • /start — привязать чат и получать уведомления.
@@ -1223,7 +1227,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 • /stats — показать статистику.
 
                 Управляйте уведомлениями и ФИО через раздел "⚙️ Настройки".
-                """;
+                """.stripIndent();
+        String helpText = escapeMarkdown(rawHelpText);
         List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.HELP);
         InlineKeyboardMarkup markup = buildNavigationKeyboard(navigationPath);
         sendInlineMessage(chatId, helpText, markup, BuyerBotScreen.HELP, navigationPath);
@@ -1424,7 +1429,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         builder.append("Уведомления: ").append(notificationsStatus).append('\n');
         builder.append("Имя: ").append(nameStatus);
         if (awaitingNameInput) {
-            builder.append("\n\n✍️ Ожидается ввод нового ФИО.");
+            builder.append("\n\n").append(escapeMarkdown("✍️ Ожидается ввод нового ФИО."));
         }
         return builder.toString();
     }
@@ -1964,7 +1969,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         builder.append("📋 Главное меню\n\n");
 
         if (customer == null) {
-            builder.append("Поделитесь номером телефона командой /start, чтобы получать уведомления и статистику.\n\n");
+            builder.append(escapeMarkdown("Поделитесь номером телефона командой /start, чтобы получать уведомления и статистику."))
+                    .append("\n\n");
         } else {
             builder.append("Уведомления: ")
                     .append(customer.isNotificationsEnabled() ? "включены" : "отключены")
@@ -1987,7 +1993,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             builder.append("\n\n");
         }
 
-        builder.append("Выберите раздел через кнопки ниже или воспользуйтесь клавишей «🏠 Меню» на клавиатуре.");
+        builder.append(escapeMarkdown("Выберите раздел через кнопки ниже или воспользуйтесь клавишей «🏠 Меню» на клавиатуре."));
         return builder.toString();
     }
 
@@ -2167,7 +2173,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (hasBody) {
             builder.append('\n');
         }
-        builder.append("Нажмите «Ок», чтобы вернуться в меню.");
+        builder.append(escapeMarkdown("Нажмите «Ок», чтобы вернуться в меню."));
         return builder.toString();
     }
 
