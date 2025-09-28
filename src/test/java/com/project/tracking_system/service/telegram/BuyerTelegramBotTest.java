@@ -10,7 +10,6 @@ import com.project.tracking_system.entity.AdminNotification;
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
-import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
@@ -326,18 +325,14 @@ class BuyerTelegramBotTest {
     }
 
     /**
-     * Проверяет, что список посылок группируется по магазину и отображает статус с датой.
+     * Проверяет, что список посылок группируется по магазину и выводит только трек-номера.
      */
     @Test
-    void shouldGroupParcelsByStoreWithStatusAndDate() throws Exception {
+    void shouldGroupParcelsByStoreWithTracksOnly() throws Exception {
         Long chatId = 901L;
-        ZonedDateTime now = ZonedDateTime.parse("2025-01-05T10:15:30Z");
-        TelegramParcelInfoDTO first = new TelegramParcelInfoDTO("TRACK-1", "Store Alpha",
-                GlobalStatus.IN_TRANSIT, now);
-        TelegramParcelInfoDTO second = new TelegramParcelInfoDTO("TRACK-2", "Store Beta",
-                GlobalStatus.WAITING_FOR_CUSTOMER, now.minusHours(2));
-        TelegramParcelInfoDTO third = new TelegramParcelInfoDTO("TRACK-3", "Store Alpha",
-                GlobalStatus.DELIVERED, null);
+        TelegramParcelInfoDTO first = new TelegramParcelInfoDTO("TRACK-1", "Store Alpha");
+        TelegramParcelInfoDTO second = new TelegramParcelInfoDTO("TRACK-2", "Store Beta");
+        TelegramParcelInfoDTO third = new TelegramParcelInfoDTO("TRACK-3", "Store Alpha");
 
         TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(
                 List.of(first, second, third),
@@ -355,10 +350,10 @@ class BuyerTelegramBotTest {
 
         assertTrue(text.startsWith("📬 Полученные посылки"),
                 "Сообщение должно начинаться с заголовка выбранной категории");
-        assertTrue(text.contains("**Store Alpha:**\n• TRACK-1 В пути 05.01.2025 10:15\n• TRACK-3 Вручена дата неизвестна"),
-                "Посылки одного магазина должны выводиться под общим заголовком");
-        assertTrue(text.contains("**Store Beta:**\n• TRACK-2 Ожидает клиента 05.01.2025 08:15"),
-                "Для каждого магазина ожидается собственный блок с посылками");
+        assertTrue(text.contains("**Store Alpha**\n• TRACK-1\n• TRACK-3"),
+                "Посылки одного магазина должны выводиться под общим заголовком и включать только треки");
+        assertTrue(text.contains("**Store Beta**\n• TRACK-2"),
+                "Для каждого магазина ожидается собственный блок с трек-номерами");
     }
 
     /**
