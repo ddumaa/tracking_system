@@ -15,6 +15,11 @@ public enum BuyerBotScreen {
     STATISTICS,
 
     /**
+     * Раздел с актуальными посылками покупателя.
+     */
+    PARCELS,
+
+    /**
      * Экран настроек уведомлений и ФИО.
      */
     SETTINGS,

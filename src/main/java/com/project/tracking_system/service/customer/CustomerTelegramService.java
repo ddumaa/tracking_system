@@ -1,5 +1,7 @@
 package com.project.tracking_system.service.customer;
 
+import com.project.tracking_system.dto.TelegramParcelInfoDTO;
+import com.project.tracking_system.dto.TelegramParcelsOverviewDTO;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.mapper.BuyerStatusMapper;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
@@ -9,8 +11,10 @@ import com.project.tracking_system.service.telegram.FullNameValidator;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import com.project.tracking_system.dto.CustomerStatisticsDTO;
 
@@ -294,6 +298,79 @@ public class CustomerTelegramService {
                             customer.getReputation()
                     );
                 });
+    }
+
+    /**
+     * Формирует сводку посылок покупателя для отображения в Telegram.
+     * <p>
+     * Метод группирует посылки по ключевым статусам, чтобы бот мог показать
+     * их в разделе «Мои посылки». Если покупатель не найден, возвращается
+     * {@link Optional#empty()}.
+     * </p>
+     *
+     * @param chatId идентификатор чата Telegram
+     * @return опциональная сводка посылок по категориям
+     */
+    @Transactional(readOnly = true)
+    public Optional<TelegramParcelsOverviewDTO> getParcelsOverview(Long chatId) {
+        if (chatId == null) {
+            return Optional.empty();
+        }
+
+        return customerRepository.findByTelegramChatId(chatId)
+                .map(customer -> {
+                    Long customerId = customer.getId();
+                    List<TelegramParcelInfoDTO> delivered = mapParcelsForTelegram(
+                            trackParcelRepository.findByCustomerIdAndStatusIn(
+                                    customerId,
+                                    List.of(GlobalStatus.DELIVERED)
+                            ));
+                    List<TelegramParcelInfoDTO> waiting = mapParcelsForTelegram(
+                            trackParcelRepository.findByCustomerIdAndStatusIn(
+                                    customerId,
+                                    List.of(GlobalStatus.WAITING_FOR_CUSTOMER)
+                            ));
+                    List<TelegramParcelInfoDTO> inTransit = mapParcelsForTelegram(
+                            trackParcelRepository.findByCustomerIdAndStatusIn(
+                                    customerId,
+                                    List.of(GlobalStatus.IN_TRANSIT, GlobalStatus.REGISTERED)
+                            ));
+                    return new TelegramParcelsOverviewDTO(delivered, waiting, inTransit);
+                });
+    }
+
+    /**
+     * Преобразует список сущностей посылок в DTO для Telegram.
+     * <p>
+     * Посылки сортируются по дате последнего обновления в обратном порядке,
+     * чтобы свежие статусы отображались первыми. Для отсутствующих номеров и
+     * названий магазинов используются читаемые заглушки.
+     * </p>
+     *
+     * @param parcels исходные сущности посылок
+     * @return список DTO с информацией для отображения
+     */
+    private List<TelegramParcelInfoDTO> mapParcelsForTelegram(List<TrackParcel> parcels) {
+        if (parcels == null || parcels.isEmpty()) {
+            return List.of();
+        }
+
+        return parcels.stream()
+                .sorted(Comparator.comparing(
+                        TrackParcel::getLastUpdate,
+                        Comparator.nullsLast(Comparator.naturalOrder())
+                ).reversed())
+                .map(parcel -> {
+                    String trackNumber = parcel.getNumber();
+                    if (trackNumber == null || trackNumber.isBlank()) {
+                        trackNumber = "Без номера";
+                    }
+                    String storeName = (parcel.getStore() != null && parcel.getStore().getName() != null)
+                            ? parcel.getStore().getName()
+                            : "Магазин не указан";
+                    return new TelegramParcelInfoDTO(trackNumber, storeName);
+                })
+                .collect(Collectors.toList());
     }
 
 }
