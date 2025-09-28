@@ -44,7 +44,8 @@ public class CustomerTelegramService {
      * Предопределённые наборы статусов для формирования сводки Telegram.
      * <p>
      * «Получено» отражает финальные доставки, «Ожидает забора» содержит все варианты ожидания клиента,
-     * включая повторные напоминания, а «В пути» собирает предшествующие доставке статусы и этапы возврата.
+     * включая повторные напоминания, а «В пути» собирает предшествующие доставке статусы и контролирует
+     * проблемные ситуации до момента получения.
      * </p>
      */
     private static final List<GlobalStatus> DELIVERED_STATUSES = List.of(GlobalStatus.DELIVERED);
@@ -56,9 +57,8 @@ public class CustomerTelegramService {
             GlobalStatus.PRE_REGISTERED,
             GlobalStatus.REGISTERED,
             GlobalStatus.IN_TRANSIT,
-            GlobalStatus.RETURN_IN_PROGRESS,
-            GlobalStatus.RETURN_PENDING_PICKUP,
-            GlobalStatus.RETURNED
+            GlobalStatus.WAITING_FOR_CUSTOMER,
+            GlobalStatus.CUSTOMER_NOT_PICKING_UP
     );
 
     /**
