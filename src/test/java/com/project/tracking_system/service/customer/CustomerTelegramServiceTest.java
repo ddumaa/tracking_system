@@ -136,10 +136,10 @@ class CustomerTelegramServiceTest {
                 ZonedDateTime.now(ZoneOffset.UTC).minusHours(3));
         TrackParcel preRegisteredParcel = parcelWithStatus("PRE-1", GlobalStatus.PRE_REGISTERED,
                 ZonedDateTime.now(ZoneOffset.UTC).minusDays(1));
-        TrackParcel returnInProgressParcel = parcelWithStatus("RET-IN-PROG", GlobalStatus.RETURN_IN_PROGRESS,
-                ZonedDateTime.now(ZoneOffset.UTC).minusHours(4));
-        TrackParcel returnPendingParcel = parcelWithStatus("RET-PEND", GlobalStatus.RETURN_PENDING_PICKUP,
-                ZonedDateTime.now(ZoneOffset.UTC).minusHours(1));
+        TrackParcel registeredParcel = parcelWithStatus("REG-1", GlobalStatus.REGISTERED,
+                ZonedDateTime.now(ZoneOffset.UTC).minusHours(5));
+        TrackParcel inTransitParcel = parcelWithStatus("TRANS-1", GlobalStatus.IN_TRANSIT,
+                ZonedDateTime.now(ZoneOffset.UTC).minusHours(6));
 
         List<GlobalStatus> deliveredStatuses = List.of(GlobalStatus.DELIVERED);
         List<GlobalStatus> waitingStatuses = List.of(
@@ -150,9 +150,8 @@ class CustomerTelegramServiceTest {
                 GlobalStatus.PRE_REGISTERED,
                 GlobalStatus.REGISTERED,
                 GlobalStatus.IN_TRANSIT,
-                GlobalStatus.RETURN_IN_PROGRESS,
-                GlobalStatus.RETURN_PENDING_PICKUP,
-                GlobalStatus.RETURNED
+                GlobalStatus.WAITING_FOR_CUSTOMER,
+                GlobalStatus.CUSTOMER_NOT_PICKING_UP
         );
 
         when(trackParcelRepository.findByCustomerIdAndStatusIn(eq(customerId), anyList()))
@@ -165,7 +164,7 @@ class CustomerTelegramServiceTest {
                         return List.of(waitingParcel, notPickingParcel);
                     }
                     if (statuses.equals(inTransitStatuses)) {
-                        return List.of(preRegisteredParcel, returnInProgressParcel, returnPendingParcel);
+                        return List.of(preRegisteredParcel, registeredParcel, inTransitParcel, waitingParcel, notPickingParcel);
                     }
                     fail("Неожиданный набор статусов: " + statuses);
                     return List.of();
@@ -178,7 +177,7 @@ class CustomerTelegramServiceTest {
         TelegramParcelsOverviewDTO overview = result.get();
         assertEquals(1, overview.getDelivered().size(), "Раздел доставленных должен содержать одну посылку");
         assertEquals(2, overview.getWaitingForPickup().size(), "Раздел ожидания обязан включать оба статуса ожидания");
-        assertEquals(3, overview.getInTransit().size(), "Раздел в пути обязан включать расширенный набор статусов");
+        assertEquals(5, overview.getInTransit().size(), "Раздел в пути обязан включать ключевые статусы до выдачи");
 
         verify(trackParcelRepository).findByCustomerIdAndStatusIn(customerId, deliveredStatuses);
         verify(trackParcelRepository).findByCustomerIdAndStatusIn(customerId, waitingStatuses);
