@@ -149,9 +149,7 @@ class CustomerTelegramServiceTest {
         List<GlobalStatus> inTransitStatuses = List.of(
                 GlobalStatus.PRE_REGISTERED,
                 GlobalStatus.REGISTERED,
-                GlobalStatus.IN_TRANSIT,
-                GlobalStatus.WAITING_FOR_CUSTOMER,
-                GlobalStatus.CUSTOMER_NOT_PICKING_UP
+                GlobalStatus.IN_TRANSIT
         );
 
         when(trackParcelRepository.findByCustomerIdAndStatusIn(eq(customerId), anyList()))
@@ -164,7 +162,7 @@ class CustomerTelegramServiceTest {
                         return List.of(waitingParcel, notPickingParcel);
                     }
                     if (statuses.equals(inTransitStatuses)) {
-                        return List.of(preRegisteredParcel, registeredParcel, inTransitParcel, waitingParcel, notPickingParcel);
+                        return List.of(preRegisteredParcel, registeredParcel, inTransitParcel);
                     }
                     fail("Неожиданный набор статусов: " + statuses);
                     return List.of();
@@ -177,7 +175,7 @@ class CustomerTelegramServiceTest {
         TelegramParcelsOverviewDTO overview = result.get();
         assertEquals(1, overview.getDelivered().size(), "Раздел доставленных должен содержать одну посылку");
         assertEquals(2, overview.getWaitingForPickup().size(), "Раздел ожидания обязан включать оба статуса ожидания");
-        assertEquals(5, overview.getInTransit().size(), "Раздел в пути обязан включать ключевые статусы до выдачи");
+        assertEquals(3, overview.getInTransit().size(), "Раздел в пути обязан включать ключевые статусы до выдачи");
 
         verify(trackParcelRepository).findByCustomerIdAndStatusIn(customerId, deliveredStatuses);
         verify(trackParcelRepository).findByCustomerIdAndStatusIn(customerId, waitingStatuses);
