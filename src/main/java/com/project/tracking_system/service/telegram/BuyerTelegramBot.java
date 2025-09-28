@@ -983,7 +983,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      */
     private String buildEmptyParcelsText() {
         return "📦 Мои посылки\n\n" +
-                "Сейчас в системе нет активных отправлений. Как только появятся новые «📬 Полученные», «🏬 Ждут забора» или «🚚 В пути» посылки, они будут отображены здесь.";
+                "Выберите категорию:\n" +
+                "Пока нет активных посылок";
     }
 
     /**
@@ -995,6 +996,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private String buildParcelsScreenText(TelegramParcelsOverviewDTO overview) {
         StringBuilder builder = new StringBuilder();
         builder.append("📦 Мои посылки\n\n");
+        builder.append("Выберите категорию:\n\n");
         appendParcelsSection(builder, "Полученные", overview.getDelivered());
         appendParcelsSection(builder, "Ждут забора", overview.getWaitingForPickup());
         appendParcelsSection(builder, "В пути", overview.getInTransit());
