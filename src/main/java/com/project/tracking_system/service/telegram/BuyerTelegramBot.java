@@ -42,6 +42,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * Telegram-бот для покупателей.
@@ -52,6 +53,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
     private static final String BUTTON_STATS = "📊 Статистика";
     private static final String BUTTON_PARCELS = "📦 Мои посылки";
+    private static final String BUTTON_PARCELS_DELIVERED = "📬 Полученные";
+    private static final String BUTTON_PARCELS_AWAITING = "🏬 Ждут забора";
+    private static final String BUTTON_PARCELS_TRANSIT = "🚚 В пути";
     private static final String BUTTON_SETTINGS = "⚙️ Настройки";
     private static final String BUTTON_HELP = "❓ Помощь";
     private static final String BUTTON_MENU = "🏠 Меню";
@@ -62,6 +66,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String CALLBACK_MENU_SHOW_PARCELS = "menu:parcels";
     private static final String CALLBACK_MENU_SHOW_SETTINGS = "menu:settings";
     private static final String CALLBACK_MENU_SHOW_HELP = "menu:help";
+    private static final String CALLBACK_PARCELS_DELIVERED = "parcels:delivered";
+    private static final String CALLBACK_PARCELS_AWAITING = "parcels:awaiting";
+    private static final String CALLBACK_PARCELS_TRANSIT = "parcels:transit";
     private static final String CALLBACK_SETTINGS_TOGGLE_NOTIFICATIONS = "settings:toggle_notifications";
     private static final String CALLBACK_SETTINGS_CONFIRM_NAME = "settings:confirm_name";
     private static final String CALLBACK_SETTINGS_EDIT_NAME = "settings:edit_name";
@@ -367,6 +374,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             case CALLBACK_MENU_SHOW_PARCELS -> handleMenuOpenParcels(chatId, callbackQuery);
             case CALLBACK_MENU_SHOW_SETTINGS -> handleMenuOpenSettings(chatId, callbackQuery);
             case CALLBACK_MENU_SHOW_HELP -> handleMenuOpenHelp(chatId, callbackQuery);
+            case CALLBACK_PARCELS_DELIVERED -> handleParcelsDeliveredCallback(chatId, callbackQuery);
+            case CALLBACK_PARCELS_AWAITING -> handleParcelsAwaitingCallback(chatId, callbackQuery);
+            case CALLBACK_PARCELS_TRANSIT -> handleParcelsTransitCallback(chatId, callbackQuery);
             case CALLBACK_ANNOUNCEMENT_ACK -> handleAnnouncementAcknowledgement(chatId, callbackQuery);
             case CALLBACK_SETTINGS_TOGGLE_NOTIFICATIONS ->
                     handleSettingsToggleNotifications(chatId, callbackQuery);
@@ -599,6 +609,107 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
         answerCallbackQuery(callbackQuery, "Мои посылки");
         sendParcelsScreen(chatId);
+    }
+
+    /**
+     * Показывает детальный список полученных посылок по нажатию соответствующей кнопки.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     */
+    private void handleParcelsDeliveredCallback(Long chatId, CallbackQuery callbackQuery) {
+        handleParcelsCategoryCallback(chatId,
+                callbackQuery,
+                "Полученные",
+                "📬 Полученные посылки",
+                TelegramParcelsOverviewDTO::getDelivered);
+    }
+
+    /**
+     * Показывает детальный список посылок, ожидающих покупателя, при выборе категории.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     */
+    private void handleParcelsAwaitingCallback(Long chatId, CallbackQuery callbackQuery) {
+        handleParcelsCategoryCallback(chatId,
+                callbackQuery,
+                "Ждут забора",
+                "🏬 Посылки, ожидающие забора",
+                TelegramParcelsOverviewDTO::getWaitingForPickup);
+    }
+
+    /**
+     * Показывает детальный список посылок в пути при выборе соответствующей категории.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     */
+    private void handleParcelsTransitCallback(Long chatId, CallbackQuery callbackQuery) {
+        handleParcelsCategoryCallback(chatId,
+                callbackQuery,
+                "В пути",
+                "🚚 Посылки в пути",
+                TelegramParcelsOverviewDTO::getInTransit);
+    }
+
+    /**
+     * Унифицированный обработчик для отображения списков посылок выбранной категории.
+     *
+     * @param chatId         идентификатор чата Telegram
+     * @param callbackQuery  исходный callback-запрос
+     * @param acknowledgement текст подтверждения для всплывающего уведомления
+     * @param title           заголовок сообщения со списком
+     * @param extractor       функция получения нужной категории из сводки
+     */
+    private void handleParcelsCategoryCallback(Long chatId,
+                                               CallbackQuery callbackQuery,
+                                               String acknowledgement,
+                                               String title,
+                                               Function<TelegramParcelsOverviewDTO, List<TelegramParcelInfoDTO>> extractor) {
+        if (chatId == null) {
+            answerCallbackQuery(callbackQuery, "Команда недоступна");
+            return;
+        }
+
+        answerCallbackQuery(callbackQuery, acknowledgement);
+
+        Optional<TelegramParcelsOverviewDTO> overviewOptional = telegramService.getParcelsOverview(chatId);
+
+        InlineKeyboardMarkup markup = overviewOptional
+                .filter(overview -> hasParcels(overview.getDelivered())
+                        || hasParcels(overview.getWaitingForPickup())
+                        || hasParcels(overview.getInTransit()))
+                .map(this::buildParcelsOverviewKeyboard)
+                .orElseGet(this::createBackInlineKeyboard);
+
+        List<TelegramParcelInfoDTO> parcels = overviewOptional
+                .map(extractor)
+                .orElse(List.of());
+
+        String text = buildParcelsCategoryText(title, parcels);
+        sendInlineMessage(chatId, text, markup, BuyerBotScreen.PARCELS);
+    }
+
+    /**
+     * Формирует текст сообщения для выбранной категории посылок.
+     *
+     * @param title   заголовок раздела
+     * @param parcels список посылок выбранной категории
+     * @return готовый текст для отображения в чате
+     */
+    private String buildParcelsCategoryText(String title, List<TelegramParcelInfoDTO> parcels) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(title).append('\n').append('\n');
+        if (parcels == null || parcels.isEmpty()) {
+            builder.append("• нет посылок");
+            return builder.toString();
+        }
+
+        for (TelegramParcelInfoDTO parcel : parcels) {
+            builder.append("• ").append(formatParcelLine(parcel)).append('\n');
+        }
+        return builder.toString().trim();
     }
 
     /**
@@ -851,12 +962,33 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         InlineKeyboardMarkup backMarkup = createBackInlineKeyboard();
         telegramService.getParcelsOverview(chatId)
                 .ifPresentOrElse(overview -> {
-                    String text = buildParcelsScreenText(overview);
-                    sendInlineMessage(chatId, text, backMarkup, BuyerBotScreen.PARCELS);
+                    boolean hasDelivered = hasParcels(overview.getDelivered());
+                    boolean hasAwaiting = hasParcels(overview.getWaitingForPickup());
+                    boolean hasTransit = hasParcels(overview.getInTransit());
+                    boolean hasAny = hasDelivered || hasAwaiting || hasTransit;
+
+                    InlineKeyboardMarkup markup = hasAny
+                            ? buildParcelsOverviewKeyboard(overview)
+                            : backMarkup;
+                    String text = hasAny
+                            ? buildParcelsScreenText(overview)
+                            : buildEmptyParcelsText();
+
+                    sendInlineMessage(chatId, text, markup, BuyerBotScreen.PARCELS);
                 }, () -> sendInlineMessage(chatId,
                         "📱 Привяжите номер телефона командой /start, чтобы видеть посылки в этом разделе.",
                         backMarkup,
                         BuyerBotScreen.PARCELS));
+    }
+
+    /**
+     * Формирует пояснение для случая, когда у покупателя нет посылок ни в одной категории.
+     *
+     * @return текст, уведомляющий об отсутствии посылок
+     */
+    private String buildEmptyParcelsText() {
+        return "📦 Мои посылки\n\n" +
+                "Сейчас в системе нет активных отправлений. Как только появятся новые «📬 Полученные», «🏬 Ждут забора» или «🚚 В пути» посылки, они будут отображены здесь.";
     }
 
     /**
@@ -872,6 +1004,54 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         appendParcelsSection(builder, "Ждут забора", overview.getWaitingForPickup());
         appendParcelsSection(builder, "В пути", overview.getInTransit());
         return builder.toString();
+    }
+
+    /**
+     * Создаёт инлайн-клавиатуру со списком доступных категорий посылок и кнопкой возврата.
+     *
+     * @param overview сводка посылок по категориям
+     * @return клавиатура с кнопками категорий
+     */
+    private InlineKeyboardMarkup buildParcelsOverviewKeyboard(TelegramParcelsOverviewDTO overview) {
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        if (hasParcels(overview.getDelivered())) {
+            rows.add(new InlineKeyboardRow(buildParcelsCategoryButton(BUTTON_PARCELS_DELIVERED, CALLBACK_PARCELS_DELIVERED)));
+        }
+        if (hasParcels(overview.getWaitingForPickup())) {
+            rows.add(new InlineKeyboardRow(buildParcelsCategoryButton(BUTTON_PARCELS_AWAITING, CALLBACK_PARCELS_AWAITING)));
+        }
+        if (hasParcels(overview.getInTransit())) {
+            rows.add(new InlineKeyboardRow(buildParcelsCategoryButton(BUTTON_PARCELS_TRANSIT, CALLBACK_PARCELS_TRANSIT)));
+        }
+        rows.add(new InlineKeyboardRow(buildBackButton()));
+
+        return InlineKeyboardMarkup.builder()
+                .keyboard(rows)
+                .build();
+    }
+
+    /**
+     * Проверяет, содержит ли категория посылок хотя бы один элемент.
+     *
+     * @param parcels список посылок категории
+     * @return {@code true}, если список не пустой
+     */
+    private boolean hasParcels(List<TelegramParcelInfoDTO> parcels) {
+        return parcels != null && !parcels.isEmpty();
+    }
+
+    /**
+     * Создаёт кнопку выбора категории посылок.
+     *
+     * @param text         текст кнопки
+     * @param callbackData callback-идентификатор категории
+     * @return инлайн-кнопка для клавиатуры
+     */
+    private InlineKeyboardButton buildParcelsCategoryButton(String text, String callbackData) {
+        return InlineKeyboardButton.builder()
+                .text(text)
+                .callbackData(callbackData)
+                .build();
     }
 
     /**
