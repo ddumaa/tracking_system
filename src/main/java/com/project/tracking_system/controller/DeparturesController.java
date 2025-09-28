@@ -335,7 +335,7 @@ public class DeparturesController {
                                                      Long userId,
                                                      String sortOrder) {
         if (query != null && !query.isBlank()) {
-            return trackParcelService.searchByNumberOrPhone(storeIds, status, query, pageIndex, size, userId, sortOrder);
+            return trackParcelService.searchByNumberPhoneOrName(storeIds, status, query, pageIndex, size, userId, sortOrder);
         }
 
         if (status != null) {
