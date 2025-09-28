@@ -1049,7 +1049,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @return текст кнопки вида «базовое название (количество) (*)»
      */
     private String buildParcelsCategoryLabel(String baseLabel, int count) {
-        return String.format("%s (%d) (*)", baseLabel, count);
+        return String.format("%s (%d)", baseLabel, count);
     }
 
     /**
