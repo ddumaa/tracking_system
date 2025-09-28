@@ -214,7 +214,7 @@ class BuyerTelegramBotTest {
         verify(telegramClient, atLeastOnce()).execute(editCaptor.capture());
         EditMessageText bannerEdit = editCaptor.getAllValues().get(editCaptor.getAllValues().size() - 1);
 
-        assertEquals(ParseMode.MARKDOWN, bannerEdit.getParseMode(),
+        assertEquals(ParseMode.MARKDOWNV2, bannerEdit.getParseMode(),
                 "Баннер объявления должен отправляться с включённым Markdown для корректной разметки");
         assertTrue(bannerEdit.getText().contains(notification.getTitle()),
                 "Текст баннера должен содержать заголовок объявления");
@@ -352,13 +352,13 @@ class BuyerTelegramBotTest {
         verify(telegramClient, atLeastOnce()).execute(captor.capture());
         String text = captor.getValue().getText();
 
-        assertEquals(ParseMode.MARKDOWN, captor.getValue().getParseMode(),
+        assertEquals(ParseMode.MARKDOWNV2, captor.getValue().getParseMode(),
                 "Список посылок должен отправляться в Markdown, чтобы заголовки магазинов были жирными");
         assertTrue(text.startsWith("📬 Полученные посылки"),
                 "Сообщение должно начинаться с заголовка выбранной категории");
-        assertTrue(text.contains("**Store Alpha**\n• TRACK-1\n• TRACK-3"),
+        assertTrue(text.contains("**Store Alpha**\n• TRACK\\-1\n• TRACK\\-3"),
                 "Посылки одного магазина должны выводиться под общим заголовком и включать только треки");
-        assertTrue(text.contains("**Store Beta**\n• TRACK-2"),
+        assertTrue(text.contains("**Store Beta**\n• TRACK\\-2"),
                 "Для каждого магазина ожидается собственный блок с трек-номерами");
     }
 
@@ -389,7 +389,7 @@ class BuyerTelegramBotTest {
         verify(telegramClient, atLeastOnce()).execute(captor.capture());
         SendMessage message = captor.getValue();
 
-        assertEquals(ParseMode.MARKDOWN, message.getParseMode(),
+        assertEquals(ParseMode.MARKDOWNV2, message.getParseMode(),
                 "Ответ по посылкам должен использовать Markdown для форматирования");
         String text = message.getText();
         assertTrue(text.contains("**Store\\_\\[Beta\\]\\(Promo\\)**"),
@@ -430,9 +430,9 @@ class BuyerTelegramBotTest {
         verify(telegramClient, atLeastOnce()).execute(captor.capture());
         String text = captor.getValue().getText();
 
-        assertTrue(text.contains("TRACK-ALERT — ⚠️ скоро уедет в магазин"),
+        assertTrue(text.contains("TRACK\\-ALERT — ⚠️ скоро уедет в магазин"),
                 "Посылка с проблемным статусом должна сопровождаться предупреждением");
-        assertTrue(text.contains("• TRACK-OK"),
+        assertTrue(text.contains("• TRACK\\-OK"),
                 "Обычные посылки должны оставаться без дополнительных подпесей");
     }
 

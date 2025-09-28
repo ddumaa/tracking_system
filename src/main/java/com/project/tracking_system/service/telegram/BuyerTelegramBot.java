@@ -84,7 +84,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
     private static final String NO_PARCELS_PLACEHOLDER = "• нет посылок";
 
-    private static final String TELEGRAM_PARSE_MODE = ParseMode.MARKDOWN;
+    private static final String TELEGRAM_PARSE_MODE = ParseMode.MARKDOWNV2;
 
     /**
      * Разделы списка посылок, где отображаются предупреждения и вспомогательные подписи.
@@ -906,7 +906,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             log.info("🔕 Команда {} получена от {}", text, chatId);
             boolean disabled = telegramService.disableNotifications(chatId);
             if (disabled) {
-                SendMessage confirm = new SendMessage(chatId.toString(),
+                SendMessage confirm = createPlainMessage(chatId,
                         "🔕 Уведомления отключены. Чтобы возобновить их, снова отправьте /start.");
                 try {
                     telegramClient.execute(confirm);
@@ -2305,7 +2305,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        SendMessage message = new SendMessage(chatId.toString(),
+        SendMessage message = createPlainMessage(chatId,
                 "Клавиша быстрого доступа доступна на панели ниже: «🏠 Меню».");
         message.setReplyMarkup(createPersistentMenuKeyboard());
         message.setDisableNotification(true);
@@ -2483,12 +2483,29 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param text   текст сообщения
      */
     private void sendSimpleMessage(Long chatId, String text) {
-        SendMessage msg = new SendMessage(chatId.toString(), text);
+        if (chatId == null) {
+            return;
+        }
+        SendMessage msg = createPlainMessage(chatId, text);
         try {
             telegramClient.execute(msg);
         } catch (TelegramApiException e) {
             log.error("❌ Ошибка отправки сообщения", e);
         }
+    }
+
+    /**
+     * Создаёт объект {@link SendMessage} с установленным режимом MarkdownV2 и экранированным текстом.
+     *
+     * @param chatId идентификатор чата Telegram
+     * @param text   исходный текст, который требуется отправить как обычное сообщение
+     * @return подготовленный объект {@link SendMessage}
+     */
+    private SendMessage createPlainMessage(Long chatId, String text) {
+        String safeText = escapeMarkdown(text);
+        SendMessage message = new SendMessage(chatId.toString(), safeText);
+        message.setParseMode(TELEGRAM_PARSE_MODE);
+        return message;
     }
 
     /**
@@ -2550,7 +2567,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         chatSessionRepository.markKeyboardHidden(chatId);
         chatSessionRepository.markContactRequestSent(chatId);
-        SendMessage message = new SendMessage(chatId.toString(), text);
+        SendMessage message = createPlainMessage(chatId, text);
         message.setReplyMarkup(createPhoneRequestKeyboard());
 
         try {
@@ -2652,13 +2669,27 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return value;
         }
         StringBuilder escaped = new StringBuilder(value.length());
-        for (char ch : value.toCharArray()) {
-            if (ch == '\\' || ch == '_' || ch == '*' || ch == '[' || ch == ']' || ch == '(' || ch == ')' || ch == '`') {
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (isMarkdownV2SpecialCharacter(ch)) {
                 escaped.append('\\');
             }
             escaped.append(ch);
         }
         return escaped.toString();
+    }
+
+    /**
+     * Проверяет, относится ли символ к специальным для MarkdownV2 и требует ли он экранирования.
+     *
+     * @param ch проверяемый символ
+     * @return {@code true}, если символ следует экранировать
+     */
+    private boolean isMarkdownV2SpecialCharacter(char ch) {
+        return switch (ch) {
+            case '_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!', '\\' -> true;
+            default -> false;
+        };
     }
 
     /**
@@ -2812,7 +2843,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 ? "⌨️ Клавиатура скрыта. Меню появится в следующем сообщении."
                 : text;
 
-        SendMessage removalMessage = new SendMessage(chatId.toString(), safeText);
+        SendMessage removalMessage = createPlainMessage(chatId, safeText);
         ReplyKeyboardRemove removeMarkup = ReplyKeyboardRemove.builder()
                 .removeKeyboard(true)
                 .selective(false)
