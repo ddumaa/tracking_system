@@ -983,7 +983,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      */
     private String buildEmptyParcelsText() {
         return "📦 Мои посылки\n\n" +
-                "Выберите категорию:\n" +
                 "Пока нет активных посылок";
     }
 
