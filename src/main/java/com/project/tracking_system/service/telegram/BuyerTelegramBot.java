@@ -1008,21 +1008,48 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @return клавиатура с кнопками категорий
      */
     private InlineKeyboardMarkup buildParcelsOverviewKeyboard(TelegramParcelsOverviewDTO overview) {
+        int deliveredCount = Optional.ofNullable(overview.getDelivered())
+                .map(List::size)
+                .orElse(0);
+        int awaitingCount = Optional.ofNullable(overview.getWaitingForPickup())
+                .map(List::size)
+                .orElse(0);
+        int transitCount = Optional.ofNullable(overview.getInTransit())
+                .map(List::size)
+                .orElse(0);
+
         List<InlineKeyboardRow> rows = new ArrayList<>();
         if (hasParcels(overview.getDelivered())) {
-            rows.add(new InlineKeyboardRow(buildParcelsCategoryButton(BUTTON_PARCELS_DELIVERED, CALLBACK_PARCELS_DELIVERED)));
+            rows.add(new InlineKeyboardRow(buildParcelsCategoryButton(
+                    buildParcelsCategoryLabel(BUTTON_PARCELS_DELIVERED, deliveredCount),
+                    CALLBACK_PARCELS_DELIVERED)));
         }
         if (hasParcels(overview.getWaitingForPickup())) {
-            rows.add(new InlineKeyboardRow(buildParcelsCategoryButton(BUTTON_PARCELS_AWAITING, CALLBACK_PARCELS_AWAITING)));
+            rows.add(new InlineKeyboardRow(buildParcelsCategoryButton(
+                    buildParcelsCategoryLabel(BUTTON_PARCELS_AWAITING, awaitingCount),
+                    CALLBACK_PARCELS_AWAITING)));
         }
         if (hasParcels(overview.getInTransit())) {
-            rows.add(new InlineKeyboardRow(buildParcelsCategoryButton(BUTTON_PARCELS_TRANSIT, CALLBACK_PARCELS_TRANSIT)));
+            rows.add(new InlineKeyboardRow(buildParcelsCategoryButton(
+                    buildParcelsCategoryLabel(BUTTON_PARCELS_TRANSIT, transitCount),
+                    CALLBACK_PARCELS_TRANSIT)));
         }
         rows.add(new InlineKeyboardRow(buildBackButton()));
 
         return InlineKeyboardMarkup.builder()
                 .keyboard(rows)
                 .build();
+    }
+
+    /**
+     * Формирует подпись для кнопки категории посылок с отображением количества активных отправлений.
+     *
+     * @param baseLabel базовое название категории
+     * @param count     количество посылок в категории
+     * @return текст кнопки вида «базовое название (количество) (*)»
+     */
+    private String buildParcelsCategoryLabel(String baseLabel, int count) {
+        return String.format("%s (%d) (*)", baseLabel, count);
     }
 
     /**
