@@ -8,6 +8,7 @@ import com.project.tracking_system.entity.AdminNotification;
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
@@ -38,11 +39,16 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.Map;
 
 /**
  * Telegram-бот для покупателей.
@@ -76,6 +82,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String CALLBACK_NAME_EDIT = "name:edit";
     private static final String CALLBACK_ANNOUNCEMENT_ACK = "announcement:ack";
     private static final String CALLBACK_NAVIGATE_BACK = "nav:back";
+
+    private static final DateTimeFormatter PARCEL_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
+            .withLocale(new Locale("ru"));
+    private static final String NO_PARCELS_PLACEHOLDER = "• нет посылок";
+    private static final String UNKNOWN_DATE_PLACEHOLDER = "дата неизвестна";
 
     private static final String NAME_CONFIRMATION_MISSING_MESSAGE =
             "⚠️ Пока в системе нет ФИО для подтверждения. Пожалуйста, укажите его полностью.";
@@ -700,14 +711,35 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         StringBuilder builder = new StringBuilder();
         builder.append(title).append('\n').append('\n');
         if (parcels == null || parcels.isEmpty()) {
-            builder.append("• нет посылок");
+            builder.append(NO_PARCELS_PLACEHOLDER);
             return builder.toString();
         }
 
-        for (TelegramParcelInfoDTO parcel : parcels) {
-            builder.append("• ").append(formatParcelLine(parcel)).append('\n');
-        }
+        Map<String, List<TelegramParcelInfoDTO>> parcelsByStore = groupParcelsByStore(parcels);
+        parcelsByStore.forEach((storeName, storeParcels) -> {
+            builder.append("**").append(storeName).append(":**").append('\n');
+            for (TelegramParcelInfoDTO parcel : storeParcels) {
+                builder.append("• ").append(formatParcelLine(parcel)).append('\n');
+            }
+            builder.append('\n');
+        });
+
         return builder.toString().trim();
+    }
+
+    /**
+     * Группирует посылки по магазинам, сохраняя порядок добавления для читабельности.
+     *
+     * @param parcels список посылок выбранной категории
+     * @return отображение «магазин → посылки», упорядоченное по входному списку
+     */
+    private Map<String, List<TelegramParcelInfoDTO>> groupParcelsByStore(List<TelegramParcelInfoDTO> parcels) {
+        Map<String, List<TelegramParcelInfoDTO>> grouped = new LinkedHashMap<>();
+        for (TelegramParcelInfoDTO parcel : parcels) {
+            String storeName = resolveStoreName(parcel);
+            grouped.computeIfAbsent(storeName, key -> new ArrayList<>()).add(parcel);
+        }
+        return grouped;
     }
 
     /**
@@ -1104,25 +1136,78 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
+     * Возвращает нормализованное название магазина для группировки и отображения.
+     *
+     * @param parcel DTO с информацией о посылке
+     * @return название магазина или читаемая заглушка
+     */
+    private String resolveStoreName(TelegramParcelInfoDTO parcel) {
+        if (parcel == null) {
+            return "Магазин не указан";
+        }
+        String store = parcel.getStoreName();
+        if (store == null || store.isBlank()) {
+            return "Магазин не указан";
+        }
+        return store;
+    }
+
+    /**
      * Формирует строку с краткой информацией о посылке.
      *
      * @param parcel DTO с информацией о посылке
-     * @return строка вида «Номер — Магазин»
+     * @return строка вида «Номер Статус Дата»
      */
     private String formatParcelLine(TelegramParcelInfoDTO parcel) {
         if (parcel == null) {
             return "—";
         }
 
-        String track = parcel.getTrackNumber();
-        if (track == null || track.isBlank()) {
-            track = "Без номера";
+        String track = formatTrackNumber(parcel.getTrackNumber());
+        String status = formatStatusDescription(parcel.getStatus());
+        String date = formatParcelDate(parcel.getLastUpdate());
+        return track + " " + status + " " + date;
+    }
+
+    /**
+     * Подготавливает трек-номер к отображению, заменяя пустые значения заглушкой.
+     *
+     * @param trackNumber исходный трек-номер
+     * @return трек-номер или «Без номера» при отсутствии данных
+     */
+    private String formatTrackNumber(String trackNumber) {
+        if (trackNumber == null || trackNumber.isBlank()) {
+            return "Без номера";
         }
-        String store = parcel.getStoreName();
-        if (store == null || store.isBlank()) {
-            store = "Магазин не указан";
+        return trackNumber;
+    }
+
+    /**
+     * Возвращает локализованное описание статуса посылки.
+     *
+     * @param status глобальный статус посылки
+     * @return описание статуса на русском языке
+     */
+    private String formatStatusDescription(GlobalStatus status) {
+        GlobalStatus effectiveStatus = status != null ? status : GlobalStatus.UNKNOWN_STATUS;
+        String description = effectiveStatus.getDescription();
+        if (description == null || description.isBlank()) {
+            return "Неизвестный статус";
         }
-        return track + " — " + store;
+        return description;
+    }
+
+    /**
+     * Форматирует дату последнего обновления статуса для отображения пользователю.
+     *
+     * @param lastUpdate момент последнего обновления или {@code null}
+     * @return дата в формате «dd.MM.yyyy HH:mm» либо заглушка при отсутствии данных
+     */
+    private String formatParcelDate(ZonedDateTime lastUpdate) {
+        if (lastUpdate == null) {
+            return UNKNOWN_DATE_PLACEHOLDER;
+        }
+        return lastUpdate.withZoneSameInstant(ZoneOffset.UTC).format(PARCEL_DATE_FORMATTER);
     }
 
     /**
