@@ -1,7 +1,11 @@
 package com.project.tracking_system.service.customer;
 
+import com.project.tracking_system.dto.TelegramParcelsOverviewDTO;
 import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.NameSource;
+import com.project.tracking_system.entity.Store;
+import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
@@ -16,14 +20,18 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
- * Тесты для {@link CustomerTelegramService}, проверяющие подтверждение имени.
+ * Тесты для {@link CustomerTelegramService}, проверяющие подтверждение имени и формирование сводки статусов.
  */
 @ExtendWith(MockitoExtension.class)
 class CustomerTelegramServiceTest {
@@ -105,5 +113,80 @@ class CustomerTelegramServiceTest {
 
         verify(customerRepository).save(customer);
         verify(customerService, never()).updateCustomerName(any(), anyString(), any());
+    }
+
+    /**
+     * Проверяем, что сводка корректно распределяет статусы по разделам Telegram.
+     */
+    @Test
+    void getParcelsOverview_groupsStatusesAccordingToRules() {
+        Long chatId = 100L;
+        Long customerId = 555L;
+
+        Customer customer = new Customer();
+        customer.setId(customerId);
+        customer.setTelegramChatId(chatId);
+
+        when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
+
+        TrackParcel deliveredParcel = parcelWithStatus("DEL-1", GlobalStatus.DELIVERED, ZonedDateTime.now(ZoneOffset.UTC));
+        TrackParcel waitingParcel = parcelWithStatus("WAIT-1", GlobalStatus.WAITING_FOR_CUSTOMER,
+                ZonedDateTime.now(ZoneOffset.UTC).minusHours(2));
+        TrackParcel returnPendingParcel = parcelWithStatus("RET-PEND", GlobalStatus.RETURN_PENDING_PICKUP,
+                ZonedDateTime.now(ZoneOffset.UTC).minusHours(1));
+        TrackParcel preRegisteredParcel = parcelWithStatus("PRE-1", GlobalStatus.PRE_REGISTERED,
+                ZonedDateTime.now(ZoneOffset.UTC).minusDays(1));
+        TrackParcel notPickingParcel = parcelWithStatus("NOT-PICK", GlobalStatus.CUSTOMER_NOT_PICKING_UP,
+                ZonedDateTime.now(ZoneOffset.UTC).minusHours(3));
+
+        List<GlobalStatus> deliveredStatuses = List.of(GlobalStatus.DELIVERED);
+        List<GlobalStatus> waitingStatuses = List.of(GlobalStatus.WAITING_FOR_CUSTOMER, GlobalStatus.RETURN_PENDING_PICKUP);
+        List<GlobalStatus> inTransitStatuses = List.of(
+                GlobalStatus.PRE_REGISTERED,
+                GlobalStatus.REGISTERED,
+                GlobalStatus.IN_TRANSIT,
+                GlobalStatus.WAITING_FOR_CUSTOMER,
+                GlobalStatus.CUSTOMER_NOT_PICKING_UP
+        );
+
+        when(trackParcelRepository.findByCustomerIdAndStatusIn(eq(customerId), anyList()))
+                .thenAnswer(invocation -> {
+                    List<GlobalStatus> statuses = invocation.getArgument(1);
+                    if (statuses.equals(deliveredStatuses)) {
+                        return List.of(deliveredParcel);
+                    }
+                    if (statuses.equals(waitingStatuses)) {
+                        return List.of(waitingParcel, returnPendingParcel);
+                    }
+                    if (statuses.equals(inTransitStatuses)) {
+                        return List.of(preRegisteredParcel, notPickingParcel);
+                    }
+                    fail("Неожиданный набор статусов: " + statuses);
+                    return List.of();
+                });
+
+        Optional<TelegramParcelsOverviewDTO> result = customerTelegramService.getParcelsOverview(chatId);
+
+        assertTrue(result.isPresent(), "Сводка должна формироваться для известного чата");
+
+        TelegramParcelsOverviewDTO overview = result.get();
+        assertEquals(1, overview.getDelivered().size(), "Раздел доставленных должен содержать одну посылку");
+        assertEquals(2, overview.getWaitingForPickup().size(), "Раздел ожидания должен включать оба статуса ожидания");
+        assertEquals(2, overview.getInTransit().size(), "Раздел в пути обязан включать только разрешённые статусы");
+
+        verify(trackParcelRepository).findByCustomerIdAndStatusIn(customerId, deliveredStatuses);
+        verify(trackParcelRepository).findByCustomerIdAndStatusIn(customerId, waitingStatuses);
+        verify(trackParcelRepository).findByCustomerIdAndStatusIn(customerId, inTransitStatuses);
+    }
+
+    private TrackParcel parcelWithStatus(String number, GlobalStatus status, ZonedDateTime lastUpdate) {
+        TrackParcel parcel = new TrackParcel();
+        parcel.setNumber(number);
+        parcel.setStatus(status);
+        parcel.setLastUpdate(lastUpdate);
+        Store store = new Store();
+        store.setName("Store for " + status.name());
+        parcel.setStore(store);
+        return parcel;
     }
 }

@@ -41,6 +41,23 @@ public class CustomerTelegramService {
     private final FullNameValidator fullNameValidator;
 
     /**
+     * Предопределённые наборы статусов для формирования сводки Telegram.
+     * Используются для получения выборок по разделам «Получено», «Ожидает забора» и «В пути».
+     */
+    private static final List<GlobalStatus> DELIVERED_STATUSES = List.of(GlobalStatus.DELIVERED);
+    private static final List<GlobalStatus> WAITING_STATUSES = List.of(
+            GlobalStatus.WAITING_FOR_CUSTOMER,
+            GlobalStatus.RETURN_PENDING_PICKUP
+    );
+    private static final List<GlobalStatus> IN_TRANSIT_STATUSES = List.of(
+            GlobalStatus.PRE_REGISTERED,
+            GlobalStatus.REGISTERED,
+            GlobalStatus.IN_TRANSIT,
+            GlobalStatus.WAITING_FOR_CUSTOMER,
+            GlobalStatus.CUSTOMER_NOT_PICKING_UP
+    );
+
+    /**
      * Привязать чат Telegram к покупателю по номеру телефона.
      * <p>
      * Номер телефона нормализуется до формата 375XXXXXXXXX. Если покупатель с
@@ -320,23 +337,28 @@ public class CustomerTelegramService {
         return customerRepository.findByTelegramChatId(chatId)
                 .map(customer -> {
                     Long customerId = customer.getId();
-                    List<TelegramParcelInfoDTO> delivered = mapParcelsForTelegram(
-                            trackParcelRepository.findByCustomerIdAndStatusIn(
-                                    customerId,
-                                    List.of(GlobalStatus.DELIVERED)
-                            ));
-                    List<TelegramParcelInfoDTO> waiting = mapParcelsForTelegram(
-                            trackParcelRepository.findByCustomerIdAndStatusIn(
-                                    customerId,
-                                    List.of(GlobalStatus.WAITING_FOR_CUSTOMER)
-                            ));
-                    List<TelegramParcelInfoDTO> inTransit = mapParcelsForTelegram(
-                            trackParcelRepository.findByCustomerIdAndStatusIn(
-                                    customerId,
-                                    List.of(GlobalStatus.IN_TRANSIT, GlobalStatus.REGISTERED)
-                            ));
+                    List<TelegramParcelInfoDTO> delivered = loadParcelsForStatuses(customerId, DELIVERED_STATUSES);
+                    List<TelegramParcelInfoDTO> waiting = loadParcelsForStatuses(customerId, WAITING_STATUSES);
+                    List<TelegramParcelInfoDTO> inTransit = loadParcelsForStatuses(customerId, IN_TRANSIT_STATUSES);
                     return new TelegramParcelsOverviewDTO(delivered, waiting, inTransit);
                 });
+    }
+
+    /**
+     * Загружает посылки покупателя по указанным статусам и подготавливает их для Telegram.
+     * <p>
+     * Метод инкапсулирует запрос в репозиторий, обеспечивая единый способ построения
+     * выборки и преобразования в DTO. Это упрощает поддержку и расширение набора
+     * категорий, не нарушая принцип единственной ответственности.
+     * </p>
+     *
+     * @param customerId идентификатор покупателя
+     * @param statuses   целевые статусы посылок
+     * @return отсортированный список DTO для отображения в боте
+     */
+    private List<TelegramParcelInfoDTO> loadParcelsForStatuses(Long customerId, List<GlobalStatus> statuses) {
+        List<TrackParcel> parcels = trackParcelRepository.findByCustomerIdAndStatusIn(customerId, statuses);
+        return mapParcelsForTelegram(parcels);
     }
 
     /**
