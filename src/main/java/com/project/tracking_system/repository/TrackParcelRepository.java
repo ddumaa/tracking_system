@@ -212,11 +212,12 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
                                    @Param("status") GlobalStatus status);
 
     /**
-     * Поиск посылок по номеру или телефону покупателя.
+     * Поиск посылок по номеру, телефону или ФИО покупателя.
      * <p>
-     * Выполняется частичное совпадение номера трека и номера телефона
-     * (последний хранится без форматирования). Посылки без трек-номера
-     * исключаются из поиска по номеру.
+     * Выполняется частичное совпадение номера трека, номера телефона
+     * (последний хранится без форматирования) и ФИО. Поиск по ФИО использует
+     * до трёх токенов, каждый из которых должен встречаться в полном имени.
+     * Посылки без трек-номера исключаются из поиска по номеру.
      * </p>
      *
      * @param storeIds    магазины владельца
@@ -224,6 +225,9 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
      * @param status      фильтр статуса (может быть {@code null})
      * @param query       фрагмент трек-номера
      * @param phoneDigits цифры телефона без форматирования
+     * @param nameToken1  первый токен ФИО
+     * @param nameToken2  второй токен ФИО
+     * @param nameToken3  третий токен ФИО
      * @param pageable    настройки пагинации
      * @return страница посылок, удовлетворяющих условиям
      */
@@ -236,13 +240,23 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
               AND (
                     (t.number IS NOT NULL AND LOWER(t.number) LIKE LOWER(CONCAT('%', :query, '%')))
                     OR (:phoneDigits <> '' AND c.phone LIKE CONCAT('%', :phoneDigits, '%'))
+                    OR (
+                        :nameToken1 <> ''
+                        AND c.fullName IS NOT NULL
+                        AND LOWER(c.fullName) LIKE CONCAT('%', :nameToken1, '%')
+                        AND (:nameToken2 = '' OR LOWER(c.fullName) LIKE CONCAT('%', :nameToken2, '%'))
+                        AND (:nameToken3 = '' OR LOWER(c.fullName) LIKE CONCAT('%', :nameToken3, '%'))
+                    )
               )
             """)
-    Page<TrackParcel> searchByNumberOrPhone(@Param("storeIds") List<Long> storeIds,
-                                            @Param("userId") Long userId,
-                                            @Param("status") GlobalStatus status,
-                                            @Param("query") String query,
-                                            @Param("phoneDigits") String phoneDigits,
-                                            Pageable pageable);
+    Page<TrackParcel> searchByNumberPhoneOrName(@Param("storeIds") List<Long> storeIds,
+                                                @Param("userId") Long userId,
+                                                @Param("status") GlobalStatus status,
+                                                @Param("query") String query,
+                                                @Param("phoneDigits") String phoneDigits,
+                                                @Param("nameToken1") String nameToken1,
+                                                @Param("nameToken2") String nameToken2,
+                                                @Param("nameToken3") String nameToken3,
+                                                Pageable pageable);
 
 }
