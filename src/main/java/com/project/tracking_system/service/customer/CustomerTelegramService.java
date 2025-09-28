@@ -372,8 +372,7 @@ public class CustomerTelegramService {
      */
     private TelegramParcelInfoDTO toTelegramParcelInfo(TrackParcel parcel) {
         if (parcel == null) {
-            return new TelegramParcelInfoDTO("Без номера", "Магазин не указан",
-                    GlobalStatus.UNKNOWN_STATUS, ZonedDateTime.now(ZoneOffset.UTC));
+            return new TelegramParcelInfoDTO("Без номера", "Магазин не указан");
         }
 
         String trackNumber = parcel.getNumber();
@@ -385,14 +384,7 @@ public class CustomerTelegramService {
                 ? parcel.getStore().getName()
                 : "Магазин не указан";
 
-        GlobalStatus status = Optional.ofNullable(parcel.getStatus())
-                .orElse(GlobalStatus.UNKNOWN_STATUS);
-
-        ZonedDateTime lastUpdate = Optional.ofNullable(parcel.getLastUpdate())
-                .or(() -> Optional.ofNullable(parcel.getTimestamp()))
-                .orElse(ZonedDateTime.now(ZoneOffset.UTC));
-
-        return new TelegramParcelInfoDTO(trackNumber, storeName, status, lastUpdate);
+        return new TelegramParcelInfoDTO(trackNumber, storeName);
     }
 
 }
