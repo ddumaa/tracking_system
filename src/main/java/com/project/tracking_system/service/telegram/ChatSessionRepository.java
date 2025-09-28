@@ -4,6 +4,7 @@ import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -55,13 +56,17 @@ public interface ChatSessionRepository {
     void updateAnchor(Long chatId, Integer anchorMessageId);
 
     /**
-     * Сохраняет идентификатор сообщения и экран, которые нужно восстановить после рестарта.
+     * Сохраняет идентификатор сообщения, экран и путь навигации для последующего восстановления интерфейса.
      *
      * @param chatId          идентификатор чата Telegram
      * @param anchorMessageId идентификатор якорного сообщения
      * @param screen          экран, который должен отрисовываться
+     * @param navigationPath  последовательность экранов для формирования кнопки «Назад»
      */
-    void updateAnchorAndScreen(Long chatId, Integer anchorMessageId, BuyerBotScreen screen);
+    void updateAnchorAndScreen(Long chatId,
+                               Integer anchorMessageId,
+                               BuyerBotScreen screen,
+                               List<BuyerBotScreen> navigationPath);
 
     /**
      * Сбрасывает информацию о якорном сообщении.
