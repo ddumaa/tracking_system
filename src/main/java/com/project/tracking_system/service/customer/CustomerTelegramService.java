@@ -360,17 +360,39 @@ public class CustomerTelegramService {
                         TrackParcel::getLastUpdate,
                         Comparator.nullsLast(Comparator.naturalOrder())
                 ).reversed())
-                .map(parcel -> {
-                    String trackNumber = parcel.getNumber();
-                    if (trackNumber == null || trackNumber.isBlank()) {
-                        trackNumber = "Без номера";
-                    }
-                    String storeName = (parcel.getStore() != null && parcel.getStore().getName() != null)
-                            ? parcel.getStore().getName()
-                            : "Магазин не указан";
-                    return new TelegramParcelInfoDTO(trackNumber, storeName);
-                })
+                .map(this::toTelegramParcelInfo)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Создаёт DTO для Telegram из сущности посылки, заполняя читаемые значения по умолчанию.
+     *
+     * @param parcel исходная сущность посылки из базы данных
+     * @return DTO с безопасными для отображения полями
+     */
+    private TelegramParcelInfoDTO toTelegramParcelInfo(TrackParcel parcel) {
+        if (parcel == null) {
+            return new TelegramParcelInfoDTO("Без номера", "Магазин не указан",
+                    GlobalStatus.UNKNOWN_STATUS, ZonedDateTime.now(ZoneOffset.UTC));
+        }
+
+        String trackNumber = parcel.getNumber();
+        if (trackNumber == null || trackNumber.isBlank()) {
+            trackNumber = "Без номера";
+        }
+
+        String storeName = (parcel.getStore() != null && parcel.getStore().getName() != null)
+                ? parcel.getStore().getName()
+                : "Магазин не указан";
+
+        GlobalStatus status = Optional.ofNullable(parcel.getStatus())
+                .orElse(GlobalStatus.UNKNOWN_STATUS);
+
+        ZonedDateTime lastUpdate = Optional.ofNullable(parcel.getLastUpdate())
+                .or(() -> Optional.ofNullable(parcel.getTimestamp()))
+                .orElse(ZonedDateTime.now(ZoneOffset.UTC));
+
+        return new TelegramParcelInfoDTO(trackNumber, storeName, status, lastUpdate);
     }
 
 }
