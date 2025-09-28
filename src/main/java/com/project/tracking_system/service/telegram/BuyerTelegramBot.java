@@ -1124,28 +1124,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
-     * Добавляет в текстовую сводку раздел с перечнем посылок указанной категории.
-     *
-     * @param builder текущее состояние текста сообщения
-     * @param title   название раздела
-     * @param parcels список посылок данной категории
-     */
-    private void appendParcelsSection(StringBuilder builder,
-                                      String title,
-                                      List<TelegramParcelInfoDTO> parcels) {
-        builder.append(title).append(':').append('\n');
-        if (parcels == null || parcels.isEmpty()) {
-            builder.append("• нет посылок\n\n");
-            return;
-        }
-
-        for (TelegramParcelInfoDTO parcel : parcels) {
-            builder.append("• ").append(formatParcelLine(parcel, ParcelsSection.GENERIC)).append('\n');
-        }
-        builder.append('\n');
-    }
-
-    /**
      * Возвращает нормализованное название магазина для группировки и отображения.
      *
      * @param parcel DTO с информацией о посылке
@@ -1160,16 +1138,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return "Магазин не указан";
         }
         return store;
-    }
-
-    /**
-     * Формирует строку с трек-номером посылки для отображения пользователю.
-     *
-     * @param parcel DTO с информацией о посылке
-     * @return трек-номер или заглушка, если данные отсутствуют
-     */
-    private String formatParcelLine(TelegramParcelInfoDTO parcel) {
-        return formatParcelLine(parcel, ParcelsSection.GENERIC);
     }
 
     /**
