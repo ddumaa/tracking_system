@@ -38,6 +38,8 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
+
+import java.util.List;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
@@ -211,7 +213,10 @@ class BuyerTelegramBotStateIntegrationTest {
         customer.setNotificationsEnabled(true);
         customer.setFullName("Иван Иванов");
 
-        chatSessionRepository.updateAnchorAndScreen(chatId, anchorId, BuyerBotScreen.MENU);
+        chatSessionRepository.updateAnchorAndScreen(chatId,
+                anchorId,
+                BuyerBotScreen.MENU,
+                List.of(BuyerBotScreen.MENU));
         chatSessionRepository.updateState(chatId, BuyerChatState.IDLE);
         chatSessionRepository.markKeyboardVisible(chatId);
 
@@ -1024,7 +1029,10 @@ class BuyerTelegramBotStateIntegrationTest {
 
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
-        chatSessionRepository.updateAnchorAndScreen(chatId, previousAnchorId, BuyerBotScreen.MENU);
+        chatSessionRepository.updateAnchorAndScreen(chatId,
+                previousAnchorId,
+                BuyerBotScreen.MENU,
+                List.of(BuyerBotScreen.MENU));
         chatSessionRepository.markKeyboardVisible(chatId);
 
         AtomicInteger messageIdSequence = new AtomicInteger(500);

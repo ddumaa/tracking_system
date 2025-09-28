@@ -64,5 +64,11 @@ public class BuyerBotScreenState {
      */
     @Column(name = "contact_request_sent")
     private Boolean contactRequestSent;
+
+    /**
+     * Последовательность экранов, составляющая путь навигации пользователя.
+     */
+    @Column(name = "navigation_path")
+    private String navigationPath;
 }
 

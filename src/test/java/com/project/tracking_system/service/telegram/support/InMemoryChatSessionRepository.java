@@ -6,6 +6,7 @@ import com.project.tracking_system.service.telegram.ChatSession;
 import com.project.tracking_system.service.telegram.ChatSessionRepository;
 
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -65,7 +66,10 @@ public class InMemoryChatSessionRepository implements ChatSessionRepository {
     }
 
     @Override
-    public void updateAnchorAndScreen(Long chatId, Integer anchorMessageId, BuyerBotScreen screen) {
+    public void updateAnchorAndScreen(Long chatId,
+                                      Integer anchorMessageId,
+                                      BuyerBotScreen screen,
+                                      List<BuyerBotScreen> navigationPath) {
         if (chatId == null) {
             return;
         }
@@ -73,6 +77,7 @@ public class InMemoryChatSessionRepository implements ChatSessionRepository {
                 id -> new ChatSession(id, BuyerChatState.IDLE, null, null));
         session.setAnchorMessageId(anchorMessageId);
         session.setLastScreen(screen);
+        session.setNavigationPath(navigationPath);
     }
 
     @Override
@@ -233,6 +238,7 @@ public class InMemoryChatSessionRepository implements ChatSessionRepository {
         copy.setAnnouncementAnchorMessageId(session.getAnnouncementAnchorMessageId());
         copy.setAnnouncementSeen(session.isAnnouncementSeen());
         copy.setAnnouncementUpdatedAt(session.getAnnouncementUpdatedAt());
+        copy.setNavigationPath(session.getNavigationPath());
         return copy;
     }
 }

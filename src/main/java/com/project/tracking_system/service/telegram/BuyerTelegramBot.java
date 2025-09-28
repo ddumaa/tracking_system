@@ -75,6 +75,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String CALLBACK_NAME_CONFIRM = "name:confirm";
     private static final String CALLBACK_NAME_EDIT = "name:edit";
     private static final String CALLBACK_ANNOUNCEMENT_ACK = "announcement:ack";
+    private static final String CALLBACK_NAVIGATE_BACK = "nav:back";
 
     private static final String NAME_CONFIRMATION_MISSING_MESSAGE =
             "⚠️ Пока в системе нет ФИО для подтверждения. Пожалуйста, укажите его полностью.";
@@ -388,6 +389,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             case CALLBACK_NAME_EDIT -> handleNameEditCallback(chatId, callbackQuery);
             case CALLBACK_BACK_TO_MENU ->
                     handleCallbackBackToMenu(chatId, callbackQuery);
+            case CALLBACK_NAVIGATE_BACK -> handleNavigateBack(chatId, callbackQuery);
             default -> answerCallbackQuery(callbackQuery, "Неизвестная команда");
         }
     }
@@ -676,14 +678,15 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         Optional<TelegramParcelsOverviewDTO> overviewOptional = telegramService.getParcelsOverview(chatId);
 
-        InlineKeyboardMarkup markup = createBackInlineKeyboard();
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.PARCELS, true);
+        InlineKeyboardMarkup markup = buildNavigationKeyboard(navigationPath);
 
         List<TelegramParcelInfoDTO> parcels = overviewOptional
                 .map(extractor)
                 .orElse(List.of());
 
         String text = buildParcelsCategoryText(title, parcels);
-        sendInlineMessage(chatId, text, markup, BuyerBotScreen.PARCELS);
+        sendInlineMessage(chatId, text, markup, BuyerBotScreen.PARCELS, navigationPath);
     }
 
     /**
@@ -815,7 +818,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param chatId идентификатор чата Telegram
      */
     private void sendNameEditPromptScreen(Long chatId) {
-        sendInlineMessage(chatId, NAME_EDIT_ANCHOR_TEXT, createBackInlineKeyboard(), BuyerBotScreen.NAME_EDIT_PROMPT);
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.NAME_EDIT_PROMPT);
+        InlineKeyboardMarkup markup = buildNavigationKeyboard(navigationPath);
+        sendInlineMessage(chatId, NAME_EDIT_ANCHOR_TEXT, markup, BuyerBotScreen.NAME_EDIT_PROMPT, navigationPath);
     }
 
     /**
@@ -925,7 +930,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param chatId идентификатор чата Telegram
      */
     private void sendStatisticsScreen(Long chatId) {
-        InlineKeyboardMarkup backMarkup = createBackInlineKeyboard();
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.STATISTICS);
+        InlineKeyboardMarkup backMarkup = buildNavigationKeyboard(navigationPath);
         telegramService.getStatistics(chatId)
                 .ifPresentOrElse(stats -> {
                     String stores = stats.getStoreNames().isEmpty()
@@ -941,11 +947,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                             stores,
                             stats.getReputation().getDisplayName()
                     );
-                    sendInlineMessage(chatId, text, backMarkup, BuyerBotScreen.STATISTICS);
+                    sendInlineMessage(chatId, text, backMarkup, BuyerBotScreen.STATISTICS, navigationPath);
                 }, () -> sendInlineMessage(chatId,
                         "\uD83D\uDCCA Статистика пока недоступна. Попробуйте позже или проверьте, есть ли у вас активные заказы.",
                         backMarkup,
-                        BuyerBotScreen.STATISTICS));
+                        BuyerBotScreen.STATISTICS,
+                        navigationPath));
     }
 
     /**
@@ -954,7 +961,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param chatId идентификатор чата Telegram
      */
     private void sendParcelsScreen(Long chatId) {
-        InlineKeyboardMarkup backMarkup = createBackInlineKeyboard();
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.PARCELS);
+        InlineKeyboardMarkup backMarkup = buildNavigationKeyboard(navigationPath);
         telegramService.getParcelsOverview(chatId)
                 .ifPresentOrElse(overview -> {
                     boolean hasDelivered = hasParcels(overview.getDelivered());
@@ -963,17 +971,18 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                     boolean hasAny = hasDelivered || hasAwaiting || hasTransit;
 
                     InlineKeyboardMarkup markup = hasAny
-                            ? buildParcelsOverviewKeyboard(overview)
+                            ? buildParcelsOverviewKeyboard(overview, navigationPath)
                             : backMarkup;
                     String text = hasAny
-                            ? buildParcelsScreenText(overview)
+                            ? buildParcelsScreenText()
                             : buildEmptyParcelsText();
 
-                    sendInlineMessage(chatId, text, markup, BuyerBotScreen.PARCELS);
+                    sendInlineMessage(chatId, text, markup, BuyerBotScreen.PARCELS, navigationPath);
                 }, () -> sendInlineMessage(chatId,
                         "📱 Привяжите номер телефона командой /start, чтобы видеть посылки в этом разделе.",
                         backMarkup,
-                        BuyerBotScreen.PARCELS));
+                        BuyerBotScreen.PARCELS,
+                        navigationPath));
     }
 
     /**
@@ -988,19 +997,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
-     * Формирует текстовую сводку раздела «Мои посылки».
+     * Формирует текстовую шапку раздела «Мои посылки», которую пользователь видит перед кнопками категорий.
      *
-     * @param overview сводка посылок по статусам
      * @return готовый текст для отправки в Telegram
      */
-    private String buildParcelsScreenText(TelegramParcelsOverviewDTO overview) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("📦 Мои посылки\n\n");
-        builder.append("Выберите категорию:\n\n");
-        appendParcelsSection(builder, "Полученные", overview.getDelivered());
-        appendParcelsSection(builder, "Ждут забора", overview.getWaitingForPickup());
-        appendParcelsSection(builder, "В пути", overview.getInTransit());
-        return builder.toString();
+    private String buildParcelsScreenText() {
+        return "📦 Мои посылки\n\n" +
+                "Выберите категорию:";
     }
 
     /**
@@ -1009,7 +1012,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param overview сводка посылок по категориям
      * @return клавиатура с кнопками категорий
      */
-    private InlineKeyboardMarkup buildParcelsOverviewKeyboard(TelegramParcelsOverviewDTO overview) {
+    private InlineKeyboardMarkup buildParcelsOverviewKeyboard(TelegramParcelsOverviewDTO overview,
+                                                              List<BuyerBotScreen> navigationPath) {
         int deliveredCount = Optional.ofNullable(overview.getDelivered())
                 .map(List::size)
                 .orElse(0);
@@ -1036,7 +1040,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                     buildParcelsCategoryLabel(BUTTON_PARCELS_TRANSIT, transitCount),
                     CALLBACK_PARCELS_TRANSIT)));
         }
-        rows.add(new InlineKeyboardRow(buildBackButton()));
+        appendNavigationRow(rows, navigationPath);
 
         return InlineKeyboardMarkup.builder()
                 .keyboard(rows)
@@ -1142,8 +1146,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         boolean awaitingName = getState(chatId) == BuyerChatState.AWAITING_NAME_INPUT;
         String text = buildSettingsText(customer, awaitingName);
-        InlineKeyboardMarkup markup = buildSettingsKeyboard(customer);
-        sendInlineMessage(chatId, text, markup, BuyerBotScreen.SETTINGS);
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.SETTINGS);
+        InlineKeyboardMarkup markup = buildSettingsKeyboard(customer, navigationPath);
+        sendInlineMessage(chatId, text, markup, BuyerBotScreen.SETTINGS, navigationPath);
     }
 
     /**
@@ -1161,7 +1166,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
                 Управляйте уведомлениями и ФИО через раздел "⚙️ Настройки".
                 """;
-        sendInlineMessage(chatId, helpText, createBackInlineKeyboard(), BuyerBotScreen.HELP);
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.HELP);
+        InlineKeyboardMarkup markup = buildNavigationKeyboard(navigationPath);
+        sendInlineMessage(chatId, helpText, markup, BuyerBotScreen.HELP, navigationPath);
     }
 
     /**
@@ -1289,6 +1296,31 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
+     * Возвращает пользователя на предыдущий экран, сохраняя навигационную историю.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     */
+    private void handleNavigateBack(Long chatId, CallbackQuery callbackQuery) {
+        if (chatId == null) {
+            answerCallbackQuery(callbackQuery, "Команда недоступна");
+            return;
+        }
+
+        ChatSession session = chatSessionRepository.find(chatId).orElse(null);
+        if (session == null) {
+            answerCallbackQuery(callbackQuery, "Возвращаю в меню");
+            sendMainMenu(chatId);
+            return;
+        }
+
+        BuyerBotScreen targetScreen = session.navigateBack();
+        chatSessionRepository.save(session);
+        answerCallbackQuery(callbackQuery, "Назад");
+        renderScreen(chatId, targetScreen);
+    }
+
+    /**
      * Обновляет сообщение с настройками, подставляя актуальные данные.
      *
      * @param chatId   идентификатор чата Telegram
@@ -1302,8 +1334,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         boolean awaitingName = getState(chatId) == BuyerChatState.AWAITING_NAME_INPUT;
         String settingsText = buildSettingsText(customer, awaitingName);
-        InlineKeyboardMarkup settingsKeyboard = buildSettingsKeyboard(customer);
-        sendInlineMessage(chatId, settingsText, settingsKeyboard, BuyerBotScreen.SETTINGS);
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.SETTINGS);
+        InlineKeyboardMarkup settingsKeyboard = buildSettingsKeyboard(customer, navigationPath);
+        sendInlineMessage(chatId, settingsText, settingsKeyboard, BuyerBotScreen.SETTINGS, navigationPath);
     }
 
     /**
@@ -1344,7 +1377,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param customer покупатель, для которого формируются кнопки
      * @return готовая инлайн-клавиатура
      */
-    private InlineKeyboardMarkup buildSettingsKeyboard(Customer customer) {
+    private InlineKeyboardMarkup buildSettingsKeyboard(Customer customer,
+                                                       List<BuyerBotScreen> navigationPath) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
 
         InlineKeyboardButton notifyButton = InlineKeyboardButton.builder()
@@ -1382,11 +1416,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             rows.add(new InlineKeyboardRow(confirmButton, editNameButton));
         }
 
-        InlineKeyboardButton backButton = InlineKeyboardButton.builder()
-                .text(BUTTON_BACK)
-                .callbackData(CALLBACK_BACK_TO_MENU)
-                .build();
-        rows.add(new InlineKeyboardRow(backButton));
+        appendNavigationRow(rows, navigationPath);
 
         return InlineKeyboardMarkup.builder()
                 .keyboard(rows)
@@ -1406,19 +1436,97 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private InlineKeyboardButton buildBackButton() {
         return InlineKeyboardButton.builder()
                 .text(BUTTON_BACK)
+                .callbackData(CALLBACK_NAVIGATE_BACK)
+                .build();
+    }
+
+    /**
+     * Формирует кнопку быстрого перехода в главное меню.
+     *
+     * @return инлайн-кнопка «Меню»
+     */
+    private InlineKeyboardButton buildMenuButton() {
+        return InlineKeyboardButton.builder()
+                .text(BUTTON_MENU)
                 .callbackData(CALLBACK_BACK_TO_MENU)
                 .build();
     }
 
     /**
-     * Создаёт инлайн-клавиатуру только с кнопкой возврата.
+     * Строит строку навигации с кнопками «Назад» и «Меню» при необходимости.
      *
-     * @return клавиатура с кнопкой «Назад»
+     * @param navigationPath путь экранов, ведущий к текущему состоянию
+     * @return строка с кнопками или {@code null}, если навигация не нужна
      */
-    private InlineKeyboardMarkup createBackInlineKeyboard() {
+    private InlineKeyboardRow buildNavigationRow(List<BuyerBotScreen> navigationPath) {
+        if (navigationPath == null || navigationPath.size() <= 1) {
+            return null;
+        }
+        List<InlineKeyboardButton> buttons = new ArrayList<>();
+        buttons.add(buildBackButton());
+        if (navigationPath.size() > 2) {
+            buttons.add(buildMenuButton());
+        }
+        return new InlineKeyboardRow(buttons);
+    }
+
+    /**
+     * Добавляет строку навигации в набор кнопок, если она требуется для текущего экрана.
+     *
+     * @param rows           коллекция строк клавиатуры
+     * @param navigationPath путь экранов для расчёта навигации
+     */
+    private void appendNavigationRow(List<InlineKeyboardRow> rows, List<BuyerBotScreen> navigationPath) {
+        InlineKeyboardRow navigationRow = buildNavigationRow(navigationPath);
+        if (navigationRow != null) {
+            rows.add(navigationRow);
+        }
+    }
+
+    /**
+     * Создаёт клавиатуру, содержащую только навигационные кнопки.
+     *
+     * @param navigationPath путь экранов, ведущий к текущему состоянию
+     * @return готовая инлайн-клавиатура
+     */
+    private InlineKeyboardMarkup buildNavigationKeyboard(List<BuyerBotScreen> navigationPath) {
+        InlineKeyboardRow navigationRow = buildNavigationRow(navigationPath);
+        List<InlineKeyboardRow> rows = navigationRow == null
+                ? new ArrayList<>()
+                : new ArrayList<>(List.of(navigationRow));
         return InlineKeyboardMarkup.builder()
-                .keyboard(List.of(new InlineKeyboardRow(buildBackButton())))
+                .keyboard(rows)
                 .build();
+    }
+
+    /**
+     * Рассчитывает путь навигации после перехода на указанный экран.
+     *
+     * @param chatId идентификатор чата Telegram
+     * @param screen экран, который нужно показать
+     * @return последовательность экранов от корня до целевого состояния
+     */
+    private List<BuyerBotScreen> computeNavigationPath(Long chatId, BuyerBotScreen screen) {
+        return computeNavigationPath(chatId, screen, false);
+    }
+
+    /**
+     * Рассчитывает путь навигации с учётом необходимости добавить повтор текущего экрана.
+     *
+     * @param chatId         идентификатор чата Telegram
+     * @param screen         экран, который нужно показать
+     * @param allowDuplicate разрешено ли дублировать текущий экран в пути
+     * @return последовательность экранов от корня до целевого состояния
+     */
+    private List<BuyerBotScreen> computeNavigationPath(Long chatId,
+                                                       BuyerBotScreen screen,
+                                                       boolean allowDuplicate) {
+        if (chatId == null) {
+            return List.of();
+        }
+        ChatSession session = chatSessionRepository.find(chatId)
+                .orElse(new ChatSession(chatId, BuyerChatState.IDLE, null, null));
+        return session.projectNavigationPath(screen, allowDuplicate);
     }
 
     /**
@@ -1780,7 +1888,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 : telegramService.findByChatId(chatId).orElse(null);
         String text = buildMainMenuText(resolvedCustomer);
         InlineKeyboardMarkup markup = buildMainMenuKeyboard(resolvedCustomer);
-        sendInlineMessage(chatId, text, markup, BuyerBotScreen.MENU, forceResendOnNotModified);
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.MENU);
+        sendInlineMessage(chatId, text, markup, BuyerBotScreen.MENU, forceResendOnNotModified, navigationPath);
 
         ensurePersistentKeyboard(chatId);
         renderActiveAnnouncement(chatId, resolvedCustomer);
@@ -1943,7 +2052,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         String text = buildAnnouncementText(notification);
         InlineKeyboardMarkup markup = buildAnnouncementKeyboard();
-        sendInlineMessage(chatId, text, markup, BuyerBotScreen.MENU, true);
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.MENU);
+        sendInlineMessage(chatId, text, markup, BuyerBotScreen.MENU, true, navigationPath);
 
         Integer anchorId = chatSessionRepository.find(chatId)
                 .map(ChatSession::getAnchorMessageId)
@@ -2017,7 +2127,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      *
      * @return клавиатура с действиями по управлению именем
      */
-    private InlineKeyboardMarkup buildNameConfirmationKeyboard() {
+    private InlineKeyboardMarkup buildNameConfirmationKeyboard(List<BuyerBotScreen> navigationPath) {
         InlineKeyboardButton confirmButton = InlineKeyboardButton.builder()
                 .text("✅ Подтвердить имя")
                 .callbackData(CALLBACK_NAME_CONFIRM)
@@ -2029,7 +2139,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         List<InlineKeyboardRow> rows = new ArrayList<>();
         rows.add(new InlineKeyboardRow(confirmButton, editButton));
-        rows.add(new InlineKeyboardRow(buildBackButton()));
+        appendNavigationRow(rows, navigationPath);
 
         return InlineKeyboardMarkup.builder()
                 .keyboard(rows)
@@ -2161,8 +2271,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private void sendInlineMessage(Long chatId,
                                    String text,
                                    InlineKeyboardMarkup markup,
-                                   BuyerBotScreen screen) {
-        sendInlineMessage(chatId, text, markup, screen, false);
+                                   BuyerBotScreen screen,
+                                   List<BuyerBotScreen> navigationPath) {
+        sendInlineMessage(chatId, text, markup, screen, false, navigationPath);
     }
 
     /**
@@ -2178,7 +2289,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                                    String text,
                                    InlineKeyboardMarkup markup,
                                    BuyerBotScreen screen,
-                                   boolean forceResendOnNotModified) {
+                                   boolean forceResendOnNotModified,
+                                   List<BuyerBotScreen> navigationPath) {
         if (chatId == null) {
             return;
         }
@@ -2200,13 +2312,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                     .build();
             try {
                 telegramClient.execute(edit);
-                chatSessionRepository.updateAnchorAndScreen(chatId, messageId, screen);
+                chatSessionRepository.updateAnchorAndScreen(chatId, messageId, screen, navigationPath);
                 return;
             } catch (TelegramApiException e) {
                 String errorMessage = e.getMessage();
                 boolean notModified = errorMessage != null && errorMessage.contains("message is not modified");
                 if (notModified) {
-                    retainAnchorAfterNotModified(chatId, messageId, screen);
+                    retainAnchorAfterNotModified(chatId, messageId, screen, navigationPath);
                     if (forceResendOnNotModified) {
                         log.debug("ℹ️ Telegram сообщил об отсутствии изменений для чата {}, переиспользую текущее сообщение", chatId);
                     } else {
@@ -2231,7 +2343,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         try {
             Message sent = telegramClient.execute(message);
             Integer newAnchorId = sent != null ? sent.getMessageId() : null;
-            chatSessionRepository.updateAnchorAndScreen(chatId, newAnchorId, screen);
+            chatSessionRepository.updateAnchorAndScreen(chatId, newAnchorId, screen, navigationPath);
         } catch (TelegramApiException e) {
             log.error("❌ Ошибка отправки якорного сообщения", e);
         }
@@ -2248,13 +2360,16 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param messageId идентификатор уже отправленного сообщения
      * @param screen    экран, соответствующий якорю
      */
-    private void retainAnchorAfterNotModified(Long chatId, Integer messageId, BuyerBotScreen screen) {
+    private void retainAnchorAfterNotModified(Long chatId,
+                                              Integer messageId,
+                                              BuyerBotScreen screen,
+                                              List<BuyerBotScreen> navigationPath) {
         if (chatId == null || messageId == null) {
             return;
         }
 
         boolean keyboardHiddenBeforeUpdate = chatSessionRepository.isKeyboardHidden(chatId);
-        chatSessionRepository.updateAnchorAndScreen(chatId, messageId, screen);
+        chatSessionRepository.updateAnchorAndScreen(chatId, messageId, screen, navigationPath);
         if (keyboardHiddenBeforeUpdate) {
             ensurePersistentKeyboard(chatId);
         } else {
@@ -2454,7 +2569,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      */
     private void sendNameConfirmation(Long chatId, String fullName) {
         String text = String.format("У нас указано ваше ФИО: %s\nЭто верно?", fullName);
-        sendInlineMessage(chatId, text, buildNameConfirmationKeyboard(), BuyerBotScreen.NAME_CONFIRMATION);
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.NAME_CONFIRMATION);
+        InlineKeyboardMarkup markup = buildNameConfirmationKeyboard(navigationPath);
+        sendInlineMessage(chatId, text, markup, BuyerBotScreen.NAME_CONFIRMATION, navigationPath);
     }
 
     /**
