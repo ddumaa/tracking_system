@@ -395,7 +395,7 @@ public class CustomerTelegramService {
      */
     private TelegramParcelInfoDTO toTelegramParcelInfo(TrackParcel parcel) {
         if (parcel == null) {
-            return new TelegramParcelInfoDTO("Без номера", "Магазин не указан");
+            return new TelegramParcelInfoDTO("Без номера", "Магазин не указан", null);
         }
 
         String trackNumber = parcel.getNumber();
@@ -407,7 +407,9 @@ public class CustomerTelegramService {
                 ? parcel.getStore().getName()
                 : "Магазин не указан";
 
-        return new TelegramParcelInfoDTO(trackNumber, storeName);
+        GlobalStatus status = parcel.getStatus();
+
+        return new TelegramParcelInfoDTO(trackNumber, storeName, status);
     }
 
 }

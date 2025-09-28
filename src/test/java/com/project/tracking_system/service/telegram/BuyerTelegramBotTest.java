@@ -11,6 +11,7 @@ import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
+import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
@@ -330,9 +331,9 @@ class BuyerTelegramBotTest {
     @Test
     void shouldGroupParcelsByStoreWithTracksOnly() throws Exception {
         Long chatId = 901L;
-        TelegramParcelInfoDTO first = new TelegramParcelInfoDTO("TRACK-1", "Store Alpha");
-        TelegramParcelInfoDTO second = new TelegramParcelInfoDTO("TRACK-2", "Store Beta");
-        TelegramParcelInfoDTO third = new TelegramParcelInfoDTO("TRACK-3", "Store Alpha");
+        TelegramParcelInfoDTO first = new TelegramParcelInfoDTO("TRACK-1", "Store Alpha", GlobalStatus.DELIVERED);
+        TelegramParcelInfoDTO second = new TelegramParcelInfoDTO("TRACK-2", "Store Beta", GlobalStatus.DELIVERED);
+        TelegramParcelInfoDTO third = new TelegramParcelInfoDTO("TRACK-3", "Store Alpha", GlobalStatus.DELIVERED);
 
         TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(
                 List.of(first, second, third),
@@ -354,6 +355,44 @@ class BuyerTelegramBotTest {
                 "Посылки одного магазина должны выводиться под общим заголовком и включать только треки");
         assertTrue(text.contains("**Store Beta**\n• TRACK-2"),
                 "Для каждого магазина ожидается собственный блок с трек-номерами");
+    }
+
+    /**
+     * Проверяет, что в разделе «Ожидают забора» проблемные посылки получают предупреждение.
+     */
+    @Test
+    void shouldWarnAboutParcelsNotPickedUpInAwaitingSection() throws Exception {
+        Long chatId = 902L;
+        TelegramParcelInfoDTO critical = new TelegramParcelInfoDTO(
+                "TRACK-ALERT",
+                "Store Gamma",
+                GlobalStatus.CUSTOMER_NOT_PICKING_UP
+        );
+        TelegramParcelInfoDTO regular = new TelegramParcelInfoDTO(
+                "TRACK-OK",
+                "Store Gamma",
+                GlobalStatus.WAITING_FOR_CUSTOMER
+        );
+
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(
+                List.of(),
+                List.of(critical, regular),
+                List.of()
+        );
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        Update callbackUpdate = mockCallbackUpdate(chatId, "parcels:awaiting");
+
+        bot.consume(callbackUpdate);
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+        String text = captor.getValue().getText();
+
+        assertTrue(text.contains("TRACK-ALERT — ⚠️ скоро уедет в магазин"),
+                "Посылка с проблемным статусом должна сопровождаться предупреждением");
+        assertTrue(text.contains("• TRACK-OK"),
+                "Обычные посылки должны оставаться без дополнительных подпесей");
     }
 
     /**
