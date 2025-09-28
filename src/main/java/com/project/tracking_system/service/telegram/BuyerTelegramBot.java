@@ -1414,9 +1414,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (fullName == null || fullName.isBlank()) {
             nameStatus = "не указано";
         } else if (customer.getNameSource() == NameSource.USER_CONFIRMED) {
-            nameStatus = String.format("%s (подтверждено)", escapeMarkdown(fullName));
+            nameStatus = escapeMarkdown(fullName) + ' ' + escapeMarkdown("(подтверждено)");
         } else {
-            nameStatus = String.format("%s (ожидает подтверждения)", escapeMarkdown(fullName));
+            nameStatus = escapeMarkdown(fullName) + ' ' + escapeMarkdown("(ожидает подтверждения)");
         }
 
         StringBuilder builder = new StringBuilder();
@@ -1976,11 +1976,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             } else if (customer.getNameSource() == NameSource.USER_CONFIRMED) {
                 builder.append("Имя: ")
                         .append(escapeMarkdown(fullName))
-                        .append(" (подтверждено)");
+                        .append(' ')
+                        .append(escapeMarkdown("(подтверждено)"));
             } else {
                 builder.append("Имя: ")
                         .append(escapeMarkdown(fullName))
-                        .append(" (ожидает подтверждения)");
+                        .append(' ')
+                        .append(escapeMarkdown("(ожидает подтверждения)"));
             }
             builder.append("\n\n");
         }
