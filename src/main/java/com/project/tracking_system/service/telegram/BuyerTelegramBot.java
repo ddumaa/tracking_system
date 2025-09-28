@@ -20,6 +20,7 @@ import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsume
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
+import org.telegram.telegrambots.meta.api.methods.ParseMode;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
@@ -81,6 +82,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String CALLBACK_NAVIGATE_BACK = "nav:back";
 
     private static final String NO_PARCELS_PLACEHOLDER = "• нет посылок";
+
+    private static final String TELEGRAM_PARSE_MODE = ParseMode.MARKDOWN;
 
     /**
      * Разделы списка посылок, где отображаются предупреждения и вспомогательные подписи.
@@ -2356,6 +2359,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                     .chatId(chatId.toString())
                     .messageId(messageId)
                     .text(text)
+                    .parseMode(TELEGRAM_PARSE_MODE)
                     .replyMarkup(markup)
                     .build();
             try {
@@ -2388,6 +2392,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         SendMessage message = new SendMessage(chatId.toString(), text);
         message.setReplyMarkup(markup);
         message.setDisableNotification(true);
+        message.setParseMode(TELEGRAM_PARSE_MODE);
         try {
             Message sent = telegramClient.execute(message);
             Integer newAnchorId = sent != null ? sent.getMessageId() : null;

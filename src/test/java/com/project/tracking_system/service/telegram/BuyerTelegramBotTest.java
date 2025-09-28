@@ -26,6 +26,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
+import org.telegram.telegrambots.meta.api.methods.ParseMode;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.chat.Chat;
@@ -213,6 +214,8 @@ class BuyerTelegramBotTest {
         verify(telegramClient, atLeastOnce()).execute(editCaptor.capture());
         EditMessageText bannerEdit = editCaptor.getAllValues().get(editCaptor.getAllValues().size() - 1);
 
+        assertEquals(ParseMode.MARKDOWN, bannerEdit.getParseMode(),
+                "Баннер объявления должен отправляться с включённым Markdown для корректной разметки");
         assertTrue(bannerEdit.getText().contains(notification.getTitle()),
                 "Текст баннера должен содержать заголовок объявления");
         assertTrue(bannerEdit.getText().contains("Первый пункт"));
@@ -349,6 +352,8 @@ class BuyerTelegramBotTest {
         verify(telegramClient, atLeastOnce()).execute(captor.capture());
         String text = captor.getValue().getText();
 
+        assertEquals(ParseMode.MARKDOWN, captor.getValue().getParseMode(),
+                "Список посылок должен отправляться в Markdown, чтобы заголовки магазинов были жирными");
         assertTrue(text.startsWith("📬 Полученные посылки"),
                 "Сообщение должно начинаться с заголовка выбранной категории");
         assertTrue(text.contains("**Store Alpha**\n• TRACK-1\n• TRACK-3"),
