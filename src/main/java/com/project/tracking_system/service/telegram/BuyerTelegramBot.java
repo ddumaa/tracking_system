@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Telegram-бот для покупателей.
@@ -722,7 +723,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                                             List<TelegramParcelInfoDTO> parcels,
                                             ParcelsSection section) {
         StringBuilder builder = new StringBuilder();
-        builder.append(title).append('\n').append('\n');
+        builder.append(escapeMarkdown(title)).append('\n').append('\n');
         if (parcels == null || parcels.isEmpty()) {
             builder.append(NO_PARCELS_PLACEHOLDER);
             return builder.toString();
@@ -730,7 +731,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         Map<String, List<TelegramParcelInfoDTO>> parcelsByStore = groupParcelsByStore(parcels);
         parcelsByStore.forEach((storeName, storeParcels) -> {
-            builder.append("**").append(storeName).append("**").append('\n');
+            builder.append("**").append(escapeMarkdown(storeName)).append("**").append('\n');
             for (TelegramParcelInfoDTO parcel : storeParcels) {
                 builder.append("• ").append(formatParcelLine(parcel, section)).append('\n');
             }
@@ -980,7 +981,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         telegramService.getStatistics(chatId)
                 .ifPresentOrElse(stats -> {
                     String stores = stats.getStoreNames().isEmpty()
-                            ? "-" : String.join(", ", stats.getStoreNames());
+                            ? "-"
+                            : stats.getStoreNames().stream()
+                            .map(this::escapeMarkdown)
+                            .collect(Collectors.joining(", "));
+                    String reputation = stats.getReputation() == null
+                            ? "-"
+                            : escapeMarkdown(stats.getReputation().getDisplayName());
                     String text = String.format(
                             "\uD83D\uDCCA Ваша статистика:\n" +
                                     "Забрано: %d\n" +
@@ -990,7 +997,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                             stats.getPickedUpCount(),
                             stats.getReturnedCount(),
                             stores,
-                            stats.getReputation().getDisplayName()
+                            reputation
                     );
                     sendInlineMessage(chatId, text, backMarkup, BuyerBotScreen.STATISTICS, navigationPath);
                 }, () -> sendInlineMessage(chatId,
@@ -1155,7 +1162,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return "—";
         }
 
-        String track = formatTrackNumber(parcel.getTrackNumber());
+        String track = escapeMarkdown(formatTrackNumber(parcel.getTrackNumber()));
         if (section == ParcelsSection.WAITING_FOR_PICKUP
                 && parcel.getStatus() == GlobalStatus.CUSTOMER_NOT_PICKING_UP) {
             return String.format("%s — ⚠️ скоро уедет в магазин", track);
@@ -1407,9 +1414,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (fullName == null || fullName.isBlank()) {
             nameStatus = "не указано";
         } else if (customer.getNameSource() == NameSource.USER_CONFIRMED) {
-            nameStatus = String.format("%s (подтверждено)", fullName);
+            nameStatus = String.format("%s (подтверждено)", escapeMarkdown(fullName));
         } else {
-            nameStatus = String.format("%s (ожидает подтверждения)", fullName);
+            nameStatus = String.format("%s (ожидает подтверждения)", escapeMarkdown(fullName));
         }
 
         StringBuilder builder = new StringBuilder();
@@ -1967,9 +1974,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             if (fullName == null || fullName.isBlank()) {
                 builder.append("Имя: не указано");
             } else if (customer.getNameSource() == NameSource.USER_CONFIRMED) {
-                builder.append("Имя: ").append(fullName).append(" (подтверждено)");
+                builder.append("Имя: ")
+                        .append(escapeMarkdown(fullName))
+                        .append(" (подтверждено)");
             } else {
-                builder.append("Имя: ").append(fullName).append(" (ожидает подтверждения)");
+                builder.append("Имя: ")
+                        .append(escapeMarkdown(fullName))
+                        .append(" (ожидает подтверждения)");
             }
             builder.append("\n\n");
         }
@@ -2137,7 +2148,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      */
     private String buildAnnouncementText(AdminNotification notification) {
         StringBuilder builder = new StringBuilder();
-        builder.append("📣 ").append(notification.getTitle()).append("\n\n");
+        builder.append("📣 ").append(escapeMarkdown(notification.getTitle())).append("\n\n");
 
         boolean hasBody = false;
         List<String> lines = notification.getBodyLines();
@@ -2146,7 +2157,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 if (line == null || line.isBlank()) {
                     continue;
                 }
-                builder.append("• ").append(line).append('\n');
+                builder.append("• ").append(escapeMarkdown(line)).append('\n');
                 hasBody = true;
             }
         }
@@ -2621,10 +2632,33 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param fullName имя, известное системе
      */
     private void sendNameConfirmation(Long chatId, String fullName) {
-        String text = String.format("У нас указано ваше ФИО: %s\nЭто верно?", fullName);
+        String text = String.format("У нас указано ваше ФИО: %s\nЭто верно?", escapeMarkdown(fullName));
         List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.NAME_CONFIRMATION);
         InlineKeyboardMarkup markup = buildNameConfirmationKeyboard(navigationPath);
         sendInlineMessage(chatId, text, markup, BuyerBotScreen.NAME_CONFIRMATION, navigationPath);
+    }
+
+    /**
+     * Экранирует спецсимволы Markdown, чтобы Telegram корректно обрабатывал пользовательские данные в сообщениях.
+     *
+     * @param value исходное значение, включаемое в текст с форматированием
+     * @return строка с добавленными символами экранирования
+     */
+    private String escapeMarkdown(String value) {
+        if (value == null) {
+            return "";
+        }
+        if (value.isEmpty()) {
+            return value;
+        }
+        StringBuilder escaped = new StringBuilder(value.length());
+        for (char ch : value.toCharArray()) {
+            if (ch == '\\' || ch == '_' || ch == '*' || ch == '[' || ch == ']' || ch == '(' || ch == ')' || ch == '`') {
+                escaped.append('\\');
+            }
+            escaped.append(ch);
+        }
+        return escaped.toString();
     }
 
     /**

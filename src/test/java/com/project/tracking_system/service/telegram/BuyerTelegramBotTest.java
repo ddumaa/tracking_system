@@ -363,6 +363,42 @@ class BuyerTelegramBotTest {
     }
 
     /**
+     * Убеждается, что спецсимволы Markdown экранируются перед отправкой списка посылок.
+     */
+    @Test
+    void shouldEscapeMarkdownWhenRenderingParcels() throws Exception {
+        Long chatId = 903L;
+        TelegramParcelInfoDTO special = new TelegramParcelInfoDTO(
+                "TRACK_[1]",
+                "Store_[Beta](Promo)",
+                GlobalStatus.DELIVERED
+        );
+
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(
+                List.of(special),
+                List.of(),
+                List.of()
+        );
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        Update callbackUpdate = mockCallbackUpdate(chatId, "parcels:delivered");
+
+        bot.consume(callbackUpdate);
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+        SendMessage message = captor.getValue();
+
+        assertEquals(ParseMode.MARKDOWN, message.getParseMode(),
+                "Ответ по посылкам должен использовать Markdown для форматирования");
+        String text = message.getText();
+        assertTrue(text.contains("**Store\\_\\[Beta\\]\\(Promo\\)**"),
+                "Название магазина с особыми символами должно экранироваться");
+        assertTrue(text.contains("• TRACK\\_\\[1\\]"),
+                "Трек-номер с символами Markdown должен экранироваться");
+    }
+
+    /**
      * Проверяет, что в разделе «Ожидают забора» проблемные посылки получают предупреждение.
      */
     @Test
