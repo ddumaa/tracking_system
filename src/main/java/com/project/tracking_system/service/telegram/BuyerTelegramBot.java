@@ -1046,7 +1046,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      *
      * @param baseLabel базовое название категории
      * @param count     количество посылок в категории
-     * @return текст кнопки вида «базовое название (количество) (*)»
+     * @return текст кнопки вида «базовое название (количество)»
      */
     private String buildParcelsCategoryLabel(String baseLabel, int count) {
         return String.format("%s (%d)", baseLabel, count);
