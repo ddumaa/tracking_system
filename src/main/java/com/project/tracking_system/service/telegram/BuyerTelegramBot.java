@@ -676,12 +676,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         Optional<TelegramParcelsOverviewDTO> overviewOptional = telegramService.getParcelsOverview(chatId);
 
-        InlineKeyboardMarkup markup = overviewOptional
-                .filter(overview -> hasParcels(overview.getDelivered())
-                        || hasParcels(overview.getWaitingForPickup())
-                        || hasParcels(overview.getInTransit()))
-                .map(this::buildParcelsOverviewKeyboard)
-                .orElseGet(this::createBackInlineKeyboard);
+        InlineKeyboardMarkup markup = createBackInlineKeyboard();
 
         List<TelegramParcelInfoDTO> parcels = overviewOptional
                 .map(extractor)
