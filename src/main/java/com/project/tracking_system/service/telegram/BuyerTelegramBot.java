@@ -9,6 +9,7 @@ import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
+import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
@@ -80,6 +81,16 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String CALLBACK_NAVIGATE_BACK = "nav:back";
 
     private static final String NO_PARCELS_PLACEHOLDER = "• нет посылок";
+
+    /**
+     * Разделы списка посылок, где отображаются предупреждения и вспомогательные подписи.
+     */
+    private enum ParcelsSection {
+        DELIVERED,
+        WAITING_FOR_PICKUP,
+        IN_TRANSIT,
+        GENERIC
+    }
 
     private static final String NAME_CONFIRMATION_MISSING_MESSAGE =
             "⚠️ Пока в системе нет ФИО для подтверждения. Пожалуйста, укажите его полностью.";
@@ -628,7 +639,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 callbackQuery,
                 "Полученные",
                 "📬 Полученные посылки",
-                TelegramParcelsOverviewDTO::getDelivered);
+                TelegramParcelsOverviewDTO::getDelivered,
+                ParcelsSection.DELIVERED);
     }
 
     /**
@@ -642,7 +654,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 callbackQuery,
                 "Ждут забора",
                 "🏬 Посылки, ожидающие забора",
-                TelegramParcelsOverviewDTO::getWaitingForPickup);
+                TelegramParcelsOverviewDTO::getWaitingForPickup,
+                ParcelsSection.WAITING_FOR_PICKUP);
     }
 
     /**
@@ -656,7 +669,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 callbackQuery,
                 "В пути",
                 "🚚 Посылки в пути",
-                TelegramParcelsOverviewDTO::getInTransit);
+                TelegramParcelsOverviewDTO::getInTransit,
+                ParcelsSection.IN_TRANSIT);
     }
 
     /**
@@ -672,7 +686,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                                                CallbackQuery callbackQuery,
                                                String acknowledgement,
                                                String title,
-                                               Function<TelegramParcelsOverviewDTO, List<TelegramParcelInfoDTO>> extractor) {
+                                               Function<TelegramParcelsOverviewDTO, List<TelegramParcelInfoDTO>> extractor,
+                                               ParcelsSection section) {
         if (chatId == null) {
             answerCallbackQuery(callbackQuery, "Команда недоступна");
             return;
@@ -689,7 +704,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 .map(extractor)
                 .orElse(List.of());
 
-        String text = buildParcelsCategoryText(title, parcels);
+        String text = buildParcelsCategoryText(title, parcels, section);
         sendInlineMessage(chatId, text, markup, BuyerBotScreen.PARCELS, navigationPath);
     }
 
@@ -700,7 +715,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param parcels список посылок выбранной категории
      * @return готовый текст для отображения в чате
      */
-    private String buildParcelsCategoryText(String title, List<TelegramParcelInfoDTO> parcels) {
+    private String buildParcelsCategoryText(String title,
+                                            List<TelegramParcelInfoDTO> parcels,
+                                            ParcelsSection section) {
         StringBuilder builder = new StringBuilder();
         builder.append(title).append('\n').append('\n');
         if (parcels == null || parcels.isEmpty()) {
@@ -712,7 +729,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         parcelsByStore.forEach((storeName, storeParcels) -> {
             builder.append("**").append(storeName).append("**").append('\n');
             for (TelegramParcelInfoDTO parcel : storeParcels) {
-                builder.append("• ").append(formatParcelLine(parcel)).append('\n');
+                builder.append("• ").append(formatParcelLine(parcel, section)).append('\n');
             }
             builder.append('\n');
         });
@@ -1123,7 +1140,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         for (TelegramParcelInfoDTO parcel : parcels) {
-            builder.append("• ").append(formatParcelLine(parcel)).append('\n');
+            builder.append("• ").append(formatParcelLine(parcel, ParcelsSection.GENERIC)).append('\n');
         }
         builder.append('\n');
     }
@@ -1152,11 +1169,28 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @return трек-номер или заглушка, если данные отсутствуют
      */
     private String formatParcelLine(TelegramParcelInfoDTO parcel) {
+        return formatParcelLine(parcel, ParcelsSection.GENERIC);
+    }
+
+    /**
+     * Формирует строку посылки с учётом раздела и статуса для отображения пользователю.
+     *
+     * @param parcel  DTO с информацией о посылке
+     * @param section раздел, в котором отображается посылка
+     * @return строка с трек-номером и при необходимости предупреждением
+     */
+    private String formatParcelLine(TelegramParcelInfoDTO parcel, ParcelsSection section) {
         if (parcel == null) {
             return "—";
         }
 
-        return formatTrackNumber(parcel.getTrackNumber());
+        String track = formatTrackNumber(parcel.getTrackNumber());
+        if (section == ParcelsSection.WAITING_FOR_PICKUP
+                && parcel.getStatus() == GlobalStatus.CUSTOMER_NOT_PICKING_UP) {
+            return String.format("%s — ⚠️ скоро уедет в магазин", track);
+        }
+
+        return track;
     }
 
     /**
