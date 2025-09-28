@@ -966,7 +966,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                             ? buildParcelsOverviewKeyboard(overview)
                             : backMarkup;
                     String text = hasAny
-                            ? buildParcelsScreenText(overview)
+                            ? buildParcelsScreenText()
                             : buildEmptyParcelsText();
 
                     sendInlineMessage(chatId, text, markup, BuyerBotScreen.PARCELS);
@@ -988,19 +988,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
-     * Формирует текстовую сводку раздела «Мои посылки».
+     * Формирует текстовую шапку раздела «Мои посылки», которую пользователь видит перед кнопками категорий.
      *
-     * @param overview сводка посылок по статусам
      * @return готовый текст для отправки в Telegram
      */
-    private String buildParcelsScreenText(TelegramParcelsOverviewDTO overview) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("📦 Мои посылки\n\n");
-        builder.append("Выберите категорию:\n\n");
-        appendParcelsSection(builder, "Полученные", overview.getDelivered());
-        appendParcelsSection(builder, "Ждут забора", overview.getWaitingForPickup());
-        appendParcelsSection(builder, "В пути", overview.getInTransit());
-        return builder.toString();
+    private String buildParcelsScreenText() {
+        return "📦 Мои посылки\n\n" +
+                "Выберите категорию:";
     }
 
     /**
