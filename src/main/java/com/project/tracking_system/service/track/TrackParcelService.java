@@ -32,6 +32,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Базовый сервис для работы с посылками пользователя.
@@ -321,6 +322,37 @@ public class TrackParcelService {
     @Transactional(readOnly = true)
     public TrackParcel findByNumberAndUserId(String number, Long userId) {
         return trackParcelRepository.findByNumberAndUserId(number, userId);
+    }
+
+    /**
+     * Загружает посылку по идентификатору и проверяет принадлежность пользователю.
+     * <p>
+     * Метод возвращает {@link Optional}, чтобы вызывающая сторона могла явно
+     * обработать отсутствие посылки или чужую собственность без выброса
+     * исключений внутри сервиса (принцип ISP/DIP).
+     * </p>
+     *
+     * @param parcelId идентификатор посылки
+     * @param userId   идентификатор владельца
+     * @return посылка, если принадлежит пользователю
+     */
+    @Transactional(readOnly = true)
+    public Optional<TrackParcel> findOwnedById(Long parcelId, Long userId) {
+        TrackParcel parcel = trackParcelRepository.findByIdWithStoreAndUser(parcelId);
+        if (parcel == null || parcel.getUser() == null || !parcel.getUser().getId().equals(userId)) {
+            return Optional.empty();
+        }
+        return Optional.of(parcel);
+    }
+
+    /**
+     * Возвращает посылку по идентификатору без проверки владельца.
+     * Используется для дополнительной валидации и не должен раскрывать
+     * данные чужих пользователей наружу.
+     */
+    @Transactional(readOnly = true)
+    public Optional<TrackParcel> findById(Long parcelId) {
+        return Optional.ofNullable(trackParcelRepository.findByIdWithStoreAndUser(parcelId));
     }
 
     /**
