@@ -21,8 +21,6 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -120,30 +118,20 @@ public class TrackViewService {
     }
 
     /**
-     * Формирует историю, если подробные события ещё не сохранены.
+     * Формирует минимальную историю на основе агрегированного статуса, если
+     * детальные события ещё не сохранены.
      */
     private List<TrackStatusEventDto> buildFallbackHistory(TrackParcel parcel, ZoneId userZone) {
-        List<StatusSnapshot> snapshots = new ArrayList<>();
         GlobalStatus aggregateStatus = parcel.getStatus();
         ZonedDateTime aggregateMoment = resolveStatusMoment(parcel);
-        if (aggregateStatus != null && aggregateMoment != null) {
-            snapshots.add(new StatusSnapshot(aggregateMoment, aggregateStatus.getDescription()));
+        if (aggregateStatus == null || aggregateMoment == null) {
+            return List.of();
         }
-        DeliveryHistory history = parcel.getDeliveryHistory();
-        if (history != null) {
-            appendIfPresent(snapshots, history.getSendDate(), "Посылка зарегистрирована");
-            appendIfPresent(snapshots, history.getArrivedDate(), "Прибытие на пункт выдачи");
-            appendIfPresent(snapshots, history.getReceivedDate(), "Вручение получателю");
-            appendIfPresent(snapshots, history.getReturnedDate(), "Возврат отправителю");
-        }
-
-        snapshots.sort(Comparator.comparing(StatusSnapshot::moment).reversed());
-
-        return snapshots.stream()
-                .map(snapshot -> new TrackStatusEventDto(
-                        snapshot.status(),
-                        formatTimestamp(snapshot.moment(), userZone)))
-                .toList();
+        String description = aggregateStatus.getDescription();
+        return List.of(new TrackStatusEventDto(
+                description,
+                formatTimestamp(aggregateMoment, userZone)
+        ));
     }
 
     /**
@@ -183,16 +171,7 @@ public class TrackViewService {
     }
 
     /**
-     * Добавляет событие в коллекцию, если дата не пуста.
-     */
-    private void appendIfPresent(List<StatusSnapshot> snapshots, ZonedDateTime moment, String status) {
-        if (moment != null) {
-            snapshots.add(new StatusSnapshot(moment, status));
-        }
-    }
-
-    /**
-     * Преобразует дату к ISO-формату в часовом поясе пользователя.
+     * Приводит дату к ISO-формату с учётом пользовательского часового пояса.
      */
     private String formatTimestamp(ZonedDateTime moment, ZoneId userZone) {
         return moment.withZoneSameInstant(userZone).format(ISO_FORMATTER);
@@ -215,12 +194,6 @@ public class TrackViewService {
             return statusMoment;
         }
         return parcel.getLastUpdate();
-    }
-
-    /**
-     * Небольшой внутренний record, чтобы не плодить пары List<Object>.
-     */
-    private record StatusSnapshot(ZonedDateTime moment, String status) {
     }
 }
 
