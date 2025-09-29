@@ -74,18 +74,15 @@ class TrackViewServiceTest {
     }
 
     /**
-     * Проверяем, что при отсутствии сохранённых событий строится резервная
-     * история из данных посылки и истории доставки.
+     * Проверяем, что при отсутствии сохранённых событий возвращается только агрегированный
+     * статус с корректной меткой времени, без добавления жёстко заданных этапов.
      */
     @Test
-    void getTrackDetails_BuildsFallbackHistoryWhenEventsMissing() {
-        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
-        TrackParcel parcel = buildParcel(20L, GlobalStatus.IN_TRANSIT, now.minusHours(2));
+    void getTrackDetails_BuildsFallbackFromAggregateStatusOnly() {
+        ZonedDateTime statusMoment = ZonedDateTime.now(ZoneOffset.UTC).minusHours(2);
+        TrackParcel parcel = buildParcel(20L, GlobalStatus.IN_TRANSIT, statusMoment);
         DeliveryHistory deliveryHistory = new DeliveryHistory();
         deliveryHistory.setPostalService(PostalServiceType.BELPOST);
-        deliveryHistory.setSendDate(now.minusDays(3));
-        deliveryHistory.setArrivedDate(now.minusDays(1));
-        deliveryHistory.setReceivedDate(now.minusHours(12));
         parcel.setDeliveryHistory(deliveryHistory);
 
         when(trackParcelService.findOwnedById(20L, 2L)).thenReturn(Optional.of(parcel));
@@ -96,17 +93,18 @@ class TrackViewServiceTest {
         TrackDetailsDto details = service.getTrackDetails(20L, 2L);
 
         verify(trackStatusEventService).findEvents(20L);
-        assertThat(details.history())
-                .extracting(TrackStatusEventDto::status)
-                .contains("Посылка зарегистрирована", "Прибытие на пункт выдачи", "Вручение получателю");
+        assertThat(details.history()).hasSize(1);
+        TrackStatusEventDto fallbackEvent = details.history().get(0);
+        assertThat(fallbackEvent.status()).isEqualTo(GlobalStatus.IN_TRANSIT.getDescription());
+        assertThat(fallbackEvent.timestamp()).isEqualTo(statusMoment.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
+        assertThat(details.currentStatus()).isEqualTo(fallbackEvent);
     }
 
     /**
-     * Если подробные события отсутствуют, текущий статус берётся из агрегированного
-     * статуса посылки с отметкой времени последнего обновления.
+     * Если точная дата статуса не сохранена, используется отметка последнего обновления.
      */
     @Test
-    void getTrackDetails_UsesAggregateStatusWhenHistoryMissing() {
+    void getTrackDetails_UsesLastUpdateWhenTimestampMissing() {
         ZonedDateTime lastUpdate = ZonedDateTime.now(ZoneOffset.UTC).minusHours(4);
         TrackParcel parcel = buildParcel(25L, GlobalStatus.WAITING_FOR_CUSTOMER, lastUpdate);
         parcel.setTimestamp(null);
