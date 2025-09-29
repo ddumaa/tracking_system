@@ -6,6 +6,7 @@ import com.project.tracking_system.entity.DeliveryHistory;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.entity.TrackStatusEvent;
 import com.project.tracking_system.service.admin.ApplicationSettingsService;
 import com.project.tracking_system.service.user.UserService;
 import jakarta.persistence.EntityNotFoundException;
@@ -41,6 +42,7 @@ public class TrackViewService {
     private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
     private final TrackParcelService trackParcelService;
+    private final TrackStatusEventService trackStatusEventService;
     private final UserService userService;
     private final ApplicationSettingsService applicationSettingsService;
 
@@ -103,9 +105,24 @@ public class TrackViewService {
     }
 
     /**
-     * Формирует историю статусов на основе сохранённых дат.
+     * Возвращает сохранённую историю статусов с учётом пользовательской зоны.
      */
     private List<TrackStatusEventDto> buildHistory(TrackParcel parcel, ZoneId userZone) {
+        List<TrackStatusEvent> events = trackStatusEventService.findEvents(parcel.getId());
+        if (!events.isEmpty()) {
+            return events.stream()
+                    .map(event -> new TrackStatusEventDto(
+                            event.getDescription(),
+                            formatTimestamp(event.getEventTime(), userZone)))
+                    .toList();
+        }
+        return buildFallbackHistory(parcel, userZone);
+    }
+
+    /**
+     * Формирует историю, если подробные события ещё не сохранены.
+     */
+    private List<TrackStatusEventDto> buildFallbackHistory(TrackParcel parcel, ZoneId userZone) {
         List<StatusSnapshot> snapshots = new ArrayList<>();
         if (parcel.getTimestamp() != null && parcel.getStatus() != null) {
             snapshots.add(new StatusSnapshot(parcel.getTimestamp(), parcel.getStatus().getDescription()));
