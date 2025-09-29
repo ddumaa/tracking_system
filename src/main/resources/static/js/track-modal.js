@@ -58,66 +58,146 @@
         const timeZone = data?.timeZone;
         const format = (value) => formatDateTime(value, timeZone);
         const history = Array.isArray(data?.history) ? data.history : [];
-        const historyRows = history.length > 0
-            ? history.map(event => `
-                <tr>
-                    <td>${format(event.timestamp)}</td>
-                    <td>${event.status || '—'}</td>
-                </tr>
-            `).join('')
-            : '<tr><td colspan="2" class="text-center text-muted">История отсутствует</td></tr>';
 
-        const currentStatusBlock = data?.currentStatus ? `
-            <div class="mb-3">
-                <div class="text-muted small">Текущий статус</div>
-                <div class="fw-semibold">${data.currentStatus.status}</div>
-                <div class="text-muted">${format(data.currentStatus.timestamp)}</div>
-            </div>
-        ` : '';
+        container.replaceChildren();
 
-        let refreshBlock = '';
-        if (data?.refreshAllowed) {
-            refreshBlock = '<div class="alert alert-success mb-3" role="alert">Обновление доступно — выполните его из таблицы отправлений.</div>';
-        } else if (data?.nextRefreshAt) {
-            refreshBlock = `<div class="alert alert-warning mb-3" role="alert">Повторное обновление будет доступно после ${format(data.nextRefreshAt)}.</div>`;
-        } else {
-            refreshBlock = '<div class="alert alert-secondary mb-3" role="alert">Обновление недоступно для текущего статуса.</div>';
+        const wrapper = document.createElement('div');
+        wrapper.className = 'w-100';
+        if (data?.id !== undefined) {
+            wrapper.dataset.trackId = String(data.id);
         }
 
-        const deliveryService = data?.deliveryService || 'Служба доставки не определена';
-        const trackNumber = data?.number || '—';
-        const editButton = data?.canEditTrack
-            ? `<button type="button" class="btn btn-outline-primary btn-sm ms-auto" id="trackModalEditBtn" data-track-id="${data.id ?? ''}">Редактировать номер</button>`
-            : '';
+        const headerBlock = document.createElement('div');
+        headerBlock.className = 'd-flex align-items-start gap-3 mb-3';
 
-        container.innerHTML = `
-            <div class="w-100" data-track-id="${data?.id ?? ''}">
-                <div class="d-flex align-items-start gap-3 mb-3">
-                    <div>
-                        <div class="text-muted small">Трек-номер</div>
-                        <div class="fs-5 fw-semibold">${trackNumber}</div>
-                        <div class="text-muted">${deliveryService}</div>
-                    </div>
-                    ${editButton}
-                </div>
-                ${currentStatusBlock}
-                ${refreshBlock}
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr><th>Дата</th><th>Статус</th></tr>
-                        </thead>
-                        <tbody>${historyRows}</tbody>
-                    </table>
-                </div>
-            </div>
-        `;
+        const infoBlock = document.createElement('div');
 
+        const trackLabel = document.createElement('div');
+        trackLabel.className = 'text-muted small';
+        trackLabel.textContent = 'Трек-номер';
+        infoBlock.appendChild(trackLabel);
+
+        const trackValue = document.createElement('div');
+        trackValue.className = 'fs-5 fw-semibold';
+        trackValue.textContent = data?.number || '—';
+        infoBlock.appendChild(trackValue);
+
+        const deliveryValue = document.createElement('div');
+        deliveryValue.className = 'text-muted';
+        deliveryValue.textContent = data?.deliveryService || 'Служба доставки не определена';
+        infoBlock.appendChild(deliveryValue);
+
+        headerBlock.appendChild(infoBlock);
+
+        let editButton;
         if (data?.canEditTrack) {
-            container.querySelector('#trackModalEditBtn')?.addEventListener('click', () => {
-                if (data?.id) {
-                    promptTrackNumber(data.id);
-                }
+            editButton = document.createElement('button');
+            editButton.type = 'button';
+            editButton.className = 'btn btn-outline-primary btn-sm ms-auto';
+            editButton.id = 'trackModalEditBtn';
+            editButton.textContent = 'Редактировать номер';
+            if (data?.id !== undefined) {
+                editButton.dataset.trackId = String(data.id);
+            }
+            headerBlock.appendChild(editButton);
+        }
+
+        wrapper.appendChild(headerBlock);
+
+        if (data?.currentStatus) {
+            const currentStatusBlock = document.createElement('div');
+            currentStatusBlock.className = 'mb-3';
+
+            const currentLabel = document.createElement('div');
+            currentLabel.className = 'text-muted small';
+            currentLabel.textContent = 'Текущий статус';
+            currentStatusBlock.appendChild(currentLabel);
+
+            const currentValue = document.createElement('div');
+            currentValue.className = 'fw-semibold';
+            currentValue.textContent = data.currentStatus.status || '—';
+            currentStatusBlock.appendChild(currentValue);
+
+            const currentTime = document.createElement('div');
+            currentTime.className = 'text-muted';
+            currentTime.textContent = format(data.currentStatus.timestamp);
+            currentStatusBlock.appendChild(currentTime);
+
+            wrapper.appendChild(currentStatusBlock);
+        }
+
+        const refreshBlock = document.createElement('div');
+        refreshBlock.classList.add('alert', 'mb-3');
+        refreshBlock.setAttribute('role', 'alert');
+
+        if (data?.refreshAllowed) {
+            refreshBlock.classList.add('alert-success');
+            refreshBlock.textContent = 'Обновление доступно — выполните его из таблицы отправлений.';
+        } else if (data?.nextRefreshAt) {
+            refreshBlock.classList.add('alert-warning');
+            refreshBlock.textContent = `Повторное обновление будет доступно после ${format(data.nextRefreshAt)}.`;
+        } else {
+            refreshBlock.classList.add('alert-secondary');
+            refreshBlock.textContent = 'Обновление недоступно для текущего статуса.';
+        }
+
+        wrapper.appendChild(refreshBlock);
+
+        const tableWrapper = document.createElement('div');
+        tableWrapper.className = 'table-responsive';
+
+        const table = document.createElement('table');
+        table.className = 'table table-striped';
+
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+
+        const dateHeader = document.createElement('th');
+        dateHeader.textContent = 'Дата';
+        headRow.appendChild(dateHeader);
+
+        const statusHeader = document.createElement('th');
+        statusHeader.textContent = 'Статус';
+        headRow.appendChild(statusHeader);
+
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+
+        if (history.length === 0) {
+            const emptyRow = document.createElement('tr');
+            const emptyCell = document.createElement('td');
+            emptyCell.colSpan = 2;
+            emptyCell.className = 'text-center text-muted';
+            emptyCell.textContent = 'История отсутствует';
+            emptyRow.appendChild(emptyCell);
+            tbody.appendChild(emptyRow);
+        } else {
+            history.forEach(event => {
+                const row = document.createElement('tr');
+
+                const dateCell = document.createElement('td');
+                dateCell.textContent = format(event.timestamp);
+                row.appendChild(dateCell);
+
+                const statusCell = document.createElement('td');
+                statusCell.textContent = event.status || '—';
+                row.appendChild(statusCell);
+
+                tbody.appendChild(row);
+            });
+        }
+
+        table.appendChild(tbody);
+        tableWrapper.appendChild(table);
+        wrapper.appendChild(tableWrapper);
+
+        container.appendChild(wrapper);
+
+        if (editButton && data?.id) {
+            editButton.addEventListener('click', () => {
+                promptTrackNumber(data.id);
             });
         }
     }
