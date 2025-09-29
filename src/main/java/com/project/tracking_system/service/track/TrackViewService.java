@@ -124,8 +124,10 @@ public class TrackViewService {
      */
     private List<TrackStatusEventDto> buildFallbackHistory(TrackParcel parcel, ZoneId userZone) {
         List<StatusSnapshot> snapshots = new ArrayList<>();
-        if (parcel.getTimestamp() != null && parcel.getStatus() != null) {
-            snapshots.add(new StatusSnapshot(parcel.getTimestamp(), parcel.getStatus().getDescription()));
+        GlobalStatus aggregateStatus = parcel.getStatus();
+        ZonedDateTime aggregateMoment = resolveStatusMoment(parcel);
+        if (aggregateStatus != null && aggregateMoment != null) {
+            snapshots.add(new StatusSnapshot(aggregateMoment, aggregateStatus.getDescription()));
         }
         DeliveryHistory history = parcel.getDeliveryHistory();
         if (history != null) {
@@ -194,6 +196,25 @@ public class TrackViewService {
      */
     private String formatTimestamp(ZonedDateTime moment, ZoneId userZone) {
         return moment.withZoneSameInstant(userZone).format(ISO_FORMATTER);
+    }
+
+    /**
+     * Определяет момент времени для обобщённого статуса посылки.
+     * <p>
+     * Если точная дата статуса неизвестна (например, история ещё не загружена
+     * из внешнего сервиса), используем отметку последнего обновления трека,
+     * чтобы пользователь видел актуальную временную метку.
+     * </p>
+     *
+     * @param parcel посылка, для которой нужно определить момент статуса
+     * @return момент статуса или {@code null}, если его невозможно вычислить
+     */
+    private ZonedDateTime resolveStatusMoment(TrackParcel parcel) {
+        ZonedDateTime statusMoment = parcel.getTimestamp();
+        if (statusMoment != null) {
+            return statusMoment;
+        }
+        return parcel.getLastUpdate();
     }
 
     /**

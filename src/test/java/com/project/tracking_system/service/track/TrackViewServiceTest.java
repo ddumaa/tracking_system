@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
@@ -68,7 +69,7 @@ class TrackViewServiceTest {
 
         verify(trackStatusEventService).findEvents(10L);
         assertThat(details.history())
-                .extracting(TrackStatusEventDto::description)
+                .extracting(TrackStatusEventDto::status)
                 .containsExactly("Принят в отделении", "Передан перевозчику");
     }
 
@@ -96,8 +97,31 @@ class TrackViewServiceTest {
 
         verify(trackStatusEventService).findEvents(20L);
         assertThat(details.history())
-                .extracting(TrackStatusEventDto::description)
+                .extracting(TrackStatusEventDto::status)
                 .contains("Посылка зарегистрирована", "Прибытие на пункт выдачи", "Вручение получателю");
+    }
+
+    /**
+     * Если подробные события отсутствуют, текущий статус берётся из агрегированного
+     * статуса посылки с отметкой времени последнего обновления.
+     */
+    @Test
+    void getTrackDetails_UsesAggregateStatusWhenHistoryMissing() {
+        ZonedDateTime lastUpdate = ZonedDateTime.now(ZoneOffset.UTC).minusHours(4);
+        TrackParcel parcel = buildParcel(25L, GlobalStatus.WAITING_FOR_CUSTOMER, lastUpdate);
+        parcel.setTimestamp(null);
+
+        when(trackParcelService.findOwnedById(25L, 5L)).thenReturn(Optional.of(parcel));
+        when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(12);
+        when(userService.getUserZone(5L)).thenReturn(ZoneId.of("UTC"));
+        when(trackStatusEventService.findEvents(25L)).thenReturn(List.of());
+
+        TrackDetailsDto details = service.getTrackDetails(25L, 5L);
+
+        assertThat(details.history()).hasSize(1);
+        TrackStatusEventDto event = details.history().get(0);
+        assertThat(event.status()).isEqualTo(GlobalStatus.WAITING_FOR_CUSTOMER.getDescription());
+        assertThat(event.timestamp()).isEqualTo(lastUpdate.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
     }
 
     /**
