@@ -4,11 +4,14 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.project.tracking_system.dto.TelegramParcelInfoDTO;
+import com.project.tracking_system.dto.TelegramParcelsOverviewDTO;
 import com.project.tracking_system.entity.AdminNotification;
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
+import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
@@ -22,10 +25,13 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
+import org.telegram.telegrambots.meta.api.methods.ParseMode;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.chat.Chat;
 import org.telegram.telegrambots.meta.api.objects.Contact;
+import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -95,6 +101,11 @@ class BuyerTelegramBotTest {
         }
         try {
             when(telegramClient.execute(any(EditMessageText.class))).thenReturn(null);
+        } catch (TelegramApiException e) {
+            throw new RuntimeException(e);
+        }
+        try {
+            when(telegramClient.execute(any(AnswerCallbackQuery.class))).thenReturn(null);
         } catch (TelegramApiException e) {
             throw new RuntimeException(e);
         }
@@ -203,6 +214,8 @@ class BuyerTelegramBotTest {
         verify(telegramClient, atLeastOnce()).execute(editCaptor.capture());
         EditMessageText bannerEdit = editCaptor.getAllValues().get(editCaptor.getAllValues().size() - 1);
 
+        assertEquals(ParseMode.MARKDOWNV2, bannerEdit.getParseMode(),
+                "Баннер объявления должен отправляться с включённым Markdown для корректной разметки");
         assertTrue(bannerEdit.getText().contains(notification.getTitle()),
                 "Текст баннера должен содержать заголовок объявления");
         assertTrue(bannerEdit.getText().contains("Первый пункт"));
@@ -313,6 +326,114 @@ class BuyerTelegramBotTest {
                 "В сессии должна храниться новая отметка обновления объявления");
         assertFalse(session.isAnnouncementSeen(),
                 "После обновления содержимого признак просмотра должен быть сброшен");
+    }
+
+    /**
+     * Проверяет, что список посылок группируется по магазину и выводит только трек-номера.
+     */
+    @Test
+    void shouldGroupParcelsByStoreWithTracksOnly() throws Exception {
+        Long chatId = 901L;
+        TelegramParcelInfoDTO first = new TelegramParcelInfoDTO("TRACK-1", "Store Alpha", GlobalStatus.DELIVERED);
+        TelegramParcelInfoDTO second = new TelegramParcelInfoDTO("TRACK-2", "Store Beta", GlobalStatus.DELIVERED);
+        TelegramParcelInfoDTO third = new TelegramParcelInfoDTO("TRACK-3", "Store Alpha", GlobalStatus.DELIVERED);
+
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(
+                List.of(first, second, third),
+                List.of(),
+                List.of());
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        Update callbackUpdate = mockCallbackUpdate(chatId, "parcels:delivered");
+
+        bot.consume(callbackUpdate);
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+        String text = captor.getValue().getText();
+
+        assertEquals(ParseMode.MARKDOWNV2, captor.getValue().getParseMode(),
+                "Список посылок должен отправляться в Markdown, чтобы заголовки магазинов были жирными");
+        assertTrue(text.startsWith("📬 Полученные посылки"),
+                "Сообщение должно начинаться с заголовка выбранной категории");
+        assertTrue(text.contains("*Store Alpha*\n• TRACK\\-1\n• TRACK\\-3"),
+                "Посылки одного магазина должны выводиться под общим заголовком и включать только треки");
+        assertTrue(text.contains("*Store Beta*\n• TRACK\\-2"),
+                "Для каждого магазина ожидается собственный блок с трек-номерами");
+    }
+
+    /**
+     * Убеждается, что спецсимволы Markdown экранируются перед отправкой списка посылок.
+     */
+    @Test
+    void shouldEscapeMarkdownWhenRenderingParcels() throws Exception {
+        Long chatId = 903L;
+        TelegramParcelInfoDTO special = new TelegramParcelInfoDTO(
+                "TRACK_[1]",
+                "Store_[Beta](Promo)",
+                GlobalStatus.DELIVERED
+        );
+
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(
+                List.of(special),
+                List.of(),
+                List.of()
+        );
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        Update callbackUpdate = mockCallbackUpdate(chatId, "parcels:delivered");
+
+        bot.consume(callbackUpdate);
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+        SendMessage message = captor.getValue();
+
+        assertEquals(ParseMode.MARKDOWNV2, message.getParseMode(),
+                "Ответ по посылкам должен использовать Markdown для форматирования");
+        String text = message.getText();
+        assertTrue(text.contains("*Store\\_\\[Beta\\]\\(Promo\\)*"),
+                "Название магазина с особыми символами должно экранироваться");
+        assertTrue(text.contains("• TRACK\\_\\[1\\]"),
+                "Трек-номер с символами Markdown должен экранироваться");
+    }
+
+    /**
+     * Проверяет, что в разделе «Ожидают забора» проблемные посылки получают предупреждение.
+     */
+    @Test
+    void shouldWarnAboutParcelsNotPickedUpInAwaitingSection() throws Exception {
+        Long chatId = 902L;
+        TelegramParcelInfoDTO critical = new TelegramParcelInfoDTO(
+                "TRACK-ALERT",
+                "Store Gamma",
+                GlobalStatus.CUSTOMER_NOT_PICKING_UP
+        );
+        TelegramParcelInfoDTO regular = new TelegramParcelInfoDTO(
+                "TRACK-OK",
+                "Store Gamma",
+                GlobalStatus.WAITING_FOR_CUSTOMER
+        );
+
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(
+                List.of(),
+                List.of(critical, regular),
+                List.of()
+        );
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        Update callbackUpdate = mockCallbackUpdate(chatId, "parcels:awaiting");
+
+        bot.consume(callbackUpdate);
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+        String text = captor.getValue().getText();
+
+        assertTrue(text.contains("TRACK\\-ALERT — ⚠️ скоро уедет в магазин"),
+                "Посылка с проблемным статусом должна сопровождаться предупреждением");
+        assertTrue(text.contains("• TRACK\\-OK"),
+                "Обычные посылки должны оставаться без дополнительных подпесей");
     }
 
     /**
@@ -771,6 +892,30 @@ class BuyerTelegramBotTest {
         when(message.getText()).thenReturn(text);
         when(message.getChatId()).thenReturn(chatId);
         when(message.hasContact()).thenReturn(false);
+
+        return update;
+    }
+
+    /**
+     * Создаёт мок callback-обновления для проверки обработки категорий посылок.
+     *
+     * @param chatId       идентификатор чата Telegram
+     * @param callbackData данные callback-запроса
+     * @return объект {@link Update} с настроенным callback
+     */
+    private Update mockCallbackUpdate(Long chatId, String callbackData) {
+        Update update = mock(Update.class);
+        CallbackQuery callbackQuery = mock(CallbackQuery.class);
+        Message message = mock(Message.class);
+
+        when(update.hasCallbackQuery()).thenReturn(true);
+        when(update.getCallbackQuery()).thenReturn(callbackQuery);
+        when(callbackQuery.getId()).thenReturn("cb-" + chatId);
+        when(callbackQuery.getData()).thenReturn(callbackData);
+        when(callbackQuery.getMessage()).thenReturn(message);
+
+        when(message.getChatId()).thenReturn(chatId);
+        when(message.getMessageId()).thenReturn(1);
 
         return update;
     }

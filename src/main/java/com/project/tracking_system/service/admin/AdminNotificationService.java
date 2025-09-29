@@ -5,7 +5,10 @@ import com.project.tracking_system.entity.AdminNotificationStatus;
 import com.project.tracking_system.entity.BuyerAnnouncementState;
 import com.project.tracking_system.repository.AdminNotificationRepository;
 import com.project.tracking_system.repository.BuyerAnnouncementStateRepository;
+import com.project.tracking_system.service.admin.event.AdminAnnouncementEvent;
+import com.project.tracking_system.service.admin.event.AdminAnnouncementEvent.AdminAnnouncementEventType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +27,7 @@ public class AdminNotificationService {
 
     private final AdminNotificationRepository notificationRepository;
     private final BuyerAnnouncementStateRepository announcementStateRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Возвращает историю уведомлений в порядке создания.
@@ -51,7 +55,9 @@ public class AdminNotificationService {
         notification.setTitle(title);
         notification.setBodyLines(new ArrayList<>(bodyLines));
         activateNotificationEntity(notification);
-        return notificationRepository.save(notification);
+        AdminNotification saved = notificationRepository.save(notification);
+        publishAnnouncementEvent(saved, AdminAnnouncementEventType.ACTIVATED);
+        return saved;
     }
 
     /**
@@ -86,6 +92,7 @@ public class AdminNotificationService {
     public void activateNotification(Long id) {
         AdminNotification toActivate = getNotification(id);
         activateNotificationEntity(toActivate);
+        publishAnnouncementEvent(toActivate, AdminAnnouncementEventType.ACTIVATED);
     }
 
     /**
@@ -113,6 +120,7 @@ public class AdminNotificationService {
         AdminNotification notification = getNotification(id);
         resetAnnouncementViews(notification);
         notification.setResetRequested(false);
+        publishAnnouncementEvent(notification, AdminAnnouncementEventType.RESET_REQUESTED);
     }
 
     /**
@@ -170,5 +178,18 @@ public class AdminNotificationService {
      */
     private boolean isSameNotification(AdminNotification first, AdminNotification second) {
         return first.getId() != null && first.getId().equals(second.getId());
+    }
+
+    /**
+     * Публикует доменное событие об изменении активного объявления.
+     *
+     * @param notification уведомление, инициировавшее событие
+     * @param type         тип события (активация или сброс)
+     */
+    private void publishAnnouncementEvent(AdminNotification notification, AdminAnnouncementEventType type) {
+        if (notification == null || notification.getId() == null || eventPublisher == null || type == null) {
+            return;
+        }
+        eventPublisher.publishEvent(new AdminAnnouncementEvent(notification.getId(), type));
     }
 }

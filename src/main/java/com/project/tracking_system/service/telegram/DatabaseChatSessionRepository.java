@@ -11,7 +11,11 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Реализация репозитория сессий, использующая базу данных для долговременного хранения.
@@ -62,6 +66,7 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
         entity.setLastScreen(session.getLastScreen());
         entity.setKeyboardHidden(session.isPersistentKeyboardHidden());
         entity.setContactRequestSent(session.isContactRequestSent());
+        entity.setNavigationPath(serializeNavigationPath(session.getNavigationPath()));
         BuyerBotScreenState saved = repository.save(entity);
 
         BuyerAnnouncementState announcement = getOrCreateAnnouncementEntity(chatId);
@@ -123,13 +128,17 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
      */
     @Override
     @Transactional
-    public void updateAnchorAndScreen(Long chatId, Integer anchorMessageId, BuyerBotScreen screen) {
+    public void updateAnchorAndScreen(Long chatId,
+                                      Integer anchorMessageId,
+                                      BuyerBotScreen screen,
+                                      List<BuyerBotScreen> navigationPath) {
         if (chatId == null) {
             return;
         }
         BuyerBotScreenState entity = getOrCreateEntity(chatId);
         entity.setAnchorMessageId(anchorMessageId);
         entity.setLastScreen(screen);
+        entity.setNavigationPath(serializeNavigationPath(navigationPath));
         repository.save(entity);
     }
 
@@ -326,7 +335,13 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
      */
     private BuyerBotScreenState getOrCreateEntity(Long chatId) {
         return repository.findById(chatId)
-                .orElseGet(() -> new BuyerBotScreenState(chatId, null, null, BuyerChatState.IDLE, Boolean.TRUE, Boolean.FALSE));
+                .orElseGet(() -> new BuyerBotScreenState(chatId,
+                        null,
+                        null,
+                        BuyerChatState.IDLE,
+                        Boolean.TRUE,
+                        Boolean.FALSE,
+                        null));
     }
 
     /**
@@ -355,7 +370,7 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
         if (entity == null) {
             return null;
         }
-        return new ChatSession(
+        ChatSession session = new ChatSession(
                 entity.getChatId(),
                 entity.getChatState(),
                 entity.getAnchorMessageId(),
@@ -363,6 +378,8 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
                 Boolean.TRUE.equals(entity.getKeyboardHidden()),
                 Boolean.TRUE.equals(entity.getContactRequestSent())
         );
+        session.setNavigationPath(deserializeNavigationPath(entity.getNavigationPath()));
+        return session;
     }
 
     /**
@@ -379,5 +396,46 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
         session.setAnnouncementAnchorMessageId(announcement.getAnchorMessageId());
         session.setAnnouncementSeen(Boolean.TRUE.equals(announcement.getAnnouncementSeen()));
         session.setAnnouncementUpdatedAt(announcement.getNotificationUpdatedAt());
+    }
+
+    /**
+     * Преобразует путь навигации в строку для хранения в базе данных.
+     *
+     * @param navigationPath последовательность экранов
+     * @return сериализованное представление или {@code null}, если путь пуст
+     */
+    private String serializeNavigationPath(List<BuyerBotScreen> navigationPath) {
+        if (navigationPath == null || navigationPath.isEmpty()) {
+            return null;
+        }
+        return navigationPath.stream()
+                .filter(Objects::nonNull)
+                .map(Enum::name)
+                .collect(Collectors.joining(","));
+    }
+
+    /**
+     * Восстанавливает путь навигации из строки, сохранённой в базе данных.
+     *
+     * @param serialized сохранённое представление пути
+     * @return список экранов с учётом возможных ошибок формата
+     */
+    private List<BuyerBotScreen> deserializeNavigationPath(String serialized) {
+        List<BuyerBotScreen> result = new ArrayList<>();
+        if (serialized == null || serialized.isBlank()) {
+            return result;
+        }
+        String[] parts = serialized.split(",");
+        for (String part : parts) {
+            if (part == null || part.isBlank()) {
+                continue;
+            }
+            try {
+                result.add(BuyerBotScreen.valueOf(part.trim()));
+            } catch (IllegalArgumentException ignored) {
+                // Игнорируем устаревшие или некорректные значения
+            }
+        }
+        return result;
     }
 }

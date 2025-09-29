@@ -4,6 +4,9 @@ import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Представление состояния чата покупателя, хранящееся в устойчивом хранилище.
@@ -17,6 +20,7 @@ public class ChatSession {
     private BuyerChatState state;
     private Integer anchorMessageId;
     private BuyerBotScreen lastScreen;
+    private final List<BuyerBotScreen> navigationPath;
     private boolean persistentKeyboardHidden;
     private boolean contactRequestSent;
     private Long currentNotificationId;
@@ -76,6 +80,7 @@ public class ChatSession {
         this.state = state != null ? state : BuyerChatState.IDLE;
         this.anchorMessageId = anchorMessageId;
         this.lastScreen = lastScreen;
+        this.navigationPath = new ArrayList<>();
         this.persistentKeyboardHidden = persistentKeyboardHidden;
         this.contactRequestSent = contactRequestSent;
         this.currentNotificationId = null;
@@ -145,6 +150,104 @@ public class ChatSession {
      */
     public void setLastScreen(BuyerBotScreen lastScreen) {
         this.lastScreen = lastScreen;
+    }
+
+    /**
+     * Возвращает текущий путь навигации от корневого меню до активного экрана.
+     *
+     * @return неизменяемый список экранов
+     */
+    public List<BuyerBotScreen> getNavigationPath() {
+        return Collections.unmodifiableList(new ArrayList<>(navigationPath));
+    }
+
+    /**
+     * Заменяет путь навигации данными, восстановленными из хранилища.
+     *
+     * @param navigationPath последовательность экранов или {@code null}
+     */
+    public void setNavigationPath(List<BuyerBotScreen> navigationPath) {
+        this.navigationPath.clear();
+        if (navigationPath == null || navigationPath.isEmpty()) {
+            return;
+        }
+        for (BuyerBotScreen screen : navigationPath) {
+            if (screen != null) {
+                this.navigationPath.add(screen);
+            }
+        }
+    }
+
+    /**
+     * Формирует потенциальный путь навигации без изменения текущего состояния.
+     *
+     * @param screen         экран, который планируется показать
+     * @param allowDuplicate разрешено ли добавлять повтор текущего экрана как отдельный шаг
+     * @return путь навигации с учётом нового экрана
+     */
+    public List<BuyerBotScreen> projectNavigationPath(BuyerBotScreen screen, boolean allowDuplicate) {
+        List<BuyerBotScreen> projected = new ArrayList<>(navigationPath);
+        if (screen == null) {
+            return projected;
+        }
+
+        if (screen == BuyerBotScreen.MENU) {
+            projected.clear();
+            projected.add(BuyerBotScreen.MENU);
+            return projected;
+        }
+
+        if (projected.isEmpty()) {
+            projected.add(BuyerBotScreen.MENU);
+        }
+
+        BuyerBotScreen current = projected.get(projected.size() - 1);
+        if (current != screen) {
+            projected.add(screen);
+        } else if (allowDuplicate) {
+            projected.add(screen);
+        }
+        return projected;
+    }
+
+    /**
+     * Фиксирует путь навигации после отображения нового экрана.
+     *
+     * @param screen         экран, который был показан пользователю
+     * @param allowDuplicate разрешено ли добавлять повтор текущего экрана как отдельный шаг
+     */
+    public void updateNavigationForScreen(BuyerBotScreen screen, boolean allowDuplicate) {
+        if (screen == null) {
+            return;
+        }
+        List<BuyerBotScreen> updated = projectNavigationPath(screen, allowDuplicate);
+        navigationPath.clear();
+        navigationPath.addAll(updated);
+        this.lastScreen = screen;
+    }
+
+    /**
+     * Возвращает экран, который следует показать при возврате на шаг назад.
+     *
+     * @return предыдущий экран или главное меню, если история пуста
+     */
+    public BuyerBotScreen navigateBack() {
+        if (navigationPath.isEmpty()) {
+            navigationPath.add(BuyerBotScreen.MENU);
+            lastScreen = BuyerBotScreen.MENU;
+            return BuyerBotScreen.MENU;
+        }
+
+        if (navigationPath.size() == 1) {
+            BuyerBotScreen current = navigationPath.get(0);
+            lastScreen = current;
+            return current;
+        }
+
+        navigationPath.remove(navigationPath.size() - 1);
+        BuyerBotScreen target = navigationPath.get(navigationPath.size() - 1);
+        lastScreen = target;
+        return target;
     }
 
     /**
