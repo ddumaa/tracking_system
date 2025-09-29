@@ -5,10 +5,13 @@ import com.project.tracking_system.entity.AdminNotificationStatus;
 import com.project.tracking_system.entity.BuyerAnnouncementState;
 import com.project.tracking_system.repository.AdminNotificationRepository;
 import com.project.tracking_system.repository.BuyerAnnouncementStateRepository;
+import com.project.tracking_system.service.admin.event.AdminAnnouncementEvent;
+import com.project.tracking_system.service.admin.event.AdminAnnouncementEvent.AdminAnnouncementEventType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -29,9 +32,12 @@ class AdminNotificationServiceTest {
 
     private AdminNotificationService notificationService;
 
+    private RecordingEventPublisher eventPublisher;
+
     @BeforeEach
     void setUp() {
-        notificationService = new AdminNotificationService(notificationRepository, announcementStateRepository);
+        eventPublisher = new RecordingEventPublisher();
+        notificationService = new AdminNotificationService(notificationRepository, announcementStateRepository, eventPublisher);
     }
 
     /**
@@ -78,5 +84,56 @@ class AdminNotificationServiceTest {
         assertFalse(reloaded.isResetRequested(), "Флаг запроса повтора должен быть снят после обработки");
         assertTrue(reloaded.getUpdatedAt().isAfter(initialUpdatedAt),
                 "Обновление уведомления должно изменить отметку времени модификации");
+
+        AdminAnnouncementEvent lastEvent = eventPublisher.getLastEvent();
+        assertNotNull(lastEvent, "После сброса должно публиковаться событие рассылки");
+        assertEquals(AdminAnnouncementEventType.RESET_REQUESTED, lastEvent.type(),
+                "Тип события при сбросе должен быть RESET_REQUESTED");
+        assertEquals(notification.getId(), lastEvent.notificationId(),
+                "В событии должен передаваться идентификатор уведомления");
+    }
+
+    /**
+     * Проверяет, что активация уведомления публикует событие для рассылки.
+     */
+    @Test
+    void shouldPublishEventOnActivation() {
+        AdminNotification notification = new AdminNotification();
+        notification.setTitle("Новости");
+        notification = notificationRepository.save(notification);
+
+        eventPublisher.clear();
+
+        notificationService.activateNotification(notification.getId());
+
+        AdminAnnouncementEvent lastEvent = eventPublisher.getLastEvent();
+        assertNotNull(lastEvent, "При активации должно отправляться событие");
+        assertEquals(AdminAnnouncementEventType.ACTIVATED, lastEvent.type(),
+                "Тип события должен отражать активацию уведомления");
+        assertEquals(notification.getId(), lastEvent.notificationId(),
+                "В событии должен быть указан идентификатор активного уведомления");
+    }
+
+    /**
+     * Простая реализация издателя событий, сохраняющая последнее опубликованное событие для проверок.
+     */
+    private static class RecordingEventPublisher implements ApplicationEventPublisher {
+
+        private AdminAnnouncementEvent lastEvent;
+
+        @Override
+        public void publishEvent(Object event) {
+            if (event instanceof AdminAnnouncementEvent announcementEvent) {
+                this.lastEvent = announcementEvent;
+            }
+        }
+
+        public AdminAnnouncementEvent getLastEvent() {
+            return lastEvent;
+        }
+
+        public void clear() {
+            this.lastEvent = null;
+        }
     }
 }

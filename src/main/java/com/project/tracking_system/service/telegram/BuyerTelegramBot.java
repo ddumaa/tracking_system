@@ -54,7 +54,7 @@ import java.util.stream.Collectors;
  */
 @Component
 @Slf4j
-public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
+public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer, TelegramAnnouncementSender {
 
     private static final String BUTTON_STATS = "📊 Статистика";
     private static final String BUTTON_PARCELS = "📦 Мои посылки";
@@ -1955,7 +1955,19 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         sendInlineMessage(chatId, text, markup, BuyerBotScreen.MENU, forceResendOnNotModified, navigationPath);
 
         ensurePersistentKeyboard(chatId);
-        renderActiveAnnouncement(chatId, resolvedCustomer);
+        if (resolvedCustomer != null && resolvedCustomer.isTelegramConfirmed()) {
+            showActiveAnnouncement(chatId);
+        }
+    }
+
+    /**
+     * Отрисовывает активное объявление администратора для указанного подтверждённого чата.
+     *
+     * @param chatId идентификатор чата Telegram, в который следует отправить баннер
+     */
+    @Override
+    public void showActiveAnnouncement(Long chatId) {
+        renderActiveAnnouncement(chatId);
     }
 
     /**
@@ -2054,11 +2066,10 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * переотправляет баннер, чтобы покупатель получил изменённую информацию.
      * </p>
      *
-     * @param chatId   идентификатор чата Telegram
-     * @param customer покупатель, привязанный к чату
+     * @param chatId идентификатор чата Telegram подтверждённого покупателя
      */
-    private void renderActiveAnnouncement(Long chatId, Customer customer) {
-        if (chatId == null || customer == null || !customer.isTelegramConfirmed()) {
+    private void renderActiveAnnouncement(Long chatId) {
+        if (chatId == null) {
             return;
         }
 
