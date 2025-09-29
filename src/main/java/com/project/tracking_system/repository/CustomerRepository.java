@@ -3,12 +3,12 @@ package com.project.tracking_system.repository;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.BuyerReputation;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.Optional;
 
 /**
  * Репозиторий для работы с сущностью {@link Customer}.
@@ -138,4 +138,21 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
      * @return число покупателей с Telegram
      */
     long countByTelegramChatIdNotNull();
+
+    /**
+     * Получить идентификаторы чатов подтверждённых покупателей в Telegram.
+     * <p>
+     * Метод возвращает только те чаты, где покупатель подтвердил связку с ботом, что
+     * позволяет выполнять рассылки без загрузки полного профиля клиента.
+     * </p>
+     *
+     * @return список идентификаторов чатов Telegram
+     */
+    @Query("""
+        SELECT c.telegramChatId
+        FROM Customer c
+        WHERE c.telegramChatId IS NOT NULL
+          AND c.telegramConfirmed = true
+    """)
+    List<Long> findConfirmedTelegramChatIds();
 }
