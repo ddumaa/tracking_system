@@ -41,27 +41,6 @@ function hideLoading() {
 }
 
 /**
- * Открывает модальное окно для ввода трек-номера.
- * Отвечает только за установку идентификатора и показ модали.
- * @param {string} id идентификатор отправления
- */
-function promptTrackNumber(id) {
-    const idInput = document.querySelector('#set-track-number-form input[name="id"]');
-    if (idInput) {
-        idInput.value = id;
-    }
-
-    const modalEl = document.getElementById('trackNumberModal');
-    if (modalEl) {
-        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-        modal.show();
-    }
-}
-
-// Экспортируем функцию, чтобы она была доступна из HTML-разметки
-window.promptTrackNumber = promptTrackNumber;
-
-/**
  * Формирует объект с CSRF-заголовком при наличии соответствующих метатегов.
  * @returns {Object} объект с заголовком CSRF или пустой объект
  */
@@ -69,54 +48,6 @@ function getCsrfHeaders() {
     const header = window.csrfHeader;
     const token = window.csrfToken;
     return header && token ? { [header]: token } : {};
-}
-
-/**
- * Отправляет трек-номер на сервер и обновляет интерфейс.
- * @param {SubmitEvent} event событие отправки формы
- */
-function handleTrackNumberFormSubmit(event) {
-    event.preventDefault();
-
-    const form = event.target;
-    const id = form.querySelector('input[name="id"]').value;
-    const number = form.querySelector('input[name="number"]').value;
-    // Нормализуем номер: удаляем пробелы и приводим к верхнему регистру
-    const normalized = number.toUpperCase().trim();
-
-    fetch('/app/departures/set-number', {
-        method: 'POST',
-        headers: {
-            ...getCsrfHeaders(),
-            'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: new URLSearchParams({ id, number: normalized })
-    })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Не удалось сохранить номер');
-            }
-
-            const row = document.querySelector(`tr[data-track-id="${id}"]`);
-            if (row) {
-                const btn = row.querySelector('button.parcel-number');
-                if (btn) {
-                    btn.textContent = normalized;
-                    btn.classList.add('open-modal');
-                    btn.dataset.itemnumber = normalized;
-                }
-                row.dataset.trackNumber = normalized;
-                notifyUser('Трек-номер добавлен', 'success');
-            } else {
-                window.location.reload();
-            }
-        })
-        .catch(error => notifyUser('Ошибка: ' + error.message, 'danger'))
-        .finally(() => {
-            const modal = bootstrap.Modal.getInstance(document.getElementById('trackNumberModal'));
-            modal?.hide();
-            form.reset();
-        });
 }
 
 /**
@@ -255,32 +186,6 @@ document.body.addEventListener("change", function (event) {
 });
 
 document.getElementById("actionSelect")?.addEventListener("change", updateApplyButtonState);
-
-/**
- * Загружает данные по одной отправке и открывает модальное окно.
- * Отображает оверлей загрузки на время запроса.
- * @param {string} itemNumber - номер отправления
- */
-function loadModal(itemNumber) {
-    if (!itemNumber) return;
-
-    showLoading(); // показываем индикатор для операций с одной посылкой
-
-    fetch(`/app/departures/${itemNumber}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Ошибка при загрузке данных');
-            }
-            return response.text();
-        })
-        .then(data => {
-            document.querySelector('#infoModal .modal-body').innerHTML = data;
-            const modal = new bootstrap.Modal(document.getElementById('infoModal'));
-            modal.show();
-        })
-        .catch(() => notifyUser('Ошибка при загрузке данных', "danger"))
-        .finally(() => hideLoading()); // скрываем индикатор в любом случае
-}
 
 /**
  * Загружает и показывает информацию о покупателе в модальном окне.
@@ -2148,12 +2053,6 @@ document.addEventListener("DOMContentLoaded", function () {
     // === WebSocket ===
     connectWebSocket();
 
-    // === Сохранение трек-номера через модальное окно ===
-    const trackNumberForm = document.getElementById('set-track-number-form');
-    if (trackNumberForm) {
-        trackNumberForm.addEventListener('submit', handleTrackNumberFormSubmit);
-    }
-
     document.getElementById("updateAllForm")?.addEventListener("submit", function (event) {
         event.preventDefault();
         sendUpdateRequest(null);
@@ -2347,7 +2246,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const trackBtn = event.target.closest('button.parcel-number:not(.open-modal)');
         if (trackBtn) {
             // Показываем модаль с вводом трек-номера
-            promptTrackNumber(trackBtn.dataset.id);
+            window.trackModal?.promptTrackNumber(trackBtn.dataset.id);
             return;
         }
 
@@ -2355,10 +2254,9 @@ document.addEventListener("DOMContentLoaded", function () {
         // Ищем только элементы с классом .open-modal, чтобы не перехватывать клики по другим кнопкам
         const openModalButton = target.closest(".open-modal");
         if (openModalButton) {
+            const trackId = openModalButton.getAttribute("data-track-id");
             const itemNumber = openModalButton.getAttribute("data-itemnumber");
-            if (itemNumber) {
-                loadModal(itemNumber);
-            }
+            window.trackModal?.loadModal(trackId || itemNumber);
             return;
         }
 
