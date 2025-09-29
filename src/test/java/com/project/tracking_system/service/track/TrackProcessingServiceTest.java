@@ -14,6 +14,7 @@ import com.project.tracking_system.service.analytics.TrackStatisticsUpdater;
 import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.service.customer.CustomerStatsService;
 import com.project.tracking_system.service.user.UserService;
+import com.project.tracking_system.service.track.TrackStatusEventService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -58,6 +59,8 @@ class TrackProcessingServiceTest {
     private TrackParcelRepository trackParcelRepository;
     @Mock
     private TrackStatisticsUpdater trackStatisticsUpdater;
+    @Mock
+    private TrackStatusEventService trackStatusEventService;
 
     private TrackProcessingService trackProcessingService;
 
@@ -74,7 +77,8 @@ class TrackProcessingServiceTest {
                 storeRepository,
                 userRepository,
                 trackParcelRepository,
-                trackStatisticsUpdater
+                trackStatisticsUpdater,
+                trackStatusEventService
         );
     }
 
@@ -106,6 +110,7 @@ class TrackProcessingServiceTest {
         assertTrue(parcel.getLastUpdate().isAfter(previousUpdate));
         verify(trackParcelRepository).save(parcel);
         verify(statusTrackService, never()).setStatus(any());
+        verify(trackStatusEventService, never()).replaceEvents(any(), any(), any());
     }
 
     /**
@@ -134,6 +139,7 @@ class TrackProcessingServiceTest {
         assertEquals(GlobalStatus.DELIVERED, parcel.getStatus());
         assertFalse(parcel.isPreRegistered());
         verify(trackParcelRepository).save(parcel);
+        verify(trackStatusEventService).replaceEvents(eq(parcel), eq(info.getList()), eq(ZoneId.of("UTC")));
     }
 
 }
