@@ -43,6 +43,7 @@ public class TrackProcessingService {
     private final UserRepository userRepository;
     private final TrackParcelRepository trackParcelRepository;
     private final TrackStatisticsUpdater trackStatisticsUpdater;
+    private final TrackStatusEventService trackStatusEventService;
 
 
     /**
@@ -222,6 +223,9 @@ public class TrackProcessingService {
         }
 
         trackParcelRepository.save(trackParcel);
+
+        // Обновляем сохранённую историю статусов для модального окна
+        trackStatusEventService.replaceEvents(trackParcel, trackInfoListDTO.getList(), userZone);
 
         // Если изменён покупатель и посылка имеет финальный статус,
         // нужно пересчитать статистику покупателя
