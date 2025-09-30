@@ -167,7 +167,7 @@ public class TrackViewService {
         if (status == null) {
             return true;
         }
-        return status == GlobalStatus.PRE_REGISTERED || !status.isFinal();
+        return status == GlobalStatus.PRE_REGISTERED || status == GlobalStatus.ERROR;
     }
 
     /**

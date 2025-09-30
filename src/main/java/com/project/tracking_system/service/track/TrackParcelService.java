@@ -2,13 +2,16 @@ package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.entity.DeliveryHistory;
 import com.project.tracking_system.entity.GlobalStatus;
-import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.PostalServiceType;
+import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
+import com.project.tracking_system.repository.DeliveryHistoryRepository;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.track.TrackServiceClassifier;
+import com.project.tracking_system.service.track.TrackNumberAuditService;
 import com.project.tracking_system.utils.NameSearchUtils;
 import com.project.tracking_system.utils.PhoneUtils;
 import com.project.tracking_system.utils.TrackNumberUtils;
@@ -16,17 +19,20 @@ import com.project.tracking_system.exception.TrackNumberAlreadyExistsException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.LocalDate;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -46,6 +52,8 @@ public class TrackParcelService {
     private final TrackParcelRepository trackParcelRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final TrackServiceClassifier trackServiceClassifier;
+    private final DeliveryHistoryRepository deliveryHistoryRepository;
+    private final TrackNumberAuditService trackNumberAuditService;
 
     /**
      * Возвращает тип почтовой службы для сохранённой посылки.
@@ -430,10 +438,79 @@ public class TrackParcelService {
     @Transactional
     public void assignTrackNumber(Long parcelId, String number, Long userId) {
         TrackParcel parcel = trackParcelRepository.findByIdAndPreRegisteredTrue(parcelId);
-        if (parcel == null || !parcel.getUser().getId().equals(userId)) {
+        if (parcel == null || parcel.getUser() == null || !parcel.getUser().getId().equals(userId)) {
             throw new EntityNotFoundException("Посылка не найдена");
         }
+        TrackNumberValidation validation = validateTrackNumber(number, userId);
+        trackParcelRepository.updatePreRegisteredNumber(parcelId, validation.normalized());
+    }
+
+    /**
+     * Обновляет трек-номер для посылки в статусах PRE_REGISTERED или ERROR.
+     * <p>
+     * Выполняет проверки принадлежности посылки, уникальности номера и корректности
+     * формата, сохраняет изменение в аудите и синхронизирует почтовую службу в истории
+     * доставки, чтобы аналитика учитывала актуальные данные.
+     * </p>
+     *
+     * @param parcelId идентификатор посылки
+     * @param userId   идентификатор владельца
+     * @param number   новое значение трек-номера
+     * @return обновлённая сущность посылки
+     */
+    @Transactional
+    @CacheEvict(cacheNames = "track-details", key = "#userId + ':' + #parcelId")
+    public TrackParcel updateTrackNumber(Long parcelId, Long userId, String number) {
+        TrackParcel parcel = trackParcelRepository.findByIdWithStoreAndUser(parcelId);
+        if (parcel == null) {
+            throw new EntityNotFoundException("Посылка не найдена");
+        }
+        if (parcel.getUser() == null || !parcel.getUser().getId().equals(userId)) {
+            throw new AccessDeniedException("Посылка не принадлежит пользователю");
+        }
+        GlobalStatus status = parcel.getStatus();
+        if (status != GlobalStatus.PRE_REGISTERED && status != GlobalStatus.ERROR) {
+            throw new IllegalStateException("Редактирование недоступно для текущего статуса");
+        }
+
+        TrackNumberValidation validation = validateTrackNumber(number, userId);
+        String normalized = validation.normalized();
+        String previousNumber = parcel.getNumber();
+        if (previousNumber != null && previousNumber.equals(normalized)) {
+            throw new IllegalArgumentException("Новый трек-номер совпадает с текущим");
+        }
+
+        PostalServiceType type = validation.type();
+        parcel.setNumber(normalized);
+        parcel.setLastUpdate(ZonedDateTime.now(ZoneOffset.UTC));
+        trackParcelRepository.save(parcel);
+
+        updateDeliveryHistoryServiceType(parcel, type);
+        trackNumberAuditService.recordChange(parcel, previousNumber, normalized, userId);
+        return parcel;
+    }
+
+    /**
+     * Преобразует посылку в DTO для указанного пользователя.
+     *
+     * @param parcel сущность посылки
+     * @param userId идентификатор пользователя
+     * @return DTO с учётом часового пояса пользователя
+     */
+    @Transactional(readOnly = true)
+    public TrackParcelDTO mapToDto(TrackParcel parcel, Long userId) {
+        ZoneId userZone = userService.getUserZone(userId);
+        return toDto(parcel, userZone);
+    }
+
+    /**
+     * Выполняет общую валидацию трек-номера и проверку уникальности.
+     */
+    private TrackNumberValidation validateTrackNumber(String number, Long userId) {
         String normalized = TrackNumberUtils.normalize(number);
+        if (normalized == null || normalized.isBlank()) {
+            throw new IllegalArgumentException("Трек-номер не может быть пустым");
+        }
         PostalServiceType type = trackServiceClassifier.detect(normalized);
         if (type == PostalServiceType.UNKNOWN) {
             throw new IllegalArgumentException("Указан некорректный код посылки");
@@ -441,7 +518,33 @@ public class TrackParcelService {
         if (trackParcelRepository.existsByNumberAndUserId(normalized, userId)) {
             throw new TrackNumberAlreadyExistsException("Трек-номер уже привязан к другой посылке");
         }
-        trackParcelRepository.updatePreRegisteredNumber(parcelId, normalized);
+        return new TrackNumberValidation(normalized, type);
+    }
+
+    /**
+     * Обновляет почтовую службу в истории доставки, чтобы аналитика
+     * опиралась на актуальный тип службы после изменения номера.
+     */
+    private void updateDeliveryHistoryServiceType(TrackParcel parcel, PostalServiceType type) {
+        if (type == PostalServiceType.UNKNOWN) {
+            return;
+        }
+        deliveryHistoryRepository.findByTrackParcelId(parcel.getId())
+                .ifPresent(history -> synchronizeHistoryPostalService(history, type));
+    }
+
+    /**
+     * Сохраняет обновлённую почтовую службу в истории доставки.
+     */
+    private void synchronizeHistoryPostalService(DeliveryHistory history, PostalServiceType type) {
+        history.setPostalService(type);
+        deliveryHistoryRepository.save(history);
+    }
+
+    /**
+     * Вспомогательная запись для возврата результата валидации номера.
+     */
+    private record TrackNumberValidation(String normalized, PostalServiceType type) {
     }
 
     /**
@@ -458,6 +561,9 @@ public class TrackParcelService {
             dto.setCustomerName(customer.getFullName());
             dto.setCustomerPhone(customer.getPhone());
             dto.setNameSource(customer.getNameSource());
+        }
+        if (track.getStatus() != null) {
+            dto.setIconHtml(track.getStatus().getIconHtml());
         }
         return dto;
     }

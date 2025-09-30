@@ -165,9 +165,12 @@
             editButton.type = 'button';
             editButton.className = 'btn btn-outline-primary btn-sm ms-auto';
             editButton.id = 'trackModalEditBtn';
-            editButton.textContent = 'Редактировать номер';
+            editButton.textContent = 'Редактировать трек';
             if (data?.id !== undefined) {
                 editButton.dataset.trackId = String(data.id);
+            }
+            if (data?.number) {
+                editButton.dataset.currentNumber = data.number;
             }
             headerBlock.appendChild(editButton);
         }
@@ -293,7 +296,7 @@
 
         if (editButton && data?.id) {
             editButton.addEventListener('click', () => {
-                promptTrackNumber(data.id);
+                promptTrackNumber(data.id, editButton.dataset.currentNumber || data.number || '');
             });
         }
     }
@@ -303,10 +306,15 @@
      * Метод только настраивает форму и делегирует показ Bootstrap-модали (SRP).
      * @param {string} id идентификатор отправления
      */
-    function promptTrackNumber(id) {
+    function promptTrackNumber(id, currentNumber) {
         const idInput = document.querySelector('#set-track-number-form input[name="id"]');
         if (idInput) {
             idInput.value = id;
+        }
+
+        const numberInput = document.getElementById('track-number-input');
+        if (numberInput) {
+            numberInput.value = currentNumber || '';
         }
 
         const modalEl = document.getElementById('trackNumberModal');
@@ -321,7 +329,7 @@
      * Метод отвечает за сетевой запрос и обновление строки таблицы, соблюдая SRP.
      * @param {SubmitEvent} event событие отправки формы
      */
-    function handleTrackNumberFormSubmit(event) {
+    async function handleTrackNumberFormSubmit(event) {
         event.preventDefault();
 
         const form = event.target;
@@ -329,40 +337,77 @@
         const number = form.querySelector('input[name="number"]').value;
         const normalized = number.toUpperCase().trim();
 
-        fetch('/app/departures/set-number', {
-            method: 'POST',
-            headers: {
-                ...buildCsrfHeaders(),
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: new URLSearchParams({ id, number: normalized })
-        })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Не удалось сохранить номер');
-                }
+        const submitButton = form.querySelector('button[type="submit"]');
+        if (submitButton) {
+            submitButton.disabled = true;
+        }
 
-                const row = document.querySelector(`tr[data-track-id="${id}"]`);
-                if (row) {
-                    const btn = row.querySelector('button.parcel-number');
-                    if (btn) {
-                        btn.textContent = normalized;
-                        btn.classList.add('open-modal');
-                        btn.dataset.itemnumber = normalized;
-                        btn.dataset.trackId = id;
-                    }
-                    row.dataset.trackNumber = normalized;
-                    notifyUser('Трек-номер добавлен', 'success');
-                } else {
-                    window.location.reload();
-                }
-            })
-            .catch(error => notifyUser('Ошибка: ' + error.message, 'danger'))
-            .finally(() => {
-                const modal = bootstrap.Modal.getInstance(document.getElementById('trackNumberModal'));
-                modal?.hide();
-                form.reset();
+        try {
+            const response = await fetch(`/api/v1/tracks/${id}/number`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    ...buildCsrfHeaders()
+                },
+                body: JSON.stringify({ number: normalized })
             });
+
+            let payload = null;
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                payload = await response.json();
+            }
+            if (!response.ok) {
+                const message = payload?.message || 'Не удалось сохранить номер';
+                throw new Error(message);
+            }
+
+            if (payload?.details) {
+                renderTrackModal(payload.details);
+            }
+            if (payload?.summary) {
+                updateTableRow(payload.summary);
+            }
+            notifyUser('Трек-номер обновлён', 'success');
+        } catch (error) {
+            notifyUser('Ошибка: ' + (error?.message || 'Не удалось сохранить номер'), 'danger');
+        } finally {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('trackNumberModal'));
+            modal?.hide();
+            form.reset();
+            if (submitButton) {
+                submitButton.disabled = false;
+            }
+        }
+    }
+
+    /**
+     * Обновляет строку таблицы после успешного редактирования номера.
+     * @param {Object} summary DTO с обновлёнными данными
+     */
+    function updateTableRow(summary) {
+        if (!summary || typeof summary !== 'object' || summary.id === undefined) {
+            return;
+        }
+        const row = document.querySelector(`tr[data-track-id="${summary.id}"]`);
+        if (!row) {
+            return;
+        }
+        row.dataset.trackNumber = summary.number || '';
+
+        const numberButton = row.querySelector('button.parcel-number');
+        if (numberButton) {
+            numberButton.textContent = summary.number || '—';
+            numberButton.dataset.itemnumber = summary.number || '';
+            numberButton.dataset.trackId = summary.id;
+            numberButton.classList.add('open-modal');
+        }
+
+        const iconContainer = row.querySelector('span.status-icon');
+        if (iconContainer && typeof summary.iconHtml === 'string') {
+            iconContainer.innerHTML = summary.iconHtml;
+        }
     }
 
     /**
