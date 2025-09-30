@@ -91,9 +91,24 @@ async function handleTrackRefresh(button) {
             throw new Error(message || 'Не удалось обновить трек');
         }
 
-        if (payload && typeof payload === 'object' && typeof window.trackModal?.render === 'function') {
-            window.trackModal.render(payload);
+        if (payload && typeof payload === 'object') {
+            if (typeof window.trackModal?.render === 'function') {
+                window.trackModal.render(payload);
+            }
+
+            const refreshAllowed = payload.refreshAllowed;
+            const nextRefreshAt = payload.nextRefreshAt;
+            if (refreshAllowed === false) {
+                const message = nextRefreshAt
+                    ? `Повторное обновление будет доступно после ${nextRefreshAt}`
+                    : 'Ручное обновление временно недоступно';
+                notifyUser(message, 'warning');
+            } else {
+                notifyUser('Данные трека обновлены', 'success');
+            }
+            return;
         }
+
         notifyUser('Данные трека обновлены', 'success');
     } catch (error) {
         const message = error?.message || 'Не удалось обновить трек';

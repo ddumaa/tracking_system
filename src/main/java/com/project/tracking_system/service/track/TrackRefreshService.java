@@ -15,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.persistence.EntityNotFoundException;
 
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -69,7 +70,12 @@ public class TrackRefreshService {
      */
     private TrackDetailsDto doRefresh(Long trackId, Long userId) {
         TrackParcel parcel = resolveOwnedParcel(trackId, userId);
-        ensureRefreshAllowed(parcel);
+        ensureTrackEditable(parcel);
+
+        CooldownCheckResult cooldown = evaluateCooldown(parcel);
+        if (!cooldown.allowed()) {
+            return buildCooldownDetails(parcel, userId, cooldown.nextAllowedAt());
+        }
 
         int allowedUpdates = subscriptionService.canUpdateTracks(userId, 1);
         if (allowedUpdates < 1) {
@@ -101,9 +107,9 @@ public class TrackRefreshService {
     }
 
     /**
-     * Проверяет, что обновление допустимо по статусу и тайм-ауту.
+     * Убеждается, что трек можно редактировать и у него задан корректный номер.
      */
-    private void ensureRefreshAllowed(TrackParcel parcel) {
+    private void ensureTrackEditable(TrackParcel parcel) {
         if (parcel.getNumber() == null || parcel.getNumber().isBlank()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Добавьте трек-номер, чтобы выполнить обновление.");
@@ -112,18 +118,66 @@ public class TrackRefreshService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Обновление недоступно для посылки в финальном статусе.");
         }
+    }
 
+    /**
+     * Рассчитывает доступность ручного обновления без выбрасывания исключения.
+     * <p>
+     * Метод возвращает структуру, содержащую признак доступности и момент
+     * следующей попытки. Такой подход позволяет отделить проверку бизнес-правил
+     * от реакции контроллера, что соответствует принципам SRP и OCP.
+     * </p>
+     */
+    private CooldownCheckResult evaluateCooldown(TrackParcel parcel) {
         ZonedDateTime lastUpdate = parcel.getLastUpdate();
         if (lastUpdate == null) {
-            return;
+            return new CooldownCheckResult(true, null);
         }
         int interval = applicationSettingsService.getTrackUpdateIntervalHours();
         ZonedDateTime nextAllowed = lastUpdate.plusHours(interval);
-        if (nextAllowed.isAfter(ZonedDateTime.now(ZoneOffset.UTC))) {
-            String formatted = nextAllowed.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
-            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
-                    "Повторное обновление будет доступно после " + formatted);
+        boolean allowed = !nextAllowed.isAfter(ZonedDateTime.now(ZoneOffset.UTC));
+        return new CooldownCheckResult(allowed, allowed ? null : nextAllowed);
+    }
+
+    /**
+     * Формирует DTO с информацией о кулдауне без повторного обращения к базе.
+     * <p>
+     * Сначала получаем актуальные данные из сервиса чтения, а затем принудительно
+     * обновляем флаги доступности, чтобы пользователь сразу увидел ограничения
+     * без повторного запроса на фронтенде.
+     * </p>
+     */
+    private TrackDetailsDto buildCooldownDetails(TrackParcel parcel, Long userId, ZonedDateTime nextAllowed) {
+        TrackDetailsDto details = trackViewService.getTrackDetails(parcel.getId(), userId);
+        if (nextAllowed == null) {
+            return new TrackDetailsDto(
+                    details.id(),
+                    details.number(),
+                    details.deliveryService(),
+                    details.currentStatus(),
+                    details.history(),
+                    false,
+                    null,
+                    details.canEditTrack(),
+                    details.timeZone()
+            );
         }
+
+        ZoneId zone = details.timeZone() != null ? ZoneId.of(details.timeZone()) : ZoneOffset.UTC;
+        String formattedNextRefresh = nextAllowed.withZoneSameInstant(zone)
+                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+
+        return new TrackDetailsDto(
+                details.id(),
+                details.number(),
+                details.deliveryService(),
+                details.currentStatus(),
+                details.history(),
+                false,
+                formattedNextRefresh,
+                details.canEditTrack(),
+                details.timeZone()
+        );
     }
 
     /**
@@ -134,5 +188,11 @@ public class TrackRefreshService {
         if (cache != null) {
             cache.evict(userId + ":" + trackId);
         }
+    }
+
+    /**
+     * Переносит результат проверки кулдауна в отдельную неизменяемую структуру.
+     */
+    private record CooldownCheckResult(boolean allowed, ZonedDateTime nextAllowedAt) {
     }
 }
