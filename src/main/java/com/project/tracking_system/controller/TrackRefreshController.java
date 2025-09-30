@@ -4,6 +4,7 @@ import com.project.tracking_system.dto.TrackDetailsDto;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.track.TrackRefreshService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,16 +24,21 @@ public class TrackRefreshController {
 
     /**
      * Запускает обновление трека и возвращает свежие данные для модального окна.
+     * <p>
+     * Даже при отказе по ограничениям времени клиент получает код 200 и актуальный
+     * {@link TrackDetailsDto}, чтобы обновить интерфейс без дополнительных запросов.
+     * </p>
      *
      * @param id   идентификатор посылки
      * @param user текущий пользователь
-     * @return DTO с обновлёнными данными
+     * @return DTO с обновлёнными данными, обёрнутый в {@link ResponseEntity}
      */
     @PostMapping("/{id}/refresh")
-    public TrackDetailsDto refresh(@PathVariable Long id, @AuthenticationPrincipal User user) {
+    public ResponseEntity<TrackDetailsDto> refresh(@PathVariable Long id, @AuthenticationPrincipal User user) {
         if (user == null) {
             throw new AccessDeniedException("Пользователь не авторизован");
         }
-        return trackRefreshService.refreshTrack(id, user.getId());
+        TrackDetailsDto details = trackRefreshService.refreshTrack(id, user.getId());
+        return ResponseEntity.ok(details);
     }
 }
