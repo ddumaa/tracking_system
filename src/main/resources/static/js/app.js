@@ -51,6 +51,87 @@ function getCsrfHeaders() {
 }
 
 /**
+ * Отправляет запрос на обновление трека и обновляет содержимое модального окна.
+ * Метод отвечает только за сетевой вызов и обработку ответов, соблюдая SRP.
+ * @param {HTMLButtonElement} button кнопка, инициировавшая обновление
+ */
+async function handleTrackRefresh(button) {
+    if (!button || button.disabled) {
+        return;
+    }
+    const trackId = button.dataset.trackId;
+    if (!trackId) {
+        return;
+    }
+
+    const originalHtml = button.innerHTML;
+    const loadingText = button.dataset.loadingText || 'Обновляем…';
+    button.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${loadingText}`;
+    button.disabled = true;
+    button.setAttribute('aria-disabled', 'true');
+    button.setAttribute('aria-busy', 'true');
+
+    try {
+        const response = await fetch(`/api/v1/tracks/${trackId}/refresh`, {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                ...getCsrfHeaders()
+            }
+        });
+
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        const payload = isJson ? await response.json() : await response.text();
+
+        if (!response.ok) {
+            const message = (isJson && payload && typeof payload === 'object' && payload.message)
+                ? payload.message
+                : (typeof payload === 'string' ? payload : 'Не удалось обновить трек');
+            throw new Error(message || 'Не удалось обновить трек');
+        }
+
+        if (payload && typeof payload === 'object' && typeof window.trackModal?.render === 'function') {
+            window.trackModal.render(payload);
+        }
+        notifyUser('Данные трека обновлены', 'success');
+    } catch (error) {
+        const message = error?.message || 'Не удалось обновить трек';
+        notifyUser(message, 'danger');
+        if (typeof window.trackModal?.loadModal === 'function') {
+            window.trackModal.loadModal(trackId);
+        }
+    } finally {
+        if (document.body.contains(button)) {
+            button.innerHTML = originalHtml;
+            button.disabled = false;
+            button.setAttribute('aria-disabled', 'false');
+            button.setAttribute('aria-busy', 'false');
+        }
+    }
+}
+
+/**
+ * Регистрирует делегированный обработчик кнопки «Обновить».
+ * Обработчик навешивается один раз и переиспользуется при каждом открытии модалки.
+ */
+function initTrackRefreshHandler() {
+    document.addEventListener('click', (event) => {
+        const button = event.target.closest('.js-track-refresh-btn');
+        if (!button) {
+            return;
+        }
+        event.preventDefault();
+        if (button.disabled) {
+            return;
+        }
+        handleTrackRefresh(button);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', initTrackRefreshHandler);
+
+/**
  * Инициализирует проверку трек-номера на стороне клиента.
  * Навешивает обработчик на поле ввода и управляет сообщением об ошибке.
  */

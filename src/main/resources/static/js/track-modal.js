@@ -1,6 +1,74 @@
 (() => {
     'use strict';
 
+    /** Текущий идентификатор интервала обратного отсчёта. */
+    let refreshTimerId = null;
+
+    /**
+     * Останавливает активный таймер обновления.
+     * Метод вызывается при повторном рендере и закрытии модального окна,
+     * чтобы не выполнять лишние вычисления в фоне.
+     */
+    function clearRefreshTimer() {
+        if (refreshTimerId !== null) {
+            window.clearInterval(refreshTimerId);
+            refreshTimerId = null;
+        }
+    }
+
+    /**
+     * Запускает таймер для разблокировки кнопки обновления.
+     * @param {HTMLButtonElement} button кнопка «Обновить»
+     * @param {HTMLElement} countdown элемент с текстом обратного отсчёта
+     * @param {string|null} nextRefreshAt ISO-строка следующего обновления
+     * @param {boolean} refreshAllowed признак немедленного обновления
+     */
+    function startRefreshTimer(button, countdown, nextRefreshAt, refreshAllowed) {
+        clearRefreshTimer();
+        if (!button || !countdown) {
+            return;
+        }
+
+        /**
+         * Обновляет состояние кнопки и подписи, соблюдая доступность.
+         * @param {string} text отображаемый текст рядом с кнопкой
+         * @param {boolean} disabled нужно ли блокировать кнопку
+         */
+        const applyState = (text, disabled) => {
+            button.disabled = disabled;
+            button.setAttribute('aria-disabled', String(disabled));
+            countdown.textContent = text;
+        };
+
+        if (!nextRefreshAt || refreshAllowed) {
+            applyState(refreshAllowed ? 'Можно обновить' : 'Обновление недоступно', !refreshAllowed);
+            return;
+        }
+
+        const target = Date.parse(nextRefreshAt);
+        if (Number.isNaN(target)) {
+            applyState('Можно обновить', false);
+            return;
+        }
+
+        const tick = () => {
+            const diff = target - Date.now();
+            if (diff <= 0) {
+                applyState('Можно обновить', false);
+                clearRefreshTimer();
+                return;
+            }
+            const totalSeconds = Math.ceil(diff / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            const formatted = `${minutes}:${String(seconds).padStart(2, '0')}`;
+            applyState(`Доступно через ${formatted}`, true);
+        };
+
+        tick();
+        refreshTimerId = window.setInterval(tick, 1000);
+    }
+
     /**
      * Форматирует ISO-дату в часовой пояс пользователя.
      * Метод отвечает только за человеко-читаемое представление дат, соблюдая SRP.
@@ -49,6 +117,8 @@
      * @param {Object} data DTO с сервера
      */
     function renderTrackModal(data) {
+        clearRefreshTimer();
+
         const container = document.getElementById('trackModalContent')
             || document.querySelector('#infoModal .modal-body');
         if (!container) {
@@ -104,6 +174,30 @@
 
         wrapper.appendChild(headerBlock);
 
+        const refreshSection = document.createElement('div');
+        refreshSection.className = 'd-flex flex-wrap align-items-center gap-3 mb-3';
+
+        const refreshButton = document.createElement('button');
+        refreshButton.type = 'button';
+        refreshButton.className = 'btn btn-primary js-track-refresh-btn';
+        refreshButton.textContent = 'Обновить';
+        refreshButton.dataset.loadingText = 'Обновляем…';
+        refreshButton.setAttribute('aria-label', 'Обновить данные трека');
+        refreshButton.setAttribute('aria-controls', 'trackModalContent');
+        if (data?.id !== undefined) {
+            refreshButton.dataset.trackId = String(data.id);
+        }
+
+        const countdown = document.createElement('span');
+        countdown.id = 'trackRefreshCountdown';
+        countdown.className = 'text-muted small';
+        countdown.setAttribute('role', 'status');
+        countdown.setAttribute('aria-live', 'polite');
+
+        refreshSection.appendChild(refreshButton);
+        refreshSection.appendChild(countdown);
+        wrapper.appendChild(refreshSection);
+
         if (data?.currentStatus) {
             const currentStatusBlock = document.createElement('div');
             currentStatusBlock.className = 'mb-3';
@@ -132,7 +226,7 @@
 
         if (data?.refreshAllowed) {
             refreshBlock.classList.add('alert-success');
-            refreshBlock.textContent = 'Обновление доступно — выполните его из таблицы отправлений.';
+            refreshBlock.textContent = 'Обновление доступно — выполните его из модального окна.';
         } else if (data?.nextRefreshAt) {
             refreshBlock.classList.add('alert-warning');
             refreshBlock.textContent = `Повторное обновление будет доступно после ${format(data.nextRefreshAt)}.`;
@@ -142,6 +236,8 @@
         }
 
         wrapper.appendChild(refreshBlock);
+
+        startRefreshTimer(refreshButton, countdown, data?.nextRefreshAt || null, Boolean(data?.refreshAllowed));
 
         const tableWrapper = document.createElement('div');
         tableWrapper.className = 'table-responsive';
@@ -320,12 +416,17 @@
         if (trackNumberForm) {
             trackNumberForm.addEventListener('submit', handleTrackNumberFormSubmit);
         }
+        const infoModal = document.getElementById('infoModal');
+        if (infoModal) {
+            infoModal.addEventListener('hidden.bs.modal', clearRefreshTimer);
+        }
     }
 
     document.addEventListener('DOMContentLoaded', initModalInteractions);
 
     window.trackModal = {
         loadModal,
-        promptTrackNumber
+        promptTrackNumber,
+        render: renderTrackModal
     };
 })();
