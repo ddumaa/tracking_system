@@ -141,6 +141,22 @@ class TrackViewServiceTest {
     }
 
     /**
+     * Проверяем, что редактирование разрешено только для статусов PRE_REGISTERED и ERROR.
+     */
+    @Test
+    void getTrackDetails_DisablesEditForTransitStatus() {
+        TrackParcel parcel = buildParcel(42L, GlobalStatus.IN_TRANSIT, ZonedDateTime.now(ZoneOffset.UTC));
+        when(trackParcelService.findOwnedById(42L, 8L)).thenReturn(Optional.of(parcel));
+        when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(4);
+        when(userService.getUserZone(8L)).thenReturn(ZoneId.of("UTC"));
+        when(trackStatusEventService.findEvents(42L)).thenReturn(List.of());
+
+        TrackDetailsDto details = service.getTrackDetails(42L, 8L);
+
+        assertThat(details.canEditTrack()).isFalse();
+    }
+
+    /**
      * Создаёт тестовую посылку.
      */
     private static TrackParcel buildParcel(Long id, GlobalStatus status, ZonedDateTime update) {

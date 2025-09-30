@@ -5,8 +5,10 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.exception.TrackNumberAlreadyExistsException;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
+import com.project.tracking_system.repository.DeliveryHistoryRepository;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.track.TrackServiceClassifier;
+import com.project.tracking_system.service.track.TrackNumberAuditService;
 import com.project.tracking_system.entity.PostalServiceType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,14 +32,27 @@ class TrackParcelServiceAssignNumberTest {
     @Mock
     private UserSubscriptionRepository userSubscriptionRepository;
 
+    @Mock
+    private DeliveryHistoryRepository deliveryHistoryRepository;
+
     private TrackParcelService service;
 
     @Mock
     private TrackServiceClassifier trackServiceClassifier;
 
+    @Mock
+    private TrackNumberAuditService trackNumberAuditService;
+
     @BeforeEach
     void setUp() {
-        service = new TrackParcelService(userService, trackParcelRepository, userSubscriptionRepository, trackServiceClassifier);
+        service = new TrackParcelService(
+                userService,
+                trackParcelRepository,
+                userSubscriptionRepository,
+                trackServiceClassifier,
+                deliveryHistoryRepository,
+                trackNumberAuditService
+        );
     }
 
     /**
