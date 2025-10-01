@@ -24,6 +24,7 @@
      * @param {HTMLElement} countdown элемент с текстом обратного отсчёта
      * @param {string|null} nextRefreshAt ISO-строка следующего обновления
      * @param {boolean} refreshAllowed признак немедленного обновления
+     * @param {string|null} finalStatusMessage текст сообщения для финального статуса
      * @param {string|null} unavailableReason текст причины недоступности
      * @param {Function} [onTooltipChange] колбэк для синхронизации текста тултипа
      */
@@ -32,6 +33,7 @@
         countdown,
         nextRefreshAt,
         refreshAllowed,
+        finalStatusMessage,
         unavailableReason,
         onTooltipChange
     ) {
@@ -75,22 +77,22 @@
         }
 
         if (!nextRefreshAt) {
-            const fallbackText = unavailableReason || 'Можно выполнить через —';
+            const fallbackText = finalStatusMessage || unavailableReason || 'Можно выполнить через —';
             applyState({
-                text: unavailableReason || fallbackText,
+                text: fallbackText,
                 disabled: true,
-                tooltipText: unavailableReason || null
+                tooltipText: finalStatusMessage ? null : unavailableReason || null
             });
             return;
         }
 
         const target = Date.parse(nextRefreshAt);
         if (Number.isNaN(target)) {
-            const fallbackText = unavailableReason || 'Можно выполнить через —';
+            const fallbackText = finalStatusMessage || unavailableReason || 'Можно выполнить через —';
             applyState({
-                text: unavailableReason || fallbackText,
+                text: fallbackText,
                 disabled: true,
-                tooltipText: unavailableReason || null
+                tooltipText: finalStatusMessage ? null : unavailableReason || null
             });
             return;
         }
@@ -345,8 +347,8 @@
         container.appendChild(layout);
 
         const nextRefreshAt = data?.nextRefreshAt || null;
-        const isPermanentlyBlocked = !data?.refreshAllowed && !nextRefreshAt;
-        const unavailableReason = isPermanentlyBlocked ? 'Обновление недоступно для финального статуса' : null;
+        const isFinalStatus = data?.refreshAllowed === false && !data?.nextRefreshAt;
+        const unavailableReason = isFinalStatus ? 'Обновление недоступно для финального статуса' : null;
         /**
          * Обновляет тултип и aria-атрибуты кнопки, чтобы отразить текущее состояние таймера.
          * Метод использует Bootstrap API для мгновенного обновления подсказки.
@@ -377,6 +379,7 @@
             countdown,
             nextRefreshAt,
             Boolean(data?.refreshAllowed),
+            isFinalStatus ? 'Обновление больше не требуется' : null,
             unavailableReason,
             handleTooltipChange
         );
