@@ -218,7 +218,7 @@
         parcelHeader.className = 'd-flex flex-wrap justify-content-between align-items-start gap-3';
 
         const trackInfo = document.createElement('div');
-        trackInfo.className = 'd-flex flex-column';
+        trackInfo.className = 'd-flex flex-column w-100 flex-grow-1';
 
         const trackNumber = document.createElement('div');
         trackNumber.className = 'fs-3 fw-semibold';
