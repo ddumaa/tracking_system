@@ -18,34 +18,56 @@
 
     /**
      * Запускает таймер для разблокировки кнопки обновления.
-     * Метод выводит пользовательское сообщение, если обратный отсчёт недоступен (OCP).
+     * Метод выводит пользовательское сообщение, если обратный отсчёт недоступен (OCP),
+     * и делегирует обновление тултипа внешнему обработчику, сохраняя SRP.
      * @param {HTMLButtonElement} button кнопка «Обновить»
      * @param {HTMLElement} countdown элемент с текстом обратного отсчёта
      * @param {string|null} nextRefreshAt ISO-строка следующего обновления
      * @param {boolean} refreshAllowed признак немедленного обновления
      * @param {string|null} unavailableReason текст причины недоступности
+     * @param {Function} [onTooltipChange] колбэк для синхронизации текста тултипа
      */
-    function startRefreshTimer(button, countdown, nextRefreshAt, refreshAllowed, unavailableReason) {
+    function startRefreshTimer(
+        button,
+        countdown,
+        nextRefreshAt,
+        refreshAllowed,
+        unavailableReason,
+        onTooltipChange
+    ) {
         clearRefreshTimer();
         if (!button || !countdown) {
             return;
         }
 
+        const defaultTooltipText = button.dataset.defaultTooltip
+            || button.getAttribute('title')
+            || '';
+
         /**
          * Обновляет состояние кнопки и подписи, соблюдая доступность.
-         * @param {string} text отображаемый текст рядом с кнопкой
-         * @param {boolean} disabled нужно ли блокировать кнопку
+         * Метод уведомляет внешний обработчик об изменении подсказки, чтобы таймер не зависел от DOM.
+         * @param {Object} options параметры отображения
+         * @param {string} options.text отображаемый текст рядом с кнопкой
+         * @param {boolean} options.disabled нужно ли блокировать кнопку
+         * @param {string|null} [options.tooltipText] актуальный текст тултипа
          */
-        const applyState = (text, disabled, forceVisible = false) => {
+        const applyState = ({ text, disabled, tooltipText }) => {
             button.disabled = disabled;
             button.setAttribute('aria-disabled', String(disabled));
-            countdown.textContent = text;
-            const shouldHide = !forceVisible && text.length === 0;
+            const normalizedText = text || '';
+            countdown.textContent = normalizedText;
+            const usesTooltip = Boolean(tooltipText) && normalizedText.length === 0;
+            const shouldHide = usesTooltip || normalizedText.length === 0;
             countdown.classList.toggle('visually-hidden', shouldHide);
             countdown.setAttribute('aria-hidden', shouldHide ? 'true' : 'false');
+            const tooltipValue = tooltipText || defaultTooltipText;
+            if (typeof onTooltipChange === 'function') {
+                onTooltipChange(tooltipValue, tooltipText);
+            }
         };
 
-        const showActiveState = () => applyState('', false);
+        const showActiveState = () => applyState({ text: '', disabled: false, tooltipText: null });
 
         if (refreshAllowed) {
             showActiveState();
@@ -54,14 +76,22 @@
 
         if (!nextRefreshAt) {
             const fallbackText = unavailableReason || 'Можно выполнить через —';
-            applyState(fallbackText, true, Boolean(unavailableReason));
+            applyState({
+                text: unavailableReason ? '' : fallbackText,
+                disabled: true,
+                tooltipText: unavailableReason || null
+            });
             return;
         }
 
         const target = Date.parse(nextRefreshAt);
         if (Number.isNaN(target)) {
             const fallbackText = unavailableReason || 'Можно выполнить через —';
-            applyState(fallbackText, true, Boolean(unavailableReason));
+            applyState({
+                text: unavailableReason ? '' : fallbackText,
+                disabled: true,
+                tooltipText: unavailableReason || null
+            });
             return;
         }
 
@@ -79,7 +109,11 @@
             const formatted = [hours, minutes, seconds]
                 .map((part) => String(part).padStart(2, '0'))
                 .join(':');
-            applyState(`Можно выполнить через ${formatted}`, true);
+            applyState({
+                text: `Можно выполнить через ${formatted}`,
+                disabled: true,
+                tooltipText: null
+            });
         };
 
         tick();
@@ -243,7 +277,9 @@
         refreshButton.setAttribute('aria-controls', 'trackModalContent');
         refreshButton.setAttribute('data-bs-toggle', 'tooltip');
         refreshButton.setAttribute('data-bs-placement', 'top');
-        refreshButton.setAttribute('title', 'Нажмите, чтобы обновить трек');
+        const REFRESH_TOOLTIP_DEFAULT = 'Нажмите, чтобы обновить трек';
+        refreshButton.setAttribute('title', REFRESH_TOOLTIP_DEFAULT);
+        refreshButton.dataset.defaultTooltip = REFRESH_TOOLTIP_DEFAULT;
         if (data?.id !== undefined) {
             refreshButton.dataset.trackId = String(data.id);
         }
@@ -311,17 +347,39 @@
         const nextRefreshAt = data?.nextRefreshAt || null;
         const isPermanentlyBlocked = !data?.refreshAllowed && !nextRefreshAt;
         const unavailableReason = isPermanentlyBlocked ? 'Обновление недоступно для финального статуса' : null;
+        /**
+         * Обновляет тултип и aria-атрибуты кнопки, чтобы отразить текущее состояние таймера.
+         * Метод использует Bootstrap API для мгновенного обновления подсказки.
+         * @param {string} tooltipText результирующий текст тултипа
+         * @param {string|null} rawReason исходная причина блокировки
+         * @returns {string} фактический текст тултипа
+         */
+        const handleTooltipChange = (tooltipText, rawReason) => {
+            const actualTooltip = tooltipText || REFRESH_TOOLTIP_DEFAULT;
+            refreshButton.setAttribute('title', actualTooltip);
+            refreshButton.setAttribute('data-bs-original-title', actualTooltip);
+            const ariaLabelText = rawReason || 'Обновить данные трека';
+            refreshButton.setAttribute('aria-label', ariaLabelText);
+            if (typeof bootstrap !== 'undefined'
+                && bootstrap.Tooltip
+                && typeof bootstrap.Tooltip.getOrCreateInstance === 'function'
+            ) {
+                const instance = bootstrap.Tooltip.getOrCreateInstance(refreshButton);
+                if (typeof instance.update === 'function') {
+                    instance.update();
+                }
+            }
+            return actualTooltip;
+        };
+
         startRefreshTimer(
             refreshButton,
             countdown,
             nextRefreshAt,
             Boolean(data?.refreshAllowed),
-            unavailableReason
+            unavailableReason,
+            handleTooltipChange
         );
-
-        if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip && typeof bootstrap.Tooltip.getOrCreateInstance === 'function') {
-            bootstrap.Tooltip.getOrCreateInstance(refreshButton);
-        }
     }
 
     /**
