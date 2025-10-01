@@ -74,7 +74,7 @@ public class TrackViewService {
                 .orElse(null);
 
         String systemStatus = Optional.ofNullable(parcel.getStatus())
-                .map(GlobalStatus::getDescription)
+                .map(GlobalStatus::getLabel)
                 .orElse(null);
         String lastUpdateAt = Optional.ofNullable(parcel.getLastUpdate())
                 .map(moment -> formatTimestamp(moment, userZone))
@@ -119,8 +119,9 @@ public class TrackViewService {
         if (!events.isEmpty()) {
             return events.stream()
                     .map(event -> new TrackStatusEventDto(
-                            event.getDescription(),
-                            formatTimestamp(event.getEventTime(), userZone)))
+                            extractShortStatus(event.getDescription()),
+                            formatTimestamp(event.getEventTime(), userZone),
+                            event.getDescription()))
                     .toList();
         }
         return buildFallbackHistory(parcel, userZone);
@@ -203,6 +204,55 @@ public class TrackViewService {
             return statusMoment;
         }
         return parcel.getLastUpdate();
+    }
+
+    /**
+     * Формирует краткий заголовок для события таймлайна.
+     * <p>
+     * Если текст совпадает с описанием одного из глобальных статусов, возвращаем его.
+     * В противном случае пытаемся отделить первую фразу до разделителей, чтобы показать
+     * компактный заголовок, а полный текст отдаём в поле деталей.
+     * </p>
+     *
+     * @param description исходное описание события
+     * @return человеко-читаемый заголовок
+     */
+    private String extractShortStatus(String description) {
+        if (description == null || description.isBlank()) {
+            return "Обновление статуса";
+        }
+        GlobalStatus matched = GlobalStatus.fromDescription(description);
+        if (matched != GlobalStatus.UNKNOWN_STATUS) {
+            return matched.getLabel();
+        }
+        int separatorIndex = findSeparatorIndex(description);
+        if (separatorIndex > 0) {
+            return description.substring(0, separatorIndex).trim();
+        }
+        if (description.length() > 64) {
+            return description.substring(0, 61).trim() + "…";
+        }
+        return description.trim();
+    }
+
+    /**
+     * Ищет позицию первого разделителя в строке описания.
+     *
+     * @param description строка описания события
+     * @return индекс разделителя или {@code -1}, если не найден
+     */
+    private int findSeparatorIndex(String description) {
+        int colon = description.indexOf(':');
+        int dash = description.indexOf('—');
+        int hyphen = description.indexOf('-');
+        int dot = description.indexOf('.');
+        int separator = -1;
+        for (int index : new int[]{colon, dash, hyphen, dot}) {
+            if (index > 0 && (separator == -1 || index < separator)) {
+                separator = index;
+            }
+        }
+        return separator;
     }
 }
 

@@ -59,4 +59,12 @@ public enum GlobalStatus {
         return this == DELIVERED || this == RETURNED;
     }
 
+    /**
+     * Возвращает человеко-читаемое название статуса.
+     * Метод добавлен для удобства фронтенда, чтобы не полагаться на поле description напрямую.
+     */
+    public String getLabel() {
+        return description;
+    }
+
 }

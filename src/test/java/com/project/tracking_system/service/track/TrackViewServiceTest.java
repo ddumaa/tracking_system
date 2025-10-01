@@ -71,6 +71,9 @@ class TrackViewServiceTest {
         assertThat(details.history())
                 .extracting(TrackStatusEventDto::status)
                 .containsExactly("Принят в отделении", "Передан перевозчику");
+        assertThat(details.history())
+                .extracting(TrackStatusEventDto::details)
+                .containsExactly("Принят в отделении", "Передан перевозчику");
     }
 
     /**
@@ -97,6 +100,7 @@ class TrackViewServiceTest {
         TrackStatusEventDto fallbackEvent = details.history().get(0);
         assertThat(fallbackEvent.status()).isEqualTo(GlobalStatus.IN_TRANSIT.getDescription());
         assertThat(fallbackEvent.timestamp()).isEqualTo(statusMoment.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
+        assertThat(fallbackEvent.details()).isNull();
         assertThat(details.currentStatus()).isEqualTo(fallbackEvent);
     }
 
@@ -120,6 +124,7 @@ class TrackViewServiceTest {
         TrackStatusEventDto event = details.history().get(0);
         assertThat(event.status()).isEqualTo(GlobalStatus.WAITING_FOR_CUSTOMER.getDescription());
         assertThat(event.timestamp()).isEqualTo(lastUpdate.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
+        assertThat(event.details()).isNull();
     }
 
     /**

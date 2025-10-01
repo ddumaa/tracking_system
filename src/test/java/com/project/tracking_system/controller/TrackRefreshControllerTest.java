@@ -51,6 +51,8 @@ class TrackRefreshControllerTest {
                 "RB123456789CN",
                 "Belpost",
                 null,
+                null,
+                null,
                 List.of(),
                 false,
                 nextRefreshAt,

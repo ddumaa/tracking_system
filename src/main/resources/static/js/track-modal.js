@@ -159,6 +159,40 @@
             return;
         }
 
+        const titleEl = modal?.querySelector('#trackModalTitle');
+        const serviceEl = modal?.querySelector('#trackModalService');
+        const actionsContainer = modal?.querySelector('#trackModalActions');
+        const closeButton = actionsContainer?.querySelector('.btn-close') || null;
+
+        const trackText = data?.number ? data.number : 'Трек не указан';
+        if (titleEl) {
+            titleEl.textContent = trackText;
+            titleEl.classList.toggle('text-muted', !data?.number);
+        }
+
+        if (serviceEl) {
+            const serviceText = data?.deliveryService || 'Служба доставки не определена';
+            serviceEl.textContent = serviceText;
+        }
+
+        if (actionsContainer) {
+            actionsContainer.querySelectorAll('[data-role="edit-track"]')
+                .forEach((node) => node.remove());
+
+            if (data?.canEditTrack && data?.id !== undefined) {
+                const editButton = document.createElement('button');
+                editButton.type = 'button';
+                editButton.className = 'btn btn-outline-primary btn-sm';
+                editButton.dataset.role = 'edit-track';
+                editButton.textContent = 'Редактировать номер';
+                editButton.setAttribute('aria-label', 'Редактировать трек-номер');
+                editButton.addEventListener('click', () => {
+                    promptTrackNumber(data.id, data.number || '');
+                });
+                actionsContainer.insertBefore(editButton, closeButton);
+            }
+        }
+
         const timeZone = data?.timeZone;
         const format = (value) => formatDateTime(value, timeZone);
         const history = Array.isArray(data?.history) ? data.history : [];
@@ -172,40 +206,27 @@
         }
 
         const parcelCard = createCard('Данные о посылке');
-        const parcelHeader = document.createElement('div');
-        parcelHeader.className = 'd-flex flex-wrap justify-content-between align-items-start gap-3';
+        const infoList = document.createElement('dl');
+        infoList.className = 'row g-3 mb-0';
 
-        const trackInfo = document.createElement('div');
-        trackInfo.className = 'd-flex flex-column';
+        const appendInfoRow = (label, value) => {
+            const term = document.createElement('dt');
+            term.className = 'col-sm-5 col-12 text-muted small';
+            term.textContent = label;
+            const description = document.createElement('dd');
+            description.className = 'col-sm-7 col-12 mb-0';
+            description.textContent = value;
+            infoList.append(term, description);
+        };
 
-        const trackNumber = document.createElement('div');
-        trackNumber.className = 'fs-3 fw-semibold';
-        const trackText = data?.number ? data.number : 'Трек не указан';
-        trackNumber.textContent = trackText;
-        if (!data?.number) {
-            trackNumber.classList.add('text-muted');
+        appendInfoRow('Трек-номер', data?.number || 'Не указан');
+        appendInfoRow('Служба доставки', data?.deliveryService || 'Не определена');
+        appendInfoRow('Редактирование номера', data?.canEditTrack ? 'Доступно' : 'Недоступно');
+        if (data?.timeZone) {
+            appendInfoRow('Часовой пояс пользователя', data.timeZone);
         }
 
-        const serviceInfo = document.createElement('div');
-        serviceInfo.className = 'text-muted small';
-        serviceInfo.textContent = data?.deliveryService || 'Служба доставки не определена';
-
-        trackInfo.append(trackNumber, serviceInfo);
-        parcelHeader.appendChild(trackInfo);
-
-        if (data?.canEditTrack && data?.id !== undefined) {
-            const editButton = document.createElement('button');
-            editButton.type = 'button';
-            editButton.className = 'btn btn-outline-primary btn-sm align-self-start';
-            editButton.textContent = 'Редактировать номер';
-            editButton.setAttribute('aria-label', 'Редактировать трек-номер');
-            editButton.addEventListener('click', () => {
-                promptTrackNumber(data.id, data.number || '');
-            });
-            parcelHeader.appendChild(editButton);
-        }
-
-        parcelCard.body.appendChild(parcelHeader);
+        parcelCard.body.appendChild(infoList);
         layout.appendChild(parcelCard.card);
 
         const refreshCard = createCard('Обновление');
@@ -281,10 +302,11 @@
                 statusEl.textContent = event.status || '—';
                 item.appendChild(statusEl);
 
-                if (event.details) {
+                const detailsText = event.details || '';
+                if (detailsText && detailsText !== statusEl.textContent) {
                     const detailsEl = document.createElement('div');
                     detailsEl.className = 'timeline-details text-muted small';
-                    detailsEl.textContent = event.details;
+                    detailsEl.textContent = detailsText;
                     item.appendChild(detailsEl);
                 }
 
