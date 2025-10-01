@@ -18,12 +18,14 @@
 
     /**
      * Запускает таймер для разблокировки кнопки обновления.
+     * Метод выводит пользовательское сообщение, если обратный отсчёт недоступен (OCP).
      * @param {HTMLButtonElement} button кнопка «Обновить»
      * @param {HTMLElement} countdown элемент с текстом обратного отсчёта
      * @param {string|null} nextRefreshAt ISO-строка следующего обновления
      * @param {boolean} refreshAllowed признак немедленного обновления
+     * @param {string|null} unavailableReason текст причины недоступности
      */
-    function startRefreshTimer(button, countdown, nextRefreshAt, refreshAllowed) {
+    function startRefreshTimer(button, countdown, nextRefreshAt, refreshAllowed, unavailableReason) {
         clearRefreshTimer();
         if (!button || !countdown) {
             return;
@@ -34,12 +36,13 @@
          * @param {string} text отображаемый текст рядом с кнопкой
          * @param {boolean} disabled нужно ли блокировать кнопку
          */
-        const applyState = (text, disabled) => {
+        const applyState = (text, disabled, forceVisible = false) => {
             button.disabled = disabled;
             button.setAttribute('aria-disabled', String(disabled));
             countdown.textContent = text;
-            countdown.classList.toggle('visually-hidden', text.length === 0);
-            countdown.setAttribute('aria-hidden', text.length === 0 ? 'true' : 'false');
+            const shouldHide = !forceVisible && text.length === 0;
+            countdown.classList.toggle('visually-hidden', shouldHide);
+            countdown.setAttribute('aria-hidden', shouldHide ? 'true' : 'false');
         };
 
         const showActiveState = () => applyState('', false);
@@ -50,13 +53,15 @@
         }
 
         if (!nextRefreshAt) {
-            applyState('Можно выполнить через —', true);
+            const fallbackText = unavailableReason || 'Можно выполнить через —';
+            applyState(fallbackText, true, Boolean(unavailableReason));
             return;
         }
 
         const target = Date.parse(nextRefreshAt);
         if (Number.isNaN(target)) {
-            applyState('Можно выполнить через —', true);
+            const fallbackText = unavailableReason || 'Можно выполнить через —';
+            applyState(fallbackText, true, Boolean(unavailableReason));
             return;
         }
 
@@ -303,7 +308,16 @@
 
         container.appendChild(layout);
 
-        startRefreshTimer(refreshButton, countdown, data?.nextRefreshAt || null, Boolean(data?.refreshAllowed));
+        const nextRefreshAt = data?.nextRefreshAt || null;
+        const isPermanentlyBlocked = !data?.refreshAllowed && !nextRefreshAt;
+        const unavailableReason = isPermanentlyBlocked ? 'Обновление недоступно для финального статуса' : null;
+        startRefreshTimer(
+            refreshButton,
+            countdown,
+            nextRefreshAt,
+            Boolean(data?.refreshAllowed),
+            unavailableReason
+        );
 
         if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip && typeof bootstrap.Tooltip.getOrCreateInstance === 'function') {
             bootstrap.Tooltip.getOrCreateInstance(refreshButton);
