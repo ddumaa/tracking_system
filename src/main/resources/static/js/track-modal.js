@@ -286,7 +286,7 @@
 
         const countdown = document.createElement('span');
         countdown.id = 'trackRefreshCountdown';
-        countdown.className = 'text-muted small visually-hidden';
+        countdown.className = 'text-muted small visually-hidden track-refresh-countdown';
         countdown.setAttribute('role', 'status');
         countdown.setAttribute('aria-live', 'polite');
         countdown.setAttribute('aria-hidden', 'true');
