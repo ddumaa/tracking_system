@@ -228,11 +228,15 @@
             trackNumber.classList.add('text-muted');
         }
 
+        const trackTitleRow = document.createElement('div');
+        trackTitleRow.className = 'd-flex align-items-center gap-2';
+        trackTitleRow.appendChild(trackNumber);
+
         const serviceInfo = document.createElement('div');
         serviceInfo.className = 'text-muted small';
         serviceInfo.textContent = data?.deliveryService || 'Служба доставки не определена';
 
-        trackInfo.append(trackNumber, serviceInfo);
+        trackInfo.append(trackTitleRow, serviceInfo);
         parcelHeader.appendChild(trackInfo);
 
         /**
@@ -254,7 +258,7 @@
         if (data?.canEditTrack && data?.id !== undefined) {
             const editButton = document.createElement('button');
             editButton.type = 'button';
-            editButton.className = 'btn btn-outline-primary btn-sm align-self-start d-inline-flex align-items-center justify-content-center';
+            editButton.className = 'btn btn-outline-primary btn-sm d-inline-flex align-items-center justify-content-center';
             editButton.setAttribute('aria-label', 'Редактировать трек-номер');
             editButton.setAttribute('data-bs-toggle', 'tooltip');
             editButton.setAttribute('data-bs-placement', 'top');
@@ -275,7 +279,7 @@
                 promptTrackNumber(data.id, data.number || '');
             });
             activateTooltip(editButton);
-            parcelHeader.appendChild(editButton);
+            trackTitleRow.appendChild(editButton);
         }
 
         parcelCard.body.appendChild(parcelHeader);
