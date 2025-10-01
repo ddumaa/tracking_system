@@ -73,10 +73,19 @@ public class TrackViewService {
                 .map(DeliveryHistory::getPostalService)
                 .orElse(null);
 
+        String systemStatus = Optional.ofNullable(parcel.getStatus())
+                .map(GlobalStatus::getDescription)
+                .orElse(null);
+        String lastUpdateAt = Optional.ofNullable(parcel.getLastUpdate())
+                .map(moment -> formatTimestamp(moment, userZone))
+                .orElse(null);
+
         return new TrackDetailsDto(
                 parcel.getId(),
                 parcel.getNumber(),
                 serviceType != null ? serviceType.getDisplayName() : null,
+                systemStatus,
+                lastUpdateAt,
                 currentStatus,
                 history,
                 refreshAllowed,

@@ -44,18 +44,19 @@
 
         const showActiveState = () => applyState('', false);
 
-        if (!nextRefreshAt || refreshAllowed) {
-            if (refreshAllowed) {
-                showActiveState();
-            } else {
-                applyState('Обновление недоступно', true);
-            }
+        if (refreshAllowed) {
+            showActiveState();
+            return;
+        }
+
+        if (!nextRefreshAt) {
+            applyState('Можно выполнить через —', true);
             return;
         }
 
         const target = Date.parse(nextRefreshAt);
         if (Number.isNaN(target)) {
-            showActiveState();
+            applyState('Можно выполнить через —', true);
             return;
         }
 
@@ -158,34 +159,6 @@
             return;
         }
 
-        const headerNumber = modal?.querySelector('#trackModalNumber');
-        if (headerNumber) {
-            headerNumber.textContent = data?.number || '—';
-        }
-
-        const headerService = modal?.querySelector('#trackModalService');
-        if (headerService) {
-            headerService.textContent = data?.deliveryService || 'Служба доставки не определена';
-        }
-
-        const editButton = modal?.querySelector('#trackModalEditButton');
-        if (editButton) {
-            const canEdit = Boolean(data?.canEditTrack);
-            editButton.classList.toggle('d-none', !canEdit);
-            editButton.setAttribute('aria-hidden', canEdit ? 'false' : 'true');
-            if (canEdit && data?.id !== undefined) {
-                editButton.dataset.trackId = String(data.id);
-                editButton.dataset.currentNumber = data?.number || '';
-                editButton.onclick = () => {
-                    promptTrackNumber(data.id, data.number || '');
-                };
-            } else {
-                editButton.removeAttribute('data-track-id');
-                editButton.removeAttribute('data-current-number');
-                editButton.onclick = null;
-            }
-        }
-
         const timeZone = data?.timeZone;
         const format = (value) => formatDateTime(value, timeZone);
         const history = Array.isArray(data?.history) ? data.history : [];
@@ -199,32 +172,40 @@
         }
 
         const parcelCard = createCard('Данные о посылке');
-        const detailsList = document.createElement('dl');
-        detailsList.className = 'row mb-0 g-2 small';
+        const parcelHeader = document.createElement('div');
+        parcelHeader.className = 'd-flex flex-wrap justify-content-between align-items-start gap-3';
 
-        const idLabel = document.createElement('dt');
-        idLabel.className = 'col-sm-4 text-muted';
-        idLabel.textContent = 'ID посылки';
-        const idValue = document.createElement('dd');
-        idValue.className = 'col-sm-8';
-        idValue.textContent = data?.id !== undefined ? String(data.id) : '—';
+        const trackInfo = document.createElement('div');
+        trackInfo.className = 'd-flex flex-column';
 
-        const numberLabel = document.createElement('dt');
-        numberLabel.className = 'col-sm-4 text-muted';
-        numberLabel.textContent = 'Трек-номер';
-        const numberValue = document.createElement('dd');
-        numberValue.className = 'col-sm-8';
-        numberValue.textContent = data?.number || '—';
+        const trackNumber = document.createElement('div');
+        trackNumber.className = 'fs-3 fw-semibold';
+        const trackText = data?.number ? data.number : 'Трек не указан';
+        trackNumber.textContent = trackText;
+        if (!data?.number) {
+            trackNumber.classList.add('text-muted');
+        }
 
-        const serviceLabel = document.createElement('dt');
-        serviceLabel.className = 'col-sm-4 text-muted';
-        serviceLabel.textContent = 'Служба доставки';
-        const serviceValue = document.createElement('dd');
-        serviceValue.className = 'col-sm-8';
-        serviceValue.textContent = data?.deliveryService || 'Не указана';
+        const serviceInfo = document.createElement('div');
+        serviceInfo.className = 'text-muted small';
+        serviceInfo.textContent = data?.deliveryService || 'Служба доставки не определена';
 
-        detailsList.append(idLabel, idValue, numberLabel, numberValue, serviceLabel, serviceValue);
-        parcelCard.body.appendChild(detailsList);
+        trackInfo.append(trackNumber, serviceInfo);
+        parcelHeader.appendChild(trackInfo);
+
+        if (data?.canEditTrack && data?.id !== undefined) {
+            const editButton = document.createElement('button');
+            editButton.type = 'button';
+            editButton.className = 'btn btn-outline-primary btn-sm align-self-start';
+            editButton.textContent = 'Редактировать номер';
+            editButton.setAttribute('aria-label', 'Редактировать трек-номер');
+            editButton.addEventListener('click', () => {
+                promptTrackNumber(data.id, data.number || '');
+            });
+            parcelHeader.appendChild(editButton);
+        }
+
+        parcelCard.body.appendChild(parcelHeader);
         layout.appendChild(parcelCard.card);
 
         const refreshCard = createCard('Обновление');
@@ -257,22 +238,16 @@
         layout.appendChild(refreshCard.card);
 
         const statusCard = createCard('Текущий статус');
-        if (data?.currentStatus) {
-            const statusValue = document.createElement('div');
-            statusValue.className = 'fs-6 fw-semibold';
-            statusValue.textContent = data.currentStatus.status || '—';
+        const statusValue = document.createElement('div');
+        statusValue.className = 'fs-6 fw-semibold';
+        statusValue.textContent = data?.systemStatus || 'Статус не определён';
 
-            const statusTime = document.createElement('div');
-            statusTime.className = 'text-muted small';
-            statusTime.textContent = format(data.currentStatus.timestamp);
+        const statusTime = document.createElement('div');
+        statusTime.className = 'text-muted small';
+        const formattedUpdate = data?.lastUpdateAt ? format(data.lastUpdateAt) : '—';
+        statusTime.textContent = formattedUpdate === '—' ? 'Дата обновления не определена' : formattedUpdate;
 
-            statusCard.body.append(statusValue, statusTime);
-        } else {
-            const noStatus = document.createElement('div');
-            noStatus.className = 'text-muted';
-            noStatus.textContent = 'Статус ещё не определён';
-            statusCard.body.appendChild(noStatus);
-        }
+        statusCard.body.append(statusValue, statusTime);
         layout.appendChild(statusCard.card);
 
         const historyCard = createCard('История трека');
