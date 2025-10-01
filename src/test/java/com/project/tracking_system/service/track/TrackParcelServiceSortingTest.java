@@ -6,8 +6,10 @@ import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserSubscriptionRepository;
+import com.project.tracking_system.repository.DeliveryHistoryRepository;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.track.TrackServiceClassifier;
+import com.project.tracking_system.service.track.TrackNumberAuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +40,12 @@ class TrackParcelServiceSortingTest {
     @Mock
     private TrackServiceClassifier trackServiceClassifier;
 
+    @Mock
+    private DeliveryHistoryRepository deliveryHistoryRepository;
+
+    @Mock
+    private TrackNumberAuditService trackNumberAuditService;
+
     private TrackParcelService service;
 
     /**
@@ -49,7 +57,9 @@ class TrackParcelServiceSortingTest {
                 userService,
                 trackParcelRepository,
                 userSubscriptionRepository,
-                trackServiceClassifier
+                trackServiceClassifier,
+                deliveryHistoryRepository,
+                trackNumberAuditService
         );
     }
 

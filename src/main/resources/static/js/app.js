@@ -41,27 +41,6 @@ function hideLoading() {
 }
 
 /**
- * Открывает модальное окно для ввода трек-номера.
- * Отвечает только за установку идентификатора и показ модали.
- * @param {string} id идентификатор отправления
- */
-function promptTrackNumber(id) {
-    const idInput = document.querySelector('#set-track-number-form input[name="id"]');
-    if (idInput) {
-        idInput.value = id;
-    }
-
-    const modalEl = document.getElementById('trackNumberModal');
-    if (modalEl) {
-        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-        modal.show();
-    }
-}
-
-// Экспортируем функцию, чтобы она была доступна из HTML-разметки
-window.promptTrackNumber = promptTrackNumber;
-
-/**
  * Формирует объект с CSRF-заголовком при наличии соответствующих метатегов.
  * @returns {Object} объект с заголовком CSRF или пустой объект
  */
@@ -72,52 +51,100 @@ function getCsrfHeaders() {
 }
 
 /**
- * Отправляет трек-номер на сервер и обновляет интерфейс.
- * @param {SubmitEvent} event событие отправки формы
+ * Отправляет запрос на обновление трека и обновляет содержимое модального окна.
+ * Метод отвечает только за сетевой вызов и обработку ответов, соблюдая SRP.
+ * @param {HTMLButtonElement} button кнопка, инициировавшая обновление
  */
-function handleTrackNumberFormSubmit(event) {
-    event.preventDefault();
+async function handleTrackRefresh(button) {
+    if (!button || button.disabled) {
+        return;
+    }
+    const trackId = button.dataset.trackId;
+    if (!trackId) {
+        return;
+    }
 
-    const form = event.target;
-    const id = form.querySelector('input[name="id"]').value;
-    const number = form.querySelector('input[name="number"]').value;
-    // Нормализуем номер: удаляем пробелы и приводим к верхнему регистру
-    const normalized = number.toUpperCase().trim();
+    const originalHtml = button.innerHTML;
+    const loadingText = button.dataset.loadingText || 'Обновляем…';
+    button.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${loadingText}`;
+    button.disabled = true;
+    button.setAttribute('aria-disabled', 'true');
+    button.setAttribute('aria-busy', 'true');
 
-    fetch('/app/departures/set-number', {
-        method: 'POST',
-        headers: {
-            ...getCsrfHeaders(),
-            'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: new URLSearchParams({ id, number: normalized })
-    })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Не удалось сохранить номер');
+    try {
+        const response = await fetch(`/api/v1/tracks/${trackId}/refresh`, {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                ...getCsrfHeaders()
             }
-
-            const row = document.querySelector(`tr[data-track-id="${id}"]`);
-            if (row) {
-                const btn = row.querySelector('button.parcel-number');
-                if (btn) {
-                    btn.textContent = normalized;
-                    btn.classList.add('open-modal');
-                    btn.dataset.itemnumber = normalized;
-                }
-                row.dataset.trackNumber = normalized;
-                notifyUser('Трек-номер добавлен', 'success');
-            } else {
-                window.location.reload();
-            }
-        })
-        .catch(error => notifyUser('Ошибка: ' + error.message, 'danger'))
-        .finally(() => {
-            const modal = bootstrap.Modal.getInstance(document.getElementById('trackNumberModal'));
-            modal?.hide();
-            form.reset();
         });
+
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        const payload = isJson ? await response.json() : await response.text();
+
+        if (!response.ok) {
+            const message = (isJson && payload && typeof payload === 'object' && payload.message)
+                ? payload.message
+                : (typeof payload === 'string' ? payload : 'Не удалось обновить трек');
+            throw new Error(message || 'Не удалось обновить трек');
+        }
+
+        if (payload && typeof payload === 'object') {
+            if (typeof window.trackModal?.render === 'function') {
+                window.trackModal.render(payload);
+            }
+
+            const refreshAllowed = payload.refreshAllowed;
+            const nextRefreshAt = payload.nextRefreshAt;
+            if (refreshAllowed === false) {
+                const message = nextRefreshAt
+                    ? `Повторное обновление будет доступно после ${nextRefreshAt}`
+                    : 'Ручное обновление временно недоступно';
+                notifyUser(message, 'warning');
+            } else {
+                notifyUser('Данные трека обновлены', 'success');
+            }
+            return;
+        }
+
+        notifyUser('Данные трека обновлены', 'success');
+    } catch (error) {
+        const message = error?.message || 'Не удалось обновить трек';
+        notifyUser(message, 'danger');
+        if (typeof window.trackModal?.loadModal === 'function') {
+            window.trackModal.loadModal(trackId);
+        }
+    } finally {
+        if (document.body.contains(button)) {
+            button.innerHTML = originalHtml;
+            button.disabled = false;
+            button.setAttribute('aria-disabled', 'false');
+            button.setAttribute('aria-busy', 'false');
+        }
+    }
 }
+
+/**
+ * Регистрирует делегированный обработчик кнопки «Обновить».
+ * Обработчик навешивается один раз и переиспользуется при каждом открытии модалки.
+ */
+function initTrackRefreshHandler() {
+    document.addEventListener('click', (event) => {
+        const button = event.target.closest('.js-track-refresh-btn');
+        if (!button) {
+            return;
+        }
+        event.preventDefault();
+        if (button.disabled) {
+            return;
+        }
+        handleTrackRefresh(button);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', initTrackRefreshHandler);
 
 /**
  * Инициализирует проверку трек-номера на стороне клиента.
@@ -255,32 +282,6 @@ document.body.addEventListener("change", function (event) {
 });
 
 document.getElementById("actionSelect")?.addEventListener("change", updateApplyButtonState);
-
-/**
- * Загружает данные по одной отправке и открывает модальное окно.
- * Отображает оверлей загрузки на время запроса.
- * @param {string} itemNumber - номер отправления
- */
-function loadModal(itemNumber) {
-    if (!itemNumber) return;
-
-    showLoading(); // показываем индикатор для операций с одной посылкой
-
-    fetch(`/app/departures/${itemNumber}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Ошибка при загрузке данных');
-            }
-            return response.text();
-        })
-        .then(data => {
-            document.querySelector('#infoModal .modal-body').innerHTML = data;
-            const modal = new bootstrap.Modal(document.getElementById('infoModal'));
-            modal.show();
-        })
-        .catch(() => notifyUser('Ошибка при загрузке данных', "danger"))
-        .finally(() => hideLoading()); // скрываем индикатор в любом случае
-}
 
 /**
  * Загружает и показывает информацию о покупателе в модальном окне.
@@ -2148,12 +2149,6 @@ document.addEventListener("DOMContentLoaded", function () {
     // === WebSocket ===
     connectWebSocket();
 
-    // === Сохранение трек-номера через модальное окно ===
-    const trackNumberForm = document.getElementById('set-track-number-form');
-    if (trackNumberForm) {
-        trackNumberForm.addEventListener('submit', handleTrackNumberFormSubmit);
-    }
-
     document.getElementById("updateAllForm")?.addEventListener("submit", function (event) {
         event.preventDefault();
         sendUpdateRequest(null);
@@ -2347,7 +2342,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const trackBtn = event.target.closest('button.parcel-number:not(.open-modal)');
         if (trackBtn) {
             // Показываем модаль с вводом трек-номера
-            promptTrackNumber(trackBtn.dataset.id);
+            window.trackModal?.promptTrackNumber(trackBtn.dataset.id);
             return;
         }
 
@@ -2355,10 +2350,9 @@ document.addEventListener("DOMContentLoaded", function () {
         // Ищем только элементы с классом .open-modal, чтобы не перехватывать клики по другим кнопкам
         const openModalButton = target.closest(".open-modal");
         if (openModalButton) {
+            const trackId = openModalButton.getAttribute("data-track-id");
             const itemNumber = openModalButton.getAttribute("data-itemnumber");
-            if (itemNumber) {
-                loadModal(itemNumber);
-            }
+            window.trackModal?.loadModal(trackId || itemNumber);
             return;
         }
 

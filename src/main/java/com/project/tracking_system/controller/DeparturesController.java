@@ -1,6 +1,5 @@
 package com.project.tracking_system.controller;
 
-import com.project.tracking_system.dto.TrackViewResult;
 import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.dto.BulkUpdateButtonDTO;
 import com.project.tracking_system.entity.Store;
@@ -11,7 +10,6 @@ import com.project.tracking_system.service.track.StatusTrackService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.track.TrackFacade;
 
-import com.project.tracking_system.service.track.TrackViewService;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.UserService;
 import lombok.RequiredArgsConstructor;
@@ -56,7 +54,6 @@ public class DeparturesController {
     private final StoreService storeService;
     private final WebSocketController webSocketController;
     private final UserService userService;
-    private final TrackViewService trackViewService;
 
     /**
      * Максимальное количество ссылок пагинации, отображаемых одновременно.
@@ -165,33 +162,6 @@ public class DeparturesController {
         model.addAttribute("sortOrder", sortOrder);
 
         return "app/departures";
-    }
-
-    /**
-     * Метод для отображения подробной информации о посылке.
-     *
-     * @param model      модель для передачи данных на представление.
-     * @param itemNumber номер отслеживаемой посылки.
-     * @param user       текущий пользователь.
-     * @return имя частичного представления с информацией о посылке.
-     */
-    @GetMapping("/{itemNumber}")
-    public String departures(
-            Model model,
-            @PathVariable("itemNumber") String itemNumber,
-            @AuthenticationPrincipal User user) {
-
-        Long userId = user.getId();
-        log.info("🔍 Запрос информации о посылке {} для пользователя ID={}", itemNumber, userId);
-
-        TrackViewResult result = trackViewService.getTrackDetails(itemNumber, userId);
-        model.addAttribute("trackInfo", result.trackInfo());
-        model.addAttribute("itemNumber", itemNumber);
-        if (result.nextUpdateTime() != null) {
-            model.addAttribute("nextUpdateTime", result.nextUpdateTime());
-        }
-
-        return "partials/track-info-departures";
     }
 
     /**

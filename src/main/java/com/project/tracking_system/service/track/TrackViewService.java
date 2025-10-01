@@ -1,27 +1,35 @@
 package com.project.tracking_system.service.track;
 
-import com.project.tracking_system.dto.TrackInfoDTO;
-import com.project.tracking_system.dto.TrackInfoListDTO;
-import com.project.tracking_system.dto.TrackViewResult;
+import com.project.tracking_system.dto.TrackDetailsDto;
+import com.project.tracking_system.dto.TrackStatusEventDto;
+import com.project.tracking_system.entity.DeliveryHistory;
+import com.project.tracking_system.entity.GlobalStatus;
+import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.entity.TrackStatusEvent;
 import com.project.tracking_system.service.admin.ApplicationSettingsService;
 import com.project.tracking_system.service.user.UserService;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.access.AccessDeniedException;
-import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Optional;
 
 /**
- * Сервис получения детальной информации о посылке.
+ * Сервис чтения сохранённых данных о посылке для модального окна.
  * <p>
- * Проверяет, можно ли обновлять трек прямо сейчас,
- * при необходимости обновляет его и сохраняет изменения.
+ * Реализация не выполняет обращений к внешним почтовым сервисам и работает
+ * только с данными, уже сохранёнными в БД, что снижает нагрузку и ускоряет
+ * открытие модалки при повторных запросах.
  * </p>
  */
 @Slf4j
@@ -29,68 +37,172 @@ import java.time.format.DateTimeFormatter;
 @RequiredArgsConstructor
 public class TrackViewService {
 
+    private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+
     private final TrackParcelService trackParcelService;
-    private final TrackUpdateDispatcherService trackUpdateDispatcherService;
-    private final TrackProcessingService trackProcessingService;
+    private final TrackStatusEventService trackStatusEventService;
     private final UserService userService;
     private final ApplicationSettingsService applicationSettingsService;
 
     /**
-     * Возвращает информацию о посылке для отображения в интерфейсе.
+     * Возвращает DTO с данными о посылке для текущего пользователя.
      * <p>
-     * Если последнее обновление было достаточно давно, трек будет
-     * обновлён и сохранён. В противном случае вернётся текущее состояние
-     * и время следующего допустимого обновления.
+     * Результат кэшируется на несколько секунд, чтобы повторное открытие модалки
+     * не инициировало дополнительные запросы в БД (SRP: сервис считает только
+     * бизнес-логику, кэш управляется инфраструктурой).
      * </p>
      *
-     * @param itemNumber номер посылки
-     * @param userId     идентификатор пользователя
-     * @return объект с историей трека и возможным временем следующего обновления
-     * @throws AccessDeniedException    если посылка не принадлежит пользователю
-     * @throws EntityNotFoundException  если посылка не найдена
+     * @param trackId идентификатор посылки
+     * @param userId  идентификатор пользователя
+     * @return подготовленный DTO
      */
-    @Transactional
-    public TrackViewResult getTrackDetails(String itemNumber, Long userId) {
-        // Проверяем принадлежность посылки
-        if (!trackParcelService.userOwnsParcel(itemNumber, userId)) {
-            log.warn("❌ Пользователь ID={} попытался получить чужой трек {}", userId, itemNumber);
-            throw new AccessDeniedException("Посылка не принадлежит пользователю");
-        }
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "track-details", key = "#userId + ':' + #trackId")
+    public TrackDetailsDto getTrackDetails(Long trackId, Long userId) {
+        TrackParcel parcel = loadParcel(trackId, userId);
+        ZoneId userZone = userService.getUserZone(userId);
 
-        TrackParcel parcel = trackParcelService.findByNumberAndUserId(itemNumber, userId);
-        if (parcel == null) {
-            throw new EntityNotFoundException("Посылка не найдена");
-        }
+        List<TrackStatusEventDto> history = buildHistory(parcel, userZone);
+        TrackStatusEventDto currentStatus = history.isEmpty() ? null : history.get(0);
 
-        int interval = applicationSettingsService.getTrackUpdateIntervalHours();
-        ZonedDateTime nowUtc = ZonedDateTime.now(ZoneOffset.UTC);
-        ZonedDateTime nextAllowed = parcel.getLastUpdate().plusHours(interval);
-      
-        // Посылку можно обновлять, если статус ещё не финальный и с момента
-        // последнего обновления прошло достаточно времени
-        boolean canUpdate = !parcel.getStatus().isFinal()
-                && (parcel.getLastUpdate() == null
-                || parcel.getLastUpdate().isBefore(nowUtc.minusHours(interval)));
+        boolean refreshAllowed = isRefreshAllowed(parcel);
+        String nextRefreshAt = resolveNextRefreshAt(parcel, refreshAllowed, userZone);
+        boolean canEditTrack = canEditTrack(parcel);
 
-        TrackInfoListDTO trackInfo;
-        String nextUpdateTime = null;
-        if (canUpdate) {
-            TrackMeta meta = new TrackMeta(itemNumber, null, null, false,
-                    trackParcelService.getPostalServiceType(itemNumber));
-            trackInfo = trackUpdateDispatcherService.dispatch(meta).getTrackInfo();
-            trackProcessingService.save(itemNumber, trackInfo, parcel.getStore().getId(), userId);
-            log.info("🎯 Передано {} записей для трека {}", trackInfo.getList().size(), itemNumber);
-        } else {
-            trackInfo = new TrackInfoListDTO();
-            String ts = parcel.getTimestamp()
-                    .withZoneSameInstant(userService.getUserZone(userId))
-                    .format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss"));
-            trackInfo.addTrackInfo(new TrackInfoDTO(ts, parcel.getStatus().getDescription()));
-            nextUpdateTime = nextAllowed.withZoneSameInstant(userService.getUserZone(userId))
-                    .format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss"));
-        }
+        PostalServiceType serviceType = Optional.ofNullable(parcel.getDeliveryHistory())
+                .map(DeliveryHistory::getPostalService)
+                .orElse(null);
 
-        return new TrackViewResult(trackInfo, nextUpdateTime);
+        String systemStatus = Optional.ofNullable(parcel.getStatus())
+                .map(GlobalStatus::getDescription)
+                .orElse(null);
+        String lastUpdateAt = Optional.ofNullable(parcel.getLastUpdate())
+                .map(moment -> formatTimestamp(moment, userZone))
+                .orElse(null);
+
+        return new TrackDetailsDto(
+                parcel.getId(),
+                parcel.getNumber(),
+                serviceType != null ? serviceType.getDisplayName() : null,
+                systemStatus,
+                lastUpdateAt,
+                currentStatus,
+                history,
+                refreshAllowed,
+                nextRefreshAt,
+                canEditTrack,
+                userZone.getId()
+        );
     }
 
+    /**
+     * Загружает посылку и проверяет права доступа.
+     */
+    private TrackParcel loadParcel(Long trackId, Long userId) {
+        Optional<TrackParcel> owned = trackParcelService.findOwnedById(trackId, userId);
+        if (owned.isPresent()) {
+            return owned.get();
+        }
+        boolean exists = trackParcelService.findById(trackId).isPresent();
+        if (exists) {
+            throw new AccessDeniedException("Посылка не принадлежит пользователю");
+        }
+        log.warn("Не найдена посылка id={} для пользователя {}", trackId, userId);
+        throw new EntityNotFoundException("Посылка не найдена");
+    }
+
+    /**
+     * Возвращает сохранённую историю статусов с учётом пользовательской зоны.
+     */
+    private List<TrackStatusEventDto> buildHistory(TrackParcel parcel, ZoneId userZone) {
+        List<TrackStatusEvent> events = trackStatusEventService.findEvents(parcel.getId());
+        if (!events.isEmpty()) {
+            return events.stream()
+                    .map(event -> new TrackStatusEventDto(
+                            event.getDescription(),
+                            formatTimestamp(event.getEventTime(), userZone)))
+                    .toList();
+        }
+        return buildFallbackHistory(parcel, userZone);
+    }
+
+    /**
+     * Формирует минимальную историю на основе агрегированного статуса, если
+     * детальные события ещё не сохранены.
+     */
+    private List<TrackStatusEventDto> buildFallbackHistory(TrackParcel parcel, ZoneId userZone) {
+        GlobalStatus aggregateStatus = parcel.getStatus();
+        ZonedDateTime aggregateMoment = resolveStatusMoment(parcel);
+        if (aggregateStatus == null || aggregateMoment == null) {
+            return List.of();
+        }
+        String description = aggregateStatus.getDescription();
+        return List.of(new TrackStatusEventDto(
+                description,
+                formatTimestamp(aggregateMoment, userZone)
+        ));
+    }
+
+    /**
+     * Определяет, можно ли инициировать обновление трека.
+     */
+    private boolean isRefreshAllowed(TrackParcel parcel) {
+        if (parcel.getStatus() != null && parcel.getStatus().isFinal()) {
+            return false;
+        }
+        int interval = applicationSettingsService.getTrackUpdateIntervalHours();
+        ZonedDateTime threshold = ZonedDateTime.now(ZoneOffset.UTC).minusHours(interval);
+        ZonedDateTime lastUpdate = parcel.getLastUpdate();
+        return lastUpdate == null || lastUpdate.isBefore(threshold);
+    }
+
+    /**
+     * Вычисляет момент следующего допустимого обновления.
+     */
+    private String resolveNextRefreshAt(TrackParcel parcel, boolean refreshAllowed, ZoneId userZone) {
+        if (refreshAllowed || parcel.getStatus() != null && parcel.getStatus().isFinal()) {
+            return null;
+        }
+        int interval = applicationSettingsService.getTrackUpdateIntervalHours();
+        ZonedDateTime nextUpdate = parcel.getLastUpdate().plusHours(interval);
+        return formatTimestamp(nextUpdate, userZone);
+    }
+
+    /**
+     * Определяет, разрешено ли редактирование трека.
+     */
+    private boolean canEditTrack(TrackParcel parcel) {
+        GlobalStatus status = parcel.getStatus();
+        if (status == null) {
+            return true;
+        }
+        return status == GlobalStatus.PRE_REGISTERED || status == GlobalStatus.ERROR;
+    }
+
+    /**
+     * Приводит дату к ISO-формату с учётом пользовательского часового пояса.
+     */
+    private String formatTimestamp(ZonedDateTime moment, ZoneId userZone) {
+        return moment.withZoneSameInstant(userZone).format(ISO_FORMATTER);
+    }
+
+    /**
+     * Определяет момент времени для обобщённого статуса посылки.
+     * <p>
+     * Если точная дата статуса неизвестна (например, история ещё не загружена
+     * из внешнего сервиса), используем отметку последнего обновления трека,
+     * чтобы пользователь видел актуальную временную метку.
+     * </p>
+     *
+     * @param parcel посылка, для которой нужно определить момент статуса
+     * @return момент статуса или {@code null}, если его невозможно вычислить
+     */
+    private ZonedDateTime resolveStatusMoment(TrackParcel parcel) {
+        ZonedDateTime statusMoment = parcel.getTimestamp();
+        if (statusMoment != null) {
+            return statusMoment;
+        }
+        return parcel.getLastUpdate();
+    }
 }
+
