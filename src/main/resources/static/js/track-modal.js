@@ -219,10 +219,7 @@
         const trackInfo = document.createElement('div');
         trackInfo.className = 'd-flex flex-column';
 
-        const trackNumberRow = document.createElement('div');
-        trackNumberRow.className = 'd-flex align-items-center gap-2';
-
-        const trackNumber = document.createElement('span');
+        const trackNumber = document.createElement('div');
         trackNumber.className = 'fs-3 fw-semibold';
         const trackText = data?.number ? data.number : 'Трек не указан';
         trackNumber.textContent = trackText;
@@ -230,33 +227,23 @@
             trackNumber.classList.add('text-muted');
         }
 
-        trackNumberRow.appendChild(trackNumber);
-
         const serviceInfo = document.createElement('div');
         serviceInfo.className = 'text-muted small';
         serviceInfo.textContent = data?.deliveryService || 'Служба доставки не определена';
 
-        trackInfo.append(trackNumberRow, serviceInfo);
+        trackInfo.append(trackNumber, serviceInfo);
         parcelHeader.appendChild(trackInfo);
 
         if (data?.canEditTrack && data?.id !== undefined) {
             const editButton = document.createElement('button');
             editButton.type = 'button';
-            editButton.className = 'btn btn-outline-primary btn-sm d-inline-flex align-items-center justify-content-center';
+            editButton.className = 'btn btn-outline-primary btn-sm align-self-start';
+            editButton.textContent = 'Редактировать номер';
             editButton.setAttribute('aria-label', 'Редактировать трек-номер');
-            editButton.setAttribute('data-bs-toggle', 'tooltip');
-            editButton.setAttribute('data-bs-placement', 'top');
-            editButton.setAttribute('title', 'Редактировать трек-номер');
             editButton.addEventListener('click', () => {
                 promptTrackNumber(data.id, data.number || '');
             });
-
-            const editIcon = document.createElement('i');
-            editIcon.className = 'bi bi-pencil';
-            editIcon.setAttribute('aria-hidden', 'true');
-            editButton.appendChild(editIcon);
-
-            trackNumberRow.appendChild(editButton);
+            parcelHeader.appendChild(editButton);
         }
 
         parcelCard.body.appendChild(parcelHeader);
@@ -358,15 +345,6 @@
         layout.appendChild(historyCard.card);
 
         container.appendChild(layout);
-
-        // Активируем тултипы в модальном окне после обновления содержимого.
-        if (typeof window.enableTooltips === 'function') {
-            window.enableTooltips(container);
-        } else if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
-            container.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((element) => {
-                bootstrap.Tooltip.getOrCreateInstance(element);
-            });
-        }
 
         const nextRefreshAt = data?.nextRefreshAt || null;
         const isFinalStatus = data?.refreshAllowed === false && !data?.nextRefreshAt;
