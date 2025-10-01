@@ -55,6 +55,7 @@
         }
 
         const target = Date.parse(nextRefreshAt);
+      
         if (Number.isNaN(target)) {
             applyState('Можно выполнить через —', true);
             return;
