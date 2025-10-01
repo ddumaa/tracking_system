@@ -41,7 +41,13 @@ public class TrackUpdateEligibilityService {
             return true;
         }
         if (parcel.getStatus().isFinal()) {
-            return false;
+            ZonedDateTime statusTimestamp = parcel.getTimestamp() != null
+                    ? parcel.getTimestamp()
+                    : parcel.getLastUpdate();
+            ZonedDateTime finalThreshold = ZonedDateTime.now(ZoneOffset.UTC).minusHours(24);
+            if (statusTimestamp != null && statusTimestamp.isBefore(finalThreshold)) {
+                return false;
+            }
         }
         int interval = applicationSettingsService.getTrackUpdateIntervalHours();
         ZonedDateTime threshold = ZonedDateTime.now(ZoneOffset.UTC).minusHours(interval);
