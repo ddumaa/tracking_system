@@ -8,6 +8,8 @@ import java.util.List;
  * @param id             идентификатор посылки
  * @param number         трек-номер (может отсутствовать для предрегистраций)
  * @param deliveryService название почтовой службы
+ * @param systemStatus   глобальный статус посылки в системе
+ * @param lastUpdateAt   дата последнего обновления статуса
  * @param currentStatus  последний статус с отметкой времени
  * @param history        сохранённые события трека в обратном хронологическом порядке
  * @param refreshAllowed признак доступности принудительного обновления
@@ -18,6 +20,8 @@ import java.util.List;
 public record TrackDetailsDto(Long id,
                               String number,
                               String deliveryService,
+                              String systemStatus,
+                              String lastUpdateAt,
                               TrackStatusEventDto currentStatus,
                               List<TrackStatusEventDto> history,
                               boolean refreshAllowed,

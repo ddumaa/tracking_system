@@ -869,6 +869,48 @@ button:hover {
     max-width: 240px;
   }
 }
+.timeline {
+  position: relative;
+  margin-left: 0.5rem;
+  padding-left: 1.5rem;
+  border-left: 2px solid var(--bs-border-color);
+}
+
+.timeline-item {
+  position: relative;
+  padding-bottom: 1.5rem;
+}
+.timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.timeline-marker {
+  position: absolute;
+  left: -0.9rem;
+  top: 0.35rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  background-color: var(--bs-secondary);
+}
+
+.timeline-item-current .timeline-marker {
+  background-color: var(--bs-primary);
+}
+.timeline-item-current .timeline-status {
+  color: var(--bs-primary);
+  font-weight: 600;
+}
+
+.timeline-status {
+  font-weight: 500;
+}
+
+.timeline-details {
+  margin-top: 0.25rem;
+  line-height: 1.4;
+}
+
 .text-danger {
   margin-top: 0.5rem;
   display: block;
@@ -1887,5 +1929,3 @@ body.loading {
   border-style: solid;
   border-color: #ddd transparent transparent transparent;
 }
-
-/*# sourceMappingURL=style.css.map */

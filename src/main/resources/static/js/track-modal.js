@@ -38,31 +38,43 @@
             button.disabled = disabled;
             button.setAttribute('aria-disabled', String(disabled));
             countdown.textContent = text;
+            countdown.classList.toggle('visually-hidden', text.length === 0);
+            countdown.setAttribute('aria-hidden', text.length === 0 ? 'true' : 'false');
         };
 
-        if (!nextRefreshAt || refreshAllowed) {
-            applyState(refreshAllowed ? 'Можно обновить' : 'Обновление недоступно', !refreshAllowed);
+        const showActiveState = () => applyState('', false);
+
+        if (refreshAllowed) {
+            showActiveState();
+            return;
+        }
+
+        if (!nextRefreshAt) {
+            applyState('Можно выполнить через —', true);
             return;
         }
 
         const target = Date.parse(nextRefreshAt);
         if (Number.isNaN(target)) {
-            applyState('Можно обновить', false);
+            applyState('Можно выполнить через —', true);
             return;
         }
 
         const tick = () => {
             const diff = target - Date.now();
             if (diff <= 0) {
-                applyState('Можно обновить', false);
+                showActiveState();
                 clearRefreshTimer();
                 return;
             }
             const totalSeconds = Math.ceil(diff / 1000);
-            const minutes = Math.floor(totalSeconds / 60);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
             const seconds = totalSeconds % 60;
-            const formatted = `${minutes}:${String(seconds).padStart(2, '0')}`;
-            applyState(`Доступно через ${formatted}`, true);
+            const formatted = [hours, minutes, seconds]
+                .map((part) => String(part).padStart(2, '0'))
+                .join(':');
+            applyState(`Можно выполнить через ${formatted}`, true);
         };
 
         tick();
@@ -112,15 +124,37 @@
     }
 
     /**
+     * Создаёт карточку модального окна с заголовком и телом.
+     * Метод устраняет дублирование разметки и упрощает расширение модалки (OCP).
+     * @param {string} title заголовок карточки
+     * @returns {{card: HTMLElement, body: HTMLElement}} карточка и контейнер содержимого
+     */
+    function createCard(title) {
+        const card = document.createElement('section');
+        card.className = 'card shadow-sm border-0 rounded-4 mb-3';
+        const body = document.createElement('div');
+        body.className = 'card-body';
+        if (title) {
+            const heading = document.createElement('h6');
+            heading.className = 'text-uppercase text-muted small mb-3';
+            heading.textContent = title;
+            body.appendChild(heading);
+        }
+        card.appendChild(body);
+        return { card, body };
+    }
+
+    /**
      * Отрисовывает содержимое модального окна с деталями трека.
-     * Метод отвечает только за манипуляцию DOM и не выполняет сетевые запросы (SRP).
+     * Метод собирает карточки интерфейса и обновляет заголовок без сетевых обращений (SRP).
      * @param {Object} data DTO с сервера
      */
     function renderTrackModal(data) {
         clearRefreshTimer();
 
+        const modal = document.getElementById('infoModal');
         const container = document.getElementById('trackModalContent')
-            || document.querySelector('#infoModal .modal-body');
+            || modal?.querySelector('.modal-body');
         if (!container) {
             return;
         }
@@ -131,54 +165,52 @@
 
         container.replaceChildren();
 
-        const wrapper = document.createElement('div');
-        wrapper.className = 'w-100';
+        const layout = document.createElement('div');
+        layout.className = 'd-flex flex-column gap-3';
         if (data?.id !== undefined) {
-            wrapper.dataset.trackId = String(data.id);
+            layout.dataset.trackId = String(data.id);
         }
 
-        const headerBlock = document.createElement('div');
-        headerBlock.className = 'd-flex align-items-start gap-3 mb-3';
+        const parcelCard = createCard('Данные о посылке');
+        const parcelHeader = document.createElement('div');
+        parcelHeader.className = 'd-flex flex-wrap justify-content-between align-items-start gap-3';
 
-        const infoBlock = document.createElement('div');
+        const trackInfo = document.createElement('div');
+        trackInfo.className = 'd-flex flex-column';
 
-        const trackLabel = document.createElement('div');
-        trackLabel.className = 'text-muted small';
-        trackLabel.textContent = 'Трек-номер';
-        infoBlock.appendChild(trackLabel);
+        const trackNumber = document.createElement('div');
+        trackNumber.className = 'fs-3 fw-semibold';
+        const trackText = data?.number ? data.number : 'Трек не указан';
+        trackNumber.textContent = trackText;
+        if (!data?.number) {
+            trackNumber.classList.add('text-muted');
+        }
 
-        const trackValue = document.createElement('div');
-        trackValue.className = 'fs-5 fw-semibold';
-        trackValue.textContent = data?.number || '—';
-        infoBlock.appendChild(trackValue);
+        const serviceInfo = document.createElement('div');
+        serviceInfo.className = 'text-muted small';
+        serviceInfo.textContent = data?.deliveryService || 'Служба доставки не определена';
 
-        const deliveryValue = document.createElement('div');
-        deliveryValue.className = 'text-muted';
-        deliveryValue.textContent = data?.deliveryService || 'Служба доставки не определена';
-        infoBlock.appendChild(deliveryValue);
+        trackInfo.append(trackNumber, serviceInfo);
+        parcelHeader.appendChild(trackInfo);
 
-        headerBlock.appendChild(infoBlock);
-
-        let editButton;
-        if (data?.canEditTrack) {
-            editButton = document.createElement('button');
+        if (data?.canEditTrack && data?.id !== undefined) {
+            const editButton = document.createElement('button');
             editButton.type = 'button';
-            editButton.className = 'btn btn-outline-primary btn-sm ms-auto';
-            editButton.id = 'trackModalEditBtn';
-            editButton.textContent = 'Редактировать трек';
-            if (data?.id !== undefined) {
-                editButton.dataset.trackId = String(data.id);
-            }
-            if (data?.number) {
-                editButton.dataset.currentNumber = data.number;
-            }
-            headerBlock.appendChild(editButton);
+            editButton.className = 'btn btn-outline-primary btn-sm align-self-start';
+            editButton.textContent = 'Редактировать номер';
+            editButton.setAttribute('aria-label', 'Редактировать трек-номер');
+            editButton.addEventListener('click', () => {
+                promptTrackNumber(data.id, data.number || '');
+            });
+            parcelHeader.appendChild(editButton);
         }
 
-        wrapper.appendChild(headerBlock);
+        parcelCard.body.appendChild(parcelHeader);
+        layout.appendChild(parcelCard.card);
 
+        const refreshCard = createCard('Обновление');
         const refreshSection = document.createElement('div');
-        refreshSection.className = 'd-flex flex-wrap align-items-center gap-3 mb-3';
+        refreshSection.className = 'd-flex flex-wrap align-items-center gap-3';
 
         const refreshButton = document.createElement('button');
         refreshButton.type = 'button';
@@ -187,117 +219,88 @@
         refreshButton.dataset.loadingText = 'Обновляем…';
         refreshButton.setAttribute('aria-label', 'Обновить данные трека');
         refreshButton.setAttribute('aria-controls', 'trackModalContent');
+        refreshButton.setAttribute('data-bs-toggle', 'tooltip');
+        refreshButton.setAttribute('data-bs-placement', 'top');
+        refreshButton.setAttribute('title', 'Нажмите, чтобы обновить трек');
         if (data?.id !== undefined) {
             refreshButton.dataset.trackId = String(data.id);
         }
 
         const countdown = document.createElement('span');
         countdown.id = 'trackRefreshCountdown';
-        countdown.className = 'text-muted small';
+        countdown.className = 'text-muted small visually-hidden';
         countdown.setAttribute('role', 'status');
         countdown.setAttribute('aria-live', 'polite');
+        countdown.setAttribute('aria-hidden', 'true');
 
-        refreshSection.appendChild(refreshButton);
-        refreshSection.appendChild(countdown);
-        wrapper.appendChild(refreshSection);
+        refreshSection.append(refreshButton, countdown);
+        refreshCard.body.appendChild(refreshSection);
+        layout.appendChild(refreshCard.card);
 
-        if (data?.currentStatus) {
-            const currentStatusBlock = document.createElement('div');
-            currentStatusBlock.className = 'mb-3';
+        const statusCard = createCard('Текущий статус');
+        const statusValue = document.createElement('div');
+        statusValue.className = 'fs-6 fw-semibold';
+        statusValue.textContent = data?.systemStatus || 'Статус не определён';
 
-            const currentLabel = document.createElement('div');
-            currentLabel.className = 'text-muted small';
-            currentLabel.textContent = 'Текущий статус';
-            currentStatusBlock.appendChild(currentLabel);
+        const statusTime = document.createElement('div');
+        statusTime.className = 'text-muted small';
+        const formattedUpdate = data?.lastUpdateAt ? format(data.lastUpdateAt) : '—';
+        statusTime.textContent = formattedUpdate === '—' ? 'Дата обновления не определена' : formattedUpdate;
 
-            const currentValue = document.createElement('div');
-            currentValue.className = 'fw-semibold';
-            currentValue.textContent = data.currentStatus.status || '—';
-            currentStatusBlock.appendChild(currentValue);
+        statusCard.body.append(statusValue, statusTime);
+        layout.appendChild(statusCard.card);
 
-            const currentTime = document.createElement('div');
-            currentTime.className = 'text-muted';
-            currentTime.textContent = format(data.currentStatus.timestamp);
-            currentStatusBlock.appendChild(currentTime);
-
-            wrapper.appendChild(currentStatusBlock);
-        }
-
-        const refreshBlock = document.createElement('div');
-        refreshBlock.classList.add('alert', 'mb-3');
-        refreshBlock.setAttribute('role', 'alert');
-
-        if (data?.refreshAllowed) {
-            refreshBlock.classList.add('alert-success');
-            refreshBlock.textContent = 'Обновление доступно — выполните его из модального окна.';
-        } else if (data?.nextRefreshAt) {
-            refreshBlock.classList.add('alert-warning');
-            refreshBlock.textContent = `Повторное обновление будет доступно после ${format(data.nextRefreshAt)}.`;
+        const historyCard = createCard('История трека');
+        if (history.length === 0) {
+            const emptyHistory = document.createElement('p');
+            emptyHistory.className = 'text-muted mb-0';
+            emptyHistory.textContent = 'История пока пуста';
+            historyCard.body.appendChild(emptyHistory);
         } else {
-            refreshBlock.classList.add('alert-secondary');
-            refreshBlock.textContent = 'Обновление недоступно для текущего статуса.';
-        }
+            const timeline = document.createElement('div');
+            timeline.className = 'timeline';
 
-        wrapper.appendChild(refreshBlock);
+            history.forEach((event, index) => {
+                const item = document.createElement('div');
+                item.className = 'timeline-item';
+                if (index === 0) {
+                    item.classList.add('timeline-item-current');
+                }
+
+                const marker = document.createElement('span');
+                marker.className = 'timeline-marker';
+                item.appendChild(marker);
+
+                const dateEl = document.createElement('div');
+                dateEl.className = 'timeline-date text-muted small';
+                dateEl.textContent = format(event.timestamp);
+                item.appendChild(dateEl);
+
+                const statusEl = document.createElement('div');
+                statusEl.className = 'timeline-status';
+                statusEl.textContent = event.status || '—';
+                item.appendChild(statusEl);
+
+                if (event.details) {
+                    const detailsEl = document.createElement('div');
+                    detailsEl.className = 'timeline-details text-muted small';
+                    detailsEl.textContent = event.details;
+                    item.appendChild(detailsEl);
+                }
+
+                timeline.appendChild(item);
+            });
+
+            historyCard.body.appendChild(timeline);
+        }
+        layout.appendChild(historyCard.card);
+
+        container.appendChild(layout);
 
         startRefreshTimer(refreshButton, countdown, data?.nextRefreshAt || null, Boolean(data?.refreshAllowed));
 
-        const tableWrapper = document.createElement('div');
-        tableWrapper.className = 'table-responsive';
-
-        const table = document.createElement('table');
-        table.className = 'table table-striped';
-
-        const thead = document.createElement('thead');
-        const headRow = document.createElement('tr');
-
-        const dateHeader = document.createElement('th');
-        dateHeader.textContent = 'Дата';
-        headRow.appendChild(dateHeader);
-
-        const statusHeader = document.createElement('th');
-        statusHeader.textContent = 'Статус';
-        headRow.appendChild(statusHeader);
-
-        thead.appendChild(headRow);
-        table.appendChild(thead);
-
-        const tbody = document.createElement('tbody');
-
-        if (history.length === 0) {
-            const emptyRow = document.createElement('tr');
-            const emptyCell = document.createElement('td');
-            emptyCell.colSpan = 2;
-            emptyCell.className = 'text-center text-muted';
-            emptyCell.textContent = 'История отсутствует';
-            emptyRow.appendChild(emptyCell);
-            tbody.appendChild(emptyRow);
-        } else {
-            history.forEach(event => {
-                const row = document.createElement('tr');
-
-                const dateCell = document.createElement('td');
-                dateCell.textContent = format(event.timestamp);
-                row.appendChild(dateCell);
-
-                const statusCell = document.createElement('td');
-                statusCell.textContent = event.status || '—';
-                row.appendChild(statusCell);
-
-                tbody.appendChild(row);
-            });
-        }
-
-        table.appendChild(tbody);
-        tableWrapper.appendChild(table);
-        wrapper.appendChild(tableWrapper);
-
-        container.appendChild(wrapper);
-
-        if (editButton && data?.id) {
-            editButton.addEventListener('click', () => {
-                promptTrackNumber(data.id, editButton.dataset.currentNumber || data.number || '');
-            });
+        if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip && typeof bootstrap.Tooltip.getOrCreateInstance === 'function') {
+            bootstrap.Tooltip.getOrCreateInstance(refreshButton);
         }
     }
 
