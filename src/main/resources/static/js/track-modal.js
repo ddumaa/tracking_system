@@ -77,7 +77,7 @@
         if (!nextRefreshAt) {
             const fallbackText = unavailableReason || 'Можно выполнить через —';
             applyState({
-                text: unavailableReason ? '' : fallbackText,
+                text: unavailableReason || fallbackText,
                 disabled: true,
                 tooltipText: unavailableReason || null
             });
@@ -88,7 +88,7 @@
         if (Number.isNaN(target)) {
             const fallbackText = unavailableReason || 'Можно выполнить через —';
             applyState({
-                text: unavailableReason ? '' : fallbackText,
+                text: unavailableReason || fallbackText,
                 disabled: true,
                 tooltipText: unavailableReason || null
             });
