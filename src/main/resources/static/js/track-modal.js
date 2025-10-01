@@ -205,9 +205,10 @@
         const history = Array.isArray(data?.history) ? data.history : [];
 
         container.replaceChildren();
+        container.classList.remove('justify-content-center', 'align-items-center', 'text-muted');
 
         const layout = document.createElement('div');
-        layout.className = 'd-flex flex-column gap-3';
+        layout.className = 'd-flex flex-column gap-3 w-100';
         if (data?.id !== undefined) {
             layout.dataset.trackId = String(data.id);
         }
@@ -237,9 +238,23 @@
         if (data?.canEditTrack && data?.id !== undefined) {
             const editButton = document.createElement('button');
             editButton.type = 'button';
-            editButton.className = 'btn btn-outline-primary btn-sm align-self-start';
-            editButton.textContent = 'Редактировать номер';
+            editButton.className = 'btn btn-outline-primary btn-sm align-self-start d-inline-flex align-items-center justify-content-center';
             editButton.setAttribute('aria-label', 'Редактировать трек-номер');
+            editButton.setAttribute('data-bs-toggle', 'tooltip');
+            editButton.setAttribute('data-bs-placement', 'top');
+            const EDIT_TOOLTIP_TEXT = 'Редактировать трек-номер';
+            editButton.setAttribute('title', EDIT_TOOLTIP_TEXT);
+            editButton.setAttribute('data-bs-original-title', EDIT_TOOLTIP_TEXT);
+
+            const editIcon = document.createElement('i');
+            editIcon.className = 'bi bi-pencil';
+            editIcon.setAttribute('aria-hidden', 'true');
+
+            const editText = document.createElement('span');
+            editText.className = 'visually-hidden';
+            editText.textContent = 'Редактировать трек-номер';
+
+            editButton.append(editIcon, editText);
             editButton.addEventListener('click', () => {
                 promptTrackNumber(data.id, data.number || '');
             });
