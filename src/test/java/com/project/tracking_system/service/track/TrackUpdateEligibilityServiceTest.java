@@ -46,17 +46,36 @@ class TrackUpdateEligibilityServiceTest {
     }
 
     /**
-     * Посылка с финальным статусом не подлежит обновлению.
+     * Посылка в финальном статусе блокируется спустя 24 часа после фиксации статуса.
      */
     @Test
-    void canUpdate_FinalStatusParcel_ReturnsFalse() {
+    void canUpdate_FinalStatusParcelAfterGrace_ReturnsFalse() {
         TrackParcel parcel = new TrackParcel();
         parcel.setStatus(GlobalStatus.DELIVERED);
+        parcel.setTimestamp(ZonedDateTime.now(ZoneOffset.UTC).minusHours(25));
+        parcel.setLastUpdate(ZonedDateTime.now(ZoneOffset.UTC).minusHours(25));
         when(trackParcelService.findByNumberAndUserId("A1", 1L)).thenReturn(parcel);
 
         boolean result = service.canUpdate("A1", 1L);
 
         assertFalse(result);
+    }
+
+    /**
+     * В течение 24 часов после перехода в финальный статус обновление разрешено.
+     */
+    @Test
+    void canUpdate_FinalStatusParcelWithinGrace_ReturnsTrue() {
+        TrackParcel parcel = new TrackParcel();
+        parcel.setStatus(GlobalStatus.DELIVERED);
+        parcel.setTimestamp(ZonedDateTime.now(ZoneOffset.UTC).minusHours(5));
+        parcel.setLastUpdate(ZonedDateTime.now(ZoneOffset.UTC).minusHours(7));
+        when(trackParcelService.findByNumberAndUserId("A1", 1L)).thenReturn(parcel);
+        when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(6);
+
+        boolean result = service.canUpdate("A1", 1L);
+
+        assertTrue(result);
     }
 
     /**
