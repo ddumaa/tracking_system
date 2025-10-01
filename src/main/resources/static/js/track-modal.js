@@ -229,8 +229,16 @@
         }
 
         const trackTitleRow = document.createElement('div');
-        trackTitleRow.className = 'd-flex align-items-center gap-2';
-        trackTitleRow.appendChild(trackNumber);
+        trackTitleRow.className = 'd-flex align-items-center gap-2 justify-content-between w-100';
+
+        const trackTitleColumn = document.createElement('div');
+        trackTitleColumn.className = 'd-flex align-items-center flex-grow-1';
+        trackTitleColumn.appendChild(trackNumber);
+
+        const trackActions = document.createElement('div');
+        trackActions.className = 'd-flex justify-content-end flex-grow-1 gap-2';
+
+        trackTitleRow.append(trackTitleColumn, trackActions);
 
         const serviceInfo = document.createElement('div');
         serviceInfo.className = 'text-muted small';
@@ -279,7 +287,7 @@
                 promptTrackNumber(data.id, data.number || '');
             });
             activateTooltip(editButton);
-            trackTitleRow.appendChild(editButton);
+            trackActions.appendChild(editButton);
         }
 
         parcelCard.body.appendChild(parcelHeader);
