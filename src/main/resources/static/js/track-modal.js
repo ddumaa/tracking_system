@@ -235,6 +235,22 @@
         trackInfo.append(trackNumber, serviceInfo);
         parcelHeader.appendChild(trackInfo);
 
+        /**
+         * Активирует Bootstrap-тултип для переданного элемента, если библиотека доступна.
+         * Метод изолирует проверку наличия Bootstrap, чтобы переиспользовать её для разных кнопок (SRP).
+         * @param {HTMLElement} element элемент, для которого нужно создать тултип
+         */
+        const activateTooltip = (element) => {
+            if (!element || typeof bootstrap === 'undefined') {
+                return;
+            }
+            const tooltipFactory = bootstrap.Tooltip;
+            if (!tooltipFactory || typeof tooltipFactory.getOrCreateInstance !== 'function') {
+                return;
+            }
+            tooltipFactory.getOrCreateInstance(element);
+        };
+
         if (data?.canEditTrack && data?.id !== undefined) {
             const editButton = document.createElement('button');
             editButton.type = 'button';
@@ -258,6 +274,7 @@
             editButton.addEventListener('click', () => {
                 promptTrackNumber(data.id, data.number || '');
             });
+            activateTooltip(editButton);
             parcelHeader.appendChild(editButton);
         }
 
@@ -300,6 +317,7 @@
         if (data?.id !== undefined) {
             refreshButton.dataset.trackId = String(data.id);
         }
+        activateTooltip(refreshButton);
 
         const countdown = document.createElement('span');
         countdown.id = 'trackRefreshCountdown';
