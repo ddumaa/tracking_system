@@ -208,9 +208,16 @@
         parcelCard.body.appendChild(parcelHeader);
         layout.appendChild(parcelCard.card);
 
-        const refreshCard = createCard('Обновление');
-        const refreshSection = document.createElement('div');
-        refreshSection.className = 'd-flex flex-wrap align-items-center gap-3';
+        const statusCard = createCard('Текущий статус');
+        const statusRow = document.createElement('div');
+        statusRow.className = 'd-flex flex-wrap justify-content-between align-items-start gap-3';
+
+        const statusValue = document.createElement('div');
+        statusValue.className = 'fs-6 fw-semibold flex-grow-1';
+        statusValue.textContent = data?.systemStatus || 'Статус не определён';
+
+        const actionContainer = document.createElement('div');
+        actionContainer.className = 'd-flex flex-column align-items-end gap-2';
 
         const refreshButton = document.createElement('button');
         refreshButton.type = 'button';
@@ -228,26 +235,20 @@
 
         const countdown = document.createElement('span');
         countdown.id = 'trackRefreshCountdown';
-        countdown.className = 'text-muted small visually-hidden';
+        countdown.className = 'text-muted small visually-hidden text-end';
         countdown.setAttribute('role', 'status');
         countdown.setAttribute('aria-live', 'polite');
         countdown.setAttribute('aria-hidden', 'true');
 
-        refreshSection.append(refreshButton, countdown);
-        refreshCard.body.appendChild(refreshSection);
-        layout.appendChild(refreshCard.card);
-
-        const statusCard = createCard('Текущий статус');
-        const statusValue = document.createElement('div');
-        statusValue.className = 'fs-6 fw-semibold';
-        statusValue.textContent = data?.systemStatus || 'Статус не определён';
+        actionContainer.append(refreshButton, countdown);
+        statusRow.append(statusValue, actionContainer);
 
         const statusTime = document.createElement('div');
         statusTime.className = 'text-muted small';
         const formattedUpdate = data?.lastUpdateAt ? format(data.lastUpdateAt) : '—';
         statusTime.textContent = formattedUpdate === '—' ? 'Дата обновления не определена' : formattedUpdate;
 
-        statusCard.body.append(statusValue, statusTime);
+        statusCard.body.append(statusRow, statusTime);
         layout.appendChild(statusCard.card);
 
         const historyCard = createCard('История трека');
