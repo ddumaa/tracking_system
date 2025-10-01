@@ -172,15 +172,6 @@ h5 {
   color: #343a40;
 }
 
-.track-refresh-countdown {
-  display: block;
-  width: 100%;
-  max-width: 16rem;
-  text-align: right;
-  word-break: break-word;
-  hyphens: auto;
-}
-
 .link-hover {
   text-decoration: none;
   font-weight: 500;
@@ -861,6 +852,15 @@ button:hover {
   background-color: rgb(0, 98.4, 204);
   border-color: rgb(0, 86.1, 178.5);
   filter: brightness(90%);
+}
+
+.track-refresh-countdown {
+  display: block;
+  width: 100%;
+  max-width: 16rem;
+  text-align: right;
+  word-break: break-word;
+  hyphens: auto;
 }
 
 @media (max-width: 576px) {
@@ -1938,3 +1938,5 @@ body.loading {
   border-style: solid;
   border-color: #ddd transparent transparent transparent;
 }
+
+/*# sourceMappingURL=style.css.map */

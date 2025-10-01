@@ -213,7 +213,7 @@
             layout.dataset.trackId = String(data.id);
         }
 
-        const parcelCard = createCard('Данные о посылке');
+        const parcelCard = createCard('Трек');
         const parcelHeader = document.createElement('div');
         parcelHeader.className = 'd-flex flex-wrap justify-content-between align-items-start gap-3';
 
