@@ -172,6 +172,15 @@ h5 {
   color: #343a40;
 }
 
+.track-refresh-countdown {
+  display: block;
+  width: 100%;
+  max-width: 16rem;
+  text-align: right;
+  word-break: break-word;
+  hyphens: auto;
+}
+
 .link-hover {
   text-decoration: none;
   font-weight: 500;
