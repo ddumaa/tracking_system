@@ -212,12 +212,22 @@
         const statusRow = document.createElement('div');
         statusRow.className = 'd-flex flex-wrap justify-content-between align-items-start gap-3';
 
+        const statusColumn = document.createElement('div');
+        statusColumn.className = 'd-flex flex-column gap-1 flex-grow-1';
+
         const statusValue = document.createElement('div');
-        statusValue.className = 'fs-6 fw-semibold flex-grow-1';
+        statusValue.className = 'fs-6 fw-semibold';
         statusValue.textContent = data?.systemStatus || 'Статус не определён';
 
+        const statusTime = document.createElement('div');
+        statusTime.className = 'text-muted small';
+        const formattedUpdate = data?.lastUpdateAt ? format(data.lastUpdateAt) : '—';
+        statusTime.textContent = formattedUpdate === '—' ? 'Дата обновления не определена' : formattedUpdate;
+
+        statusColumn.append(statusValue, statusTime);
+
         const actionContainer = document.createElement('div');
-        actionContainer.className = 'd-flex flex-column align-items-end gap-2';
+        actionContainer.className = 'd-flex flex-column align-items-end text-end gap-2';
 
         const refreshButton = document.createElement('button');
         refreshButton.type = 'button';
@@ -235,20 +245,15 @@
 
         const countdown = document.createElement('span');
         countdown.id = 'trackRefreshCountdown';
-        countdown.className = 'text-muted small visually-hidden text-end';
+        countdown.className = 'text-muted small visually-hidden';
         countdown.setAttribute('role', 'status');
         countdown.setAttribute('aria-live', 'polite');
         countdown.setAttribute('aria-hidden', 'true');
 
         actionContainer.append(refreshButton, countdown);
-        statusRow.append(statusValue, actionContainer);
+        statusRow.append(statusColumn, actionContainer);
 
-        const statusTime = document.createElement('div');
-        statusTime.className = 'text-muted small';
-        const formattedUpdate = data?.lastUpdateAt ? format(data.lastUpdateAt) : '—';
-        statusTime.textContent = formattedUpdate === '—' ? 'Дата обновления не определена' : formattedUpdate;
-
-        statusCard.body.append(statusRow, statusTime);
+        statusCard.body.append(statusRow);
         layout.appendChild(statusCard.card);
 
         const historyCard = createCard('История трека');
