@@ -1,0 +1,23 @@
+CREATE TABLE order_episodes (
+    id BIGSERIAL PRIMARY KEY,
+    customer_id BIGINT REFERENCES tb_customers (id) ON DELETE SET NULL,
+    store_id BIGINT NOT NULL REFERENCES tb_stores (id) ON DELETE CASCADE,
+    started_at TIMESTAMPTZ NOT NULL,
+    closed_at TIMESTAMPTZ,
+    final_outcome VARCHAR(50),
+    exchanges_count INT NOT NULL DEFAULT 0,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE INDEX idx_order_episodes_customer_id ON order_episodes (customer_id);
+CREATE INDEX idx_order_episodes_store_id ON order_episodes (store_id);
+CREATE INDEX idx_order_episodes_customer_store ON order_episodes (customer_id, store_id);
+
+ALTER TABLE tb_track_parcels
+    ADD COLUMN episode_id BIGINT REFERENCES order_episodes (id) ON DELETE SET NULL,
+    ADD COLUMN is_exchange BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN replacement_of_track_id BIGINT REFERENCES tb_track_parcels (id) ON DELETE SET NULL;
+
+CREATE INDEX idx_track_parcels_episode_id ON tb_track_parcels (episode_id);
+CREATE INDEX idx_track_parcels_is_exchange ON tb_track_parcels (is_exchange);
+CREATE INDEX idx_track_parcels_replacement_of_track_id ON tb_track_parcels (replacement_of_track_id);
