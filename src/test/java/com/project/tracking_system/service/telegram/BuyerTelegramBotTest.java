@@ -477,6 +477,50 @@ class BuyerTelegramBotTest {
     }
 
     /**
+     * Гарантирует, что порядок кнопок совпадает с порядком вывода по магазинам.
+     */
+    @Test
+    void shouldAlignDeliveredKeyboardWithGroupedText() throws Exception {
+        Long chatId = 908L;
+        TelegramParcelInfoDTO firstAlpha = new TelegramParcelInfoDTO(101L, "TRACK-101", "Store Alpha", GlobalStatus.DELIVERED, false);
+        TelegramParcelInfoDTO beta = new TelegramParcelInfoDTO(202L, "TRACK-202", "Store Beta", GlobalStatus.DELIVERED, false);
+        TelegramParcelInfoDTO secondAlpha = new TelegramParcelInfoDTO(303L, "TRACK-303", "Store Alpha", GlobalStatus.DELIVERED, false);
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(firstAlpha, beta, secondAlpha), List.of(), List.of());
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        Update callbackUpdate = mockCallbackUpdate(chatId, "parcels:delivered");
+
+        bot.consume(callbackUpdate);
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+        SendMessage message = captor.getValue();
+        String text = message.getText();
+
+        assertNotNull(text, "Текст сообщения о доставленных посылках обязателен");
+        int firstAlphaIndex = text.indexOf("TRACK\\\-101");
+        int secondAlphaIndex = text.indexOf("TRACK\\\-303");
+        int betaIndex = text.indexOf("TRACK\\\-202");
+        assertTrue(firstAlphaIndex >= 0 && secondAlphaIndex >= 0 && betaIndex >= 0,
+                "Все трек-номера должны присутствовать в тексте");
+        assertTrue(firstAlphaIndex < secondAlphaIndex && secondAlphaIndex < betaIndex,
+                "Треки должны отображаться группами магазинов");
+
+        InlineKeyboardMarkup markup = (InlineKeyboardMarkup) message.getReplyMarkup();
+        assertNotNull(markup, "Для доставленных посылок должна быть построена клавиатура");
+        List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
+        assertTrue(keyboard.size() >= 3, "Клавиатура должна содержать строки для каждой посылки");
+
+        List<Long> expectedOrder = List.of(101L, 303L, 202L);
+        for (int i = 0; i < expectedOrder.size(); i++) {
+            List<InlineKeyboardButton> row = keyboard.get(i);
+            assertEquals(2, row.size(), "Каждая строка действий содержит две кнопки");
+            assertEquals("parcel:return:" + expectedOrder.get(i), row.get(0).getCallbackData());
+            assertEquals("parcel:exchange:" + expectedOrder.get(i), row.get(1).getCallbackData());
+        }
+    }
+
+    /**
      * Проверяет, что callback возврата приводит к отправке подтверждающего сообщения.
      */
     @Test
