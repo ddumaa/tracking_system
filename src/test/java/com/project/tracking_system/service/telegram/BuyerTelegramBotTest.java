@@ -334,9 +334,9 @@ class BuyerTelegramBotTest {
     @Test
     void shouldGroupParcelsByStoreWithTracksOnly() throws Exception {
         Long chatId = 901L;
-        TelegramParcelInfoDTO first = new TelegramParcelInfoDTO("TRACK-1", "Store Alpha", GlobalStatus.DELIVERED);
-        TelegramParcelInfoDTO second = new TelegramParcelInfoDTO("TRACK-2", "Store Beta", GlobalStatus.DELIVERED);
-        TelegramParcelInfoDTO third = new TelegramParcelInfoDTO("TRACK-3", "Store Alpha", GlobalStatus.DELIVERED);
+        TelegramParcelInfoDTO first = new TelegramParcelInfoDTO(1L, "TRACK-1", "Store Alpha", GlobalStatus.DELIVERED, false);
+        TelegramParcelInfoDTO second = new TelegramParcelInfoDTO(2L, "TRACK-2", "Store Beta", GlobalStatus.DELIVERED, false);
+        TelegramParcelInfoDTO third = new TelegramParcelInfoDTO(3L, "TRACK-3", "Store Alpha", GlobalStatus.DELIVERED, false);
 
         TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(
                 List.of(first, second, third),
@@ -369,9 +369,11 @@ class BuyerTelegramBotTest {
     void shouldEscapeMarkdownWhenRenderingParcels() throws Exception {
         Long chatId = 903L;
         TelegramParcelInfoDTO special = new TelegramParcelInfoDTO(
+                10L,
                 "TRACK_[1]",
                 "Store_[Beta](Promo)",
-                GlobalStatus.DELIVERED
+                GlobalStatus.DELIVERED,
+                false
         );
 
         TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(
@@ -414,6 +416,112 @@ class BuyerTelegramBotTest {
                 "Store Gamma",
                 GlobalStatus.WAITING_FOR_CUSTOMER
         );
+
+    /**
+     * Проверяет, что в разделе полученных отображаются кнопки возврата и обмена.
+     */
+    @Test
+    void shouldRenderReturnAndExchangeButtonsForDeliveredParcels() throws Exception {
+        Long chatId = 904L;
+        TelegramParcelInfoDTO delivered = new TelegramParcelInfoDTO(55L, "TRACK-55", "Store Zeta", GlobalStatus.DELIVERED, false);
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(delivered), List.of(), List.of());
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        Update callbackUpdate = mockCallbackUpdate(chatId, "parcels:delivered");
+
+        bot.consume(callbackUpdate);
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+        SendMessage message = captor.getValue();
+
+        InlineKeyboardMarkup markup = (InlineKeyboardMarkup) message.getReplyMarkup();
+        assertNotNull(markup, "Для доставленных посылок требуется клавиатура действий");
+        List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
+        assertFalse(keyboard.isEmpty(), "Клавиатура должна содержать строки");
+        List<InlineKeyboardButton> firstRow = keyboard.get(0);
+        assertEquals(2, firstRow.size(), "В первой строке ожидаются две кнопки действий");
+        assertEquals("Вернуть", firstRow.get(0).getText());
+        assertEquals("Обменять", firstRow.get(1).getText());
+        assertEquals("parcel:return:55", firstRow.get(0).getCallbackData());
+        assertEquals("parcel:exchange:55", firstRow.get(1).getCallbackData());
+    }
+
+    /**
+     * Убеждаемся, что активная заявка отображается в тексте и блокирует кнопки.
+     */
+    @Test
+    void shouldIndicateActiveRequestForDeliveredParcel() throws Exception {
+        Long chatId = 905L;
+        TelegramParcelInfoDTO delivered = new TelegramParcelInfoDTO(77L, "TRACK-77", "Store Eta", GlobalStatus.DELIVERED, true);
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(delivered), List.of(), List.of());
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        Update callbackUpdate = mockCallbackUpdate(chatId, "parcels:delivered");
+
+        bot.consume(callbackUpdate);
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+        SendMessage message = captor.getValue();
+        String text = message.getText();
+        assertTrue(text.contains("TRACK\\-77 — заявка в обработке"),
+                "В тексте необходимо отобразить признак активной заявки");
+
+        InlineKeyboardMarkup markup = (InlineKeyboardMarkup) message.getReplyMarkup();
+        List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
+        List<InlineKeyboardButton> firstRow = keyboard.get(0);
+        assertEquals("🔒 Вернуть", firstRow.get(0).getText(),
+                "Текст кнопки должен указывать на блокировку");
+        assertEquals("🔒 Обменять", firstRow.get(1).getText());
+    }
+
+    /**
+     * Проверяет, что callback возврата приводит к отправке подтверждающего сообщения.
+     */
+    @Test
+    void shouldHandleReturnCallbackAndSendConfirmation() throws Exception {
+        Long chatId = 906L;
+        TelegramParcelInfoDTO delivered = new TelegramParcelInfoDTO(88L, "TRACK-88", "Store Theta", GlobalStatus.DELIVERED, false);
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(delivered), List.of(), List.of());
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        Update callbackUpdate = mockCallbackUpdate(chatId, "parcel:return:88");
+
+        bot.consume(callbackUpdate);
+
+        verify(telegramClient, atLeastOnce()).execute(any(AnswerCallbackQuery.class));
+        verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
+            if (!(method instanceof SendMessage sendMessage)) {
+                return false;
+            }
+            return sendMessage.getText().contains("TRACK\\-88");
+        }));
+    }
+
+    /**
+     * Проверяет, что callback обмена отправляет пользователю инструкцию.
+     */
+    @Test
+    void shouldHandleExchangeCallbackAndSendConfirmation() throws Exception {
+        Long chatId = 907L;
+        TelegramParcelInfoDTO delivered = new TelegramParcelInfoDTO(99L, "TRACK-99", "Store Iota", GlobalStatus.DELIVERED, false);
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(delivered), List.of(), List.of());
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        Update callbackUpdate = mockCallbackUpdate(chatId, "parcel:exchange:99");
+
+        bot.consume(callbackUpdate);
+
+        verify(telegramClient, atLeastOnce()).execute(any(AnswerCallbackQuery.class));
+        verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
+            if (!(method instanceof SendMessage sendMessage)) {
+                return false;
+            }
+            return sendMessage.getText().contains("TRACK\\-99")
+                    && sendMessage.getText().contains("🔄");
+        }));
+    }
 
         TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(
                 List.of(),

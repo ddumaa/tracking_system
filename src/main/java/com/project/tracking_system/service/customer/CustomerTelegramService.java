@@ -7,6 +7,7 @@ import com.project.tracking_system.mapper.BuyerStatusMapper;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
+import com.project.tracking_system.repository.OrderReturnRequestRepository;
 import com.project.tracking_system.service.telegram.FullNameValidator;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
 import java.time.ZoneOffset;
@@ -14,6 +15,9 @@ import java.time.ZonedDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import com.project.tracking_system.dto.CustomerStatisticsDTO;
@@ -39,6 +43,7 @@ public class CustomerTelegramService {
     private final CustomerNotificationLogRepository notificationLogRepository;
     private final TelegramNotificationService telegramNotificationService;
     private final FullNameValidator fullNameValidator;
+    private final OrderReturnRequestRepository returnRequestRepository;
 
     /**
      * Предопределённые наборы статусов для формирования сводки Telegram.
@@ -56,6 +61,14 @@ public class CustomerTelegramService {
             GlobalStatus.PRE_REGISTERED,
             GlobalStatus.REGISTERED,
             GlobalStatus.IN_TRANSIT
+    );
+
+    /**
+     * Статусы заявок, считающиеся активными для блокировки кнопок возврата.
+     */
+    private static final Set<OrderReturnRequestStatus> ACTIVE_RETURN_STATUSES = Set.of(
+            OrderReturnRequestStatus.REGISTERED,
+            OrderReturnRequestStatus.EXCHANGE_APPROVED
     );
 
     /**
@@ -338,9 +351,15 @@ public class CustomerTelegramService {
         return customerRepository.findByTelegramChatId(chatId)
                 .map(customer -> {
                     Long customerId = customer.getId();
-                    List<TelegramParcelInfoDTO> delivered = loadParcelsForStatuses(customerId, DELIVERED_STATUSES);
-                    List<TelegramParcelInfoDTO> waiting = loadParcelsForStatuses(customerId, WAITING_STATUSES);
-                    List<TelegramParcelInfoDTO> inTransit = loadParcelsForStatuses(customerId, IN_TRANSIT_STATUSES);
+                    List<TrackParcel> deliveredParcels = loadParcelsForStatuses(customerId, DELIVERED_STATUSES);
+                    List<TrackParcel> waitingParcels = loadParcelsForStatuses(customerId, WAITING_STATUSES);
+                    List<TrackParcel> inTransitParcels = loadParcelsForStatuses(customerId, IN_TRANSIT_STATUSES);
+
+                    Set<Long> parcelsWithActiveRequests = findParcelsWithActiveRequests(customerId, deliveredParcels);
+
+                    List<TelegramParcelInfoDTO> delivered = mapParcelsForTelegram(deliveredParcels, parcelsWithActiveRequests);
+                    List<TelegramParcelInfoDTO> waiting = mapParcelsForTelegram(waitingParcels, Set.of());
+                    List<TelegramParcelInfoDTO> inTransit = mapParcelsForTelegram(inTransitParcels, Set.of());
                     return new TelegramParcelsOverviewDTO(delivered, waiting, inTransit);
                 });
     }
@@ -357,9 +376,40 @@ public class CustomerTelegramService {
      * @param statuses   целевые статусы посылок
      * @return отсортированный список DTO для отображения в боте
      */
-    private List<TelegramParcelInfoDTO> loadParcelsForStatuses(Long customerId, List<GlobalStatus> statuses) {
-        List<TrackParcel> parcels = trackParcelRepository.findByCustomerIdAndStatusIn(customerId, statuses);
-        return mapParcelsForTelegram(parcels);
+    private List<TrackParcel> loadParcelsForStatuses(Long customerId, List<GlobalStatus> statuses) {
+        return trackParcelRepository.findByCustomerIdAndStatusIn(customerId, statuses);
+    }
+
+    /**
+     * Возвращает набор идентификаторов посылок, по которым есть активные заявки на возврат.
+     *
+     * @param customerId       идентификатор покупателя
+     * @param deliveredParcels список доставленных посылок
+     * @return множество идентификаторов посылок с активными заявками
+     */
+    private Set<Long> findParcelsWithActiveRequests(Long customerId, List<TrackParcel> deliveredParcels) {
+        if (customerId == null) {
+            return Set.of();
+        }
+
+        List<Long> activeIds = returnRequestRepository
+                .findParcelIdsByCustomerAndStatusIn(customerId, ACTIVE_RETURN_STATUSES);
+        if (activeIds == null || activeIds.isEmpty()) {
+            return Set.of();
+        }
+
+        if (deliveredParcels == null || deliveredParcels.isEmpty()) {
+            return new HashSet<>(activeIds);
+        }
+
+        Set<Long> deliveredIds = deliveredParcels.stream()
+                .map(TrackParcel::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        return activeIds.stream()
+                .filter(deliveredIds::contains)
+                .collect(Collectors.toCollection(HashSet::new));
     }
 
     /**
@@ -373,7 +423,8 @@ public class CustomerTelegramService {
      * @param parcels исходные сущности посылок
      * @return список DTO с информацией для отображения
      */
-    private List<TelegramParcelInfoDTO> mapParcelsForTelegram(List<TrackParcel> parcels) {
+    private List<TelegramParcelInfoDTO> mapParcelsForTelegram(List<TrackParcel> parcels,
+                                                             Set<Long> parcelsWithActiveRequests) {
         if (parcels == null || parcels.isEmpty()) {
             return List.of();
         }
@@ -383,7 +434,9 @@ public class CustomerTelegramService {
                         TrackParcel::getLastUpdate,
                         Comparator.nullsLast(Comparator.naturalOrder())
                 ).reversed())
-                .map(this::toTelegramParcelInfo)
+                .map(parcel -> toTelegramParcelInfo(parcel,
+                        parcelsWithActiveRequests != null
+                                && parcelsWithActiveRequests.contains(parcel.getId())))
                 .collect(Collectors.toList());
     }
 
@@ -393,9 +446,9 @@ public class CustomerTelegramService {
      * @param parcel исходная сущность посылки из базы данных
      * @return DTO с безопасными для отображения полями
      */
-    private TelegramParcelInfoDTO toTelegramParcelInfo(TrackParcel parcel) {
+    private TelegramParcelInfoDTO toTelegramParcelInfo(TrackParcel parcel, boolean hasActiveRequest) {
         if (parcel == null) {
-            return new TelegramParcelInfoDTO("Без номера", "Магазин не указан", null);
+            return new TelegramParcelInfoDTO(null, "Без номера", "Магазин не указан", null, false);
         }
 
         String trackNumber = parcel.getNumber();
@@ -409,7 +462,7 @@ public class CustomerTelegramService {
 
         GlobalStatus status = parcel.getStatus();
 
-        return new TelegramParcelInfoDTO(trackNumber, storeName, status);
+        return new TelegramParcelInfoDTO(parcel.getId(), trackNumber, storeName, status, hasActiveRequest);
     }
 
 }
