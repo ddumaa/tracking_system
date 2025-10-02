@@ -1,5 +1,6 @@
 package com.project.tracking_system.service.track;
 
+import com.project.tracking_system.dto.TrackChainItemDto;
 import com.project.tracking_system.dto.TrackDetailsDto;
 import com.project.tracking_system.dto.TrackStatusEventDto;
 import com.project.tracking_system.entity.DeliveryHistory;
@@ -293,6 +294,18 @@ class TrackViewServiceTest {
         assertThat(details.returnRequest()).isNotNull();
         assertThat(details.returnRequest().requiresAction()).isTrue();
         assertThat(details.returnRequest().canStartExchange()).isTrue();
+    }
+
+    @Test
+    void toChainItem_BuildsDtoForExchangeParcel() {
+        TrackParcel parcel = buildParcel(90L, GlobalStatus.PRE_REGISTERED, ZonedDateTime.now(ZoneOffset.UTC));
+        parcel.setExchange(true);
+
+        TrackChainItemDto dto = service.toChainItem(parcel, 10L);
+
+        assertThat(dto.id()).isEqualTo(90L);
+        assertThat(dto.exchange()).isTrue();
+        assertThat(dto.current()).isFalse();
     }
 
     /**

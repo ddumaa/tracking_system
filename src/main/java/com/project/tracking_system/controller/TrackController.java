@@ -1,6 +1,8 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.ReturnRegistrationRequest;
+import com.project.tracking_system.dto.ExchangeApprovalResponse;
+import com.project.tracking_system.dto.TrackChainItemDto;
 import com.project.tracking_system.dto.TrackDetailsDto;
 import com.project.tracking_system.dto.TrackNumberUpdateRequest;
 import com.project.tracking_system.dto.TrackNumberUpdateResponse;
@@ -8,9 +10,10 @@ import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.TrackParcel;
-import com.project.tracking_system.service.track.TrackViewService;
-import com.project.tracking_system.service.track.TrackParcelService;
+import com.project.tracking_system.service.order.ExchangeApprovalResult;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
+import com.project.tracking_system.service.track.TrackParcelService;
+import com.project.tracking_system.service.track.TrackViewService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -154,15 +157,17 @@ public class TrackController {
      * Одобряет запуск обмена по зарегистрированной заявке.
      */
     @PostMapping("/{id}/returns/{requestId}/exchange")
-    public TrackDetailsDto approveExchange(@PathVariable Long id,
-                                           @PathVariable Long requestId,
-                                           @AuthenticationPrincipal User user) {
+    public ExchangeApprovalResponse approveExchange(@PathVariable Long id,
+                                                    @PathVariable Long requestId,
+                                                    @AuthenticationPrincipal User user) {
         if (user == null) {
             throw new AccessDeniedException("Пользователь не авторизован");
         }
         try {
-            orderReturnRequestService.approveExchange(requestId, id, user);
-            return trackViewService.getTrackDetails(id, user.getId());
+            ExchangeApprovalResult result = orderReturnRequestService.approveExchange(requestId, id, user);
+            TrackDetailsDto details = trackViewService.getTrackDetails(id, user.getId());
+            TrackChainItemDto replacement = trackViewService.toChainItem(result.exchangeParcel(), id);
+            return new ExchangeApprovalResponse(details, replacement);
         } catch (AccessDeniedException ex) {
             throw ex;
         } catch (IllegalArgumentException ex) {
