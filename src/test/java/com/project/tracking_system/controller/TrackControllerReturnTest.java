@@ -18,9 +18,12 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
@@ -35,6 +38,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(TrackController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class TrackControllerReturnTest {
+
+    private static final String DEFAULT_REASON = "Размер не подошёл";
+    private static final String DEFAULT_COMMENT = "Хочу выбрать другую модель";
+    private static final String DEFAULT_REVERSE_TRACK = "BY1234567890";
+    private static final OffsetDateTime DEFAULT_REQUESTED_AT = OffsetDateTime.of(
+            2023, 5, 10, 12, 0, 0, 0, ZoneOffset.UTC
+    );
 
     @Autowired
     private MockMvc mockMvc;
@@ -80,12 +90,26 @@ class TrackControllerReturnTest {
         mockMvc.perform(post("/api/v1/tracks/5/returns")
                         .with(authentication(auth))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"idempotencyKey\":\"key\"}"))
+                        .content("{" +
+                                "\"idempotencyKey\":\"key\"," +
+                                "\"reason\":\"" + DEFAULT_REASON + "\"," +
+                                "\"requestedAt\":\"" + DEFAULT_REQUESTED_AT + "\"," +
+                                "\"comment\":\"" + DEFAULT_COMMENT + "\"," +
+                                "\"reverseTrackNumber\":\"" + DEFAULT_REVERSE_TRACK + "\"" +
+                                "}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(5L))
                 .andExpect(jsonPath("$.canRegisterReturn").value(false));
 
-        Mockito.verify(orderReturnRequestService).registerReturn(eq(5L), eq(principal), eq("key"));
+        Mockito.verify(orderReturnRequestService).registerReturn(
+                eq(5L),
+                eq(principal),
+                eq("key"),
+                eq(DEFAULT_REASON),
+                eq(DEFAULT_COMMENT),
+                argThat(value -> value.equals(DEFAULT_REQUESTED_AT.atZoneSameInstant(ZoneOffset.UTC))),
+                eq(DEFAULT_REVERSE_TRACK)
+        );
     }
 
     @Test

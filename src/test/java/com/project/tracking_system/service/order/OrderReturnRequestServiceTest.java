@@ -32,6 +32,13 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class OrderReturnRequestServiceTest {
 
+    private static final String DEFAULT_REASON = "Размер не подошёл";
+    private static final String DEFAULT_COMMENT = "Хочу выбрать другую модель";
+    private static final ZonedDateTime DEFAULT_REQUESTED_AT = ZonedDateTime.of(
+            2023, 5, 10, 12, 0, 0, 0, ZoneOffset.UTC
+    );
+    private static final String DEFAULT_REVERSE_TRACK = "BY1234567890";
+
     @Mock
     private OrderReturnRequestRepository repository;
     @Mock
@@ -64,7 +71,15 @@ class OrderReturnRequestServiceTest {
             return request;
         });
 
-        OrderReturnRequest saved = service.registerReturn(10L, user, "key-1");
+        OrderReturnRequest saved = service.registerReturn(
+                10L,
+                user,
+                "key-1",
+                DEFAULT_REASON,
+                DEFAULT_COMMENT,
+                DEFAULT_REQUESTED_AT,
+                DEFAULT_REVERSE_TRACK
+        );
 
         assertThat(saved.getId()).isEqualTo(100L);
         assertThat(saved.getStatus()).isEqualTo(OrderReturnRequestStatus.REGISTERED);
@@ -74,6 +89,10 @@ class OrderReturnRequestServiceTest {
         ArgumentCaptor<OrderReturnRequest> captor = ArgumentCaptor.forClass(OrderReturnRequest.class);
         verify(repository).save(captor.capture());
         assertThat(captor.getValue().getParcel()).isEqualTo(parcel);
+        assertThat(captor.getValue().getReason()).isEqualTo(DEFAULT_REASON);
+        assertThat(captor.getValue().getComment()).isEqualTo(DEFAULT_COMMENT);
+        assertThat(captor.getValue().getRequestedAt()).isEqualTo(DEFAULT_REQUESTED_AT);
+        assertThat(captor.getValue().getReverseTrackNumber()).isEqualTo(DEFAULT_REVERSE_TRACK);
     }
 
     @Test
@@ -82,7 +101,15 @@ class OrderReturnRequestServiceTest {
         when(trackParcelService.findOwnedById(11L, 5L)).thenReturn(Optional.of(parcel));
         when(repository.findByIdempotencyKey("key-2")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.registerReturn(11L, user, "key-2"))
+        assertThatThrownBy(() -> service.registerReturn(
+                11L,
+                user,
+                "key-2",
+                DEFAULT_REASON,
+                DEFAULT_COMMENT,
+                DEFAULT_REQUESTED_AT,
+                DEFAULT_REVERSE_TRACK
+        ))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("доступна только для статуса");
     }
@@ -136,7 +163,20 @@ class OrderReturnRequestServiceTest {
 
         when(repository.findByIdempotencyKey("same")).thenReturn(Optional.of(existing));
 
-        OrderReturnRequest result = service.registerReturn(14L, user, "same");
+        existing.setReason(DEFAULT_REASON);
+        existing.setComment(DEFAULT_COMMENT);
+        existing.setRequestedAt(DEFAULT_REQUESTED_AT);
+        existing.setReverseTrackNumber(DEFAULT_REVERSE_TRACK);
+
+        OrderReturnRequest result = service.registerReturn(
+                14L,
+                user,
+                "same",
+                DEFAULT_REASON,
+                DEFAULT_COMMENT,
+                DEFAULT_REQUESTED_AT,
+                DEFAULT_REVERSE_TRACK
+        );
 
         assertThat(result).isEqualTo(existing);
         verify(repository, never()).save(any());
@@ -161,7 +201,15 @@ class OrderReturnRequestServiceTest {
 
         when(repository.findByIdempotencyKey("reuse")).thenReturn(Optional.of(existing));
 
-        assertThatThrownBy(() -> service.registerReturn(15L, user, "reuse"))
+        assertThatThrownBy(() -> service.registerReturn(
+                15L,
+                user,
+                "reuse",
+                DEFAULT_REASON,
+                DEFAULT_COMMENT,
+                DEFAULT_REQUESTED_AT,
+                DEFAULT_REVERSE_TRACK
+        ))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
