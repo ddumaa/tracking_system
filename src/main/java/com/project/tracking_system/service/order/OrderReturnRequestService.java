@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -45,10 +46,20 @@ public class OrderReturnRequestService {
      * @param parcelId        идентификатор посылки
      * @param user            автор заявки
      * @param idempotencyKey  внешний ключ, предотвращающий повторные регистрации
+     * @param reason          текстовая причина возврата
+     * @param comment         дополнительный комментарий пользователя
+     * @param requestedAt     время запроса возврата пользователем
+     * @param reverseTrack    трек обратной отправки (если есть)
      * @return созданная или ранее зарегистрированная заявка
      */
     @Transactional
-    public OrderReturnRequest registerReturn(Long parcelId, User user, String idempotencyKey) {
+    public OrderReturnRequest registerReturn(Long parcelId,
+                                             User user,
+                                             String idempotencyKey,
+                                             String reason,
+                                             String comment,
+                                             ZonedDateTime requestedAt,
+                                             String reverseTrack) {
         if (parcelId == null) {
             throw new IllegalArgumentException("Не указан идентификатор посылки");
         }
@@ -59,10 +70,22 @@ public class OrderReturnRequestService {
             throw new IllegalArgumentException("Не указан идемпотентный ключ заявки");
         }
 
+        String normalizedReason = normalizeReason(reason);
+        String normalizedComment = normalizeComment(comment);
+        ZonedDateTime normalizedRequestedAt = normalizeRequestedAt(requestedAt);
+        String normalizedReverse = normalizeReverseTrackNumber(reverseTrack);
+
         Optional<OrderReturnRequest> existingByKey = returnRequestRepository.findByIdempotencyKey(idempotencyKey);
         if (existingByKey.isPresent()) {
-            ensureOwnership(existingByKey.get(), user.getId());
-            return existingByKey.get();
+            OrderReturnRequest existing = existingByKey.get();
+            ensureOwnership(existing, user.getId());
+            if (!Objects.equals(existing.getReason(), normalizedReason)
+                    || !Objects.equals(existing.getComment(), normalizedComment)
+                    || !Objects.equals(existing.getRequestedAt(), normalizedRequestedAt)
+                    || !Objects.equals(existing.getReverseTrackNumber(), normalizedReverse)) {
+                throw new IllegalStateException("Заявка с таким ключом уже зарегистрирована с другими данными");
+            }
+            return existing;
         }
 
         TrackParcel parcel = trackParcelService.findOwnedById(parcelId, user.getId())
@@ -86,6 +109,10 @@ public class OrderReturnRequestService {
         request.setParcel(parcel);
         request.setCreatedBy(user);
         request.setCreatedAt(ZonedDateTime.now(ZoneOffset.UTC));
+        request.setRequestedAt(normalizedRequestedAt);
+        request.setReason(normalizedReason);
+        request.setComment(normalizedComment);
+        request.setReverseTrackNumber(normalizedReverse);
         request.setStatus(OrderReturnRequestStatus.REGISTERED);
         request.setIdempotencyKey(idempotencyKey);
 
@@ -214,6 +241,72 @@ public class OrderReturnRequestService {
         if (ownerId == null || !ownerId.equals(userId)) {
             throw new AccessDeniedException("Заявка принадлежит другому пользователю");
         }
+    }
+
+    /**
+     * Нормализует причину возврата и валидирует длину строки.
+     */
+    private String normalizeReason(String reason) {
+        if (reason == null) {
+            throw new IllegalArgumentException("Не указана причина возврата");
+        }
+        String normalized = reason.trim();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException("Не указана причина возврата");
+        }
+        if (normalized.length() > 255) {
+            throw new IllegalArgumentException("Причина возврата не должна превышать 255 символов");
+        }
+        return normalized;
+    }
+
+    /**
+     * Подготавливает комментарий пользователя к сохранению.
+     */
+    private String normalizeComment(String comment) {
+        if (comment == null) {
+            return null;
+        }
+        String normalized = comment.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        if (normalized.length() > 2000) {
+            throw new IllegalArgumentException("Комментарий не должен превышать 2000 символов");
+        }
+        return normalized;
+    }
+
+    /**
+     * Переводит момент запроса в UTC и проверяет, что дата не из будущего.
+     */
+    private ZonedDateTime normalizeRequestedAt(ZonedDateTime requestedAt) {
+        if (requestedAt == null) {
+            throw new IllegalArgumentException("Не указана дата запроса возврата");
+        }
+        ZonedDateTime utc = requestedAt.withZoneSameInstant(ZoneOffset.UTC);
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC).plusMinutes(1);
+        if (utc.isAfter(now)) {
+            throw new IllegalArgumentException("Дата запроса возврата не может быть в будущем");
+        }
+        return utc;
+    }
+
+    /**
+     * Валидирует и нормализует трек обратной отправки.
+     */
+    private String normalizeReverseTrackNumber(String reverseTrackNumber) {
+        if (reverseTrackNumber == null) {
+            return null;
+        }
+        String normalized = reverseTrackNumber.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        if (normalized.length() > 64) {
+            throw new IllegalArgumentException("Трек обратной отправки не должен превышать 64 символа");
+        }
+        return normalized.toUpperCase();
     }
 }
 

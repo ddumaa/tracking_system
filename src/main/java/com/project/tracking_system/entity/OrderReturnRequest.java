@@ -49,6 +49,30 @@ public class OrderReturnRequest {
     private ZonedDateTime createdAt = ZonedDateTime.now(ZoneOffset.UTC);
 
     /**
+     * Время, когда пользователь запросил возврат.
+     */
+    @Column(name = "requested_at", nullable = false)
+    private ZonedDateTime requestedAt = ZonedDateTime.now(ZoneOffset.UTC);
+
+    /**
+     * Причина, по которой оформляется возврат.
+     */
+    @Column(name = "reason", nullable = false, length = 255)
+    private String reason;
+
+    /**
+     * Дополнительный комментарий пользователя.
+     */
+    @Column(name = "comment", columnDefinition = "TEXT")
+    private String comment;
+
+    /**
+     * Трек-номер обратной отправки, если он известен.
+     */
+    @Column(name = "reverse_track_number", length = 64)
+    private String reverseTrackNumber;
+
+    /**
      * Текущее состояние заявки.
      */
     @Enumerated(EnumType.STRING)
@@ -125,6 +149,38 @@ public class OrderReturnRequest {
 
     public void setCreatedAt(ZonedDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public ZonedDateTime getRequestedAt() {
+        return requestedAt;
+    }
+
+    public void setRequestedAt(ZonedDateTime requestedAt) {
+        this.requestedAt = requestedAt;
+    }
+
+    public String getReason() {
+        return reason;
+    }
+
+    public void setReason(String reason) {
+        this.reason = reason;
+    }
+
+    public String getComment() {
+        return comment;
+    }
+
+    public void setComment(String comment) {
+        this.comment = comment;
+    }
+
+    public String getReverseTrackNumber() {
+        return reverseTrackNumber;
+    }
+
+    public void setReverseTrackNumber(String reverseTrackNumber) {
+        this.reverseTrackNumber = reverseTrackNumber;
     }
 
     public OrderReturnRequestStatus getStatus() {

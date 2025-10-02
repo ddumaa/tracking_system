@@ -131,9 +131,13 @@ public class TrackViewService {
         return new OrderReturnRequestDto(
                 request.getId(),
                 request.getStatus().getDisplayName(),
+                request.getReason(),
+                request.getComment(),
+                formatNullableTimestamp(request.getRequestedAt(), userZone),
                 formatNullableTimestamp(request.getCreatedAt(), userZone),
                 formatNullableTimestamp(request.getDecisionAt(), userZone),
                 formatNullableTimestamp(request.getClosedAt(), userZone),
+                request.getReverseTrackNumber(),
                 request.requiresAction(),
                 request.isExchangeApproved(),
                 canStartExchange,

@@ -4,6 +4,9 @@
     /** Текущий идентификатор интервала обратного отсчёта. */
     let refreshTimerId = null;
 
+    /** Счётчик для генерации уникальных идентификаторов элементов формы. */
+    let elementSequence = 0;
+
     /**
      * Останавливает активный таймер обновления.
      * Метод вызывается при повторном рендере и закрытии модального окна,
@@ -154,6 +157,21 @@
     }
 
     /**
+     * Возвращает значение в формате datetime-local для указанной даты.
+     * Метод обеспечивает совместимость с нативными контролами браузера.
+     * @param {Date} date исходная дата
+     * @returns {string} отформатированное значение или пустая строка
+     */
+    function formatDateTimeLocal(date) {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+            return '';
+        }
+        const offsetMinutes = date.getTimezoneOffset();
+        const localTime = new Date(date.getTime() - offsetMinutes * 60000);
+        return localTime.toISOString().slice(0, 16);
+    }
+
+    /**
      * Возвращает объект с CSRF-заголовком на основе глобальных переменных.
      * Метод инкапсулирует работу с CSRF, не привязывая модуль к app.js (ISP).
      * @returns {Object} карта заголовков или пустой объект
@@ -162,6 +180,18 @@
         const header = window.csrfHeader;
         const token = window.csrfToken;
         return header && token ? { [header]: token } : {};
+    }
+
+    /**
+     * Создаёт уникальный идентификатор на основе заданного префикса.
+     * Метод упрощает связывание label и элемента управления.
+     * @param {string} prefix базовый префикс
+     * @returns {string} уникальный идентификатор
+     */
+    function generateElementId(prefix) {
+        elementSequence += 1;
+        const safePrefix = prefix || 'control';
+        return `${safePrefix}-${elementSequence}`;
     }
 
     /**
@@ -188,6 +218,58 @@
             });
         }
         return button;
+    }
+
+    /**
+     * Формирует подписанный контрол формы с необязательным описанием.
+     * @param {string} labelText текст подписи
+     * @param {HTMLElement} control элемент управления
+     * @param {string} [description] дополнительная подсказка
+     * @returns {HTMLElement} контейнер с оформлением Bootstrap
+     */
+    function createLabeledControl(labelText, control, description) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mb-3';
+
+        const label = document.createElement('label');
+        label.className = 'form-label';
+        label.textContent = labelText;
+        if (control.id) {
+            label.setAttribute('for', control.id);
+        }
+
+        wrapper.appendChild(label);
+        wrapper.appendChild(control);
+
+        if (description) {
+            const hint = document.createElement('div');
+            hint.className = 'form-text';
+            hint.textContent = description;
+            wrapper.appendChild(hint);
+        }
+
+        return wrapper;
+    }
+
+    /**
+     * Добавляет элемент описательного списка в единообразном формате.
+     * @param {HTMLElement} list контейнер <dl>
+     * @param {string} term заголовок значения
+     * @param {string} value отображаемое значение
+     */
+    function appendDefinitionItem(list, term, value) {
+        if (!list) {
+            return;
+        }
+        const title = document.createElement('dt');
+        title.className = 'col-sm-5 col-lg-4';
+        title.textContent = term;
+
+        const definition = document.createElement('dd');
+        definition.className = 'col-sm-7 col-lg-8';
+        definition.textContent = value && value.length > 0 ? value : '—';
+
+        list.append(title, definition);
     }
 
     /**
@@ -307,13 +389,164 @@
         }
     }
 
-    async function handleRegisterReturnAction(trackId) {
+    /**
+     * Создаёт форму регистрации возврата и навешивает обработчики.
+     * Метод инкапсулирует работу с DOM, соблюдая принцип единой ответственности.
+     * @param {number} trackId идентификатор посылки
+     * @returns {HTMLFormElement} форма отправки заявки
+     */
+    function createReturnRegistrationForm(trackId) {
+        const form = document.createElement('form');
+        form.className = 'd-flex flex-column gap-2';
+        form.noValidate = true;
+
+        const reasonInput = document.createElement('input');
+        reasonInput.type = 'text';
+        reasonInput.className = 'form-control';
+        reasonInput.name = 'reason';
+        reasonInput.required = true;
+        reasonInput.maxLength = 255;
+        reasonInput.id = generateElementId('return-reason');
+        reasonInput.autocomplete = 'off';
+        reasonInput.placeholder = 'Например, повреждение товара';
+
+        const reasonControl = createLabeledControl(
+            'Причина обращения',
+            reasonInput,
+            'Опишите причину возврата (до 255 символов).'
+        );
+
+        const commentInput = document.createElement('textarea');
+        commentInput.className = 'form-control';
+        commentInput.name = 'comment';
+        commentInput.rows = 3;
+        commentInput.maxLength = 2000;
+        commentInput.id = generateElementId('return-comment');
+        commentInput.placeholder = 'Дополнительная информация (необязательно)';
+
+        const commentControl = createLabeledControl(
+            'Комментарий',
+            commentInput,
+            'Необязательное поле, до 2000 символов.'
+        );
+
+        const requestedInput = document.createElement('input');
+        requestedInput.type = 'datetime-local';
+        requestedInput.className = 'form-control';
+        requestedInput.name = 'requestedAt';
+        requestedInput.required = true;
+        requestedInput.step = 60;
+        requestedInput.id = generateElementId('return-requested-at');
+        const nowValue = formatDateTimeLocal(new Date());
+        if (nowValue) {
+            requestedInput.value = nowValue;
+        }
+        requestedInput.addEventListener('focus', () => {
+            const limit = formatDateTimeLocal(new Date());
+            if (limit) {
+                requestedInput.max = limit;
+            }
+        });
+
+        const requestedControl = createLabeledControl(
+            'Дата обращения',
+            requestedInput,
+            'Укажите фактический момент запроса возврата.'
+        );
+
+        const reverseInput = document.createElement('input');
+        reverseInput.type = 'text';
+        reverseInput.className = 'form-control';
+        reverseInput.name = 'reverseTrackNumber';
+        reverseInput.maxLength = 64;
+        reverseInput.id = generateElementId('return-reverse-track');
+        reverseInput.placeholder = 'Например, LP123456789BY';
+        reverseInput.autocomplete = 'off';
+
+        const reverseControl = createLabeledControl(
+            'Трек обратной отправки',
+            reverseInput,
+            'Необязательное поле, до 64 символов.'
+        );
+
+        const submitButton = document.createElement('button');
+        submitButton.type = 'submit';
+        submitButton.className = 'btn btn-warning align-self-start';
+        submitButton.textContent = 'Отправить заявку';
+
+        form.append(reasonControl, commentControl, requestedControl, reverseControl, submitButton);
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            if (!form.reportValidity()) {
+                return;
+            }
+            const formValues = {
+                reason: reasonInput.value,
+                comment: commentInput.value,
+                requestedAt: requestedInput.value,
+                reverseTrackNumber: reverseInput.value
+            };
+            runButtonAction(submitButton, () => handleRegisterReturnAction(trackId, formValues));
+        });
+
+        return form;
+    }
+
+    /**
+     * Подготавливает тело запроса регистрации возврата.
+     * @param {Object} formValues значения полей формы
+     * @returns {Object} нормализованные данные для API
+     */
+    function buildReturnRegistrationPayload(formValues = {}) {
+        const reason = (formValues.reason ?? '').trim();
+        if (reason.length === 0) {
+            throw new Error('Укажите причину возврата');
+        }
+        if (reason.length > 255) {
+            throw new Error('Причина возврата не должна превышать 255 символов');
+        }
+
+        const commentRaw = (formValues.comment ?? '').trim();
+        if (commentRaw.length > 2000) {
+            throw new Error('Комментарий не должен превышать 2000 символов');
+        }
+
+        const requestedValue = formValues.requestedAt;
+        if (!requestedValue) {
+            throw new Error('Укажите дату обращения');
+        }
+        const requestedDate = new Date(requestedValue);
+        if (Number.isNaN(requestedDate.getTime())) {
+            throw new Error('Неверный формат даты обращения');
+        }
+        const now = new Date();
+        if (requestedDate.getTime() - now.getTime() > 60000) {
+            throw new Error('Дата обращения не может быть из будущего');
+        }
+
+        const reverseRaw = (formValues.reverseTrackNumber ?? '').trim();
+        if (reverseRaw.length > 64) {
+            throw new Error('Трек обратной отправки не должен превышать 64 символа');
+        }
+
+        return {
+            idempotencyKey: generateIdempotencyKey(),
+            reason,
+            requestedAt: requestedDate.toISOString(),
+            comment: commentRaw.length > 0 ? commentRaw : null,
+            reverseTrackNumber: reverseRaw.length > 0 ? reverseRaw.toUpperCase() : null
+        };
+    }
+
+    async function handleRegisterReturnAction(trackId, formValues) {
         if (!trackId) {
             return;
         }
+        const requestBody = buildReturnRegistrationPayload(formValues);
         const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns`, {
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idempotencyKey: generateIdempotencyKey() })
+            body: JSON.stringify(requestBody)
         });
         renderTrackModal(payload);
         updateRowRequiresAction(payload);
@@ -492,16 +725,6 @@
         const trackId = data?.id;
         const returnRequest = data?.returnRequest;
 
-        if (data?.canRegisterReturn && trackId !== undefined) {
-            const registerButton = createActionButton({
-                text: 'Зарегистрировать возврат',
-                variant: 'outline-warning',
-                ariaLabel: 'Зарегистрировать заявку на возврат',
-                onClick: (button) => runButtonAction(button, () => handleRegisterReturnAction(trackId))
-            });
-            trackActions.appendChild(registerButton);
-        }
-
         if (returnRequest?.canStartExchange && trackId !== undefined && returnRequest.id !== undefined) {
             const exchangeButton = createActionButton({
                 text: 'Запустить обмен',
@@ -599,6 +822,38 @@
         }
 
         layout.appendChild(parcelCard.card);
+
+        const returnCard = createCard('Возврат / обмен');
+        if (returnRequest) {
+            const infoList = document.createElement('dl');
+            infoList.className = 'row g-2 mb-0';
+
+            appendDefinitionItem(infoList, 'Статус', returnRequest.status || '—');
+            appendDefinitionItem(infoList, 'Причина', returnRequest.reason || '—');
+            appendDefinitionItem(infoList, 'Комментарий', returnRequest.comment || '—');
+            appendDefinitionItem(infoList, 'Дата обращения', format(returnRequest.requestedAt));
+            appendDefinitionItem(infoList, 'Дата регистрации', format(returnRequest.createdAt));
+            appendDefinitionItem(infoList, 'Дата решения', format(returnRequest.decisionAt));
+            appendDefinitionItem(infoList, 'Дата закрытия', format(returnRequest.closedAt));
+            appendDefinitionItem(infoList, 'Трек обратной отправки', returnRequest.reverseTrackNumber || '—');
+
+            returnCard.body.appendChild(infoList);
+        } else if (data?.canRegisterReturn && trackId !== undefined) {
+            const intro = document.createElement('p');
+            intro.className = 'text-muted small';
+            intro.textContent = 'Заполните форму, чтобы зарегистрировать заявку на возврат или обмен.';
+            returnCard.body.appendChild(intro);
+
+            const form = createReturnRegistrationForm(trackId);
+            returnCard.body.appendChild(form);
+        } else {
+            const emptyState = document.createElement('p');
+            emptyState.className = 'text-muted mb-0';
+            emptyState.textContent = 'Заявка на возврат ещё не зарегистрирована.';
+            returnCard.body.appendChild(emptyState);
+        }
+
+        layout.appendChild(returnCard.card);
 
         const statusCard = createCard('Текущий статус');
         const statusRow = document.createElement('div');
