@@ -57,7 +57,7 @@ public class OrderEpisodeLifecycleService {
         episode.setCustomer(customer);
         episode.setStartedAt(ZonedDateTime.now(ZoneOffset.UTC));
         episode.setExchangesCount(0);
-        episode.setFinalOutcome(OrderFinalOutcome.OPEN);
+        episode.setEpisodeState(OrderEpisodeState.OPEN);
         OrderEpisode saved = orderEpisodeRepository.save(episode);
         log.debug("Создан эпизод заказа ID={} для магазина {}", saved.getId(),
                 store != null ? store.getId() : null);
@@ -93,14 +93,14 @@ public class OrderEpisodeLifecycleService {
     }
 
     /**
-     * Фиксирует финальный исход эпизода на основе статуса посылки.
+     * Фиксирует состояние эпизода на основе статуса посылки.
      * <p>
-     * Логика выбора финала учитывает количество обменов в эпизоде и
+     * Логика выбора финального состояния учитывает количество обменов в эпизоде и
      * соблюдает доменные инварианты: без обменов фиксация идёт как
-     * {@link OrderFinalOutcome#SUCCESS_NO_EXCHANGE}, при наличии обменов —
-     * {@link OrderFinalOutcome#SUCCESS_AFTER_EXCHANGE}, а возврат без
+     * {@link OrderEpisodeState#SUCCESS_NO_EXCHANGE}, при наличии обменов —
+     * {@link OrderEpisodeState#SUCCESS_AFTER_EXCHANGE}, а возврат без
      * повторной отправки переводит эпизод в состояние
-     * {@link OrderFinalOutcome#RETURNED_NO_REPLACEMENT}.
+     * {@link OrderEpisodeState#RETURNED_NO_REPLACEMENT}.
      * </p>
      *
      * @param parcel посылка, получившая финальный статус
@@ -117,17 +117,17 @@ public class OrderEpisodeLifecycleService {
             episode = ensureEpisode(parcel);
         }
 
-        OrderFinalOutcome outcome = resolveFinalOutcome(episode, status);
+        OrderEpisodeState outcome = resolveFinalOutcome(episode, status);
 
         if (outcome == null) {
             return;
         }
 
-        if (Objects.equals(episode.getFinalOutcome(), outcome) && episode.getClosedAt() != null) {
+        if (Objects.equals(episode.getEpisodeState(), outcome) && episode.getClosedAt() != null) {
             return;
         }
 
-        episode.setFinalOutcome(outcome);
+        episode.setEpisodeState(outcome);
         ZonedDateTime closedAt = parcel.getTimestamp();
         episode.setClosedAt(closedAt != null ? closedAt : ZonedDateTime.now(ZoneOffset.UTC));
         orderEpisodeRepository.save(episode);
@@ -135,7 +135,7 @@ public class OrderEpisodeLifecycleService {
     }
 
     /**
-     * Сбрасывает финальный исход эпизода, если статус посылки вернулся в незавершённое состояние.
+     * Сбрасывает состояние эпизода, если статус посылки вернулся в незавершённое состояние.
      *
      * @param parcel посылка, у которой откатывается финальный статус
      */
@@ -178,13 +178,13 @@ public class OrderEpisodeLifecycleService {
     /**
      * Определяет финальный исход для переданного статуса посылки.
      */
-    private OrderFinalOutcome resolveFinalOutcome(OrderEpisode episode, GlobalStatus status) {
+    private OrderEpisodeState resolveFinalOutcome(OrderEpisode episode, GlobalStatus status) {
         return switch (status) {
             case DELIVERED -> (episode.getExchangesCount() > 0
-                    ? OrderFinalOutcome.SUCCESS_AFTER_EXCHANGE
-                    : OrderFinalOutcome.SUCCESS_NO_EXCHANGE);
-            case RETURNED -> OrderFinalOutcome.RETURNED_NO_REPLACEMENT;
-            case REGISTRATION_CANCELLED -> OrderFinalOutcome.CANCELLED;
+                    ? OrderEpisodeState.SUCCESS_AFTER_EXCHANGE
+                    : OrderEpisodeState.SUCCESS_NO_EXCHANGE);
+            case RETURNED -> OrderEpisodeState.RETURNED_NO_REPLACEMENT;
+            case REGISTRATION_CANCELLED -> OrderEpisodeState.CANCELLED;
             default -> null;
         };
     }
@@ -200,8 +200,8 @@ public class OrderEpisodeLifecycleService {
             return false;
         }
         boolean changed = false;
-        if (episode.getFinalOutcome() != OrderFinalOutcome.OPEN) {
-            episode.setFinalOutcome(OrderFinalOutcome.OPEN);
+        if (episode.getEpisodeState() != OrderEpisodeState.OPEN) {
+            episode.setEpisodeState(OrderEpisodeState.OPEN);
             changed = true;
         }
         if (episode.getClosedAt() != null) {

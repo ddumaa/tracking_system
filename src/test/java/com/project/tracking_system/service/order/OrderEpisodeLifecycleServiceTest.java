@@ -47,7 +47,7 @@ class OrderEpisodeLifecycleServiceTest {
 
         service.registerFinalOutcome(parcel, GlobalStatus.DELIVERED);
 
-        assertThat(episode.getFinalOutcome()).isEqualTo(OrderFinalOutcome.SUCCESS_NO_EXCHANGE);
+        assertThat(episode.getEpisodeState()).isEqualTo(OrderEpisodeState.SUCCESS_NO_EXCHANGE);
         assertThat(episode.getClosedAt()).isEqualTo(deliveredAt);
     }
 
@@ -59,7 +59,7 @@ class OrderEpisodeLifecycleServiceTest {
 
         service.registerFinalOutcome(parcel, GlobalStatus.DELIVERED);
 
-        assertThat(episode.getFinalOutcome()).isEqualTo(OrderFinalOutcome.SUCCESS_AFTER_EXCHANGE);
+        assertThat(episode.getEpisodeState()).isEqualTo(OrderEpisodeState.SUCCESS_AFTER_EXCHANGE);
     }
 
     @Test
@@ -70,7 +70,7 @@ class OrderEpisodeLifecycleServiceTest {
 
         service.registerFinalOutcome(parcel, GlobalStatus.RETURNED);
 
-        assertThat(episode.getFinalOutcome()).isEqualTo(OrderFinalOutcome.RETURNED_NO_REPLACEMENT);
+        assertThat(episode.getEpisodeState()).isEqualTo(OrderEpisodeState.RETURNED_NO_REPLACEMENT);
     }
 
     @Test
@@ -81,14 +81,14 @@ class OrderEpisodeLifecycleServiceTest {
 
         service.registerFinalOutcome(parcel, GlobalStatus.REGISTRATION_CANCELLED);
 
-        assertThat(episode.getFinalOutcome()).isEqualTo(OrderFinalOutcome.CANCELLED);
+        assertThat(episode.getEpisodeState()).isEqualTo(OrderEpisodeState.CANCELLED);
         assertThat(episode.getClosedAt()).isEqualTo(cancelledAt);
     }
 
     @Test
     void registerExchange_incrementsCounterAndReopensEpisode() {
         OrderEpisode episode = buildEpisode(0);
-        episode.setFinalOutcome(OrderFinalOutcome.SUCCESS_NO_EXCHANGE);
+        episode.setEpisodeState(OrderEpisodeState.SUCCESS_NO_EXCHANGE);
         episode.setClosedAt(ZonedDateTime.now(ZoneOffset.UTC));
 
         TrackParcel original = new TrackParcel();
@@ -98,7 +98,7 @@ class OrderEpisodeLifecycleServiceTest {
         service.registerExchange(replacement, original);
 
         assertThat(episode.getExchangesCount()).isEqualTo(1);
-        assertThat(episode.getFinalOutcome()).isEqualTo(OrderFinalOutcome.OPEN);
+        assertThat(episode.getEpisodeState()).isEqualTo(OrderEpisodeState.OPEN);
         assertThat(episode.getClosedAt()).isNull();
         assertThat(replacement.getEpisode()).isSameAs(episode);
         assertThat(replacement.isExchange()).isTrue();
@@ -116,7 +116,7 @@ class OrderEpisodeLifecycleServiceTest {
     @Test
     void reopenEpisode_resetsFinalOutcomeToOpen() {
         OrderEpisode episode = buildEpisode(0);
-        episode.setFinalOutcome(OrderFinalOutcome.CANCELLED);
+        episode.setEpisodeState(OrderEpisodeState.CANCELLED);
         episode.setClosedAt(ZonedDateTime.now(ZoneOffset.UTC));
 
         TrackParcel parcel = new TrackParcel();
@@ -127,7 +127,7 @@ class OrderEpisodeLifecycleServiceTest {
         ArgumentCaptor<OrderEpisode> captor = ArgumentCaptor.forClass(OrderEpisode.class);
         verify(orderEpisodeRepository).save(captor.capture());
 
-        assertThat(captor.getValue().getFinalOutcome()).isEqualTo(OrderFinalOutcome.OPEN);
+        assertThat(captor.getValue().getEpisodeState()).isEqualTo(OrderEpisodeState.OPEN);
         assertThat(captor.getValue().getClosedAt()).isNull();
     }
 
