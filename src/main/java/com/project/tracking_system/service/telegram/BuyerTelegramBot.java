@@ -1216,18 +1216,34 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                                                                List<BuyerBotScreen> navigationPath) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
 
-        if (parcels != null) {
-            parcels.stream()
-                    .map(this::buildParcelActionsRow)
-                    .filter(Objects::nonNull)
-                    .forEach(rows::add);
-        }
+        collectParcelsInDisplayOrder(parcels).stream()
+                .map(this::buildParcelActionsRow)
+                .filter(Objects::nonNull)
+                .forEach(rows::add);
 
         appendNavigationRow(rows, navigationPath);
 
         return InlineKeyboardMarkup.builder()
                 .keyboard(rows)
                 .build();
+    }
+
+    /**
+     * Возвращает посылки в том же порядке, что и в тексте, чтобы кнопки совпадали с маркерами.
+     *
+     * @param parcels исходный список доставленных посылок
+     * @return упорядоченный список для отображения клавиатуры
+     */
+    private List<TelegramParcelInfoDTO> collectParcelsInDisplayOrder(List<TelegramParcelInfoDTO> parcels) {
+        if (parcels == null || parcels.isEmpty()) {
+            return List.of();
+        }
+
+        return groupParcelsByStore(parcels).values().stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
 
     /**
