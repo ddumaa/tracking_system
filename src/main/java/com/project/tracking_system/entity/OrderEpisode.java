@@ -43,11 +43,11 @@ public class OrderEpisode {
     private Customer customer;
 
     /**
-     * Финальный исход эпизода. {@code null}, если эпизод ещё открыт.
+     * Финальный исход эпизода. Для открытых эпизодов хранится значение {@link OrderFinalOutcome#OPEN}.
      */
     @Enumerated(EnumType.STRING)
     @Column(name = "final_outcome")
-    private OrderFinalOutcome finalOutcome;
+    private OrderFinalOutcome finalOutcome = OrderFinalOutcome.OPEN;
 
     /**
      * Время открытия эпизода.
@@ -77,6 +77,6 @@ public class OrderEpisode {
      * @return {@code true}, если финальный исход ещё не зафиксирован
      */
     public boolean isOpen() {
-        return finalOutcome == null;
+        return finalOutcome == null || finalOutcome == OrderFinalOutcome.OPEN;
     }
 }

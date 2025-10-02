@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.*;
+import java.util.Objects;
 
 /**
  * Сервис обработки треков и их сохранения.
@@ -201,6 +202,7 @@ public class TrackProcessingService {
 
         // Обновляем статус и дату трека на основе нового содержимого
         GlobalStatus newStatus = statusTrackService.setStatus(trackInfoListDTO.getList());
+        boolean statusChanged = !Objects.equals(newStatus, oldStatus);
 
         trackParcel.setStatus(newStatus);
 
@@ -227,6 +229,16 @@ public class TrackProcessingService {
         }
 
         orderEpisodeLifecycleService.syncEpisodeCustomer(trackParcel);
+
+        if (statusChanged
+                && oldStatus == GlobalStatus.REGISTRATION_CANCELLED
+                && newStatus != GlobalStatus.REGISTRATION_CANCELLED) {
+            orderEpisodeLifecycleService.reopenEpisode(trackParcel);
+        }
+
+        if (statusChanged && newStatus == GlobalStatus.REGISTRATION_CANCELLED) {
+            orderEpisodeLifecycleService.registerFinalOutcome(trackParcel, newStatus);
+        }
 
         trackParcelRepository.save(trackParcel);
 

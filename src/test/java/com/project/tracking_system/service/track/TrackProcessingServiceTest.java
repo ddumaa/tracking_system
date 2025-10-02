@@ -155,4 +155,56 @@ class TrackProcessingServiceTest {
         verify(trackStatusEventService).replaceEvents(eq(parcel), eq(info.getList()), eq(ZoneId.of("UTC")));
     }
 
+    /**
+     * При отмене регистрации эпизод должен быть закрыт с исходом CANCELLED.
+     */
+    @Test
+    void registrationCancelled_registersFinalOutcome() {
+        TrackParcel parcel = new TrackParcel();
+        parcel.setNumber("AB123");
+        parcel.setStatus(GlobalStatus.PRE_REGISTERED);
+        Store store = new Store();
+        store.setId(1L);
+        parcel.setStore(store);
+        parcel.setEpisode(new com.project.tracking_system.entity.OrderEpisode());
+        when(trackParcelRepository.findByNumberAndUserId("AB123", 5L)).thenReturn(parcel);
+
+        TrackInfoDTO dto = new TrackInfoDTO("07.01.2025, 12:00", "Регистрация отменена");
+        TrackInfoListDTO info = new TrackInfoListDTO(List.of(dto));
+        when(statusTrackService.setStatus(any())).thenReturn(GlobalStatus.REGISTRATION_CANCELLED);
+        when(userService.getUserZone(5L)).thenReturn(ZoneId.of("UTC"));
+        when(trackParcelRepository.save(any())).thenReturn(parcel);
+
+        trackProcessingService.save("AB123", info, 1L, 5L, null);
+
+        verify(orderEpisodeLifecycleService).registerFinalOutcome(parcel, GlobalStatus.REGISTRATION_CANCELLED);
+        verify(orderEpisodeLifecycleService, never()).reopenEpisode(any());
+    }
+
+    /**
+     * Возврат из состояния отмены регистрации должен переоткрывать эпизод.
+     */
+    @Test
+    void statusRestoredAfterCancellation_reopensEpisode() {
+        TrackParcel parcel = new TrackParcel();
+        parcel.setNumber("AB123");
+        parcel.setStatus(GlobalStatus.REGISTRATION_CANCELLED);
+        Store store = new Store();
+        store.setId(1L);
+        parcel.setStore(store);
+        parcel.setEpisode(new com.project.tracking_system.entity.OrderEpisode());
+        when(trackParcelRepository.findByNumberAndUserId("AB123", 5L)).thenReturn(parcel);
+
+        TrackInfoDTO dto = new TrackInfoDTO("07.01.2025, 12:00", "В пути");
+        TrackInfoListDTO info = new TrackInfoListDTO(List.of(dto));
+        when(statusTrackService.setStatus(any())).thenReturn(GlobalStatus.IN_TRANSIT);
+        when(userService.getUserZone(5L)).thenReturn(ZoneId.of("UTC"));
+        when(trackParcelRepository.save(any())).thenReturn(parcel);
+
+        trackProcessingService.save("AB123", info, 1L, 5L, null);
+
+        verify(orderEpisodeLifecycleService).reopenEpisode(parcel);
+        verify(orderEpisodeLifecycleService, never())
+                .registerFinalOutcome(eq(parcel), eq(GlobalStatus.REGISTRATION_CANCELLED));
+    }
 }

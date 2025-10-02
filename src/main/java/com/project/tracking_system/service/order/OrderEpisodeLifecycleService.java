@@ -57,6 +57,7 @@ public class OrderEpisodeLifecycleService {
         episode.setCustomer(customer);
         episode.setStartedAt(ZonedDateTime.now(ZoneOffset.UTC));
         episode.setExchangesCount(0);
+        episode.setFinalOutcome(OrderFinalOutcome.OPEN);
         OrderEpisode saved = orderEpisodeRepository.save(episode);
         log.debug("Создан эпизод заказа ID={} для магазина {}", saved.getId(),
                 store != null ? store.getId() : null);
@@ -65,6 +66,10 @@ public class OrderEpisodeLifecycleService {
 
     /**
      * Увеличивает счётчик обменов и связывает заменяющую посылку с эпизодом оригинала.
+     * <p>
+     * Метод также возвращает эпизод в открытое состояние, чтобы финальный исход
+     * был пересчитан после успешного вручения обменной посылки.
+     * </p>
      *
      * @param replacement     посылка, созданная как обмен
      * @param originalParcel  исходная посылка, инициировавшая обмен
@@ -74,17 +79,29 @@ public class OrderEpisodeLifecycleService {
         if (originalParcel == null) {
             throw new IllegalArgumentException("Исходная посылка для обмена не задана");
         }
+        if (replacement == null) {
+            throw new IllegalArgumentException("Посылка обмена не задана");
+        }
         OrderEpisode episode = ensureEpisode(originalParcel);
         replacement.setEpisode(episode);
         replacement.setExchange(true);
         replacement.setReplacementOf(originalParcel);
         episode.setExchangesCount(episode.getExchangesCount() + 1);
+        resetEpisodeToOpen(episode);
         orderEpisodeRepository.save(episode);
         log.debug("Для эпизода {} зарегистрирован обмен, всего обменов: {}", episode.getId(), episode.getExchangesCount());
     }
 
     /**
      * Фиксирует финальный исход эпизода на основе статуса посылки.
+     * <p>
+     * Логика выбора финала учитывает количество обменов в эпизоде и
+     * соблюдает доменные инварианты: без обменов фиксация идёт как
+     * {@link OrderFinalOutcome#SUCCESS_NO_EXCHANGE}, при наличии обменов —
+     * {@link OrderFinalOutcome#SUCCESS_AFTER_EXCHANGE}, а возврат без
+     * повторной отправки переводит эпизод в состояние
+     * {@link OrderFinalOutcome#RETURNED_NO_REPLACEMENT}.
+     * </p>
      *
      * @param parcel посылка, получившая финальный статус
      * @param status финальный статус посылки
@@ -100,18 +117,13 @@ public class OrderEpisodeLifecycleService {
             episode = ensureEpisode(parcel);
         }
 
-        OrderFinalOutcome outcome = switch (status) {
-            case DELIVERED -> OrderFinalOutcome.DELIVERED;
-            case RETURNED -> OrderFinalOutcome.RETURNED;
-            case REGISTRATION_CANCELLED -> OrderFinalOutcome.CANCELLED;
-            default -> null;
-        };
+        OrderFinalOutcome outcome = resolveFinalOutcome(episode, status);
 
         if (outcome == null) {
             return;
         }
 
-        if (episode.getFinalOutcome() == outcome && episode.getClosedAt() != null) {
+        if (Objects.equals(episode.getFinalOutcome(), outcome) && episode.getClosedAt() != null) {
             return;
         }
 
@@ -133,9 +145,7 @@ public class OrderEpisodeLifecycleService {
             return;
         }
         OrderEpisode episode = parcel.getEpisode();
-        if (episode.getFinalOutcome() != null) {
-            episode.setFinalOutcome(null);
-            episode.setClosedAt(null);
+        if (resetEpisodeToOpen(episode)) {
             orderEpisodeRepository.save(episode);
             log.debug("Эпизод {} повторно открыт", episode.getId());
         }
@@ -163,5 +173,41 @@ public class OrderEpisodeLifecycleService {
             episode.setCustomer(customer);
             orderEpisodeRepository.save(episode);
         }
+    }
+
+    /**
+     * Определяет финальный исход для переданного статуса посылки.
+     */
+    private OrderFinalOutcome resolveFinalOutcome(OrderEpisode episode, GlobalStatus status) {
+        return switch (status) {
+            case DELIVERED -> (episode.getExchangesCount() > 0
+                    ? OrderFinalOutcome.SUCCESS_AFTER_EXCHANGE
+                    : OrderFinalOutcome.SUCCESS_NO_EXCHANGE);
+            case RETURNED -> OrderFinalOutcome.RETURNED_NO_REPLACEMENT;
+            case REGISTRATION_CANCELLED -> OrderFinalOutcome.CANCELLED;
+            default -> null;
+        };
+    }
+
+    /**
+     * Переводит эпизод в открытое состояние, если он был закрыт.
+     *
+     * @param episode эпизод, который требуется открыть
+     * @return {@code true}, если были внесены изменения
+     */
+    private boolean resetEpisodeToOpen(OrderEpisode episode) {
+        if (episode == null) {
+            return false;
+        }
+        boolean changed = false;
+        if (episode.getFinalOutcome() != OrderFinalOutcome.OPEN) {
+            episode.setFinalOutcome(OrderFinalOutcome.OPEN);
+            changed = true;
+        }
+        if (episode.getClosedAt() != null) {
+            episode.setClosedAt(null);
+            changed = true;
+        }
+        return changed;
     }
 }
