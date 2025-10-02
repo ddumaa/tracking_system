@@ -12,9 +12,11 @@ import java.util.Objects;
  */
 public class TelegramParcelInfoDTO {
 
+    private final Long parcelId;
     private final String trackNumber;
     private final String storeName;
     private final GlobalStatus status;
+    private final boolean activeReturnRequest;
     /**
      * Создаёт DTO с основными данными о посылке для Telegram.
      *
@@ -23,7 +25,7 @@ public class TelegramParcelInfoDTO {
      */
     public TelegramParcelInfoDTO(String trackNumber,
                                  String storeName) {
-        this(trackNumber, storeName, null);
+        this(null, trackNumber, storeName, null, false);
     }
 
     /**
@@ -36,9 +38,35 @@ public class TelegramParcelInfoDTO {
     public TelegramParcelInfoDTO(String trackNumber,
                                  String storeName,
                                  GlobalStatus status) {
+        this(null, trackNumber, storeName, status, false);
+    }
+
+    /**
+     * Создаёт DTO с идентификатором посылки и признаком активной заявки на возврат.
+     *
+     * @param parcelId             идентификатор посылки
+     * @param trackNumber          трек-номер посылки
+     * @param storeName            название магазина
+     * @param status               актуальный глобальный статус
+     * @param activeReturnRequest  признак наличия активной заявки на возврат/обмен
+     */
+    public TelegramParcelInfoDTO(Long parcelId,
+                                 String trackNumber,
+                                 String storeName,
+                                 GlobalStatus status,
+                                 boolean activeReturnRequest) {
+        this.parcelId = parcelId;
         this.trackNumber = trackNumber;
         this.storeName = storeName;
         this.status = status;
+        this.activeReturnRequest = activeReturnRequest;
+    }
+
+    /**
+     * @return идентификатор посылки в базе данных
+     */
+    public Long getParcelId() {
+        return parcelId;
     }
 
     /**
@@ -62,6 +90,13 @@ public class TelegramParcelInfoDTO {
         return status;
     }
 
+    /**
+     * @return {@code true}, если по посылке уже зарегистрирована активная заявка
+     */
+    public boolean hasActiveReturnRequest() {
+        return activeReturnRequest;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -70,13 +105,15 @@ public class TelegramParcelInfoDTO {
         if (!(o instanceof TelegramParcelInfoDTO that)) {
             return false;
         }
-        return Objects.equals(trackNumber, that.trackNumber)
+        return Objects.equals(parcelId, that.parcelId)
+                && Objects.equals(trackNumber, that.trackNumber)
                 && Objects.equals(storeName, that.storeName)
-                && status == that.status;
+                && status == that.status
+                && activeReturnRequest == that.activeReturnRequest;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(trackNumber, storeName, status);
+        return Objects.hash(parcelId, trackNumber, storeName, status, activeReturnRequest);
     }
 }

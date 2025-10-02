@@ -45,9 +45,11 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Telegram-бот для покупателей.
@@ -81,8 +83,20 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String CALLBACK_NAME_EDIT = "name:edit";
     private static final String CALLBACK_ANNOUNCEMENT_ACK = "announcement:ack";
     private static final String CALLBACK_NAVIGATE_BACK = "nav:back";
+    private static final String CALLBACK_PARCEL_RETURN_PREFIX = "parcel:return:";
+    private static final String CALLBACK_PARCEL_EXCHANGE_PREFIX = "parcel:exchange:";
 
     private static final String NO_PARCELS_PLACEHOLDER = "• нет посылок";
+
+    private static final String PARCEL_ACTION_ALREADY_REGISTERED = "Заявка уже зарегистрирована";
+    private static final String PARCEL_ACTION_NOT_FOUND = "Посылка не найдена";
+    private static final String PARCEL_RETURN_CONFIRMED = "Запрос на возврат отправлен";
+    private static final String PARCEL_EXCHANGE_CONFIRMED = "Запрос на обмен отправлен";
+    private static final String PARCEL_RETURN_MESSAGE_TEMPLATE =
+            "📩 Мы зафиксировали запрос на возврат посылки %s. Менеджер свяжется для уточнения деталей.";
+    private static final String PARCEL_EXCHANGE_MESSAGE_TEMPLATE =
+            "🔄 Мы зафиксировали запрос на обмен посылки %s. Менеджер свяжется, чтобы обсудить дальнейшие шаги.";
+    private static final String PARCEL_ACTION_BLOCKED_TEXT = "заявка в обработке";
 
     private static final String TELEGRAM_PARSE_MODE = ParseMode.MARKDOWNV2;
 
@@ -388,6 +402,16 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         rememberAnchorMessage(chatId, messageId);
+
+        if (data.startsWith(CALLBACK_PARCEL_RETURN_PREFIX)) {
+            handleParcelActionCallback(chatId, callbackQuery, data, ParcelAction.RETURN);
+            return;
+        }
+
+        if (data.startsWith(CALLBACK_PARCEL_EXCHANGE_PREFIX)) {
+            handleParcelActionCallback(chatId, callbackQuery, data, ParcelAction.EXCHANGE);
+            return;
+        }
 
         switch (data) {
             case CALLBACK_MENU_SHOW_STATS -> handleMenuOpenStats(chatId, callbackQuery);
@@ -702,11 +726,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         Optional<TelegramParcelsOverviewDTO> overviewOptional = telegramService.getParcelsOverview(chatId);
 
         List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.PARCELS, true);
-        InlineKeyboardMarkup markup = buildNavigationKeyboard(navigationPath);
-
         List<TelegramParcelInfoDTO> parcels = overviewOptional
                 .map(extractor)
                 .orElse(List.of());
+
+        InlineKeyboardMarkup markup = section == ParcelsSection.DELIVERED
+                ? buildDeliveredParcelsKeyboard(parcels, navigationPath)
+                : buildNavigationKeyboard(navigationPath);
 
         String text = buildParcelsCategoryText(title, parcels, section);
         sendInlineMessage(chatId, text, markup, BuyerBotScreen.PARCELS, navigationPath);
@@ -1172,7 +1198,202 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return String.format("%s — ⚠️ скоро уедет в магазин", track);
         }
 
+        if (section == ParcelsSection.DELIVERED && parcel.hasActiveReturnRequest()) {
+            return String.format("%s — %s", track, escapeMarkdown(PARCEL_ACTION_BLOCKED_TEXT));
+        }
+
         return track;
+    }
+
+    /**
+     * Формирует клавиатуру для раздела «Полученные» с кнопками возврата и обмена.
+     *
+     * @param parcels         список доставленных посылок
+     * @param navigationPath  путь для отображения навигации
+     * @return готовая клавиатура с действиями и навигацией
+     */
+    private InlineKeyboardMarkup buildDeliveredParcelsKeyboard(List<TelegramParcelInfoDTO> parcels,
+                                                               List<BuyerBotScreen> navigationPath) {
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+
+        if (parcels != null) {
+            parcels.stream()
+                    .map(this::buildParcelActionsRow)
+                    .filter(Objects::nonNull)
+                    .forEach(rows::add);
+        }
+
+        appendNavigationRow(rows, navigationPath);
+
+        return InlineKeyboardMarkup.builder()
+                .keyboard(rows)
+                .build();
+    }
+
+    /**
+     * Собирает строку с кнопками «Вернуть» и «Обменять» для конкретной посылки.
+     *
+     * @param parcel описание посылки
+     * @return строка клавиатуры или {@code null}, если кнопки сформировать нельзя
+     */
+    private InlineKeyboardRow buildParcelActionsRow(TelegramParcelInfoDTO parcel) {
+        if (parcel == null || parcel.getParcelId() == null) {
+            return null;
+        }
+
+        InlineKeyboardButton returnButton = buildParcelActionButton(
+                parcel,
+                "Вернуть",
+                CALLBACK_PARCEL_RETURN_PREFIX);
+        InlineKeyboardButton exchangeButton = buildParcelActionButton(
+                parcel,
+                "Обменять",
+                CALLBACK_PARCEL_EXCHANGE_PREFIX);
+
+        return new InlineKeyboardRow(returnButton, exchangeButton);
+    }
+
+    /**
+     * Создаёт кнопку действия над посылкой с учётом блокировки при активной заявке.
+     *
+     * @param parcel     посылка, к которой относится действие
+     * @param label      текст кнопки
+     * @param prefix     префикс callback-идентификатора
+     * @return готовая кнопка
+     */
+    private InlineKeyboardButton buildParcelActionButton(TelegramParcelInfoDTO parcel,
+                                                         String label,
+                                                         String prefix) {
+        String text = parcel.hasActiveReturnRequest() ? "🔒 " + label : label;
+        String callbackData = prefix + parcel.getParcelId();
+        return InlineKeyboardButton.builder()
+                .text(text)
+                .callbackData(callbackData)
+                .build();
+    }
+
+    /**
+     * Обрабатывает callback-и «Вернуть» и «Обменять», извлекая идентификатор посылки.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     * @param data          строка callback с идентификатором
+     * @param action        тип действия, которое требуется выполнить
+     */
+    private void handleParcelActionCallback(Long chatId,
+                                            CallbackQuery callbackQuery,
+                                            String data,
+                                            ParcelAction action) {
+        Long parcelId = extractParcelId(data, action == ParcelAction.RETURN
+                ? CALLBACK_PARCEL_RETURN_PREFIX
+                : CALLBACK_PARCEL_EXCHANGE_PREFIX);
+        if (parcelId == null) {
+            answerCallbackQuery(callbackQuery, PARCEL_ACTION_NOT_FOUND);
+            return;
+        }
+
+        Optional<TelegramParcelInfoDTO> parcelOptional = findParcelById(chatId, parcelId);
+        if (parcelOptional.isEmpty()) {
+            answerCallbackQuery(callbackQuery, PARCEL_ACTION_NOT_FOUND);
+            return;
+        }
+
+        TelegramParcelInfoDTO parcel = parcelOptional.get();
+        if (parcel.hasActiveReturnRequest()) {
+            answerCallbackQuery(callbackQuery, PARCEL_ACTION_ALREADY_REGISTERED);
+            return;
+        }
+
+        switch (action) {
+            case RETURN -> runParcelReturnScenario(chatId, callbackQuery, parcel);
+            case EXCHANGE -> runParcelExchangeScenario(chatId, callbackQuery, parcel);
+        }
+    }
+
+    /**
+     * Выполняет сценарий оформления возврата из Telegram.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     * @param parcel        посылка, по которой запрошен возврат
+     */
+    private void runParcelReturnScenario(Long chatId,
+                                         CallbackQuery callbackQuery,
+                                         TelegramParcelInfoDTO parcel) {
+        String track = formatTrackNumber(parcel.getTrackNumber());
+        sendSimpleMessage(chatId, String.format(PARCEL_RETURN_MESSAGE_TEMPLATE, track));
+        answerCallbackQuery(callbackQuery, PARCEL_RETURN_CONFIRMED);
+    }
+
+    /**
+     * Выполняет сценарий оформления обмена из Telegram.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     * @param parcel        посылка, по которой запрошен обмен
+     */
+    private void runParcelExchangeScenario(Long chatId,
+                                           CallbackQuery callbackQuery,
+                                           TelegramParcelInfoDTO parcel) {
+        String track = formatTrackNumber(parcel.getTrackNumber());
+        sendSimpleMessage(chatId, String.format(PARCEL_EXCHANGE_MESSAGE_TEMPLATE, track));
+        answerCallbackQuery(callbackQuery, PARCEL_EXCHANGE_CONFIRMED);
+    }
+
+    /**
+     * Извлекает идентификатор посылки из callback-строки.
+     *
+     * @param data   строка callback
+     * @param prefix ожидаемый префикс
+     * @return идентификатор посылки или {@code null} при ошибке формата
+     */
+    private Long extractParcelId(String data, String prefix) {
+        if (data == null || prefix == null || !data.startsWith(prefix)) {
+            return null;
+        }
+        String idPart = data.substring(prefix.length());
+        if (idPart.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(idPart);
+        } catch (NumberFormatException ex) {
+            log.warn("⚠️ Некорректный идентификатор посылки в callback: {}", data);
+            return null;
+        }
+    }
+
+    /**
+     * Находит посылку в актуальной сводке по идентификатору.
+     *
+     * @param chatId   идентификатор чата Telegram
+     * @param parcelId идентификатор посылки
+     * @return DTO посылки, если она доступна в сводке
+     */
+    private Optional<TelegramParcelInfoDTO> findParcelById(Long chatId, Long parcelId) {
+        if (chatId == null || parcelId == null) {
+            return Optional.empty();
+        }
+
+        return telegramService.getParcelsOverview(chatId)
+                .map(overview -> Stream.of(
+                                overview.getDelivered(),
+                                overview.getWaitingForPickup(),
+                                overview.getInTransit())
+                        .filter(Objects::nonNull)
+                        .flatMap(List::stream)
+                        .filter(parcel -> parcelId.equals(parcel.getParcelId()))
+                        .findFirst()
+                        .orElse(null))
+                .filter(Objects::nonNull);
+    }
+
+    /**
+     * Перечисление типов действий над посылками из раздела «Полученные».
+     */
+    private enum ParcelAction {
+        RETURN,
+        EXCHANGE
     }
 
     /**

@@ -8,6 +8,7 @@ import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
+import com.project.tracking_system.repository.OrderReturnRequestRepository;
 import com.project.tracking_system.service.telegram.FullNameValidator;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
 import org.junit.jupiter.api.AfterEach;
@@ -42,6 +43,8 @@ class CustomerTelegramServiceLoggingTest {
     private CustomerNotificationLogRepository notificationLogRepository;
     @Mock
     private TelegramNotificationService telegramNotificationService;
+    @Mock
+    private OrderReturnRequestRepository returnRequestRepository;
 
     @Spy
     private FullNameValidator fullNameValidator = new FullNameValidator();
