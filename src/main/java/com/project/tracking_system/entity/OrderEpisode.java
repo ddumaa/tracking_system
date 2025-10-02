@@ -13,7 +13,7 @@ import java.time.ZonedDateTime;
  * Эпизод заказа объединяет все посылки, связанные с одним клиентским обращением.
  * <p>
  * В рамках эпизода может создаваться несколько посылок, например, при обмене.
- * Сущность фиксирует ключевые даты и финальный исход эпизода.
+ * Сущность фиксирует ключевые даты и текущее состояние эпизода.
  * </p>
  */
 @Getter
@@ -43,11 +43,11 @@ public class OrderEpisode {
     private Customer customer;
 
     /**
-     * Финальный исход эпизода. Для открытых эпизодов хранится значение {@link OrderFinalOutcome#OPEN}.
+     * Состояние эпизода. Для открытых эпизодов хранится значение {@link OrderEpisodeState#OPEN}.
      */
     @Enumerated(EnumType.STRING)
     @Column(name = "final_outcome")
-    private OrderFinalOutcome finalOutcome = OrderFinalOutcome.OPEN;
+    private OrderEpisodeState episodeState = OrderEpisodeState.OPEN;
 
     /**
      * Время открытия эпизода.
@@ -77,6 +77,6 @@ public class OrderEpisode {
      * @return {@code true}, если финальный исход ещё не зафиксирован
      */
     public boolean isOpen() {
-        return finalOutcome == null || finalOutcome == OrderFinalOutcome.OPEN;
+        return episodeState == null || episodeState == OrderEpisodeState.OPEN;
     }
 }

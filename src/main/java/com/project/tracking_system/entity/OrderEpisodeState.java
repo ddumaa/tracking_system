@@ -8,7 +8,7 @@ package com.project.tracking_system.entity;
  * закрыться возвратом без замены либо быть отменённым.
  * </p>
  */
-public enum OrderFinalOutcome {
+public enum OrderEpisodeState {
 
     /** Эпизод остаётся открытым, финальное решение ещё не принято. */
     OPEN,
