@@ -165,6 +165,185 @@
     }
 
     /**
+     * Создаёт кнопку действия с единым оформлением.
+     * @param {Object} options параметры кнопки
+     * @param {string} options.text отображаемый текст
+     * @param {string} [options.variant] модификатор Bootstrap
+     * @param {string} [options.ariaLabel] текст для screen reader
+     * @param {Function} options.onClick обработчик клика
+     * @returns {HTMLButtonElement} созданная кнопка
+     */
+    function createActionButton({ text, variant = 'outline-primary', ariaLabel, onClick }) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `btn btn-${variant} btn-sm`;
+        button.textContent = text;
+        if (ariaLabel) {
+            button.setAttribute('aria-label', ariaLabel);
+        }
+        if (typeof onClick === 'function') {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                onClick(button);
+            });
+        }
+        return button;
+    }
+
+    /**
+     * Отправляет запрос к REST-эндпоинтам управления заявками.
+     * @param {string} url относительный URL запроса
+     * @param {RequestInit} [options] дополнительные настройки fetch
+     * @returns {Promise<Object>} десериализованный ответ контроллера
+     */
+    async function sendReturnRequest(url, options = {}) {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                ...buildCsrfHeaders(),
+                ...(options.headers || {})
+            },
+            body: options.body ?? null
+        });
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        const payload = isJson ? await response.json() : await response.text();
+        if (!response.ok) {
+            const message = (isJson && payload && typeof payload === 'object' && payload.message)
+                ? payload.message
+                : (typeof payload === 'string' ? payload : 'Операция недоступна');
+            throw new Error(message);
+        }
+        return payload;
+    }
+
+    /**
+     * Обновляет строку таблицы, чтобы отразить требуемые действия.
+     * @param {Object} details DTO деталей трека
+     */
+    function updateRowRequiresAction(details) {
+        if (!details || typeof details !== 'object' || details.id === undefined) {
+            return;
+        }
+        const row = document.querySelector(`tr[data-track-id="${details.id}"]`);
+        if (!row) {
+            return;
+        }
+        const requiresAction = Boolean(details.requiresAction);
+        row.dataset.requiresAction = requiresAction ? 'true' : 'false';
+        const badgeSelector = '.badge.bg-warning-subtle';
+        let badge = row.querySelector(badgeSelector);
+        if (requiresAction) {
+            if (!badge) {
+                const container = row.querySelector('div.d-inline-flex');
+                if (container) {
+                    badge = document.createElement('span');
+                    badge.className = 'badge rounded-pill bg-warning-subtle text-warning-emphasis';
+                    badge.setAttribute('aria-label', 'По посылке требуется действие');
+                    badge.textContent = 'Действие';
+                    container.appendChild(badge);
+                }
+            }
+        } else if (badge) {
+            badge.remove();
+        }
+    }
+
+    /**
+     * Пересчитывает счётчик вкладки «Требуют действия» и применяет активный фильтр.
+     */
+    function updateActionTabCounter() {
+        const badge = document.querySelector('#departuresActionTabs .badge');
+        if (!badge) {
+            return;
+        }
+        const rows = Array.from(document.querySelectorAll('.history-table tbody tr'));
+        const count = rows.filter((row) => row.dataset.requiresAction === 'true').length;
+        badge.textContent = String(count);
+        badge.classList.toggle('visually-hidden', count === 0);
+
+        const activeTab = document.querySelector('#departuresActionTabs .nav-link.active');
+        if (activeTab && activeTab.dataset.filterTab === 'requires-action') {
+            rows.forEach((row) => {
+                const shouldShow = row.dataset.requiresAction === 'true';
+                row.classList.toggle('d-none', !shouldShow);
+            });
+        }
+    }
+
+    /**
+     * Возвращает идемпотентный ключ для регистрации заявок.
+     */
+    function generateIdempotencyKey() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return window.crypto.randomUUID();
+        }
+        return `return-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    /**
+     * Выполняет сетевое действие с управлением состоянием кнопки.
+     * @param {HTMLButtonElement} button управляемая кнопка
+     * @param {Function} action асинхронное действие
+     */
+    async function runButtonAction(button, action) {
+        if (typeof action !== 'function') {
+            return;
+        }
+        if (button) {
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+        }
+        try {
+            await action();
+        } catch (error) {
+            notifyUser(error?.message || 'Не удалось выполнить действие', 'danger');
+        } finally {
+            if (button && document.body.contains(button)) {
+                button.disabled = false;
+                button.setAttribute('aria-busy', 'false');
+            }
+        }
+    }
+
+    async function handleRegisterReturnAction(trackId) {
+        if (!trackId) {
+            return;
+        }
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns`, {
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idempotencyKey: generateIdempotencyKey() })
+        });
+        renderTrackModal(payload);
+        updateRowRequiresAction(payload);
+        updateActionTabCounter();
+        notifyUser('Заявка на возврат зарегистрирована', 'success');
+    }
+
+    async function handleApproveExchangeAction(trackId, requestId) {
+        if (!trackId || !requestId) {
+            return;
+        }
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/exchange`);
+        renderTrackModal(payload);
+        updateRowRequiresAction(payload);
+        updateActionTabCounter();
+        notifyUser('Запущен обмен по заявке', 'success');
+    }
+
+    async function handleCloseWithoutExchange(trackId, requestId) {
+        if (!trackId || !requestId) {
+            return;
+        }
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/close`);
+        renderTrackModal(payload);
+        updateRowRequiresAction(payload);
+        updateActionTabCounter();
+        notifyUser('Заявка закрыта без обмена', 'info');
+    }
+
+    /**
      * Создаёт карточку модального окна с заголовком и телом.
      * Метод устраняет дублирование разметки и упрощает расширение модалки (OCP).
      * @param {string} title заголовок карточки
@@ -309,6 +488,41 @@
 
         const trackActions = document.createElement('div');
         trackActions.className = 'd-flex justify-content-end flex-grow-1 gap-2';
+
+        const trackId = data?.id;
+        const returnRequest = data?.returnRequest;
+
+        if (data?.canRegisterReturn && trackId !== undefined) {
+            const registerButton = createActionButton({
+                text: 'Зарегистрировать возврат',
+                variant: 'outline-warning',
+                ariaLabel: 'Зарегистрировать заявку на возврат',
+                onClick: (button) => runButtonAction(button, () => handleRegisterReturnAction(trackId))
+            });
+            trackActions.appendChild(registerButton);
+        }
+
+        if (returnRequest?.canStartExchange && trackId !== undefined && returnRequest.id !== undefined) {
+            const exchangeButton = createActionButton({
+                text: 'Запустить обмен',
+                variant: 'primary',
+                ariaLabel: 'Запустить обменную отправку',
+                onClick: (button) => runButtonAction(button,
+                    () => handleApproveExchangeAction(trackId, returnRequest.id))
+            });
+            trackActions.appendChild(exchangeButton);
+        }
+
+        if (returnRequest?.canCloseWithoutExchange && trackId !== undefined && returnRequest.id !== undefined) {
+            const closeButton = createActionButton({
+                text: 'Закрыть без обмена',
+                variant: 'outline-secondary',
+                ariaLabel: 'Закрыть заявку без обмена',
+                onClick: (button) => runButtonAction(button,
+                    () => handleCloseWithoutExchange(trackId, returnRequest.id))
+            });
+            trackActions.appendChild(closeButton);
+        }
 
         trackTitleRow.append(trackTitleColumn, trackActions);
 
@@ -521,6 +735,9 @@
             unavailableReason,
             handleTooltipChange
         );
+
+        updateRowRequiresAction(data);
+        updateActionTabCounter();
     }
 
     /**
@@ -617,6 +834,7 @@
             return;
         }
         row.dataset.trackNumber = summary.number || '';
+        row.dataset.requiresAction = summary.requiresAction ? 'true' : 'false';
 
         const numberButton = row.querySelector('button.parcel-number');
         if (numberButton) {
@@ -630,6 +848,9 @@
         if (iconContainer && typeof summary.iconHtml === 'string') {
             iconContainer.innerHTML = summary.iconHtml;
         }
+
+        updateRowRequiresAction({ id: summary.id, requiresAction: Boolean(summary.requiresAction) });
+        updateActionTabCounter();
     }
 
     /**

@@ -147,6 +147,47 @@ function initTrackRefreshHandler() {
 document.addEventListener('DOMContentLoaded', initTrackRefreshHandler);
 
 /**
+ * Инициализирует вкладки фильтрации «Требуют действия».
+ * Метод не зависит от Bootstrap и управляет видимостью строк таблицы через классы.
+ */
+function initRequiresActionTabs() {
+    const tabContainer = document.getElementById('departuresActionTabs');
+    if (!tabContainer) {
+        return;
+    }
+    const tabs = Array.from(tabContainer.querySelectorAll('[data-filter-tab]'));
+    if (!tabs.length) {
+        return;
+    }
+
+    const applyFilter = (filter) => {
+        const rows = document.querySelectorAll('.history-table tbody tr');
+        rows.forEach((row) => {
+            if (!(row instanceof HTMLTableRowElement)) {
+                return;
+            }
+            const requiresAction = row.dataset.requiresAction === 'true';
+            const shouldShow = filter === 'requires-action' ? requiresAction : true;
+            row.classList.toggle('d-none', !shouldShow);
+        });
+    };
+
+    tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+            tabs.forEach((item) => item.classList.remove('active'));
+            tab.classList.add('active');
+            const filter = tab.dataset.filterTab || 'all';
+            applyFilter(filter);
+        });
+    });
+
+    const initialTab = tabs.find((tab) => tab.classList.contains('active'));
+    applyFilter(initialTab ? initialTab.dataset.filterTab : 'all');
+}
+
+document.addEventListener('DOMContentLoaded', initRequiresActionTabs);
+
+/**
  * Инициализирует проверку трек-номера на стороне клиента.
  * Навешивает обработчик на поле ввода и управляет сообщением об ошибке.
  */

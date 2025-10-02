@@ -22,6 +22,7 @@ describe('track-modal render', () => {
         global.notifyUser = jest.fn();
         global.promptTrackNumber = jest.fn();
         global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) }));
+        global.crypto = { randomUUID: jest.fn(() => 'test-uuid') };
         require('../../main/resources/static/js/track-modal.js');
     }
 
@@ -32,6 +33,7 @@ describe('track-modal render', () => {
         delete global.notifyUser;
         delete global.promptTrackNumber;
         delete global.fetch;
+        delete global.crypto;
     });
 
     test('renders episode number and single chain item for base parcel', () => {
@@ -52,7 +54,10 @@ describe('track-modal render', () => {
             exchange: false,
             chain: [
                 { id: 1, number: 'AB123456789BY', exchange: false, current: true }
-            ]
+            ],
+            returnRequest: null,
+            canRegisterReturn: false,
+            requiresAction: false
         };
 
         global.window.trackModal.render(data);
@@ -85,7 +90,11 @@ describe('track-modal render', () => {
             chain: [
                 { id: 11, number: 'RB987654321CN', exchange: true, current: true },
                 { id: 10, number: 'RB111222333CN', exchange: false, current: false }
-            ]
+            ],
+            returnRequest: { id: 5, status: 'Зарегистрирована', createdAt: null, decisionAt: null, closedAt: null,
+                requiresAction: true, exchangeApproved: false, canStartExchange: true, canCloseWithoutExchange: true },
+            canRegisterReturn: false,
+            requiresAction: true
         };
 
         global.window.trackModal.render(data);
@@ -114,7 +123,10 @@ describe('track-modal render', () => {
             exchange: false,
             chain: [
                 { id: 5, number: 'BY555555555BY', exchange: false, current: true }
-            ]
+            ],
+            returnRequest: null,
+            canRegisterReturn: false,
+            requiresAction: false
         };
 
         global.window.trackModal.render(data);
@@ -123,5 +135,34 @@ describe('track-modal render', () => {
         expect(buttons).toHaveLength(1);
         expect(buttons[0].textContent).not.toContain('обмен');
         expect(buttons[0].getAttribute('aria-current')).toBe('true');
+    });
+
+    test('shows register button when return can be created', () => {
+        setupDom();
+        const data = {
+            id: 7,
+            number: 'RR123',
+            deliveryService: 'Belpost',
+            systemStatus: 'Вручена',
+            history: [],
+            refreshAllowed: false,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: 12,
+            exchange: false,
+            chain: [
+                { id: 7, number: 'RR123', exchange: false, current: true }
+            ],
+            returnRequest: null,
+            canRegisterReturn: true,
+            requiresAction: false
+        };
+
+        global.window.trackModal.render(data);
+
+        const button = document.querySelector('button.btn-outline-warning');
+        expect(button).not.toBeNull();
+        expect(button?.textContent).toContain('Зарегистрировать возврат');
     });
 });

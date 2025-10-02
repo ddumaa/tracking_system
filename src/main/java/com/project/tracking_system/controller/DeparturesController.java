@@ -12,6 +12,7 @@ import com.project.tracking_system.service.track.TrackFacade;
 
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.UserService;
+import com.project.tracking_system.service.order.OrderReturnRequestService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -26,7 +27,9 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import com.project.tracking_system.utils.PaginationItem;
 import com.project.tracking_system.utils.PaginationUtils;
@@ -54,6 +57,7 @@ public class DeparturesController {
     private final StoreService storeService;
     private final WebSocketController webSocketController;
     private final UserService userService;
+    private final OrderReturnRequestService orderReturnRequestService;
 
     /**
      * Максимальное количество ссылок пагинации, отображаемых одновременно.
@@ -132,10 +136,14 @@ public class DeparturesController {
             paginationWindow = PaginationUtils.calculateWindow(paginationWindow.currentPage(), totalPages, PAGE_WINDOW);
         }
 
+        // Отмечаем посылки, требующие действий по возвратам/обменам
+        Set<Long> actionRequired = new HashSet<>(orderReturnRequestService.findParcelsRequiringAction(userId));
+
         // Добавляем иконки в DTO перед передачей в шаблон
         trackParcelPage.forEach(dto -> {
             GlobalStatus statusEnum = GlobalStatus.fromDescription(dto.getStatus()); // Конвертация строки в Enum
             dto.setIconHtml(statusTrackService.getIcon(statusEnum)); // Передаем Enum в сервис для получения иконки
+            dto.setRequiresAction(actionRequired.contains(dto.getId()));
         });
 
         log.debug("Передача атрибутов в модель: stores={}, storeId={}, trackParcelDTO={}, currentPage={}, totalPages={}, size={}",
@@ -160,6 +168,7 @@ public class DeparturesController {
                 new BulkUpdateButtonDTO(userService.isShowBulkUpdateButton(user.getId())));
         // Передаём текущий порядок сортировки во вью, чтобы отобразить правильную стрелку на кнопке
         model.addAttribute("sortOrder", sortOrder);
+        model.addAttribute("actionRequiredCount", actionRequired.size());
 
         return "app/departures";
     }

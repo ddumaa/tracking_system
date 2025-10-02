@@ -19,6 +19,9 @@ import java.util.List;
  * @param episodeNumber  номер эпизода заказа, к которому относится посылка
  * @param exchange       признак оформления посылки как обмена
  * @param chain          цепочка связанных посылок в рамках эпизода
+ * @param returnRequest  текущая заявка на возврат/обмен
+ * @param canRegisterReturn признак доступности регистрации новой заявки
+ * @param requiresAction признак наличия незавершённых действий по посылке
  */
 public record TrackDetailsDto(Long id,
                               String number,
@@ -33,5 +36,8 @@ public record TrackDetailsDto(Long id,
                               String timeZone,
                               Long episodeNumber,
                               boolean exchange,
-                              List<TrackChainItemDto> chain) {
+                              List<TrackChainItemDto> chain,
+                              OrderReturnRequestDto returnRequest,
+                              boolean canRegisterReturn,
+                              boolean requiresAction) {
 }
