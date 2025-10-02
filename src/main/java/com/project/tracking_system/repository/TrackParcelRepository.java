@@ -146,7 +146,7 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
      *
      * @return список посылок
      */
-    @Query("SELECT t FROM TrackParcel t JOIN FETCH t.store JOIN FETCH t.user")
+    @Query("SELECT t FROM TrackParcel t JOIN FETCH t.store JOIN FETCH t.user JOIN FETCH t.episode")
     List<TrackParcel> findAllWithStoreAndUser();
 
     /**
@@ -155,7 +155,7 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
      * @param pageable настройки пагинации
      * @return страница посылок
      */
-    @Query(value = "SELECT t FROM TrackParcel t JOIN FETCH t.store JOIN FETCH t.user",
+    @Query(value = "SELECT t FROM TrackParcel t JOIN FETCH t.store JOIN FETCH t.user JOIN FETCH t.episode",
            countQuery = "SELECT count(t) FROM TrackParcel t")
     Page<TrackParcel> findAllWithStoreAndUser(Pageable pageable);
 
@@ -169,7 +169,13 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
      * @param number номер посылки
      * @return посылка или {@code null}, если не найдена
      */
-    @Query("SELECT t FROM TrackParcel t JOIN FETCH t.store JOIN FETCH t.user WHERE t.number = :number AND t.number IS NOT NULL")
+    @Query("""
+            SELECT t FROM TrackParcel t
+            JOIN FETCH t.store
+            JOIN FETCH t.user
+            JOIN FETCH t.episode
+            WHERE t.number = :number AND t.number IS NOT NULL
+            """)
     TrackParcel findByNumberWithStoreAndUser(@Param("number") String number);
 
     /**
@@ -178,7 +184,7 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
      * @param id идентификатор посылки
      * @return посылка или {@code null}, если не найдена
      */
-    @Query("SELECT t FROM TrackParcel t JOIN FETCH t.store JOIN FETCH t.user WHERE t.id = :id")
+    @Query("SELECT t FROM TrackParcel t JOIN FETCH t.store JOIN FETCH t.user JOIN FETCH t.episode WHERE t.id = :id")
     TrackParcel findByIdWithStoreAndUser(@Param("id") Long id);
 
     /**

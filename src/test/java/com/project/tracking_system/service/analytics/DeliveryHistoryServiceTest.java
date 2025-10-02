@@ -11,11 +11,13 @@ import com.project.tracking_system.service.customer.CustomerStatsService;
 import com.project.tracking_system.service.track.StatusTrackService;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.project.tracking_system.service.order.OrderEpisodeLifecycleService;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
@@ -67,9 +69,32 @@ class DeliveryHistoryServiceTest {
     private SubscriptionService subscriptionService;
     @Mock
     private DeliveryMetricsRollbackService deliveryMetricsRollbackService;
+    @Mock
+    private OrderEpisodeLifecycleService orderEpisodeLifecycleService;
 
     @InjectMocks
     private DeliveryHistoryService deliveryHistoryService;
+
+    @BeforeEach
+    void setupEpisodes() {
+        doAnswer(invocation -> {
+            TrackParcel parcel = invocation.getArgument(0);
+            OrderEpisode episode = parcel.getEpisode();
+            if (episode == null) {
+                episode = new OrderEpisode();
+                parcel.setEpisode(episode);
+            }
+            return episode;
+        }).when(orderEpisodeLifecycleService).ensureEpisode(any());
+
+        doAnswer(invocation -> {
+            TrackParcel parcel = invocation.getArgument(0);
+            if (parcel.getEpisode() == null) {
+                parcel.setEpisode(new OrderEpisode());
+            }
+            return null;
+        }).when(orderEpisodeLifecycleService).syncEpisodeCustomer(any());
+    }
 
     /**
      * Проверяет, что метод не выбрасывает исключение,

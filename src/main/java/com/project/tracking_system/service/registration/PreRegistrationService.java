@@ -5,6 +5,7 @@ import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.entity.OrderEpisode;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.UserRepository;
 import com.project.tracking_system.service.store.StoreService;
@@ -12,6 +13,7 @@ import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.service.track.PreRegistrationMeta;
 import com.project.tracking_system.service.track.TrackTypeDetector;
 import com.project.tracking_system.entity.PostalServiceType;
+import com.project.tracking_system.service.order.OrderEpisodeLifecycleService;
 import com.project.tracking_system.utils.PhoneUtils;
 import com.project.tracking_system.utils.TrackNumberUtils;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +42,8 @@ public class PreRegistrationService {
     private final CustomerService customerService;
     /** Определение почтового сервиса по номеру трека. */
     private final TrackTypeDetector trackTypeDetector;
+    /** Управление жизненным циклом эпизодов заказа. */
+    private final OrderEpisodeLifecycleService orderEpisodeLifecycleService;
 
     /**
      * Выполняет предрегистрацию номера и сохраняет базовые данные о посылке.
@@ -76,21 +80,7 @@ public class PreRegistrationService {
         Store store = loadStore(storeId, userId);
         User user = loadUser(userId);
 
-        TrackParcel parcel = buildPreRegisteredParcel(normalized, store, user);
-
-        // Привязываем покупателя, если указан телефон
-        if (phone != null && !phone.isBlank()) {
-            try {
-                Customer customer = customerService.registerOrGetByPhone(phone);
-                parcel.setCustomer(customer);
-            } catch (ResponseStatusException ex) {
-                // Логируем и пробрасываем далее, чтобы клиент получил ответ 400
-                log.warn("Не удалось зарегистрировать покупателя по телефону {}: {}",
-                        PhoneUtils.maskPhone(phone), ex.getReason());
-                throw ex;
-            }
-        }
-        // Определяем тип почтового сервиса
+        // Определяем тип почтового сервиса до создания эпизода, чтобы не порождать лишних записей
         PreRegistrationMeta meta = new PreRegistrationMeta(normalized, storeId, phone);
         PostalServiceType type = trackTypeDetector.detect(meta);
         if (normalized != null && type == PostalServiceType.UNKNOWN) {
@@ -98,7 +88,13 @@ public class PreRegistrationService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Не удалось определить сервис для трека");
         }
 
+        Customer customer = resolveCustomerByPhone(phone);
+        OrderEpisode episode = orderEpisodeLifecycleService.createEpisode(store, customer);
+
+        TrackParcel parcel = buildPreRegisteredParcel(normalized, store, user, customer, episode);
+
         TrackParcel saved = trackParcelRepository.save(parcel);
+        orderEpisodeLifecycleService.syncEpisodeCustomer(saved);
         // Обновляем статистику покупателя
         customerService.updateStatsOnTrackAdd(saved);
         log.debug("Предрегистрация посылки ID={} выполнена", saved.getId());
@@ -132,12 +128,39 @@ public class PreRegistrationService {
     /**
      * Формирует сущность посылки со статусом предрегистрации.
      */
-    private TrackParcel buildPreRegisteredParcel(String number, Store store, User user) {
+    private TrackParcel buildPreRegisteredParcel(String number,
+                                                 Store store,
+                                                 User user,
+                                                 Customer customer,
+                                                 OrderEpisode episode) {
         TrackParcel parcel = new TrackParcel();
         parcel.setStatus(GlobalStatus.PRE_REGISTERED); // флаг preRegistered выставится автоматически
         parcel.setNumber(number);
         parcel.setStore(store);
         parcel.setUser(user);
+        parcel.setCustomer(customer);
+        parcel.setEpisode(episode);
+        parcel.setExchange(false);
+        parcel.setReplacementOf(null);
         return parcel;
+    }
+
+    /**
+     * Находит либо создаёт покупателя по номеру телефона.
+     *
+     * @param phone телефон в произвольном формате
+     * @return покупатель либо {@code null}, если телефон не указан
+     */
+    private Customer resolveCustomerByPhone(String phone) {
+        if (phone == null || phone.isBlank()) {
+            return null;
+        }
+        try {
+            return customerService.registerOrGetByPhone(phone);
+        } catch (ResponseStatusException ex) {
+            log.warn("Не удалось зарегистрировать покупателя по телефону {}: {}",
+                    PhoneUtils.maskPhone(phone), ex.getReason());
+            throw ex;
+        }
     }
 }

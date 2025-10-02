@@ -9,6 +9,7 @@ import com.project.tracking_system.service.analytics.DeliveryHistoryService;
 import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.service.customer.CustomerStatsService;
 import com.project.tracking_system.service.user.UserService;
+import com.project.tracking_system.service.order.OrderEpisodeLifecycleService;
 import com.project.tracking_system.utils.DateParserUtils;
 import com.project.tracking_system.utils.PhoneUtils;
 import com.project.tracking_system.utils.TrackNumberUtils;
@@ -44,6 +45,7 @@ public class TrackProcessingService {
     private final TrackParcelRepository trackParcelRepository;
     private final TrackStatisticsUpdater trackStatisticsUpdater;
     private final TrackStatusEventService trackStatusEventService;
+    private final OrderEpisodeLifecycleService orderEpisodeLifecycleService;
 
 
     /**
@@ -170,6 +172,8 @@ public class TrackProcessingService {
             trackParcel.setNumber(number);
             trackParcel.setStore(store);
             trackParcel.setUser(user);
+            trackParcel.setExchange(false);
+            trackParcel.setReplacementOf(null);
             log.debug("Создан новый трек");
 
         } else {
@@ -209,7 +213,7 @@ public class TrackProcessingService {
 
         // Привязываем покупателя, если указан телефон
         Customer previousCustomer = trackParcel.getCustomer();
-        Customer customer = null;
+        Customer customer = previousCustomer;
         if (phone != null && !phone.isBlank()) {
             try {
                 customer = customerService.registerOrGetByPhone(phone);
@@ -221,6 +225,8 @@ public class TrackProcessingService {
                 throw ex;
             }
         }
+
+        orderEpisodeLifecycleService.syncEpisodeCustomer(trackParcel);
 
         trackParcelRepository.save(trackParcel);
 
@@ -239,6 +245,7 @@ public class TrackProcessingService {
             customer = customerStatsService.incrementSent(customer);
             // Переназначаем ссылку, чтобы трек указывал на актуальную сущность
             trackParcel.setCustomer(customer);
+            orderEpisodeLifecycleService.syncEpisodeCustomer(trackParcel);
         }
 
         trackStatisticsUpdater.updateStatistics(trackParcel, isNewParcel, previousStoreId, previousDate);

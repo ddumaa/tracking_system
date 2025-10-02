@@ -10,6 +10,8 @@ import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.service.track.TrackTypeDetector;
 import com.project.tracking_system.entity.PostalServiceType;
+import com.project.tracking_system.entity.OrderEpisode;
+import com.project.tracking_system.service.order.OrderEpisodeLifecycleService;
 import org.springframework.web.server.ResponseStatusException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,12 +46,22 @@ class PreRegistrationServiceTest {
     private CustomerService customerService;
     @Mock
     private TrackTypeDetector trackTypeDetector;
+    @Mock
+    private OrderEpisodeLifecycleService orderEpisodeLifecycleService;
 
     private PreRegistrationService service;
 
     @BeforeEach
     void setUp() {
-        service = new PreRegistrationService(trackParcelRepository, userRepository, storeService, customerService, trackTypeDetector);
+        service = new PreRegistrationService(trackParcelRepository, userRepository, storeService, customerService, trackTypeDetector, orderEpisodeLifecycleService);
+        when(orderEpisodeLifecycleService.createEpisode(any(), any())).thenReturn(new OrderEpisode());
+        doAnswer(invocation -> {
+            TrackParcel parcel = invocation.getArgument(0);
+            if (parcel.getEpisode() == null) {
+                parcel.setEpisode(new OrderEpisode());
+            }
+            return null;
+        }).when(orderEpisodeLifecycleService).syncEpisodeCustomer(any());
     }
 
     /**
@@ -99,6 +111,7 @@ class PreRegistrationServiceTest {
         TrackParcel result = service.preRegister(null, storeId, userId, phone);
 
         verify(customerService).registerOrGetByPhone(phone);
+        verify(orderEpisodeLifecycleService).createEpisode(store, customer);
         verify(customerService).updateStatsOnTrackAdd(result);
         assertNull(result.getNumber());
         assertEquals(customer, result.getCustomer());

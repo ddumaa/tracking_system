@@ -15,6 +15,7 @@ import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.service.customer.CustomerStatsService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.track.TrackStatusEventService;
+import com.project.tracking_system.service.order.OrderEpisodeLifecycleService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -61,6 +62,8 @@ class TrackProcessingServiceTest {
     private TrackStatisticsUpdater trackStatisticsUpdater;
     @Mock
     private TrackStatusEventService trackStatusEventService;
+    @Mock
+    private OrderEpisodeLifecycleService orderEpisodeLifecycleService;
 
     private TrackProcessingService trackProcessingService;
 
@@ -78,8 +81,16 @@ class TrackProcessingServiceTest {
                 userRepository,
                 trackParcelRepository,
                 trackStatisticsUpdater,
-                trackStatusEventService
+                trackStatusEventService,
+                orderEpisodeLifecycleService
         );
+        doAnswer(invocation -> {
+            TrackParcel parcel = invocation.getArgument(0);
+            if (parcel.getEpisode() == null) {
+                parcel.setEpisode(new com.project.tracking_system.entity.OrderEpisode());
+            }
+            return null;
+        }).when(orderEpisodeLifecycleService).syncEpisodeCustomer(any());
     }
 
     /**
@@ -96,6 +107,7 @@ class TrackProcessingServiceTest {
         Store store = new Store();
         store.setId(1L);
         parcel.setStore(store);
+        parcel.setEpisode(new com.project.tracking_system.entity.OrderEpisode());
         ZonedDateTime previousUpdate = ZonedDateTime.now(ZoneOffset.UTC).minusHours(3);
         parcel.setLastUpdate(previousUpdate);
         when(trackParcelRepository.findByNumberAndUserId("AB123", 5L)).thenReturn(parcel);
@@ -126,6 +138,7 @@ class TrackProcessingServiceTest {
         Store store = new Store();
         store.setId(1L);
         parcel.setStore(store);
+        parcel.setEpisode(new com.project.tracking_system.entity.OrderEpisode());
         when(trackParcelRepository.findByNumberAndUserId("AB123", 5L)).thenReturn(parcel);
 
         TrackInfoDTO dto = new TrackInfoDTO("07.01.2025, 12:00", "Вручено");
