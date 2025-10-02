@@ -68,6 +68,26 @@ public class TrackParcel {
     @JoinColumn(name = "customer_id")
     private Customer customer;
 
+    /**
+     * Эпизод заказа, к которому относится посылка.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "episode_id", nullable = false)
+    private OrderEpisode episode;
+
+    /**
+     * Признак того, что посылка оформлена как обмен.
+     */
+    @Column(name = "exchange", nullable = false)
+    private boolean exchange = false;
+
+    /**
+     * Исходная посылка, на которую оформлен обмен.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "replacement_of_id")
+    private TrackParcel replacementOf;
+
     @OneToOne(mappedBy = "trackParcel", cascade = {}, orphanRemoval = false)
     private DeliveryHistory deliveryHistory;
 

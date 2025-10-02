@@ -17,12 +17,14 @@ import com.project.tracking_system.repository.StoreDailyStatisticsRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.service.customer.CustomerStatsService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.project.tracking_system.service.order.OrderEpisodeLifecycleService;
 
 import java.math.BigDecimal;
 import java.time.ZoneOffset;
@@ -60,9 +62,22 @@ class DeliveryMetricsRollbackServiceTest {
     private CustomerService customerService;
     @Mock
     private CustomerStatsService customerStatsService;
+    @Mock
+    private OrderEpisodeLifecycleService orderEpisodeLifecycleService;
 
     @InjectMocks
     private DeliveryMetricsRollbackService deliveryMetricsRollbackService;
+
+    @BeforeEach
+    void configureEpisodes() {
+        doAnswer(invocation -> {
+            TrackParcel parcel = invocation.getArgument(0);
+            if (parcel.getEpisode() == null) {
+                parcel.setEpisode(new OrderEpisode());
+            }
+            return null;
+        }).when(orderEpisodeLifecycleService).syncEpisodeCustomer(any());
+    }
 
     @Test
     void rollbackFinalStatusMetrics_DeliveredStatus_UpdatesAggregatesAndCounters() {

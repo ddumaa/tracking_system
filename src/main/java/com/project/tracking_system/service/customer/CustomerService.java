@@ -11,6 +11,7 @@ import com.project.tracking_system.service.customer.CustomerNameEventService;
 import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.utils.NameUtils;
 import com.project.tracking_system.utils.PhoneUtils;
+import com.project.tracking_system.service.order.OrderEpisodeLifecycleService;
 import org.springframework.beans.factory.annotation.Value;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +47,7 @@ public class CustomerService {
     private final SubscriptionService subscriptionService;
     private final UserSettingsService userSettingsService;
     private final CustomerNameEventService customerNameEventService;
+    private final OrderEpisodeLifecycleService orderEpisodeLifecycleService;
     /** Клиент Telegram для отправки уведомлений. */
     private final TelegramClient telegramClient;
 
@@ -376,6 +378,7 @@ public class CustomerService {
 
         // Привязываем нового покупателя и сохраняем изменения
         parcel.setCustomer(newCustomer);
+        orderEpisodeLifecycleService.syncEpisodeCustomer(parcel);
         trackParcelRepository.save(parcel);
 
         // Отсоединяем исходный экземпляр, чтобы его старые данные не сохранялись
@@ -392,6 +395,7 @@ public class CustomerService {
         }
         // Подменяем ссылку у посылки на актуальную сущность и отсоединяем её
         parcel.setCustomer(newCustomer);
+        orderEpisodeLifecycleService.syncEpisodeCustomer(parcel);
         entityManager.detach(newCustomer);
 
         log.debug("📈 Статистика покупателя ID={} обновлена после привязки посылки ID={}",

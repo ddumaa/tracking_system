@@ -20,6 +20,7 @@ import com.project.tracking_system.model.subscription.FeatureKey;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.entity.CustomerNotificationLog;
 import com.project.tracking_system.entity.NotificationType;
+import com.project.tracking_system.service.order.OrderEpisodeLifecycleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -61,6 +62,7 @@ public class DeliveryHistoryService {
     private final CustomerNotificationLogRepository customerNotificationLogRepository;
     private final SubscriptionService subscriptionService;
     private final DeliveryMetricsRollbackService deliveryMetricsRollbackService;
+    private final OrderEpisodeLifecycleService orderEpisodeLifecycleService;
 
 
     /**
@@ -104,6 +106,8 @@ public class DeliveryHistoryService {
                     return new DeliveryHistory(trackParcel, trackParcel.getStore(), serviceType, null, null, null);
                 });
 
+        orderEpisodeLifecycleService.ensureEpisode(trackParcel);
+
         //  Если статус НЕ изменился — ничего не делаем
         if (oldStatus == null || !newStatus.equals(oldStatus)) {
             if (newStatus == GlobalStatus.PRE_REGISTERED) {
@@ -118,6 +122,7 @@ public class DeliveryHistoryService {
 
         if (oldStatus != null && oldStatus.isFinal() && (newStatus == null || !newStatus.isFinal())) {
             deliveryMetricsRollbackService.rollbackFinalStatusMetrics(history, trackParcel, oldStatus);
+            orderEpisodeLifecycleService.reopenEpisode(trackParcel);
         }
 
         //  Определяем часовой пояс пользователя и извлекаем даты из трека
@@ -444,10 +449,12 @@ public class DeliveryHistoryService {
             // Инкрементируем показатели получения для нового покупателя
             customer = customerStatsService.incrementPickedUp(customer);
             trackParcel.setCustomer(customer);
+            orderEpisodeLifecycleService.syncEpisodeCustomer(trackParcel);
         } else if (status == GlobalStatus.RETURNED && customer != null && (!alreadyRegistered || customerChanged)) {
             // Инкрементируем показатели возвратов для нового покупателя
             customer = customerStatsService.incrementReturned(customer);
             trackParcel.setCustomer(customer);
+            orderEpisodeLifecycleService.syncEpisodeCustomer(trackParcel);
         }
 
         // Устанавливаем флаг только при первом учёте
@@ -455,6 +462,8 @@ public class DeliveryHistoryService {
             trackParcel.setIncludedInStatistics(true);
             trackParcelRepository.save(trackParcel);
         }
+
+        orderEpisodeLifecycleService.registerFinalOutcome(trackParcel, status);
 
         log.info("📊 Обновлена накопительная статистика по магазину: {}", store.getName());
     }

@@ -17,6 +17,7 @@ import com.project.tracking_system.repository.StoreDailyStatisticsRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.service.customer.CustomerStatsService;
+import com.project.tracking_system.service.order.OrderEpisodeLifecycleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -43,6 +44,7 @@ public class DeliveryMetricsRollbackService {
     private final TrackParcelRepository trackParcelRepository;
     private final CustomerService customerService;
     private final CustomerStatsService customerStatsService;
+    private final OrderEpisodeLifecycleService orderEpisodeLifecycleService;
 
     /**
      * Выполняет полный откат финального статуса, возвращая все связанные показатели к состоянию до учёта.
@@ -367,6 +369,7 @@ public class DeliveryMetricsRollbackService {
             Customer refreshed = customerStatsService.incrementSent(customer);
             if (refreshed != null) {
                 trackParcel.setCustomer(refreshed);
+                orderEpisodeLifecycleService.syncEpisodeCustomer(trackParcel);
             }
         }
     }
