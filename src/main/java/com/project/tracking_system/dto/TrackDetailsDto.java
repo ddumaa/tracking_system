@@ -16,6 +16,9 @@ import java.util.List;
  * @param nextRefreshAt  момент следующей попытки обновления (ISO-строка или {@code null})
  * @param canEditTrack   доступно ли редактирование трека пользователю
  * @param timeZone       предпочтительный часовой пояс пользователя
+ * @param episodeNumber  номер эпизода заказа, к которому относится посылка
+ * @param exchange       признак оформления посылки как обмена
+ * @param chain          цепочка связанных посылок в рамках эпизода
  */
 public record TrackDetailsDto(Long id,
                               String number,
@@ -27,6 +30,8 @@ public record TrackDetailsDto(Long id,
                               boolean refreshAllowed,
                               String nextRefreshAt,
                               boolean canEditTrack,
-                              String timeZone) {
+                              String timeZone,
+                              Long episodeNumber,
+                              boolean exchange,
+                              List<TrackChainItemDto> chain) {
 }
-

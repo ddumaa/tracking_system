@@ -5,9 +5,12 @@
   "scripts": {
     "build:css": "sass --no-source-map src/main/resources/assets/scss/main.scss src/main/resources/static/css/style.css",
     "watch:css": "sass --watch src/main/resources/assets/scss/main.scss src/main/resources/static/css/style.css",
+    "test": "jest",
     "start": "npm run watch:css"
   },
   "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
     "sass": "^1.83.4"
   }
 }

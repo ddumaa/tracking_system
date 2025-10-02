@@ -1,9 +1,11 @@
 package com.project.tracking_system.service.track;
 
+import com.project.tracking_system.dto.TrackChainItemDto;
 import com.project.tracking_system.dto.TrackDetailsDto;
 import com.project.tracking_system.dto.TrackStatusEventDto;
 import com.project.tracking_system.entity.DeliveryHistory;
 import com.project.tracking_system.entity.GlobalStatus;
+import com.project.tracking_system.entity.OrderEpisode;
 import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.TrackStatusEvent;
@@ -21,6 +23,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -80,6 +83,11 @@ public class TrackViewService {
                 .map(moment -> formatTimestamp(moment, userZone))
                 .orElse(null);
 
+        Long episodeNumber = Optional.ofNullable(parcel.getEpisode())
+                .map(OrderEpisode::getId)
+                .orElse(null);
+        List<TrackChainItemDto> chain = buildChain(parcel, userId);
+
         return new TrackDetailsDto(
                 parcel.getId(),
                 parcel.getNumber(),
@@ -91,8 +99,75 @@ public class TrackViewService {
                 refreshAllowed,
                 nextRefreshAt,
                 canEditTrack,
-                userZone.getId()
+                userZone.getId(),
+                episodeNumber,
+                parcel.isExchange(),
+                chain
         );
+    }
+
+    /**
+     * Формирует цепочку посылок в рамках эпизода заказа.
+     * <p>
+     * Метод запрашивает все посылки эпизода у {@link TrackParcelService},
+     * фильтрует по принадлежности пользователю и помечает текущую запись,
+     * чтобы фронтенд отобразил навигацию по связанным трекам. Если сервис
+     * вернул пустой список, метод гарантированно добавляет текущую посылку
+     * в цепочку, сохраняя целостность интерфейса.
+     * </p>
+     *
+     * @param parcel исходная посылка
+     * @param userId идентификатор пользователя
+     * @return список элементов цепочки в порядке их создания
+     */
+    private List<TrackChainItemDto> buildChain(TrackParcel parcel, Long userId) {
+        OrderEpisode episode = parcel.getEpisode();
+        if (episode == null || episode.getId() == null) {
+            return List.of(new TrackChainItemDto(
+                    parcel.getId(),
+                    parcel.getNumber(),
+                    parcel.isExchange(),
+                    true
+            ));
+        }
+
+        List<TrackParcel> episodeParcels = Optional.ofNullable(
+                trackParcelService.findEpisodeParcels(episode.getId(), userId))
+                .orElse(List.of());
+
+        if (episodeParcels.isEmpty()) {
+            return List.of(new TrackChainItemDto(
+                    parcel.getId(),
+                    parcel.getNumber(),
+                    parcel.isExchange(),
+                    true
+            ));
+        }
+
+        boolean containsCurrent = episodeParcels.stream()
+                .anyMatch(item -> item.getId().equals(parcel.getId()));
+
+        List<TrackChainItemDto> mapped = episodeParcels.stream()
+                .map(item -> new TrackChainItemDto(
+                        item.getId(),
+                        item.getNumber(),
+                        item.isExchange(),
+                        item.getId().equals(parcel.getId())
+                ))
+                .toList();
+
+        if (containsCurrent) {
+            return mapped;
+        }
+
+        ArrayList<TrackChainItemDto> augmented = new ArrayList<>(mapped);
+        augmented.add(new TrackChainItemDto(
+                parcel.getId(),
+                parcel.getNumber(),
+                parcel.isExchange(),
+                true
+        ));
+        return augmented;
     }
 
     /**

@@ -71,6 +71,26 @@ public class TrackParcelService {
     }
 
     /**
+     * Возвращает все посылки пользователя в рамках указанного эпизода.
+     * <p>
+     * Метод инкапсулирует доступ к репозиторию и гарантирует, что в
+     * результирующий список попадут только посылки владельца, что
+     * упрощает повторное использование логики формирования цепочек (SRP).
+     * </p>
+     *
+     * @param episodeId идентификатор эпизода заказа
+     * @param userId    идентификатор пользователя
+     * @return отсортированный список посылок эпизода или пустой список
+     */
+    @Transactional(readOnly = true)
+    public List<TrackParcel> findEpisodeParcels(Long episodeId, Long userId) {
+        if (episodeId == null || userId == null) {
+            return List.of();
+        }
+        return trackParcelRepository.findByEpisodeIdAndUserIdOrderByTimestampAsc(episodeId, userId);
+    }
+
+    /**
      * Проверяет, принадлежит ли посылка пользователю.
      *
      * @param itemNumber номер посылки
