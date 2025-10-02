@@ -1,5 +1,6 @@
 package com.project.tracking_system.entity;
 
+import com.project.tracking_system.entity.converter.OrderEpisodeStateConverter;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -44,8 +45,12 @@ public class OrderEpisode {
 
     /**
      * Состояние эпизода. Для открытых эпизодов хранится значение {@link OrderEpisodeState#OPEN}.
+     * <p>
+     * Значение преобразуется через {@link OrderEpisodeStateConverter}, чтобы поддерживать чтение
+     * исторических данных, сохранённых со старыми литералами.
+     * </p>
      */
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = OrderEpisodeStateConverter.class)
     @Column(name = "final_outcome")
     private OrderEpisodeState episodeState = OrderEpisodeState.OPEN;
 
