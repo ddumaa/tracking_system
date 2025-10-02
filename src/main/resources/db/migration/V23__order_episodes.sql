@@ -73,4 +73,7 @@ ALTER TABLE tb_track_parcels
     ALTER COLUMN episode_id SET NOT NULL;
 
 ALTER TABLE tb_order_episodes
+    DROP CONSTRAINT tb_order_episodes_legacy_parcel_id_key;
+
+ALTER TABLE tb_order_episodes
     DROP COLUMN legacy_parcel_id;
