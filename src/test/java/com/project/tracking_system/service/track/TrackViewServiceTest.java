@@ -4,6 +4,7 @@ import com.project.tracking_system.dto.TrackDetailsDto;
 import com.project.tracking_system.dto.TrackStatusEventDto;
 import com.project.tracking_system.entity.DeliveryHistory;
 import com.project.tracking_system.entity.GlobalStatus;
+import com.project.tracking_system.entity.OrderEpisode;
 import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.TrackParcel;
@@ -20,6 +21,8 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -58,6 +61,7 @@ class TrackViewServiceTest {
         ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
         TrackParcel parcel = buildParcel(10L, GlobalStatus.IN_TRANSIT, now.minusHours(5));
         when(trackParcelService.findOwnedById(10L, 1L)).thenReturn(Optional.of(parcel));
+        stubEpisodeParcels(parcel, 1L);
         when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(3);
         when(userService.getUserZone(1L)).thenReturn(ZoneId.of("UTC"));
 
@@ -86,6 +90,7 @@ class TrackViewServiceTest {
         parcel.setDeliveryHistory(deliveryHistory);
 
         when(trackParcelService.findOwnedById(20L, 2L)).thenReturn(Optional.of(parcel));
+        stubEpisodeParcels(parcel, 2L);
         when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(6);
         when(userService.getUserZone(2L)).thenReturn(ZoneId.of("UTC"));
         when(trackStatusEventService.findEvents(20L)).thenReturn(List.of());
@@ -110,6 +115,7 @@ class TrackViewServiceTest {
         parcel.setTimestamp(null);
 
         when(trackParcelService.findOwnedById(25L, 5L)).thenReturn(Optional.of(parcel));
+        stubEpisodeParcels(parcel, 5L);
         when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(12);
         when(userService.getUserZone(5L)).thenReturn(ZoneId.of("UTC"));
         when(trackStatusEventService.findEvents(25L)).thenReturn(List.of());
@@ -130,6 +136,7 @@ class TrackViewServiceTest {
         ZonedDateTime lastUpdate = ZonedDateTime.now(ZoneOffset.UTC).minusHours(1);
         TrackParcel parcel = buildParcel(30L, GlobalStatus.DELIVERED, lastUpdate);
         when(trackParcelService.findOwnedById(30L, 3L)).thenReturn(Optional.of(parcel));
+        stubEpisodeParcels(parcel, 3L);
         when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(4);
         when(userService.getUserZone(3L)).thenReturn(ZoneId.of("UTC"));
         when(trackStatusEventService.findEvents(30L)).thenReturn(List.of());
@@ -147,6 +154,7 @@ class TrackViewServiceTest {
     void getTrackDetails_DisablesEditForTransitStatus() {
         TrackParcel parcel = buildParcel(42L, GlobalStatus.IN_TRANSIT, ZonedDateTime.now(ZoneOffset.UTC));
         when(trackParcelService.findOwnedById(42L, 8L)).thenReturn(Optional.of(parcel));
+        stubEpisodeParcels(parcel, 8L);
         when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(4);
         when(userService.getUserZone(8L)).thenReturn(ZoneId.of("UTC"));
         when(trackStatusEventService.findEvents(42L)).thenReturn(List.of());
@@ -154,6 +162,84 @@ class TrackViewServiceTest {
         TrackDetailsDto details = service.getTrackDetails(42L, 8L);
 
         assertThat(details.canEditTrack()).isFalse();
+    }
+
+    /**
+     * Базовая посылка должна содержать номер эпизода и одиночную цепочку.
+     */
+    @Test
+    void getTrackDetails_BaseParcelContainsEpisodeInfo() {
+        ZonedDateTime update = ZonedDateTime.now(ZoneOffset.UTC).minusHours(2);
+        TrackParcel parcel = buildParcel(55L, GlobalStatus.IN_TRANSIT, update);
+        parcel.getEpisode().setId(777L);
+        when(trackParcelService.findOwnedById(55L, 9L)).thenReturn(Optional.of(parcel));
+        stubEpisodeParcels(parcel, 9L);
+        when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(6);
+        when(userService.getUserZone(9L)).thenReturn(ZoneId.of("UTC"));
+        when(trackStatusEventService.findEvents(55L)).thenReturn(List.of());
+
+        TrackDetailsDto details = service.getTrackDetails(55L, 9L);
+
+        assertThat(details.episodeNumber()).isEqualTo(777L);
+        assertThat(details.exchange()).isFalse();
+        assertThat(details.chain())
+                .extracting(item -> List.of(item.id(), item.exchange(), item.current()))
+                .containsExactly(List.of(55L, false, true));
+    }
+
+    /**
+     * Посылка-обмен должна включать исходную посылку в цепочку и пометить текущий элемент.
+     */
+    @Test
+    void getTrackDetails_ExchangeParcelBuildsChain() {
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        TrackParcel original = buildParcel(60L, GlobalStatus.RETURNED, now.minusDays(1));
+        original.setExchange(false);
+        original.getEpisode().setId(900L);
+
+        TrackParcel replacement = buildParcel(61L, GlobalStatus.IN_TRANSIT, now);
+        replacement.setExchange(true);
+        replacement.setEpisode(original.getEpisode());
+
+        when(trackParcelService.findOwnedById(61L, 11L)).thenReturn(Optional.of(replacement));
+        stubEpisodeParcels(replacement, 11L, original);
+        when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(4);
+        when(userService.getUserZone(11L)).thenReturn(ZoneId.of("UTC"));
+        when(trackStatusEventService.findEvents(61L)).thenReturn(List.of());
+
+        TrackDetailsDto details = service.getTrackDetails(61L, 11L);
+
+        assertThat(details.exchange()).isTrue();
+        assertThat(details.chain())
+                .extracting(item -> List.of(item.id(), item.exchange(), item.current()))
+                .containsExactly(
+                        List.of(61L, true, true),
+                        List.of(60L, false, false)
+                );
+    }
+
+    /**
+     * Возврат без обмена формирует одиночную цепочку без признака обмена.
+     */
+    @Test
+    void getTrackDetails_ReturnWithoutExchange() {
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        TrackParcel returned = buildParcel(70L, GlobalStatus.RETURNED, now);
+        returned.setExchange(false);
+        returned.getEpisode().setId(1000L);
+
+        when(trackParcelService.findOwnedById(70L, 13L)).thenReturn(Optional.of(returned));
+        stubEpisodeParcels(returned, 13L);
+        when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(4);
+        when(userService.getUserZone(13L)).thenReturn(ZoneId.of("UTC"));
+        when(trackStatusEventService.findEvents(70L)).thenReturn(List.of());
+
+        TrackDetailsDto details = service.getTrackDetails(70L, 13L);
+
+        assertThat(details.exchange()).isFalse();
+        assertThat(details.chain()).hasSize(1);
+        assertThat(details.chain().get(0).id()).isEqualTo(70L);
+        assertThat(details.chain().get(0).current()).isTrue();
     }
 
     /**
@@ -169,6 +255,9 @@ class TrackViewServiceTest {
         Store store = new Store();
         store.setId(1L);
         parcel.setStore(store);
+        OrderEpisode episode = new OrderEpisode();
+        episode.setId(100L);
+        parcel.setEpisode(episode);
         return parcel;
     }
 
@@ -181,5 +270,16 @@ class TrackViewServiceTest {
         event.setEventTime(time);
         event.setDescription(description);
         return event;
+    }
+
+    /**
+     * Настраивает мок сервиса посылок для возврата цепочки эпизода.
+     */
+    private void stubEpisodeParcels(TrackParcel parcel, Long userId, TrackParcel... additional) {
+        OrderEpisode episode = parcel.getEpisode();
+        List<TrackParcel> chain = new ArrayList<>();
+        chain.add(parcel);
+        chain.addAll(Arrays.asList(additional));
+        when(trackParcelService.findEpisodeParcels(episode.getId(), userId)).thenReturn(chain);
     }
 }

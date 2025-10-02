@@ -161,7 +161,10 @@ public class TrackRefreshService {
                     false,
                     null,
                     details.canEditTrack(),
-                    details.timeZone()
+                    details.timeZone(),
+                    details.episodeNumber(),
+                    details.exchange(),
+                    details.chain()
             );
         }
 
@@ -180,7 +183,10 @@ public class TrackRefreshService {
                 false,
                 formattedNextRefresh,
                 details.canEditTrack(),
-                details.timeZone()
+                details.timeZone(),
+                details.episodeNumber(),
+                details.exchange(),
+                details.chain()
         );
     }
 

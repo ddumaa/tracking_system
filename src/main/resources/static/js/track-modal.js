@@ -186,6 +186,69 @@
     }
 
     /**
+     * Формирует навигацию по связанным трекам эпизода.
+     * Метод создаёт доступную разметку с кнопками переключения, не полагаясь на Bootstrap.
+     * @param {Array<Object>} chainData элементы цепочки
+     * @param {Function} onSelect обработчик выбора другого трека
+     * @returns {HTMLElement|null} контейнер навигации или {@code null}
+     */
+    function createChainNavigation(chainData, onSelect) {
+        if (!Array.isArray(chainData) || chainData.length === 0) {
+            return null;
+        }
+
+        const nav = document.createElement('nav');
+        nav.className = 'mt-3';
+        nav.setAttribute('aria-label', 'Связанные посылки');
+
+        const list = document.createElement('div');
+        list.className = 'd-flex flex-wrap gap-2';
+
+        chainData.forEach((item) => {
+            if (!item || typeof item !== 'object' || item.id === undefined) {
+                return;
+            }
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = item.current
+                ? 'btn btn-primary btn-sm track-chain__item'
+                : 'btn btn-outline-secondary btn-sm track-chain__item';
+            button.dataset.trackId = String(item.id);
+
+            const numberText = item.number ? item.number : 'Без номера';
+            const visualText = item.exchange ? `${numberText} · обмен` : numberText;
+            button.textContent = visualText;
+
+            const ariaParts = [];
+            ariaParts.push(item.number ? `Трек ${item.number}` : 'Трек без номера');
+            if (item.exchange) {
+                ariaParts.push('обмен');
+            }
+            if (item.current) {
+                ariaParts.push('текущий');
+            }
+            button.setAttribute('aria-label', ariaParts.join(', '));
+
+            if (item.current) {
+                button.disabled = true;
+                button.setAttribute('aria-current', 'true');
+            } else if (typeof onSelect === 'function') {
+                button.addEventListener('click', () => onSelect(item));
+            }
+
+            list.appendChild(button);
+        });
+
+        if (!list.hasChildNodes()) {
+            return null;
+        }
+
+        nav.appendChild(list);
+        return nav;
+    }
+
+    /**
      * Отрисовывает содержимое модального окна с деталями трека.
      * Метод собирает карточки интерфейса и обновляет заголовок без сетевых обращений (SRP).
      * @param {Object} data DTO с сервера
@@ -220,6 +283,12 @@
         const trackInfo = document.createElement('div');
         trackInfo.className = 'd-flex flex-column w-100 flex-grow-1';
 
+        const trackTitleRow = document.createElement('div');
+        trackTitleRow.className = 'd-flex align-items-center gap-2 justify-content-between w-100';
+
+        const trackTitleColumn = document.createElement('div');
+        trackTitleColumn.className = 'd-flex align-items-center flex-grow-1';
+
         const trackNumber = document.createElement('div');
         trackNumber.className = 'fs-3 fw-semibold';
         const trackText = data?.number ? data.number : 'Трек не указан';
@@ -228,12 +297,15 @@
             trackNumber.classList.add('text-muted');
         }
 
-        const trackTitleRow = document.createElement('div');
-        trackTitleRow.className = 'd-flex align-items-center gap-2 justify-content-between w-100';
-
-        const trackTitleColumn = document.createElement('div');
-        trackTitleColumn.className = 'd-flex align-items-center flex-grow-1';
         trackTitleColumn.appendChild(trackNumber);
+
+        if (data?.exchange) {
+            const exchangeBadge = document.createElement('span');
+            exchangeBadge.className = 'badge rounded-pill bg-warning-subtle text-warning-emphasis ms-3';
+            exchangeBadge.textContent = 'Обмен';
+            exchangeBadge.setAttribute('aria-label', 'Посылка оформлена как обмен');
+            trackTitleColumn.appendChild(exchangeBadge);
+        }
 
         const trackActions = document.createElement('div');
         trackActions.className = 'd-flex justify-content-end flex-grow-1 gap-2';
@@ -245,7 +317,29 @@
         serviceInfo.textContent = data?.deliveryService || 'Служба доставки не определена';
 
         trackInfo.append(trackTitleRow, serviceInfo);
+
+        if (data?.episodeNumber !== undefined && data.episodeNumber !== null) {
+            const episodeInfo = document.createElement('div');
+            episodeInfo.className = 'text-muted small';
+            episodeInfo.textContent = `Эпизод №${data.episodeNumber}`;
+            episodeInfo.setAttribute('aria-label', `Номер эпизода: ${data.episodeNumber}`);
+            trackInfo.appendChild(episodeInfo);
+        }
         parcelHeader.appendChild(trackInfo);
+
+        parcelCard.body.appendChild(parcelHeader);
+
+        const chainNav = createChainNavigation(
+            Array.isArray(data?.chain) ? data.chain : [],
+            (item) => {
+                if (window.trackModal && typeof window.trackModal.loadModal === 'function') {
+                    window.trackModal.loadModal(item.id);
+                }
+            }
+        );
+        if (chainNav) {
+            parcelCard.body.appendChild(chainNav);
+        }
 
         /**
          * Активирует Bootstrap-тултип для переданного элемента, если библиотека доступна.
@@ -290,7 +384,6 @@
             trackActions.appendChild(editButton);
         }
 
-        parcelCard.body.appendChild(parcelHeader);
         layout.appendChild(parcelCard.card);
 
         const statusCard = createCard('Текущий статус');

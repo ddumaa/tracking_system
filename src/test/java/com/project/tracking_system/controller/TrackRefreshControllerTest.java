@@ -55,7 +55,10 @@ class TrackRefreshControllerTest {
                 false,
                 nextRefreshAt,
                 true,
-                "Europe/Minsk"
+                "Europe/Minsk",
+                15L,
+                false,
+                List.of()
         );
         when(trackRefreshService.refreshTrack(eq(7L), eq(3L))).thenReturn(cooldownDetails);
 
