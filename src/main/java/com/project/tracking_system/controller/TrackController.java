@@ -25,6 +25,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.project.tracking_system.exception.TrackNumberAlreadyExistsException;
 
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.Optional;
 
 import jakarta.validation.Valid;
@@ -128,7 +130,16 @@ public class TrackController {
             throw new AccessDeniedException("Пользователь не авторизован");
         }
         try {
-            orderReturnRequestService.registerReturn(id, user, request.idempotencyKey());
+            ZonedDateTime requestedAt = request.requestedAt().atZoneSameInstant(ZoneOffset.UTC);
+            orderReturnRequestService.registerReturn(
+                    id,
+                    user,
+                    request.idempotencyKey(),
+                    request.reason(),
+                    request.comment(),
+                    requestedAt,
+                    request.reverseTrackNumber()
+            );
             return trackViewService.getTrackDetails(id, user.getId());
         } catch (AccessDeniedException ex) {
             throw ex;
