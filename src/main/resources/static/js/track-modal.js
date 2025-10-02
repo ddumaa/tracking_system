@@ -559,8 +559,12 @@
             return;
         }
         const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/exchange`);
-        renderTrackModal(payload);
-        updateRowRequiresAction(payload);
+        const details = payload?.details ?? payload ?? null;
+        const exchangeItem = payload?.exchange ?? null;
+        renderTrackModal(details, { exchangeItem });
+        if (details) {
+            updateRowRequiresAction(details);
+        }
         updateActionTabCounter();
         notifyUser('Запущен обмен по заявке', 'success');
     }
@@ -665,7 +669,7 @@
      * Метод собирает карточки интерфейса и обновляет заголовок без сетевых обращений (SRP).
      * @param {Object} data DTO с сервера
      */
-    function renderTrackModal(data) {
+    function renderTrackModal(data, options = {}) {
         clearRefreshTimer();
 
         const modal = document.getElementById('infoModal');
@@ -681,6 +685,8 @@
 
         container.replaceChildren();
         container.classList.remove('justify-content-center', 'align-items-center', 'text-muted');
+
+        const exchangeItem = options?.exchangeItem || null;
 
         const layout = document.createElement('div');
         layout.className = 'd-flex flex-column gap-3 w-100';
@@ -838,6 +844,31 @@
             appendDefinitionItem(infoList, 'Трек обратной отправки', returnRequest.reverseTrackNumber || '—');
 
             returnCard.body.appendChild(infoList);
+
+            if (exchangeItem && exchangeItem.id !== undefined) {
+                const exchangeNotice = document.createElement('div');
+                exchangeNotice.className = 'alert alert-info d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3';
+
+                const noticeText = document.createElement('div');
+                noticeText.className = 'mb-0 flex-grow-1';
+                const numberLabel = exchangeItem.number ? `трек ${exchangeItem.number}` : 'трек без номера';
+                noticeText.textContent = `Создана обменная посылка, ${numberLabel}.`;
+
+                const openButton = document.createElement('button');
+                openButton.type = 'button';
+                openButton.className = 'btn btn-outline-primary btn-sm ms-auto';
+                openButton.textContent = 'Открыть';
+                openButton.setAttribute('aria-label', 'Открыть обменную посылку');
+                openButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    if (window.trackModal && typeof window.trackModal.loadModal === 'function') {
+                        window.trackModal.loadModal(exchangeItem.id);
+                    }
+                });
+
+                exchangeNotice.append(noticeText, openButton);
+                returnCard.body.appendChild(exchangeNotice);
+            }
         } else if (data?.canRegisterReturn && trackId !== undefined) {
             const intro = document.createElement('p');
             intro.className = 'text-muted small';

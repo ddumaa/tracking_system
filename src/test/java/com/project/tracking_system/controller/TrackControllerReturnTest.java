@@ -1,8 +1,11 @@
 package com.project.tracking_system.controller;
 
+import com.project.tracking_system.dto.TrackChainItemDto;
 import com.project.tracking_system.dto.TrackDetailsDto;
 import com.project.tracking_system.entity.Role;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.service.order.ExchangeApprovalResult;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.track.TrackViewService;
@@ -131,6 +134,62 @@ class TrackControllerReturnTest {
 
         Mockito.verify(orderReturnRequestService).approveExchange(eq(7L), eq(9L), eq(principal));
         Mockito.verify(trackViewService, Mockito.never()).getTrackDetails(any(), any());
+        Mockito.verify(trackViewService, Mockito.never()).toChainItem(any(), any());
+    }
+
+    @Test
+    void approveExchange_ReturnsDetailsAndExchangeItem() throws Exception {
+        User principal = buildUser();
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                principal,
+                principal.getPassword(),
+                principal.getAuthorities()
+        );
+
+        TrackDetailsDto dto = new TrackDetailsDto(
+                9L,
+                "AB123",
+                "Belpost",
+                "Вручена",
+                null,
+                null,
+                List.of(),
+                true,
+                null,
+                false,
+                "UTC",
+                10L,
+                false,
+                List.of(),
+                null,
+                false,
+                false
+        );
+
+        TrackParcel replacement = new TrackParcel();
+        replacement.setId(33L);
+        replacement.setNumber("EX123");
+        replacement.setExchange(true);
+
+        ExchangeApprovalResult result = new ExchangeApprovalResult(null, replacement);
+
+        when(orderReturnRequestService.approveExchange(eq(7L), eq(9L), eq(principal)))
+                .thenReturn(result);
+        when(trackViewService.getTrackDetails(9L, 1L)).thenReturn(dto);
+        TrackChainItemDto chainItemDto = new TrackChainItemDto(33L, "EX123", true, false);
+        when(trackViewService.toChainItem(replacement, 9L)).thenReturn(chainItemDto);
+
+        mockMvc.perform(post("/api/v1/tracks/9/returns/7/exchange")
+                        .with(authentication(auth))
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.id").value(9L))
+                .andExpect(jsonPath("$.exchange.id").value(33L))
+                .andExpect(jsonPath("$.exchange.exchange").value(true));
+
+        Mockito.verify(orderReturnRequestService).approveExchange(eq(7L), eq(9L), eq(principal));
+        Mockito.verify(trackViewService).getTrackDetails(9L, 1L);
+        Mockito.verify(trackViewService).toChainItem(replacement, 9L);
     }
 
     private User buildUser() {

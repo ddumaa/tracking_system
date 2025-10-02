@@ -220,6 +220,28 @@ public class TrackViewService {
     }
 
     /**
+     * Преобразует посылку в элемент цепочки эпизода.
+     *
+     * @param parcel        посылка, которую нужно представить в цепочке
+     * @param currentParcel идентификатор текущей посылки для вычисления признака выбранности
+     * @return DTO элемента цепочки или {@code null}, если посылка отсутствует
+     */
+    @Transactional(readOnly = true)
+    public TrackChainItemDto toChainItem(TrackParcel parcel, Long currentParcel) {
+        if (parcel == null) {
+            return null;
+        }
+        Long parcelId = parcel.getId();
+        boolean isCurrent = parcelId != null && parcelId.equals(currentParcel);
+        return new TrackChainItemDto(
+                parcelId,
+                parcel.getNumber(),
+                parcel.isExchange(),
+                isCurrent
+        );
+    }
+
+    /**
      * Загружает посылку и проверяет права доступа.
      */
     private TrackParcel loadParcel(Long trackId, Long userId) {

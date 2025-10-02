@@ -45,6 +45,8 @@ class OrderReturnRequestServiceTest {
     private TrackParcelService trackParcelService;
     @Mock
     private OrderEpisodeLifecycleService episodeLifecycleService;
+    @Mock
+    private OrderExchangeService orderExchangeService;
 
     private OrderReturnRequestService service;
 
@@ -52,7 +54,8 @@ class OrderReturnRequestServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new OrderReturnRequestService(repository, trackParcelService, episodeLifecycleService);
+        service = new OrderReturnRequestService(repository, trackParcelService,
+                episodeLifecycleService, orderExchangeService);
         user = new User();
         user.setId(5L);
     }
@@ -130,6 +133,32 @@ class OrderReturnRequestServiceTest {
         assertThatThrownBy(() -> service.approveExchange(200L, 12L, user))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("уже запущен обмен");
+    }
+
+    @Test
+    void approveExchange_CreatesExchangeParcel() {
+        TrackParcel parcel = buildParcel(16L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(500L);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+
+        when(repository.findById(500L)).thenReturn(Optional.of(request));
+        when(repository.existsByEpisode_IdAndStatus(parcel.getEpisode().getId(),
+                OrderReturnRequestStatus.EXCHANGE_APPROVED)).thenReturn(false);
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TrackParcel exchange = buildParcel(99L, GlobalStatus.PRE_REGISTERED);
+        when(orderExchangeService.createExchangeParcel(any(OrderReturnRequest.class))).thenReturn(exchange);
+
+        ExchangeApprovalResult result = service.approveExchange(500L, 16L, user);
+
+        assertThat(result.request().getStatus()).isEqualTo(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        assertThat(result.request().getDecisionBy()).isEqualTo(user);
+        assertThat(result.request().getDecisionAt()).isNotNull();
+        assertThat(result.exchangeParcel()).isEqualTo(exchange);
+        verify(orderExchangeService).createExchangeParcel(request);
     }
 
     @Test

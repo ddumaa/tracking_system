@@ -39,6 +39,7 @@ public class OrderReturnRequestService {
     private final OrderReturnRequestRepository returnRequestRepository;
     private final TrackParcelService trackParcelService;
     private final OrderEpisodeLifecycleService episodeLifecycleService;
+    private final OrderExchangeService orderExchangeService;
 
     /**
      * Регистрирует возврат для посылки, обеспечивая идемпотентность.
@@ -127,10 +128,10 @@ public class OrderReturnRequestService {
      * @param requestId идентификатор заявки
      * @param parcelId  идентификатор посылки
      * @param user      автор решения
-     * @return обновлённая заявка
+     * @return результат с обновлённой заявкой и созданной обменной посылкой
      */
     @Transactional
-    public OrderReturnRequest approveExchange(Long requestId, Long parcelId, User user) {
+    public ExchangeApprovalResult approveExchange(Long requestId, Long parcelId, User user) {
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
 
         if (request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
@@ -150,8 +151,9 @@ public class OrderReturnRequestService {
         request.setDecisionAt(ZonedDateTime.now(ZoneOffset.UTC));
 
         OrderReturnRequest saved = returnRequestRepository.save(request);
+        TrackParcel exchangeParcel = orderExchangeService.createExchangeParcel(saved);
         log.info("Одобрен обмен по заявке {}", saved.getId());
-        return saved;
+        return new ExchangeApprovalResult(saved, exchangeParcel);
     }
 
     /**
