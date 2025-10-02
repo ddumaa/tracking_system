@@ -164,7 +164,10 @@ public class TrackRefreshService {
                     details.timeZone(),
                     details.episodeNumber(),
                     details.exchange(),
-                    details.chain()
+                    details.chain(),
+                    details.returnRequest(),
+                    details.canRegisterReturn(),
+                    details.requiresAction()
             );
         }
 
@@ -186,7 +189,10 @@ public class TrackRefreshService {
                 details.timeZone(),
                 details.episodeNumber(),
                 details.exchange(),
-                details.chain()
+                details.chain(),
+                details.returnRequest(),
+                details.canRegisterReturn(),
+                details.requiresAction()
         );
     }
 

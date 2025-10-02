@@ -30,6 +30,10 @@ public class TrackParcelDTO {
     private String shortCustomerName;
     private String customerPhone;
     private NameSource nameSource;
+    /**
+     * Признак того, что по посылке есть незавершённые задачи (возвраты/обмены).
+     */
+    private boolean requiresAction;
 
     /**
      * Конструктор DTO на основе сущности TrackParcel.
@@ -58,5 +62,6 @@ public class TrackParcelDTO {
             this.customerPhone = customer.getPhone();
             this.nameSource = customer.getNameSource();
         }
+        this.requiresAction = false;
     }
 }

@@ -1,14 +1,18 @@
 package com.project.tracking_system.service.track;
 
+import com.project.tracking_system.dto.OrderReturnRequestDto;
 import com.project.tracking_system.dto.TrackChainItemDto;
 import com.project.tracking_system.dto.TrackDetailsDto;
 import com.project.tracking_system.dto.TrackStatusEventDto;
 import com.project.tracking_system.entity.DeliveryHistory;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderEpisode;
+import com.project.tracking_system.entity.OrderReturnRequest;
+import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.TrackStatusEvent;
+import com.project.tracking_system.service.order.OrderReturnRequestService;
 import com.project.tracking_system.service.admin.ApplicationSettingsService;
 import com.project.tracking_system.service.user.UserService;
 import jakarta.persistence.EntityNotFoundException;
@@ -46,6 +50,7 @@ public class TrackViewService {
     private final TrackStatusEventService trackStatusEventService;
     private final UserService userService;
     private final ApplicationSettingsService applicationSettingsService;
+    private final OrderReturnRequestService orderReturnRequestService;
 
     /**
      * Возвращает DTO с данными о посылке для текущего пользователя.
@@ -88,6 +93,14 @@ public class TrackViewService {
                 .orElse(null);
         List<TrackChainItemDto> chain = buildChain(parcel, userId);
 
+        Optional<OrderReturnRequest> currentRequest = orderReturnRequestService
+                .findCurrentForParcel(parcel.getId());
+        OrderReturnRequestDto requestDto = currentRequest
+                .map(request -> mapReturnRequest(request, userZone))
+                .orElse(null);
+        boolean requiresAction = currentRequest.map(OrderReturnRequest::requiresAction).orElse(false);
+        boolean canRegisterReturn = canRegisterReturn(parcel, currentRequest);
+
         return new TrackDetailsDto(
                 parcel.getId(),
                 parcel.getNumber(),
@@ -102,8 +115,40 @@ public class TrackViewService {
                 userZone.getId(),
                 episodeNumber,
                 parcel.isExchange(),
-                chain
+                chain,
+                requestDto,
+                canRegisterReturn,
+                requiresAction
         );
+    }
+
+    /**
+     * Строит DTO для заявки на возврат/обмен.
+     */
+    private OrderReturnRequestDto mapReturnRequest(OrderReturnRequest request, ZoneId userZone) {
+        boolean canStartExchange = orderReturnRequestService.canStartExchange(request);
+        boolean canCloseWithoutExchange = request.getStatus() == OrderReturnRequestStatus.REGISTERED;
+        return new OrderReturnRequestDto(
+                request.getId(),
+                request.getStatus().getDisplayName(),
+                formatNullableTimestamp(request.getCreatedAt(), userZone),
+                formatNullableTimestamp(request.getDecisionAt(), userZone),
+                formatNullableTimestamp(request.getClosedAt(), userZone),
+                request.requiresAction(),
+                request.isExchangeApproved(),
+                canStartExchange,
+                canCloseWithoutExchange
+        );
+    }
+
+    /**
+     * Проверяет, можно ли зарегистрировать новую заявку на возврат.
+     */
+    private boolean canRegisterReturn(TrackParcel parcel, Optional<OrderReturnRequest> currentRequest) {
+        if (parcel.getStatus() != GlobalStatus.DELIVERED) {
+            return false;
+        }
+        return currentRequest.isEmpty();
     }
 
     /**
@@ -259,6 +304,13 @@ public class TrackViewService {
      */
     private String formatTimestamp(ZonedDateTime moment, ZoneId userZone) {
         return moment.withZoneSameInstant(userZone).format(ISO_FORMATTER);
+    }
+
+    private String formatNullableTimestamp(ZonedDateTime moment, ZoneId userZone) {
+        if (moment == null) {
+            return null;
+        }
+        return formatTimestamp(moment, userZone);
     }
 
     /**

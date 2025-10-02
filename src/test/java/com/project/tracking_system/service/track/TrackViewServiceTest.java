@@ -5,11 +5,14 @@ import com.project.tracking_system.dto.TrackStatusEventDto;
 import com.project.tracking_system.entity.DeliveryHistory;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderEpisode;
+import com.project.tracking_system.entity.OrderReturnRequest;
+import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.TrackStatusEvent;
 import com.project.tracking_system.service.admin.ApplicationSettingsService;
+import com.project.tracking_system.service.order.OrderReturnRequestService;
 import com.project.tracking_system.service.user.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +30,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 /**
@@ -43,13 +47,16 @@ class TrackViewServiceTest {
     private ApplicationSettingsService applicationSettingsService;
     @Mock
     private TrackStatusEventService trackStatusEventService;
+    @Mock
+    private OrderReturnRequestService orderReturnRequestService;
 
     private TrackViewService service;
 
     @BeforeEach
     void setUp() {
         service = new TrackViewService(trackParcelService, trackStatusEventService,
-                userService, applicationSettingsService);
+                userService, applicationSettingsService, orderReturnRequestService);
+        when(orderReturnRequestService.findCurrentForParcel(anyLong())).thenReturn(Optional.empty());
     }
 
     /**
@@ -240,6 +247,52 @@ class TrackViewServiceTest {
         assertThat(details.chain()).hasSize(1);
         assertThat(details.chain().get(0).id()).isEqualTo(70L);
         assertThat(details.chain().get(0).current()).isTrue();
+    }
+
+    @Test
+    void getTrackDetails_AllowsReturnRegistrationOnlyForDelivered() {
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        TrackParcel parcel = buildParcel(80L, GlobalStatus.DELIVERED, now);
+
+        when(trackParcelService.findOwnedById(80L, 14L)).thenReturn(Optional.of(parcel));
+        stubEpisodeParcels(parcel, 14L);
+        when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(4);
+        when(userService.getUserZone(14L)).thenReturn(ZoneId.of("UTC"));
+        when(trackStatusEventService.findEvents(80L)).thenReturn(List.of());
+        when(orderReturnRequestService.findCurrentForParcel(80L)).thenReturn(Optional.empty());
+
+        TrackDetailsDto details = service.getTrackDetails(80L, 14L);
+
+        assertThat(details.canRegisterReturn()).isTrue();
+        assertThat(details.returnRequest()).isNull();
+        assertThat(details.requiresAction()).isFalse();
+    }
+
+    @Test
+    void getTrackDetails_MapsReturnRequestIntoDto() {
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        TrackParcel parcel = buildParcel(81L, GlobalStatus.DELIVERED, now);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        request.setCreatedAt(now.minusHours(1));
+
+        when(trackParcelService.findOwnedById(81L, 15L)).thenReturn(Optional.of(parcel));
+        stubEpisodeParcels(parcel, 15L);
+        when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(4);
+        when(userService.getUserZone(15L)).thenReturn(ZoneId.of("UTC"));
+        when(trackStatusEventService.findEvents(81L)).thenReturn(List.of());
+        when(orderReturnRequestService.findCurrentForParcel(81L)).thenReturn(Optional.of(request));
+        when(orderReturnRequestService.canStartExchange(request)).thenReturn(true);
+
+        TrackDetailsDto details = service.getTrackDetails(81L, 15L);
+
+        assertThat(details.canRegisterReturn()).isFalse();
+        assertThat(details.requiresAction()).isTrue();
+        assertThat(details.returnRequest()).isNotNull();
+        assertThat(details.returnRequest().requiresAction()).isTrue();
+        assertThat(details.returnRequest().canStartExchange()).isTrue();
     }
 
     /**
