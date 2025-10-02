@@ -47,6 +47,7 @@ public interface OrderReturnRequestRepository extends JpaRepository<OrderReturnR
             select distinct r from OrderReturnRequest r
             join fetch r.parcel p
             join fetch p.store
+            join fetch r.episode
             where p.user.id = :userId and r.status in :statuses
             order by r.createdAt desc
             """)
