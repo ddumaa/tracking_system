@@ -345,12 +345,8 @@
         badge.textContent = String(count);
         badge.classList.toggle('visually-hidden', count === 0);
 
-        const activeTab = document.querySelector('#departuresActionTabs .nav-link.active');
-        if (activeTab && activeTab.dataset.filterTab === 'requires-action') {
-            rows.forEach((row) => {
-                const shouldShow = row.dataset.requiresAction === 'true';
-                row.classList.toggle('d-none', !shouldShow);
-            });
+        if (typeof window.returnRequests?.refreshEmptyState === 'function') {
+            window.returnRequests.refreshEmptyState();
         }
     }
 
@@ -554,9 +550,9 @@
         notifyUser('Заявка на возврат зарегистрирована', 'success');
     }
 
-    async function handleApproveExchangeAction(trackId, requestId) {
+    async function handleApproveExchangeAction(trackId, requestId, options = {}) {
         if (!trackId || !requestId) {
-            return;
+            return null;
         }
         const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/exchange`);
         const details = payload?.details ?? payload ?? null;
@@ -565,19 +561,31 @@
         if (details) {
             updateRowRequiresAction(details);
         }
+        if (typeof window.returnRequests?.removeRowByIds === 'function') {
+            window.returnRequests.removeRowByIds(trackId, requestId);
+        }
         updateActionTabCounter();
-        notifyUser('Запущен обмен по заявке', 'success');
+        const successMessage = options.successMessage || 'Запущен обмен по заявке';
+        const notificationType = options.notificationType || 'success';
+        notifyUser(successMessage, notificationType);
+        return details;
     }
 
-    async function handleCloseWithoutExchange(trackId, requestId) {
+    async function handleCloseWithoutExchange(trackId, requestId, options = {}) {
         if (!trackId || !requestId) {
-            return;
+            return null;
         }
         const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/close`);
         renderTrackModal(payload);
         updateRowRequiresAction(payload);
+        if (typeof window.returnRequests?.removeRowByIds === 'function') {
+            window.returnRequests.removeRowByIds(trackId, requestId);
+        }
         updateActionTabCounter();
-        notifyUser('Заявка закрыта без обмена', 'info');
+        const message = options.successMessage || 'Заявка закрыта без обмена';
+        const notificationType = options.notificationType || 'info';
+        notifyUser(message, notificationType);
+        return payload;
     }
 
     /**
@@ -1201,6 +1209,8 @@
     window.trackModal = {
         loadModal,
         promptTrackNumber,
-        render: renderTrackModal
+        render: renderTrackModal,
+        approveReturnExchange: (trackId, requestId, options) => handleApproveExchangeAction(trackId, requestId, options),
+        closeReturnRequest: (trackId, requestId, options) => handleCloseWithoutExchange(trackId, requestId, options)
     };
 })();

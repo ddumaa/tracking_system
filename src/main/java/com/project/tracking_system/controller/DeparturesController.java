@@ -1,11 +1,15 @@
 package com.project.tracking_system.controller;
 
-import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.dto.BulkUpdateButtonDTO;
+import com.project.tracking_system.dto.TrackParcelDTO;
+import com.project.tracking_system.dto.ActionRequiredReturnRequestDto;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.dto.TrackUpdateResponse;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.GlobalStatus;
+import com.project.tracking_system.entity.OrderReturnRequest;
+import com.project.tracking_system.entity.OrderReturnRequestStatus;
+import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.service.track.StatusTrackService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.track.TrackFacade;
@@ -27,9 +31,13 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashSet;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Set;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 import com.project.tracking_system.utils.PaginationItem;
 import com.project.tracking_system.utils.PaginationUtils;
@@ -64,6 +72,11 @@ public class DeparturesController {
      * Помогает избежать длинных списков страниц на экране.
      */
     private static final int PAGE_WINDOW = 5;
+
+    /**
+     * Форматер для отображения дат заявок на вкладке «Требуют действия».
+     */
+    private static final DateTimeFormatter REQUEST_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
 
     /**
      * Метод для отображения списка отслеживаемых посылок пользователя с
@@ -136,8 +149,19 @@ public class DeparturesController {
             paginationWindow = PaginationUtils.calculateWindow(paginationWindow.currentPage(), totalPages, PAGE_WINDOW);
         }
 
+        ZoneId userZone = userService.getUserZone(userId);
+        List<OrderReturnRequest> activeReturnRequests = orderReturnRequestService.findActiveRequestsWithDetails(userId);
+        List<ActionRequiredReturnRequestDto> actionRequiredRequests = activeReturnRequests.stream()
+                .map(request -> mapActionRequiredRequest(request, userZone))
+                .toList();
+
         // Отмечаем посылки, требующие действий по возвратам/обменам
-        Set<Long> actionRequired = new HashSet<>(orderReturnRequestService.findParcelsRequiringAction(userId));
+        Set<Long> actionRequired = activeReturnRequests.stream()
+                .map(OrderReturnRequest::getParcel)
+                .filter(Objects::nonNull)
+                .map(TrackParcel::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
 
         // Добавляем иконки в DTO перед передачей в шаблон
         trackParcelPage.forEach(dto -> {
@@ -168,7 +192,8 @@ public class DeparturesController {
                 new BulkUpdateButtonDTO(userService.isShowBulkUpdateButton(user.getId())));
         // Передаём текущий порядок сортировки во вью, чтобы отобразить правильную стрелку на кнопке
         model.addAttribute("sortOrder", sortOrder);
-        model.addAttribute("actionRequiredCount", actionRequired.size());
+        model.addAttribute("actionRequiredCount", actionRequiredRequests.size());
+        model.addAttribute("actionRequiredRequests", actionRequiredRequests);
 
         return "app/departures";
     }
@@ -327,4 +352,55 @@ public class DeparturesController {
         return trackParcelService.findByStoreTracks(storeIds, pageIndex, size, userId, sortOrder);
     }
 
+    /**
+     * Преобразует заявку на возврат в DTO для вкладки «Требуют действия».
+     *
+     * @param request исходная заявка
+     * @param userZone часовой пояс пользователя для форматирования дат
+     * @return DTO с подготовленными строками для отображения
+     */
+    private ActionRequiredReturnRequestDto mapActionRequiredRequest(OrderReturnRequest request, ZoneId userZone) {
+        TrackParcel parcel = request.getParcel();
+        Long parcelId = parcel != null ? parcel.getId() : null;
+        String trackNumber = parcel != null ? parcel.getNumber() : null;
+        String storeName = parcel != null && parcel.getStore() != null ? parcel.getStore().getName() : null;
+        GlobalStatus parcelStatus = parcel != null ? parcel.getStatus() : null;
+        OrderReturnRequestStatus status = request.getStatus();
+
+        String requestedAt = formatRequestMoment(request.getRequestedAt(), userZone);
+        String createdAt = formatRequestMoment(request.getCreatedAt(), userZone);
+
+        boolean canStartExchange = orderReturnRequestService.canStartExchange(request);
+        boolean canCloseWithoutExchange = status == OrderReturnRequestStatus.REGISTERED;
+
+        return new ActionRequiredReturnRequestDto(
+                request.getId(),
+                parcelId,
+                trackNumber,
+                storeName,
+                parcelStatus != null ? parcelStatus.getDescription() : null,
+                status != null ? status.getDisplayName() : null,
+                requestedAt,
+                createdAt,
+                request.getReason(),
+                request.getComment(),
+                request.getReverseTrackNumber(),
+                canStartExchange,
+                canCloseWithoutExchange
+        );
+    }
+
+    /**
+     * Форматирует момент времени заявки в пользовательской временной зоне.
+     *
+     * @param moment исходное значение в UTC
+     * @param userZone часовой пояс пользователя
+     * @return отформатированная строка или {@code null}, если момент отсутствует
+     */
+    private String formatRequestMoment(ZonedDateTime moment, ZoneId userZone) {
+        if (moment == null || userZone == null) {
+            return null;
+        }
+        return REQUEST_DATE_FORMATTER.format(moment.withZoneSameInstant(userZone));
+    }
 }

@@ -160,29 +160,53 @@ function initRequiresActionTabs() {
         return;
     }
 
-    const applyFilter = (filter) => {
-        const rows = document.querySelectorAll('.history-table tbody tr');
-        rows.forEach((row) => {
-            if (!(row instanceof HTMLTableRowElement)) {
+    const panels = Array.from(document.querySelectorAll('[data-tab-content]'));
+
+    const showPanel = (filter) => {
+        panels.forEach((panel) => {
+            if (!(panel instanceof HTMLElement)) {
                 return;
             }
-            const requiresAction = row.dataset.requiresAction === 'true';
-            const shouldShow = filter === 'requires-action' ? requiresAction : true;
-            row.classList.toggle('d-none', !shouldShow);
+            const matches = panel.dataset.tabContent === filter;
+            panel.classList.toggle('d-none', !matches);
+            panel.classList.toggle('show', matches);
+            panel.classList.toggle('active', matches);
         });
+    };
+
+    const applyFilter = (filter) => {
+        const normalized = filter === 'requires-action' ? 'requires-action' : 'all';
+        showPanel(normalized);
+        if (normalized !== 'requires-action') {
+            const rows = document.querySelectorAll('.history-table tbody tr');
+            rows.forEach((row) => {
+                if (row instanceof HTMLTableRowElement) {
+                    row.classList.remove('d-none');
+                }
+            });
+        }
     };
 
     tabs.forEach((tab) => {
         tab.addEventListener('click', () => {
-            tabs.forEach((item) => item.classList.remove('active'));
+            tabs.forEach((item) => {
+                item.classList.remove('active');
+                item.setAttribute('aria-selected', 'false');
+            });
             tab.classList.add('active');
+            tab.setAttribute('aria-selected', 'true');
             const filter = tab.dataset.filterTab || 'all';
             applyFilter(filter);
         });
     });
 
     const initialTab = tabs.find((tab) => tab.classList.contains('active'));
-    applyFilter(initialTab ? initialTab.dataset.filterTab : 'all');
+    if (initialTab) {
+        initialTab.setAttribute('aria-selected', 'true');
+        applyFilter(initialTab.dataset.filterTab || 'all');
+    } else {
+        applyFilter('all');
+    }
 }
 
 document.addEventListener('DOMContentLoaded', initRequiresActionTabs);

@@ -216,6 +216,24 @@ public class OrderReturnRequestService {
     }
 
     /**
+     * Возвращает активные заявки пользователя вместе с их посылками и магазинами.
+     * <p>
+     * Метод используется для вкладки «Требуют действия» и загружает связанные сущности
+     * одним запросом, чтобы избежать ленивых подгрузок за пределами транзакции.
+     * </p>
+     *
+     * @param userId идентификатор пользователя
+     * @return список активных заявок или пустой список, если пользователь не указан
+     */
+    @Transactional(readOnly = true)
+    public List<OrderReturnRequest> findActiveRequestsWithDetails(Long userId) {
+        if (userId == null) {
+            return List.of();
+        }
+        return returnRequestRepository.findActiveRequestsWithDetails(userId, ACTIVE_STATUSES);
+    }
+
+    /**
      * Загружает заявку и проверяет, что пользователь владеет посылкой.
      */
     private OrderReturnRequest loadOwnedRequest(Long requestId, Long parcelId, User user) {
