@@ -67,6 +67,13 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
         entity.setKeyboardHidden(session.isPersistentKeyboardHidden());
         entity.setContactRequestSent(session.isContactRequestSent());
         entity.setNavigationPath(serializeNavigationPath(session.getNavigationPath()));
+        entity.setReturnParcelId(session.getReturnParcelId());
+        entity.setReturnParcelTrack(session.getReturnParcelTrackNumber());
+        entity.setReturnReason(session.getReturnReason());
+        entity.setReturnComment(session.getReturnComment());
+        entity.setReturnRequestedAt(session.getReturnRequestedAt());
+        entity.setReturnReverseTrack(session.getReturnReverseTrackNumber());
+        entity.setReturnIdempotencyKey(session.getReturnIdempotencyKey());
         BuyerBotScreenState saved = repository.save(entity);
 
         BuyerAnnouncementState announcement = getOrCreateAnnouncementEntity(chatId);
@@ -341,6 +348,12 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
                         BuyerChatState.IDLE,
                         Boolean.TRUE,
                         Boolean.FALSE,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
                         null));
     }
 
@@ -379,6 +392,13 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
                 Boolean.TRUE.equals(entity.getContactRequestSent())
         );
         session.setNavigationPath(deserializeNavigationPath(entity.getNavigationPath()));
+        session.setReturnParcelId(entity.getReturnParcelId());
+        session.setReturnParcelTrackNumber(entity.getReturnParcelTrack());
+        session.setReturnReason(entity.getReturnReason());
+        session.setReturnComment(entity.getReturnComment());
+        session.setReturnRequestedAt(entity.getReturnRequestedAt());
+        session.setReturnReverseTrackNumber(entity.getReturnReverseTrack());
+        session.setReturnIdempotencyKey(entity.getReturnIdempotencyKey());
         return session;
     }
 

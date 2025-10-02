@@ -11,6 +11,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.ZonedDateTime;
+
 /**
  * Состояние якорного сообщения покупателя в Telegram.
  * <p>
@@ -70,5 +72,47 @@ public class BuyerBotScreenState {
      */
     @Column(name = "navigation_path")
     private String navigationPath;
+
+    /**
+     * Посылка, по которой пользователь начал оформление возврата.
+     */
+    @Column(name = "return_parcel_id")
+    private Long returnParcelId;
+
+    /**
+     * Трек-номер исходной посылки, выводимый в подсказках.
+     */
+    @Column(name = "return_parcel_track", length = 64)
+    private String returnParcelTrack;
+
+    /**
+     * Указанная пользователем причина возврата.
+     */
+    @Column(name = "return_reason", length = 255)
+    private String returnReason;
+
+    /**
+     * Дополнительный комментарий к заявке на возврат.
+     */
+    @Column(name = "return_comment", columnDefinition = "TEXT")
+    private String returnComment;
+
+    /**
+     * Дата, когда пользователь решил оформить возврат.
+     */
+    @Column(name = "return_requested_at")
+    private ZonedDateTime returnRequestedAt;
+
+    /**
+     * Трек-номер обратной отправки.
+     */
+    @Column(name = "return_reverse_track", length = 64)
+    private String returnReverseTrack;
+
+    /**
+     * Идемпотентный ключ заявки на возврат.
+     */
+    @Column(name = "return_idempotency_key", length = 64)
+    private String returnIdempotencyKey;
 }
 

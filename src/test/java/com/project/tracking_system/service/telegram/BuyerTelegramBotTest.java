@@ -539,8 +539,69 @@ class BuyerTelegramBotTest {
             if (!(method instanceof SendMessage sendMessage)) {
                 return false;
             }
-            return sendMessage.getText().contains("TRACK\\-88");
+            String text = sendMessage.getText();
+            return text.contains("TRACK\\-88") && text.contains("причин");
         }));
+    }
+
+    /**
+     * Проверяет последовательный сбор данных для возврата с сохранением промежуточного состояния.
+     */
+    @Test
+    void shouldCollectReturnFlowStepByStep() throws Exception {
+        Long chatId = 1006L;
+        TelegramParcelInfoDTO delivered = new TelegramParcelInfoDTO(77L, "TRACK-77", "Store Sigma", GlobalStatus.DELIVERED, false);
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(delivered), List.of(), List.of());
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        bot.consume(mockCallbackUpdate(chatId, "parcel:return:77"));
+
+        assertEquals(BuyerChatState.AWAITING_RETURN_REASON, chatSessionRepository.getState(chatId),
+                "После старта сценария бот должен ожидать причину возврата");
+        ChatSession session = chatSessionRepository.find(chatId).orElseThrow();
+        assertEquals(77L, session.getReturnParcelId(), "Идентификатор посылки должен сохраняться в сессии");
+        assertEquals("TRACK-77", session.getReturnParcelTrackNumber(), "Трек посылки должен сохраняться");
+
+        bot.consume(mockTextUpdate(chatId, "Не подошёл размер"));
+        assertEquals(BuyerChatState.AWAITING_RETURN_COMMENT, chatSessionRepository.getState(chatId),
+                "После причины бот должен ожидать комментарий");
+        session = chatSessionRepository.find(chatId).orElseThrow();
+        assertEquals("Не подошёл размер", session.getReturnReason(), "Причина должна сохраняться");
+
+        bot.consume(mockTextUpdate(chatId, "Нет"));
+        assertEquals(BuyerChatState.AWAITING_RETURN_DATE, chatSessionRepository.getState(chatId),
+                "После комментария бот должен ожидать дату");
+        session = chatSessionRepository.find(chatId).orElseThrow();
+        assertNull(session.getReturnComment(), "При отсутствии комментария поле должно быть пустым");
+
+        bot.consume(mockTextUpdate(chatId, "завтра"));
+        assertEquals(BuyerChatState.AWAITING_RETURN_DATE, chatSessionRepository.getState(chatId),
+                "При некорректной дате состояние не должно меняться");
+
+        bot.consume(mockTextUpdate(chatId, "01.01.2024"));
+        assertEquals(BuyerChatState.AWAITING_RETURN_TRACK, chatSessionRepository.getState(chatId),
+                "После корректной даты бот должен запросить обратный трек");
+        session = chatSessionRepository.find(chatId).orElseThrow();
+        assertNotNull(session.getReturnRequestedAt(), "Дата обращения должна сохраняться");
+
+        clearInvocations(telegramClient);
+        bot.consume(mockTextUpdate(chatId, "нет"));
+
+        assertEquals(BuyerChatState.IDLE, chatSessionRepository.getState(chatId),
+                "После завершения сценария бот должен вернуться в режим ожидания команд");
+        session = chatSessionRepository.find(chatId).orElseThrow();
+        assertNull(session.getReturnParcelId(), "Временные данные возврата должны очищаться");
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+        SendMessage summary = captor.getValue();
+        String text = summary.getText();
+        assertTrue(text.contains("Зафиксировали запрос на возврат"),
+                "Итоговое сообщение должно подтверждать регистрацию запроса");
+        assertTrue(text.contains("Не подошёл размер"),
+                "В сообщении должна отображаться сохранённая причина");
+        assertTrue(text.contains("Обратный трек: не указан"),
+                "При отсутствии трека должно выводиться соответствующее пояснение");
     }
 
     /**
