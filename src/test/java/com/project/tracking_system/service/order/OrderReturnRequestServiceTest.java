@@ -18,6 +18,7 @@ import org.springframework.security.access.AccessDeniedException;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -178,6 +179,25 @@ class OrderReturnRequestServiceTest {
         assertThat(result.getStatus()).isEqualTo(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
         assertThat(result.getClosedBy()).isEqualTo(user);
         assertThat(result.getClosedAt()).isNotNull();
+    }
+
+    @Test
+    void findActiveRequestsWithDetails_ReturnsEmptyWhenUserIsNull() {
+        List<OrderReturnRequest> result = service.findActiveRequestsWithDetails(null);
+
+        assertThat(result).isEmpty();
+        verify(repository, never()).findActiveRequestsWithDetails(anyLong(), any());
+    }
+
+    @Test
+    void findActiveRequestsWithDetails_DelegatesToRepository() {
+        OrderReturnRequest request = new OrderReturnRequest();
+        when(repository.findActiveRequestsWithDetails(eq(5L), any())).thenReturn(List.of(request));
+
+        List<OrderReturnRequest> result = service.findActiveRequestsWithDetails(5L);
+
+        assertThat(result).containsExactly(request);
+        verify(repository).findActiveRequestsWithDetails(eq(5L), any());
     }
 
     @Test

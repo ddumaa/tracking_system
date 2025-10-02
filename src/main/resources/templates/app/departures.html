@@ -121,161 +121,218 @@
                         </li>
                     </ul>
 
-                    <!-- Таблица истории -->
-                    <div th:if="${trackParcelDTO != null and !trackParcelDTO.isEmpty()}" class="mt-3">
-                        <form action="/app/departures/delete-selected" method="post">
-                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf != null}">
-                            <div class="table-responsive">
-                                <table class="table history-table">
-                                    <thead>
-                                    <tr>
-                                        <th class="checkbox-column">
-                                            <input type="checkbox" id="selectAllCheckbox" aria-label="Выделить все посылки">
-                                        </th>
-                                        <th scope="col" class="align-middle text-start">№ посылки</th><!-- Заголовок номера: выравнивание по левому краю -->
-                                        <th scope="col">Покупатель</th>
-                                        <th scope="col" class="align-middle text-center">Статус</th><!-- Заголовок статуса: выравнивание по центру -->
-                                        <th scope="col" class="align-middle text-center">
-                                            <a href="#" id="sortDateBtn" class="link-dark text-decoration-none">
-                                                Дата
-                                                <i class="bi" th:classappend="${sortOrder == 'asc'} ? 'bi-arrow-down' : 'bi-arrow-up'"></i>
-                                            </a>
-                                        </th><!-- Заголовок даты: выравнивание по центру -->
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    <tr th:each="item : ${trackParcelDTO}"
-                                        th:attr="data-track-number=${item.number},data-track-id=${item.id},data-requires-action=${item.requiresAction}">
-                                        <td class="checkbox-column">
-                                            <!-- Чекбокс выбора: при отсутствии номера используем ID -->
-                                            <input type="checkbox" class="selectCheckbox"
-                                                   th:name="${#strings.isEmpty(item.number) ? 'selectedIds' : 'selectedNumbers'}"
-                                                   th:value="${#strings.isEmpty(item.number) ? item.id : item.number}"
-                                                   th:data-id="${item.id}">
-                                            <!--
-                                            <i th:if="${item.status == 'Предрегистрация' and #strings.isEmpty(item.number)}"
-                                               class="bi bi-exclamation-circle text-warning small-flag ms-2"
-                                               title="Предрегистрация: добавьте трек-номер"
-                                               data-bs-toggle="tooltip" aria-label="Нет трека"></i>
-                                               -->
-                                        </td>
-                                        <td class="align-middle text-start">
-                                            <!-- Ячейка выравнивает содержимое по левому краю -->
-                                            <!-- Контейнер выравнивает иконку и номер по одному левому краю, сохраняя общую семантику таблицы (SRP) -->
-                                            <div class="d-inline-flex align-items-center justify-content-start gap-2">
-                                                <!-- Изменено: выводим готовое значение iconHtml из DTO -->
-                                                <span th:if="${item.iconHtml != null}" th:utext="${item.iconHtml}" class="status-icon"
-                                                      th:attr="title=${item.status == 'Предрегистрация' and #strings.isEmpty(item.number) ? 'Добавьте трек-номер, чтобы начать обновлять' : null}, data-bs-toggle=${item.status == 'Предрегистрация' and #strings.isEmpty(item.number) ? 'tooltip' : null}"></span>
-                                                <span th:unless="${item.iconHtml != null}" th:utext="${T(com.project.tracking_system.entity.GlobalStatus).UNKNOWN_STATUS.getIconHtml()}" class="status-icon"
-                                                      th:attr="title=${item.status == 'Предрегистрация' and #strings.isEmpty(item.number) ? 'Добавьте трек-номер, чтобы начать обновлять' : null}, data-bs-toggle=${item.status == 'Предрегистрация' and #strings.isEmpty(item.number) ? 'tooltip' : null}"></span>
+                    <div class="tab-content" id="departuresTabsContent">
+                        <div data-tab-content="all" class="tab-pane fade show active">
+                            <!-- Таблица истории -->
+                            <div th:if="${trackParcelDTO != null and !trackParcelDTO.isEmpty()}" class="mt-3">
+                                <form action="/app/departures/delete-selected" method="post">
+                                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf != null}">
+                                    <div class="table-responsive">
+                                        <table class="table history-table">
+                                            <thead>
+                                            <tr>
+                                                <th class="checkbox-column">
+                                                    <input type="checkbox" id="selectAllCheckbox" aria-label="Выделить все посылки">
+                                                </th>
+                                                <th scope="col" class="align-middle text-start">№ посылки</th><!-- Заголовок номера: выравнивание по левому краю -->
+                                                <th scope="col">Покупатель</th>
+                                                <th scope="col" class="align-middle text-center">Статус</th><!-- Заголовок статуса: выравнивание по центру -->
+                                                <th scope="col" class="align-middle text-center">
+                                                    <a href="#" id="sortDateBtn" class="link-dark text-decoration-none">
+                                                        Дата
+                                                        <i class="bi" th:classappend="${sortOrder == 'asc'} ? 'bi-arrow-down' : 'bi-arrow-up'"></i>
+                                                    </a>
+                                                </th><!-- Заголовок даты: выравнивание по центру -->
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            <tr th:each="item : ${trackParcelDTO}"
+                                                th:attr="data-track-number=${item.number},data-track-id=${item.id},data-requires-action=${item.requiresAction}">
+                                                <td class="checkbox-column">
+                                                    <input type="checkbox" class="selectCheckbox"
+                                                           th:name="${#strings.isEmpty(item.number) ? 'selectedIds' : 'selectedNumbers'}"
+                                                           th:value="${#strings.isEmpty(item.number) ? item.id : item.number}"
+                                                           th:data-id="${item.id}">
+                                                </td>
+                                                <td class="align-middle text-start">
+                                                    <div class="d-inline-flex align-items-center justify-content-start gap-2">
+                                                        <span th:if="${item.iconHtml != null}" th:utext="${item.iconHtml}" class="status-icon"
+                                                              th:attr="title=${item.status == 'Предрегистрация' and #strings.isEmpty(item.number) ? 'Добавьте трек-номер, чтобы начать обновлять' : null}, data-bs-toggle=${item.status == 'Предрегистрация' and #strings.isEmpty(item.number) ? 'tooltip' : null}"></span>
+                                                        <span th:unless="${item.iconHtml != null}" th:utext="${T(com.project.tracking_system.entity.GlobalStatus).UNKNOWN_STATUS.getIconHtml()}" class="status-icon"
+                                                              th:attr="title=${item.status == 'Предрегистрация' and #strings.isEmpty(item.number) ? 'Добавьте трек-номер, чтобы начать обновлять' : null}, data-bs-toggle=${item.status == 'Предрегистрация' and #strings.isEmpty(item.number) ? 'tooltip' : null}"></span>
 
-                                                <button th:if="${item.status == 'Предрегистрация' and #strings.isEmpty(item.number)}" type="button" class="btn btn-link parcel-number"
-                                                        th:data-id="${item.id}"
-                                                        th:data-track-id="${item.id}"
-                                                        title="Добавьте трек-номер, чтобы начать обновлять"
-                                                        data-bs-toggle="tooltip"
-                                                        >Указать трек</button>
-                                                <button th:unless="${item.status == 'Предрегистрация' and #strings.isEmpty(item.number)}" type="button" class="btn btn-link parcel-number open-modal"
-                                                        th:text="${item.number}"
-                                                        th:data-itemnumber="${item.number}"
-                                                        th:data-track-id="${item.id}"
-                                                        aria-label="Открыть детали посылки"></button>
-                                                <span th:if="${item.requiresAction}"
-                                                      class="badge rounded-pill bg-warning-subtle text-warning-emphasis"
-                                                      aria-label="По посылке требуется действие">Действие</span>
-                                            </div>
-                                        </td>
-                                        <td class="align-middle text-center">
-                                            <!-- Контейнер отвечает только за выравнивание элементов, соблюдая SRP -->
-                                            <div class="d-flex flex-column justify-content-center align-items-center">
-                                                <!-- Если имя покупателя указано, выводим кнопку с ФИО и телефон отдельной строкой -->
-                                                <!-- Проверяем, что имя покупателя не пустое -->
-                                                <div class="d-flex align-items-center" th:if="${!#strings.isEmpty(item.customerName)}">
-                                                    <button type="button" class="btn btn-link p-0 customer-icon ms-0"
-                                                            th:text="${item.shortCustomerName}"
-                                                            th:data-trackid="${item.id}"
-                                                            aria-label="Информация о покупателе"></button>
-
-                                                    <!-- Имя подтверждено пользователем -->
-                                                    <i th:if="${item.nameSource == T(com.project.tracking_system.entity.NameSource).USER_CONFIRMED}"
-                                                       class="bi bi-patch-check-fill text-success small-flag ms-2"
-                                                       title="Имя подтверждено покупателем" data-bs-toggle="tooltip"
-                                                       aria-label="Имя подтверждено"></i>
-
-                                                    <!-- Имя предоставлено магазином -->
-                                                    <i th:if="${item.nameSource == T(com.project.tracking_system.entity.NameSource).MERCHANT_PROVIDED}"
-                                                       class="bi bi-shop text-muted small-flag ms-2"
-                                                       title="Источник: магазин" data-bs-toggle="tooltip"
-                                                       aria-label="Имя от магазина"></i>
-                                                </div>
-                                                <!-- Телефон отображаем только при наличии, избегая заглушек (OCP) -->
-                                                <span th:if="${!#strings.isEmpty(item.customerName) and item.customerPhone != null}"
-                                                      class="text-muted"
-                                                      th:text="${item.customerPhone}"></span>
-
-                                                <!-- Если имя отсутствует, телефон становится ссылкой на модальное окно -->
-                                                <button th:if="${#strings.isEmpty(item.customerName) and item.customerPhone != null}"
-                                                        type="button" class="btn btn-link p-0 customer-icon ms-0"
-                                                        th:text="${item.customerPhone}"
-                                                        th:data-trackid="${item.id}"
-                                                        aria-label="Информация о покупателе"></button>
-
-                                                <!-- При отсутствии имени и телефона предлагаем добавить покупателя, расширяя функциональность без изменения существующего кода (OCP) -->
-                                                <button th:if="${#strings.isEmpty(item.customerName) and item.customerPhone == null}"
-                                                        type="button" class="btn btn-link customer-icon"
-                                                        th:data-trackid="${item.id}"
-                                                        aria-label="Добавить покупателя">Добавить покупателя</button>
-                                            </div>
-                                        </td>
-                                        <td th:text="${item.status}" class="align-middle text-center status-text"></td>
-                                        <!-- Статус центрируется, status-text отвечает за оформление -->
-                                        <td th:text="${item.timestamp}" class="align-middle text-center date-text"></td>
-                                        <!-- Дата центрируется, date-text отвечает за оформление -->
-                                    </tr>
-                                    </tbody>
-                                </table>
+                                                        <button th:if="${item.status == 'Предрегистрация' and #strings.isEmpty(item.number)}" type="button" class="btn btn-link parcel-number"
+                                                                th:data-id="${item.id}"
+                                                                th:data-track-id="${item.id}"
+                                                                title="Добавьте трек-номер, чтобы начать обновлять"
+                                                                data-bs-toggle="tooltip"
+                                                                >Указать трек</button>
+                                                        <button th:unless="${item.status == 'Предрегистрация' and #strings.isEmpty(item.number)}" type="button" class="btn btn-link parcel-number open-modal"
+                                                                th:text="${item.number}"
+                                                                th:data-itemnumber="${item.number}"
+                                                                th:data-track-id="${item.id}"
+                                                                aria-label="Открыть детали посылки"></button>
+                                                        <span th:if="${item.requiresAction}"
+                                                              class="badge rounded-pill bg-warning-subtle text-warning-emphasis"
+                                                              aria-label="По посылке требуется действие">Действие</span>
+                                                    </div>
+                                                </td>
+                                                <td class="align-middle text-center">
+                                                    <div class="d-flex flex-column justify-content-center align-items-center">
+                                                        <div class="d-flex align-items-center" th:if="${!#strings.isEmpty(item.customerName)}">
+                                                            <button type="button" class="btn btn-link p-0 customer-icon ms-0"
+                                                                    th:text="${item.shortCustomerName}"
+                                                                    th:data-trackid="${item.id}"
+                                                                    aria-label="Информация о покупателе"></button>
+                                                            <i th:if="${item.nameSource == T(com.project.tracking_system.entity.NameSource).USER_CONFIRMED}"
+                                                               class="bi bi-patch-check-fill text-success small-flag ms-2"
+                                                               title="Имя подтверждено покупателем" data-bs-toggle="tooltip"
+                                                               aria-label="Имя подтверждено"></i>
+                                                            <i th:if="${item.nameSource == T(com.project.tracking_system.entity.NameSource).MERCHANT_PROVIDED}"
+                                                               class="bi bi-shop text-muted small-flag ms-2"
+                                                               title="Источник: магазин" data-bs-toggle="tooltip"
+                                                               aria-label="Имя от магазина"></i>
+                                                        </div>
+                                                        <span th:if="${!#strings.isEmpty(item.customerName) and item.customerPhone != null}"
+                                                              class="text-muted"
+                                                              th:text="${item.customerPhone}"></span>
+                                                        <button th:if="${#strings.isEmpty(item.customerName) and item.customerPhone != null}"
+                                                                type="button" class="btn btn-link p-0 customer-icon ms-0"
+                                                                th:text="${item.customerPhone}"
+                                                                th:data-trackid="${item.id}"
+                                                                aria-label="Информация о покупателе"></button>
+                                                        <button th:if="${#strings.isEmpty(item.customerName) and item.customerPhone == null}"
+                                                                type="button" class="btn btn-link customer-icon"
+                                                                th:data-trackid="${item.id}"
+                                                                aria-label="Добавить покупателя">Добавить покупателя</button>
+                                                    </div>
+                                                </td>
+                                                <td th:text="${item.status}" class="align-middle text-center status-text"></td>
+                                                <td th:text="${item.timestamp}" class="align-middle text-center date-text"></td>
+                                            </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </form>
                             </div>
-                        </form>
-                    </div>
 
-                    <!-- Пагинация -->
-                    <div class="d-flex justify-content-center">
-                        <ul class="pagination" th:if="${totalPages > 1}">
-                            <!-- Кнопка "Назад" -->
-                            <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled'">
-                                <!-- При наличии поискового запроса (непустого) добавляем его к ссылке -->
-                                <a class="page-link"
-                                   th:href="${!#strings.isEmpty(query)} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size}, query=${query}, sortOrder=${sortOrder})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size}, sortOrder=${sortOrder})}"
-                                   aria-label="Предыдущая страница">
-                                    <i class="bi bi-chevron-left"></i>
-                                </a>
-                            </li>
-
-                            <!-- Номера страниц (динамическое окно с учётом крайних значений) -->
-                            <li class="page-item" th:each="item : ${paginationItems}"
-                                th:classappend="${item.ellipsis} ? ' disabled' : (item.pageIndex == currentPage ? ' active' : '')">
-                                <span class="page-link" th:if="${item.ellipsis}" aria-hidden="true">&hellip;</span>
-                                <span class="page-link page-link-current"
-                                      th:if="${!item.ellipsis and item.pageIndex == currentPage}"
-                                      th:text="${item.pageIndex + 1}"
-                                      th:attr="aria-current='page'"></span>
-                                <a class="page-link" th:if="${!item.ellipsis and item.pageIndex != currentPage}"
-                                   th:href="${!#strings.isEmpty(query)} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${item.pageIndex}, size=${size}, query=${query}, sortOrder=${sortOrder})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${item.pageIndex}, size=${size}, sortOrder=${sortOrder})}"
-                                   th:text="${item.pageIndex + 1}"
-                                   th:attr="aria-label=${'Страница ' + (item.pageIndex + 1)}">
-                                </a>
-                            </li>
-
-                            <!-- Кнопка "Вперёд" -->
-                            <li class="page-item" th:classappend="${currentPage == totalPages - 1} ? 'disabled'">
-                                <!-- Кнопка перехода вперёд: добавляем параметр query, если он задан -->
-                                <a class="page-link"
-                                   th:href="${!#strings.isEmpty(query)} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size}, query=${query}, sortOrder=${sortOrder})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size}, sortOrder=${sortOrder})}"
-                                   aria-label="Следующая страница">
-                                    <i class="bi bi-chevron-right"></i>
-                                </a>
-                            </li>
-                        </ul>
+                            <!-- Пагинация -->
+                            <div class="d-flex justify-content-center">
+                                <ul class="pagination" th:if="${totalPages > 1}">
+                                    <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled'">
+                                        <a class="page-link"
+                                           th:href="${!#strings.isEmpty(query)} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size}, query=${query}, sortOrder=${sortOrder})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage > 0 ? currentPage - 1 : 0}, size=${size}, sortOrder=${sortOrder})}"
+                                           aria-label="Предыдущая страница">
+                                            <i class="bi bi-chevron-left"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item" th:each="item : ${paginationItems}"
+                                        th:classappend="${item.ellipsis} ? ' disabled' : (item.pageIndex == currentPage ? ' active' : '')">
+                                        <span class="page-link" th:if="${item.ellipsis}" aria-hidden="true">&hellip;</span>
+                                        <span class="page-link page-link-current"
+                                              th:if="${!item.ellipsis and item.pageIndex == currentPage}"
+                                              th:text="${item.pageIndex + 1}"
+                                              th:attr="aria-current='page'"></span>
+                                        <a class="page-link" th:if="${!item.ellipsis and item.pageIndex != currentPage}"
+                                           th:href="${!#strings.isEmpty(query)} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${item.pageIndex}, size=${size}, query=${query}, sortOrder=${sortOrder})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${item.pageIndex}, size=${size}, sortOrder=${sortOrder})}"
+                                           th:text="${item.pageIndex + 1}"
+                                           th:attr="aria-label=${'Страница ' + (item.pageIndex + 1)}">
+                                        </a>
+                                    </li>
+                                    <li class="page-item" th:classappend="${currentPage == totalPages - 1} ? 'disabled'">
+                                        <a class="page-link"
+                                           th:href="${!#strings.isEmpty(query)} ? @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size}, query=${query}, sortOrder=${sortOrder})} : @{/app/departures(storeId=${storeId}, status=${statusString}, page=${currentPage + 1 < totalPages ? currentPage + 1 : totalPages - 1}, size=${size}, sortOrder=${sortOrder})}"
+                                           aria-label="Следующая страница">
+                                            <i class="bi bi-chevron-right"></i>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div data-tab-content="requires-action" class="tab-pane fade d-none">
+                            <div id="returnRequestsContainer" class="mt-3">
+                                <div th:if="${actionRequiredRequests != null and !actionRequiredRequests.isEmpty()}">
+                                    <div class="table-responsive">
+                                        <table class="table align-middle" id="returnRequestsTable">
+                                            <thead>
+                                            <tr>
+                                                <th scope="col" class="text-start">Посылка</th>
+                                                <th scope="col" class="text-start">Заявка</th>
+                                                <th scope="col" class="text-start">Детали</th>
+                                                <th scope="col" class="text-end">Действия</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            <tr th:each="request : ${actionRequiredRequests}"
+                                                th:attr="data-track-id=${request.parcelId},data-request-id=${request.requestId}"
+                                                data-return-request-row>
+                                                <td class="text-start">
+                                                    <div class="d-flex flex-column">
+                                                        <button th:if="${request.parcelId != null}" type="button"
+                                                                class="btn btn-link p-0 text-start open-modal"
+                                                                th:text="${request.trackNumber != null ? request.trackNumber : 'Трек не указан'}"
+                                                                th:data-track-id="${request.parcelId}"
+                                                                th:data-itemnumber="${request.trackNumber}"
+                                                                aria-label="Открыть детали посылки"></button>
+                                                        <span th:if="${request.parcelId == null}"
+                                                              class="text-muted">Посылка недоступна</span>
+                                                        <span class="text-muted small"
+                                                              th:text="${request.storeName != null ? request.storeName : 'Магазин не указан'}"></span>
+                                                        <span class="text-muted small"
+                                                              th:text="${request.parcelStatus != null ? request.parcelStatus : 'Статус не определён'}"></span>
+                                                    </div>
+                                                </td>
+                                                <td class="text-start">
+                                                    <div class="d-flex flex-column">
+                                                        <span class="fw-semibold"
+                                                              th:text="${request.requestStatus != null ? request.requestStatus : 'Статус не определён'}"></span>
+                                                        <span class="text-muted small"
+                                                              th:text="${request.requestedAt != null ? 'Обращение: ' + request.requestedAt : 'Обращение: —'}"></span>
+                                                        <span class="text-muted small"
+                                                              th:text="${request.createdAt != null ? 'Регистрация: ' + request.createdAt : 'Регистрация: —'}"></span>
+                                                    </div>
+                                                </td>
+                                                <td class="text-start">
+                                                    <div class="d-flex flex-column gap-1">
+                                                        <span th:text="${request.reason != null ? request.reason : 'Причина не указана'}"></span>
+                                                        <span class="text-muted small"
+                                                              th:text="${request.comment != null ? request.comment : 'Комментарий отсутствует'}"></span>
+                                                        <span class="text-muted small"
+                                                              th:text="${request.reverseTrackNumber != null ? 'Обратный трек: ' + request.reverseTrackNumber : 'Обратный трек: —'}"></span>
+                                                    </div>
+                                                </td>
+                                                <td class="text-end">
+                                                    <div class="d-flex flex-column flex-lg-row gap-2 justify-content-end">
+                                                        <button type="button"
+                                                                class="btn btn-success btn-sm js-return-request-accept"
+                                                                th:disabled="${!request.canCloseWithoutExchange}">
+                                                            Принять возврат
+                                                        </button>
+                                                        <button type="button"
+                                                                class="btn btn-primary btn-sm js-return-request-exchange"
+                                                                th:disabled="${!request.canStartExchange}">
+                                                            Создать обменную посылку
+                                                        </button>
+                                                        <button type="button"
+                                                                class="btn btn-outline-secondary btn-sm js-return-request-close"
+                                                                th:disabled="${!request.canCloseWithoutExchange}">
+                                                            Закрыть без обмена
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div id="returnRequestsEmptyState"
+                                     class="text-center text-muted py-5 border rounded-4"
+                                     th:classappend="${actionRequiredRequests != null and !actionRequiredRequests.isEmpty()} ? ' d-none visually-hidden' : ''"
+                                     th:attr="aria-hidden=${actionRequiredRequests != null and !actionRequiredRequests.isEmpty()}">
+                                    <p class="mb-0">Нет заявок, требующих действий.</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 </div>
@@ -286,6 +343,7 @@
 
 <th:block layout:fragment="pageScripts">
     <script src="/js/track-modal.js"></script>
+    <script src="/js/return-requests.js"></script>
 </th:block>
 
 <div layout:fragment="afterFooter">
