@@ -1109,12 +1109,15 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 });
     }
 
+    /**
+     * Формирует сообщение с информацией об активных заявках на возврат и подсказками по выбранной заявке.
+     */
     private String buildActiveReturnRequestsMessage(List<ActionRequiredReturnRequestDto> requests,
                                                     ActionRequiredReturnRequestDto selected) {
         StringBuilder builder = new StringBuilder();
-        builder.append(escapeMarkdown(RETURNS_ACTIVE_TITLE)).append('
-').append('
-');
+        builder.append(escapeMarkdown(RETURNS_ACTIVE_TITLE))
+                .append(System.lineSeparator())
+                .append(System.lineSeparator());
 
         if (requests == null || requests.isEmpty()) {
             builder.append(RETURNS_ACTIVE_EMPTY_PLACEHOLDER);
@@ -1126,12 +1129,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return builder.toString();
         }
 
-        builder.append('*').append(escapeMarkdown(RETURNS_ACTIVE_SELECTED_HEADER)).append('*').append('
-');
+        builder.append('*')
+                .append(escapeMarkdown(RETURNS_ACTIVE_SELECTED_HEADER))
+                .append('*')
+                .append(System.lineSeparator());
         builder.append(formatSelectedRequestDetails(selected));
-        builder.append('
-').append('
-');
+        builder.append(System.lineSeparator())
+                .append(System.lineSeparator());
         String actionsHint = selected.status() == OrderReturnRequestStatus.EXCHANGE_APPROVED
                 ? RETURNS_ACTIVE_ACTIONS_EXCHANGE
                 : RETURNS_ACTIVE_ACTIONS_RETURN;
