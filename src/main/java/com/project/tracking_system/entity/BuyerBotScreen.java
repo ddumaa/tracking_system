@@ -20,6 +20,21 @@ public enum BuyerBotScreen {
     PARCELS,
 
     /**
+     * Меню возвратов и обменов.
+     */
+    RETURNS_MENU,
+
+    /**
+     * Экран с перечнем активных заявок на возврат.
+     */
+    RETURNS_ACTIVE_REQUESTS,
+
+    /**
+     * Экран выбора посылки для новой заявки на возврат или обмен.
+     */
+    RETURNS_CREATE_REQUEST,
+
+    /**
      * Экран настроек уведомлений и ФИО.
      */
     SETTINGS,

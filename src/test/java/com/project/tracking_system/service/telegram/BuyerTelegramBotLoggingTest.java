@@ -59,6 +59,7 @@ class BuyerTelegramBotLoggingTest {
             throw new RuntimeException(e);
         }
         when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
+        when(customerTelegramService.getActiveReturnRequests(anyLong())).thenReturn(List.of());
         logger = (Logger) LoggerFactory.getLogger(BuyerTelegramBot.class);
         appender = new ListAppender<>();
         appender.start();

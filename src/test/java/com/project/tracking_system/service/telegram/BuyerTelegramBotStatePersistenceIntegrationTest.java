@@ -58,6 +58,7 @@ class BuyerTelegramBotStatePersistenceIntegrationTest {
         AdminNotificationService adminNotificationService = mock(AdminNotificationService.class);
         when(telegramClient.execute(any(SendMessage.class))).thenReturn(null);
         when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
+        when(telegramService.getActiveReturnRequests(anyLong())).thenReturn(List.of());
 
         Customer customer = new Customer();
         customer.setTelegramConfirmed(false);
@@ -112,6 +113,7 @@ class BuyerTelegramBotStatePersistenceIntegrationTest {
         menuMessage.setMessageId(555);
         when(initialClient.execute(any(SendMessage.class))).thenReturn(menuMessage);
         when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
+        when(telegramService.getActiveReturnRequests(anyLong())).thenReturn(List.of());
 
         Customer customer = new Customer();
         customer.setTelegramConfirmed(true);

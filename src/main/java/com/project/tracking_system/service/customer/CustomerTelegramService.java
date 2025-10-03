@@ -2,6 +2,7 @@ package com.project.tracking_system.service.customer;
 
 import com.project.tracking_system.dto.TelegramParcelInfoDTO;
 import com.project.tracking_system.dto.TelegramParcelsOverviewDTO;
+import com.project.tracking_system.dto.TelegramReturnRequestInfoDTO;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.mapper.BuyerStatusMapper;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
@@ -454,6 +455,31 @@ public class CustomerTelegramService {
     }
 
     /**
+     * Возвращает активные заявки покупателя для отображения в Telegram.
+     *
+     * @param chatId идентификатор чата Telegram
+     * @return список активных заявок с безопасными данными для бота
+     */
+    @Transactional(readOnly = true)
+    public List<TelegramReturnRequestInfoDTO> getActiveReturnRequests(Long chatId) {
+        Customer customer = requireCustomerByChat(chatId);
+        Long customerId = customer.getId();
+        if (customerId == null) {
+            return List.of();
+        }
+
+        List<OrderReturnRequest> requests = returnRequestRepository
+                .findActiveRequestsByCustomerWithDetails(customerId, ACTIVE_RETURN_STATUSES);
+        if (requests == null || requests.isEmpty()) {
+            return List.of();
+        }
+
+        return requests.stream()
+                .map(this::toTelegramReturnRequestInfo)
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Загружает посылки покупателя по указанным статусам и подготавливает их для Telegram.
      * <p>
      * Метод инкапсулирует запрос в репозиторий, обеспечивая единый способ построения
@@ -603,6 +629,42 @@ public class CustomerTelegramService {
         GlobalStatus status = parcel.getStatus();
 
         return new TelegramParcelInfoDTO(parcel.getId(), trackNumber, storeName, status, hasActiveRequest);
+    }
+
+    /**
+     * Преобразует заявку на возврат в DTO для отображения в Telegram.
+     */
+    private TelegramReturnRequestInfoDTO toTelegramReturnRequestInfo(OrderReturnRequest request) {
+        if (request == null) {
+            return new TelegramReturnRequestInfoDTO(null, null, "Без номера", "Магазин не указан",
+                    OrderReturnRequestStatus.REGISTERED, null);
+        }
+
+        TrackParcel parcel = request.getParcel();
+        Long parcelId = Optional.ofNullable(parcel)
+                .map(TrackParcel::getId)
+                .orElse(null);
+        String trackNumber = Optional.ofNullable(parcel)
+                .map(TrackParcel::getNumber)
+                .filter(number -> !number.isBlank())
+                .orElse("Без номера");
+        String storeName = Optional.ofNullable(parcel)
+                .map(TrackParcel::getStore)
+                .map(store -> store.getName() != null ? store.getName() : null)
+                .filter(name -> !name.isBlank())
+                .orElse("Магазин не указан");
+
+        OrderReturnRequestStatus status = Optional.ofNullable(request.getStatus())
+                .orElse(OrderReturnRequestStatus.REGISTERED);
+
+        return new TelegramReturnRequestInfoDTO(
+                request.getId(),
+                parcelId,
+                trackNumber,
+                storeName,
+                status,
+                request.getRequestedAt()
+        );
     }
 
 }

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.tracking_system.dto.TelegramParcelInfoDTO;
 import com.project.tracking_system.dto.TelegramParcelsOverviewDTO;
+import com.project.tracking_system.dto.TelegramReturnRequestInfoDTO;
 import com.project.tracking_system.entity.AdminNotification;
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
@@ -11,6 +12,7 @@ import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderReturnRequest;
+import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
@@ -70,6 +72,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String BUTTON_PARCELS_DELIVERED = "📬 Полученные";
     private static final String BUTTON_PARCELS_AWAITING = "🏬 Ждут забора";
     private static final String BUTTON_PARCELS_TRANSIT = "🚚 В пути";
+    private static final String BUTTON_RETURNS = "🔁 Возвраты и обмены";
+    private static final String BUTTON_RETURNS_ACTIVE = "📂 Текущие заявки";
+    private static final String BUTTON_RETURNS_CREATE = "🆕 Создать заявку";
     private static final String BUTTON_SETTINGS = "⚙️ Настройки";
     private static final String BUTTON_HELP = "❓ Помощь";
     private static final String BUTTON_MENU = "🏠 Меню";
@@ -78,11 +83,14 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String CALLBACK_BACK_TO_MENU = "menu:back";
     private static final String CALLBACK_MENU_SHOW_STATS = "menu:stats";
     private static final String CALLBACK_MENU_SHOW_PARCELS = "menu:parcels";
+    private static final String CALLBACK_MENU_RETURNS_EXCHANGES = "menu:returns";
     private static final String CALLBACK_MENU_SHOW_SETTINGS = "menu:settings";
     private static final String CALLBACK_MENU_SHOW_HELP = "menu:help";
     private static final String CALLBACK_PARCELS_DELIVERED = "parcels:delivered";
     private static final String CALLBACK_PARCELS_AWAITING = "parcels:awaiting";
     private static final String CALLBACK_PARCELS_TRANSIT = "parcels:transit";
+    private static final String CALLBACK_RETURNS_SHOW_ACTIVE = "returns:active";
+    private static final String CALLBACK_RETURNS_CREATE_REQUEST = "returns:create";
     private static final String CALLBACK_SETTINGS_TOGGLE_NOTIFICATIONS = "settings:toggle_notifications";
     private static final String CALLBACK_SETTINGS_CONFIRM_NAME = "settings:confirm_name";
     private static final String CALLBACK_SETTINGS_EDIT_NAME = "settings:edit_name";
@@ -135,13 +143,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String PARCEL_EXCHANGE_CONFIRMATION_HINT =
             "⚠️ Напишите «Да», если хотите обмен, или «Нет», чтобы остановиться.";
     private static final String PARCEL_RETURN_CONTEXT_LOST =
-            "⚠️ Не удалось восстановить контекст возврата. Повторите попытку через раздел \"📬 Полученные\".";
+            "⚠️ Не удалось восстановить контекст возврата. Повторите попытку через раздел \"🔁 Возвраты и обмены\" → «🆕 Создать заявку».";
     private static final DateTimeFormatter PARCEL_RETURN_DATE_FORMAT = DateTimeFormatter.ofPattern("d.MM.yyyy");
     private static final String PARCEL_ACTION_BLOCKED_TEXT = "заявка в обработке";
     private static final String PARCEL_RETURN_STATUS_INVALID =
             "⚠️ Вернуть можно только посылку со статусом «📬 Получена». Если статус ещё не обновился, попробуйте позже.";
     private static final String PARCEL_RETURN_ACCESS_DENIED =
-            "⚠️ Не удалось подтвердить владельца посылки. Убедитесь, что она отображается в разделе «📬 Полученные».";
+            "⚠️ Не удалось подтвердить владельца посылки. Убедитесь, что она отображается в разделе «🔁 Возвраты и обмены» → «🆕 Создать заявку».";
     private static final String PARCEL_RETURN_REGISTRATION_FAILED =
             "⚠️ Не удалось зафиксировать заявку. Попробуйте ещё раз позже или обратитесь в поддержку.";
     private static final String PARCEL_RETURN_IDEMPOTENCY_CONFLICT =
@@ -149,6 +157,16 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String PARCEL_EXCHANGE_DEFAULT_REASON = "Запрос обмена через Telegram";
     private static final String PARCEL_EXCHANGE_FAILED =
             "⚠️ Не удалось запустить обмен. Попробуйте ещё раз позже или обратитесь в поддержку.";
+
+    private static final String RETURNS_MENU_TEXT =
+            "🔁 Возвраты и обмены\n\nВыберите действие:";
+    private static final String RETURNS_ACTIVE_TITLE = "📂 Текущие заявки";
+    private static final String RETURNS_ACTIVE_EMPTY_PLACEHOLDER = "• активных заявок нет";
+    private static final String RETURNS_CREATE_TITLE = "🆕 Создание заявки";
+    private static final String RETURNS_CREATE_HINT =
+            "Выберите посылку для оформления возврата или обмена. Активные заявки будут отмечены замком.";
+    private static final String RETURNS_CREATE_EMPTY_PLACEHOLDER =
+            "• нет доставленных посылок";
 
     private static final String TELEGRAM_PARSE_MODE = ParseMode.MARKDOWNV2;
 
@@ -493,11 +511,14 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         switch (data) {
             case CALLBACK_MENU_SHOW_STATS -> handleMenuOpenStats(chatId, callbackQuery);
             case CALLBACK_MENU_SHOW_PARCELS -> handleMenuOpenParcels(chatId, callbackQuery);
+            case CALLBACK_MENU_RETURNS_EXCHANGES -> handleMenuOpenReturns(chatId, callbackQuery);
             case CALLBACK_MENU_SHOW_SETTINGS -> handleMenuOpenSettings(chatId, callbackQuery);
             case CALLBACK_MENU_SHOW_HELP -> handleMenuOpenHelp(chatId, callbackQuery);
             case CALLBACK_PARCELS_DELIVERED -> handleParcelsDeliveredCallback(chatId, callbackQuery);
             case CALLBACK_PARCELS_AWAITING -> handleParcelsAwaitingCallback(chatId, callbackQuery);
             case CALLBACK_PARCELS_TRANSIT -> handleParcelsTransitCallback(chatId, callbackQuery);
+            case CALLBACK_RETURNS_SHOW_ACTIVE -> handleReturnsShowActive(chatId, callbackQuery);
+            case CALLBACK_RETURNS_CREATE_REQUEST -> handleReturnsCreateRequest(chatId, callbackQuery);
             case CALLBACK_ANNOUNCEMENT_ACK -> handleAnnouncementAcknowledgement(chatId, callbackQuery);
             case CALLBACK_SETTINGS_TOGGLE_NOTIFICATIONS ->
                     handleSettingsToggleNotifications(chatId, callbackQuery);
@@ -629,6 +650,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             case MENU -> sendMainMenu(chatId);
             case STATISTICS -> sendStatisticsScreen(chatId);
             case PARCELS -> sendParcelsScreen(chatId);
+            case RETURNS_MENU -> sendReturnsMenuScreen(chatId);
+            case RETURNS_ACTIVE_REQUESTS -> sendActiveReturnRequestsScreen(chatId);
+            case RETURNS_CREATE_REQUEST -> sendReturnRequestCreationScreen(chatId);
             case SETTINGS -> sendSettingsScreen(chatId);
             case HELP -> sendHelpScreen(chatId);
             case NAME_CONFIRMATION -> renderNameConfirmationScreen(chatId);
@@ -734,6 +758,68 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
+     * Показывает меню возвратов и обменов из главного меню.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     */
+    private void handleMenuOpenReturns(Long chatId, CallbackQuery callbackQuery) {
+        if (chatId == null) {
+            answerCallbackQuery(callbackQuery, "Команда недоступна");
+            return;
+        }
+        answerCallbackQuery(callbackQuery, "Возвраты");
+        sendReturnsMenuScreen(chatId);
+    }
+
+    /**
+     * Отправляет экран меню возвратов, позволяющий выбрать нужный раздел.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void sendReturnsMenuScreen(Long chatId) {
+        String text = buildReturnsMenuText();
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_MENU);
+        InlineKeyboardMarkup markup = buildReturnsMenuKeyboard(navigationPath);
+        sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_MENU, navigationPath);
+    }
+
+    /**
+     * Формирует текст меню возвратов и обменов.
+     *
+     * @return текст сообщения с подсказками по разделам
+     */
+    private String buildReturnsMenuText() {
+        return escapeMarkdown(RETURNS_MENU_TEXT);
+    }
+
+    /**
+     * Создаёт клавиатуру меню возвратов с вариантами действий и навигацией.
+     *
+     * @param navigationPath путь навигации для отображения кнопок назад и меню
+     * @return готовая клавиатура с пунктами меню
+     */
+    private InlineKeyboardMarkup buildReturnsMenuKeyboard(List<BuyerBotScreen> navigationPath) {
+        InlineKeyboardButton activeButton = InlineKeyboardButton.builder()
+                .text(BUTTON_RETURNS_ACTIVE)
+                .callbackData(CALLBACK_RETURNS_SHOW_ACTIVE)
+                .build();
+        InlineKeyboardButton createButton = InlineKeyboardButton.builder()
+                .text(BUTTON_RETURNS_CREATE)
+                .callbackData(CALLBACK_RETURNS_CREATE_REQUEST)
+                .build();
+
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        rows.add(new InlineKeyboardRow(activeButton));
+        rows.add(new InlineKeyboardRow(createButton));
+        appendNavigationRow(rows, navigationPath);
+
+        return InlineKeyboardMarkup.builder()
+                .keyboard(rows)
+                .build();
+    }
+
+    /**
      * Показывает детальный список полученных посылок по нажатию соответствующей кнопки.
      *
      * @param chatId        идентификатор чата Telegram
@@ -776,6 +862,134 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 "🚚 Посылки в пути",
                 TelegramParcelsOverviewDTO::getInTransit,
                 ParcelsSection.IN_TRANSIT);
+    }
+
+    /**
+     * Показывает активные заявки на возврат для покупателя.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     */
+    private void handleReturnsShowActive(Long chatId, CallbackQuery callbackQuery) {
+        if (chatId == null) {
+            answerCallbackQuery(callbackQuery, "Команда недоступна");
+            return;
+        }
+        answerCallbackQuery(callbackQuery, "Текущие заявки");
+        sendActiveReturnRequestsScreen(chatId);
+    }
+
+    /**
+     * Показывает экран выбора посылки для новой заявки.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     */
+    private void handleReturnsCreateRequest(Long chatId, CallbackQuery callbackQuery) {
+        if (chatId == null) {
+            answerCallbackQuery(callbackQuery, "Команда недоступна");
+            return;
+        }
+        answerCallbackQuery(callbackQuery, "Создать заявку");
+        sendReturnRequestCreationScreen(chatId);
+    }
+
+    /**
+     * Отображает экран с активными заявками возврата или обмена.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void sendActiveReturnRequestsScreen(Long chatId) {
+        List<TelegramReturnRequestInfoDTO> requests = telegramService.getActiveReturnRequests(chatId);
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_ACTIVE_REQUESTS);
+        InlineKeyboardMarkup markup = buildNavigationKeyboard(navigationPath);
+        String text = buildActiveReturnRequestsText(requests);
+        sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_ACTIVE_REQUESTS, navigationPath);
+    }
+
+    /**
+     * Формирует текстовый список активных заявок с группировкой по магазинам.
+     *
+     * @param requests активные заявки покупателя
+     * @return текст для отображения в Telegram
+     */
+    private String buildActiveReturnRequestsText(List<TelegramReturnRequestInfoDTO> requests) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(escapeMarkdown(RETURNS_ACTIVE_TITLE)).append('\n').append('\n');
+
+        if (requests == null || requests.isEmpty()) {
+            builder.append(RETURNS_ACTIVE_EMPTY_PLACEHOLDER);
+            return builder.toString();
+        }
+
+        Map<String, List<TelegramReturnRequestInfoDTO>> grouped = new LinkedHashMap<>();
+        for (TelegramReturnRequestInfoDTO request : requests) {
+            if (request == null) {
+                continue;
+            }
+            String storeName = request.storeName() == null || request.storeName().isBlank()
+                    ? "Магазин не указан"
+                    : request.storeName();
+            grouped.computeIfAbsent(storeName, key -> new ArrayList<>()).add(request);
+        }
+
+        grouped.forEach((store, storeRequests) -> {
+            builder.append('*').append(escapeMarkdown(store)).append('*').append('\n');
+            for (TelegramReturnRequestInfoDTO request : storeRequests) {
+                if (request == null) {
+                    continue;
+                }
+                String track = escapeMarkdown(formatTrackNumber(request.trackNumber()));
+                String status = request.status() != null
+                        ? escapeMarkdown(request.status().getDisplayName())
+                        : escapeMarkdown(OrderReturnRequestStatus.REGISTERED.getDisplayName());
+                builder.append("• ").append(track)
+                        .append(" — ").append(status);
+                ZonedDateTime requestedAt = request.requestedAt();
+                if (requestedAt != null) {
+                    builder.append(" (от ")
+                            .append(escapeMarkdown(formatReturnDateForSummary(requestedAt)))
+                            .append(')');
+                }
+                builder.append('\n');
+            }
+            builder.append('\n');
+        });
+
+        return builder.toString().trim();
+    }
+
+    /**
+     * Отображает экран выбора посылки для оформления новой заявки.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void sendReturnRequestCreationScreen(Long chatId) {
+        Optional<TelegramParcelsOverviewDTO> overviewOptional = telegramService.getParcelsOverview(chatId);
+        List<TelegramParcelInfoDTO> parcels = overviewOptional
+                .map(TelegramParcelsOverviewDTO::getDelivered)
+                .orElse(List.of());
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_CREATE_REQUEST);
+        InlineKeyboardMarkup markup = buildReturnRequestKeyboard(parcels, navigationPath);
+        String text = buildReturnRequestSelectionText(parcels);
+        sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_CREATE_REQUEST, navigationPath);
+    }
+
+    /**
+     * Формирует подсказку для выбора посылки при создании заявки.
+     *
+     * @param parcels список доставленных посылок
+     * @return текстовое описание шага
+     */
+    private String buildReturnRequestSelectionText(List<TelegramParcelInfoDTO> parcels) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(escapeMarkdown(RETURNS_CREATE_TITLE)).append('\n').append('\n');
+        if (parcels == null || parcels.isEmpty()) {
+            builder.append(RETURNS_CREATE_EMPTY_PLACEHOLDER);
+        } else {
+            builder.append(escapeMarkdown(RETURNS_CREATE_HINT));
+        }
+        return builder.toString();
     }
 
     /**
@@ -1284,14 +1498,30 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
-     * Формирует клавиатуру для раздела «Полученные» с кнопками возврата и обмена.
+     * Строит клавиатуру для раздела «Полученные», содержащую только навигацию.
      *
-     * @param parcels         список доставленных посылок
-     * @param navigationPath  путь для отображения навигации
-     * @return готовая клавиатура с действиями и навигацией
+     * @param parcels        список доставленных посылок (не используется, сохраняется для совместимости вызова)
+     * @param navigationPath путь для отображения навигации
+     * @return клавиатура с кнопкой(ами) навигации
      */
     private InlineKeyboardMarkup buildDeliveredParcelsKeyboard(List<TelegramParcelInfoDTO> parcels,
                                                                List<BuyerBotScreen> navigationPath) {
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        appendNavigationRow(rows, navigationPath);
+        return InlineKeyboardMarkup.builder()
+                .keyboard(rows)
+                .build();
+    }
+
+    /**
+     * Формирует клавиатуру для выбора посылки при создании заявки на возврат или обмен.
+     *
+     * @param parcels        список доставленных посылок
+     * @param navigationPath путь для отображения навигации
+     * @return клавиатура с действиями над посылками и навигационным рядом
+     */
+    private InlineKeyboardMarkup buildReturnRequestKeyboard(List<TelegramParcelInfoDTO> parcels,
+                                                            List<BuyerBotScreen> navigationPath) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
 
         collectParcelsInDisplayOrder(parcels).stream()
@@ -2862,6 +3092,10 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 .text(BUTTON_PARCELS)
                 .callbackData(CALLBACK_MENU_SHOW_PARCELS)
                 .build();
+        InlineKeyboardButton returnsButton = InlineKeyboardButton.builder()
+                .text(BUTTON_RETURNS)
+                .callbackData(CALLBACK_MENU_RETURNS_EXCHANGES)
+                .build();
         InlineKeyboardButton settingsButton = InlineKeyboardButton.builder()
                 .text(BUTTON_SETTINGS)
                 .callbackData(CALLBACK_MENU_SHOW_SETTINGS)
@@ -2873,7 +3107,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         List<InlineKeyboardRow> rows = new ArrayList<>();
         rows.add(new InlineKeyboardRow(statsButton, parcelsButton));
-        rows.add(new InlineKeyboardRow(settingsButton, helpButton));
+        rows.add(new InlineKeyboardRow(returnsButton, settingsButton));
+        rows.add(new InlineKeyboardRow(helpButton));
 
         if (customer != null) {
             String fullName = customer.getFullName();
