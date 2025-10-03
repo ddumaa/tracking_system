@@ -8,8 +8,11 @@ import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.OrderReturnRequestRepository;
+import com.project.tracking_system.service.order.ExchangeApprovalResult;
+import com.project.tracking_system.service.order.OrderReturnRequestService;
 import com.project.tracking_system.service.telegram.FullNameValidator;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
+import org.springframework.security.access.AccessDeniedException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Comparator;
@@ -44,6 +47,7 @@ public class CustomerTelegramService {
     private final TelegramNotificationService telegramNotificationService;
     private final FullNameValidator fullNameValidator;
     private final OrderReturnRequestRepository returnRequestRepository;
+    private final OrderReturnRequestService orderReturnRequestService;
 
     /**
      * Предопределённые наборы статусов для формирования сводки Telegram.
@@ -365,6 +369,91 @@ public class CustomerTelegramService {
     }
 
     /**
+     * Регистрирует заявку на возврат/обмен для покупателя, обратившегося через Telegram.
+     * <p>
+     * Метод проверяет, что чат принадлежит существующему покупателю и что выбранная
+     * посылка закреплена за этим покупателем. После проверки делегируется логика
+     * {@link OrderReturnRequestService}, которая валидирует идемпотентный ключ и данные заявки.
+     * </p>
+     *
+     * @param chatId          идентификатор Telegram-чата покупателя
+     * @param parcelId        идентификатор посылки, для которой оформляется возврат
+     * @param idempotencyKey  внешний идемпотентный ключ, предотвращающий дубли
+     * @param reason          причина возврата, указанная пользователем
+     * @param comment         дополнительный комментарий пользователя
+     * @param requestedAt     момент, когда пользователь решил оформить возврат
+     * @param reverseTrack    трек-номер обратной отправки, если он известен
+     * @return созданная или ранее зарегистрированная заявка
+     */
+    @Transactional
+    public OrderReturnRequest registerReturnRequestFromTelegram(Long chatId,
+                                                                Long parcelId,
+                                                                String idempotencyKey,
+                                                                String reason,
+                                                                String comment,
+                                                                ZonedDateTime requestedAt,
+                                                                String reverseTrack) {
+        Customer customer = requireCustomerByChat(chatId);
+        TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
+        validateIdempotencyKey(idempotencyKey);
+        User owner = requireParcelOwner(parcel);
+        return orderReturnRequestService.registerReturn(
+                parcelId,
+                owner,
+                idempotencyKey,
+                reason,
+                comment,
+                requestedAt,
+                reverseTrack
+        );
+    }
+
+    /**
+     * Запускает обмен по ранее зарегистрированной заявке покупателя.
+     * <p>
+     * Метод убеждается, что посылка принадлежит покупателю, а заявка с указанным идентификатором
+     * относится к той же посылке. Правила перехода статусов и проверка повторных запусков
+     * остаются на уровне {@link OrderReturnRequestService}.
+     * </p>
+     *
+     * @param chatId   идентификатор Telegram-чата
+     * @param parcelId идентификатор посылки
+     * @param requestId идентификатор заявки, которую требуется одобрить
+     * @return результат запуска обмена с обновлённой заявкой
+     */
+    @Transactional
+    public ExchangeApprovalResult approveExchangeFromTelegram(Long chatId,
+                                                               Long parcelId,
+                                                               Long requestId) {
+        Customer customer = requireCustomerByChat(chatId);
+        TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
+        User owner = requireParcelOwner(parcel);
+        return orderReturnRequestService.approveExchange(requestId, parcelId, owner);
+    }
+
+    /**
+     * Закрывает активную заявку без запуска обмена от имени покупателя.
+     * <p>
+     * Используется, когда клиент отказался от обмена после регистрации заявки.
+     * Проверяется принадлежность посылки и доступность заявки в нужном статусе.
+     * </p>
+     *
+     * @param chatId   идентификатор Telegram-чата
+     * @param parcelId идентификатор посылки
+     * @param requestId идентификатор заявки
+     * @return заявка после закрытия
+     */
+    @Transactional
+    public OrderReturnRequest closeReturnRequestFromTelegram(Long chatId,
+                                                             Long parcelId,
+                                                             Long requestId) {
+        Customer customer = requireCustomerByChat(chatId);
+        TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
+        User owner = requireParcelOwner(parcel);
+        return orderReturnRequestService.closeWithoutExchange(requestId, parcelId, owner);
+    }
+
+    /**
      * Загружает посылки покупателя по указанным статусам и подготавливает их для Telegram.
      * <p>
      * Метод инкапсулирует запрос в репозиторий, обеспечивая единый способ построения
@@ -378,6 +467,57 @@ public class CustomerTelegramService {
      */
     private List<TrackParcel> loadParcelsForStatuses(Long customerId, List<GlobalStatus> statuses) {
         return trackParcelRepository.findByCustomerIdAndStatusIn(customerId, statuses);
+    }
+
+    /**
+     * Загружает покупателя по идентификатору Telegram-чата или выбрасывает исключение.
+     */
+    private Customer requireCustomerByChat(Long chatId) {
+        if (chatId == null) {
+            throw new IllegalArgumentException("Не указан идентификатор чата");
+        }
+        return customerRepository.findByTelegramChatId(chatId)
+                .orElseThrow(() -> new IllegalArgumentException("Покупатель не найден для указанного чата"));
+    }
+
+    /**
+     * Убеждается, что посылка принадлежит покупателю, оформившему заявку.
+     */
+    private TrackParcel requireOwnedParcel(Long parcelId, Long customerId) {
+        if (parcelId == null) {
+            throw new IllegalArgumentException("Не указан идентификатор посылки");
+        }
+        TrackParcel parcel = trackParcelRepository.findById(parcelId)
+                .orElseThrow(() -> new IllegalArgumentException("Посылка не найдена"));
+        Long parcelCustomerId = Optional.ofNullable(parcel.getCustomer())
+                .map(Customer::getId)
+                .orElse(null);
+        if (parcelCustomerId == null || !parcelCustomerId.equals(customerId)) {
+            throw new AccessDeniedException("Посылка принадлежит другому покупателю");
+        }
+        return parcel;
+    }
+
+    /**
+     * Возвращает владельца посылки (пользователя магазина) для делегирования сервису заявок.
+     */
+    private User requireParcelOwner(TrackParcel parcel) {
+        User owner = Optional.ofNullable(parcel)
+                .map(TrackParcel::getUser)
+                .orElseThrow(() -> new IllegalStateException("У посылки не найден владелец"));
+        if (owner.getId() == null) {
+            throw new IllegalStateException("У владельца посылки не заполнен идентификатор");
+        }
+        return owner;
+    }
+
+    /**
+     * Проверяет корректность идемпотентного ключа заявки.
+     */
+    private void validateIdempotencyKey(String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            throw new IllegalArgumentException("Не указан идемпотентный ключ заявки");
+        }
     }
 
     /**
