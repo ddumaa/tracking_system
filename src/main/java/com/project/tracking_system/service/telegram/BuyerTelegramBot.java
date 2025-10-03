@@ -2505,7 +2505,14 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         SendMessage message = createPlainMessage(chatId, text);
         message.setReplyMarkup(buildReturnReasonKeyboard());
         try {
-            telegramClient.execute(message);
+            Message sent = telegramClient.execute(message);
+            if (sent == null) {
+                log.debug("ℹ️ Telegram не вернул данные отправленного сообщения для чата {}", chatId);
+                return;
+            }
+            Integer messageId = sent.getMessageId();
+            List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_RETURN_REASON);
+            chatSessionRepository.updateAnchorAndScreen(chatId, messageId, BuyerBotScreen.RETURNS_RETURN_REASON, navigationPath);
         } catch (TelegramApiException ex) {
             log.error("❌ Не удалось отправить клавиатуру причин возврата", ex);
         }
