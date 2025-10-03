@@ -1,5 +1,6 @@
 package com.project.tracking_system.service.customer;
 
+import com.project.tracking_system.dto.ActionRequiredReturnRequestDto;
 import com.project.tracking_system.dto.TelegramParcelInfoDTO;
 import com.project.tracking_system.dto.TelegramParcelsOverviewDTO;
 import com.project.tracking_system.dto.TelegramReturnRequestInfoDTO;
@@ -16,6 +17,7 @@ import com.project.tracking_system.service.telegram.TelegramNotificationService;
 import org.springframework.security.access.AccessDeniedException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -49,6 +51,12 @@ public class CustomerTelegramService {
     private final FullNameValidator fullNameValidator;
     private final OrderReturnRequestRepository returnRequestRepository;
     private final OrderReturnRequestService orderReturnRequestService;
+
+    /**
+     * Формат для отображения дат заявок пользователю в Telegram.
+     */
+    private static final DateTimeFormatter RETURN_REQUEST_DATE_FORMAT =
+            DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
 
     /**
      * Предопределённые наборы статусов для формирования сводки Telegram.
@@ -480,6 +488,31 @@ public class CustomerTelegramService {
     }
 
     /**
+     * Возвращает расширенный список активных заявок, требующих действий пользователя.
+     *
+     * @param chatId идентификатор Telegram-чата
+     * @return заявки в удобном для отображения виде
+     */
+    @Transactional(readOnly = true)
+    public List<ActionRequiredReturnRequestDto> getReturnRequestsRequiringAction(Long chatId) {
+        Customer customer = requireCustomerByChat(chatId);
+        Long customerId = customer.getId();
+        if (customerId == null) {
+            return List.of();
+        }
+
+        List<OrderReturnRequest> requests = returnRequestRepository
+                .findActiveRequestsByCustomerWithDetails(customerId, ACTIVE_RETURN_STATUSES);
+        if (requests == null || requests.isEmpty()) {
+            return List.of();
+        }
+
+        return requests.stream()
+                .map(this::toActionRequiredDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Загружает посылки покупателя по указанным статусам и подготавливает их для Telegram.
      * <p>
      * Метод инкапсулирует запрос в репозиторий, обеспечивая единый способ построения
@@ -504,6 +537,57 @@ public class CustomerTelegramService {
         }
         return customerRepository.findByTelegramChatId(chatId)
                 .orElseThrow(() -> new IllegalArgumentException("Покупатель не найден для указанного чата"));
+    }
+
+    /**
+     * Преобразует заявку в DTO для Telegram.
+     *
+     * @param request исходная заявка на возврат/обмен
+     * @return DTO с подготовленными строками
+     */
+    private ActionRequiredReturnRequestDto toActionRequiredDto(OrderReturnRequest request) {
+        if (request == null) {
+            return null;
+        }
+
+        TrackParcel parcel = request.getParcel();
+        Long parcelId = parcel != null ? parcel.getId() : null;
+        String trackNumber = parcel != null ? parcel.getNumber() : null;
+        String storeName = parcel != null && parcel.getStore() != null ? parcel.getStore().getName() : null;
+        GlobalStatus parcelStatus = parcel != null ? parcel.getStatus() : null;
+        OrderReturnRequestStatus status = request.getStatus();
+
+        boolean canStartExchange = orderReturnRequestService.canStartExchange(request);
+        boolean canCloseWithoutExchange = status == OrderReturnRequestStatus.REGISTERED;
+
+        return new ActionRequiredReturnRequestDto(
+                request.getId(),
+                parcelId,
+                trackNumber,
+                storeName,
+                parcelStatus != null ? parcelStatus.getDescription() : null,
+                status != null ? status.getDisplayName() : null,
+                formatRequestMoment(request.getRequestedAt()),
+                formatRequestMoment(request.getCreatedAt()),
+                request.getReason(),
+                request.getComment(),
+                request.getReverseTrackNumber(),
+                canStartExchange,
+                canCloseWithoutExchange
+        );
+    }
+
+    /**
+     * Форматирует момент времени заявки к отображению в Telegram.
+     *
+     * @param moment исходное значение в UTC
+     * @return строка или {@code null}, если момент отсутствует
+     */
+    private String formatRequestMoment(ZonedDateTime moment) {
+        if (moment == null) {
+            return null;
+        }
+        return RETURN_REQUEST_DATE_FORMAT.format(moment.withZoneSameInstant(ZoneOffset.UTC));
     }
 
     /**

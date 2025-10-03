@@ -2,16 +2,15 @@ package com.project.tracking_system.service.telegram;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.project.tracking_system.dto.ActionRequiredReturnRequestDto;
 import com.project.tracking_system.dto.TelegramParcelInfoDTO;
 import com.project.tracking_system.dto.TelegramParcelsOverviewDTO;
-import com.project.tracking_system.dto.TelegramReturnRequestInfoDTO;
 import com.project.tracking_system.entity.AdminNotification;
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.entity.GlobalStatus;
-import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
@@ -50,6 +49,8 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
@@ -59,6 +60,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Telegram-бот для покупателей.
@@ -91,6 +93,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String CALLBACK_PARCELS_TRANSIT = "parcels:transit";
     private static final String CALLBACK_RETURNS_SHOW_ACTIVE = "returns:active";
     private static final String CALLBACK_RETURNS_CREATE_REQUEST = "returns:create";
+    private static final String CALLBACK_RETURNS_CREATE_TYPE_RETURN = "returns:create:type:return";
+    private static final String CALLBACK_RETURNS_CREATE_TYPE_EXCHANGE = "returns:create:type:exchange";
+    private static final String CALLBACK_RETURNS_CREATE_STORE_PREFIX = "returns:create:store:";
+    private static final String CALLBACK_RETURNS_CREATE_PARCEL_PREFIX = "returns:create:parcel:";
+    private static final String CALLBACK_RETURNS_ACTIVE_EXCHANGE_PREFIX = "returns:active:exchange:";
+    private static final String CALLBACK_RETURNS_ACTIVE_CLOSE_PREFIX = "returns:active:close:";
     private static final String CALLBACK_SETTINGS_TOGGLE_NOTIFICATIONS = "settings:toggle_notifications";
     private static final String CALLBACK_SETTINGS_CONFIRM_NAME = "settings:confirm_name";
     private static final String CALLBACK_SETTINGS_EDIT_NAME = "settings:edit_name";
@@ -98,13 +106,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String CALLBACK_NAME_EDIT = "name:edit";
     private static final String CALLBACK_ANNOUNCEMENT_ACK = "announcement:ack";
     private static final String CALLBACK_NAVIGATE_BACK = "nav:back";
-    private static final String CALLBACK_PARCEL_RETURN_PREFIX = "parcel:return:";
-    private static final String CALLBACK_PARCEL_EXCHANGE_PREFIX = "parcel:exchange:";
 
     private static final String NO_PARCELS_PLACEHOLDER = "• нет посылок";
 
-    private static final String PARCEL_ACTION_ALREADY_REGISTERED = "Заявка уже зарегистрирована";
-    private static final String PARCEL_ACTION_NOT_FOUND = "Посылка не найдена";
     private static final String PARCEL_RETURN_FLOW_STARTED =
             "📩 Начинаем оформление возврата по посылке %s. Укажите, пожалуйста, причину возврата.";
     private static final String PARCEL_RETURN_REASON_REQUIRED =
@@ -145,7 +149,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String PARCEL_RETURN_CONTEXT_LOST =
             "⚠️ Не удалось восстановить контекст возврата. Повторите попытку через раздел \"🔁 Возвраты и обмены\" → «🆕 Создать заявку».";
     private static final DateTimeFormatter PARCEL_RETURN_DATE_FORMAT = DateTimeFormatter.ofPattern("d.MM.yyyy");
-    private static final String PARCEL_ACTION_BLOCKED_TEXT = "заявка в обработке";
     private static final String PARCEL_RETURN_STATUS_INVALID =
             "⚠️ Вернуть можно только посылку со статусом «📬 Получена». Если статус ещё не обновился, попробуйте позже.";
     private static final String PARCEL_RETURN_ACCESS_DENIED =
@@ -164,10 +167,37 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String RETURNS_ACTIVE_EMPTY_PLACEHOLDER = "• активных заявок нет";
     private static final String RETURNS_ACTIVE_CONTACT_HINT = "📱 Привяжите номер телефона командой /start, чтобы видеть активные заявки в этом разделе.";
     private static final String RETURNS_CREATE_TITLE = "🆕 Создание заявки";
-    private static final String RETURNS_CREATE_HINT =
-            "Выберите посылку для оформления возврата или обмена. Активные заявки будут отмечены замком.";
-    private static final String RETURNS_CREATE_EMPTY_PLACEHOLDER =
-            "• нет доставленных посылок";
+    private static final String RETURNS_CREATE_CONTACT_HINT = "📱 Привяжите номер телефона командой /start, чтобы оформить заявку.";
+    private static final String RETURNS_CREATE_TYPE_PROMPT = "Выберите тип заявки:";
+    private static final String RETURNS_CREATE_TYPE_RETURN_LABEL = "↩️ Возврат";
+    private static final String RETURNS_CREATE_TYPE_EXCHANGE_LABEL = "🔄 Обмен";
+    private static final String RETURNS_CREATE_STORE_PROMPT = "Вы выбрали %s. Теперь укажите магазин:";
+    private static final String RETURNS_CREATE_PARCEL_PROMPT = "Выберите посылку из магазина %s:";
+    private static final String RETURNS_CREATE_NO_PARCELS =
+            "⚠️ Подходящих посылок пока нет. Попробуйте позже, когда статус обновится.";
+    private static final String RETURNS_CREATE_TYPE_ACK = "Тип выбран";
+    private static final String RETURNS_CREATE_STORE_ACK = "Магазин выбран";
+    private static final String RETURNS_CREATE_PARCEL_ACK = "Посылка выбрана";
+    private static final String RETURNS_CREATE_REPEAT_HINT =
+            "⚠️ Выберите вариант с помощью кнопок под сообщением.";
+    private static final String PARCEL_ACTION_BLOCKED_TEXT = "заявка в обработке";
+
+    private static final String RETURNS_ACTIVE_TABLE_HEADER_TRACK = "Трек";
+    private static final String RETURNS_ACTIVE_TABLE_HEADER_STORE = "Магазин";
+    private static final String RETURNS_ACTIVE_TABLE_HEADER_STATUS = "Статус";
+    private static final String RETURNS_ACTIVE_TABLE_HEADER_DATE = "Дата";
+    private static final String RETURNS_ACTIVE_ACTION_HINT =
+            "Нажмите кнопку под таблицей, чтобы продолжить работу с заявкой.";
+    private static final String RETURNS_ACTIVE_ACTION_NOT_AVAILABLE = "Заявка не найдена";
+    private static final String RETURNS_ACTIVE_EXCHANGE_SUCCESS =
+            "✅ Обмен запущен. Мы сформируем новую посылку и сообщим о статусе.";
+    private static final String RETURNS_ACTIVE_CLOSE_SUCCESS =
+            "ℹ️ Заявка закрыта без обмена. Спасибо за обратную связь.";
+    private static final String RETURNS_ACTIVE_ACTION_FAILED =
+            "⚠️ Не удалось обновить заявку. Попробуйте ещё раз позже или обратитесь в поддержку.";
+
+    private static final Base64.Encoder STORE_KEY_ENCODER = Base64.getUrlEncoder().withoutPadding();
+    private static final Base64.Decoder STORE_KEY_DECODER = Base64.getUrlDecoder();
 
     private static final String TELEGRAM_PARSE_MODE = ParseMode.MARKDOWNV2;
 
@@ -455,6 +485,26 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
+        if (state == BuyerChatState.AWAITING_REQUEST_TYPE) {
+            remindRequestTypeSelection(chatId);
+            return;
+        }
+
+        if (state == BuyerChatState.AWAITING_STORE_SELECTION) {
+            remindStoreSelection(chatId);
+            return;
+        }
+
+        if (state == BuyerChatState.AWAITING_PARCEL_SELECTION) {
+            remindParcelSelection(chatId);
+            return;
+        }
+
+        if (state == BuyerChatState.AWAITING_REQUEST_ACTION) {
+            remindRequestAction(chatId);
+            return;
+        }
+
         if (trimmed.isEmpty()) {
             return;
         }
@@ -499,13 +549,33 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         rememberAnchorMessage(chatId, messageId);
 
-        if (data.startsWith(CALLBACK_PARCEL_RETURN_PREFIX)) {
-            handleParcelActionCallback(chatId, callbackQuery, data, ParcelAction.RETURN);
+        if (CALLBACK_RETURNS_CREATE_TYPE_RETURN.equals(data)) {
+            handleReturnRequestTypeSelection(chatId, callbackQuery, ReturnRequestType.RETURN);
             return;
         }
 
-        if (data.startsWith(CALLBACK_PARCEL_EXCHANGE_PREFIX)) {
-            handleParcelActionCallback(chatId, callbackQuery, data, ParcelAction.EXCHANGE);
+        if (CALLBACK_RETURNS_CREATE_TYPE_EXCHANGE.equals(data)) {
+            handleReturnRequestTypeSelection(chatId, callbackQuery, ReturnRequestType.EXCHANGE);
+            return;
+        }
+
+        if (data.startsWith(CALLBACK_RETURNS_CREATE_STORE_PREFIX)) {
+            handleReturnRequestStoreSelection(chatId, callbackQuery, data);
+            return;
+        }
+
+        if (data.startsWith(CALLBACK_RETURNS_CREATE_PARCEL_PREFIX)) {
+            handleReturnRequestParcelSelection(chatId, callbackQuery, data);
+            return;
+        }
+
+        if (data.startsWith(CALLBACK_RETURNS_ACTIVE_EXCHANGE_PREFIX)) {
+            handleActiveRequestExchange(chatId, callbackQuery, data);
+            return;
+        }
+
+        if (data.startsWith(CALLBACK_RETURNS_ACTIVE_CLOSE_PREFIX)) {
+            handleActiveRequestClosure(chatId, callbackQuery, data);
             return;
         }
 
@@ -653,7 +723,32 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             case PARCELS -> sendParcelsScreen(chatId);
             case RETURNS_MENU -> sendReturnsMenuScreen(chatId);
             case RETURNS_ACTIVE_REQUESTS -> sendActiveReturnRequestsScreen(chatId);
-            case RETURNS_CREATE_REQUEST -> sendReturnRequestCreationScreen(chatId);
+            case RETURNS_CREATE_TYPE -> showReturnRequestTypeScreen(chatId);
+            case RETURNS_CREATE_STORE -> {
+                ChatSession session = ensureChatSession(chatId);
+                ReturnRequestType type = Optional.ofNullable(session.getReturnRequestType())
+                        .orElse(ReturnRequestType.RETURN);
+                List<TelegramParcelInfoDTO> available = loadReturnableParcels(chatId);
+                showReturnRequestStoreScreen(chatId, type, available);
+            }
+            case RETURNS_CREATE_REQUEST -> {
+                ChatSession session = ensureChatSession(chatId);
+                String storeName = session.getReturnStoreName();
+                if (storeName == null) {
+                    showReturnRequestTypeScreen(chatId);
+                    return;
+                }
+                List<TelegramParcelInfoDTO> available = loadReturnableParcels(chatId);
+                Map<String, List<TelegramParcelInfoDTO>> grouped = groupReturnableParcelsByStore(available);
+                List<TelegramParcelInfoDTO> storeParcels = grouped.getOrDefault(storeName, List.of());
+                if (storeParcels.isEmpty()) {
+                    ReturnRequestType type = Optional.ofNullable(session.getReturnRequestType())
+                            .orElse(ReturnRequestType.RETURN);
+                    showReturnRequestStoreScreen(chatId, type, available);
+                    return;
+                }
+                showReturnRequestParcelScreen(chatId, storeName, storeParcels);
+            }
             case SETTINGS -> sendSettingsScreen(chatId);
             case HELP -> sendHelpScreen(chatId);
             case NAME_CONFIRMATION -> renderNameConfirmationScreen(chatId);
@@ -892,7 +987,23 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
         answerCallbackQuery(callbackQuery, "Создать заявку");
-        sendReturnRequestCreationScreen(chatId);
+        if (telegramService.findByChatId(chatId).isEmpty()) {
+            List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_CREATE_TYPE);
+            InlineKeyboardMarkup markup = buildNavigationKeyboard(navigationPath);
+            String text = escapeMarkdown(RETURNS_CREATE_TITLE)
+                    + "\n\n"
+                    + escapeMarkdown(RETURNS_CREATE_CONTACT_HINT);
+            sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_CREATE_TYPE, navigationPath);
+            remindContactRequired(chatId);
+            return;
+        }
+
+        ChatSession session = ensureChatSession(chatId);
+        session.clearReturnRequestData();
+        session.setState(BuyerChatState.AWAITING_REQUEST_TYPE);
+        chatSessionRepository.save(session);
+        transitionToState(chatId, BuyerChatState.AWAITING_REQUEST_TYPE);
+        showReturnRequestTypeScreen(chatId);
     }
 
     /**
@@ -906,9 +1017,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      */
     private void sendActiveReturnRequestsScreen(Long chatId) {
         List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_ACTIVE_REQUESTS);
-        InlineKeyboardMarkup markup = buildNavigationKeyboard(navigationPath);
 
         if (telegramService.findByChatId(chatId).isEmpty()) {
+            InlineKeyboardMarkup markup = buildNavigationKeyboard(navigationPath);
             String text = escapeMarkdown(RETURNS_ACTIVE_TITLE)
                     + "\n\n"
                     + escapeMarkdown(RETURNS_ACTIVE_CONTACT_HINT);
@@ -917,18 +1028,24 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        List<TelegramReturnRequestInfoDTO> requests = telegramService.getActiveReturnRequests(chatId);
-        String text = buildActiveReturnRequestsText(requests);
+        List<ActionRequiredReturnRequestDto> requests = telegramService.getReturnRequestsRequiringAction(chatId);
+        InlineKeyboardMarkup markup = buildActiveRequestsKeyboard(requests, navigationPath);
+        String text = buildActiveReturnRequestsMessage(requests);
         sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_ACTIVE_REQUESTS, navigationPath);
+
+        ChatSession session = ensureChatSession(chatId);
+        session.setState(BuyerChatState.AWAITING_REQUEST_ACTION);
+        chatSessionRepository.save(session);
+        transitionToState(chatId, BuyerChatState.AWAITING_REQUEST_ACTION);
     }
 
     /**
-     * Формирует текстовый список активных заявок с группировкой по магазинам.
+     * Формирует таблицу активных заявок для отображения в Telegram.
      *
-     * @param requests активные заявки покупателя
-     * @return текст для отображения в Telegram
+     * @param requests заявки, требующие действий пользователя
+     * @return текст для сообщения бота
      */
-    private String buildActiveReturnRequestsText(List<TelegramReturnRequestInfoDTO> requests) {
+    private String buildActiveReturnRequestsMessage(List<ActionRequiredReturnRequestDto> requests) {
         StringBuilder builder = new StringBuilder();
         builder.append(escapeMarkdown(RETURNS_ACTIVE_TITLE)).append('\n').append('\n');
 
@@ -937,74 +1054,558 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return builder.toString();
         }
 
-        Map<String, List<TelegramReturnRequestInfoDTO>> grouped = new LinkedHashMap<>();
-        for (TelegramReturnRequestInfoDTO request : requests) {
-            if (request == null) {
-                continue;
-            }
-            String storeName = request.storeName() == null || request.storeName().isBlank()
-                    ? "Магазин не указан"
-                    : request.storeName();
-            grouped.computeIfAbsent(storeName, key -> new ArrayList<>()).add(request);
+        List<ActionRequiredReturnRequestDto> rows = new ArrayList<>(requests);
+        rows.sort(Comparator.comparing(ActionRequiredReturnRequestDto::requestedAt,
+                Comparator.nullsLast(String::compareTo)).reversed());
+
+        int trackWidth = Math.max(RETURNS_ACTIVE_TABLE_HEADER_TRACK.length(),
+                rows.stream()
+                        .map(row -> formatTrackNumber(row.trackNumber()))
+                        .mapToInt(String::length)
+                        .max()
+                        .orElse(RETURNS_ACTIVE_TABLE_HEADER_TRACK.length()));
+        int storeWidth = Math.max(RETURNS_ACTIVE_TABLE_HEADER_STORE.length(),
+                rows.stream()
+                        .map(row -> resolveStoreLabel(row.storeName()))
+                        .mapToInt(String::length)
+                        .max()
+                        .orElse(RETURNS_ACTIVE_TABLE_HEADER_STORE.length()));
+        int statusWidth = Math.max(RETURNS_ACTIVE_TABLE_HEADER_STATUS.length(),
+                rows.stream()
+                        .map(row -> safeRequestStatus(row.requestStatus()))
+                        .mapToInt(String::length)
+                        .max()
+                        .orElse(RETURNS_ACTIVE_TABLE_HEADER_STATUS.length()));
+        int dateWidth = Math.max(RETURNS_ACTIVE_TABLE_HEADER_DATE.length(),
+                rows.stream()
+                        .map(row -> safeOrDash(row.requestedAt()))
+                        .mapToInt(String::length)
+                        .max()
+                        .orElse(RETURNS_ACTIVE_TABLE_HEADER_DATE.length()));
+
+        int totalWidth = trackWidth + storeWidth + statusWidth + dateWidth + 9;
+
+        builder.append("```").append('\n');
+        builder.append(String.format("%-" + trackWidth + "s | %-" + storeWidth + "s | %-" + statusWidth + "s | %-" + dateWidth + "s",
+                RETURNS_ACTIVE_TABLE_HEADER_TRACK,
+                RETURNS_ACTIVE_TABLE_HEADER_STORE,
+                RETURNS_ACTIVE_TABLE_HEADER_STATUS,
+                RETURNS_ACTIVE_TABLE_HEADER_DATE)).append('\n');
+        builder.append("-".repeat(totalWidth)).append('\n');
+
+        for (ActionRequiredReturnRequestDto row : rows) {
+            String track = formatTrackNumber(row.trackNumber());
+            String store = resolveStoreLabel(row.storeName());
+            String status = safeRequestStatus(row.requestStatus());
+            String date = safeOrDash(row.requestedAt());
+            builder.append(String.format("%-" + trackWidth + "s | %-" + storeWidth + "s | %-" + statusWidth + "s | %-" + dateWidth + "s",
+                    track,
+                    store,
+                    status,
+                    date)).append('\n');
         }
 
-        grouped.forEach((store, storeRequests) -> {
-            builder.append('*').append(escapeMarkdown(store)).append('*').append('\n');
-            for (TelegramReturnRequestInfoDTO request : storeRequests) {
-                if (request == null) {
-                    continue;
-                }
-                String track = escapeMarkdown(formatTrackNumber(request.trackNumber()));
-                String status = request.status() != null
-                        ? escapeMarkdown(request.status().getDisplayName())
-                        : escapeMarkdown(OrderReturnRequestStatus.REGISTERED.getDisplayName());
-                builder.append("• ").append(track)
-                        .append(" — ").append(status);
-                ZonedDateTime requestedAt = request.requestedAt();
-                if (requestedAt != null) {
-                    builder.append(" (от ")
-                            .append(escapeMarkdown(formatReturnDateForSummary(requestedAt)))
-                            .append(')');
-                }
-                builder.append('\n');
-            }
-            builder.append('\n');
-        });
-
-        return builder.toString().trim();
+        builder.append("```");
+        builder.append('\n').append('\n');
+        builder.append(escapeMarkdown(RETURNS_ACTIVE_ACTION_HINT));
+        return builder.toString();
     }
 
     /**
-     * Отображает экран выбора посылки для оформления новой заявки.
+     * Строит клавиатуру действий для активных заявок.
+     *
+     * @param requests       заявки, требующие действий
+     * @param navigationPath путь навигации для отображения кнопки «Назад»
+     * @return инлайн-клавиатура с действиями по заявкам
+     */
+    private InlineKeyboardMarkup buildActiveRequestsKeyboard(List<ActionRequiredReturnRequestDto> requests,
+                                                             List<BuyerBotScreen> navigationPath) {
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        if (requests != null) {
+            for (ActionRequiredReturnRequestDto request : requests) {
+                if (request == null) {
+                    continue;
+                }
+                Long requestId = request.requestId();
+                Long parcelId = request.parcelId();
+                if (requestId == null || parcelId == null) {
+                    continue;
+                }
+                List<InlineKeyboardButton> buttons = new ArrayList<>();
+                if (request.canStartExchange()) {
+                    buttons.add(InlineKeyboardButton.builder()
+                            .text("🔄 Запустить обмен")
+                            .callbackData(CALLBACK_RETURNS_ACTIVE_EXCHANGE_PREFIX + requestId + ':' + parcelId)
+                            .build());
+                }
+                if (request.canCloseWithoutExchange()) {
+                    buttons.add(InlineKeyboardButton.builder()
+                            .text("✅ Закрыть заявку")
+                            .callbackData(CALLBACK_RETURNS_ACTIVE_CLOSE_PREFIX + requestId + ':' + parcelId)
+                            .build());
+                }
+                if (!buttons.isEmpty()) {
+                    rows.add(new InlineKeyboardRow(buttons));
+                }
+            }
+        }
+        appendNavigationRow(rows, navigationPath);
+        return InlineKeyboardMarkup.builder()
+                .keyboard(rows)
+                .build();
+    }
+
+    /**
+     * Возвращает отображаемое название магазина для таблицы активных заявок.
+     *
+     * @param rawStore исходное название магазина
+     * @return приведённое название или заглушка
+     */
+    private String resolveStoreLabel(String rawStore) {
+        if (rawStore == null || rawStore.isBlank()) {
+            return "Магазин не указан";
+        }
+        return rawStore;
+    }
+
+    /**
+     * Возвращает статус заявки или значение по умолчанию.
+     *
+     * @param status исходный статус
+     * @return текст статуса для отображения
+     */
+    private String safeRequestStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return OrderReturnRequestStatus.REGISTERED.getDisplayName();
+        }
+        return status;
+    }
+
+    /**
+     * Возвращает строку или заменяет её дефисом при отсутствии значения.
+     *
+     * @param value исходное значение
+     * @return строка для таблицы
+     */
+    private String safeOrDash(String value) {
+        if (value == null || value.isBlank()) {
+            return "—";
+        }
+        return value;
+    }
+
+    /**
+     * Отображает этап выбора типа заявки при создании нового обращения.
      *
      * @param chatId идентификатор чата Telegram
      */
-    private void sendReturnRequestCreationScreen(Long chatId) {
-        Optional<TelegramParcelsOverviewDTO> overviewOptional = telegramService.getParcelsOverview(chatId);
-        List<TelegramParcelInfoDTO> parcels = overviewOptional
-                .map(TelegramParcelsOverviewDTO::getDelivered)
-                .orElse(List.of());
+    private void showReturnRequestTypeScreen(Long chatId) {
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_CREATE_TYPE);
+        InlineKeyboardMarkup markup = buildReturnRequestTypeKeyboard(navigationPath);
+        String text = buildReturnRequestTypeText();
+        sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_CREATE_TYPE, navigationPath);
+    }
+
+    /**
+     * Обрабатывает выбор типа заявки и переводит пользователя к выбору магазина.
+     */
+    private void handleReturnRequestTypeSelection(Long chatId,
+                                                 CallbackQuery callbackQuery,
+                                                 ReturnRequestType type) {
+        answerCallbackQuery(callbackQuery, RETURNS_CREATE_TYPE_ACK);
+        ChatSession session = ensureChatSession(chatId);
+        session.clearReturnRequestData();
+        session.setReturnRequestType(type);
+        session.setState(BuyerChatState.AWAITING_STORE_SELECTION);
+        chatSessionRepository.save(session);
+        transitionToState(chatId, BuyerChatState.AWAITING_STORE_SELECTION);
+
+        List<TelegramParcelInfoDTO> availableParcels = loadReturnableParcels(chatId);
+        if (availableParcels.isEmpty()) {
+            sendSimpleMessage(chatId, RETURNS_CREATE_NO_PARCELS);
+            resetReturnScenario(chatId, session);
+            sendReturnsMenuScreen(chatId);
+            return;
+        }
+        showReturnRequestStoreScreen(chatId, type, availableParcels);
+    }
+
+    /**
+     * Показывает список магазинов, где есть посылки без активных заявок.
+     */
+    private void showReturnRequestStoreScreen(Long chatId,
+                                              ReturnRequestType type,
+                                              List<TelegramParcelInfoDTO> availableParcels) {
+        Map<String, List<TelegramParcelInfoDTO>> grouped = groupReturnableParcelsByStore(availableParcels);
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_CREATE_STORE);
+
+        if (grouped.isEmpty()) {
+            sendSimpleMessage(chatId, RETURNS_CREATE_NO_PARCELS);
+            ChatSession session = ensureChatSession(chatId);
+            resetReturnScenario(chatId, session);
+            sendReturnsMenuScreen(chatId);
+            return;
+        }
+
+        InlineKeyboardMarkup markup = buildReturnRequestStoreKeyboard(grouped, navigationPath);
+        String text = buildReturnRequestStoreText(type);
+        sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_CREATE_STORE, navigationPath);
+    }
+
+    /**
+     * Обрабатывает выбор магазина и предлагает список посылок этого магазина.
+     */
+    private void handleReturnRequestStoreSelection(Long chatId,
+                                                   CallbackQuery callbackQuery,
+                                                   String data) {
+        Optional<String> decodedStore = decodeStoreFromCallback(data, CALLBACK_RETURNS_CREATE_STORE_PREFIX);
+        if (decodedStore.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            return;
+        }
+
+        ChatSession session = ensureChatSession(chatId);
+        ReturnRequestType type = session.getReturnRequestType();
+        if (type == null) {
+            showReturnRequestTypeScreen(chatId);
+            return;
+        }
+
+        List<TelegramParcelInfoDTO> availableParcels = loadReturnableParcels(chatId);
+        Map<String, List<TelegramParcelInfoDTO>> grouped = groupReturnableParcelsByStore(availableParcels);
+        List<TelegramParcelInfoDTO> storeParcels = grouped.getOrDefault(decodedStore.get(), List.of());
+        if (storeParcels.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            showReturnRequestStoreScreen(chatId, type, availableParcels);
+            return;
+        }
+
+        answerCallbackQuery(callbackQuery, RETURNS_CREATE_STORE_ACK);
+        session.setReturnStoreName(decodedStore.get());
+        session.setState(BuyerChatState.AWAITING_PARCEL_SELECTION);
+        chatSessionRepository.save(session);
+        transitionToState(chatId, BuyerChatState.AWAITING_PARCEL_SELECTION);
+        showReturnRequestParcelScreen(chatId, decodedStore.get(), storeParcels);
+    }
+
+    /**
+     * Показывает список посылок выбранного магазина для оформления заявки.
+     */
+    private void showReturnRequestParcelScreen(Long chatId,
+                                               String storeName,
+                                               List<TelegramParcelInfoDTO> parcels) {
         List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_CREATE_REQUEST);
-        InlineKeyboardMarkup markup = buildReturnRequestKeyboard(parcels, navigationPath);
-        String text = buildReturnRequestSelectionText(parcels);
+        InlineKeyboardMarkup markup = buildReturnRequestParcelKeyboard(parcels, navigationPath);
+        String text = buildReturnRequestParcelText(storeName);
         sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_CREATE_REQUEST, navigationPath);
     }
 
     /**
-     * Формирует подсказку для выбора посылки при создании заявки.
-     *
-     * @param parcels список доставленных посылок
-     * @return текстовое описание шага
+     * Обрабатывает выбор посылки и запускает соответствующую ветку сценария.
      */
-    private String buildReturnRequestSelectionText(List<TelegramParcelInfoDTO> parcels) {
-        StringBuilder builder = new StringBuilder();
-        builder.append(escapeMarkdown(RETURNS_CREATE_TITLE)).append('\n').append('\n');
-        if (parcels == null || parcels.isEmpty()) {
-            builder.append(RETURNS_CREATE_EMPTY_PLACEHOLDER);
-        } else {
-            builder.append(escapeMarkdown(RETURNS_CREATE_HINT));
+    private void handleReturnRequestParcelSelection(Long chatId,
+                                                    CallbackQuery callbackQuery,
+                                                    String data) {
+        Optional<Long> parcelIdOptional = parseIdFromCallback(data, CALLBACK_RETURNS_CREATE_PARCEL_PREFIX);
+        if (parcelIdOptional.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            return;
         }
-        return builder.toString();
+
+        ChatSession session = ensureChatSession(chatId);
+        ReturnRequestType type = session.getReturnRequestType();
+        if (type == null) {
+            showReturnRequestTypeScreen(chatId);
+            return;
+        }
+
+        Long parcelId = parcelIdOptional.get();
+        Optional<TelegramParcelInfoDTO> parcelOptional = findParcelById(chatId, parcelId);
+        if (parcelOptional.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            showReturnRequestTypeScreen(chatId);
+            return;
+        }
+
+        TelegramParcelInfoDTO parcel = parcelOptional.get();
+        if (parcel.hasActiveReturnRequest()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            notifyReturnAlreadyRegistered(chatId, parcel);
+            showReturnRequestTypeScreen(chatId);
+            return;
+        }
+
+        answerCallbackQuery(callbackQuery, RETURNS_CREATE_PARCEL_ACK);
+        if (type == ReturnRequestType.RETURN) {
+            startReturnScenario(chatId, callbackQuery, parcel, session);
+        } else {
+            startExchangeScenario(chatId, callbackQuery, parcel, session);
+        }
+    }
+
+    /**
+     * Загружает доставленные посылки без активных заявок для оформления обращения.
+     */
+    private List<TelegramParcelInfoDTO> loadReturnableParcels(Long chatId) {
+        return telegramService.getParcelsOverview(chatId)
+                .map(TelegramParcelsOverviewDTO::getDelivered)
+                .orElse(List.of())
+                .stream()
+                .filter(parcel -> parcel != null && !parcel.hasActiveReturnRequest())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Группирует посылки по магазинам, сохраняя порядок появления.
+     */
+    private Map<String, List<TelegramParcelInfoDTO>> groupReturnableParcelsByStore(List<TelegramParcelInfoDTO> parcels) {
+        Map<String, List<TelegramParcelInfoDTO>> grouped = new LinkedHashMap<>();
+        if (parcels == null) {
+            return grouped;
+        }
+        for (TelegramParcelInfoDTO parcel : parcels) {
+            if (parcel == null) {
+                continue;
+            }
+            String storeName = resolveStoreName(parcel);
+            grouped.computeIfAbsent(storeName, key -> new ArrayList<>()).add(parcel);
+        }
+        return grouped;
+    }
+
+    /**
+     * Формирует клавиатуру выбора типа заявки.
+     */
+    private InlineKeyboardMarkup buildReturnRequestTypeKeyboard(List<BuyerBotScreen> navigationPath) {
+        InlineKeyboardButton returnButton = InlineKeyboardButton.builder()
+                .text(RETURNS_CREATE_TYPE_RETURN_LABEL)
+                .callbackData(CALLBACK_RETURNS_CREATE_TYPE_RETURN)
+                .build();
+        InlineKeyboardButton exchangeButton = InlineKeyboardButton.builder()
+                .text(RETURNS_CREATE_TYPE_EXCHANGE_LABEL)
+                .callbackData(CALLBACK_RETURNS_CREATE_TYPE_EXCHANGE)
+                .build();
+
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        rows.add(new InlineKeyboardRow(returnButton, exchangeButton));
+        appendNavigationRow(rows, navigationPath);
+        return InlineKeyboardMarkup.builder()
+                .keyboard(rows)
+                .build();
+    }
+
+    /**
+     * Формирует клавиатуру выбора магазина.
+     */
+    private InlineKeyboardMarkup buildReturnRequestStoreKeyboard(Map<String, List<TelegramParcelInfoDTO>> grouped,
+                                                                List<BuyerBotScreen> navigationPath) {
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        for (Map.Entry<String, List<TelegramParcelInfoDTO>> entry : grouped.entrySet()) {
+            String storeName = entry.getKey();
+            int count = entry.getValue() != null ? entry.getValue().size() : 0;
+            InlineKeyboardButton button = InlineKeyboardButton.builder()
+                    .text(storeName + " (" + count + ")")
+                    .callbackData(CALLBACK_RETURNS_CREATE_STORE_PREFIX + encodeStoreKey(storeName))
+                    .build();
+            rows.add(new InlineKeyboardRow(button));
+        }
+        appendNavigationRow(rows, navigationPath);
+        return InlineKeyboardMarkup.builder()
+                .keyboard(rows)
+                .build();
+    }
+
+    /**
+     * Формирует клавиатуру выбора посылки внутри магазина.
+     */
+    private InlineKeyboardMarkup buildReturnRequestParcelKeyboard(List<TelegramParcelInfoDTO> parcels,
+                                                                 List<BuyerBotScreen> navigationPath) {
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        if (parcels != null) {
+            for (TelegramParcelInfoDTO parcel : parcels) {
+                if (parcel == null || parcel.getParcelId() == null) {
+                    continue;
+                }
+                String track = formatTrackNumber(parcel.getTrackNumber());
+                InlineKeyboardButton button = InlineKeyboardButton.builder()
+                        .text(track)
+                        .callbackData(CALLBACK_RETURNS_CREATE_PARCEL_PREFIX + parcel.getParcelId())
+                        .build();
+                rows.add(new InlineKeyboardRow(button));
+            }
+        }
+        appendNavigationRow(rows, navigationPath);
+        return InlineKeyboardMarkup.builder()
+                .keyboard(rows)
+                .build();
+    }
+
+    /**
+     * Формирует текст этапа выбора типа заявки.
+     */
+    private String buildReturnRequestTypeText() {
+        return escapeMarkdown(RETURNS_CREATE_TITLE)
+                + "\n\n"
+                + escapeMarkdown(RETURNS_CREATE_TYPE_PROMPT);
+    }
+
+    /**
+     * Формирует текст подсказки для выбора магазина.
+     */
+    private String buildReturnRequestStoreText(ReturnRequestType type) {
+        String typeLabel = type == ReturnRequestType.RETURN
+                ? RETURNS_CREATE_TYPE_RETURN_LABEL
+                : RETURNS_CREATE_TYPE_EXCHANGE_LABEL;
+        return escapeMarkdown(RETURNS_CREATE_TITLE)
+                + "\n\n"
+                + escapeMarkdown(String.format(RETURNS_CREATE_STORE_PROMPT, typeLabel));
+    }
+
+    /**
+     * Формирует текст подсказки для выбора посылки в выбранном магазине.
+     */
+    private String buildReturnRequestParcelText(String storeName) {
+        String storeLabel = storeName == null || storeName.isBlank() ? "Магазин не указан" : storeName;
+        return escapeMarkdown(RETURNS_CREATE_TITLE)
+                + "\n\n"
+                + escapeMarkdown(String.format(RETURNS_CREATE_PARCEL_PROMPT, storeLabel));
+    }
+
+    /**
+     * Кодирует название магазина для безопасного использования в callback-данных.
+     */
+    private String encodeStoreKey(String storeName) {
+        String value = storeName == null ? "" : storeName;
+        return STORE_KEY_ENCODER.encodeToString(value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Декодирует название магазина из callback-данных.
+     */
+    private Optional<String> decodeStoreFromCallback(String data, String prefix) {
+        if (data == null || !data.startsWith(prefix)) {
+            return Optional.empty();
+        }
+        String encoded = data.substring(prefix.length());
+        if (encoded.isBlank()) {
+            return Optional.of("Магазин не указан");
+        }
+        try {
+            return Optional.of(new String(STORE_KEY_DECODER.decode(encoded), StandardCharsets.UTF_8));
+        } catch (IllegalArgumentException ex) {
+            log.warn("⚠️ Не удалось декодировать магазин из callback: {}", data, ex);
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Извлекает числовой идентификатор из callback-строки.
+     */
+    private Optional<Long> parseIdFromCallback(String data, String prefix) {
+        if (data == null || !data.startsWith(prefix)) {
+            return Optional.empty();
+        }
+        String idPart = data.substring(prefix.length());
+        if (idPart.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(Long.parseLong(idPart));
+        } catch (NumberFormatException ex) {
+            log.warn("⚠️ Некорректный идентификатор в callback: {}", data);
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Обрабатывает запуск обмена из таблицы активных заявок.
+     */
+    private void handleActiveRequestExchange(Long chatId, CallbackQuery callbackQuery, String data) {
+        Optional<RequestActionContext> contextOptional = parseActionContext(data, CALLBACK_RETURNS_ACTIVE_EXCHANGE_PREFIX);
+        if (contextOptional.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            return;
+        }
+
+        RequestActionContext context = contextOptional.get();
+        String parcelLabel = findParcelById(chatId, context.parcelId())
+                .map(TelegramParcelInfoDTO::getTrackNumber)
+                .orElse(context.parcelId().toString());
+        answerCallbackQuery(callbackQuery, "Обновляем заявку");
+        try {
+            telegramService.approveExchangeFromTelegram(chatId, context.parcelId(), context.requestId());
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_EXCHANGE_SUCCESS);
+        } catch (IllegalStateException ex) {
+            log.warn("⚠️ Не удалось запустить обмен по заявке {}: {}", context.requestId(), ex.getMessage());
+            handleReturnRegistrationIllegalState(chatId, parcelLabel, ex);
+        } catch (IllegalArgumentException ex) {
+            log.warn("⚠️ Некорректные данные обмена по заявке {}: {}", context.requestId(), ex.getMessage());
+            handleReturnRegistrationIllegalArgument(chatId, ex);
+        } catch (AccessDeniedException ex) {
+            log.warn("⚠️ Попытка обмена по чужой заявке {} в чате {}", context.requestId(), chatId);
+            sendSimpleMessage(chatId, PARCEL_RETURN_ACCESS_DENIED);
+        } catch (Exception ex) {
+            log.error("❌ Ошибка запуска обмена по заявке {}", context.requestId(), ex);
+            sendSimpleMessage(chatId, PARCEL_EXCHANGE_FAILED);
+        }
+
+        sendActiveReturnRequestsScreen(chatId);
+    }
+
+    /**
+     * Обрабатывает закрытие заявки без обмена из таблицы активных обращений.
+     */
+    private void handleActiveRequestClosure(Long chatId, CallbackQuery callbackQuery, String data) {
+        Optional<RequestActionContext> contextOptional = parseActionContext(data, CALLBACK_RETURNS_ACTIVE_CLOSE_PREFIX);
+        if (contextOptional.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            return;
+        }
+
+        RequestActionContext context = contextOptional.get();
+        answerCallbackQuery(callbackQuery, "Закрываем заявку");
+        try {
+            telegramService.closeReturnRequestFromTelegram(chatId, context.parcelId(), context.requestId());
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_CLOSE_SUCCESS);
+        } catch (AccessDeniedException ex) {
+            log.warn("⚠️ Попытка закрыть чужую заявку {} в чате {}", context.requestId(), chatId);
+            sendSimpleMessage(chatId, PARCEL_RETURN_ACCESS_DENIED);
+        } catch (IllegalArgumentException ex) {
+            log.warn("⚠️ Ошибка закрытия заявки {}: {}", context.requestId(), ex.getMessage());
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
+        } catch (Exception ex) {
+            log.error("❌ Ошибка закрытия заявки {}", context.requestId(), ex);
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
+        }
+
+        sendActiveReturnRequestsScreen(chatId);
+    }
+
+    /**
+     * Парсит идентификаторы заявки и посылки из callback-строки.
+     */
+    private Optional<RequestActionContext> parseActionContext(String data, String prefix) {
+        if (data == null || !data.startsWith(prefix)) {
+            return Optional.empty();
+        }
+        String[] parts = data.substring(prefix.length()).split(":");
+        if (parts.length != 2) {
+            return Optional.empty();
+        }
+        try {
+            Long requestId = Long.parseLong(parts[0]);
+            Long parcelId = Long.parseLong(parts[1]);
+            return Optional.of(new RequestActionContext(requestId, parcelId));
+        } catch (NumberFormatException ex) {
+            log.warn("⚠️ Некорректные идентификаторы в callback: {}", data);
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Контекст действия по заявке: идентификатор заявки и посылки.
+     */
+    private record RequestActionContext(Long requestId, Long parcelId) {
     }
 
     /**
@@ -1529,139 +2130,18 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
-     * Формирует клавиатуру для выбора посылки при создании заявки на возврат или обмен.
-     *
-     * @param parcels        список доставленных посылок
-     * @param navigationPath путь для отображения навигации
-     * @return клавиатура с действиями над посылками и навигационным рядом
-     */
-    private InlineKeyboardMarkup buildReturnRequestKeyboard(List<TelegramParcelInfoDTO> parcels,
-                                                            List<BuyerBotScreen> navigationPath) {
-        List<InlineKeyboardRow> rows = new ArrayList<>();
-
-        collectParcelsInDisplayOrder(parcels).stream()
-                .map(this::buildParcelActionsRow)
-                .filter(Objects::nonNull)
-                .forEach(rows::add);
-
-        appendNavigationRow(rows, navigationPath);
-
-        return InlineKeyboardMarkup.builder()
-                .keyboard(rows)
-                .build();
-    }
-
-    /**
-     * Возвращает посылки в том же порядке, что и в тексте, чтобы кнопки совпадали с маркерами.
-     *
-     * @param parcels исходный список доставленных посылок
-     * @return упорядоченный список для отображения клавиатуры
-     */
-    private List<TelegramParcelInfoDTO> collectParcelsInDisplayOrder(List<TelegramParcelInfoDTO> parcels) {
-        if (parcels == null || parcels.isEmpty()) {
-            return List.of();
-        }
-
-        return groupParcelsByStore(parcels).values().stream()
-                .filter(Objects::nonNull)
-                .flatMap(List::stream)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Собирает строку с кнопками «Вернуть» и «Обменять» для конкретной посылки.
-     *
-     * @param parcel описание посылки
-     * @return строка клавиатуры или {@code null}, если кнопки сформировать нельзя
-     */
-    private InlineKeyboardRow buildParcelActionsRow(TelegramParcelInfoDTO parcel) {
-        if (parcel == null || parcel.getParcelId() == null) {
-            return null;
-        }
-
-        InlineKeyboardButton returnButton = buildParcelActionButton(
-                parcel,
-                "Вернуть",
-                CALLBACK_PARCEL_RETURN_PREFIX);
-        InlineKeyboardButton exchangeButton = buildParcelActionButton(
-                parcel,
-                "Обменять",
-                CALLBACK_PARCEL_EXCHANGE_PREFIX);
-
-        return new InlineKeyboardRow(returnButton, exchangeButton);
-    }
-
-    /**
-     * Создаёт кнопку действия над посылкой с учётом блокировки при активной заявке.
-     *
-     * @param parcel     посылка, к которой относится действие
-     * @param label      текст кнопки
-     * @param prefix     префикс callback-идентификатора
-     * @return готовая кнопка
-     */
-    private InlineKeyboardButton buildParcelActionButton(TelegramParcelInfoDTO parcel,
-                                                         String label,
-                                                         String prefix) {
-        String text = parcel.hasActiveReturnRequest() ? "🔒 " + label : label;
-        String callbackData = prefix + parcel.getParcelId();
-        return InlineKeyboardButton.builder()
-                .text(text)
-                .callbackData(callbackData)
-                .build();
-    }
-
-    /**
-     * Обрабатывает callback-и «Вернуть» и «Обменять», извлекая идентификатор посылки.
-     *
-     * @param chatId        идентификатор чата Telegram
-     * @param callbackQuery исходный callback-запрос
-     * @param data          строка callback с идентификатором
-     * @param action        тип действия, которое требуется выполнить
-     */
-    private void handleParcelActionCallback(Long chatId,
-                                            CallbackQuery callbackQuery,
-                                            String data,
-                                            ParcelAction action) {
-        Long parcelId = extractParcelId(data, action == ParcelAction.RETURN
-                ? CALLBACK_PARCEL_RETURN_PREFIX
-                : CALLBACK_PARCEL_EXCHANGE_PREFIX);
-        if (parcelId == null) {
-            answerCallbackQuery(callbackQuery, PARCEL_ACTION_NOT_FOUND);
-            return;
-        }
-
-        Optional<TelegramParcelInfoDTO> parcelOptional = findParcelById(chatId, parcelId);
-        if (parcelOptional.isEmpty()) {
-            answerCallbackQuery(callbackQuery, PARCEL_ACTION_NOT_FOUND);
-            return;
-        }
-
-        TelegramParcelInfoDTO parcel = parcelOptional.get();
-        if (parcel.hasActiveReturnRequest()) {
-            answerCallbackQuery(callbackQuery, PARCEL_ACTION_ALREADY_REGISTERED);
-            notifyReturnAlreadyRegistered(chatId, parcel);
-            return;
-        }
-
-        switch (action) {
-            case RETURN -> runParcelReturnScenario(chatId, callbackQuery, parcel);
-            case EXCHANGE -> runParcelExchangeScenario(chatId, callbackQuery, parcel);
-        }
-    }
-
-    /**
      * Выполняет сценарий оформления возврата из Telegram.
      *
      * @param chatId        идентификатор чата Telegram
      * @param callbackQuery исходный callback-запрос
      * @param parcel        посылка, по которой запрошен возврат
      */
-    private void runParcelReturnScenario(Long chatId,
-                                         CallbackQuery callbackQuery,
-                                         TelegramParcelInfoDTO parcel) {
+    private void startReturnScenario(Long chatId,
+                                     CallbackQuery callbackQuery,
+                                     TelegramParcelInfoDTO parcel,
+                                     ChatSession session) {
         String track = formatTrackNumber(parcel.getTrackNumber());
-        ChatSession session = ensureChatSession(chatId);
+        session = session != null ? session : ensureChatSession(chatId);
         session.clearReturnRequestData();
         session.setReturnParcelId(parcel.getParcelId());
         session.setReturnParcelTrackNumber(track);
@@ -1670,7 +2150,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         chatSessionRepository.save(session);
         transitionToState(chatId, BuyerChatState.AWAITING_RETURN_REASON);
         sendSimpleMessage(chatId, String.format(PARCEL_RETURN_FLOW_STARTED, track));
-        answerCallbackQuery(callbackQuery, PARCEL_RETURN_STEP_ACK);
     }
 
     /**
@@ -1680,11 +2159,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param callbackQuery исходный callback-запрос
      * @param parcel        посылка, по которой запрошен обмен
      */
-    private void runParcelExchangeScenario(Long chatId,
-                                           CallbackQuery callbackQuery,
-                                           TelegramParcelInfoDTO parcel) {
+    private void startExchangeScenario(Long chatId,
+                                       CallbackQuery callbackQuery,
+                                       TelegramParcelInfoDTO parcel,
+                                       ChatSession session) {
         String track = formatTrackNumber(parcel.getTrackNumber());
-        ChatSession session = ensureChatSession(chatId);
+        session = session != null ? session : ensureChatSession(chatId);
         session.clearReturnRequestData();
         session.setReturnParcelId(parcel.getParcelId());
         session.setReturnParcelTrackNumber(track);
@@ -1693,30 +2173,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         chatSessionRepository.save(session);
         transitionToState(chatId, BuyerChatState.AWAITING_EXCHANGE_CONFIRM);
         sendSimpleMessage(chatId, String.format(PARCEL_EXCHANGE_PROMPT, track));
-        answerCallbackQuery(callbackQuery, PARCEL_RETURN_STEP_ACK);
-    }
-
-    /**
-     * Извлекает идентификатор посылки из callback-строки.
-     *
-     * @param data   строка callback
-     * @param prefix ожидаемый префикс
-     * @return идентификатор посылки или {@code null} при ошибке формата
-     */
-    private Long extractParcelId(String data, String prefix) {
-        if (data == null || prefix == null || !data.startsWith(prefix)) {
-            return null;
-        }
-        String idPart = data.substring(prefix.length());
-        if (idPart.isBlank()) {
-            return null;
-        }
-        try {
-            return Long.parseLong(idPart);
-        } catch (NumberFormatException ex) {
-            log.warn("⚠️ Некорректный идентификатор посылки в callback: {}", data);
-            return null;
-        }
     }
 
     /**
@@ -1743,15 +2199,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                         .orElse(null))
                 .filter(Objects::nonNull);
     }
-
-    /**
-     * Перечисление типов действий над посылками из раздела «Полученные».
-     */
-    private enum ParcelAction {
-        RETURN,
-        EXCHANGE
-    }
-
     /**
      * Подготавливает трек-номер к отображению, заменяя пустые значения заглушкой.
      *
@@ -2774,6 +3221,42 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         transitionToState(chatId, BuyerChatState.AWAITING_CONTACT);
         sendPhoneRequestMessage(chatId,
                 "📱 Пожалуйста, поделитесь контактом через кнопку ниже — только так мы сможем принять номер. После получения телефона мы продолжим настройку.");
+    }
+
+    /**
+     * Напоминает пользователю, что выбор типа заявки выполняется через инлайн-кнопки.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void remindRequestTypeSelection(Long chatId) {
+        sendSimpleMessage(chatId, RETURNS_CREATE_REPEAT_HINT);
+    }
+
+    /**
+     * Напоминает о необходимости выбрать магазин с помощью кнопок.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void remindStoreSelection(Long chatId) {
+        sendSimpleMessage(chatId, RETURNS_CREATE_REPEAT_HINT);
+    }
+
+    /**
+     * Сообщает пользователю, что посылку следует выбрать из списка кнопок.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void remindParcelSelection(Long chatId) {
+        sendSimpleMessage(chatId, RETURNS_CREATE_REPEAT_HINT);
+    }
+
+    /**
+     * Подсказывает, что действия по заявке доступны через кнопки под таблицей.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void remindRequestAction(Long chatId) {
+        sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_HINT);
     }
 
     /**

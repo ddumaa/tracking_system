@@ -27,6 +27,8 @@ public class ChatSession {
     private Integer announcementAnchorMessageId;
     private boolean announcementSeen;
     private ZonedDateTime announcementUpdatedAt;
+    private ReturnRequestType returnRequestType;
+    private String returnStoreName;
     private Long returnParcelId;
     private String returnParcelTrackNumber;
     private String returnReason;
@@ -94,6 +96,8 @@ public class ChatSession {
         this.announcementAnchorMessageId = null;
         this.announcementSeen = false;
         this.announcementUpdatedAt = null;
+        this.returnRequestType = null;
+        this.returnStoreName = null;
         this.returnParcelId = null;
         this.returnParcelTrackNumber = null;
         this.returnReason = null;
@@ -373,6 +377,42 @@ public class ChatSession {
     }
 
     /**
+     * Возвращает выбранный пользователем тип заявки.
+     *
+     * @return тип заявки или {@code null}, если выбор ещё не сделан
+     */
+    public ReturnRequestType getReturnRequestType() {
+        return returnRequestType;
+    }
+
+    /**
+     * Сохраняет тип заявки, выбранный пользователем.
+     *
+     * @param returnRequestType тип заявки (возврат или обмен)
+     */
+    public void setReturnRequestType(ReturnRequestType returnRequestType) {
+        this.returnRequestType = returnRequestType;
+    }
+
+    /**
+     * Возвращает название магазина, выбранного пользователем для оформления заявки.
+     *
+     * @return название магазина или {@code null}
+     */
+    public String getReturnStoreName() {
+        return returnStoreName;
+    }
+
+    /**
+     * Сохраняет название магазина, выбранного пользователем.
+     *
+     * @param returnStoreName отображаемое название магазина
+     */
+    public void setReturnStoreName(String returnStoreName) {
+        this.returnStoreName = returnStoreName;
+    }
+
+    /**
      * Возвращает идентификатор посылки, для которой оформляется возврат.
      *
      * @return идентификатор посылки или {@code null}
@@ -502,6 +542,8 @@ public class ChatSession {
      * Очищает временные данные оформления возврата и обмена.
      */
     public void clearReturnRequestData() {
+        this.returnRequestType = null;
+        this.returnStoreName = null;
         this.returnParcelId = null;
         this.returnParcelTrackNumber = null;
         this.returnReason = null;
