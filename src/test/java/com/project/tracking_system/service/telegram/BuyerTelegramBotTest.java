@@ -19,6 +19,7 @@ import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
+import com.project.tracking_system.service.telegram.ChatSession;
 import com.project.tracking_system.service.telegram.support.InMemoryChatSessionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -697,11 +698,15 @@ class BuyerTelegramBotTest {
         ChatSession session = chatSessionRepository.find(chatId).orElseThrow();
         assertEquals(77L, session.getReturnParcelId(), "Идентификатор посылки должен сохраняться в сессии");
         assertEquals("TRACK-77", session.getReturnParcelTrackNumber(), "Трек посылки должен сохраняться");
+        assertEquals(BuyerBotScreen.RETURNS_RETURN_REASON, session.getLastScreen(),
+                "После отправки списка причин экран должен соответствовать шагу выбора причины");
+        Integer returnReasonAnchorId = session.getAnchorMessageId();
+        assertNotNull(returnReasonAnchorId, "Сообщение с причинами должно становиться текущим якорем");
 
         when(telegramService.registerReturnRequestFromTelegram(anyLong(), anyLong(), anyString(), anyString()))
                 .thenReturn(new OrderReturnRequest());
 
-        bot.consume(mockCallbackUpdate(chatId, "returns:create:reason:not_fit"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:create:reason:not_fit", returnReasonAnchorId));
 
         assertEquals(BuyerChatState.IDLE, chatSessionRepository.getState(chatId),
                 "После выбора причины бот должен завершить сценарий");
@@ -741,8 +746,8 @@ class BuyerTelegramBotTest {
                         && "returns:active".equals(button.getCallbackData()));
         assertTrue(hasActiveButton, "Финальная клавиатура должна содержать кнопку перехода к заявкам");
 
-        Integer anchorMessageId = session.getAnchorMessageId();
-        assertNotNull(anchorMessageId, "Якорное сообщение финального экрана должно сохраняться");
+        Integer completionAnchorMessageId = session.getAnchorMessageId();
+        assertNotNull(completionAnchorMessageId, "Якорное сообщение финального экрана должно сохраняться");
         Update doneCallback = mock(Update.class);
         CallbackQuery callbackQuery = mock(CallbackQuery.class);
         Message callbackMessage = mock(Message.class);
@@ -752,7 +757,7 @@ class BuyerTelegramBotTest {
         when(callbackQuery.getData()).thenReturn("returns:done");
         when(callbackQuery.getMessage()).thenReturn(callbackMessage);
         when(callbackMessage.getChatId()).thenReturn(chatId);
-        when(callbackMessage.getMessageId()).thenReturn(anchorMessageId);
+        when(callbackMessage.getMessageId()).thenReturn(completionAnchorMessageId);
 
         bot.consume(doneCallback);
 
@@ -1276,6 +1281,18 @@ class BuyerTelegramBotTest {
      * @return объект {@link Update} с настроенным callback
      */
     private Update mockCallbackUpdate(Long chatId, String callbackData) {
+        return mockCallbackUpdate(chatId, callbackData, 1);
+    }
+
+    /**
+     * Создаёт мок callback-обновления с явным указанием исходного сообщения.
+     *
+     * @param chatId       идентификатор чата Telegram
+     * @param callbackData данные callback-запроса
+     * @param messageId    идентификатор сообщения, из которого пришёл callback
+     * @return объект {@link Update} с настроенным callback
+     */
+    private Update mockCallbackUpdate(Long chatId, String callbackData, Integer messageId) {
         Update update = mock(Update.class);
         CallbackQuery callbackQuery = mock(CallbackQuery.class);
         Message message = mock(Message.class);
@@ -1287,7 +1304,7 @@ class BuyerTelegramBotTest {
         when(callbackQuery.getMessage()).thenReturn(message);
 
         when(message.getChatId()).thenReturn(chatId);
-        when(message.getMessageId()).thenReturn(1);
+        when(message.getMessageId()).thenReturn(messageId);
 
         return update;
     }

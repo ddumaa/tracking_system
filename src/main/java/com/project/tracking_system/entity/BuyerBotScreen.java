@@ -45,6 +45,11 @@ public enum BuyerBotScreen {
     RETURNS_CREATE_REQUEST,
 
     /**
+     * Экран выбора причины возврата перед завершением заявки.
+     */
+    RETURNS_RETURN_REASON,
+
+    /**
      * Экран подтверждения успешной регистрации заявки на возврат.
      */
     RETURNS_RETURN_COMPLETION,
