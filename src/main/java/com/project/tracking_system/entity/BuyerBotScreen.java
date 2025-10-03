@@ -30,6 +30,16 @@ public enum BuyerBotScreen {
     RETURNS_ACTIVE_REQUESTS,
 
     /**
+     * Экран выбора типа заявки (возврат или обмен).
+     */
+    RETURNS_CREATE_TYPE,
+
+    /**
+     * Экран выбора магазина перед оформлением заявки.
+     */
+    RETURNS_CREATE_STORE,
+
+    /**
      * Экран выбора посылки для новой заявки на возврат или обмен.
      */
     RETURNS_CREATE_REQUEST,
