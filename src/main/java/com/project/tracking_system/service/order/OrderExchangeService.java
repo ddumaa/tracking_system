@@ -90,4 +90,32 @@ public class OrderExchangeService {
         replacement.setIncludedInStatistics(false);
         return replacement;
     }
+
+    /**
+     * Отменяет обменную посылку, созданную по заявке, если она ещё не обработана.
+     * <p>
+     * Метод помечает обменную посылку как отменённую, чтобы она не участвовала в дальнейшем
+     * обновлении статусов и была видна менеджеру как закрытая попытка обмена.
+     * </p>
+     *
+     * @param request заявка, для которой требуется отменить обменную посылку
+     */
+    @Transactional
+    public void cancelExchangeParcel(OrderReturnRequest request) {
+        if (request == null) {
+            return;
+        }
+        TrackParcel originalParcel = request.getParcel();
+        if (originalParcel == null) {
+            return;
+        }
+        TrackParcel replacement = trackParcelRepository.findTopByReplacementOfOrderByTimestampDesc(originalParcel);
+        if (replacement == null) {
+            return;
+        }
+        replacement.setStatus(GlobalStatus.REGISTRATION_CANCELLED);
+        replacement.setLastUpdate(ZonedDateTime.now(ZoneOffset.UTC));
+        trackParcelRepository.save(replacement);
+        log.debug("Отменена обменная посылка {} для заявки {}", replacement.getId(), request.getId());
+    }
 }

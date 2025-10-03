@@ -572,7 +572,8 @@ class BuyerTelegramBotTest {
                 "TRK",
                 "Store",
                 "Получена",
-                "Зарегистрирована",
+                OrderReturnRequestStatus.REGISTERED,
+                OrderReturnRequestStatus.REGISTERED.getDisplayName(),
                 "10.10",
                 "09.10",
                 "Причина",
@@ -581,19 +582,24 @@ class BuyerTelegramBotTest {
                 true,
                 true
         );
-        when(telegramService.getReturnRequestsRequiringAction(chatId)).thenReturn(List.of(requestDto));
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenReturn(List.of(requestDto))
+                .thenReturn(List.of(requestDto))
+                .thenReturn(List.of(requestDto));
 
         bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:select:1:2"));
         clearInvocations(telegramClient);
-        when(telegramService.getReturnRequestsRequiringAction(chatId)).thenReturn(List.of(requestDto));
 
-        bot.consume(mockCallbackUpdate(chatId, "returns:active:update:1:2"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:track:1:2"));
 
         ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
         verify(telegramClient).execute(captor.capture());
         String prompt = captor.getValue().getText();
-        assertTrue(prompt.contains("Текущий трек"), "Пользователь должен увидеть текущие данные заявки");
+        assertTrue(prompt.contains("Отправьте трек"), "Пользователь должен увидеть подсказку по вводу трека");
         assertEquals(BuyerChatState.AWAITING_TRACK_UPDATE, chatSessionRepository.getState(chatId));
+        ChatSession stored = chatSessionRepository.find(chatId).orElseThrow();
+        assertEquals(ReturnRequestEditMode.TRACK, stored.getReturnRequestEditMode());
     }
 
     /**
@@ -605,7 +611,25 @@ class BuyerTelegramBotTest {
         Customer customer = new Customer();
         customer.setTelegramChatId(chatId);
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
-        when(telegramService.getReturnRequestsRequiringAction(chatId)).thenReturn(List.of());
+        ActionRequiredReturnRequestDto requestDto = new ActionRequiredReturnRequestDto(
+                3L,
+                2L,
+                "P-1",
+                "Store",
+                "Доставлена",
+                OrderReturnRequestStatus.REGISTERED,
+                OrderReturnRequestStatus.REGISTERED.getDisplayName(),
+                "01.01.2025",
+                "01.01.2025",
+                "Причина",
+                null,
+                null,
+                false,
+                true
+        );
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenReturn(List.of(requestDto))
+                .thenReturn(List.of());
 
         ReturnRequestUpdateResponse response = new ReturnRequestUpdateResponse(
                 3L,
@@ -613,23 +637,23 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 OrderReturnRequestStatus.REGISTERED
         );
-        when(telegramService.updateReturnRequestDetailsFromTelegram(chatId, 2L, 3L, "TRACK", "COMMENT"))
+        when(telegramService.updateReturnRequestDetailsFromTelegram(chatId, 2L, 3L, "TRACK", null))
                 .thenReturn(response);
 
         ChatSession session = new ChatSession(chatId, BuyerChatState.AWAITING_TRACK_UPDATE, null, null);
-        session.setActiveReturnRequestContext(3L, 2L);
+        session.setActiveReturnRequestContext(3L, 2L, ReturnRequestEditMode.TRACK);
         chatSessionRepository.save(session);
 
-        bot.consume(mockTextUpdate(chatId, "TRACK\nCOMMENT"));
+        bot.consume(mockTextUpdate(chatId, "TRACK"));
 
-        verify(telegramService).updateReturnRequestDetailsFromTelegram(chatId, 2L, 3L, "TRACK", "COMMENT");
+        verify(telegramService).updateReturnRequestDetailsFromTelegram(chatId, 2L, 3L, "TRACK", null);
         ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
         verify(telegramClient, atLeastOnce()).execute(captor.capture());
         assertTrue(captor.getAllValues().stream()
                         .map(SendMessage::getText)
-                        .anyMatch(text -> text.contains("Сохранили данные")),
+                        .anyMatch(text -> text.contains("Трек-номер сохранён")),
                 "Пользователь должен получить уведомление об успешном обновлении");
-        assertEquals(BuyerChatState.AWAITING_REQUEST_ACTION, chatSessionRepository.getState(chatId));
+        assertEquals(BuyerChatState.AWAITING_ACTIVE_REQUEST_SELECTION, chatSessionRepository.getState(chatId));
         ChatSession stored = chatSessionRepository.find(chatId).orElseThrow();
         assertNull(stored.getActiveReturnRequestId(), "Контекст редактируемой заявки должен очищаться");
     }

@@ -285,7 +285,7 @@
                                                 <td class="text-start">
                                                     <div class="d-flex flex-column">
                                                         <span class="fw-semibold"
-                                                              th:text="${request.requestStatus != null ? request.requestStatus : 'Статус не определён'}"></span>
+                                                              th:text="${request.statusLabel != null ? request.statusLabel : 'Статус не определён'}"></span>
                                                         <span class="text-muted small"
                                                               th:text="${request.requestedAt != null ? 'Обращение: ' + request.requestedAt : 'Обращение: —'}"></span>
                                                         <span class="text-muted small"

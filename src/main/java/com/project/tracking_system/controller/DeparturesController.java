@@ -379,6 +379,7 @@ public class DeparturesController {
                 trackNumber,
                 storeName,
                 parcelStatus != null ? parcelStatus.getDescription() : null,
+                status,
                 status != null ? status.getDisplayName() : null,
                 requestedAt,
                 createdAt,
