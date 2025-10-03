@@ -25,6 +25,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
+import org.telegram.telegrambots.meta.api.methods.ParseMode;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
@@ -550,6 +551,61 @@ class BuyerTelegramBotStateIntegrationTest {
                         && "returns:active".equals(button.getCallbackData()));
         assertTrue(hasActiveButton, "Финальная клавиатура должна позволять открыть текущие заявки");
         assertEquals(BuyerChatState.IDLE, bot.getState(chatId), "После завершения сценария бот обязан вернуть состояние IDLE");
+    }
+
+    /**
+     * Проверяет, что экран выбора причины возврата корректно экранирует трек и регистрирует выбранную причину.
+     */
+    @Test
+    void shouldEscapeReturnReasonPromptAndRegisterReason() throws Exception {
+        Long chatId = 4646L;
+        Integer callbackMessageId = 901;
+        Long parcelId = 8888L;
+
+        TelegramParcelInfoDTO parcelInfo = new TelegramParcelInfoDTO(
+                parcelId,
+                "TR.777-AB",
+                "Магазин",
+                GlobalStatus.DELIVERED,
+                false
+        );
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(parcelInfo), List.of(), List.of());
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        bot.consume(callbackUpdate(chatId, callbackMessageId, "parcel:return:" + parcelId));
+
+        ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(messageCaptor.capture());
+        SendMessage reasonPrompt = messageCaptor.getAllValues().stream()
+                .filter(message -> message.getText() != null)
+                .filter(message -> message.getText().contains("Начинаем оформление возврата"))
+                .reduce((first, second) -> second)
+                .orElseThrow(() -> new AssertionError("Должно отправляться сообщение с просьбой выбрать причину"));
+
+        assertTrue(reasonPrompt.getText().contains("TR\\.777\\-AB"),
+                "Текст должен экранировать спецсимволы трека для MarkdownV2");
+        assertEquals(ParseMode.MARKDOWNV2, reasonPrompt.getParseMode(),
+                "Подсказка причины должна отправляться в режиме MarkdownV2");
+
+        ChatSession session = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("После выбора посылки должен сохраняться якорь"));
+        Integer anchorMessageId = session.getAnchorMessageId();
+        assertNotNull(anchorMessageId, "Сообщение с причинами должно фиксироваться как якорное");
+
+        clearInvocations(telegramClient);
+        ArgumentCaptor<String> reasonCaptor = ArgumentCaptor.forClass(String.class);
+        doReturn(new OrderReturnRequest()).when(telegramService).registerReturnRequestFromTelegram(
+                eq(chatId),
+                eq(parcelId),
+                anyString(),
+                reasonCaptor.capture()
+        );
+
+        bot.consume(callbackUpdate(chatId, anchorMessageId, "returns:create:reason:defect"));
+
+        verify(telegramService).registerReturnRequestFromTelegram(eq(chatId), eq(parcelId), anyString(), anyString());
+        assertEquals("Брак", reasonCaptor.getValue(),
+                "Выбранная причина должна передаваться в сервис без преобразований");
     }
 
     /**

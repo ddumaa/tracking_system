@@ -3,6 +3,7 @@ package com.project.tracking_system.service.telegram;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.tracking_system.dto.ActionRequiredReturnRequestDto;
+import com.project.tracking_system.dto.CustomerStatisticsDTO;
 import com.project.tracking_system.dto.ReturnRequestUpdateResponse;
 import com.project.tracking_system.dto.TelegramParcelInfoDTO;
 import com.project.tracking_system.dto.TelegramParcelsOverviewDTO;
@@ -1981,7 +1982,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         StringBuilder builder = new StringBuilder();
         builder.append(escapeMarkdown(title)).append('\n').append('\n');
         if (parcels == null || parcels.isEmpty()) {
-            builder.append(NO_PARCELS_PLACEHOLDER);
+            builder.append(escapeMarkdown(NO_PARCELS_PLACEHOLDER));
             return builder.toString();
         }
 
@@ -2244,31 +2245,53 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         InlineKeyboardMarkup backMarkup = buildNavigationKeyboard(navigationPath);
         telegramService.getStatistics(chatId)
                 .ifPresentOrElse(stats -> {
-                    String stores = stats.getStoreNames().isEmpty()
-                            ? "-"
-                            : stats.getStoreNames().stream()
-                            .map(this::escapeMarkdown)
-                            .collect(Collectors.joining(", "));
-                    String reputation = stats.getReputation() == null
-                            ? "-"
-                            : escapeMarkdown(stats.getReputation().getDisplayName());
-                    String text = String.format(
-                            "\uD83D\uDCCA Ваша статистика:\n" +
-                                    "Забрано: %d\n" +
-                                    "Не забрано: %d\n" +
-                                    "Магазины: %s\n" +
-                                    "Репутация: %s",
-                            stats.getPickedUpCount(),
-                            stats.getReturnedCount(),
-                            stores,
-                            reputation
-                    );
+                    String text = buildStatisticsText(stats);
                     sendInlineMessage(chatId, text, backMarkup, BuyerBotScreen.STATISTICS, navigationPath);
                 }, () -> sendInlineMessage(chatId,
-                        "\uD83D\uDCCA Статистика пока недоступна. Попробуйте позже или проверьте, есть ли у вас активные заказы.",
+                        buildStatisticsUnavailableText(),
                         backMarkup,
                         BuyerBotScreen.STATISTICS,
                         navigationPath));
+    }
+
+    /**
+     * Собирает текст для раздела статистики, экранируя данные под формат MarkdownV2.
+     *
+     * @param stats агрегированные показатели покупателя
+     * @return безопасный для отображения текст статистики
+     */
+    private String buildStatisticsText(CustomerStatisticsDTO stats) {
+        if (stats == null) {
+            return buildStatisticsUnavailableText();
+        }
+
+        String safePickedUp = escapeMarkdown(String.valueOf(stats.getPickedUpCount()));
+        String safeReturned = escapeMarkdown(String.valueOf(stats.getReturnedCount()));
+        String safeStores = stats.getStoreNames() == null || stats.getStoreNames().isEmpty()
+                ? escapeMarkdown("-")
+                : stats.getStoreNames().stream()
+                .map(this::escapeMarkdown)
+                .collect(Collectors.joining(", "));
+        String safeReputation = stats.getReputation() == null
+                ? escapeMarkdown("-")
+                : escapeMarkdown(stats.getReputation().getDisplayName());
+
+        StringBuilder builder = new StringBuilder();
+        builder.append(escapeMarkdown("📊 Ваша статистика:")).append('\n');
+        builder.append(escapeMarkdown("Забрано: ")).append(safePickedUp).append('\n');
+        builder.append(escapeMarkdown("Не забрано: ")).append(safeReturned).append('\n');
+        builder.append(escapeMarkdown("Магазины: ")).append(safeStores).append('\n');
+        builder.append(escapeMarkdown("Репутация: ")).append(safeReputation);
+        return builder.toString();
+    }
+
+    /**
+     * Возвращает сообщение о недоступности статистики для отображения пользователю.
+     *
+     * @return текст ошибки, безопасный для MarkdownV2
+     */
+    private String buildStatisticsUnavailableText() {
+        return escapeMarkdown("📊 Статистика пока недоступна. Попробуйте позже или проверьте, есть ли у вас активные заказы.");
     }
 
     /**
@@ -2295,7 +2318,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
                     sendInlineMessage(chatId, text, markup, BuyerBotScreen.PARCELS, navigationPath);
                 }, () -> sendInlineMessage(chatId,
-                        "📱 Привяжите номер телефона командой /start, чтобы видеть посылки в этом разделе.",
+                        buildParcelsContactHintText(),
                         backMarkup,
                         BuyerBotScreen.PARCELS,
                         navigationPath));
@@ -2307,8 +2330,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @return текст, уведомляющий об отсутствии посылок
      */
     private String buildEmptyParcelsText() {
-        return "📦 Мои посылки\n\n" +
-                "Пока нет активных посылок";
+        return escapeMarkdown("📦 Мои посылки") +
+                "\n\n" +
+                escapeMarkdown("Пока нет активных посылок");
     }
 
     /**
@@ -2317,8 +2341,18 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @return готовый текст для отправки в Telegram
      */
     private String buildParcelsScreenText() {
-        return "📦 Мои посылки\n\n" +
-                "Выберите категорию:";
+        return escapeMarkdown("📦 Мои посылки") +
+                "\n\n" +
+                escapeMarkdown("Выберите категорию:");
+    }
+
+    /**
+     * Формирует текст подсказки о необходимости привязать номер телефона для раздела посылок.
+     *
+     * @return безопасный для MarkdownV2 текст уведомления
+     */
+    private String buildParcelsContactHintText() {
+        return escapeMarkdown("📱 Привяжите номер телефона командой /start, чтобы видеть посылки в этом разделе.");
     }
 
     /**
@@ -2517,10 +2551,23 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (chatId == null) {
             return;
         }
-        String text = String.format(PARCEL_RETURN_FLOW_STARTED, trackLabel);
+        String text = buildReturnReasonPromptText(trackLabel);
         InlineKeyboardMarkup markup = buildReturnReasonKeyboard();
         List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_RETURN_REASON);
         sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_RETURN_REASON, navigationPath);
+    }
+
+    /**
+     * Формирует текст запроса причины возврата с экранированием MarkdownV2.
+     *
+     * @param trackLabel отображаемый трек-номер посылки
+     * @return безопасный для MarkdownV2 текст подсказки
+     */
+    private String buildReturnReasonPromptText(String trackLabel) {
+        String safeTrack = escapeMarkdown(trackLabel == null ? "" : trackLabel);
+        return escapeMarkdown("📩 Начинаем оформление возврата по посылке ")
+                + safeTrack
+                + escapeMarkdown(". Выберите, пожалуйста, причину ниже.");
     }
 
     /**
@@ -2871,7 +2918,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         String nameStatus;
         String fullName = customer.getFullName();
         if (fullName == null || fullName.isBlank()) {
-            nameStatus = "не указано";
+            nameStatus = escapeMarkdown("не указано");
         } else if (customer.getNameSource() == NameSource.USER_CONFIRMED) {
             nameStatus = escapeMarkdown(fullName) + ' ' + escapeMarkdown("(подтверждено)");
         } else {
@@ -2879,9 +2926,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         StringBuilder builder = new StringBuilder();
-        builder.append("⚙️ Настройки\n\n");
-        builder.append("Уведомления: ").append(notificationsStatus).append('\n');
-        builder.append("Имя: ").append(nameStatus);
+        builder.append(escapeMarkdown("⚙️ Настройки")).append('\n').append('\n');
+        builder.append(escapeMarkdown("Уведомления: "))
+                .append(escapeMarkdown(notificationsStatus))
+                .append('\n');
+        builder.append(escapeMarkdown("Имя: ")).append(nameStatus);
         if (awaitingNameInput) {
             builder.append("\n\n").append(escapeMarkdown("✍️ Ожидается ввод нового ФИО."));
         }
@@ -3896,31 +3945,33 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      */
     private String buildMainMenuText(Customer customer) {
         StringBuilder builder = new StringBuilder();
-        builder.append("📋 Главное меню\n\n");
+        builder.append(escapeMarkdown("📋 Главное меню")).append('\n').append('\n');
 
         if (customer == null) {
             builder.append(escapeMarkdown("Поделитесь номером телефона командой /start, чтобы получать уведомления и статистику."))
-                    .append("\n\n");
+                    .append('\n')
+                    .append('\n');
         } else {
-            builder.append("Уведомления: ")
-                    .append(customer.isNotificationsEnabled() ? "включены" : "отключены")
+            String notificationsStatus = customer.isNotificationsEnabled() ? "включены" : "отключены";
+            builder.append(escapeMarkdown("Уведомления: "))
+                    .append(escapeMarkdown(notificationsStatus))
                     .append('\n');
 
             String fullName = customer.getFullName();
             if (fullName == null || fullName.isBlank()) {
-                builder.append("Имя: не указано");
+                builder.append(escapeMarkdown("Имя: не указано"));
             } else if (customer.getNameSource() == NameSource.USER_CONFIRMED) {
-                builder.append("Имя: ")
+                builder.append(escapeMarkdown("Имя: "))
                         .append(escapeMarkdown(fullName))
                         .append(' ')
                         .append(escapeMarkdown("(подтверждено)"));
             } else {
-                builder.append("Имя: ")
+                builder.append(escapeMarkdown("Имя: "))
                         .append(escapeMarkdown(fullName))
                         .append(' ')
                         .append(escapeMarkdown("(ожидает подтверждения)"));
             }
-            builder.append("\n\n");
+            builder.append('\n').append('\n');
         }
 
         builder.append(escapeMarkdown("Выберите раздел через кнопки ниже или воспользуйтесь клавишей «🏠 Меню» на клавиатуре."));
