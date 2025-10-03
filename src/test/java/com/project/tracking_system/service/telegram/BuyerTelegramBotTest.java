@@ -706,7 +706,10 @@ class BuyerTelegramBotTest {
         assertEquals(BuyerChatState.IDLE, chatSessionRepository.getState(chatId),
                 "После выбора причины бот должен завершить сценарий");
         session = chatSessionRepository.find(chatId).orElseThrow();
-        assertNull(session.getReturnParcelId(), "После завершения временные данные должны очищаться");
+        assertEquals(77L, session.getReturnParcelId(),
+                "Контекст заявки должен сохраняться до подтверждения пользователем");
+        assertEquals("TRACK-77", session.getReturnParcelTrackNumber(),
+                "Трек посылки сохраняется для отображения в подтверждении");
         verify(telegramService).registerReturnRequestFromTelegram(eq(chatId), eq(77L), anyString(), eq("Не подошло"));
 
         ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
@@ -719,6 +722,45 @@ class BuyerTelegramBotTest {
                 "В сообщении должна отображаться выбранная причина");
         assertTrue(text.contains("📂 Текущие заявки"),
                 "В сообщении должно быть напоминание о разделе для добавления трека");
+        assertTrue(summary.getReplyMarkup() instanceof InlineKeyboardMarkup,
+                "Финальное сообщение должно содержать инлайн-клавиатуру");
+        InlineKeyboardMarkup markup = (InlineKeyboardMarkup) summary.getReplyMarkup();
+        List<List<InlineKeyboardButton>> rows = markup.getKeyboard();
+        boolean hasDoneButton = rows.stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .anyMatch(button -> "Хорошо".equals(button.getText())
+                        && "returns:done".equals(button.getCallbackData()));
+        assertTrue(hasDoneButton, "Пользователь должен видеть кнопку возврата в меню");
+        boolean hasActiveButton = rows.stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .anyMatch(button -> "📂 Текущие заявки".equals(button.getText())
+                        && "returns:active".equals(button.getCallbackData()));
+        assertTrue(hasActiveButton, "Финальная клавиатура должна содержать кнопку перехода к заявкам");
+
+        Integer anchorMessageId = session.getAnchorMessageId();
+        assertNotNull(anchorMessageId, "Якорное сообщение финального экрана должно сохраняться");
+        Update doneCallback = mock(Update.class);
+        CallbackQuery callbackQuery = mock(CallbackQuery.class);
+        Message callbackMessage = mock(Message.class);
+        when(doneCallback.hasCallbackQuery()).thenReturn(true);
+        when(doneCallback.getCallbackQuery()).thenReturn(callbackQuery);
+        when(callbackQuery.getId()).thenReturn("cb-" + chatId + "-done");
+        when(callbackQuery.getData()).thenReturn("returns:done");
+        when(callbackQuery.getMessage()).thenReturn(callbackMessage);
+        when(callbackMessage.getChatId()).thenReturn(chatId);
+        when(callbackMessage.getMessageId()).thenReturn(anchorMessageId);
+
+        bot.consume(doneCallback);
+
+        ChatSession clearedSession = chatSessionRepository.find(chatId).orElseThrow();
+        assertNull(clearedSession.getReturnParcelId(),
+                "После подтверждения данные временной заявки должны очищаться");
+        assertEquals(BuyerBotScreen.MENU, clearedSession.getLastScreen(),
+                "После возвращения в меню должен сохраняться экран главного меню");
     }
 
     /**

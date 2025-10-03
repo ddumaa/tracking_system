@@ -523,11 +523,31 @@ class BuyerTelegramBotStateIntegrationTest {
 
         ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
         verify(telegramClient, atLeastOnce()).execute(messageCaptor.capture());
-        boolean hasSummary = messageCaptor.getAllValues().stream()
-                .map(SendMessage::getText)
-                .anyMatch(text -> text.contains("Зафиксировали запрос на возврат")
-                        && text.contains("📂 Текущие заявки"));
-        assertTrue(hasSummary, "Пользователь должен получить итоговое сообщение с подсказкой по добавлению трека");
+        SendMessage summary = messageCaptor.getAllValues().stream()
+                .filter(message -> message.getText() != null)
+                .filter(message -> message.getText().contains("Зафиксировали запрос на возврат"))
+                .reduce((first, second) -> second)
+                .orElseThrow(() -> new AssertionError("Итоговое сообщение не найдено"));
+        String summaryText = summary.getText();
+        assertTrue(summaryText.contains("📂 Текущие заявки"),
+                "Пользователь должен получить подсказку о разделе текущих заявок");
+        assertTrue(summary.getReplyMarkup() instanceof InlineKeyboardMarkup,
+                "Финальное сообщение должно сопровождаться инлайн-клавиатурой");
+        InlineKeyboardMarkup markup = (InlineKeyboardMarkup) summary.getReplyMarkup();
+        boolean hasDoneButton = markup.getKeyboard().stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .anyMatch(button -> "Хорошо".equals(button.getText())
+                        && "returns:done".equals(button.getCallbackData()));
+        assertTrue(hasDoneButton, "Подтверждение должно содержать кнопку возврата в меню");
+        boolean hasActiveButton = markup.getKeyboard().stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .anyMatch(button -> "📂 Текущие заявки".equals(button.getText())
+                        && "returns:active".equals(button.getCallbackData()));
+        assertTrue(hasActiveButton, "Финальная клавиатура должна позволять открыть текущие заявки");
         assertEquals(BuyerChatState.IDLE, bot.getState(chatId), "После завершения сценария бот обязан вернуть состояние IDLE");
     }
 

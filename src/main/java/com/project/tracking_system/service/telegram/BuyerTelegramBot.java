@@ -76,6 +76,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String BUTTON_RETURNS = "🔁 Возвраты и обмены";
     private static final String BUTTON_RETURNS_ACTIVE = "📂 Текущие заявки";
     private static final String BUTTON_RETURNS_CREATE = "🆕 Создать заявку";
+    private static final String BUTTON_RETURNS_DONE = "Хорошо";
     private static final String BUTTON_SETTINGS = "⚙️ Настройки";
     private static final String BUTTON_HELP = "❓ Помощь";
     private static final String BUTTON_MENU = "🏠 Меню";
@@ -104,6 +105,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String CALLBACK_RETURNS_ACTIVE_EXCHANGE_PREFIX = "returns:active:exchange:";
     private static final String CALLBACK_RETURNS_ACTIVE_CLOSE_PREFIX = "returns:active:close:";
     private static final String CALLBACK_RETURNS_ACTIVE_UPDATE_PREFIX = "returns:active:update:";
+    private static final String CALLBACK_RETURNS_DONE = "returns:done";
     private static final String CALLBACK_SETTINGS_TOGGLE_NOTIFICATIONS = "settings:toggle_notifications";
     private static final String CALLBACK_SETTINGS_CONFIRM_NAME = "settings:confirm_name";
     private static final String CALLBACK_SETTINGS_EDIT_NAME = "settings:edit_name";
@@ -124,7 +126,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String RETURN_REASON_LABEL_DISLIKE = "Не понравилось";
     private static final String RETURN_REASON_LABEL_OTHER = "Другое";
     private static final String PARCEL_RETURN_FINISHED_TEMPLATE =
-            "✅ Зафиксировали запрос на возврат посылки %s.\n• Причина: %s\n• Дата обращения: %s\nℹ️ Добавить трек можно позже через раздел «📂 Текущие заявки».";
+            "✅ Зафиксировали запрос на возврат посылки %s.\n• Причина: %s\n• Дата обращения: %s\nℹ️ Если трек появится позже, добавьте его через раздел «📂 Текущие заявки».";
     private static final String PARCEL_RETURN_NO_COMMENT = "без комментария";
     private static final String PARCEL_RETURN_NO_TRACK = "не указан";
     private static final String PARCEL_RETURN_DATE_UNKNOWN = "не указана";
@@ -593,6 +595,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             case CALLBACK_PARCELS_TRANSIT -> handleParcelsTransitCallback(chatId, callbackQuery);
             case CALLBACK_RETURNS_SHOW_ACTIVE -> handleReturnsShowActive(chatId, callbackQuery);
             case CALLBACK_RETURNS_CREATE_REQUEST -> handleReturnsCreateRequest(chatId, callbackQuery);
+            case CALLBACK_RETURNS_DONE -> handleReturnCompletionAcknowledgement(chatId, callbackQuery);
             case CALLBACK_ANNOUNCEMENT_ACK -> handleAnnouncementAcknowledgement(chatId, callbackQuery);
             case CALLBACK_SETTINGS_TOGGLE_NOTIFICATIONS ->
                     handleSettingsToggleNotifications(chatId, callbackQuery);
@@ -752,6 +755,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 }
                 showReturnRequestParcelScreen(chatId, storeName, storeParcels);
             }
+            case RETURNS_RETURN_COMPLETION -> sendReturnCompletionScreen(chatId);
             case SETTINGS -> sendSettingsScreen(chatId);
             case HELP -> sendHelpScreen(chatId);
             case NAME_CONFIRMATION -> renderNameConfirmationScreen(chatId);
@@ -1527,6 +1531,60 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         );
         return InlineKeyboardMarkup.builder()
                 .keyboard(List.of(firstRow, secondRow))
+                .build();
+    }
+
+    /**
+     * Формирует текст подтверждения успешной регистрации возврата.
+     *
+     * @param parcelLabel отображаемое обозначение посылки
+     * @param reason      причина возврата
+     * @param dateText    текстовое представление даты обращения
+     * @return готовый текст для итогового сообщения
+     */
+    private String buildReturnCompletionText(String parcelLabel, String reason, String dateText) {
+        String safeParcel = (parcelLabel == null || parcelLabel.isBlank())
+                ? PARCEL_RETURN_NO_TRACK
+                : parcelLabel;
+        String safeReason = (reason == null || reason.isBlank())
+                ? PARCEL_RETURN_REASON_UNKNOWN
+                : reason;
+        String safeDate = (dateText == null || dateText.isBlank())
+                ? PARCEL_RETURN_DATE_UNKNOWN
+                : dateText;
+
+        StringBuilder builder = new StringBuilder();
+        builder.append(escapeMarkdown("✅ Зафиксировали запрос на возврат посылки "))
+                .append(escapeMarkdown(safeParcel))
+                .append(escapeMarkdown("."))
+                .append('\n');
+        builder.append(escapeMarkdown("• Причина: "))
+                .append(escapeMarkdown(safeReason))
+                .append('\n');
+        builder.append(escapeMarkdown("• Дата обращения: "))
+                .append(escapeMarkdown(safeDate))
+                .append('\n');
+        builder.append(escapeMarkdown("ℹ️ Если трек появится позже, добавьте его через раздел «📂 Текущие заявки»."));
+        return builder.toString();
+    }
+
+    /**
+     * Строит клавиатуру финального экрана с подтверждением регистрации заявки.
+     *
+     * @return инлайн-клавиатура с кнопками возврата в меню и перехода к заявкам
+     */
+    private InlineKeyboardMarkup buildReturnCompletionKeyboard() {
+        InlineKeyboardButton doneButton = InlineKeyboardButton.builder()
+                .text(BUTTON_RETURNS_DONE)
+                .callbackData(CALLBACK_RETURNS_DONE)
+                .build();
+        InlineKeyboardButton activeButton = InlineKeyboardButton.builder()
+                .text(BUTTON_RETURNS_ACTIVE)
+                .callbackData(CALLBACK_RETURNS_SHOW_ACTIVE)
+                .build();
+        InlineKeyboardRow mainRow = new InlineKeyboardRow(doneButton, activeButton);
+        return InlineKeyboardMarkup.builder()
+                .keyboard(List.of(mainRow))
                 .build();
     }
 
@@ -2989,6 +3047,23 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
+     * Обрабатывает подтверждение успешной регистрации возврата и возвращает пользователя в меню.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     */
+    private void handleReturnCompletionAcknowledgement(Long chatId, CallbackQuery callbackQuery) {
+        answerCallbackQuery(callbackQuery, "Меню обновлено");
+        ChatSession session = chatSessionRepository.find(chatId).orElse(null);
+        if (session != null) {
+            resetReturnScenario(chatId, session);
+        } else {
+            transitionToState(chatId, BuyerChatState.IDLE);
+        }
+        renderScreen(chatId, BuyerBotScreen.MENU);
+    }
+
+    /**
      * Обрабатывает подтверждение обмена и завершает сценарий.
      *
      * @param chatId идентификатор чата Telegram
@@ -3169,10 +3244,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         Long parcelId = session.getReturnParcelId();
-        String parcelLabel = session.getReturnParcelTrackNumber() != null
-                ? session.getReturnParcelTrackNumber()
-                : "Без номера";
-        String rawReason = session.getReturnReason();
+        String parcelLabel = session.getReturnParcelTrackNumber();
         ZonedDateTime requestedAt = ZonedDateTime.now(ZoneOffset.UTC);
         String idempotencyKey = session.getReturnIdempotencyKey();
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
@@ -3185,7 +3257,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                     chatId,
                     parcelId,
                     idempotencyKey,
-                    rawReason
+                    session.getReturnReason()
             );
         } catch (IllegalStateException ex) {
             log.warn("⚠️ Не удалось зарегистрировать возврат по посылке {}: {}", parcelId, ex.getMessage());
@@ -3209,17 +3281,56 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        String displayReason = (rawReason == null || rawReason.isBlank())
-                ? PARCEL_RETURN_REASON_UNKNOWN
-                : rawReason;
-        String dateText = formatReturnDateForSummary(requestedAt);
-        String message = String.format(PARCEL_RETURN_FINISHED_TEMPLATE,
-                parcelLabel,
-                displayReason,
-                dateText);
-        sendSimpleMessage(chatId, message);
+        session.setState(BuyerChatState.IDLE);
+        chatSessionRepository.save(session);
+        transitionToState(chatId, BuyerChatState.IDLE);
 
-        resetReturnScenario(chatId, session);
+        sendReturnCompletionScreen(chatId, session, requestedAt);
+    }
+
+    /**
+     * Перерисовывает экран подтверждения оформления возврата на основе сохранённых данных.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void sendReturnCompletionScreen(Long chatId) {
+        ChatSession session = ensureChatSession(chatId);
+        if (session.getReturnParcelTrackNumber() == null && session.getReturnReason() == null) {
+            sendMainMenu(chatId);
+            return;
+        }
+        sendReturnCompletionScreen(chatId, session, null);
+    }
+
+    /**
+     * Показывает экран подтверждения оформления возврата с итоговой сводкой.
+     *
+     * @param chatId      идентификатор чата Telegram
+     * @param session     активная сессия, содержащая данные заявки
+     * @param requestedAt дата регистрации заявки или {@code null}
+     */
+    private void sendReturnCompletionScreen(Long chatId, ChatSession session, ZonedDateTime requestedAt) {
+        if (chatId == null) {
+            return;
+        }
+
+        ChatSession activeSession = session != null ? session : ensureChatSession(chatId);
+        String parcelLabel = activeSession.getReturnParcelTrackNumber();
+        if (parcelLabel == null || parcelLabel.isBlank()) {
+            parcelLabel = PARCEL_RETURN_NO_TRACK;
+        }
+        String reason = activeSession.getReturnReason();
+        if (reason == null || reason.isBlank()) {
+            reason = PARCEL_RETURN_REASON_UNKNOWN;
+        }
+        String dateText = requestedAt != null
+                ? formatReturnDateForSummary(requestedAt)
+                : PARCEL_RETURN_DATE_UNKNOWN;
+
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_RETURN_COMPLETION);
+        String text = buildReturnCompletionText(parcelLabel, reason, dateText);
+        InlineKeyboardMarkup markup = buildReturnCompletionKeyboard();
+        sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_RETURN_COMPLETION, navigationPath);
     }
 
     /**
