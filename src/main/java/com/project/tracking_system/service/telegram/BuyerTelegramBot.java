@@ -10,12 +10,14 @@ import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.entity.GlobalStatus;
+import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.security.access.AccessDeniedException;
 import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsumer;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
@@ -136,6 +138,17 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             "⚠️ Не удалось восстановить контекст возврата. Повторите попытку через раздел \"📬 Полученные\".";
     private static final DateTimeFormatter PARCEL_RETURN_DATE_FORMAT = DateTimeFormatter.ofPattern("d.MM.yyyy");
     private static final String PARCEL_ACTION_BLOCKED_TEXT = "заявка в обработке";
+    private static final String PARCEL_RETURN_STATUS_INVALID =
+            "⚠️ Вернуть можно только посылку со статусом «📬 Получена». Если статус ещё не обновился, попробуйте позже.";
+    private static final String PARCEL_RETURN_ACCESS_DENIED =
+            "⚠️ Не удалось подтвердить владельца посылки. Убедитесь, что она отображается в разделе «📬 Полученные».";
+    private static final String PARCEL_RETURN_REGISTRATION_FAILED =
+            "⚠️ Не удалось зафиксировать заявку. Попробуйте ещё раз позже или обратитесь в поддержку.";
+    private static final String PARCEL_RETURN_IDEMPOTENCY_CONFLICT =
+            "⚠️ Похоже, что данные заявки отличаются от предыдущих. Свяжитесь с поддержкой для проверки.";
+    private static final String PARCEL_EXCHANGE_DEFAULT_REASON = "Запрос обмена через Telegram";
+    private static final String PARCEL_EXCHANGE_FAILED =
+            "⚠️ Не удалось запустить обмен. Попробуйте ещё раз позже или обратитесь в поддержку.";
 
     private static final String TELEGRAM_PARSE_MODE = ParseMode.MARKDOWNV2;
 
@@ -1430,6 +1443,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         session.clearReturnRequestData();
         session.setReturnParcelId(parcel.getParcelId());
         session.setReturnParcelTrackNumber(track);
+        session.setReturnIdempotencyKey(UUID.randomUUID().toString());
         session.setState(BuyerChatState.AWAITING_EXCHANGE_CONFIRM);
         chatSessionRepository.save(session);
         transitionToState(chatId, BuyerChatState.AWAITING_EXCHANGE_CONFIRM);
@@ -2102,10 +2116,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         if (isSkipWord(normalized)) {
-            session.clearReturnRequestData();
-            session.setState(BuyerChatState.IDLE);
-            chatSessionRepository.save(session);
-            transitionToState(chatId, BuyerChatState.IDLE);
+            resetReturnScenario(chatId, session);
             sendSimpleMessage(chatId, PARCEL_EXCHANGE_CANCELLED_MESSAGE);
             return;
         }
@@ -2115,11 +2126,77 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        session.clearReturnRequestData();
-        session.setState(BuyerChatState.IDLE);
-        chatSessionRepository.save(session);
-        transitionToState(chatId, BuyerChatState.IDLE);
+        Long parcelId = session.getReturnParcelId();
+        String parcelLabel = session.getReturnParcelTrackNumber() != null
+                ? session.getReturnParcelTrackNumber()
+                : "Без номера";
+        String idempotencyKey = session.getReturnIdempotencyKey();
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            idempotencyKey = UUID.randomUUID().toString();
+            session.setReturnIdempotencyKey(idempotencyKey);
+        }
+
+        OrderReturnRequest request;
+        try {
+            request = telegramService.registerReturnRequestFromTelegram(
+                    chatId,
+                    parcelId,
+                    idempotencyKey,
+                    PARCEL_EXCHANGE_DEFAULT_REASON,
+                    null,
+                    ZonedDateTime.now(ZoneOffset.UTC),
+                    null
+            );
+            if (request == null) {
+                log.warn("⚠️ Сервис возвратов вернул null при регистрации обмена по посылке {}", parcelId);
+                sendSimpleMessage(chatId, PARCEL_EXCHANGE_FAILED);
+                resetReturnScenario(chatId, session);
+                return;
+            }
+            Long requestId = request.getId();
+            if (requestId == null) {
+                log.warn("⚠️ Регистрация обмена вернула заявку без идентификатора для посылки {}", parcelId);
+                sendSimpleMessage(chatId, PARCEL_EXCHANGE_FAILED);
+                resetReturnScenario(chatId, session);
+                return;
+            }
+            telegramService.approveExchangeFromTelegram(chatId, parcelId, requestId);
+        } catch (IllegalStateException ex) {
+            log.warn("⚠️ Не удалось запустить обмен по посылке {}: {}", parcelId, ex.getMessage());
+            String message = ex.getMessage();
+            if (message != null && message.contains("активная заявка")) {
+                notifyReturnAlreadyRegistered(chatId, parcelLabel);
+            } else if (message != null && message.contains("Вручена")) {
+                sendSimpleMessage(chatId, PARCEL_RETURN_STATUS_INVALID);
+            } else {
+                sendSimpleMessage(chatId, PARCEL_EXCHANGE_FAILED);
+            }
+            resetReturnScenario(chatId, session);
+            return;
+        } catch (IllegalArgumentException ex) {
+            log.warn("⚠️ Некорректные данные обмена по посылке {}: {}", parcelId, ex.getMessage());
+            String message = ex.getMessage();
+            if (message != null && message.contains("другими данными")) {
+                sendSimpleMessage(chatId, PARCEL_RETURN_IDEMPOTENCY_CONFLICT);
+            } else {
+                sendSimpleMessage(chatId, PARCEL_EXCHANGE_FAILED);
+            }
+            resetReturnScenario(chatId, session);
+            return;
+        } catch (AccessDeniedException ex) {
+            log.warn("⚠️ Попытка обмена для чужой посылки {} в чате {}", parcelId, chatId);
+            sendSimpleMessage(chatId, PARCEL_RETURN_ACCESS_DENIED);
+            resetReturnScenario(chatId, session);
+            return;
+        } catch (Exception ex) {
+            log.error("❌ Ошибка запуска обмена по посылке {}", parcelId, ex);
+            sendSimpleMessage(chatId, PARCEL_EXCHANGE_FAILED);
+            resetReturnScenario(chatId, session);
+            return;
+        }
+
         sendSimpleMessage(chatId, PARCEL_EXCHANGE_CONFIRMED_MESSAGE);
+        resetReturnScenario(chatId, session);
     }
 
     /**
@@ -2228,25 +2305,130 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param session активная сессия диалога
      */
     private void finalizeReturnFlow(Long chatId, ChatSession session) {
+        if (session == null) {
+            return;
+        }
+
+        Long parcelId = session.getReturnParcelId();
         String parcelLabel = session.getReturnParcelTrackNumber() != null
                 ? session.getReturnParcelTrackNumber()
                 : "Без номера";
-        String reason = session.getReturnReason();
-        if (reason == null || reason.isBlank()) {
-            reason = PARCEL_RETURN_REASON_UNKNOWN;
+        String rawReason = session.getReturnReason();
+        ZonedDateTime requestedAt = session.getReturnRequestedAt();
+        String idempotencyKey = session.getReturnIdempotencyKey();
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            idempotencyKey = UUID.randomUUID().toString();
+            session.setReturnIdempotencyKey(idempotencyKey);
         }
-        String dateText = formatReturnDateForSummary(session.getReturnRequestedAt());
+
+        try {
+            telegramService.registerReturnRequestFromTelegram(
+                    chatId,
+                    parcelId,
+                    idempotencyKey,
+                    rawReason,
+                    session.getReturnComment(),
+                    requestedAt,
+                    session.getReturnReverseTrackNumber()
+            );
+        } catch (IllegalStateException ex) {
+            log.warn("⚠️ Не удалось зарегистрировать возврат по посылке {}: {}", parcelId, ex.getMessage());
+            handleReturnRegistrationIllegalState(chatId, parcelLabel, ex);
+            resetReturnScenario(chatId, session);
+            return;
+        } catch (IllegalArgumentException ex) {
+            log.warn("⚠️ Некорректные данные возврата по посылке {}: {}", parcelId, ex.getMessage());
+            handleReturnRegistrationIllegalArgument(chatId, ex);
+            resetReturnScenario(chatId, session);
+            return;
+        } catch (AccessDeniedException ex) {
+            log.warn("⚠️ Попытка оформить возврат для чужой посылки {} в чате {}", parcelId, chatId);
+            sendSimpleMessage(chatId, PARCEL_RETURN_ACCESS_DENIED);
+            resetReturnScenario(chatId, session);
+            return;
+        } catch (Exception ex) {
+            log.error("❌ Ошибка регистрации возврата по посылке {}", parcelId, ex);
+            sendSimpleMessage(chatId, PARCEL_RETURN_REGISTRATION_FAILED);
+            resetReturnScenario(chatId, session);
+            return;
+        }
+
+        String displayReason = (rawReason == null || rawReason.isBlank())
+                ? PARCEL_RETURN_REASON_UNKNOWN
+                : rawReason;
+        String dateText = formatReturnDateForSummary(requestedAt);
         String commentLine = buildCommentLine(session);
         String trackLine = buildTrackLine(session);
 
         String message = String.format(PARCEL_RETURN_FINISHED_TEMPLATE,
                 parcelLabel,
-                reason,
+                displayReason,
                 dateText,
                 commentLine,
                 trackLine);
         sendSimpleMessage(chatId, message);
 
+        resetReturnScenario(chatId, session);
+    }
+
+    /**
+     * Сообщает пользователю, что по выбранной посылке уже есть активная заявка.
+     *
+     * @param chatId идентификатор чата Telegram
+     * @param parcel посылка, выбранная пользователем
+     */
+    private void notifyReturnAlreadyRegistered(Long chatId, TelegramParcelInfoDTO parcel) {
+        if (parcel == null) {
+            return;
+        }
+        notifyReturnAlreadyRegistered(chatId, parcel.getTrackNumber());
+    }
+
+    /**
+     * Отправляет сообщение о том, что по посылке уже зарегистрирована активная заявка.
+     */
+    private void notifyReturnAlreadyRegistered(Long chatId, String trackLabel) {
+        String track = formatTrackNumber(trackLabel);
+        sendSimpleMessage(chatId, String.format(PARCEL_RETURN_ALREADY_REGISTERED_TEMPLATE, track));
+    }
+
+    /**
+     * Обрабатывает бизнес-конфликты при регистрации возврата.
+     */
+    private void handleReturnRegistrationIllegalState(Long chatId,
+                                                      String parcelLabel,
+                                                      IllegalStateException ex) {
+        String message = ex.getMessage();
+        if (message != null && message.contains("активная заявка")) {
+            notifyReturnAlreadyRegistered(chatId, parcelLabel);
+            return;
+        }
+        if (message != null && message.contains("Вручена")) {
+            sendSimpleMessage(chatId, PARCEL_RETURN_STATUS_INVALID);
+            return;
+        }
+        sendSimpleMessage(chatId, PARCEL_RETURN_REGISTRATION_FAILED);
+    }
+
+    /**
+     * Сообщает пользователю о проблемах с идемпотентным ключом или данными заявки.
+     */
+    private void handleReturnRegistrationIllegalArgument(Long chatId, IllegalArgumentException ex) {
+        String message = ex.getMessage();
+        if (message != null && message.contains("другими данными")) {
+            sendSimpleMessage(chatId, PARCEL_RETURN_IDEMPOTENCY_CONFLICT);
+            return;
+        }
+        sendSimpleMessage(chatId, PARCEL_RETURN_REGISTRATION_FAILED);
+    }
+
+    /**
+     * Сбрасывает состояние сценария возврата после завершения или ошибки.
+     */
+    private void resetReturnScenario(Long chatId, ChatSession session) {
+        if (session == null) {
+            return;
+        }
         session.clearReturnRequestData();
         session.setState(BuyerChatState.IDLE);
         chatSessionRepository.save(session);
@@ -2294,14 +2476,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param chatId идентификатор чата Telegram
      * @param parcel посылка, выбранная пользователем
      */
-    private void notifyReturnAlreadyRegistered(Long chatId, TelegramParcelInfoDTO parcel) {
-        if (parcel == null) {
-            return;
-        }
-        String track = formatTrackNumber(parcel.getTrackNumber());
-        sendSimpleMessage(chatId, String.format(PARCEL_RETURN_ALREADY_REGISTERED_TEMPLATE, track));
-    }
-
     /**
      * Сбрасывает временные данные сценария возврата при возврате в меню.
      *

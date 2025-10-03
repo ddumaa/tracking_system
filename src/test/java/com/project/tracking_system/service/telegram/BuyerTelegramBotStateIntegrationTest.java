@@ -7,8 +7,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.tracking_system.entity.AdminNotification;
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
+import com.project.tracking_system.dto.TelegramParcelInfoDTO;
+import com.project.tracking_system.dto.TelegramParcelsOverviewDTO;
 import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.NameSource;
+import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.service.telegram.ChatSession;
@@ -43,6 +47,7 @@ import java.util.List;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -86,6 +91,9 @@ class BuyerTelegramBotStateIntegrationTest {
                 fullNameValidator, chatSessionRepository, new ObjectMapper());
         lenient().when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
         lenient().when(telegramService.findByChatId(anyLong())).thenReturn(Optional.empty());
+        lenient().when(telegramService.registerReturnRequestFromTelegram(anyLong(), anyLong(), anyString(), any(), any(), any(), any()))
+                .thenReturn(new OrderReturnRequest());
+        lenient().when(telegramService.approveExchangeFromTelegram(anyLong(), anyLong(), anyLong())).thenReturn(null);
         lenient().when(telegramClient.execute(any(EditMessageText.class))).thenReturn(null);
         lenient().when(telegramClient.execute(any(EditMessageReplyMarkup.class))).thenReturn(null);
         lenient().when(telegramClient.execute(any(AnswerCallbackQuery.class))).thenReturn(null);
@@ -479,6 +487,91 @@ class BuyerTelegramBotStateIntegrationTest {
 
         verify(telegramClient).execute(any(EditMessageText.class));
         verify(telegramClient, never()).execute(any(EditMessageReplyMarkup.class));
+    }
+
+    /**
+     * Проверяет, что полный сценарий возврата вызывает регистрацию заявки в доменном сервисе.
+     */
+    @Test
+    void shouldRegisterReturnRequestAfterSuccessfulFlow() throws Exception {
+        Long chatId = 4545L;
+        Integer callbackMessageId = 900;
+        Long parcelId = 7777L;
+
+        TelegramParcelInfoDTO parcelInfo = new TelegramParcelInfoDTO(parcelId, "TR-777", "Магазин", GlobalStatus.DELIVERED, false);
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(parcelInfo), List.of(), List.of());
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        ArgumentCaptor<String> idempotencyCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> reasonCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> commentCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<ZonedDateTime> dateCaptor = ArgumentCaptor.forClass(ZonedDateTime.class);
+        ArgumentCaptor<String> reverseCaptor = ArgumentCaptor.forClass(String.class);
+
+        OrderReturnRequest savedRequest = new OrderReturnRequest();
+        doReturn(savedRequest).when(telegramService).registerReturnRequestFromTelegram(
+                eq(chatId),
+                eq(parcelId),
+                idempotencyCaptor.capture(),
+                reasonCaptor.capture(),
+                commentCaptor.capture(),
+                dateCaptor.capture(),
+                reverseCaptor.capture()
+        );
+
+        bot.consume(callbackUpdate(chatId, callbackMessageId, "parcel:return:" + parcelId));
+        bot.consume(textUpdate(chatId, "Размер не подошёл"));
+        bot.consume(textUpdate(chatId, "Хочу размер побольше"));
+        bot.consume(textUpdate(chatId, "01.04.2024"));
+        bot.consume(textUpdate(chatId, "RR123456"));
+
+        verify(telegramService).registerReturnRequestFromTelegram(eq(chatId), eq(parcelId), anyString(), any(), any(), any(), any());
+        assertFalse(idempotencyCaptor.getValue().isBlank(), "Бот обязан передавать непустой идемпотентный ключ");
+        assertEquals("Размер не подошёл", reasonCaptor.getValue(), "Причина возврата должна передаваться в сервис без изменений");
+        assertEquals("Хочу размер побольше", commentCaptor.getValue(), "Комментарий пользователя должен передаваться в сервис");
+        assertEquals(ZonedDateTime.of(2024, 4, 1, 0, 0, 0, 0, ZoneOffset.UTC), dateCaptor.getValue(),
+                "Дата запроса обязана переводиться в начало дня по UTC");
+        assertEquals("RR123456", reverseCaptor.getValue(), "Обратный трек должен передаваться без модификаций");
+
+        ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(messageCaptor.capture());
+        boolean hasSummary = messageCaptor.getAllValues().stream()
+                .map(SendMessage::getText)
+                .anyMatch(text -> text.contains("Зафиксировали запрос на возврат"));
+        assertTrue(hasSummary, "Пользователь должен получить итоговое сообщение о регистрации возврата");
+        assertEquals(BuyerChatState.IDLE, bot.getState(chatId), "После завершения сценария бот обязан вернуть состояние IDLE");
+    }
+
+    /**
+     * Проверяет, что при повторной регистрации выводится сообщение об уже обработке заявки.
+     */
+    @Test
+    void shouldNotifyAboutActiveRequestWhenRegistrationRejected() throws Exception {
+        Long chatId = 4646L;
+        Integer callbackMessageId = 901;
+        Long parcelId = 8888L;
+
+        TelegramParcelInfoDTO parcelInfo = new TelegramParcelInfoDTO(parcelId, "TR-888", "Магазин", GlobalStatus.DELIVERED, false);
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(new TelegramParcelsOverviewDTO(
+                List.of(parcelInfo), List.of(), List.of())));
+
+        doThrow(new IllegalStateException("У посылки уже есть активная заявка на возврат"))
+                .when(telegramService).registerReturnRequestFromTelegram(
+                        eq(chatId), eq(parcelId), anyString(), any(), any(), any(), any());
+
+        bot.consume(callbackUpdate(chatId, callbackMessageId, "parcel:return:" + parcelId));
+        bot.consume(textUpdate(chatId, "Размер не подошёл"));
+        bot.consume(textUpdate(chatId, "Нет"));
+        bot.consume(textUpdate(chatId, "01.04.2024"));
+        bot.consume(textUpdate(chatId, "RR123456"));
+
+        ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(messageCaptor.capture());
+        boolean hasAlreadyProcessingMessage = messageCaptor.getAllValues().stream()
+                .map(SendMessage::getText)
+                .anyMatch(text -> text.contains("уже оформлена активная заявка"));
+        assertTrue(hasAlreadyProcessingMessage, "Бот обязан предупредить пользователя о существующей заявке");
+        assertEquals(BuyerChatState.IDLE, bot.getState(chatId), "После ошибки состояние должно сбрасываться к IDLE");
     }
 
     /**
