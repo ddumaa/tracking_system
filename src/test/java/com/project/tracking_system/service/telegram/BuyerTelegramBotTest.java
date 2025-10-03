@@ -119,6 +119,7 @@ class BuyerTelegramBotTest {
         when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
         when(telegramService.findByChatId(anyLong())).thenReturn(Optional.empty());
         when(telegramService.getActiveReturnRequests(anyLong())).thenReturn(List.of());
+        when(telegramService.getParcelsOverview(anyLong())).thenReturn(Optional.empty());
     }
 
     /**
@@ -482,6 +483,47 @@ class BuyerTelegramBotTest {
         assertEquals("📂 Текущие заявки", keyboard.get(0).get(0).getText());
         assertEquals("🆕 Создать заявку", keyboard.get(1).get(0).getText());
         assertEquals(BACK_BUTTON_TEXT, keyboard.get(2).get(0).getText());
+    }
+
+    /**
+     * Проверяет, что при отсутствии подходящих посылок бот переиспользует якорное сообщение и показывает навигацию.
+     */
+    @Test
+    void shouldReuseAnchorAndShowNavigationWhenNoReturnableParcels() throws Exception {
+        Long chatId = 907L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(), List.of(), List.of());
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        Update createCallback = mockCallbackUpdate(chatId, "returns:create", 77);
+        bot.consume(createCallback);
+
+        Update typeCallback = mockCallbackUpdate(chatId, "returns:create:type:return", 77);
+        bot.consume(typeCallback);
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient, atLeast(2)).execute(editCaptor.capture());
+        verify(telegramClient, never()).execute(isA(SendMessage.class));
+
+        EditMessageText lastEdit = editCaptor.getAllValues().get(editCaptor.getAllValues().size() - 1);
+        assertEquals(chatId.toString(), lastEdit.getChatId());
+        assertTrue(lastEdit.getText().contains("Подходящих посылок"),
+                "Сообщение должно предупреждать об отсутствии доступных посылок");
+
+        InlineKeyboardMarkup markup = lastEdit.getReplyMarkup();
+        assertNotNull(markup, "Ожидается наличие инлайн-клавиатуры с навигацией");
+        List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
+        assertEquals(1, keyboard.size(), "При отсутствии посылок ожидается только строка навигации");
+        List<InlineKeyboardButton> navigationRow = keyboard.get(0);
+        assertEquals(2, navigationRow.size(), "Строка навигации должна содержать две кнопки");
+        InlineKeyboardButton backButton = navigationRow.get(0);
+        InlineKeyboardButton menuButton = navigationRow.get(1);
+        assertEquals(BACK_BUTTON_TEXT, backButton.getText());
+        assertEquals(MENU_BUTTON_TEXT, menuButton.getText());
+        assertEquals("nav:back", backButton.getCallbackData());
+        assertEquals("menu:back", menuButton.getCallbackData());
     }
 
     /**

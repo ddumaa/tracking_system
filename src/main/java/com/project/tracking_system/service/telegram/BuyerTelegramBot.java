@@ -1256,17 +1256,20 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         ChatSession session = ensureChatSession(chatId);
         session.clearReturnRequestData();
         session.setReturnRequestType(type);
+        List<TelegramParcelInfoDTO> availableParcels = loadReturnableParcels(chatId);
+        if (availableParcels.isEmpty()) {
+            session.setState(BuyerChatState.AWAITING_REQUEST_TYPE);
+            chatSessionRepository.save(session);
+            transitionToState(chatId, BuyerChatState.AWAITING_REQUEST_TYPE);
+            List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_CREATE_TYPE);
+            InlineKeyboardMarkup navigationMarkup = buildBackAndMenuKeyboard();
+            String text = escapeMarkdown(RETURNS_CREATE_NO_PARCELS);
+            sendInlineMessage(chatId, text, navigationMarkup, BuyerBotScreen.RETURNS_CREATE_TYPE, navigationPath);
+            return;
+        }
         session.setState(BuyerChatState.AWAITING_STORE_SELECTION);
         chatSessionRepository.save(session);
         transitionToState(chatId, BuyerChatState.AWAITING_STORE_SELECTION);
-
-        List<TelegramParcelInfoDTO> availableParcels = loadReturnableParcels(chatId);
-        if (availableParcels.isEmpty()) {
-            sendSimpleMessage(chatId, RETURNS_CREATE_NO_PARCELS);
-            resetReturnScenario(chatId, session);
-            sendReturnsMenuScreen(chatId);
-            return;
-        }
         showReturnRequestStoreScreen(chatId, type, availableParcels);
     }
 
@@ -1280,10 +1283,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_CREATE_STORE);
 
         if (grouped.isEmpty()) {
-            sendSimpleMessage(chatId, RETURNS_CREATE_NO_PARCELS);
             ChatSession session = ensureChatSession(chatId);
-            resetReturnScenario(chatId, session);
-            sendReturnsMenuScreen(chatId);
+            session.setState(BuyerChatState.AWAITING_STORE_SELECTION);
+            chatSessionRepository.save(session);
+            transitionToState(chatId, BuyerChatState.AWAITING_STORE_SELECTION);
+            InlineKeyboardMarkup navigationMarkup = buildBackAndMenuKeyboard();
+            String text = escapeMarkdown(RETURNS_CREATE_NO_PARCELS);
+            sendInlineMessage(chatId, text, navigationMarkup, BuyerBotScreen.RETURNS_CREATE_STORE, navigationPath);
             return;
         }
 
@@ -2747,7 +2753,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param callbackQuery исходный callback-запрос
      */
     private void handleCallbackBackToMenu(Long chatId, CallbackQuery callbackQuery) {
-        transitionToState(chatId, BuyerChatState.IDLE);
+        ChatSession session = chatSessionRepository.find(chatId).orElse(null);
+        if (session != null) {
+            resetReturnScenario(chatId, session);
+        } else {
+            transitionToState(chatId, BuyerChatState.IDLE);
+        }
         answerCallbackQuery(callbackQuery, "Открыл меню");
         sendMainMenu(chatId);
     }
@@ -2772,9 +2783,58 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         BuyerBotScreen targetScreen = session.navigateBack();
-        chatSessionRepository.save(session);
+        synchronizeStateAfterBackwardNavigation(chatId, session, targetScreen);
         answerCallbackQuery(callbackQuery, "Назад");
         renderScreen(chatId, targetScreen);
+    }
+
+    /**
+     * Синхронизирует сценарное состояние при возврате по кнопке «Назад».
+     *
+     * @param chatId       идентификатор чата Telegram
+     * @param session      сессия пользователя, хранящая данные сценария
+     * @param targetScreen экран, на который требуется вернуться
+     */
+    private void synchronizeStateAfterBackwardNavigation(Long chatId,
+                                                         ChatSession session,
+                                                         BuyerBotScreen targetScreen) {
+        if (session == null) {
+            transitionToState(chatId, BuyerChatState.IDLE);
+            return;
+        }
+
+        if (targetScreen == BuyerBotScreen.RETURNS_CREATE_TYPE) {
+            session.setReturnStoreName(null);
+            session.setReturnParcelId(null);
+            session.setReturnParcelTrackNumber(null);
+        } else if (targetScreen == BuyerBotScreen.RETURNS_CREATE_STORE) {
+            session.setReturnParcelId(null);
+            session.setReturnParcelTrackNumber(null);
+        }
+
+        BuyerChatState targetState = resolveStateForScreen(targetScreen);
+        session.setState(targetState);
+        chatSessionRepository.save(session);
+        transitionToState(chatId, targetState);
+    }
+
+    /**
+     * Подбирает сценарное состояние, соответствующее экрану интерфейса.
+     *
+     * @param targetScreen экран, на который выполняется переход
+     * @return состояние сценария, которое нужно установить
+     */
+    private BuyerChatState resolveStateForScreen(BuyerBotScreen targetScreen) {
+        if (targetScreen == null) {
+            return BuyerChatState.IDLE;
+        }
+        return switch (targetScreen) {
+            case RETURNS_CREATE_TYPE -> BuyerChatState.AWAITING_REQUEST_TYPE;
+            case RETURNS_CREATE_STORE -> BuyerChatState.AWAITING_STORE_SELECTION;
+            case RETURNS_CREATE_REQUEST -> BuyerChatState.AWAITING_PARCEL_SELECTION;
+            case RETURNS_ACTIVE_REQUESTS -> BuyerChatState.AWAITING_REQUEST_ACTION;
+            default -> BuyerChatState.IDLE;
+        };
     }
 
     /**
@@ -2906,6 +2966,18 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         return InlineKeyboardButton.builder()
                 .text(BUTTON_MENU)
                 .callbackData(CALLBACK_BACK_TO_MENU)
+                .build();
+    }
+
+    /**
+     * Формирует клавиатуру с кнопками навигации «Назад» и «Меню».
+     *
+     * @return инлайн-клавиатура с двумя кнопками навигации
+     */
+    private InlineKeyboardMarkup buildBackAndMenuKeyboard() {
+        InlineKeyboardRow navigationRow = new InlineKeyboardRow(buildBackButton(), buildMenuButton());
+        return InlineKeyboardMarkup.builder()
+                .keyboard(List.of(navigationRow))
                 .build();
     }
 
