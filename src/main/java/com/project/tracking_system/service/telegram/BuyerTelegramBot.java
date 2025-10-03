@@ -2457,6 +2457,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                                      TelegramParcelInfoDTO parcel,
                                      ChatSession session) {
         String track = formatTrackNumber(parcel.getTrackNumber());
+        MaybeInaccessibleMessage callbackMessage = callbackQuery != null ? callbackQuery.getMessage() : null;
+        Integer sourceMessageId = callbackMessage != null ? callbackMessage.getMessageId() : null;
+        if (sourceMessageId != null) {
+            removeInlineKeyboard(chatId, sourceMessageId);
+        }
         session = session != null ? session : ensureChatSession(chatId);
         session.clearReturnRequestData();
         session.setReturnRequestType(ReturnRequestType.RETURN);
@@ -2503,20 +2508,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
         String text = String.format(PARCEL_RETURN_FLOW_STARTED, trackLabel);
-        SendMessage message = createPlainMessage(chatId, text);
-        message.setReplyMarkup(buildReturnReasonKeyboard());
-        try {
-            Message sent = telegramClient.execute(message);
-            if (sent == null) {
-                log.debug("ℹ️ Telegram не вернул данные отправленного сообщения для чата {}", chatId);
-                return;
-            }
-            Integer messageId = sent.getMessageId();
-            List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_RETURN_REASON);
-            chatSessionRepository.updateAnchorAndScreen(chatId, messageId, BuyerBotScreen.RETURNS_RETURN_REASON, navigationPath);
-        } catch (TelegramApiException ex) {
-            log.error("❌ Не удалось отправить клавиатуру причин возврата", ex);
-        }
+        InlineKeyboardMarkup markup = buildReturnReasonKeyboard();
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_RETURN_REASON);
+        sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_RETURN_REASON, navigationPath);
     }
 
     /**
@@ -2534,6 +2528,10 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         ChatSession session = ensureChatSession(chatId);
+        Integer anchorMessageId = session.getAnchorMessageId();
+        if (anchorMessageId != null) {
+            removeInlineKeyboard(chatId, anchorMessageId);
+        }
         String trackLabel = session.getReturnParcelTrackNumber();
         if (trackLabel == null || trackLabel.isBlank()) {
             sendMainMenu(chatId);
