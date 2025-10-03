@@ -91,6 +91,7 @@ class BuyerTelegramBotStateIntegrationTest {
                 fullNameValidator, chatSessionRepository, new ObjectMapper());
         lenient().when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
         lenient().when(telegramService.findByChatId(anyLong())).thenReturn(Optional.empty());
+        lenient().when(telegramService.getActiveReturnRequests(anyLong())).thenReturn(List.of());
         lenient().when(telegramService.registerReturnRequestFromTelegram(anyLong(), anyLong(), anyString(), any(), any(), any(), any()))
                 .thenReturn(new OrderReturnRequest());
         lenient().when(telegramService.approveExchangeFromTelegram(anyLong(), anyLong(), anyLong())).thenReturn(null);

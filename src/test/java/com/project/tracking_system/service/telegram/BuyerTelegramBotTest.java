@@ -63,6 +63,7 @@ import static org.mockito.Mockito.*;
 class BuyerTelegramBotTest {
 
     private static final String MENU_BUTTON_TEXT = "🏠 Меню";
+    private static final String BACK_BUTTON_TEXT = "⬅️ Назад";
 
     @Mock
     private TelegramClient telegramClient;
@@ -111,6 +112,7 @@ class BuyerTelegramBotTest {
         }
         when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
         when(telegramService.findByChatId(anyLong())).thenReturn(Optional.empty());
+        when(telegramService.getActiveReturnRequests(anyLong())).thenReturn(List.of());
     }
 
     /**
@@ -418,16 +420,16 @@ class BuyerTelegramBotTest {
         );
 
     /**
-     * Проверяет, что в разделе полученных отображаются кнопки возврата и обмена.
+     * Проверяет, что в меню возвратов отображаются кнопки действий для доставленных посылок.
      */
     @Test
-    void shouldRenderReturnAndExchangeButtonsForDeliveredParcels() throws Exception {
+    void shouldRenderReturnAndExchangeButtonsInReturnsMenu() throws Exception {
         Long chatId = 904L;
         TelegramParcelInfoDTO delivered = new TelegramParcelInfoDTO(55L, "TRACK-55", "Store Zeta", GlobalStatus.DELIVERED, false);
         TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(delivered), List.of(), List.of());
         when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
 
-        Update callbackUpdate = mockCallbackUpdate(chatId, "parcels:delivered");
+        Update callbackUpdate = mockCallbackUpdate(chatId, "returns:create");
 
         bot.consume(callbackUpdate);
 
@@ -436,7 +438,7 @@ class BuyerTelegramBotTest {
         SendMessage message = captor.getValue();
 
         InlineKeyboardMarkup markup = (InlineKeyboardMarkup) message.getReplyMarkup();
-        assertNotNull(markup, "Для доставленных посылок требуется клавиатура действий");
+        assertNotNull(markup, "Для меню возвратов требуется клавиатура действий");
         List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
         assertFalse(keyboard.isEmpty(), "Клавиатура должна содержать строки");
         List<InlineKeyboardButton> firstRow = keyboard.get(0);
@@ -445,10 +447,39 @@ class BuyerTelegramBotTest {
         assertEquals("Обменять", firstRow.get(1).getText());
         assertEquals("parcel:return:55", firstRow.get(0).getCallbackData());
         assertEquals("parcel:exchange:55", firstRow.get(1).getCallbackData());
+        List<InlineKeyboardButton> lastRow = keyboard.get(keyboard.size() - 1);
+        assertTrue(lastRow.stream().anyMatch(button -> BACK_BUTTON_TEXT.equals(button.getText())),
+                "В конце должна присутствовать кнопка навигации назад");
     }
 
     /**
-     * Убеждаемся, что активная заявка отображается в тексте и блокирует кнопки.
+     * Гарантирует, что главное меню возвратов содержит необходимые пункты.
+     */
+    @Test
+    void shouldShowReturnsMenuWithAvailableOptions() throws Exception {
+        Long chatId = 906L;
+
+        Update callbackUpdate = mockCallbackUpdate(chatId, "menu:returns");
+
+        bot.consume(callbackUpdate);
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+        SendMessage message = captor.getValue();
+
+        String text = message.getText();
+        assertTrue(text.contains("Возвраты и обмены"), "Текст меню должен содержать заголовок раздела");
+
+        InlineKeyboardMarkup markup = (InlineKeyboardMarkup) message.getReplyMarkup();
+        List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
+        assertEquals(3, keyboard.size(), "Ожидается две опции и строка навигации");
+        assertEquals("📂 Текущие заявки", keyboard.get(0).get(0).getText());
+        assertEquals("🆕 Создать заявку", keyboard.get(1).get(0).getText());
+        assertEquals(BACK_BUTTON_TEXT, keyboard.get(2).get(0).getText());
+    }
+
+    /**
+     * Убеждаемся, что активная заявка отображается в тексте и при этом клавиатура раздела лишена действий.
      */
     @Test
     void shouldIndicateActiveRequestForDeliveredParcel() throws Exception {
@@ -470,17 +501,16 @@ class BuyerTelegramBotTest {
 
         InlineKeyboardMarkup markup = (InlineKeyboardMarkup) message.getReplyMarkup();
         List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
-        List<InlineKeyboardButton> firstRow = keyboard.get(0);
-        assertEquals("🔒 Вернуть", firstRow.get(0).getText(),
-                "Текст кнопки должен указывать на блокировку");
-        assertEquals("🔒 Обменять", firstRow.get(1).getText());
+        assertEquals(1, keyboard.size(), "Для списка полученных должна остаться только навигация");
+        InlineKeyboardButton backButton = keyboard.get(0).get(0);
+        assertEquals(BACK_BUTTON_TEXT, backButton.getText(), "На клавиатуре ожидается кнопка возврата");
     }
 
     /**
-     * Гарантирует, что порядок кнопок совпадает с порядком вывода по магазинам.
+     * Гарантирует, что порядок кнопок в меню возвратов совпадает с порядком вывода по магазинам.
      */
     @Test
-    void shouldAlignDeliveredKeyboardWithGroupedText() throws Exception {
+    void shouldAlignReturnMenuKeyboardWithGroupedText() throws Exception {
         Long chatId = 908L;
         TelegramParcelInfoDTO firstAlpha = new TelegramParcelInfoDTO(101L, "TRACK-101", "Store Alpha", GlobalStatus.DELIVERED, false);
         TelegramParcelInfoDTO beta = new TelegramParcelInfoDTO(202L, "TRACK-202", "Store Beta", GlobalStatus.DELIVERED, false);
@@ -488,7 +518,7 @@ class BuyerTelegramBotTest {
         TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(firstAlpha, beta, secondAlpha), List.of(), List.of());
         when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
 
-        Update callbackUpdate = mockCallbackUpdate(chatId, "parcels:delivered");
+        Update callbackUpdate = mockCallbackUpdate(chatId, "returns:create");
 
         bot.consume(callbackUpdate);
 
@@ -497,19 +527,13 @@ class BuyerTelegramBotTest {
         SendMessage message = captor.getValue();
         String text = message.getText();
 
-        assertNotNull(text, "Текст сообщения о доставленных посылках обязателен");
-        int firstAlphaIndex = text.indexOf("TRACK\\\-101");
-        int secondAlphaIndex = text.indexOf("TRACK\\\-303");
-        int betaIndex = text.indexOf("TRACK\\\-202");
-        assertTrue(firstAlphaIndex >= 0 && secondAlphaIndex >= 0 && betaIndex >= 0,
-                "Все трек-номера должны присутствовать в тексте");
-        assertTrue(firstAlphaIndex < secondAlphaIndex && secondAlphaIndex < betaIndex,
-                "Треки должны отображаться группами магазинов");
+        assertNotNull(text, "Текст меню возвратов обязателен");
+        assertTrue(text.contains("Создание заявки"), "Подсказка по созданию заявки должна присутствовать");
 
         InlineKeyboardMarkup markup = (InlineKeyboardMarkup) message.getReplyMarkup();
-        assertNotNull(markup, "Для доставленных посылок должна быть построена клавиатура");
+        assertNotNull(markup, "Для создания заявки должна быть построена клавиатура");
         List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
-        assertTrue(keyboard.size() >= 3, "Клавиатура должна содержать строки для каждой посылки");
+        assertTrue(keyboard.size() >= 4, "Клавиатура должна содержать строки для каждой посылки и навигацию");
 
         List<Long> expectedOrder = List.of(101L, 303L, 202L);
         for (int i = 0; i < expectedOrder.size(); i++) {

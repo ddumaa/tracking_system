@@ -63,5 +63,18 @@ public interface OrderReturnRequestRepository extends JpaRepository<OrderReturnR
             """)
     List<OrderReturnRequest> findActiveRequestsWithDetails(@Param("userId") Long userId,
                                                            @Param("statuses") Collection<OrderReturnRequestStatus> statuses);
+
+    /**
+     * Возвращает активные заявки покупателя с данными посылок и магазинов.
+     */
+    @Query("""
+            select distinct r from OrderReturnRequest r
+            join fetch r.parcel p
+            left join fetch p.store
+            where p.customer.id = :customerId and r.status in :statuses
+            order by r.createdAt desc
+            """)
+    List<OrderReturnRequest> findActiveRequestsByCustomerWithDetails(@Param("customerId") Long customerId,
+                                                                     @Param("statuses") Collection<OrderReturnRequestStatus> statuses);
 }
 
