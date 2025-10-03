@@ -72,9 +72,6 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
         entity.setReturnParcelId(session.getReturnParcelId());
         entity.setReturnParcelTrack(session.getReturnParcelTrackNumber());
         entity.setReturnReason(session.getReturnReason());
-        entity.setReturnComment(session.getReturnComment());
-        entity.setReturnRequestedAt(session.getReturnRequestedAt());
-        entity.setReturnReverseTrack(session.getReturnReverseTrackNumber());
         entity.setReturnIdempotencyKey(session.getReturnIdempotencyKey());
         BuyerBotScreenState saved = repository.save(entity);
 
@@ -402,9 +399,6 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
         session.setReturnParcelId(entity.getReturnParcelId());
         session.setReturnParcelTrackNumber(entity.getReturnParcelTrack());
         session.setReturnReason(entity.getReturnReason());
-        session.setReturnComment(entity.getReturnComment());
-        session.setReturnRequestedAt(entity.getReturnRequestedAt());
-        session.setReturnReverseTrackNumber(entity.getReturnReverseTrack());
         session.setReturnIdempotencyKey(entity.getReturnIdempotencyKey());
         return session;
     }

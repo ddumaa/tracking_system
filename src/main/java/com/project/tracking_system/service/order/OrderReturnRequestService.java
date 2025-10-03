@@ -342,10 +342,9 @@ public class OrderReturnRequestService {
      * Переводит момент запроса в UTC и проверяет, что дата не из будущего.
      */
     private ZonedDateTime normalizeRequestedAt(ZonedDateTime requestedAt) {
-        if (requestedAt == null) {
-            throw new IllegalArgumentException("Не указана дата запроса возврата");
-        }
-        ZonedDateTime utc = requestedAt.withZoneSameInstant(ZoneOffset.UTC);
+        ZonedDateTime utc = requestedAt != null
+                ? requestedAt.withZoneSameInstant(ZoneOffset.UTC)
+                : ZonedDateTime.now(ZoneOffset.UTC);
         ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC).plusMinutes(1);
         if (utc.isAfter(now)) {
             throw new IllegalArgumentException("Дата запроса возврата не может быть в будущем");

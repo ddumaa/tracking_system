@@ -126,15 +126,11 @@ class DatabaseChatSessionRepositoryTest {
     @Test
     void shouldPersistReturnFlowDraft() {
         Long chatId = 505L;
-        ChatSession session = new ChatSession(chatId, BuyerChatState.AWAITING_RETURN_TRACK, 321,
+        ChatSession session = new ChatSession(chatId, BuyerChatState.AWAITING_RETURN_REASON, 321,
                 BuyerBotScreen.MENU, true, true);
         session.setReturnParcelId(777L);
         session.setReturnParcelTrackNumber("TRACK-777");
         session.setReturnReason("Не подошёл размер");
-        session.setReturnComment("Нужен размер больше");
-        ZonedDateTime requestedAt = ZonedDateTime.now().minusDays(2).withNano(0);
-        session.setReturnRequestedAt(requestedAt);
-        session.setReturnReverseTrackNumber("REV-777");
         session.setReturnIdempotencyKey("draft-key");
 
         repository.save(session);
@@ -145,12 +141,6 @@ class DatabaseChatSessionRepositoryTest {
                 "Трек исходной посылки должен восстанавливаться");
         assertEquals("Не подошёл размер", restored.getReturnReason(),
                 "Причина возврата обязана сохраняться");
-        assertEquals("Нужен размер больше", restored.getReturnComment(),
-                "Комментарий должен сохраняться");
-        assertEquals(requestedAt, restored.getReturnRequestedAt(),
-                "Дата запроса возврата должна восстанавливаться");
-        assertEquals("REV-777", restored.getReturnReverseTrackNumber(),
-                "Обратный трек должен сохраняться");
         assertEquals("draft-key", restored.getReturnIdempotencyKey(),
                 "Идемпотентный ключ должен сохраняться вместе с сессией");
     }
