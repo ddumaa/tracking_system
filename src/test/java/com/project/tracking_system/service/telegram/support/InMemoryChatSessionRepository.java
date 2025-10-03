@@ -239,6 +239,13 @@ public class InMemoryChatSessionRepository implements ChatSessionRepository {
         copy.setAnnouncementSeen(session.isAnnouncementSeen());
         copy.setAnnouncementUpdatedAt(session.getAnnouncementUpdatedAt());
         copy.setNavigationPath(session.getNavigationPath());
+        copy.setReturnParcelId(session.getReturnParcelId());
+        copy.setReturnParcelTrackNumber(session.getReturnParcelTrackNumber());
+        copy.setReturnReason(session.getReturnReason());
+        copy.setReturnComment(session.getReturnComment());
+        copy.setReturnRequestedAt(session.getReturnRequestedAt());
+        copy.setReturnReverseTrackNumber(session.getReturnReverseTrackNumber());
+        copy.setReturnIdempotencyKey(session.getReturnIdempotencyKey());
         return copy;
     }
 }

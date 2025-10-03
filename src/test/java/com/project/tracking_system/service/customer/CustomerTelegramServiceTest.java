@@ -6,12 +6,18 @@ import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.entity.OrderReturnRequest;
+import com.project.tracking_system.entity.OrderReturnRequestStatus;
+import com.project.tracking_system.entity.User;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.OrderReturnRequestRepository;
+import com.project.tracking_system.service.order.ExchangeApprovalResult;
+import com.project.tracking_system.service.order.OrderReturnRequestService;
 import com.project.tracking_system.service.telegram.FullNameValidator;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
+import org.springframework.security.access.AccessDeniedException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -50,6 +56,8 @@ class CustomerTelegramServiceTest {
     private TelegramNotificationService telegramNotificationService;
     @Mock
     private OrderReturnRequestRepository returnRequestRepository;
+    @Mock
+    private OrderReturnRequestService orderReturnRequestService;
 
     @Spy
     private FullNameValidator fullNameValidator = new FullNameValidator();
@@ -196,6 +204,121 @@ class CustomerTelegramServiceTest {
         verify(trackParcelRepository).findByCustomerIdAndStatusIn(customerId, waitingStatuses);
         verify(trackParcelRepository).findByCustomerIdAndStatusIn(customerId, inTransitStatuses);
         verify(returnRequestRepository).findParcelIdsByCustomerAndStatusIn(eq(customerId), anyCollection());
+    }
+
+    /**
+     * Убеждаемся, что регистрация заявки через Telegram проверяет принадлежность посылки и делегирует сервису возвратов.
+     */
+    @Test
+    void registerReturnRequestFromTelegram_whenDataValid_delegatesToOrderService() {
+        Long chatId = 777L;
+        Long parcelId = 1001L;
+        String key = "key-123";
+        String reason = "Не подошёл размер";
+        String comment = "Хочу на размер больше";
+        ZonedDateTime requestedAt = ZonedDateTime.now(ZoneOffset.UTC).minusDays(1);
+        String reverseTrack = "RR123";
+
+        Customer customer = new Customer();
+        customer.setId(55L);
+        customer.setTelegramChatId(chatId);
+
+        User owner = new User();
+        owner.setId(9L);
+
+        TrackParcel parcel = new TrackParcel();
+        parcel.setId(parcelId);
+        parcel.setCustomer(customer);
+        parcel.setUser(owner);
+
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(88L);
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+
+        when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
+        when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
+        when(orderReturnRequestService.registerReturn(parcelId, owner, key, reason, comment, requestedAt, reverseTrack))
+                .thenReturn(request);
+
+        OrderReturnRequest result = customerTelegramService.registerReturnRequestFromTelegram(
+                chatId,
+                parcelId,
+                key,
+                reason,
+                comment,
+                requestedAt,
+                reverseTrack
+        );
+
+        assertSame(request, result, "Метод обязан возвращать заявку, полученную от доменного сервиса");
+        verify(orderReturnRequestService).registerReturn(parcelId, owner, key, reason, comment, requestedAt, reverseTrack);
+    }
+
+    /**
+     * Проверяем, что регистрация заявки отклоняется, если посылка принадлежит другому покупателю.
+     */
+    @Test
+    void registerReturnRequestFromTelegram_whenParcelNotOwned_throwsAccessDenied() {
+        Long chatId = 888L;
+        Long parcelId = 2002L;
+
+        Customer customer = new Customer();
+        customer.setId(77L);
+        customer.setTelegramChatId(chatId);
+
+        Customer foreignCustomer = new Customer();
+        foreignCustomer.setId(78L);
+
+        TrackParcel parcel = new TrackParcel();
+        parcel.setId(parcelId);
+        parcel.setCustomer(foreignCustomer);
+
+        when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
+        when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
+
+        assertThrows(AccessDeniedException.class, () -> customerTelegramService.registerReturnRequestFromTelegram(
+                chatId,
+                parcelId,
+                "key",
+                "Причина",
+                null,
+                ZonedDateTime.now(ZoneOffset.UTC),
+                null
+        ));
+        verify(orderReturnRequestService, never()).registerReturn(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    /**
+     * Убеждаемся, что запуск обмена через Telegram проходит проверку владельца и делегируется бизнес-сервису.
+     */
+    @Test
+    void approveExchangeFromTelegram_whenRequestValid_callsOrderService() {
+        Long chatId = 909L;
+        Long parcelId = 3003L;
+        Long requestId = 4004L;
+
+        Customer customer = new Customer();
+        customer.setId(91L);
+        customer.setTelegramChatId(chatId);
+
+        User owner = new User();
+        owner.setId(15L);
+
+        TrackParcel parcel = new TrackParcel();
+        parcel.setId(parcelId);
+        parcel.setCustomer(customer);
+        parcel.setUser(owner);
+
+        ExchangeApprovalResult approvalResult = new ExchangeApprovalResult(new OrderReturnRequest(), new TrackParcel());
+
+        when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
+        when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
+        when(orderReturnRequestService.approveExchange(requestId, parcelId, owner)).thenReturn(approvalResult);
+
+        ExchangeApprovalResult result = customerTelegramService.approveExchangeFromTelegram(chatId, parcelId, requestId);
+
+        assertSame(approvalResult, result, "Метод должен возвращать результат обмена от OrderReturnRequestService");
+        verify(orderReturnRequestService).approveExchange(requestId, parcelId, owner);
     }
 
     private TrackParcel parcelWithStatus(String number, GlobalStatus status, ZonedDateTime lastUpdate) {

@@ -27,6 +27,13 @@ public class ChatSession {
     private Integer announcementAnchorMessageId;
     private boolean announcementSeen;
     private ZonedDateTime announcementUpdatedAt;
+    private Long returnParcelId;
+    private String returnParcelTrackNumber;
+    private String returnReason;
+    private String returnComment;
+    private ZonedDateTime returnRequestedAt;
+    private String returnReverseTrackNumber;
+    private String returnIdempotencyKey;
 
     /**
      * Создаёт представление состояния чата.
@@ -87,6 +94,13 @@ public class ChatSession {
         this.announcementAnchorMessageId = null;
         this.announcementSeen = false;
         this.announcementUpdatedAt = null;
+        this.returnParcelId = null;
+        this.returnParcelTrackNumber = null;
+        this.returnReason = null;
+        this.returnComment = null;
+        this.returnRequestedAt = null;
+        this.returnReverseTrackNumber = null;
+        this.returnIdempotencyKey = null;
     }
 
     /**
@@ -356,5 +370,144 @@ public class ChatSession {
      */
     public void setAnnouncementUpdatedAt(ZonedDateTime announcementUpdatedAt) {
         this.announcementUpdatedAt = announcementUpdatedAt;
+    }
+
+    /**
+     * Возвращает идентификатор посылки, для которой оформляется возврат.
+     *
+     * @return идентификатор посылки или {@code null}
+     */
+    public Long getReturnParcelId() {
+        return returnParcelId;
+    }
+
+    /**
+     * Сохраняет идентификатор посылки, выбранной для возврата или обмена.
+     *
+     * @param returnParcelId идентификатор посылки
+     */
+    public void setReturnParcelId(Long returnParcelId) {
+        this.returnParcelId = returnParcelId;
+    }
+
+    /**
+     * Возвращает трек-номер исходной посылки, отображаемый пользователю.
+     *
+     * @return трек-номер или {@code null}, если он неизвестен
+     */
+    public String getReturnParcelTrackNumber() {
+        return returnParcelTrackNumber;
+    }
+
+    /**
+     * Сохраняет трек-номер исходной посылки для дальнейших подсказок.
+     *
+     * @param returnParcelTrackNumber трек-номер исходной посылки
+     */
+    public void setReturnParcelTrackNumber(String returnParcelTrackNumber) {
+        this.returnParcelTrackNumber = returnParcelTrackNumber;
+    }
+
+    /**
+     * Возвращает введённую пользователем причину возврата.
+     *
+     * @return причина или {@code null}
+     */
+    public String getReturnReason() {
+        return returnReason;
+    }
+
+    /**
+     * Сохраняет текст причины возврата.
+     *
+     * @param returnReason причина возврата
+     */
+    public void setReturnReason(String returnReason) {
+        this.returnReason = returnReason;
+    }
+
+    /**
+     * Возвращает дополнительный комментарий к заявке на возврат.
+     *
+     * @return комментарий или {@code null}
+     */
+    public String getReturnComment() {
+        return returnComment;
+    }
+
+    /**
+     * Сохраняет дополнительный комментарий, введённый пользователем.
+     *
+     * @param returnComment текст комментария
+     */
+    public void setReturnComment(String returnComment) {
+        this.returnComment = returnComment;
+    }
+
+    /**
+     * Возвращает дату, когда пользователь запросил возврат.
+     *
+     * @return момент запроса или {@code null}
+     */
+    public ZonedDateTime getReturnRequestedAt() {
+        return returnRequestedAt;
+    }
+
+    /**
+     * Сохраняет дату, когда пользователь решил оформить возврат.
+     *
+     * @param returnRequestedAt дата запроса возврата
+     */
+    public void setReturnRequestedAt(ZonedDateTime returnRequestedAt) {
+        this.returnRequestedAt = returnRequestedAt;
+    }
+
+    /**
+     * Возвращает трек-номер обратной отправки, если он известен пользователю.
+     *
+     * @return трек-номер обратной отправки или {@code null}
+     */
+    public String getReturnReverseTrackNumber() {
+        return returnReverseTrackNumber;
+    }
+
+    /**
+     * Сохраняет трек-номер обратной отправки.
+     *
+     * @param returnReverseTrackNumber трек-номер обратной отправки
+     */
+    public void setReturnReverseTrackNumber(String returnReverseTrackNumber) {
+        this.returnReverseTrackNumber = returnReverseTrackNumber;
+    }
+
+    /**
+     * Возвращает идемпотентный ключ заявки, сформированный в рамках диалога.
+     *
+     * @return идемпотентный ключ или {@code null}
+     */
+    public String getReturnIdempotencyKey() {
+        return returnIdempotencyKey;
+    }
+
+    /**
+     * Сохраняет идемпотентный ключ для регистрации заявки.
+     *
+     * @param returnIdempotencyKey идемпотентный ключ
+     */
+    public void setReturnIdempotencyKey(String returnIdempotencyKey) {
+        this.returnIdempotencyKey = returnIdempotencyKey;
+    }
+
+    /**
+     * Очищает временные данные оформления возврата и обмена.
+     */
+    public void clearReturnRequestData() {
+        this.returnParcelId = null;
+        this.returnParcelTrackNumber = null;
+        this.returnReason = null;
+        this.returnComment = null;
+        this.returnRequestedAt = null;
+        this.returnReverseTrackNumber = null;
+        this.returnIdempotencyKey = null;
     }
 }

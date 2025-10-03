@@ -1,9 +1,12 @@
 package com.project.tracking_system.service.telegram;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.project.tracking_system.dto.TelegramParcelInfoDTO;
+import com.project.tracking_system.dto.TelegramParcelsOverviewDTO;
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
@@ -23,6 +26,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.message.MaybeInaccessibleMessage;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -155,6 +159,50 @@ class BuyerTelegramBotStatePersistenceIntegrationTest {
                 "Должно редактироваться сохранённое якорное сообщение");
     }
 
+    /**
+     * Проверяет восстановление сценария возврата после создания нового экземпляра бота.
+     */
+    @Test
+    void shouldRestoreReturnFlowAfterRestart() throws Exception {
+        Long chatId = 2003L;
+        TelegramClient initialClient = mock(TelegramClient.class);
+        CustomerTelegramService telegramService = mock(CustomerTelegramService.class);
+        AdminNotificationService adminNotificationService = mock(AdminNotificationService.class);
+        when(initialClient.execute(any(SendMessage.class))).thenReturn(new Message());
+        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
+
+        TelegramParcelInfoDTO parcel = new TelegramParcelInfoDTO(55L, "TRACK-55", "Store", GlobalStatus.DELIVERED, false);
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(parcel), List.of(), List.of());
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        BuyerTelegramBot bot = new BuyerTelegramBot(initialClient, "token", telegramService, adminNotificationService,
+                fullNameValidator, chatSessionRepository, new ObjectMapper());
+
+        bot.consume(callbackUpdate(chatId, "parcel:return:55"));
+        bot.consume(textUpdate(chatId, "Не подошёл размер"));
+
+        assertEquals(BuyerChatState.AWAITING_RETURN_COMMENT, chatSessionRepository.getState(chatId),
+                "После указания причины бот должен ожидать комментарий");
+
+        TelegramClient restartedClient = mock(TelegramClient.class);
+        when(restartedClient.execute(any(SendMessage.class))).thenReturn(new Message());
+        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
+
+        BuyerTelegramBot restartedBot = new BuyerTelegramBot(restartedClient, "token", telegramService,
+                adminNotificationService, fullNameValidator, chatSessionRepository, new ObjectMapper());
+
+        clearInvocations(telegramService);
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        restartedBot.consume(textUpdate(chatId, "Нет"));
+
+        assertEquals(BuyerChatState.AWAITING_RETURN_DATE, chatSessionRepository.getState(chatId),
+                "Новый экземпляр бота должен продолжить сценарий с ожидания даты");
+        ChatSession restoredSession = chatSessionRepository.find(chatId).orElseThrow();
+        assertEquals("Не подошёл размер", restoredSession.getReturnReason(),
+                "Причина возврата должна сохраниться после рестарта");
+    }
+
     private Update textUpdate(Long chatId, String text) {
         Message message = new Message();
         message.setMessageId(1);
@@ -163,6 +211,21 @@ class BuyerTelegramBotStatePersistenceIntegrationTest {
 
         Update update = new Update();
         update.setMessage(message);
+        return update;
+    }
+
+    private Update callbackUpdate(Long chatId, String data) {
+        Message message = new Message();
+        message.setMessageId(10);
+        message.setChat(createChat(chatId));
+
+        CallbackQuery callback = new CallbackQuery();
+        callback.setId("cb-" + data);
+        callback.setData(data);
+        callback.setMessage(message);
+
+        Update update = new Update();
+        update.setCallbackQuery(callback);
         return update;
     }
 
