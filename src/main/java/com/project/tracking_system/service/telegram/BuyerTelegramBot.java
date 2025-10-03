@@ -162,6 +162,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             "🔁 Возвраты и обмены\n\nВыберите действие:";
     private static final String RETURNS_ACTIVE_TITLE = "📂 Текущие заявки";
     private static final String RETURNS_ACTIVE_EMPTY_PLACEHOLDER = "• активных заявок нет";
+    private static final String RETURNS_ACTIVE_CONTACT_HINT = "📱 Привяжите номер телефона командой /start, чтобы видеть активные заявки в этом разделе.";
     private static final String RETURNS_CREATE_TITLE = "🆕 Создание заявки";
     private static final String RETURNS_CREATE_HINT =
             "Выберите посылку для оформления возврата или обмена. Активные заявки будут отмечены замком.";
@@ -896,13 +897,27 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
     /**
      * Отображает экран с активными заявками возврата или обмена.
+     * <p>
+     * Если чат ещё не привязан к покупателю, бот сообщает об этом и повторно
+     * отправляет запрос на номер телефона, не обращаясь к сервису за данными.
+     * </p>
      *
      * @param chatId идентификатор чата Telegram
      */
     private void sendActiveReturnRequestsScreen(Long chatId) {
-        List<TelegramReturnRequestInfoDTO> requests = telegramService.getActiveReturnRequests(chatId);
         List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_ACTIVE_REQUESTS);
         InlineKeyboardMarkup markup = buildNavigationKeyboard(navigationPath);
+
+        if (telegramService.findByChatId(chatId).isEmpty()) {
+            String text = escapeMarkdown(RETURNS_ACTIVE_TITLE)
+                    + "\n\n"
+                    + escapeMarkdown(RETURNS_ACTIVE_CONTACT_HINT);
+            sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_ACTIVE_REQUESTS, navigationPath);
+            remindContactRequired(chatId);
+            return;
+        }
+
+        List<TelegramReturnRequestInfoDTO> requests = telegramService.getActiveReturnRequests(chatId);
         String text = buildActiveReturnRequestsText(requests);
         sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_ACTIVE_REQUESTS, navigationPath);
     }

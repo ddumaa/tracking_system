@@ -479,6 +479,36 @@ class BuyerTelegramBotTest {
     }
 
     /**
+     * Убеждаемся, что при открытии активных заявок без привязанного покупателя бот повторно запрашивает номер телефона.
+     */
+    @Test
+    void shouldRequestPhoneWhenActiveReturnsOpenedWithoutCustomer() throws Exception {
+        Long chatId = 909L;
+
+        Update callbackUpdate = mockCallbackUpdate(chatId, "returns:active");
+
+        bot.consume(callbackUpdate);
+
+        verify(telegramClient, atLeastOnce()).execute(any(AnswerCallbackQuery.class));
+        verify(telegramService, never()).getActiveReturnRequests(anyLong());
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+
+        List<SendMessage> messages = captor.getAllValues();
+        assertTrue(messages.stream()
+                        .map(SendMessage::getText)
+                        .filter(Objects::nonNull)
+                        .anyMatch(text -> text.contains("Привяжите номер телефона")),
+                "Пользователь должен увидеть подсказку о необходимости привязки номера");
+        assertTrue(messages.stream()
+                        .map(SendMessage::getReplyMarkup)
+                        .filter(Objects::nonNull)
+                        .anyMatch(markup -> markup instanceof ReplyKeyboardMarkup),
+                "Бот обязан повторно запросить номер телефона через клавиатуру контакта");
+    }
+
+    /**
      * Убеждаемся, что активная заявка отображается в тексте и при этом клавиатура раздела лишена действий.
      */
     @Test
