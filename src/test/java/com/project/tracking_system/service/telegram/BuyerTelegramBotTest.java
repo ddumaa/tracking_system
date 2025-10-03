@@ -769,6 +769,51 @@ class BuyerTelegramBotTest {
     }
 
     /**
+     * Проверяет, что при повторном нажатии на устаревшее сообщение бот восстанавливает экран выбора причины возврата.
+     */
+    @Test
+    void shouldRestoreReturnReasonPromptAfterOutdatedCallback() throws Exception {
+        Long chatId = 1116L;
+        TelegramParcelInfoDTO delivered = new TelegramParcelInfoDTO(55L, "TRACK-55", "Store Rho", GlobalStatus.DELIVERED, false);
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(delivered), List.of(), List.of());
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        bot.consume(mockCallbackUpdate(chatId, "parcel:return:55"));
+
+        ChatSession session = chatSessionRepository.find(chatId).orElseThrow();
+        Integer originalAnchor = session.getAnchorMessageId();
+        assertNotNull(originalAnchor, "Сообщение с причинами должно сохраняться как якорь");
+        assertEquals(BuyerBotScreen.RETURNS_RETURN_REASON, session.getLastScreen(),
+                "После старта сценария должен запоминаться экран выбора причины");
+
+        chatSessionRepository.updateAnchor(chatId, originalAnchor + 50);
+
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:create:reason:defect", originalAnchor));
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient).execute(captor.capture());
+        SendMessage resentPrompt = captor.getValue();
+        assertEquals(chatId.toString(), resentPrompt.getChatId(),
+                "Сообщение восстановления должно отправляться в исходный чат");
+        assertTrue(resentPrompt.getText().contains("TRACK\\-55"),
+                "В восстановленном сообщении должен отображаться трек посылки");
+        assertTrue(resentPrompt.getReplyMarkup() instanceof InlineKeyboardMarkup,
+                "Сообщение должно содержать инлайн-клавиатуру с причинами");
+
+        ChatSession refreshedSession = chatSessionRepository.find(chatId).orElseThrow();
+        Integer refreshedAnchor = refreshedSession.getAnchorMessageId();
+        assertNotNull(refreshedAnchor, "После восстановления экрана должен сохраняться новый якорь");
+        assertNotEquals(originalAnchor, refreshedAnchor,
+                "Новый якорь не должен совпадать со старым сообщением");
+        assertNotEquals(originalAnchor + 50, refreshedAnchor,
+                "Хранившийся ранее якорь должен быть заменён на актуальный");
+        assertEquals(BuyerBotScreen.RETURNS_RETURN_REASON, refreshedSession.getLastScreen(),
+                "Сеанс должен оставаться на шаге выбора причины");
+    }
+
+    /**
      * Проверяет, что callback обмена отправляет пользователю инструкцию.
      */
     @Test

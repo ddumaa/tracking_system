@@ -755,6 +755,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 }
                 showReturnRequestParcelScreen(chatId, storeName, storeParcels);
             }
+            case RETURNS_RETURN_REASON -> resendReturnReasonPrompt(chatId);
             case RETURNS_RETURN_COMPLETION -> sendReturnCompletionScreen(chatId);
             case SETTINGS -> sendSettingsScreen(chatId);
             case HELP -> sendHelpScreen(chatId);
@@ -2516,6 +2517,30 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         } catch (TelegramApiException ex) {
             log.error("❌ Не удалось отправить клавиатуру причин возврата", ex);
         }
+    }
+
+    /**
+     * Повторно показывает клавиатуру выбора причины возврата, используя данные текущего сеанса.
+     * <p>
+     * Метод применяется при восстановлении экрана после устаревшего callback, чтобы пользователь
+     * увидел актуальное сообщение с кнопками выбора причины.
+     * </p>
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void resendReturnReasonPrompt(Long chatId) {
+        if (chatId == null) {
+            return;
+        }
+
+        ChatSession session = ensureChatSession(chatId);
+        String trackLabel = session.getReturnParcelTrackNumber();
+        if (trackLabel == null || trackLabel.isBlank()) {
+            sendMainMenu(chatId);
+            return;
+        }
+
+        sendReturnReasonPrompt(chatId, trackLabel);
     }
 
     /**
