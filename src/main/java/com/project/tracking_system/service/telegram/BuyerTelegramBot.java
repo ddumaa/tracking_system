@@ -3,6 +3,7 @@ package com.project.tracking_system.service.telegram;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.tracking_system.dto.ActionRequiredReturnRequestDto;
+import com.project.tracking_system.dto.ReturnRequestUpdateResponse;
 import com.project.tracking_system.dto.TelegramParcelInfoDTO;
 import com.project.tracking_system.dto.TelegramParcelsOverviewDTO;
 import com.project.tracking_system.entity.AdminNotification;
@@ -99,6 +100,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String CALLBACK_RETURNS_CREATE_PARCEL_PREFIX = "returns:create:parcel:";
     private static final String CALLBACK_RETURNS_ACTIVE_EXCHANGE_PREFIX = "returns:active:exchange:";
     private static final String CALLBACK_RETURNS_ACTIVE_CLOSE_PREFIX = "returns:active:close:";
+    private static final String CALLBACK_RETURNS_ACTIVE_UPDATE_PREFIX = "returns:active:update:";
     private static final String CALLBACK_SETTINGS_TOGGLE_NOTIFICATIONS = "settings:toggle_notifications";
     private static final String CALLBACK_SETTINGS_CONFIRM_NAME = "settings:confirm_name";
     private static final String CALLBACK_SETTINGS_EDIT_NAME = "settings:edit_name";
@@ -195,6 +197,15 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             "ℹ️ Заявка закрыта без обмена. Спасибо за обратную связь.";
     private static final String RETURNS_ACTIVE_ACTION_FAILED =
             "⚠️ Не удалось обновить заявку. Попробуйте ещё раз позже или обратитесь в поддержку.";
+    private static final String RETURNS_ACTIVE_UPDATE_PROMPT =
+            "✏️ Отправьте новое значение обратного трека. Первая строка — трек или «Нет» для очистки,"
+                    + " вторая строка — комментарий (по желанию, также можно указать «Нет»).";
+    private static final String RETURNS_ACTIVE_UPDATE_SUCCESS_TEMPLATE =
+            "✅ Сохранили данные заявки.\n• Обратный трек: %s\n• Комментарий: %s";
+    private static final String RETURNS_ACTIVE_UPDATE_INVALID =
+            "⚠️ Укажите трек на первой строке или напишите «Нет», чтобы очистить данные.";
+    private static final String RETURNS_ACTIVE_UPDATE_FAILED =
+            "⚠️ Не удалось сохранить изменения. Попробуйте ещё раз позже или обратитесь в поддержку.";
 
     private static final Base64.Encoder STORE_KEY_ENCODER = Base64.getUrlEncoder().withoutPadding();
     private static final Base64.Decoder STORE_KEY_DECODER = Base64.getUrlDecoder();
@@ -505,6 +516,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
+        if (state == BuyerChatState.AWAITING_TRACK_UPDATE) {
+            handleTrackUpdateInput(chatId, trimmed);
+            return;
+        }
+
         if (trimmed.isEmpty()) {
             return;
         }
@@ -576,6 +592,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         if (data.startsWith(CALLBACK_RETURNS_ACTIVE_CLOSE_PREFIX)) {
             handleActiveRequestClosure(chatId, callbackQuery, data);
+            return;
+        }
+
+        if (data.startsWith(CALLBACK_RETURNS_ACTIVE_UPDATE_PREFIX)) {
+            handleActiveRequestTrackUpdate(chatId, callbackQuery, data);
             return;
         }
 
@@ -1034,6 +1055,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_ACTIVE_REQUESTS, navigationPath);
 
         ChatSession session = ensureChatSession(chatId);
+        session.clearActiveReturnRequestContext();
         session.setState(BuyerChatState.AWAITING_REQUEST_ACTION);
         chatSessionRepository.save(session);
         transitionToState(chatId, BuyerChatState.AWAITING_REQUEST_ACTION);
@@ -1112,6 +1134,32 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
+     * Формирует подсказку для обновления обратного трека и комментария.
+     *
+     * @param request информация о заявке или {@code null}, если данные недоступны
+     * @return текст подсказки для пользователя
+     */
+    private String buildTrackUpdatePrompt(ActionRequiredReturnRequestDto request) {
+        StringBuilder builder = new StringBuilder(RETURNS_ACTIVE_UPDATE_PROMPT);
+        if (request == null) {
+            return builder.toString();
+        }
+        String currentTrack = request.reverseTrackNumber();
+        if (currentTrack == null || currentTrack.isBlank()) {
+            currentTrack = PARCEL_RETURN_NO_TRACK;
+        }
+        String currentComment = request.comment();
+        if (currentComment == null || currentComment.isBlank()) {
+            currentComment = PARCEL_RETURN_NO_COMMENT;
+        }
+        builder.append('\n').append('\n')
+                .append("Текущий трек: ").append(currentTrack)
+                .append('\n')
+                .append("Текущий комментарий: ").append(currentComment);
+        return builder.toString();
+    }
+
+    /**
      * Строит клавиатуру действий для активных заявок.
      *
      * @param requests       заявки, требующие действий
@@ -1132,6 +1180,10 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                     continue;
                 }
                 List<InlineKeyboardButton> buttons = new ArrayList<>();
+                buttons.add(InlineKeyboardButton.builder()
+                        .text("✏️ Трек/комментарий")
+                        .callbackData(CALLBACK_RETURNS_ACTIVE_UPDATE_PREFIX + requestId + ':' + parcelId)
+                        .build());
                 if (request.canStartExchange()) {
                     buttons.add(InlineKeyboardButton.builder()
                             .text("🔄 Запустить обмен")
@@ -1582,6 +1634,86 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
+     * Обрабатывает выбор действия по обновлению обратного трека и комментария.
+     */
+    private void handleActiveRequestTrackUpdate(Long chatId, CallbackQuery callbackQuery, String data) {
+        Optional<RequestActionContext> contextOptional = parseActionContext(data, CALLBACK_RETURNS_ACTIVE_UPDATE_PREFIX);
+        if (contextOptional.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            return;
+        }
+
+        RequestActionContext context = contextOptional.get();
+        answerCallbackQuery(callbackQuery, "Ждём данные");
+
+        ChatSession session = ensureChatSession(chatId);
+        session.setActiveReturnRequestContext(context.requestId(), context.parcelId());
+        session.setState(BuyerChatState.AWAITING_TRACK_UPDATE);
+        chatSessionRepository.save(session);
+        transitionToState(chatId, BuyerChatState.AWAITING_TRACK_UPDATE);
+
+        ActionRequiredReturnRequestDto requestInfo = telegramService.getReturnRequestsRequiringAction(chatId).stream()
+                .filter(dto -> context.requestId().equals(dto.requestId()))
+                .findFirst()
+                .orElse(null);
+
+        sendSimpleMessage(chatId, buildTrackUpdatePrompt(requestInfo));
+    }
+
+    /**
+     * Обрабатывает текстовый ввод пользователя с новым треком и комментарием.
+     */
+    private void handleTrackUpdateInput(Long chatId, String text) {
+        ChatSession session = ensureChatSession(chatId);
+        Long requestId = session.getActiveReturnRequestId();
+        Long parcelId = session.getActiveReturnParcelId();
+        if (requestId == null || parcelId == null) {
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            session.clearActiveReturnRequestContext();
+            session.setState(BuyerChatState.IDLE);
+            chatSessionRepository.save(session);
+            transitionToState(chatId, BuyerChatState.IDLE);
+            sendActiveReturnRequestsScreen(chatId);
+            return;
+        }
+
+        Optional<TrackUpdatePayload> payloadOptional = parseTrackUpdatePayload(text);
+        if (payloadOptional.isEmpty()) {
+            remindTrackUpdateInput(chatId);
+            return;
+        }
+
+        TrackUpdatePayload payload = payloadOptional.get();
+        try {
+            ReturnRequestUpdateResponse response = telegramService.updateReturnRequestDetailsFromTelegram(
+                    chatId,
+                    parcelId,
+                    requestId,
+                    payload.reverseTrack(),
+                    payload.comment()
+            );
+            sendSimpleMessage(chatId, formatTrackUpdateSuccess(response));
+        } catch (AccessDeniedException ex) {
+            log.warn("⚠️ Попытка обновить чужую заявку {} в чате {}", requestId, chatId);
+            sendSimpleMessage(chatId, PARCEL_RETURN_ACCESS_DENIED);
+        } catch (IllegalArgumentException ex) {
+            log.warn("⚠️ Некорректные данные для обновления заявки {}: {}", requestId, ex.getMessage());
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_UPDATE_INVALID);
+        } catch (IllegalStateException ex) {
+            log.warn("⚠️ Заявку {} нельзя обновить: {}", requestId, ex.getMessage());
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
+        } catch (Exception ex) {
+            log.error("❌ Ошибка обновления заявки {}", requestId, ex);
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_UPDATE_FAILED);
+        }
+
+        session.clearActiveReturnRequestContext();
+        session.setState(BuyerChatState.IDLE);
+        chatSessionRepository.save(session);
+        sendActiveReturnRequestsScreen(chatId);
+    }
+
+    /**
      * Парсит идентификаторы заявки и посылки из callback-строки.
      */
     private Optional<RequestActionContext> parseActionContext(String data, String prefix) {
@@ -1606,6 +1738,71 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * Контекст действия по заявке: идентификатор заявки и посылки.
      */
     private record RequestActionContext(Long requestId, Long parcelId) {
+    }
+
+    /**
+     * Парсит текстовое сообщение пользователя с новым треком и комментарием.
+     */
+    private Optional<TrackUpdatePayload> parseTrackUpdatePayload(String text) {
+        if (text == null) {
+            return Optional.empty();
+        }
+        String[] lines = text.split("\\r?\\n");
+        if (lines.length == 0) {
+            return Optional.empty();
+        }
+        String trackLine = lines[0].trim();
+        if (trackLine.isEmpty()) {
+            return Optional.empty();
+        }
+        String reverseTrack = isSkipWord(trackLine) ? null : trackLine;
+
+        StringBuilder commentBuilder = new StringBuilder();
+        for (int i = 1; i < lines.length; i++) {
+            String part = lines[i] != null ? lines[i].trim() : "";
+            if (part.isEmpty()) {
+                continue;
+            }
+            if (commentBuilder.length() > 0) {
+                commentBuilder.append('\n');
+            }
+            commentBuilder.append(part);
+        }
+        String commentRaw = commentBuilder.toString().trim();
+        String comment = commentRaw.isEmpty() || isSkipWord(commentRaw) ? null : commentRaw;
+
+        return Optional.of(new TrackUpdatePayload(reverseTrack, comment));
+    }
+
+    /**
+     * Формирует текст успешного обновления заявки с перечислением актуальных данных.
+     */
+    private String formatTrackUpdateSuccess(ReturnRequestUpdateResponse response) {
+        if (response == null) {
+            return String.format(RETURNS_ACTIVE_UPDATE_SUCCESS_TEMPLATE, PARCEL_RETURN_NO_TRACK, PARCEL_RETURN_NO_COMMENT);
+        }
+        String track = response.reverseTrackNumber();
+        if (track == null || track.isBlank()) {
+            track = PARCEL_RETURN_NO_TRACK;
+        }
+        String comment = response.comment();
+        if (comment == null || comment.isBlank()) {
+            comment = PARCEL_RETURN_NO_COMMENT;
+        }
+        return String.format(RETURNS_ACTIVE_UPDATE_SUCCESS_TEMPLATE, track, comment);
+    }
+
+    /**
+     * Напоминает пользователю о корректном формате ввода данных обратного трека.
+     */
+    private void remindTrackUpdateInput(Long chatId) {
+        sendSimpleMessage(chatId, RETURNS_ACTIVE_UPDATE_INVALID);
+    }
+
+    /**
+     * Данные для обновления трека и комментария заявки.
+     */
+    private record TrackUpdatePayload(String reverseTrack, String comment) {
     }
 
     /**

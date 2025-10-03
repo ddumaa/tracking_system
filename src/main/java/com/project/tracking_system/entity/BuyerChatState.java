@@ -64,6 +64,11 @@ public enum BuyerChatState {
     AWAITING_RETURN_TRACK,
 
     /**
+     * Бот ожидает данные для обновления трека обратной отправки активной заявки.
+     */
+    AWAITING_TRACK_UPDATE,
+
+    /**
      * Бот ожидает подтверждения запуска обмена по ранее созданной заявке.
      */
     AWAITING_EXCHANGE_CONFIRM
