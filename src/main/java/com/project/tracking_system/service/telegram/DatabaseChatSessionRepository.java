@@ -73,6 +73,9 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
         entity.setReturnParcelTrack(session.getReturnParcelTrackNumber());
         entity.setReturnReason(session.getReturnReason());
         entity.setReturnIdempotencyKey(session.getReturnIdempotencyKey());
+        entity.setActiveRequestId(session.getActiveReturnRequestId());
+        entity.setActiveRequestParcelId(session.getActiveReturnParcelId());
+        entity.setActiveRequestEditMode(session.getReturnRequestEditMode());
         BuyerBotScreenState saved = repository.save(entity);
 
         BuyerAnnouncementState announcement = getOrCreateAnnouncementEntity(chatId);
@@ -356,6 +359,9 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
                         null,
                         null,
                         null,
+                        null,
+                        null,
+                        null,
                         null));
     }
 
@@ -400,6 +406,13 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
         session.setReturnParcelTrackNumber(entity.getReturnParcelTrack());
         session.setReturnReason(entity.getReturnReason());
         session.setReturnIdempotencyKey(entity.getReturnIdempotencyKey());
+        if (entity.getActiveRequestId() != null || entity.getActiveRequestParcelId() != null) {
+            session.setActiveReturnRequestContext(
+                    entity.getActiveRequestId(),
+                    entity.getActiveRequestParcelId(),
+                    entity.getActiveRequestEditMode()
+            );
+        }
         return session;
     }
 

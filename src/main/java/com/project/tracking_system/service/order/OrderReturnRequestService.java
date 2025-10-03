@@ -218,6 +218,46 @@ public class OrderReturnRequestService {
     }
 
     /**
+     * Отменяет обмен по активной заявке пользователя.
+     */
+    @Transactional
+    public OrderReturnRequest cancelExchange(Long requestId, Long parcelId, User user) {
+        OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
+        if (request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            throw new IllegalStateException("Обмен ещё не запущен или заявка уже закрыта");
+        }
+        request.setStatus(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
+        request.setClosedBy(user);
+        request.setClosedAt(ZonedDateTime.now(ZoneOffset.UTC));
+        orderExchangeService.cancelExchangeParcel(request);
+        episodeLifecycleService.decrementExchangeCount(request.getEpisode());
+        OrderReturnRequest saved = returnRequestRepository.save(request);
+        log.info("Обмен по заявке {} отменён пользователем", saved.getId());
+        return saved;
+    }
+
+    /**
+     * Переводит одобренный обмен обратно в статус возврата без удаления заявки.
+     */
+    @Transactional
+    public OrderReturnRequest reopenAsReturn(Long requestId, Long parcelId, User user) {
+        OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
+        if (request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            throw new IllegalStateException("Заявка не находится в статусе обмена");
+        }
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        request.setDecisionBy(null);
+        request.setDecisionAt(null);
+        request.setClosedBy(null);
+        request.setClosedAt(null);
+        orderExchangeService.cancelExchangeParcel(request);
+        episodeLifecycleService.decrementExchangeCount(request.getEpisode());
+        OrderReturnRequest saved = returnRequestRepository.save(request);
+        log.info("Заявка {} переведена из обмена в возврат", saved.getId());
+        return saved;
+    }
+
+    /**
      * Возвращает активную заявку по посылке, если она существует.
      */
     @Transactional(readOnly = true)

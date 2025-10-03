@@ -35,6 +35,7 @@ public class ChatSession {
     private String returnIdempotencyKey;
     private Long activeReturnRequestId;
     private Long activeReturnParcelId;
+    private ReturnRequestEditMode returnRequestEditMode;
 
     /**
      * Создаёт представление состояния чата.
@@ -103,6 +104,7 @@ public class ChatSession {
         this.returnIdempotencyKey = null;
         this.activeReturnRequestId = null;
         this.activeReturnParcelId = null;
+        this.returnRequestEditMode = null;
     }
 
     /**
@@ -512,8 +514,22 @@ public class ChatSession {
      * @param parcelId  идентификатор посылки
      */
     public void setActiveReturnRequestContext(Long requestId, Long parcelId) {
+        setActiveReturnRequestContext(requestId, parcelId, null);
+    }
+
+    /**
+     * Устанавливает контекст редактируемой заявки и ожидаемый режим ввода.
+     *
+     * @param requestId идентификатор заявки
+     * @param parcelId  идентификатор посылки
+     * @param mode      ожидаемый тип данных от пользователя
+     */
+    public void setActiveReturnRequestContext(Long requestId,
+                                              Long parcelId,
+                                              ReturnRequestEditMode mode) {
         this.activeReturnRequestId = requestId;
         this.activeReturnParcelId = parcelId;
+        this.returnRequestEditMode = mode;
     }
 
     /**
@@ -522,6 +538,7 @@ public class ChatSession {
     public void clearActiveReturnRequestContext() {
         this.activeReturnRequestId = null;
         this.activeReturnParcelId = null;
+        this.returnRequestEditMode = null;
     }
 
     /**
@@ -553,5 +570,23 @@ public class ChatSession {
         this.returnReason = null;
         this.returnIdempotencyKey = null;
         clearActiveReturnRequestContext();
+    }
+
+    /**
+     * Возвращает режим редактирования активной заявки.
+     *
+     * @return режим ожидаемых данных или {@code null}
+     */
+    public ReturnRequestEditMode getReturnRequestEditMode() {
+        return returnRequestEditMode;
+    }
+
+    /**
+     * Фиксирует режим редактирования активной заявки.
+     *
+     * @param returnRequestEditMode режим ожидаемых данных
+     */
+    public void setReturnRequestEditMode(ReturnRequestEditMode returnRequestEditMode) {
+        this.returnRequestEditMode = returnRequestEditMode;
     }
 }
