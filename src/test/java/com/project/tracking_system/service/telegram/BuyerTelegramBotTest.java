@@ -33,6 +33,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.ParseMode;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.chat.Chat;
 import org.telegram.telegrambots.meta.api.objects.Contact;
@@ -673,11 +674,21 @@ class BuyerTelegramBotTest {
 
         verify(telegramClient, atLeastOnce()).execute(any(AnswerCallbackQuery.class));
         verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
-            if (!(method instanceof SendMessage sendMessage)) {
+            String text = null;
+            if (method instanceof SendMessage sendMessage) {
+                text = sendMessage.getText();
+            } else if (method instanceof EditMessageText editMessage) {
+                text = editMessage.getText();
+            }
+            return text != null && text.contains("TRACK\\-88") && text.contains("причин");
+        }));
+        verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
+            if (!(method instanceof EditMessageReplyMarkup editMarkup)) {
                 return false;
             }
-            String text = sendMessage.getText();
-            return text.contains("TRACK\\-88") && text.contains("причин");
+            return Objects.equals(chatId.toString(), editMarkup.getChatId())
+                    && Objects.equals(1, editMarkup.getMessageId())
+                    && editMarkup.getReplyMarkup() == null;
         }));
     }
 
@@ -702,6 +713,23 @@ class BuyerTelegramBotTest {
                 "После отправки списка причин экран должен соответствовать шагу выбора причины");
         Integer returnReasonAnchorId = session.getAnchorMessageId();
         assertNotNull(returnReasonAnchorId, "Сообщение с причинами должно становиться текущим якорем");
+        verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
+            String text = null;
+            if (method instanceof SendMessage sendMessage) {
+                text = sendMessage.getText();
+            } else if (method instanceof EditMessageText editMessage) {
+                text = editMessage.getText();
+            }
+            return text != null && text.contains("TRACK\\-77") && text.contains("причин");
+        }));
+        verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
+            if (!(method instanceof EditMessageReplyMarkup editMarkup)) {
+                return false;
+            }
+            return Objects.equals(chatId.toString(), editMarkup.getChatId())
+                    && Objects.equals(1, editMarkup.getMessageId())
+                    && editMarkup.getReplyMarkup() == null;
+        }));
 
         when(telegramService.registerReturnRequestFromTelegram(anyLong(), anyLong(), anyString(), anyString()))
                 .thenReturn(new OrderReturnRequest());
@@ -790,8 +818,32 @@ class BuyerTelegramBotTest {
 
         clearInvocations(telegramClient);
 
+        doAnswer(invocation -> {
+            EditMessageText editMessage = invocation.getArgument(0);
+            if (Objects.equals(editMessage.getMessageId(), originalAnchor + 50)) {
+                throw new TelegramApiException("Bad Request: message to edit not found");
+            }
+            return null;
+        }).when(telegramClient).execute(any(EditMessageText.class));
+
         bot.consume(mockCallbackUpdate(chatId, "returns:create:reason:defect", originalAnchor));
 
+        verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
+            if (!(method instanceof EditMessageReplyMarkup editMarkup)) {
+                return false;
+            }
+            return Objects.equals(chatId.toString(), editMarkup.getChatId())
+                    && Objects.equals(originalAnchor, editMarkup.getMessageId())
+                    && editMarkup.getReplyMarkup() == null;
+        }));
+        verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
+            if (!(method instanceof EditMessageReplyMarkup editMarkup)) {
+                return false;
+            }
+            return Objects.equals(chatId.toString(), editMarkup.getChatId())
+                    && Objects.equals(originalAnchor + 50, editMarkup.getMessageId())
+                    && editMarkup.getReplyMarkup() == null;
+        }));
         ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
         verify(telegramClient).execute(captor.capture());
         SendMessage resentPrompt = captor.getValue();
