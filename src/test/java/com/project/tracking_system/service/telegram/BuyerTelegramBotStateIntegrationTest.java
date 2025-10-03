@@ -43,13 +43,14 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -549,6 +550,72 @@ class BuyerTelegramBotStateIntegrationTest {
                         && "returns:active".equals(button.getCallbackData()));
         assertTrue(hasActiveButton, "Финальная клавиатура должна позволять открыть текущие заявки");
         assertEquals(BuyerChatState.IDLE, bot.getState(chatId), "После завершения сценария бот обязан вернуть состояние IDLE");
+    }
+
+    /**
+     * Проверяет, что при ожидании причины возврата нажатие кнопки «🏠 Меню»
+     * возвращает пользователя в главное меню и очищает контекст оформления.
+     */
+    @Test
+    void shouldReturnToMenuFromReasonAwaitingOnPersistentButton() throws Exception {
+        Long chatId = 4546L;
+        Integer callbackMessageId = 901;
+        Long parcelId = 8888L;
+
+        Customer customer = new Customer();
+        customer.setTelegramConfirmed(true);
+        customer.setNotificationsEnabled(true);
+        customer.setNameSource(NameSource.USER_CONFIRMED);
+        customer.setFullName("Антон Смирнов");
+
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        TelegramParcelInfoDTO parcelInfo = new TelegramParcelInfoDTO(parcelId, "TR-888", "Магазин А", GlobalStatus.DELIVERED, false);
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(parcelInfo), List.of(), List.of());
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        bot.consume(callbackUpdate(chatId, callbackMessageId, "returns:create"));
+        bot.consume(callbackUpdate(chatId, callbackMessageId, "returns:create:type:return"));
+
+        String storeKey = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString("Магазин А".getBytes(StandardCharsets.UTF_8));
+        bot.consume(callbackUpdate(chatId, callbackMessageId, "returns:create:store:" + storeKey));
+        bot.consume(callbackUpdate(chatId, callbackMessageId, "returns:create:parcel:" + parcelId));
+
+        assertEquals(BuyerChatState.AWAITING_RETURN_REASON, bot.getState(chatId),
+                "После выбора посылки бот должен ожидать причину возврата");
+
+        ChatSession activeSession = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("Контекст возврата обязан сохраниться в сессии"));
+        assertEquals(parcelId, activeSession.getReturnParcelId(),
+                "Перед возвратом в меню должен храниться идентификатор посылки");
+        assertNotNull(activeSession.getReturnIdempotencyKey(),
+                "Сценарий возврата обязан сформировать идемпотентный ключ");
+
+        clearInvocations(telegramClient);
+
+        bot.consume(textUpdate(chatId, "🏠 Меню"));
+
+        assertEquals(BuyerChatState.IDLE, bot.getState(chatId),
+                "Нажатие кнопки меню должно переводить сценарий в состояние IDLE");
+
+        ChatSession sessionAfterMenu = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("Данные сессии обязаны сохраняться после возврата в меню"));
+        assertNull(sessionAfterMenu.getReturnParcelId(),
+                "После возврата в меню идентификатор посылки должен быть очищен");
+        assertNull(sessionAfterMenu.getReturnReason(),
+                "Контекст причины возврата обязан сбрасываться");
+        assertNull(sessionAfterMenu.getReturnIdempotencyKey(),
+                "После нажатия меню не должно оставаться идемпотентного ключа");
+
+        ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(messageCaptor.capture());
+        boolean hasReminder = messageCaptor.getAllValues().stream()
+                .map(SendMessage::getText)
+                .filter(Objects::nonNull)
+                .anyMatch(text -> text.contains("⚠️ Пожалуйста, выберите причину с помощью кнопок ниже."));
+        assertFalse(hasReminder,
+                "Возврат в меню не должен сопровождаться повторным напоминанием о выборе причины");
     }
 
     /**

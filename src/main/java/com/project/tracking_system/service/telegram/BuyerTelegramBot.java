@@ -438,6 +438,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         String trimmed = text.trim();
+
+        if (BUTTON_MENU.equals(trimmed) || "/menu".equals(trimmed)) {
+            handleMenuCommand(chatId);
+            return;
+        }
+
         BuyerChatState state = getState(chatId);
 
         if (state == BuyerChatState.AWAITING_CONTACT) {
@@ -452,11 +458,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             }
 
             handleAwaitedPhoneText(chatId, trimmed);
-            return;
-        }
-
-        if ("/menu".equals(trimmed)) {
-            handleMenuCommand(chatId);
             return;
         }
 
@@ -2124,6 +2125,10 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
     /**
      * Показывает главное меню и возвращает сценарий в состояние IDLE.
+     * <p>
+     * Метод очищает временный контекст возвратов и обменов, чтобы прекратить
+     * дополнительные подсказки, и тем самым гарантирует корректное отображение меню.
+     * </p>
      *
      * @param chatId идентификатор чата Telegram
      */
@@ -2172,8 +2177,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         if (BUTTON_MENU.equals(text)) {
-            resetMenuAnchorIfAlreadyShown(chatId);
-            sendMainMenu(chatId);
+            handleMenuCommand(chatId);
             return;
         }
 
