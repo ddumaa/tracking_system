@@ -32,9 +32,6 @@ public class ChatSession {
     private Long returnParcelId;
     private String returnParcelTrackNumber;
     private String returnReason;
-    private String returnComment;
-    private ZonedDateTime returnRequestedAt;
-    private String returnReverseTrackNumber;
     private String returnIdempotencyKey;
     private Long activeReturnRequestId;
     private Long activeReturnParcelId;
@@ -103,9 +100,6 @@ public class ChatSession {
         this.returnParcelId = null;
         this.returnParcelTrackNumber = null;
         this.returnReason = null;
-        this.returnComment = null;
-        this.returnRequestedAt = null;
-        this.returnReverseTrackNumber = null;
         this.returnIdempotencyKey = null;
         this.activeReturnRequestId = null;
         this.activeReturnParcelId = null;
@@ -475,55 +469,6 @@ public class ChatSession {
      *
      * @return комментарий или {@code null}
      */
-    public String getReturnComment() {
-        return returnComment;
-    }
-
-    /**
-     * Сохраняет дополнительный комментарий, введённый пользователем.
-     *
-     * @param returnComment текст комментария
-     */
-    public void setReturnComment(String returnComment) {
-        this.returnComment = returnComment;
-    }
-
-    /**
-     * Возвращает дату, когда пользователь запросил возврат.
-     *
-     * @return момент запроса или {@code null}
-     */
-    public ZonedDateTime getReturnRequestedAt() {
-        return returnRequestedAt;
-    }
-
-    /**
-     * Сохраняет дату, когда пользователь решил оформить возврат.
-     *
-     * @param returnRequestedAt дата запроса возврата
-     */
-    public void setReturnRequestedAt(ZonedDateTime returnRequestedAt) {
-        this.returnRequestedAt = returnRequestedAt;
-    }
-
-    /**
-     * Возвращает трек-номер обратной отправки, если он известен пользователю.
-     *
-     * @return трек-номер обратной отправки или {@code null}
-     */
-    public String getReturnReverseTrackNumber() {
-        return returnReverseTrackNumber;
-    }
-
-    /**
-     * Сохраняет трек-номер обратной отправки.
-     *
-     * @param returnReverseTrackNumber трек-номер обратной отправки
-     */
-    public void setReturnReverseTrackNumber(String returnReverseTrackNumber) {
-        this.returnReverseTrackNumber = returnReverseTrackNumber;
-    }
-
     /**
      * Возвращает идентификатор активной заявки, выбранной для редактирования.
      *
@@ -606,9 +551,6 @@ public class ChatSession {
         this.returnParcelId = null;
         this.returnParcelTrackNumber = null;
         this.returnReason = null;
-        this.returnComment = null;
-        this.returnRequestedAt = null;
-        this.returnReverseTrackNumber = null;
         this.returnIdempotencyKey = null;
         clearActiveReturnRequestContext();
     }

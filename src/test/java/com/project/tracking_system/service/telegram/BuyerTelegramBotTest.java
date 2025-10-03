@@ -15,6 +15,7 @@ import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.entity.GlobalStatus;
+import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
@@ -697,35 +698,16 @@ class BuyerTelegramBotTest {
         assertEquals(77L, session.getReturnParcelId(), "Идентификатор посылки должен сохраняться в сессии");
         assertEquals("TRACK-77", session.getReturnParcelTrackNumber(), "Трек посылки должен сохраняться");
 
-        bot.consume(mockTextUpdate(chatId, "Не подошёл размер"));
-        assertEquals(BuyerChatState.AWAITING_RETURN_COMMENT, chatSessionRepository.getState(chatId),
-                "После причины бот должен ожидать комментарий");
-        session = chatSessionRepository.find(chatId).orElseThrow();
-        assertEquals("Не подошёл размер", session.getReturnReason(), "Причина должна сохраняться");
+        when(telegramService.registerReturnRequestFromTelegram(anyLong(), anyLong(), anyString(), anyString()))
+                .thenReturn(new OrderReturnRequest());
 
-        bot.consume(mockTextUpdate(chatId, "Нет"));
-        assertEquals(BuyerChatState.AWAITING_RETURN_DATE, chatSessionRepository.getState(chatId),
-                "После комментария бот должен ожидать дату");
-        session = chatSessionRepository.find(chatId).orElseThrow();
-        assertNull(session.getReturnComment(), "При отсутствии комментария поле должно быть пустым");
-
-        bot.consume(mockTextUpdate(chatId, "завтра"));
-        assertEquals(BuyerChatState.AWAITING_RETURN_DATE, chatSessionRepository.getState(chatId),
-                "При некорректной дате состояние не должно меняться");
-
-        bot.consume(mockTextUpdate(chatId, "01.01.2024"));
-        assertEquals(BuyerChatState.AWAITING_RETURN_TRACK, chatSessionRepository.getState(chatId),
-                "После корректной даты бот должен запросить обратный трек");
-        session = chatSessionRepository.find(chatId).orElseThrow();
-        assertNotNull(session.getReturnRequestedAt(), "Дата обращения должна сохраняться");
-
-        clearInvocations(telegramClient);
-        bot.consume(mockTextUpdate(chatId, "нет"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:create:reason:not_fit"));
 
         assertEquals(BuyerChatState.IDLE, chatSessionRepository.getState(chatId),
-                "После завершения сценария бот должен вернуться в режим ожидания команд");
+                "После выбора причины бот должен завершить сценарий");
         session = chatSessionRepository.find(chatId).orElseThrow();
-        assertNull(session.getReturnParcelId(), "Временные данные возврата должны очищаться");
+        assertNull(session.getReturnParcelId(), "После завершения временные данные должны очищаться");
+        verify(telegramService).registerReturnRequestFromTelegram(eq(chatId), eq(77L), anyString(), eq("Не подошло"));
 
         ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
         verify(telegramClient, atLeastOnce()).execute(captor.capture());
@@ -733,10 +715,10 @@ class BuyerTelegramBotTest {
         String text = summary.getText();
         assertTrue(text.contains("Зафиксировали запрос на возврат"),
                 "Итоговое сообщение должно подтверждать регистрацию запроса");
-        assertTrue(text.contains("Не подошёл размер"),
-                "В сообщении должна отображаться сохранённая причина");
-        assertTrue(text.contains("Обратный трек: не указан"),
-                "При отсутствии трека должно выводиться соответствующее пояснение");
+        assertTrue(text.contains("Не подошло"),
+                "В сообщении должна отображаться выбранная причина");
+        assertTrue(text.contains("📂 Текущие заявки"),
+                "В сообщении должно быть напоминание о разделе для добавления трека");
     }
 
     /**

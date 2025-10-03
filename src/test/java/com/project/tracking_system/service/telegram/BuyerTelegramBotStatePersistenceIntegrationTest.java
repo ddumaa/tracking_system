@@ -8,6 +8,7 @@ import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.NameSource;
+import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.service.telegram.support.InMemoryChatSessionRepository;
@@ -180,11 +181,18 @@ class BuyerTelegramBotStatePersistenceIntegrationTest {
         BuyerTelegramBot bot = new BuyerTelegramBot(initialClient, "token", telegramService, adminNotificationService,
                 fullNameValidator, chatSessionRepository, new ObjectMapper());
 
-        bot.consume(callbackUpdate(chatId, "parcel:return:55"));
-        bot.consume(textUpdate(chatId, "Не подошёл размер"));
+        when(telegramService.registerReturnRequestFromTelegram(anyLong(), anyLong(), anyString(), anyString()))
+                .thenReturn(new OrderReturnRequest());
 
-        assertEquals(BuyerChatState.AWAITING_RETURN_COMMENT, chatSessionRepository.getState(chatId),
-                "После указания причины бот должен ожидать комментарий");
+        bot.consume(callbackUpdate(chatId, "parcel:return:55"));
+
+        assertEquals(BuyerChatState.AWAITING_RETURN_REASON, chatSessionRepository.getState(chatId),
+                "После выбора посылки бот должен ожидать выбор причины");
+
+        bot.consume(callbackUpdate(chatId, "returns:create:reason:not_fit"));
+
+        assertEquals(BuyerChatState.IDLE, chatSessionRepository.getState(chatId),
+                "После выбора причины бот должен завершить сценарий и вернуться в состояние IDLE");
 
         TelegramClient restartedClient = mock(TelegramClient.class);
         when(restartedClient.execute(any(SendMessage.class))).thenReturn(new Message());
@@ -196,13 +204,10 @@ class BuyerTelegramBotStatePersistenceIntegrationTest {
         clearInvocations(telegramService);
         when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
 
-        restartedBot.consume(textUpdate(chatId, "Нет"));
+        restartedBot.consume(textUpdate(chatId, "Любой текст"));
 
-        assertEquals(BuyerChatState.AWAITING_RETURN_DATE, chatSessionRepository.getState(chatId),
-                "Новый экземпляр бота должен продолжить сценарий с ожидания даты");
-        ChatSession restoredSession = chatSessionRepository.find(chatId).orElseThrow();
-        assertEquals("Не подошёл размер", restoredSession.getReturnReason(),
-                "Причина возврата должна сохраниться после рестарта");
+        assertEquals(BuyerChatState.IDLE, chatSessionRepository.getState(chatId),
+                "Новый экземпляр бота не должен возобновлять сценарий после завершения");
     }
 
     private Update textUpdate(Long chatId, String text) {

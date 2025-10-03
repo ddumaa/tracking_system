@@ -21,11 +21,13 @@ import com.project.tracking_system.service.telegram.TelegramNotificationService;
 import org.springframework.security.access.AccessDeniedException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Duration;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -37,6 +39,7 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 /**
@@ -216,9 +219,6 @@ class CustomerTelegramServiceTest {
         Long parcelId = 1001L;
         String key = "key-123";
         String reason = "Не подошёл размер";
-        String comment = "Хочу на размер больше";
-        ZonedDateTime requestedAt = ZonedDateTime.now(ZoneOffset.UTC).minusDays(1);
-        String reverseTrack = "RR123";
 
         Customer customer = new Customer();
         customer.setId(55L);
@@ -238,21 +238,24 @@ class CustomerTelegramServiceTest {
 
         when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
         when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
-        when(orderReturnRequestService.registerReturn(parcelId, owner, key, reason, comment, requestedAt, reverseTrack))
+        ArgumentCaptor<ZonedDateTime> requestedAtCaptor = ArgumentCaptor.forClass(ZonedDateTime.class);
+        when(orderReturnRequestService.registerReturn(eq(parcelId), eq(owner), eq(key), eq(reason), isNull(), any(ZonedDateTime.class), isNull()))
                 .thenReturn(request);
 
         OrderReturnRequest result = customerTelegramService.registerReturnRequestFromTelegram(
                 chatId,
                 parcelId,
                 key,
-                reason,
-                comment,
-                requestedAt,
-                reverseTrack
+                reason
         );
 
         assertSame(request, result, "Метод обязан возвращать заявку, полученную от доменного сервиса");
-        verify(orderReturnRequestService).registerReturn(parcelId, owner, key, reason, comment, requestedAt, reverseTrack);
+        verify(orderReturnRequestService).registerReturn(eq(parcelId), eq(owner), eq(key), eq(reason), isNull(), requestedAtCaptor.capture(), isNull());
+        ZonedDateTime capturedRequestedAt = requestedAtCaptor.getValue();
+        assertNotNull(capturedRequestedAt, "Дата регистрации должна вычисляться автоматически");
+        assertEquals(ZoneOffset.UTC, capturedRequestedAt.getZone(), "Дата должна фиксироваться в UTC");
+        assertTrue(Duration.between(capturedRequestedAt, ZonedDateTime.now(ZoneOffset.UTC)).abs().getSeconds() < 5,
+                "Дата регистрации должна соответствовать текущему времени");
     }
 
     /**
@@ -281,10 +284,7 @@ class CustomerTelegramServiceTest {
                 chatId,
                 parcelId,
                 "key",
-                "Причина",
-                null,
-                ZonedDateTime.now(ZoneOffset.UTC),
-                null
+                "Причина"
         ));
         verify(orderReturnRequestService, never()).registerReturn(any(), any(), any(), any(), any(), any(), any());
     }

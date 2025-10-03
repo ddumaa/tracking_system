@@ -44,11 +44,9 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
-import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
@@ -98,6 +96,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String CALLBACK_RETURNS_CREATE_TYPE_EXCHANGE = "returns:create:type:exchange";
     private static final String CALLBACK_RETURNS_CREATE_STORE_PREFIX = "returns:create:store:";
     private static final String CALLBACK_RETURNS_CREATE_PARCEL_PREFIX = "returns:create:parcel:";
+    private static final String CALLBACK_RETURNS_REASON_PREFIX = "returns:create:reason:";
+    private static final String CALLBACK_RETURNS_REASON_NOT_FIT = CALLBACK_RETURNS_REASON_PREFIX + "not_fit";
+    private static final String CALLBACK_RETURNS_REASON_DEFECT = CALLBACK_RETURNS_REASON_PREFIX + "defect";
+    private static final String CALLBACK_RETURNS_REASON_DISLIKE = CALLBACK_RETURNS_REASON_PREFIX + "dislike";
+    private static final String CALLBACK_RETURNS_REASON_OTHER = CALLBACK_RETURNS_REASON_PREFIX + "other";
     private static final String CALLBACK_RETURNS_ACTIVE_EXCHANGE_PREFIX = "returns:active:exchange:";
     private static final String CALLBACK_RETURNS_ACTIVE_CLOSE_PREFIX = "returns:active:close:";
     private static final String CALLBACK_RETURNS_ACTIVE_UPDATE_PREFIX = "returns:active:update:";
@@ -112,27 +115,16 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String NO_PARCELS_PLACEHOLDER = "• нет посылок";
 
     private static final String PARCEL_RETURN_FLOW_STARTED =
-            "📩 Начинаем оформление возврата по посылке %s. Укажите, пожалуйста, причину возврата.";
-    private static final String PARCEL_RETURN_REASON_REQUIRED =
-            "⚠️ Причина возврата не может быть пустой. Напишите коротко, что не подошло.";
-    private static final String PARCEL_RETURN_REASON_TOO_LONG =
-            "⚠️ Причина слишком длинная. Уложитесь, пожалуйста, в 255 символов.";
-    private static final String PARCEL_RETURN_COMMENT_PROMPT =
-            "✍️ Добавьте комментарий для менеджера (например, желаемый размер или уточнения). Если дополнений нет, напишите «Нет».";
-    private static final String PARCEL_RETURN_COMMENT_TOO_LONG =
-            "⚠️ Комментарий слишком длинный. Постарайтесь уложиться в 2000 символов.";
-    private static final String PARCEL_RETURN_DATE_PROMPT =
-            "🗓 Укажите дату, когда решили оформить возврат (формат ДД.ММ.ГГГГ, также можно написать «сегодня» или «вчера»).";
-    private static final String PARCEL_RETURN_DATE_INVALID =
-            "⚠️ Не удалось распознать дату. Используйте формат ДД.ММ.ГГГГ или напишите «сегодня»/«вчера».";
-    private static final String PARCEL_RETURN_DATE_FUTURE =
-            "⚠️ Дата из будущего пока недоступна. Укажите прошедшую или сегодняшнюю дату.";
-    private static final String PARCEL_RETURN_TRACK_PROMPT =
-            "🚚 Если у вас уже есть трек обратной отправки, отправьте его. Если трека пока нет, напишите «Нет».";
-    private static final String PARCEL_RETURN_TRACK_TOO_LONG =
-            "⚠️ Трек-номер слишком длинный. Максимальная длина — 64 символа.";
+            "📩 Начинаем оформление возврата по посылке %s. Выберите, пожалуйста, причину ниже.";
+    private static final String PARCEL_RETURN_REASON_REMINDER =
+            "⚠️ Пожалуйста, выберите причину с помощью кнопок ниже.";
+    private static final String PARCEL_RETURN_REASON_SELECTED_ACK = "Причина выбрана";
+    private static final String RETURN_REASON_LABEL_NOT_FIT = "Не подошло";
+    private static final String RETURN_REASON_LABEL_DEFECT = "Брак";
+    private static final String RETURN_REASON_LABEL_DISLIKE = "Не понравилось";
+    private static final String RETURN_REASON_LABEL_OTHER = "Другое";
     private static final String PARCEL_RETURN_FINISHED_TEMPLATE =
-            "✅ Зафиксировали запрос на возврат посылки %s.\n• Причина: %s\n• Дата обращения: %s%s%s\nМенеджер свяжется с вами для дальнейших шагов.";
+            "✅ Зафиксировали запрос на возврат посылки %s.\n• Причина: %s\n• Дата обращения: %s\nℹ️ Добавить трек можно позже через раздел «📂 Текущие заявки».";
     private static final String PARCEL_RETURN_NO_COMMENT = "без комментария";
     private static final String PARCEL_RETURN_NO_TRACK = "не указан";
     private static final String PARCEL_RETURN_DATE_UNKNOWN = "не указана";
@@ -472,22 +464,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         if (state == BuyerChatState.AWAITING_RETURN_REASON) {
-            handleReturnReason(chatId, trimmed);
-            return;
-        }
-
-        if (state == BuyerChatState.AWAITING_RETURN_COMMENT) {
-            handleReturnComment(chatId, trimmed);
-            return;
-        }
-
-        if (state == BuyerChatState.AWAITING_RETURN_DATE) {
-            handleReturnDate(chatId, trimmed);
-            return;
-        }
-
-        if (state == BuyerChatState.AWAITING_RETURN_TRACK) {
-            handleReturnTrack(chatId, trimmed);
+            sendSimpleMessage(chatId, PARCEL_RETURN_REASON_REMINDER);
             return;
         }
 
@@ -582,6 +559,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         if (data.startsWith(CALLBACK_RETURNS_CREATE_PARCEL_PREFIX)) {
             handleReturnRequestParcelSelection(chatId, callbackQuery, data);
+            return;
+        }
+
+        if (data.startsWith(CALLBACK_RETURNS_REASON_PREFIX)) {
+            handleReturnReasonCallback(chatId, callbackQuery, data);
             return;
         }
 
@@ -1396,6 +1378,31 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
+     * Обрабатывает выбор причины возврата из инлайн-клавиатуры.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     * @param data          данные callback с выбранной причиной
+     */
+    private void handleReturnReasonCallback(Long chatId,
+                                            CallbackQuery callbackQuery,
+                                            String data) {
+        Optional<String> reasonOptional = decodeReturnReason(data);
+        if (reasonOptional.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            return;
+        }
+
+        answerCallbackQuery(callbackQuery, PARCEL_RETURN_REASON_SELECTED_ACK);
+        MaybeInaccessibleMessage message = callbackQuery.getMessage();
+        Integer messageId = message != null ? message.getMessageId() : null;
+        if (messageId != null) {
+            removeInlineKeyboard(chatId, messageId);
+        }
+        handleReturnReason(chatId, reasonOptional.get());
+    }
+
+    /**
      * Загружает доставленные посылки без активных заявок для оформления обращения.
      */
     private List<TelegramParcelInfoDTO> loadReturnableParcels(Long chatId) {
@@ -1493,6 +1500,37 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
+     * Формирует клавиатуру с предустановленными причинами возврата.
+     *
+     * @return инлайн-клавиатура с кнопками причин
+     */
+    private InlineKeyboardMarkup buildReturnReasonKeyboard() {
+        InlineKeyboardRow firstRow = new InlineKeyboardRow(
+                InlineKeyboardButton.builder()
+                        .text(RETURN_REASON_LABEL_NOT_FIT)
+                        .callbackData(CALLBACK_RETURNS_REASON_NOT_FIT)
+                        .build(),
+                InlineKeyboardButton.builder()
+                        .text(RETURN_REASON_LABEL_DEFECT)
+                        .callbackData(CALLBACK_RETURNS_REASON_DEFECT)
+                        .build()
+        );
+        InlineKeyboardRow secondRow = new InlineKeyboardRow(
+                InlineKeyboardButton.builder()
+                        .text(RETURN_REASON_LABEL_DISLIKE)
+                        .callbackData(CALLBACK_RETURNS_REASON_DISLIKE)
+                        .build(),
+                InlineKeyboardButton.builder()
+                        .text(RETURN_REASON_LABEL_OTHER)
+                        .callbackData(CALLBACK_RETURNS_REASON_OTHER)
+                        .build()
+        );
+        return InlineKeyboardMarkup.builder()
+                .keyboard(List.of(firstRow, secondRow))
+                .build();
+    }
+
+    /**
      * Формирует текст этапа выбора типа заявки.
      */
     private String buildReturnRequestTypeText() {
@@ -1548,6 +1586,28 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             log.warn("⚠️ Не удалось декодировать магазин из callback: {}", data, ex);
             return Optional.empty();
         }
+    }
+
+    /**
+     * Преобразует callback-данные в текст причины возврата.
+     *
+     * @param data исходная строка callback
+     * @return выбранная причина, если значение распознано
+     */
+    private Optional<String> decodeReturnReason(String data) {
+        if (CALLBACK_RETURNS_REASON_NOT_FIT.equals(data)) {
+            return Optional.of(RETURN_REASON_LABEL_NOT_FIT);
+        }
+        if (CALLBACK_RETURNS_REASON_DEFECT.equals(data)) {
+            return Optional.of(RETURN_REASON_LABEL_DEFECT);
+        }
+        if (CALLBACK_RETURNS_REASON_DISLIKE.equals(data)) {
+            return Optional.of(RETURN_REASON_LABEL_DISLIKE);
+        }
+        if (CALLBACK_RETURNS_REASON_OTHER.equals(data)) {
+            return Optional.of(RETURN_REASON_LABEL_OTHER);
+        }
+        return Optional.empty();
     }
 
     /**
@@ -2340,13 +2400,14 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         String track = formatTrackNumber(parcel.getTrackNumber());
         session = session != null ? session : ensureChatSession(chatId);
         session.clearReturnRequestData();
+        session.setReturnRequestType(ReturnRequestType.RETURN);
         session.setReturnParcelId(parcel.getParcelId());
         session.setReturnParcelTrackNumber(track);
         session.setReturnIdempotencyKey(UUID.randomUUID().toString());
         session.setState(BuyerChatState.AWAITING_RETURN_REASON);
         chatSessionRepository.save(session);
         transitionToState(chatId, BuyerChatState.AWAITING_RETURN_REASON);
-        sendSimpleMessage(chatId, String.format(PARCEL_RETURN_FLOW_STARTED, track));
+        sendReturnReasonPrompt(chatId, track);
     }
 
     /**
@@ -2370,6 +2431,26 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         chatSessionRepository.save(session);
         transitionToState(chatId, BuyerChatState.AWAITING_EXCHANGE_CONFIRM);
         sendSimpleMessage(chatId, String.format(PARCEL_EXCHANGE_PROMPT, track));
+    }
+
+    /**
+     * Отправляет пользователю клавиатуру с причинами возврата.
+     *
+     * @param chatId    идентификатор чата Telegram
+     * @param trackLabel отображаемый трек-номер посылки
+     */
+    private void sendReturnReasonPrompt(Long chatId, String trackLabel) {
+        if (chatId == null) {
+            return;
+        }
+        String text = String.format(PARCEL_RETURN_FLOW_STARTED, trackLabel);
+        SendMessage message = createPlainMessage(chatId, text);
+        message.setReplyMarkup(buildReturnReasonKeyboard());
+        try {
+            telegramClient.execute(message);
+        } catch (TelegramApiException ex) {
+            log.error("❌ Не удалось отправить клавиатуру причин возврата", ex);
+        }
     }
 
     /**
@@ -2881,19 +2962,19 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
-     * Обрабатывает текст с причиной возврата и переводит диалог к сбору комментария.
+     * Сохраняет выбранную причину возврата и завершает сценарий регистрации.
      *
-     * @param chatId идентификатор чата Telegram
-     * @param text   введённая пользователем причина
+     * @param chatId      идентификатор чата Telegram
+     * @param reasonLabel текст причины, выбранной пользователем
      */
-    private void handleReturnReason(Long chatId, String text) {
-        if (text == null || text.isBlank()) {
-            sendSimpleMessage(chatId, PARCEL_RETURN_REASON_REQUIRED);
+    private void handleReturnReason(Long chatId, String reasonLabel) {
+        if (chatId == null) {
             return;
         }
 
-        if (text.length() > 255) {
-            sendSimpleMessage(chatId, PARCEL_RETURN_REASON_TOO_LONG);
+        String normalized = reasonLabel == null ? "" : reasonLabel.strip();
+        if (normalized.isEmpty()) {
+            sendSimpleMessage(chatId, PARCEL_RETURN_REASON_REMINDER);
             return;
         }
 
@@ -2902,87 +2983,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        session.setReturnReason(text);
-        session.setState(BuyerChatState.AWAITING_RETURN_COMMENT);
+        session.setReturnReason(normalized);
         chatSessionRepository.save(session);
-        transitionToState(chatId, BuyerChatState.AWAITING_RETURN_COMMENT);
-        sendSimpleMessage(chatId, PARCEL_RETURN_COMMENT_PROMPT);
-    }
-
-    /**
-     * Обрабатывает дополнительный комментарий пользователя и запрашивает дату возврата.
-     *
-     * @param chatId идентификатор чата Telegram
-     * @param text   введённый комментарий или слово для пропуска
-     */
-    private void handleReturnComment(Long chatId, String text) {
-        ChatSession session = ensureChatSession(chatId);
-        if (!ensureReturnContext(chatId, session)) {
-            return;
-        }
-
-        String value = text == null ? "" : text.strip();
-        if (!isSkipWord(value) && value.length() > 2000) {
-            sendSimpleMessage(chatId, PARCEL_RETURN_COMMENT_TOO_LONG);
-            return;
-        }
-
-        session.setReturnComment(isSkipWord(value) ? null : value);
-        session.setState(BuyerChatState.AWAITING_RETURN_DATE);
-        chatSessionRepository.save(session);
-        transitionToState(chatId, BuyerChatState.AWAITING_RETURN_DATE);
-        sendSimpleMessage(chatId, PARCEL_RETURN_DATE_PROMPT);
-    }
-
-    /**
-     * Сохраняет дату запроса возврата и переходит к сбору обратного трека.
-     *
-     * @param chatId идентификатор чата Telegram
-     * @param text   введённая дата
-     */
-    private void handleReturnDate(Long chatId, String text) {
-        ChatSession session = ensureChatSession(chatId);
-        if (!ensureReturnContext(chatId, session)) {
-            return;
-        }
-
-        ZonedDateTime requestedAt = parseReturnDate(text);
-        if (requestedAt == null) {
-            sendSimpleMessage(chatId, PARCEL_RETURN_DATE_INVALID);
-            return;
-        }
-
-        if (requestedAt.isAfter(ZonedDateTime.now(ZoneOffset.UTC))) {
-            sendSimpleMessage(chatId, PARCEL_RETURN_DATE_FUTURE);
-            return;
-        }
-
-        session.setReturnRequestedAt(requestedAt);
-        session.setState(BuyerChatState.AWAITING_RETURN_TRACK);
-        chatSessionRepository.save(session);
-        transitionToState(chatId, BuyerChatState.AWAITING_RETURN_TRACK);
-        sendSimpleMessage(chatId, PARCEL_RETURN_TRACK_PROMPT);
-    }
-
-    /**
-     * Сохраняет обратный трек, формирует итоговое сообщение и завершает сценарий возврата.
-     *
-     * @param chatId идентификатор чата Telegram
-     * @param text   введённый трек или слово для пропуска
-     */
-    private void handleReturnTrack(Long chatId, String text) {
-        ChatSession session = ensureChatSession(chatId);
-        if (!ensureReturnContext(chatId, session)) {
-            return;
-        }
-
-        String value = text == null ? "" : text.strip();
-        if (!isSkipWord(value) && value.length() > 64) {
-            sendSimpleMessage(chatId, PARCEL_RETURN_TRACK_TOO_LONG);
-            return;
-        }
-
-        session.setReturnReverseTrackNumber(isSkipWord(value) ? null : value);
         finalizeReturnFlow(chatId, session);
     }
 
@@ -3031,10 +3033,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                     chatId,
                     parcelId,
                     idempotencyKey,
-                    PARCEL_EXCHANGE_DEFAULT_REASON,
-                    null,
-                    ZonedDateTime.now(ZoneOffset.UTC),
-                    null
+                    PARCEL_EXCHANGE_DEFAULT_REASON
             );
             if (request == null) {
                 log.warn("⚠️ Сервис возвратов вернул null при регистрации обмена по посылке {}", parcelId);
@@ -3121,35 +3120,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
-     * Преобразует текст в дату оформления возврата.
-     *
-     * @param text введённое значение
-     * @return дата в часовом поясе UTC или {@code null}, если распознать не удалось
-     */
-    private ZonedDateTime parseReturnDate(String text) {
-        if (text == null) {
-            return null;
-        }
-        String normalized = text.strip().toLowerCase();
-        ZonedDateTime today = ZonedDateTime.now(ZoneOffset.UTC).withHour(0).withMinute(0).withSecond(0).withNano(0);
-        if (normalized.isEmpty()) {
-            return null;
-        }
-        if (normalized.equals("сегодня")) {
-            return today;
-        }
-        if (normalized.equals("вчера")) {
-            return today.minusDays(1);
-        }
-        try {
-            LocalDate parsed = LocalDate.parse(normalized, PARCEL_RETURN_DATE_FORMAT);
-            return parsed.atStartOfDay(ZoneOffset.UTC);
-        } catch (DateTimeParseException ex) {
-            return null;
-        }
-    }
-
-    /**
      * Проверяет, что значение соответствует словам пропуска.
      *
      * @param value исходный текст
@@ -3203,7 +3173,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 ? session.getReturnParcelTrackNumber()
                 : "Без номера";
         String rawReason = session.getReturnReason();
-        ZonedDateTime requestedAt = session.getReturnRequestedAt();
+        ZonedDateTime requestedAt = ZonedDateTime.now(ZoneOffset.UTC);
         String idempotencyKey = session.getReturnIdempotencyKey();
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
             idempotencyKey = UUID.randomUUID().toString();
@@ -3215,10 +3185,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                     chatId,
                     parcelId,
                     idempotencyKey,
-                    rawReason,
-                    session.getReturnComment(),
-                    requestedAt,
-                    session.getReturnReverseTrackNumber()
+                    rawReason
             );
         } catch (IllegalStateException ex) {
             log.warn("⚠️ Не удалось зарегистрировать возврат по посылке {}: {}", parcelId, ex.getMessage());
@@ -3246,15 +3213,10 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 ? PARCEL_RETURN_REASON_UNKNOWN
                 : rawReason;
         String dateText = formatReturnDateForSummary(requestedAt);
-        String commentLine = buildCommentLine(session);
-        String trackLine = buildTrackLine(session);
-
         String message = String.format(PARCEL_RETURN_FINISHED_TEMPLATE,
                 parcelLabel,
                 displayReason,
-                dateText,
-                commentLine,
-                trackLine);
+                dateText);
         sendSimpleMessage(chatId, message);
 
         resetReturnScenario(chatId, session);
@@ -3338,28 +3300,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
-     * Формирует строку комментария для итогового сообщения.
-     *
-     * @param session активная сессия
-     * @return строка с переводом строки и комментарием
-     */
-    private String buildCommentLine(ChatSession session) {
-        String comment = session.getReturnComment();
-        return "\n• Комментарий: " + (comment == null || comment.isBlank() ? PARCEL_RETURN_NO_COMMENT : comment);
-    }
-
-    /**
-     * Формирует строку с трек-номером обратной отправки.
-     *
-     * @param session активная сессия
-     * @return строка для вставки в итоговое сообщение
-     */
-    private String buildTrackLine(ChatSession session) {
-        String track = session.getReturnReverseTrackNumber();
-        return "\n• Обратный трек: " + (track == null || track.isBlank() ? PARCEL_RETURN_NO_TRACK : track);
-    }
-
-    /**
      * Сообщает пользователю, что по выбранной посылке уже есть активная заявка.
      *
      * @param chatId идентификатор чата Telegram
@@ -3377,9 +3317,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
         if (session.getReturnParcelId() == null
                 && session.getReturnReason() == null
-                && session.getReturnComment() == null
-                && session.getReturnRequestedAt() == null
-                && session.getReturnReverseTrackNumber() == null) {
+                && session.getReturnIdempotencyKey() == null) {
             return;
         }
         session.clearReturnRequestData();

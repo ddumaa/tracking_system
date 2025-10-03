@@ -384,37 +384,34 @@ public class CustomerTelegramService {
      * Метод проверяет, что чат принадлежит существующему покупателю и что выбранная
      * посылка закреплена за этим покупателем. После проверки делегируется логика
      * {@link OrderReturnRequestService}, которая валидирует идемпотентный ключ и данные заявки.
+     * Комментарий и обратный трек заполняются позднее, поэтому при регистрации используются
+     * пустые значения, а время обращения фиксируется автоматически в часовом поясе UTC.
      * </p>
      *
      * @param chatId          идентификатор Telegram-чата покупателя
      * @param parcelId        идентификатор посылки, для которой оформляется возврат
      * @param idempotencyKey  внешний идемпотентный ключ, предотвращающий дубли
      * @param reason          причина возврата, указанная пользователем
-     * @param comment         дополнительный комментарий пользователя
-     * @param requestedAt     момент, когда пользователь решил оформить возврат
-     * @param reverseTrack    трек-номер обратной отправки, если он известен
      * @return созданная или ранее зарегистрированная заявка
      */
     @Transactional
     public OrderReturnRequest registerReturnRequestFromTelegram(Long chatId,
                                                                 Long parcelId,
                                                                 String idempotencyKey,
-                                                                String reason,
-                                                                String comment,
-                                                                ZonedDateTime requestedAt,
-                                                                String reverseTrack) {
+                                                                String reason) {
         Customer customer = requireCustomerByChat(chatId);
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         validateIdempotencyKey(idempotencyKey);
         User owner = requireParcelOwner(parcel);
+        ZonedDateTime requestedAt = ZonedDateTime.now(ZoneOffset.UTC);
         return orderReturnRequestService.registerReturn(
                 parcelId,
                 owner,
                 idempotencyKey,
                 reason,
-                comment,
+                null,
                 requestedAt,
-                reverseTrack
+                null
         );
     }
 
