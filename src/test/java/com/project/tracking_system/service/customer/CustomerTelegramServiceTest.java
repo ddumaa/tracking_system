@@ -8,6 +8,7 @@ import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
+import com.project.tracking_system.dto.ReturnRequestUpdateResponse;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.repository.CustomerRepository;
@@ -319,6 +320,73 @@ class CustomerTelegramServiceTest {
 
         assertSame(approvalResult, result, "Метод должен возвращать результат обмена от OrderReturnRequestService");
         verify(orderReturnRequestService).approveExchange(requestId, parcelId, owner);
+    }
+
+    @Test
+    void updateReturnRequestDetailsFromTelegram_whenValid_delegatesToOrderService() {
+        Long chatId = 1009L;
+        Long parcelId = 5005L;
+        Long requestId = 6006L;
+
+        Customer customer = new Customer();
+        customer.setId(92L);
+        customer.setTelegramChatId(chatId);
+
+        User owner = new User();
+        owner.setId(16L);
+
+        TrackParcel parcel = new TrackParcel();
+        parcel.setId(parcelId);
+        parcel.setCustomer(customer);
+        parcel.setUser(owner);
+
+        ReturnRequestUpdateResponse response = new ReturnRequestUpdateResponse(requestId, "RT123", "Комментарий", OrderReturnRequestStatus.REGISTERED);
+
+        when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
+        when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
+        when(orderReturnRequestService.updateReverseTrackAndComment(requestId, parcelId, owner, "track", "comment"))
+                .thenReturn(response);
+
+        ReturnRequestUpdateResponse result = customerTelegramService.updateReturnRequestDetailsFromTelegram(
+                chatId,
+                parcelId,
+                requestId,
+                "track",
+                "comment"
+        );
+
+        assertSame(response, result, "Ответ сервиса должен возвращаться без изменений");
+        verify(orderReturnRequestService).updateReverseTrackAndComment(requestId, parcelId, owner, "track", "comment");
+    }
+
+    @Test
+    void updateReturnRequestDetailsFromTelegram_whenParcelNotOwned_throwsAccessDenied() {
+        Long chatId = 1010L;
+        Long parcelId = 7007L;
+        Long requestId = 8008L;
+
+        Customer customer = new Customer();
+        customer.setId(93L);
+        customer.setTelegramChatId(chatId);
+
+        Customer foreign = new Customer();
+        foreign.setId(94L);
+
+        TrackParcel parcel = new TrackParcel();
+        parcel.setId(parcelId);
+        parcel.setCustomer(foreign);
+
+        when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
+        when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
+
+        assertThrows(AccessDeniedException.class, () -> customerTelegramService.updateReturnRequestDetailsFromTelegram(
+                chatId,
+                parcelId,
+                requestId,
+                "track",
+                "comment"
+        ));
+        verify(orderReturnRequestService, never()).updateReverseTrackAndComment(any(), any(), any(), any(), any());
     }
 
     private TrackParcel parcelWithStatus(String number, GlobalStatus status, ZonedDateTime lastUpdate) {

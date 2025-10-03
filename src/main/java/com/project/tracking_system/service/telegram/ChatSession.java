@@ -36,6 +36,8 @@ public class ChatSession {
     private ZonedDateTime returnRequestedAt;
     private String returnReverseTrackNumber;
     private String returnIdempotencyKey;
+    private Long activeReturnRequestId;
+    private Long activeReturnParcelId;
 
     /**
      * Создаёт представление состояния чата.
@@ -105,6 +107,8 @@ public class ChatSession {
         this.returnRequestedAt = null;
         this.returnReverseTrackNumber = null;
         this.returnIdempotencyKey = null;
+        this.activeReturnRequestId = null;
+        this.activeReturnParcelId = null;
     }
 
     /**
@@ -521,6 +525,61 @@ public class ChatSession {
     }
 
     /**
+     * Возвращает идентификатор активной заявки, выбранной для редактирования.
+     *
+     * @return идентификатор заявки или {@code null}
+     */
+    public Long getActiveReturnRequestId() {
+        return activeReturnRequestId;
+    }
+
+    /**
+     * Фиксирует идентификатор заявки, которую пользователь редактирует через бот.
+     *
+     * @param activeReturnRequestId идентификатор заявки
+     */
+    public void setActiveReturnRequestId(Long activeReturnRequestId) {
+        this.activeReturnRequestId = activeReturnRequestId;
+    }
+
+    /**
+     * Возвращает идентификатор посылки активной заявки.
+     *
+     * @return идентификатор посылки или {@code null}
+     */
+    public Long getActiveReturnParcelId() {
+        return activeReturnParcelId;
+    }
+
+    /**
+     * Сохраняет идентификатор посылки, к которой относится редактируемая заявка.
+     *
+     * @param activeReturnParcelId идентификатор посылки
+     */
+    public void setActiveReturnParcelId(Long activeReturnParcelId) {
+        this.activeReturnParcelId = activeReturnParcelId;
+    }
+
+    /**
+     * Устанавливает контекст редактируемой заявки за одну операцию.
+     *
+     * @param requestId идентификатор заявки
+     * @param parcelId  идентификатор посылки
+     */
+    public void setActiveReturnRequestContext(Long requestId, Long parcelId) {
+        this.activeReturnRequestId = requestId;
+        this.activeReturnParcelId = parcelId;
+    }
+
+    /**
+     * Сбрасывает контекст редактируемой заявки.
+     */
+    public void clearActiveReturnRequestContext() {
+        this.activeReturnRequestId = null;
+        this.activeReturnParcelId = null;
+    }
+
+    /**
      * Возвращает идемпотентный ключ заявки, сформированный в рамках диалога.
      *
      * @return идемпотентный ключ или {@code null}
@@ -551,5 +610,6 @@ public class ChatSession {
         this.returnRequestedAt = null;
         this.returnReverseTrackNumber = null;
         this.returnIdempotencyKey = null;
+        clearActiveReturnRequestContext();
     }
 }

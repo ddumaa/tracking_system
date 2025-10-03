@@ -1,5 +1,6 @@
 package com.project.tracking_system.service.order;
 
+import com.project.tracking_system.dto.ReturnRequestUpdateResponse;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderEpisode;
 import com.project.tracking_system.entity.OrderReturnRequest;
@@ -260,6 +261,51 @@ class OrderReturnRequestServiceTest {
                 DEFAULT_REVERSE_TRACK
         ))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void updateReverseTrackAndComment_UpdatesFieldsForActiveRequest() {
+        TrackParcel parcel = buildParcel(21L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(801L);
+        request.setParcel(parcel);
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        when(repository.findById(801L)).thenReturn(Optional.of(request));
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ReturnRequestUpdateResponse response = service.updateReverseTrackAndComment(
+                801L,
+                21L,
+                user,
+                "  ab123  ",
+                "  комментарий  "
+        );
+
+        assertThat(response.reverseTrackNumber()).isEqualTo("AB123");
+        assertThat(response.comment()).isEqualTo("комментарий");
+        assertThat(response.requestId()).isEqualTo(801L);
+        verify(repository).save(any(OrderReturnRequest.class));
+    }
+
+    @Test
+    void updateReverseTrackAndComment_ThrowsWhenStatusInactive() {
+        TrackParcel parcel = buildParcel(22L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(901L);
+        request.setParcel(parcel);
+        request.setStatus(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
+        when(repository.findById(901L)).thenReturn(Optional.of(request));
+
+        assertThatThrownBy(() -> service.updateReverseTrackAndComment(
+                901L,
+                22L,
+                user,
+                "track",
+                "comment"
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("нельзя изменить");
+        verify(repository, never()).save(any());
     }
 
     private TrackParcel buildParcel(Long id, GlobalStatus status) {

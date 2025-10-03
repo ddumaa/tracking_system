@@ -4,6 +4,7 @@ import com.project.tracking_system.dto.ActionRequiredReturnRequestDto;
 import com.project.tracking_system.dto.TelegramParcelInfoDTO;
 import com.project.tracking_system.dto.TelegramParcelsOverviewDTO;
 import com.project.tracking_system.dto.TelegramReturnRequestInfoDTO;
+import com.project.tracking_system.dto.ReturnRequestUpdateResponse;
 import com.project.tracking_system.entity.*;
 import com.project.tracking_system.mapper.BuyerStatusMapper;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
@@ -460,6 +461,32 @@ public class CustomerTelegramService {
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
         return orderReturnRequestService.closeWithoutExchange(requestId, parcelId, owner);
+    }
+
+    /**
+     * Обновляет обратный трек и комментарий активной заявки от имени покупателя.
+     * <p>
+     * Метод проверяет, что чат принадлежит покупателю, выбранная посылка закреплена за ним,
+     * а затем делегирует обновление сервису заявок, который выполняет бизнес-проверки.
+     * </p>
+     *
+     * @param chatId       идентификатор Telegram-чата
+     * @param parcelId     идентификатор посылки
+     * @param requestId    идентификатор заявки
+     * @param reverseTrack новое значение обратного трека или признак очистки
+     * @param comment      новый комментарий или признак очистки
+     * @return DTO с подтверждением сохранённых данных
+     */
+    @Transactional
+    public ReturnRequestUpdateResponse updateReturnRequestDetailsFromTelegram(Long chatId,
+                                                                              Long parcelId,
+                                                                              Long requestId,
+                                                                              String reverseTrack,
+                                                                              String comment) {
+        Customer customer = requireCustomerByChat(chatId);
+        TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
+        User owner = requireParcelOwner(parcel);
+        return orderReturnRequestService.updateReverseTrackAndComment(requestId, parcelId, owner, reverseTrack, comment);
     }
 
     /**

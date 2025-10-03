@@ -1,5 +1,6 @@
 package com.project.tracking_system.service.order;
 
+import com.project.tracking_system.dto.ReturnRequestUpdateResponse;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderEpisode;
 import com.project.tracking_system.entity.OrderReturnRequest;
@@ -40,6 +41,46 @@ public class OrderReturnRequestService {
     private final TrackParcelService trackParcelService;
     private final OrderEpisodeLifecycleService episodeLifecycleService;
     private final OrderExchangeService orderExchangeService;
+
+    /**
+     * Обновляет трек обратной отправки и комментарий активной заявки.
+     * <p>
+     * Метод убеждается, что заявка принадлежит пользователю и находится в активном статусе,
+     * затем нормализует ввод, сохраняя данные в репозитории.
+     * </p>
+     *
+     * @param requestId    идентификатор заявки
+     * @param parcelId     идентификатор посылки, к которой относится заявка
+     * @param user         владелец посылки
+     * @param reverseTrack новый трек обратной отправки или значение для очистки
+     * @param comment      новый комментарий или значение для очистки
+     * @return DTO с подтверждением сохранённых данных
+     */
+    @Transactional
+    public ReturnRequestUpdateResponse updateReverseTrackAndComment(Long requestId,
+                                                                    Long parcelId,
+                                                                    User user,
+                                                                    String reverseTrack,
+                                                                    String comment) {
+        OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
+        if (!ACTIVE_STATUSES.contains(request.getStatus())) {
+            throw new IllegalStateException("Заявку нельзя изменить в текущем статусе");
+        }
+
+        String normalizedTrack = normalizeReverseTrackNumber(reverseTrack);
+        String normalizedComment = normalizeComment(comment);
+        request.setReverseTrackNumber(normalizedTrack);
+        request.setComment(normalizedComment);
+
+        OrderReturnRequest saved = returnRequestRepository.save(request);
+        log.info("Обновлены данные обратной отправки заявки {}", saved.getId());
+        return new ReturnRequestUpdateResponse(
+                saved.getId(),
+                saved.getReverseTrackNumber(),
+                saved.getComment(),
+                saved.getStatus()
+        );
+    }
 
     /**
      * Регистрирует возврат для посылки, обеспечивая идемпотентность.

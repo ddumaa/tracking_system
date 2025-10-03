@@ -4,12 +4,15 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.project.tracking_system.dto.ActionRequiredReturnRequestDto;
+import com.project.tracking_system.dto.ReturnRequestUpdateResponse;
 import com.project.tracking_system.dto.TelegramParcelInfoDTO;
 import com.project.tracking_system.dto.TelegramParcelsOverviewDTO;
 import com.project.tracking_system.entity.AdminNotification;
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
+import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.service.admin.AdminNotificationService;
@@ -506,6 +509,84 @@ class BuyerTelegramBotTest {
                         .filter(Objects::nonNull)
                         .anyMatch(markup -> markup instanceof ReplyKeyboardMarkup),
                 "Бот обязан повторно запросить номер телефона через клавиатуру контакта");
+    }
+
+    /**
+     * Проверяет, что при выборе действия обновления трека бот запрашивает ввод и сохраняет контекст заявки.
+     */
+    @Test
+    void shouldPromptTrackUpdateWhenActionSelected() throws Exception {
+        Long chatId = 1111L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        ActionRequiredReturnRequestDto requestDto = new ActionRequiredReturnRequestDto(
+                1L,
+                2L,
+                "TRK",
+                "Store",
+                "Получена",
+                "Зарегистрирована",
+                "10.10",
+                "09.10",
+                "Причина",
+                "Комментарий",
+                "REV",
+                true,
+                true
+        );
+        when(telegramService.getReturnRequestsRequiringAction(chatId)).thenReturn(List.of(requestDto));
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+        clearInvocations(telegramClient);
+        when(telegramService.getReturnRequestsRequiringAction(chatId)).thenReturn(List.of(requestDto));
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:update:1:2"));
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient).execute(captor.capture());
+        String prompt = captor.getValue().getText();
+        assertTrue(prompt.contains("Текущий трек"), "Пользователь должен увидеть текущие данные заявки");
+        assertEquals(BuyerChatState.AWAITING_TRACK_UPDATE, chatSessionRepository.getState(chatId));
+    }
+
+    /**
+     * Проверяет, что текстовое сообщение обновляет обратный трек и возвращает пользователя к списку заявок.
+     */
+    @Test
+    void shouldUpdateTrackWhenMessageReceived() throws Exception {
+        Long chatId = 1212L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+        when(telegramService.getReturnRequestsRequiringAction(chatId)).thenReturn(List.of());
+
+        ReturnRequestUpdateResponse response = new ReturnRequestUpdateResponse(
+                3L,
+                "REV-1",
+                "Комментарий",
+                OrderReturnRequestStatus.REGISTERED
+        );
+        when(telegramService.updateReturnRequestDetailsFromTelegram(chatId, 2L, 3L, "TRACK", "COMMENT"))
+                .thenReturn(response);
+
+        ChatSession session = new ChatSession(chatId, BuyerChatState.AWAITING_TRACK_UPDATE, null, null);
+        session.setActiveReturnRequestContext(3L, 2L);
+        chatSessionRepository.save(session);
+
+        bot.consume(mockTextUpdate(chatId, "TRACK\nCOMMENT"));
+
+        verify(telegramService).updateReturnRequestDetailsFromTelegram(chatId, 2L, 3L, "TRACK", "COMMENT");
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+        assertTrue(captor.getAllValues().stream()
+                        .map(SendMessage::getText)
+                        .anyMatch(text -> text.contains("Сохранили данные")),
+                "Пользователь должен получить уведомление об успешном обновлении");
+        assertEquals(BuyerChatState.AWAITING_REQUEST_ACTION, chatSessionRepository.getState(chatId));
+        ChatSession stored = chatSessionRepository.find(chatId).orElseThrow();
+        assertNull(stored.getActiveReturnRequestId(), "Контекст редактируемой заявки должен очищаться");
     }
 
     /**
