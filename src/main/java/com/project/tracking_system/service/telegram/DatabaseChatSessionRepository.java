@@ -359,9 +359,6 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
                         null,
                         null,
                         null,
-                        null,
-                        null,
-                        null,
                         null));
     }
 
