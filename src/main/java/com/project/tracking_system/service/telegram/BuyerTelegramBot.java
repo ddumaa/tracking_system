@@ -103,6 +103,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String CALLBACK_RETURNS_ACTIVE_CANCEL_PREFIX = "returns:active:cancel:";
     private static final String CALLBACK_RETURNS_ACTIVE_CANCEL_EXCHANGE_PREFIX = "returns:active:cancel_exchange:";
     private static final String CALLBACK_RETURNS_ACTIVE_CONVERT_PREFIX = "returns:active:convert:";
+    private static final String CALLBACK_RETURNS_ACTIVE_BACK_TO_LIST = "returns:active:list";
     private static final String CALLBACK_RETURNS_DONE = "returns:done";
     private static final String CALLBACK_SETTINGS_TOGGLE_NOTIFICATIONS = "settings:toggle_notifications";
     private static final String CALLBACK_SETTINGS_CONFIRM_NAME = "settings:confirm_name";
@@ -210,6 +211,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             "⚠️ Комментарий не должен быть пустым. Напишите текст или «Нет» для очистки.";
     private static final String RETURNS_ACTIVE_UPDATE_FAILED =
             "⚠️ Не удалось сохранить изменения. Попробуйте ещё раз позже или обратитесь в поддержку.";
+    private static final String BUTTON_RETURNS_BACK_TO_LIST = "↩️ Вернуться к списку";
     private static final String BUTTON_RETURNS_ACTION_TRACK = "📮 Указать трек";
     private static final String BUTTON_RETURNS_ACTION_COMMENT = "💬 Комментарий";
     private static final String BUTTON_RETURNS_ACTION_CANCEL_RETURN = "🚫 Отменить возврат";
@@ -613,6 +615,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         if (data.startsWith(CALLBACK_RETURNS_ACTIVE_CONVERT_PREFIX)) {
             handleActiveRequestConvert(chatId, callbackQuery, data);
+            return;
+        }
+
+        if (CALLBACK_RETURNS_ACTIVE_BACK_TO_LIST.equals(data)) {
+            handleActiveRequestBackToList(chatId, callbackQuery);
             return;
         }
 
@@ -1153,25 +1160,39 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         return String.format(RETURNS_ACTIVE_DETAILS_TEMPLATE, track, store, status, date, reason, comment, reverse);
     }
 
+    /**
+     * Формирует клавиатуру для активных заявок: список заявок до выбора и набор действий после выбора.
+     *
+     * @param requests       перечень заявок, требующих внимания
+     * @param selected       текущая выбранная заявка
+     * @param navigationPath путь навигации к текущему экрану
+     * @return готовая инлайн-клавиатура
+     */
     private InlineKeyboardMarkup buildActiveRequestsKeyboard(List<ActionRequiredReturnRequestDto> requests,
                                                              ActionRequiredReturnRequestDto selected,
                                                              List<BuyerBotScreen> navigationPath) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
-        if (requests != null) {
+        boolean hasRequests = requests != null && !requests.isEmpty();
+
+        if (hasRequests && selected == null) {
             for (ActionRequiredReturnRequestDto request : requests) {
                 if (request == null || request.requestId() == null || request.parcelId() == null) {
                     continue;
                 }
                 InlineKeyboardButton button = InlineKeyboardButton.builder()
-                        .text(buildRequestSelectionLabel(request, selected))
+                        .text(buildRequestSelectionLabel(request, null))
                         .callbackData(CALLBACK_RETURNS_ACTIVE_SELECT_PREFIX + request.requestId() + ':' + request.parcelId())
                         .build();
                 rows.add(new InlineKeyboardRow(button));
             }
+        } else if (selected != null) {
+            rows.add(buildBackToListRow());
         }
+
         if (selected != null && selected.requestId() != null && selected.parcelId() != null) {
             rows.addAll(buildActionButtons(selected));
         }
+
         appendNavigationRow(rows, navigationPath);
         return InlineKeyboardMarkup.builder()
                 .keyboard(rows)
@@ -1218,6 +1239,19 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                     .build()));
         }
         return rows;
+    }
+
+    /**
+     * Создаёт строку с кнопкой возврата к списку заявок после выбора конкретной заявки.
+     *
+     * @return строка клавиатуры с кнопкой возврата
+     */
+    private InlineKeyboardRow buildBackToListRow() {
+        InlineKeyboardButton backButton = InlineKeyboardButton.builder()
+                .text(BUTTON_RETURNS_BACK_TO_LIST)
+                .callbackData(CALLBACK_RETURNS_ACTIVE_BACK_TO_LIST)
+                .build();
+        return new InlineKeyboardRow(backButton);
     }
     /**
      * Возвращает отображаемое название магазина для таблицы активных заявок.
@@ -1729,6 +1763,20 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         answerCallbackQuery(callbackQuery, "Заявка выбрана");
         ChatSession session = ensureChatSession(chatId);
         session.setActiveReturnRequestContext(context.requestId(), context.parcelId());
+        chatSessionRepository.save(session);
+        sendActiveReturnRequestsScreen(chatId);
+    }
+
+    /**
+     * Очищает выбранную заявку и возвращает пользователя к списку активных заявок.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     */
+    private void handleActiveRequestBackToList(Long chatId, CallbackQuery callbackQuery) {
+        answerCallbackQuery(callbackQuery, "Возвращаемся к списку");
+        ChatSession session = ensureChatSession(chatId);
+        session.clearActiveReturnRequestContext();
         chatSessionRepository.save(session);
         sendActiveReturnRequestsScreen(chatId);
     }
