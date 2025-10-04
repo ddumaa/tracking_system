@@ -70,6 +70,7 @@ class BuyerTelegramBotTest {
 
     private static final String MENU_BUTTON_TEXT = "🏠 Меню";
     private static final String BACK_BUTTON_TEXT = "⬅️ Назад";
+    private static final String ACTIVE_BACK_TO_LIST_TEXT = "↩️ Вернуться к списку";
 
     @Mock
     private TelegramClient telegramClient;
@@ -554,6 +555,93 @@ class BuyerTelegramBotTest {
                         .filter(Objects::nonNull)
                         .anyMatch(markup -> markup instanceof ReplyKeyboardMarkup),
                 "Бот обязан повторно запросить номер телефона через клавиатуру контакта");
+    }
+
+    /**
+     * Проверяет, что после выбора заявки клавиатура содержит только действия и кнопку возврата к списку.
+     */
+    @Test
+    void shouldShowOnlyActionsAfterActiveRequestSelected() throws Exception {
+        Long chatId = 9871L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        ActionRequiredReturnRequestDto requestDto = new ActionRequiredReturnRequestDto(
+                1L,
+                2L,
+                "TRK-001",
+                "Store",
+                "Получена",
+                OrderReturnRequestStatus.REGISTERED,
+                OrderReturnRequestStatus.REGISTERED.getDisplayName(),
+                "10.10.2024",
+                "09.10.2024",
+                "Причина",
+                "Комментарий",
+                "REV-001",
+                true,
+                true
+        );
+
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenReturn(List.of(requestDto))
+                .thenReturn(List.of(requestDto));
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:select:1:2"));
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(editCaptor.capture());
+
+        InlineKeyboardMarkup markup = editCaptor.getValue().getReplyMarkup();
+        assertNotNull(markup, "После выбора заявки должна отображаться клавиатура с действиями");
+        List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
+        assertFalse(keyboard.isEmpty(), "Список строк клавиатуры не должен быть пустым");
+
+        InlineKeyboardButton backToList = keyboard.get(0).get(0);
+        assertEquals(ACTIVE_BACK_TO_LIST_TEXT, backToList.getText(),
+                "Первая строка должна содержать кнопку возврата к списку");
+        assertEquals("returns:active:list", backToList.getCallbackData(),
+                "Callback кнопки возврата к списку должен быть корректным");
+
+        boolean hasSelectionButtons = keyboard.stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .anyMatch(button -> {
+                    String callback = button.getCallbackData();
+                    return callback != null && callback.startsWith("returns:active:select:");
+                });
+        assertFalse(hasSelectionButtons,
+                "После выбора заявки список заявок не должен отображаться в клавиатуре");
+
+        List<InlineKeyboardButton> navigationRow = keyboard.get(keyboard.size() - 1);
+        assertTrue(navigationRow.stream().anyMatch(button -> BACK_BUTTON_TEXT.equals(button.getText())),
+                "Последняя строка клавиатуры должна оставаться навигационной");
+
+        boolean hasTrackAction = keyboard.stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .anyMatch(button -> "📮 Указать трек".equals(button.getText()));
+        boolean hasCommentAction = keyboard.stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .anyMatch(button -> "💬 Комментарий".equals(button.getText()));
+        boolean hasCancelAction = keyboard.stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .anyMatch(button -> "🚫 Отменить возврат".equals(button.getText()));
+
+        assertTrue(hasTrackAction, "Клавиатура должна содержать действие обновления трека");
+        assertTrue(hasCommentAction, "Клавиатура должна содержать действие обновления комментария");
+        assertTrue(hasCancelAction, "Клавиатура должна содержать действие отмены возврата");
     }
 
     /**
