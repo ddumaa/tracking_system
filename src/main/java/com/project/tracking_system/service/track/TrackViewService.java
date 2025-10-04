@@ -128,13 +128,18 @@ public class TrackViewService {
     private OrderReturnRequestDto mapReturnRequest(OrderReturnRequest request, ZoneId userZone) {
         boolean canStartExchange = orderReturnRequestService.canStartExchange(request);
         boolean canCloseWithoutExchange = request.getStatus() == OrderReturnRequestStatus.REGISTERED;
+        String requestedAt = formatNullableTimestamp(request.getRequestedAt(), userZone);
+        // Подставляем дату регистрации, если пользовательское обращение отсутствует, чтобы модалка не показывала дубль.
+        if (requestedAt == null) {
+            requestedAt = formatNullableTimestamp(request.getCreatedAt(), userZone);
+        }
+
         return new OrderReturnRequestDto(
                 request.getId(),
                 request.getStatus().getDisplayName(),
                 request.getReason(),
                 request.getComment(),
-                formatNullableTimestamp(request.getRequestedAt(), userZone),
-                formatNullableTimestamp(request.getCreatedAt(), userZone),
+                requestedAt,
                 formatNullableTimestamp(request.getDecisionAt(), userZone),
                 formatNullableTimestamp(request.getClosedAt(), userZone),
                 request.getReverseTrackNumber(),
