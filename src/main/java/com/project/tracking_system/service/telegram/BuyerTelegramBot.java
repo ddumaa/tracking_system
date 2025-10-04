@@ -179,7 +179,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
     private static final String RETURNS_ACTIVE_SELECT_PROMPT =
             "Выберите заявку с помощью кнопок ниже.";
-    private static final String RETURNS_ACTIVE_SELECTED_HEADER = "Текущая заявка";
+    private static final String RETURNS_ACTIVE_SELECTED_HEADER_TEMPLATE = "Текущая заявка на %s";
     private static final String RETURNS_ACTIVE_DETAILS_TEMPLATE =
             "*Трек:* %s\n*Магазин:* %s\n*Статус:* %s\n*Дата обращения:* %s\n*Причина:* %s\n*Комментарий:* %s\n*Обратный трек:* %s";
     private static final String RETURNS_ACTIVE_ACTIONS_RETURN =
@@ -1130,8 +1130,10 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return builder.toString();
         }
 
+        String requestTypeLabel = resolveRequestTypeLabel(selected);
+        String selectedHeader = String.format(RETURNS_ACTIVE_SELECTED_HEADER_TEMPLATE, requestTypeLabel);
         builder.append('*')
-                .append(escapeMarkdown(RETURNS_ACTIVE_SELECTED_HEADER))
+                .append(escapeMarkdown(selectedHeader))
                 .append('*')
                 .append(System.lineSeparator());
         builder.append(formatSelectedRequestDetails(selected));
@@ -1142,6 +1144,19 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 : RETURNS_ACTIVE_ACTIONS_RETURN;
         builder.append(escapeMarkdown(actionsHint));
         return builder.toString();
+    }
+
+    /**
+     * Определяет текстовое описание типа выбранной заявки для заголовка блока подробностей.
+     *
+     * @param request выбранная заявка из списка активных обращений
+     * @return человеко-читаемое название типа: «возврат» или «обмен»
+     */
+    private String resolveRequestTypeLabel(ActionRequiredReturnRequestDto request) {
+        if (request == null || request.status() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            return "возврат";
+        }
+        return "обмен";
     }
 
     private String formatSelectedRequestDetails(ActionRequiredReturnRequestDto request) {
