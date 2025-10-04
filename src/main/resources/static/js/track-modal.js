@@ -846,7 +846,6 @@
             appendDefinitionItem(infoList, 'Причина', returnRequest.reason || '—');
             appendDefinitionItem(infoList, 'Комментарий', returnRequest.comment || '—');
             appendDefinitionItem(infoList, 'Дата обращения', format(returnRequest.requestedAt));
-            appendDefinitionItem(infoList, 'Дата регистрации', format(returnRequest.createdAt));
             appendDefinitionItem(infoList, 'Дата решения', format(returnRequest.decisionAt));
             appendDefinitionItem(infoList, 'Дата закрытия', format(returnRequest.closedAt));
             appendDefinitionItem(infoList, 'Трек обратной отправки', returnRequest.reverseTrackNumber || '—');

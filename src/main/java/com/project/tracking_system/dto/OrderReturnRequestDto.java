@@ -7,8 +7,7 @@ package com.project.tracking_system.dto;
  * @param status                   человеко-читаемый статус
  * @param reason                   причина оформления возврата
  * @param comment                  дополнительный комментарий пользователя
- * @param requestedAt              дата, указанная пользователем при обращении
- * @param createdAt                дата регистрации в системе
+ * @param requestedAt              дата, указанная пользователем при обращении (или дата регистрации при её отсутствии)
  * @param decisionAt               дата принятия решения об обмене
  * @param closedAt                 дата закрытия без обмена
  * @param reverseTrackNumber       трек обратной отправки, если указан
@@ -22,7 +21,6 @@ public record OrderReturnRequestDto(Long id,
                                     String reason,
                                     String comment,
                                     String requestedAt,
-                                    String createdAt,
                                     String decisionAt,
                                     String closedAt,
                                     String reverseTrackNumber,

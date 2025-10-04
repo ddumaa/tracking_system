@@ -91,7 +91,7 @@ describe('track-modal render', () => {
                 { id: 11, number: 'RB987654321CN', exchange: true, current: true },
                 { id: 10, number: 'RB111222333CN', exchange: false, current: false }
             ],
-            returnRequest: { id: 5, status: 'Зарегистрирована', createdAt: null, decisionAt: null, closedAt: null,
+            returnRequest: { id: 5, status: 'Зарегистрирована', decisionAt: null, closedAt: null,
                 requiresAction: true, exchangeApproved: false, canStartExchange: true, canCloseWithoutExchange: true },
             canRegisterReturn: false,
             requiresAction: true
@@ -161,8 +161,8 @@ describe('track-modal render', () => {
 
         global.window.trackModal.render(data);
 
-        const button = document.querySelector('button.btn-outline-warning');
+        const button = document.querySelector('form button[type="submit"]');
         expect(button).not.toBeNull();
-        expect(button?.textContent).toContain('Зарегистрировать возврат');
+        expect(button?.textContent).toContain('Отправить заявку');
     });
 });
