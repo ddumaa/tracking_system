@@ -44,6 +44,11 @@ public enum BuyerChatState {
     AWAITING_ACTIVE_REQUEST_SELECTION,
 
     /**
+     * Бот ожидает подтверждение действия над активной заявкой.
+     */
+    AWAITING_ACTIVE_ACTION_CONFIRMATION,
+
+    /**
      * Бот собирает причину оформления возврата для выбранной посылки.
      */
     AWAITING_RETURN_REASON,

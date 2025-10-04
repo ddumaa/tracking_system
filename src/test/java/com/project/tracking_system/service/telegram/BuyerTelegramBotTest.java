@@ -584,6 +584,7 @@ class BuyerTelegramBotTest {
                 "REV-001",
                 true,
                 true,
+                false,
                 null
         );
 
@@ -659,7 +660,9 @@ class BuyerTelegramBotTest {
                 .filter(Objects::nonNull)
                 .flatMap(List::stream)
                 .filter(Objects::nonNull)
-                .anyMatch(button -> "🚫 Отменить возврат".equals(button.getText()));
+                .map(InlineKeyboardButton::getText)
+                .filter(Objects::nonNull)
+                .anyMatch(text -> text.startsWith("🚫 Отменить возврат"));
 
         assertTrue(hasTrackAction, "Клавиатура должна содержать действие обновления трека");
         assertTrue(hasCommentAction, "Клавиатура должна содержать действие обновления комментария");
@@ -720,6 +723,7 @@ class BuyerTelegramBotTest {
                 "REV-RESET",
                 true,
                 true,
+                false,
                 null
         );
 
@@ -802,6 +806,7 @@ class BuyerTelegramBotTest {
                 "REV-EX",
                 false,
                 true,
+                false,
                 null
         );
 
@@ -845,6 +850,7 @@ class BuyerTelegramBotTest {
                 "REV-EX",
                 false,
                 true,
+                false,
                 warning
         );
 
@@ -877,6 +883,223 @@ class BuyerTelegramBotTest {
         assertFalse(hasCancelButton, "Кнопка отмены обмена должна скрываться, если магазин указал трек");
     }
 
+    @Test
+    void shouldRequestConfirmationBeforeCancellingReturn() throws Exception {
+        Long chatId = 7001L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        ActionRequiredReturnRequestDto request = new ActionRequiredReturnRequestDto(
+                100L,
+                200L,
+                "TRK-500",
+                "Store",
+                "Получена",
+                OrderReturnRequestStatus.REGISTERED,
+                OrderReturnRequestStatus.REGISTERED.getDisplayName(),
+                "01.03.2025",
+                "28.02.2025",
+                "Причина",
+                "Комментарий",
+                "REV-CNF",
+                true,
+                true,
+                false,
+                null
+        );
+
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenAnswer(invocation -> List.of(request));
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:select:100:200"));
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:cancel:100:200"));
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(editCaptor.capture());
+        EditMessageText edit = editCaptor.getValue();
+        assertNotNull(edit, "После выбора отмены бот должен отрисовать подтверждение");
+
+        String text = edit.getText() != null ? edit.getText().replace("\\", "") : "";
+        assertTrue(text.contains("REV-CNF"), "Вопрос подтверждения обязан содержать обратный трек");
+        assertTrue(text.contains("Подтвердите отмену возврата"),
+                "Пользователь должен увидеть запрос на подтверждение отмены");
+
+        InlineKeyboardMarkup markup = edit.getReplyMarkup();
+        assertNotNull(markup, "Подтверждение должно сопровождаться клавиатурой");
+        List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
+        assertFalse(keyboard.isEmpty(), "Клавиатура подтверждения не должна быть пустой");
+        List<InlineKeyboardButton> confirmationRow = keyboard.get(0);
+        assertEquals("✅ Да", confirmationRow.get(0).getText(),
+                "Первая кнопка подтверждения должна позволять согласиться");
+        assertEquals("↩️ Нет", confirmationRow.get(1).getText(),
+                "Вторая кнопка подтверждения должна отменять действие");
+
+        assertEquals(BuyerChatState.AWAITING_ACTIVE_ACTION_CONFIRMATION, chatSessionRepository.getState(chatId),
+                "После запроса подтверждения бот обязан ожидать ответа на действие");
+    }
+
+    @Test
+    void shouldCancelReturnAfterConfirmation() throws Exception {
+        Long chatId = 7002L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        ActionRequiredReturnRequestDto request = new ActionRequiredReturnRequestDto(
+                101L,
+                201L,
+                "TRK-501",
+                "Store",
+                "Получена",
+                OrderReturnRequestStatus.REGISTERED,
+                OrderReturnRequestStatus.REGISTERED.getDisplayName(),
+                "02.03.2025",
+                "28.02.2025",
+                "Причина",
+                "Комментарий",
+                "REV-CF2",
+                true,
+                true,
+                false,
+                null
+        );
+
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenAnswer(invocation -> List.of(request));
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:select:101:201"));
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:cancel:101:201"));
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:confirm:cancel:yes:101:201"));
+
+        verify(telegramService).closeReturnRequestFromTelegram(chatId, 201L, 101L);
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(editCaptor.capture());
+        String message = editCaptor.getValue().getText();
+        assertTrue(message.contains("Заявка на возврат отменена"),
+                "После подтверждения бот обязан сообщить об успешной отмене");
+
+        assertEquals(BuyerChatState.IDLE, chatSessionRepository.getState(chatId),
+                "После завершения действия бот должен вернуться в состояние ожидания");
+    }
+
+    @Test
+    void shouldRestoreActionsWhenCancellationDeclined() throws Exception {
+        Long chatId = 7003L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        ActionRequiredReturnRequestDto request = new ActionRequiredReturnRequestDto(
+                102L,
+                202L,
+                "TRK-502",
+                "Store",
+                "Получена",
+                OrderReturnRequestStatus.REGISTERED,
+                OrderReturnRequestStatus.REGISTERED.getDisplayName(),
+                "03.03.2025",
+                "28.02.2025",
+                "Причина",
+                "Комментарий",
+                null,
+                true,
+                true,
+                false,
+                null
+        );
+
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenAnswer(invocation -> List.of(request));
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:select:102:202"));
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:cancel:102:202"));
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:confirm:cancel:no:102:202"));
+
+        verify(telegramService, never()).closeReturnRequestFromTelegram(anyLong(), anyLong(), anyLong());
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(editCaptor.capture());
+        String text = editCaptor.getValue().getText();
+        assertTrue(text.contains("Доступные действия"),
+                "После отказа от отмены бот обязан вернуть подсказку по действиям");
+
+        assertEquals(BuyerChatState.AWAITING_ACTIVE_REQUEST_SELECTION, chatSessionRepository.getState(chatId),
+                "Отказ от действия должен вернуть пользователя к выбору действий");
+    }
+
+    @Test
+    void shouldHideExchangeActionsWhenReplacementDispatched() throws Exception {
+        Long chatId = 7004L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        ActionRequiredReturnRequestDto exchange = new ActionRequiredReturnRequestDto(
+                103L,
+                203L,
+                "TRK-503",
+                "Store",
+                "Доставлена",
+                OrderReturnRequestStatus.EXCHANGE_APPROVED,
+                OrderReturnRequestStatus.EXCHANGE_APPROVED.getDisplayName(),
+                "04.03.2025",
+                "01.03.2025",
+                "Обмен",
+                "Комментарий",
+                null,
+                false,
+                true,
+                true,
+                null
+        );
+
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenAnswer(invocation -> List.of(exchange));
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:select:103:203"));
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(editCaptor.capture());
+        InlineKeyboardMarkup markup = editCaptor.getValue().getReplyMarkup();
+        assertNotNull(markup, "Клавиатура действий должна отображаться");
+
+        boolean hasCancelExchange = markup.getKeyboard().stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .map(InlineKeyboardButton::getText)
+                .filter(Objects::nonNull)
+                .anyMatch("🚫 Отменить обмен"::equals);
+        boolean hasConvert = markup.getKeyboard().stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .map(InlineKeyboardButton::getText)
+                .filter(Objects::nonNull)
+                .anyMatch("↩️ Перевести в возврат"::equals);
+
+        assertFalse(hasCancelExchange, "После отправки замены кнопка отмены обмена должна скрываться");
+        assertFalse(hasConvert, "После отправки замены кнопка перевода в возврат должна скрываться");
+    }
+
     /**
      * Проверяет, что при выборе действия обновления трека бот запрашивает ввод и сохраняет контекст заявки.
      */
@@ -902,6 +1125,7 @@ class BuyerTelegramBotTest {
                 "REV",
                 true,
                 true,
+                false,
                 null
         );
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -948,6 +1172,7 @@ class BuyerTelegramBotTest {
                 null,
                 false,
                 true,
+                false,
                 null
         );
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -1027,6 +1252,7 @@ class BuyerTelegramBotTest {
                 "REV-ERR",
                 true,
                 true,
+                false,
                 null
         );
         when(telegramService.getReturnRequestsRequiringAction(chatId))
