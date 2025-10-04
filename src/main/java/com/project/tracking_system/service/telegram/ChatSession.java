@@ -219,6 +219,10 @@ public class ChatSession {
             projected.add(BuyerBotScreen.MENU);
         }
 
+        if (screen == BuyerBotScreen.RETURNS_ACTIVE_REQUESTS) {
+            ensureReturnsMenuParent(projected);
+        }
+
         BuyerBotScreen current = projected.get(projected.size() - 1);
         if (current != screen) {
             projected.add(screen);
@@ -226,6 +230,46 @@ public class ChatSession {
             projected.add(screen);
         }
         return projected;
+    }
+
+    /**
+     * Обеспечивает наличие шага меню возвратов перед экраном активных заявок.
+     * <p>
+     * Метод корректирует путь навигации так, чтобы перед добавлением экрана «📂 Текущие заявки»
+     * в истории обязательно присутствовало меню возвратов. Это гарантирует корректную работу
+     * кнопки «⬅️ Назад», возвращающей пользователя к экрану «🔁 Возвраты и обмены».
+     * </p>
+     *
+     * @param path текущий путь навигации, подготовленный к добавлению нового экрана
+     */
+    private void ensureReturnsMenuParent(List<BuyerBotScreen> path) {
+        if (path == null) {
+            return;
+        }
+
+        if (path.isEmpty() || path.get(0) != BuyerBotScreen.MENU) {
+            path.clear();
+            path.add(BuyerBotScreen.MENU);
+            path.add(BuyerBotScreen.RETURNS_MENU);
+            return;
+        }
+
+        int lastReturnsMenuIndex = -1;
+        for (int i = 0; i < path.size(); i++) {
+            if (path.get(i) == BuyerBotScreen.RETURNS_MENU) {
+                lastReturnsMenuIndex = i;
+            }
+        }
+
+        if (lastReturnsMenuIndex == -1) {
+            path.subList(1, path.size()).clear();
+            path.add(BuyerBotScreen.RETURNS_MENU);
+            return;
+        }
+
+        for (int i = path.size() - 1; i > lastReturnsMenuIndex; i--) {
+            path.remove(i);
+        }
     }
 
     /**

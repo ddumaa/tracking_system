@@ -654,6 +654,74 @@ class BuyerTelegramBotTest {
     }
 
     /**
+     * Убеждаемся, что кнопка «Назад» на экране активных заявок возвращает пользователя в меню возвратов.
+     */
+    @Test
+    void shouldNavigateBackToReturnsMenuFromActiveRequests() throws Exception {
+        Long chatId = 9875L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        ActionRequiredReturnRequestDto requestDto = new ActionRequiredReturnRequestDto(
+                11L,
+                22L,
+                "TRK-011",
+                "Store",
+                "Получена",
+                OrderReturnRequestStatus.REGISTERED,
+                OrderReturnRequestStatus.REGISTERED.getDisplayName(),
+                "11.10.2024",
+                "10.10.2024",
+                "Причина",
+                "Комментарий",
+                null,
+                true,
+                true
+        );
+
+        when(telegramService.getReturnRequestsRequiringAction(chatId)).thenReturn(List.of(requestDto));
+
+        bot.consume(mockCallbackUpdate(chatId, "menu:returns"));
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+
+        ChatSession sessionAfterActive = chatSessionRepository.find(chatId).orElseThrow();
+        assertEquals(BuyerBotScreen.RETURNS_ACTIVE_REQUESTS, sessionAfterActive.getLastScreen(),
+                "После открытия списка активных заявок бот должен сохранить текущий экран");
+        assertEquals(List.of(
+                        BuyerBotScreen.MENU,
+                        BuyerBotScreen.RETURNS_MENU,
+                        BuyerBotScreen.RETURNS_ACTIVE_REQUESTS),
+                sessionAfterActive.getNavigationPath(),
+                "Навигация должна включать меню возвратов перед экраном активных заявок");
+
+        Integer anchorId = Optional.ofNullable(sessionAfterActive.getAnchorMessageId()).orElse(1);
+
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "nav:back", anchorId));
+
+        verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
+            if (!(method instanceof EditMessageText editMessage)) {
+                return false;
+            }
+            String text = editMessage.getText();
+            return text != null && text.contains("Возвраты и обмены");
+        }));
+
+        ChatSession sessionAfterBack = chatSessionRepository.find(chatId).orElseThrow();
+        assertEquals(BuyerBotScreen.RETURNS_MENU, sessionAfterBack.getLastScreen(),
+                "После нажатия «Назад» бот должен показать меню возвратов");
+        assertEquals(List.of(
+                        BuyerBotScreen.MENU,
+                        BuyerBotScreen.RETURNS_MENU),
+                sessionAfterBack.getNavigationPath(),
+                "Навигация после возврата должна указывать на меню возвратов");
+    }
+
+    /**
      * Проверяет, что при выборе заявки с одобренным обменом в тексте отображается корректный заголовок.
      */
     @Test
