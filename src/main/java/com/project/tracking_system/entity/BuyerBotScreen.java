@@ -50,9 +50,19 @@ public enum BuyerBotScreen {
     RETURNS_RETURN_REASON,
 
     /**
+     * Экран выбора причины обмена перед завершением заявки.
+     */
+    RETURNS_EXCHANGE_REASON,
+
+    /**
      * Экран подтверждения успешной регистрации заявки на возврат.
      */
     RETURNS_RETURN_COMPLETION,
+
+    /**
+     * Экран подтверждения успешной регистрации заявки на обмен.
+     */
+    RETURNS_EXCHANGE_COMPLETION,
 
     /**
      * Экран настроек уведомлений и ФИО.
