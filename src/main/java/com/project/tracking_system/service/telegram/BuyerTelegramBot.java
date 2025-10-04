@@ -76,6 +76,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String BUTTON_HELP = "❓ Помощь";
     private static final String BUTTON_MENU = "🏠 Меню";
     private static final String BUTTON_BACK = "⬅️ Назад";
+    private static final String BUTTON_OUTCOME_OK = "Ок";
+    private static final String BUTTON_OUTCOME_BACK = "Назад";
 
     private static final String CALLBACK_BACK_TO_MENU = "menu:back";
     private static final String CALLBACK_MENU_SHOW_STATS = "menu:stats";
@@ -1866,23 +1868,20 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
         RequestActionContext context = contextOptional.get();
         answerCallbackQuery(callbackQuery, "Отменяем возврат");
+        ChatSession session = ensureChatSession(chatId);
         try {
             telegramService.closeReturnRequestFromTelegram(chatId, context.parcelId(), context.requestId());
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_CANCEL_RETURN_SUCCESS);
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_CANCEL_RETURN_SUCCESS, BUTTON_OUTCOME_OK);
         } catch (AccessDeniedException ex) {
             log.warn("⚠️ Попытка отменить чужую заявку {} в чате {}", context.requestId(), chatId);
-            sendSimpleMessage(chatId, PARCEL_RETURN_ACCESS_DENIED);
+            finalizeRequestUpdate(chatId, session, PARCEL_RETURN_ACCESS_DENIED, BUTTON_OUTCOME_BACK);
         } catch (IllegalArgumentException | IllegalStateException ex) {
             log.warn("⚠️ Ошибка отмены возврата {}: {}", context.requestId(), ex.getMessage());
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_FAILED, BUTTON_OUTCOME_BACK);
         } catch (Exception ex) {
             log.error("❌ Не удалось отменить возврат {}", context.requestId(), ex);
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_FAILED, BUTTON_OUTCOME_BACK);
         }
-        ChatSession session = ensureChatSession(chatId);
-        session.clearActiveReturnRequestContext();
-        chatSessionRepository.save(session);
-        sendActiveReturnRequestsScreen(chatId);
     }
 
     private void handleActiveRequestCancelExchange(Long chatId, CallbackQuery callbackQuery, String data) {
@@ -1893,23 +1892,20 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
         RequestActionContext context = contextOptional.get();
         answerCallbackQuery(callbackQuery, "Отменяем обмен");
+        ChatSession session = ensureChatSession(chatId);
         try {
             telegramService.cancelExchangeFromTelegram(chatId, context.parcelId(), context.requestId());
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_CANCEL_EXCHANGE_SUCCESS);
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_CANCEL_EXCHANGE_SUCCESS, BUTTON_OUTCOME_OK);
         } catch (AccessDeniedException ex) {
             log.warn("⚠️ Попытка отменить чужой обмен {} в чате {}", context.requestId(), chatId);
-            sendSimpleMessage(chatId, PARCEL_RETURN_ACCESS_DENIED);
+            finalizeRequestUpdate(chatId, session, PARCEL_RETURN_ACCESS_DENIED, BUTTON_OUTCOME_BACK);
         } catch (IllegalArgumentException | IllegalStateException ex) {
             log.warn("⚠️ Ошибка отмены обмена {}: {}", context.requestId(), ex.getMessage());
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_FAILED, BUTTON_OUTCOME_BACK);
         } catch (Exception ex) {
             log.error("❌ Не удалось отменить обмен {}", context.requestId(), ex);
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_FAILED, BUTTON_OUTCOME_BACK);
         }
-        ChatSession session = ensureChatSession(chatId);
-        session.clearActiveReturnRequestContext();
-        chatSessionRepository.save(session);
-        sendActiveReturnRequestsScreen(chatId);
     }
 
     private void handleActiveRequestConvert(Long chatId, CallbackQuery callbackQuery, String data) {
@@ -1920,23 +1916,20 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
         RequestActionContext context = contextOptional.get();
         answerCallbackQuery(callbackQuery, "Переводим в возврат");
+        ChatSession session = ensureChatSession(chatId);
         try {
             telegramService.convertExchangeToReturnFromTelegram(chatId, context.parcelId(), context.requestId());
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_CONVERT_SUCCESS);
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_CONVERT_SUCCESS, BUTTON_OUTCOME_OK);
         } catch (AccessDeniedException ex) {
             log.warn("⚠️ Попытка изменить чужой обмен {} в чате {}", context.requestId(), chatId);
-            sendSimpleMessage(chatId, PARCEL_RETURN_ACCESS_DENIED);
+            finalizeRequestUpdate(chatId, session, PARCEL_RETURN_ACCESS_DENIED, BUTTON_OUTCOME_BACK);
         } catch (IllegalArgumentException | IllegalStateException ex) {
             log.warn("⚠️ Ошибка преобразования обмена {}: {}", context.requestId(), ex.getMessage());
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_FAILED, BUTTON_OUTCOME_BACK);
         } catch (Exception ex) {
             log.error("❌ Не удалось перевести обмен {} в возврат", context.requestId(), ex);
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_FAILED, BUTTON_OUTCOME_BACK);
         }
-        ChatSession session = ensureChatSession(chatId);
-        session.clearActiveReturnRequestContext();
-        chatSessionRepository.save(session);
-        sendActiveReturnRequestsScreen(chatId);
     }
 
     private ActionRequiredReturnRequestDto findRequestInfo(Long chatId, Long requestId) {
@@ -1986,30 +1979,26 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                                     String text) {
         String normalized = text == null ? "" : text.strip();
         if (normalized.isEmpty()) {
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_UPDATE_INVALID_TRACK);
+            sendActiveRequestOutcomeMessage(chatId, RETURNS_ACTIVE_UPDATE_INVALID_TRACK, BUTTON_OUTCOME_BACK);
             return;
         }
         String newTrack = isSkipWord(normalized) ? null : normalized;
         String comment = requestInfo.comment();
         try {
             telegramService.updateReturnRequestDetailsFromTelegram(chatId, parcelId, requestId, newTrack, comment);
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_TRACK_SAVED);
-            finalizeRequestUpdate(chatId, session);
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_TRACK_SAVED, BUTTON_OUTCOME_OK);
         } catch (AccessDeniedException ex) {
             log.warn("⚠️ Попытка обновить чужую заявку {} в чате {}", requestId, chatId);
-            sendSimpleMessage(chatId, PARCEL_RETURN_ACCESS_DENIED);
-            finalizeRequestUpdate(chatId, session);
+            finalizeRequestUpdate(chatId, session, PARCEL_RETURN_ACCESS_DENIED, BUTTON_OUTCOME_BACK);
         } catch (IllegalArgumentException ex) {
             log.warn("⚠️ Некорректный трек для заявки {}: {}", requestId, ex.getMessage());
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_UPDATE_INVALID_TRACK);
+            sendActiveRequestOutcomeMessage(chatId, RETURNS_ACTIVE_UPDATE_INVALID_TRACK, BUTTON_OUTCOME_BACK);
         } catch (IllegalStateException ex) {
             log.warn("⚠️ Заявку {} нельзя обновить: {}", requestId, ex.getMessage());
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
-            finalizeRequestUpdate(chatId, session);
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_FAILED, BUTTON_OUTCOME_BACK);
         } catch (Exception ex) {
             log.error("❌ Ошибка обновления заявки {}", requestId, ex);
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_UPDATE_FAILED);
-            finalizeRequestUpdate(chatId, session);
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_UPDATE_FAILED, BUTTON_OUTCOME_BACK);
         }
     }
 
@@ -2021,38 +2010,80 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                                       String text) {
         String normalized = text == null ? "" : text.strip();
         if (normalized.isEmpty()) {
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_COMMENT_INVALID);
+            sendActiveRequestOutcomeMessage(chatId, RETURNS_ACTIVE_COMMENT_INVALID, BUTTON_OUTCOME_BACK);
             return;
         }
         String newComment = isSkipWord(normalized) ? null : normalized;
         String reverseTrack = requestInfo.reverseTrackNumber();
         try {
             telegramService.updateReturnRequestDetailsFromTelegram(chatId, parcelId, requestId, reverseTrack, newComment);
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_COMMENT_SAVED);
-            finalizeRequestUpdate(chatId, session);
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_COMMENT_SAVED, BUTTON_OUTCOME_OK);
         } catch (AccessDeniedException ex) {
             log.warn("⚠️ Попытка обновить чужую заявку {} в чате {}", requestId, chatId);
-            sendSimpleMessage(chatId, PARCEL_RETURN_ACCESS_DENIED);
-            finalizeRequestUpdate(chatId, session);
+            finalizeRequestUpdate(chatId, session, PARCEL_RETURN_ACCESS_DENIED, BUTTON_OUTCOME_BACK);
         } catch (IllegalArgumentException ex) {
             log.warn("⚠️ Некорректный комментарий для заявки {}: {}", requestId, ex.getMessage());
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_COMMENT_INVALID);
+            sendActiveRequestOutcomeMessage(chatId, RETURNS_ACTIVE_COMMENT_INVALID, BUTTON_OUTCOME_BACK);
         } catch (IllegalStateException ex) {
             log.warn("⚠️ Заявку {} нельзя обновить: {}", requestId, ex.getMessage());
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
-            finalizeRequestUpdate(chatId, session);
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_FAILED, BUTTON_OUTCOME_BACK);
         } catch (Exception ex) {
             log.error("❌ Ошибка обновления заявки {}", requestId, ex);
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_UPDATE_FAILED);
-            finalizeRequestUpdate(chatId, session);
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_UPDATE_FAILED, BUTTON_OUTCOME_BACK);
         }
     }
 
-    private void finalizeRequestUpdate(Long chatId, ChatSession session) {
+    /**
+     * Завершает редактирование активной заявки, очищая контекст и показывая итоговое сообщение.
+     *
+     * @param chatId     идентификатор чата Telegram
+     * @param session    сохранённая сессия пользователя
+     * @param message    текст уведомления о результате операции
+     * @param buttonLabel подпись для кнопки возврата к списку заявок
+     */
+    private void finalizeRequestUpdate(Long chatId, ChatSession session, String message, String buttonLabel) {
+        session = session != null ? session : ensureChatSession(chatId);
+        resetActiveRequestContext(session);
+        sendActiveRequestOutcomeMessage(chatId, message, buttonLabel);
+    }
+
+    /**
+     * Сбрасывает выбор заявки и переводит чат в состояние ожидания новых действий.
+     *
+     * @param session актуальная сессия пользователя
+     */
+    private void resetActiveRequestContext(ChatSession session) {
+        if (session == null) {
+            return;
+        }
         session.clearActiveReturnRequestContext();
         session.setState(BuyerChatState.IDLE);
         chatSessionRepository.save(session);
-        sendActiveReturnRequestsScreen(chatId);
+    }
+
+    /**
+     * Показывает результат операции над активной заявкой с кнопкой возврата к списку.
+     *
+     * @param chatId      идентификатор чата Telegram
+     * @param text        сообщение для пользователя
+     * @param buttonLabel подпись кнопки подтверждения результата
+     */
+    private void sendActiveRequestOutcomeMessage(Long chatId, String text, String buttonLabel) {
+        if (chatId == null) {
+            return;
+        }
+        String safeText = escapeMarkdown(text == null ? "" : text);
+        String safeButtonLabel = (buttonLabel == null || buttonLabel.isBlank()) ? BUTTON_OUTCOME_BACK : buttonLabel;
+        InlineKeyboardButton button = InlineKeyboardButton.builder()
+                .text(safeButtonLabel)
+                .callbackData(CALLBACK_RETURNS_ACTIVE_BACK_TO_LIST)
+                .build();
+        InlineKeyboardRow row = new InlineKeyboardRow(button);
+        InlineKeyboardMarkup markup = InlineKeyboardMarkup.builder()
+                .keyboard(List.of(row))
+                .build();
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_ACTIVE_REQUESTS);
+        sendInlineMessage(chatId, safeText, markup, BuyerBotScreen.RETURNS_ACTIVE_REQUESTS, navigationPath);
     }
     /**
      * Парсит идентификаторы заявки и посылки из callback-строки.
