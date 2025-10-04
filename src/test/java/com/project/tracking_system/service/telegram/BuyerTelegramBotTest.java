@@ -16,6 +16,7 @@ import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderReturnRequest;
+import com.project.tracking_system.service.order.ExchangeApprovalResult;
 import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
@@ -1238,10 +1239,10 @@ class BuyerTelegramBotTest {
     }
 
     /**
-     * Проверяет, что callback обмена отправляет пользователю инструкцию.
+     * Проверяет, что callback обмена открывает экран выбора причины с нужной клавиатурой.
      */
     @Test
-    void shouldHandleExchangeCallbackAndSendConfirmation() throws Exception {
+    void shouldHandleExchangeCallbackAndShowReasonKeyboard() throws Exception {
         Long chatId = 907L;
         TelegramParcelInfoDTO delivered = new TelegramParcelInfoDTO(99L, "TRACK-99", "Store Iota", GlobalStatus.DELIVERED, false);
         TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(delivered), List.of(), List.of());
@@ -1252,13 +1253,100 @@ class BuyerTelegramBotTest {
         bot.consume(callbackUpdate);
 
         verify(telegramClient, atLeastOnce()).execute(any(AnswerCallbackQuery.class));
-        verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
-            if (!(method instanceof SendMessage sendMessage)) {
-                return false;
-            }
-            return sendMessage.getText().contains("TRACK\\-99")
-                    && sendMessage.getText().contains("🔄");
-        }));
+
+        ChatSession session = chatSessionRepository.find(chatId).orElseThrow();
+        assertEquals(BuyerChatState.AWAITING_EXCHANGE_REASON, chatSessionRepository.getState(chatId),
+                "После старта обмена бот должен ожидать выбор причины");
+        assertEquals(99L, session.getReturnParcelId(), "В сессии должен сохраняться идентификатор посылки");
+        assertEquals("TRACK-99", session.getReturnParcelTrackNumber(), "В сессии должен сохраняться трек посылки");
+        assertEquals(BuyerBotScreen.RETURNS_EXCHANGE_REASON, session.getLastScreen(),
+                "Последний экран должен соответствовать шагу выбора причины обмена");
+        assertNotNull(session.getAnchorMessageId(), "Сообщение с причинами обмена должно становиться якорем");
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+        SendMessage prompt = captor.getValue();
+        assertNotNull(prompt.getText(), "Текст подсказки для обмена обязателен");
+        assertTrue(prompt.getText().contains("📩 Начинаем оформление обмена"),
+                "Подсказка должна сообщать о начале оформления обмена");
+        assertTrue(prompt.getText().contains("TRACK\\-99"),
+                "В подсказке должен отображаться трек выбранной посылки");
+        assertTrue(prompt.getReplyMarkup() instanceof InlineKeyboardMarkup,
+                "Сообщение должно сопровождаться инлайн-клавиатурой с причинами");
+        InlineKeyboardMarkup markup = (InlineKeyboardMarkup) prompt.getReplyMarkup();
+        List<List<InlineKeyboardButton>> rows = markup.getKeyboard();
+        assertFalse(rows.isEmpty(), "Клавиатура с причинами не должна быть пустой");
+        boolean hasReasonButtons = rows.stream()
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .map(InlineKeyboardButton::getText)
+                .filter(Objects::nonNull)
+                .anyMatch(text -> text.contains("Не подошло") || text.contains("Брак"));
+        assertTrue(hasReasonButtons, "Клавиатура обязана содержать варианты причин обмена");
+    }
+
+    /**
+     * Проверяет, что выбор причины обмена приводит к регистрации заявки и показу итогового экрана.
+     */
+    @Test
+    void shouldFinalizeExchangeAfterReasonSelection() throws Exception {
+        Long chatId = 908L;
+        TelegramParcelInfoDTO delivered = new TelegramParcelInfoDTO(77L, "TRACK-77", "Store Sigma", GlobalStatus.DELIVERED, false);
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(delivered), List.of(), List.of());
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        bot.consume(mockCallbackUpdate(chatId, "parcel:exchange:77"));
+
+        ChatSession session = chatSessionRepository.find(chatId).orElseThrow();
+        Integer anchorId = session.getAnchorMessageId();
+        assertNotNull(anchorId, "Экран выбора причины обмена должен сохранять якорное сообщение");
+
+        OrderReturnRequest registered = mock(OrderReturnRequest.class);
+        when(registered.getId()).thenReturn(555L);
+        when(telegramService.registerReturnRequestFromTelegram(eq(chatId), eq(77L), anyString(), anyString()))
+                .thenReturn(registered);
+        when(telegramService.approveExchangeFromTelegram(chatId, 77L, 555L))
+                .thenReturn(new ExchangeApprovalResult(registered, null));
+
+        Update reasonCallback = mockCallbackUpdate(chatId, "returns:create:reason:defect", anchorId);
+        bot.consume(reasonCallback);
+
+        ArgumentCaptor<String> reasonCaptor = ArgumentCaptor.forClass(String.class);
+        verify(telegramService).registerReturnRequestFromTelegram(eq(chatId), eq(77L), anyString(), reasonCaptor.capture());
+        assertEquals("Брак", reasonCaptor.getValue(),
+                "В сервис заявок должна передаваться выбранная пользователем причина обмена");
+
+        verify(telegramService).approveExchangeFromTelegram(chatId, 77L, 555L);
+
+        ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(messageCaptor.capture());
+        SendMessage summary = messageCaptor.getValue();
+        assertNotNull(summary.getText(), "Финальное сообщение обмена не должно быть пустым");
+        assertTrue(summary.getText().contains("Зафиксировали запрос на обмен"),
+                "Сообщение должно подтверждать регистрацию обмена");
+        assertTrue(summary.getText().contains("Брак"),
+                "В итоговой сводке должна отображаться выбранная причина");
+        assertTrue(summary.getReplyMarkup() instanceof InlineKeyboardMarkup,
+                "Финальное сообщение должно сопровождаться инлайн-клавиатурой");
+        InlineKeyboardMarkup summaryMarkup = (InlineKeyboardMarkup) summary.getReplyMarkup();
+        boolean hasOkButton = summaryMarkup.getKeyboard().stream()
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .anyMatch(button -> "Ок".equals(button.getText())
+                        && "returns:done".equals(button.getCallbackData()));
+        assertTrue(hasOkButton, "Клавиатура итогового экрана должна содержать кнопку «Ок»");
+
+        ChatSession updatedSession = chatSessionRepository.find(chatId).orElseThrow();
+        assertEquals(BuyerBotScreen.RETURNS_EXCHANGE_COMPLETION, updatedSession.getLastScreen(),
+                "После регистрации обмена должен отображаться экран подтверждения");
+        assertEquals(BuyerChatState.IDLE, chatSessionRepository.getState(chatId),
+                "Сценарное состояние после оформления обмена должно возвращаться к ожиданию команд");
+        assertEquals("Брак", updatedSession.getReturnReason(),
+                "Причина обмена должна сохраняться до подтверждения пользователем");
+        assertNotNull(updatedSession.getAnchorMessageId(),
+                "Сообщение подтверждения обмена должно быть текущим якорем");
+
+        verify(telegramClient, atLeastOnce()).execute(any(AnswerCallbackQuery.class));
     }
 
         TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(
