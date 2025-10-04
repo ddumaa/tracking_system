@@ -487,6 +487,58 @@ public class CustomerTelegramService {
     }
 
     /**
+     * Формирует запрос магазину на отмену обмена, когда обменная посылка уже отправлена.
+     * <p>
+     * Метод сохраняет обращение покупателя для обработки в веб-интерфейсе магазина
+     * и не инициирует отмену автоматически.
+     * </p>
+     *
+     * @param chatId   идентификатор чата Telegram
+     * @param parcelId идентификатор посылки
+     * @param requestId идентификатор обменной заявки
+     * @return сохранённый запрос к магазину
+     */
+    @Transactional
+    public OrderReturnRequestActionRequest requestExchangeCancellationFromTelegram(Long chatId,
+                                                                                   Long parcelId,
+                                                                                   Long requestId) {
+        Customer customer = requireCustomerByChat(chatId);
+        TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
+        User owner = requireParcelOwner(parcel);
+        return orderReturnRequestService.requestMerchantAction(
+                requestId,
+                parcelId,
+                owner,
+                customer,
+                OrderReturnRequestActionType.CANCEL_EXCHANGE
+        );
+    }
+
+    /**
+     * Формирует запрос магазину на перевод обмена обратно в возврат после отправки посылки.
+     *
+     * @param chatId   идентификатор чата Telegram
+     * @param parcelId идентификатор посылки
+     * @param requestId идентификатор обменной заявки
+     * @return сохранённый запрос к магазину
+     */
+    @Transactional
+    public OrderReturnRequestActionRequest requestExchangeConversionFromTelegram(Long chatId,
+                                                                                  Long parcelId,
+                                                                                  Long requestId) {
+        Customer customer = requireCustomerByChat(chatId);
+        TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
+        User owner = requireParcelOwner(parcel);
+        return orderReturnRequestService.requestMerchantAction(
+                requestId,
+                parcelId,
+                owner,
+                customer,
+                OrderReturnRequestActionType.CONVERT_TO_RETURN
+        );
+    }
+
+    /**
      * Обновляет обратный трек и комментарий активной заявки от имени покупателя.
      * <p>
      * Метод проверяет, что чат принадлежит покупателю, выбранная посылка закреплена за ним,

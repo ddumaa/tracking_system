@@ -16,6 +16,7 @@ import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderReturnRequest;
+import com.project.tracking_system.entity.OrderReturnRequestActionRequest;
 import com.project.tracking_system.service.order.ExchangeApprovalResult;
 import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
@@ -879,8 +880,60 @@ class BuyerTelegramBotTest {
                 .flatMap(List::stream)
                 .filter(Objects::nonNull)
                 .map(InlineKeyboardButton::getText)
-                .anyMatch(BUTTON_RETURNS_ACTION_CANCEL_EXCHANGE::equals);
+                .anyMatch("🚫 Отменить обмен"::equals);
         assertFalse(hasCancelButton, "Кнопка отмены обмена должна скрываться, если магазин указал трек");
+    }
+
+    @Test
+    void shouldShowMerchantRequestButtonsWhenExchangeShipmentDispatched() throws Exception {
+        Long chatId = 6800L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        ActionRequiredReturnRequestDto exchangeRequest = new ActionRequiredReturnRequestDto(
+                7L,
+                10L,
+                "EX-READY",
+                "Store",
+                "В пути",
+                OrderReturnRequestStatus.EXCHANGE_APPROVED,
+                OrderReturnRequestStatus.EXCHANGE_APPROVED.getDisplayName(),
+                "12.11.2024",
+                "11.11.2024",
+                "Обмен",
+                "Комментарий",
+                "REV-EX",
+                false,
+                true,
+                true,
+                null
+        );
+
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenAnswer(invocation -> List.of(exchangeRequest));
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:select:7:10"));
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(editCaptor.capture());
+
+        InlineKeyboardMarkup markup = editCaptor.getValue().getReplyMarkup();
+        assertNotNull(markup, "После выбора заявки клавиатура должна отображаться");
+        List<String> buttonLabels = markup.getKeyboard().stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .map(InlineKeyboardButton::getText)
+                .toList();
+
+        assertTrue(buttonLabels.contains("📝 Запросить отмену обмена"),
+                "При отправке обменной посылки должна отображаться кнопка запроса отмены");
+        assertTrue(buttonLabels.contains("📝 Запросить возврат вместо обмена"),
+                "Пользователь должен видеть кнопку запроса перевода обмена в возврат");
     }
 
     @Test
@@ -942,6 +995,60 @@ class BuyerTelegramBotTest {
 
         assertEquals(BuyerChatState.AWAITING_ACTIVE_ACTION_CONFIRMATION, chatSessionRepository.getState(chatId),
                 "После запроса подтверждения бот обязан ожидать ответа на действие");
+    }
+
+    @Test
+    void shouldCreateMerchantCancellationRequestWhenExchangeAlreadyDispatched() throws Exception {
+        Long chatId = 7005L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        customer.setId(200L);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        ActionRequiredReturnRequestDto dispatchedExchange = new ActionRequiredReturnRequestDto(
+                300L,
+                400L,
+                "TRK-EX",
+                "Store",
+                "В пути",
+                OrderReturnRequestStatus.EXCHANGE_APPROVED,
+                OrderReturnRequestStatus.EXCHANGE_APPROVED.getDisplayName(),
+                "02.03.2025",
+                "01.03.2025",
+                "Обмен",
+                "Комментарий",
+                "REV-EX",
+                false,
+                true,
+                true,
+                null
+        );
+
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenAnswer(invocation -> List.of(dispatchedExchange));
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:select:300:400"));
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:cancel_exchange:300:400"));
+        clearInvocations(telegramClient);
+
+        OrderReturnRequestActionRequest actionRequest = new OrderReturnRequestActionRequest();
+        when(telegramService.requestExchangeCancellationFromTelegram(chatId, 400L, 300L)).thenReturn(actionRequest);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:confirm:cancel_exchange:yes:300:400"));
+
+        verify(telegramService).requestExchangeCancellationFromTelegram(chatId, 400L, 300L);
+        verify(telegramService, never()).cancelExchangeFromTelegram(anyLong(), anyLong(), anyLong());
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(editCaptor.capture());
+        String finalMessage = editCaptor.getValue().getText().replace("\\", "");
+        assertTrue(finalMessage.contains("Мы передали запрос магазину на отмену обмена"),
+                "Финальное сообщение должно информировать пользователя о сформированном запросе");
     }
 
     @Test

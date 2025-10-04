@@ -1,12 +1,16 @@
 package com.project.tracking_system.service.order;
 
 import com.project.tracking_system.dto.ReturnRequestUpdateResponse;
+import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderEpisode;
 import com.project.tracking_system.entity.OrderReturnRequest;
+import com.project.tracking_system.entity.OrderReturnRequestActionRequest;
+import com.project.tracking_system.entity.OrderReturnRequestActionType;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.repository.OrderReturnRequestActionRequestRepository;
 import com.project.tracking_system.repository.OrderReturnRequestRepository;
 import com.project.tracking_system.service.track.TrackParcelService;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +42,7 @@ public class OrderReturnRequestService {
             Set.of(OrderReturnRequestStatus.REGISTERED, OrderReturnRequestStatus.EXCHANGE_APPROVED);
 
     private final OrderReturnRequestRepository returnRequestRepository;
+    private final OrderReturnRequestActionRequestRepository actionRequestRepository;
     private final TrackParcelService trackParcelService;
     private final OrderEpisodeLifecycleService episodeLifecycleService;
     private final OrderExchangeService orderExchangeService;
@@ -270,6 +275,54 @@ public class OrderReturnRequestService {
         episodeLifecycleService.decrementExchangeCount(request.getEpisode());
         OrderReturnRequest saved = returnRequestRepository.save(request);
         log.info("Заявка {} переведена из обмена в возврат", saved.getId());
+        return saved;
+    }
+
+    /**
+     * Регистрирует запрос покупателя магазину по активной заявке обмена.
+     * <p>
+     * Используется, когда отмена или перевод обмена невозможны автоматически,
+     * например, из-за отправки обменной посылки. Метод проверяет принадлежность
+     * заявки пользователю и создаёт единственный невыполненный запрос на указанное
+     * действие. Повторные обращения возвращают уже существующий запрос.
+     * </p>
+     *
+     * @param requestId идентификатор заявки
+     * @param parcelId  идентификатор посылки
+     * @param user      владелец посылки
+     * @param customer  покупатель, обратившийся в Telegram
+     * @param action    тип желаемого действия магазина
+     * @return созданный или ранее сохранённый запрос
+     */
+    @Transactional
+    public OrderReturnRequestActionRequest requestMerchantAction(Long requestId,
+                                                                 Long parcelId,
+                                                                 User user,
+                                                                 Customer customer,
+                                                                 OrderReturnRequestActionType action) {
+        if (action == null) {
+            throw new IllegalArgumentException("Не указан тип запроса к магазину");
+        }
+        if (customer == null || customer.getId() == null) {
+            throw new IllegalArgumentException("Не указан покупатель");
+        }
+        OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
+        if (request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            throw new IllegalStateException("Запрос возможен только для обменных заявок");
+        }
+
+        Optional<OrderReturnRequestActionRequest> existing = actionRequestRepository
+                .findFirstByReturnRequest_IdAndActionAndProcessedAtIsNull(request.getId(), action);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+
+        OrderReturnRequestActionRequest actionRequest = new OrderReturnRequestActionRequest();
+        actionRequest.setReturnRequest(request);
+        actionRequest.setCustomer(customer);
+        actionRequest.setAction(action);
+        OrderReturnRequestActionRequest saved = actionRequestRepository.save(actionRequest);
+        log.info("Создан запрос {} к магазину по заявке {}", action, request.getId());
         return saved;
     }
 

@@ -195,8 +195,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             "ℹ️ Заявка на возврат отменена. Мы уведомим магазин.";
     private static final String RETURNS_ACTIVE_CANCEL_EXCHANGE_SUCCESS =
             "ℹ️ Обмен отменён. Мы уведомим магазин.";
+    private static final String RETURNS_ACTIVE_CANCEL_EXCHANGE_REQUEST_SENT =
+            "ℹ️ Мы передали запрос магазину на отмену обмена. Ожидайте подтверждения.";
     private static final String RETURNS_ACTIVE_CONVERT_SUCCESS =
             "✅ Заявка переведена в возврат. Вы сможете добавить трек позднее.";
+    private static final String RETURNS_ACTIVE_CONVERT_REQUEST_SENT =
+            "ℹ️ Мы передали запрос магазину на перевод обмена в возврат. Ожидайте подтверждения.";
     private static final String RETURNS_ACTIVE_CONFIRMATION_PROMPT =
             "Подтвердите действие через кнопки ниже.";
     private static final String RETURNS_ACTIVE_CANCEL_RETURN_CONFIRMATION =
@@ -205,8 +209,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             "Вы указали обратный трек %s. Подтвердите отмену возврата?";
     private static final String RETURNS_ACTIVE_CANCEL_EXCHANGE_CONFIRMATION =
             "Вы уверены, что хотите отменить обмен?";
+    private static final String RETURNS_ACTIVE_CANCEL_EXCHANGE_REQUEST_CONFIRMATION =
+            "Отправить запрос магазину на отмену обмена?";
     private static final String RETURNS_ACTIVE_CONVERT_CONFIRMATION =
             "Перевести обмен обратно в возврат?";
+    private static final String RETURNS_ACTIVE_CONVERT_REQUEST_CONFIRMATION =
+            "Отправить запрос магазину на перевод обмена в возврат?";
     private static final String RETURNS_ACTIVE_NO_SELECTION =
             "⚠️ Выберите заявку перед выполнением действия.";
     private static final String RETURNS_ACTIVE_UPDATE_INVALID_TRACK =
@@ -221,7 +229,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String BUTTON_RETURNS_ACTION_CANCEL_RETURN_CONFIRM =
             "🚫 Отменить возврат (нужно подтверждение)";
     private static final String BUTTON_RETURNS_ACTION_CANCEL_EXCHANGE = "🚫 Отменить обмен";
+    private static final String BUTTON_RETURNS_ACTION_CANCEL_EXCHANGE_REQUEST = "📝 Запросить отмену обмена";
     private static final String BUTTON_RETURNS_ACTION_CONVERT = "↩️ Перевести в возврат";
+    private static final String BUTTON_RETURNS_ACTION_CONVERT_REQUEST = "📝 Запросить возврат вместо обмена";
     private static final String BUTTON_CONFIRM_YES = "✅ Да";
     private static final String BUTTON_CONFIRM_NO = "↩️ Нет";
 
@@ -1296,18 +1306,22 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             boolean cancellationBlocked = request.cancelExchangeUnavailableReason() != null
                     && !request.cancelExchangeUnavailableReason().isBlank();
             boolean exchangeDispatched = request.exchangeShipmentDispatched();
-            if (!cancellationBlocked && !exchangeDispatched) {
+            if (!cancellationBlocked) {
+                String cancelText = exchangeDispatched
+                        ? BUTTON_RETURNS_ACTION_CANCEL_EXCHANGE_REQUEST
+                        : BUTTON_RETURNS_ACTION_CANCEL_EXCHANGE;
                 rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
-                        .text(BUTTON_RETURNS_ACTION_CANCEL_EXCHANGE)
+                        .text(cancelText)
                         .callbackData(CALLBACK_RETURNS_ACTIVE_CANCEL_EXCHANGE_PREFIX + requestId + ':' + parcelId)
                         .build()));
             }
-            if (!exchangeDispatched) {
-                rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
-                        .text(BUTTON_RETURNS_ACTION_CONVERT)
-                        .callbackData(CALLBACK_RETURNS_ACTIVE_CONVERT_PREFIX + requestId + ':' + parcelId)
-                        .build()));
-            }
+            String convertText = exchangeDispatched
+                    ? BUTTON_RETURNS_ACTION_CONVERT_REQUEST
+                    : BUTTON_RETURNS_ACTION_CONVERT;
+            rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
+                    .text(convertText)
+                    .callbackData(CALLBACK_RETURNS_ACTIVE_CONVERT_PREFIX + requestId + ':' + parcelId)
+                    .build()));
         } else {
             boolean reverseTrackProvided = request.reverseTrackNumber() != null
                     && !request.reverseTrackNumber().isBlank();
@@ -1998,11 +2012,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
         ActiveRequestDetails details = detailsOptional.get();
-        if (details.selected().exchangeShipmentDispatched()) {
-            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
-            sendActiveReturnRequestsScreen(chatId);
-            return;
-        }
         answerCallbackQuery(callbackQuery, "Требуется подтверждение");
         ChatSession session = ensureChatSession(chatId);
         showActiveRequestConfirmation(chatId, session, details, context, ActiveRequestAction.CANCEL_EXCHANGE);
@@ -2022,11 +2031,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
         ActiveRequestDetails details = detailsOptional.get();
-        if (details.selected().exchangeShipmentDispatched()) {
-            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
-            sendActiveReturnRequestsScreen(chatId);
-            return;
-        }
         answerCallbackQuery(callbackQuery, "Требуется подтверждение");
         ChatSession session = ensureChatSession(chatId);
         showActiveRequestConfirmation(chatId, session, details, context, ActiveRequestAction.CONVERT_TO_RETURN);
@@ -2117,8 +2121,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
         return switch (action) {
             case CANCEL_RETURN -> buildCancelReturnConfirmation(request);
-            case CANCEL_EXCHANGE -> RETURNS_ACTIVE_CANCEL_EXCHANGE_CONFIRMATION;
-            case CONVERT_TO_RETURN -> RETURNS_ACTIVE_CONVERT_CONFIRMATION;
+            case CANCEL_EXCHANGE -> request.exchangeShipmentDispatched()
+                    ? RETURNS_ACTIVE_CANCEL_EXCHANGE_REQUEST_CONFIRMATION
+                    : RETURNS_ACTIVE_CANCEL_EXCHANGE_CONFIRMATION;
+            case CONVERT_TO_RETURN -> request.exchangeShipmentDispatched()
+                    ? RETURNS_ACTIVE_CONVERT_REQUEST_CONFIRMATION
+                    : RETURNS_ACTIVE_CONVERT_CONFIRMATION;
         };
     }
 
@@ -2223,10 +2231,15 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
         RequestActionContext context = confirmation.context();
         ActiveRequestAction action = confirmation.action();
+        ActionRequiredReturnRequestDto requestInfo = findRequestInfo(chatId, context.requestId());
+        if (requestInfo == null) {
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            return;
+        }
         switch (action) {
             case CANCEL_RETURN -> executeCancelReturn(chatId, session, context);
-            case CANCEL_EXCHANGE -> executeCancelExchange(chatId, session, context);
-            case CONVERT_TO_RETURN -> executeConvertToReturn(chatId, session, context);
+            case CANCEL_EXCHANGE -> executeCancelExchange(chatId, session, context, requestInfo);
+            case CONVERT_TO_RETURN -> executeConvertToReturn(chatId, session, context, requestInfo);
             default -> finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
         }
     }
@@ -2247,10 +2260,19 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
     }
 
-    private void executeCancelExchange(Long chatId, ChatSession session, RequestActionContext context) {
+    private void executeCancelExchange(Long chatId,
+                                       ChatSession session,
+                                       RequestActionContext context,
+                                       ActionRequiredReturnRequestDto requestInfo) {
         try {
-            telegramService.cancelExchangeFromTelegram(chatId, context.parcelId(), context.requestId());
-            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_CANCEL_EXCHANGE_SUCCESS);
+            boolean exchangeDispatched = requestInfo != null && requestInfo.exchangeShipmentDispatched();
+            if (exchangeDispatched) {
+                telegramService.requestExchangeCancellationFromTelegram(chatId, context.parcelId(), context.requestId());
+                finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_CANCEL_EXCHANGE_REQUEST_SENT);
+            } else {
+                telegramService.cancelExchangeFromTelegram(chatId, context.parcelId(), context.requestId());
+                finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_CANCEL_EXCHANGE_SUCCESS);
+            }
         } catch (AccessDeniedException ex) {
             log.warn("⚠️ Попытка отменить чужой обмен {} в чате {}", context.requestId(), chatId);
             finalizeRequestUpdate(chatId, session, PARCEL_RETURN_ACCESS_DENIED);
@@ -2267,10 +2289,19 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
     }
 
-    private void executeConvertToReturn(Long chatId, ChatSession session, RequestActionContext context) {
+    private void executeConvertToReturn(Long chatId,
+                                        ChatSession session,
+                                        RequestActionContext context,
+                                        ActionRequiredReturnRequestDto requestInfo) {
         try {
-            telegramService.convertExchangeToReturnFromTelegram(chatId, context.parcelId(), context.requestId());
-            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_CONVERT_SUCCESS);
+            boolean exchangeDispatched = requestInfo != null && requestInfo.exchangeShipmentDispatched();
+            if (exchangeDispatched) {
+                telegramService.requestExchangeConversionFromTelegram(chatId, context.parcelId(), context.requestId());
+                finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_CONVERT_REQUEST_SENT);
+            } else {
+                telegramService.convertExchangeToReturnFromTelegram(chatId, context.parcelId(), context.requestId());
+                finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_CONVERT_SUCCESS);
+            }
         } catch (AccessDeniedException ex) {
             log.warn("⚠️ Попытка изменить чужой обмен {} в чате {}", context.requestId(), chatId);
             finalizeRequestUpdate(chatId, session, PARCEL_RETURN_ACCESS_DENIED);

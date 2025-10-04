@@ -10,6 +10,8 @@ import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.dto.ReturnRequestUpdateResponse;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.entity.OrderReturnRequestActionRequest;
+import com.project.tracking_system.entity.OrderReturnRequestActionType;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
@@ -387,6 +389,78 @@ class CustomerTelegramServiceTest {
                 "comment"
         ));
         verify(orderReturnRequestService, never()).updateReverseTrackAndComment(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void requestExchangeCancellationFromTelegram_whenValid_createsMerchantRequest() {
+        Long chatId = 1101L;
+        Long parcelId = 9009L;
+        Long requestId = 9010L;
+
+        Customer customer = new Customer();
+        customer.setId(95L);
+        customer.setTelegramChatId(chatId);
+
+        User owner = new User();
+        owner.setId(17L);
+
+        TrackParcel parcel = new TrackParcel();
+        parcel.setId(parcelId);
+        parcel.setCustomer(customer);
+        parcel.setUser(owner);
+
+        OrderReturnRequestActionRequest actionRequest = new OrderReturnRequestActionRequest();
+
+        when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
+        when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
+        when(orderReturnRequestService.requestMerchantAction(requestId, parcelId, owner, customer,
+                OrderReturnRequestActionType.CANCEL_EXCHANGE)).thenReturn(actionRequest);
+
+        OrderReturnRequestActionRequest result = customerTelegramService.requestExchangeCancellationFromTelegram(
+                chatId,
+                parcelId,
+                requestId
+        );
+
+        assertSame(actionRequest, result, "Сервис должен возвращать созданный запрос к магазину");
+        verify(orderReturnRequestService).requestMerchantAction(requestId, parcelId, owner, customer,
+                OrderReturnRequestActionType.CANCEL_EXCHANGE);
+    }
+
+    @Test
+    void requestExchangeConversionFromTelegram_whenValid_createsMerchantRequest() {
+        Long chatId = 1102L;
+        Long parcelId = 9011L;
+        Long requestId = 9012L;
+
+        Customer customer = new Customer();
+        customer.setId(96L);
+        customer.setTelegramChatId(chatId);
+
+        User owner = new User();
+        owner.setId(18L);
+
+        TrackParcel parcel = new TrackParcel();
+        parcel.setId(parcelId);
+        parcel.setCustomer(customer);
+        parcel.setUser(owner);
+
+        OrderReturnRequestActionRequest actionRequest = new OrderReturnRequestActionRequest();
+
+        when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
+        when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
+        when(orderReturnRequestService.requestMerchantAction(requestId, parcelId, owner, customer,
+                OrderReturnRequestActionType.CONVERT_TO_RETURN)).thenReturn(actionRequest);
+
+        OrderReturnRequestActionRequest result = customerTelegramService.requestExchangeConversionFromTelegram(
+                chatId,
+                parcelId,
+                requestId
+        );
+
+        assertSame(actionRequest, result, "Метод обязан возвращать запрос на перевод обмена");
+        verify(orderReturnRequestService).requestMerchantAction(requestId, parcelId, owner, customer,
+                OrderReturnRequestActionType.CONVERT_TO_RETURN);
     }
 
     private TrackParcel parcelWithStatus(String number, GlobalStatus status, ZonedDateTime lastUpdate) {
