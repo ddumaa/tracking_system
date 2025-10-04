@@ -176,6 +176,28 @@ public class OrderEpisodeLifecycleService {
     }
 
     /**
+     * Уменьшает счётчик обменов в эпизоде, если обмен отменён.
+     *
+     * @param episode эпизод, связанный с заявкой
+     */
+    @Transactional
+    public void decrementExchangeCount(OrderEpisode episode) {
+        if (episode == null) {
+            return;
+        }
+        int current = episode.getExchangesCount();
+        if (current <= 0) {
+            return;
+        }
+        episode.setExchangesCount(current - 1);
+        if (episode.getExchangesCount() == 0 && episode.getEpisodeState() == OrderEpisodeState.SUCCESS_AFTER_EXCHANGE) {
+            episode.setEpisodeState(OrderEpisodeState.OPEN);
+            episode.setClosedAt(null);
+        }
+        orderEpisodeRepository.save(episode);
+    }
+
+    /**
      * Определяет финальный исход для переданного статуса посылки.
      */
     private OrderEpisodeState resolveFinalOutcome(OrderEpisode episode, GlobalStatus status) {

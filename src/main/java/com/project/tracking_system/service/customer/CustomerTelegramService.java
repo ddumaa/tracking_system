@@ -461,6 +461,32 @@ public class CustomerTelegramService {
     }
 
     /**
+     * Отменяет одобренный обмен по заявке покупателя.
+     */
+    @Transactional
+    public OrderReturnRequest cancelExchangeFromTelegram(Long chatId,
+                                                         Long parcelId,
+                                                         Long requestId) {
+        Customer customer = requireCustomerByChat(chatId);
+        TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
+        User owner = requireParcelOwner(parcel);
+        return orderReturnRequestService.cancelExchange(requestId, parcelId, owner);
+    }
+
+    /**
+     * Переводит обменную заявку покупателя обратно в статус возврата.
+     */
+    @Transactional
+    public OrderReturnRequest convertExchangeToReturnFromTelegram(Long chatId,
+                                                                  Long parcelId,
+                                                                  Long requestId) {
+        Customer customer = requireCustomerByChat(chatId);
+        TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
+        User owner = requireParcelOwner(parcel);
+        return orderReturnRequestService.reopenAsReturn(requestId, parcelId, owner);
+    }
+
+    /**
      * Обновляет обратный трек и комментарий активной заявки от имени покупателя.
      * <p>
      * Метод проверяет, что чат принадлежит покупателю, выбранная посылка закреплена за ним,
@@ -590,6 +616,7 @@ public class CustomerTelegramService {
                 trackNumber,
                 storeName,
                 parcelStatus != null ? parcelStatus.getDescription() : null,
+                status,
                 status != null ? status.getDisplayName() : null,
                 formatRequestMoment(request.getRequestedAt()),
                 formatRequestMoment(request.getCreatedAt()),

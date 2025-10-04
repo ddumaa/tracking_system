@@ -1,5 +1,7 @@
 package com.project.tracking_system.dto;
 
+import com.project.tracking_system.entity.OrderReturnRequestStatus;
+
 /**
  * DTO для отображения заявок на возврат/обмен, требующих действий пользователя.
  * <p>
@@ -12,7 +14,8 @@ package com.project.tracking_system.dto;
  * @param trackNumber               трек-номер посылки или {@code null}, если он отсутствует
  * @param storeName                 название магазина, оформившего отправление
  * @param parcelStatus              человеко-читаемый статус посылки
- * @param requestStatus             статус самой заявки
+ * @param status                    статус самой заявки
+ * @param statusLabel               локализованное имя статуса
  * @param requestedAt               дата обращения пользователя в локальной зоне
  * @param createdAt                 дата регистрации заявки в системе
  * @param reason                    причина оформления возврата
@@ -26,7 +29,8 @@ public record ActionRequiredReturnRequestDto(Long requestId,
                                              String trackNumber,
                                              String storeName,
                                              String parcelStatus,
-                                             String requestStatus,
+                                             OrderReturnRequestStatus status,
+                                             String statusLabel,
                                              String requestedAt,
                                              String createdAt,
                                              String reason,

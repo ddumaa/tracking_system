@@ -103,9 +103,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String CALLBACK_RETURNS_REASON_DEFECT = CALLBACK_RETURNS_REASON_PREFIX + "defect";
     private static final String CALLBACK_RETURNS_REASON_DISLIKE = CALLBACK_RETURNS_REASON_PREFIX + "dislike";
     private static final String CALLBACK_RETURNS_REASON_OTHER = CALLBACK_RETURNS_REASON_PREFIX + "other";
-    private static final String CALLBACK_RETURNS_ACTIVE_EXCHANGE_PREFIX = "returns:active:exchange:";
-    private static final String CALLBACK_RETURNS_ACTIVE_CLOSE_PREFIX = "returns:active:close:";
-    private static final String CALLBACK_RETURNS_ACTIVE_UPDATE_PREFIX = "returns:active:update:";
+    private static final String CALLBACK_RETURNS_ACTIVE_SELECT_PREFIX = "returns:active:select:";
+    private static final String CALLBACK_RETURNS_ACTIVE_TRACK_PREFIX = "returns:active:track:";
+    private static final String CALLBACK_RETURNS_ACTIVE_COMMENT_PREFIX = "returns:active:comment:";
+    private static final String CALLBACK_RETURNS_ACTIVE_CANCEL_PREFIX = "returns:active:cancel:";
+    private static final String CALLBACK_RETURNS_ACTIVE_CANCEL_EXCHANGE_PREFIX = "returns:active:cancel_exchange:";
+    private static final String CALLBACK_RETURNS_ACTIVE_CONVERT_PREFIX = "returns:active:convert:";
     private static final String CALLBACK_RETURNS_DONE = "returns:done";
     private static final String CALLBACK_SETTINGS_TOGGLE_NOTIFICATIONS = "settings:toggle_notifications";
     private static final String CALLBACK_SETTINGS_CONFIRM_NAME = "settings:confirm_name";
@@ -179,28 +182,45 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             "⚠️ Выберите вариант с помощью кнопок под сообщением.";
     private static final String PARCEL_ACTION_BLOCKED_TEXT = "заявка в обработке";
 
-    private static final String RETURNS_ACTIVE_TABLE_HEADER_TRACK = "Трек";
-    private static final String RETURNS_ACTIVE_TABLE_HEADER_STORE = "Магазин";
-    private static final String RETURNS_ACTIVE_TABLE_HEADER_STATUS = "Статус";
-    private static final String RETURNS_ACTIVE_TABLE_HEADER_DATE = "Дата";
-    private static final String RETURNS_ACTIVE_ACTION_HINT =
-            "Нажмите кнопку под таблицей, чтобы продолжить работу с заявкой.";
+    private static final String RETURNS_ACTIVE_SELECT_PROMPT =
+            "Выберите заявку с помощью кнопок ниже.";
+    private static final String RETURNS_ACTIVE_SELECTED_HEADER = "Текущая заявка";
+    private static final String RETURNS_ACTIVE_DETAILS_TEMPLATE =
+            "*Трек:* %s\n*Магазин:* %s\n*Статус:* %s\n*Дата обращения:* %s\n*Причина:* %s\n*Комментарий:* %s\n*Обратный трек:* %s";
+    private static final String RETURNS_ACTIVE_ACTIONS_RETURN =
+            "Доступные действия для возврата:";
+    private static final String RETURNS_ACTIVE_ACTIONS_EXCHANGE =
+            "Доступные действия для обмена:";
     private static final String RETURNS_ACTIVE_ACTION_NOT_AVAILABLE = "Заявка не найдена";
-    private static final String RETURNS_ACTIVE_EXCHANGE_SUCCESS =
-            "✅ Обмен запущен. Мы сформируем новую посылку и сообщим о статусе.";
-    private static final String RETURNS_ACTIVE_CLOSE_SUCCESS =
-            "ℹ️ Заявка закрыта без обмена. Спасибо за обратную связь.";
     private static final String RETURNS_ACTIVE_ACTION_FAILED =
             "⚠️ Не удалось обновить заявку. Попробуйте ещё раз позже или обратитесь в поддержку.";
-    private static final String RETURNS_ACTIVE_UPDATE_PROMPT =
-            "✏️ Отправьте новое значение обратного трека. Первая строка — трек или «Нет» для очистки,"
-                    + " вторая строка — комментарий (по желанию, также можно указать «Нет»).";
-    private static final String RETURNS_ACTIVE_UPDATE_SUCCESS_TEMPLATE =
-            "✅ Сохранили данные заявки.\n• Обратный трек: %s\n• Комментарий: %s";
-    private static final String RETURNS_ACTIVE_UPDATE_INVALID =
-            "⚠️ Укажите трек на первой строке или напишите «Нет», чтобы очистить данные.";
+    private static final String RETURNS_ACTIVE_TRACK_PROMPT =
+            "✉️ Отправьте трек-номер обратной отправки или напишите «Нет», чтобы очистить поле.";
+    private static final String RETURNS_ACTIVE_COMMENT_PROMPT =
+            "💬 Напишите комментарий для менеджера. Если комментарий не нужен, отправьте «Нет».";
+    private static final String RETURNS_ACTIVE_TRACK_SAVED =
+            "✅ Трек-номер сохранён.";
+    private static final String RETURNS_ACTIVE_COMMENT_SAVED =
+            "✅ Комментарий сохранён.";
+    private static final String RETURNS_ACTIVE_CANCEL_RETURN_SUCCESS =
+            "ℹ️ Заявка на возврат отменена. Мы уведомим магазин.";
+    private static final String RETURNS_ACTIVE_CANCEL_EXCHANGE_SUCCESS =
+            "ℹ️ Обмен отменён. Мы уведомим магазин.";
+    private static final String RETURNS_ACTIVE_CONVERT_SUCCESS =
+            "✅ Заявка переведена в возврат. Вы сможете добавить трек позднее.";
+    private static final String RETURNS_ACTIVE_NO_SELECTION =
+            "⚠️ Выберите заявку перед выполнением действия.";
+    private static final String RETURNS_ACTIVE_UPDATE_INVALID_TRACK =
+            "⚠️ Укажите трек или напишите «Нет», чтобы очистить поле.";
+    private static final String RETURNS_ACTIVE_COMMENT_INVALID =
+            "⚠️ Комментарий не должен быть пустым. Напишите текст или «Нет» для очистки.";
     private static final String RETURNS_ACTIVE_UPDATE_FAILED =
             "⚠️ Не удалось сохранить изменения. Попробуйте ещё раз позже или обратитесь в поддержку.";
+    private static final String BUTTON_RETURNS_ACTION_TRACK = "📮 Указать трек";
+    private static final String BUTTON_RETURNS_ACTION_COMMENT = "💬 Комментарий";
+    private static final String BUTTON_RETURNS_ACTION_CANCEL_RETURN = "🚫 Отменить возврат";
+    private static final String BUTTON_RETURNS_ACTION_CANCEL_EXCHANGE = "🚫 Отменить обмен";
+    private static final String BUTTON_RETURNS_ACTION_CONVERT = "↩️ Перевести в возврат";
 
     private static final Base64.Encoder STORE_KEY_ENCODER = Base64.getUrlEncoder().withoutPadding();
     private static final Base64.Decoder STORE_KEY_DECODER = Base64.getUrlDecoder();
@@ -492,12 +512,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        if (state == BuyerChatState.AWAITING_REQUEST_ACTION) {
+        if (state == BuyerChatState.AWAITING_ACTIVE_REQUEST_SELECTION) {
             remindRequestAction(chatId);
             return;
         }
 
-        if (state == BuyerChatState.AWAITING_TRACK_UPDATE) {
+        if (state == BuyerChatState.AWAITING_TRACK_UPDATE
+                || state == BuyerChatState.AWAITING_COMMENT_UPDATE) {
             handleTrackUpdateInput(chatId, trimmed);
             return;
         }
@@ -571,18 +592,33 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        if (data.startsWith(CALLBACK_RETURNS_ACTIVE_EXCHANGE_PREFIX)) {
-            handleActiveRequestExchange(chatId, callbackQuery, data);
+        if (data.startsWith(CALLBACK_RETURNS_ACTIVE_SELECT_PREFIX)) {
+            handleActiveRequestSelection(chatId, callbackQuery, data);
             return;
         }
 
-        if (data.startsWith(CALLBACK_RETURNS_ACTIVE_CLOSE_PREFIX)) {
-            handleActiveRequestClosure(chatId, callbackQuery, data);
+        if (data.startsWith(CALLBACK_RETURNS_ACTIVE_TRACK_PREFIX)) {
+            handleActiveRequestTrack(chatId, callbackQuery, data);
             return;
         }
 
-        if (data.startsWith(CALLBACK_RETURNS_ACTIVE_UPDATE_PREFIX)) {
-            handleActiveRequestTrackUpdate(chatId, callbackQuery, data);
+        if (data.startsWith(CALLBACK_RETURNS_ACTIVE_COMMENT_PREFIX)) {
+            handleActiveRequestComment(chatId, callbackQuery, data);
+            return;
+        }
+
+        if (data.startsWith(CALLBACK_RETURNS_ACTIVE_CANCEL_PREFIX)) {
+            handleActiveRequestCancelReturn(chatId, callbackQuery, data);
+            return;
+        }
+
+        if (data.startsWith(CALLBACK_RETURNS_ACTIVE_CANCEL_EXCHANGE_PREFIX)) {
+            handleActiveRequestCancelExchange(chatId, callbackQuery, data);
+            return;
+        }
+
+        if (data.startsWith(CALLBACK_RETURNS_ACTIVE_CONVERT_PREFIX)) {
+            handleActiveRequestConvert(chatId, callbackQuery, data);
             return;
         }
 
@@ -1039,156 +1075,109 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         List<ActionRequiredReturnRequestDto> requests = telegramService.getReturnRequestsRequiringAction(chatId);
-        InlineKeyboardMarkup markup = buildActiveRequestsKeyboard(requests, navigationPath);
-        String text = buildActiveReturnRequestsMessage(requests);
+        ChatSession session = ensureChatSession(chatId);
+        ActionRequiredReturnRequestDto selected = resolveSelectedRequest(session, requests);
+
+        InlineKeyboardMarkup markup = buildActiveRequestsKeyboard(requests, selected, navigationPath);
+        String text = buildActiveReturnRequestsMessage(requests, selected);
         sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_ACTIVE_REQUESTS, navigationPath);
 
-        ChatSession session = ensureChatSession(chatId);
-        session.clearActiveReturnRequestContext();
-        session.setState(BuyerChatState.AWAITING_REQUEST_ACTION);
+        // Синхронизируем путь навигации в доменной сессии, чтобы последующее сохранение
+        // состояния не перезаписало обновлённый стек экранов сведениями без RETURNS_MENU.
+        session.setLastScreen(BuyerBotScreen.RETURNS_ACTIVE_REQUESTS);
+        session.setNavigationPath(navigationPath);
+
+        session.setState(BuyerChatState.AWAITING_ACTIVE_REQUEST_SELECTION);
         chatSessionRepository.save(session);
-        transitionToState(chatId, BuyerChatState.AWAITING_REQUEST_ACTION);
+        transitionToState(chatId, BuyerChatState.AWAITING_ACTIVE_REQUEST_SELECTION);
     }
 
-    /**
-     * Формирует таблицу активных заявок для отображения в Telegram.
-     *
-     * @param requests заявки, требующие действий пользователя
-     * @return текст для сообщения бота
-     */
-    private String buildActiveReturnRequestsMessage(List<ActionRequiredReturnRequestDto> requests) {
+    private ActionRequiredReturnRequestDto resolveSelectedRequest(ChatSession session,
+                                                                  List<ActionRequiredReturnRequestDto> requests) {
+        if (session == null) {
+            return null;
+        }
+        if (requests == null || requests.isEmpty()) {
+            session.clearActiveReturnRequestContext();
+            return null;
+        }
+        Long selectedId = session.getActiveReturnRequestId();
+        if (selectedId == null) {
+            return null;
+        }
+        return requests.stream()
+                .filter(request -> selectedId.equals(request.requestId()))
+                .findFirst()
+                .orElseGet(() -> {
+                    session.clearActiveReturnRequestContext();
+                    return null;
+                });
+    }
+
+    private String buildActiveReturnRequestsMessage(List<ActionRequiredReturnRequestDto> requests,
+                                                    ActionRequiredReturnRequestDto selected) {
         StringBuilder builder = new StringBuilder();
-        builder.append(escapeMarkdown(RETURNS_ACTIVE_TITLE)).append('\n').append('\n');
+        builder.append(escapeMarkdown(RETURNS_ACTIVE_TITLE)).append('
+').append('
+');
 
         if (requests == null || requests.isEmpty()) {
             builder.append(RETURNS_ACTIVE_EMPTY_PLACEHOLDER);
             return builder.toString();
         }
 
-        List<ActionRequiredReturnRequestDto> rows = new ArrayList<>(requests);
-        rows.sort(Comparator.comparing(ActionRequiredReturnRequestDto::requestedAt,
-                Comparator.nullsLast(String::compareTo)).reversed());
-
-        int trackWidth = Math.max(RETURNS_ACTIVE_TABLE_HEADER_TRACK.length(),
-                rows.stream()
-                        .map(row -> formatTrackNumber(row.trackNumber()))
-                        .mapToInt(String::length)
-                        .max()
-                        .orElse(RETURNS_ACTIVE_TABLE_HEADER_TRACK.length()));
-        int storeWidth = Math.max(RETURNS_ACTIVE_TABLE_HEADER_STORE.length(),
-                rows.stream()
-                        .map(row -> resolveStoreLabel(row.storeName()))
-                        .mapToInt(String::length)
-                        .max()
-                        .orElse(RETURNS_ACTIVE_TABLE_HEADER_STORE.length()));
-        int statusWidth = Math.max(RETURNS_ACTIVE_TABLE_HEADER_STATUS.length(),
-                rows.stream()
-                        .map(row -> safeRequestStatus(row.requestStatus()))
-                        .mapToInt(String::length)
-                        .max()
-                        .orElse(RETURNS_ACTIVE_TABLE_HEADER_STATUS.length()));
-        int dateWidth = Math.max(RETURNS_ACTIVE_TABLE_HEADER_DATE.length(),
-                rows.stream()
-                        .map(row -> safeOrDash(row.requestedAt()))
-                        .mapToInt(String::length)
-                        .max()
-                        .orElse(RETURNS_ACTIVE_TABLE_HEADER_DATE.length()));
-
-        int totalWidth = trackWidth + storeWidth + statusWidth + dateWidth + 9;
-
-        builder.append("```").append('\n');
-        builder.append(String.format("%-" + trackWidth + "s | %-" + storeWidth + "s | %-" + statusWidth + "s | %-" + dateWidth + "s",
-                RETURNS_ACTIVE_TABLE_HEADER_TRACK,
-                RETURNS_ACTIVE_TABLE_HEADER_STORE,
-                RETURNS_ACTIVE_TABLE_HEADER_STATUS,
-                RETURNS_ACTIVE_TABLE_HEADER_DATE)).append('\n');
-        builder.append("-".repeat(totalWidth)).append('\n');
-
-        for (ActionRequiredReturnRequestDto row : rows) {
-            String track = formatTrackNumber(row.trackNumber());
-            String store = resolveStoreLabel(row.storeName());
-            String status = safeRequestStatus(row.requestStatus());
-            String date = safeOrDash(row.requestedAt());
-            builder.append(String.format("%-" + trackWidth + "s | %-" + storeWidth + "s | %-" + statusWidth + "s | %-" + dateWidth + "s",
-                    track,
-                    store,
-                    status,
-                    date)).append('\n');
-        }
-
-        builder.append("```");
-        builder.append('\n').append('\n');
-        builder.append(escapeMarkdown(RETURNS_ACTIVE_ACTION_HINT));
-        return builder.toString();
-    }
-
-    /**
-     * Формирует подсказку для обновления обратного трека и комментария.
-     *
-     * @param request информация о заявке или {@code null}, если данные недоступны
-     * @return текст подсказки для пользователя
-     */
-    private String buildTrackUpdatePrompt(ActionRequiredReturnRequestDto request) {
-        StringBuilder builder = new StringBuilder(RETURNS_ACTIVE_UPDATE_PROMPT);
-        if (request == null) {
+        if (selected == null) {
+            builder.append(escapeMarkdown(RETURNS_ACTIVE_SELECT_PROMPT));
             return builder.toString();
         }
-        String currentTrack = request.reverseTrackNumber();
-        if (currentTrack == null || currentTrack.isBlank()) {
-            currentTrack = PARCEL_RETURN_NO_TRACK;
-        }
-        String currentComment = request.comment();
-        if (currentComment == null || currentComment.isBlank()) {
-            currentComment = PARCEL_RETURN_NO_COMMENT;
-        }
-        builder.append('\n').append('\n')
-                .append("Текущий трек: ").append(currentTrack)
-                .append('\n')
-                .append("Текущий комментарий: ").append(currentComment);
+
+        builder.append('*').append(escapeMarkdown(RETURNS_ACTIVE_SELECTED_HEADER)).append('*').append('
+');
+        builder.append(formatSelectedRequestDetails(selected));
+        builder.append('
+').append('
+');
+        String actionsHint = selected.status() == OrderReturnRequestStatus.EXCHANGE_APPROVED
+                ? RETURNS_ACTIVE_ACTIONS_EXCHANGE
+                : RETURNS_ACTIVE_ACTIONS_RETURN;
+        builder.append(escapeMarkdown(actionsHint));
         return builder.toString();
     }
 
-    /**
-     * Строит клавиатуру действий для активных заявок.
-     *
-     * @param requests       заявки, требующие действий
-     * @param navigationPath путь навигации для отображения кнопки «Назад»
-     * @return инлайн-клавиатура с действиями по заявкам
-     */
+    private String formatSelectedRequestDetails(ActionRequiredReturnRequestDto request) {
+        String track = escapeMarkdown(formatTrackNumber(request.trackNumber()));
+        String store = escapeMarkdown(resolveStoreLabel(request.storeName()));
+        String status = escapeMarkdown(safeRequestStatus(request.statusLabel()));
+        String date = escapeMarkdown(safeOrDash(request.requestedAt()));
+        String reason = escapeMarkdown(request.reason() == null ? PARCEL_RETURN_REASON_UNKNOWN : request.reason());
+        String commentValue = request.comment();
+        String comment = escapeMarkdown(commentValue == null || commentValue.isBlank()
+                ? PARCEL_RETURN_NO_COMMENT
+                : commentValue);
+        String reverse = escapeMarkdown(request.reverseTrackNumber() == null || request.reverseTrackNumber().isBlank()
+                ? PARCEL_RETURN_NO_TRACK
+                : request.reverseTrackNumber());
+        return String.format(RETURNS_ACTIVE_DETAILS_TEMPLATE, track, store, status, date, reason, comment, reverse);
+    }
+
     private InlineKeyboardMarkup buildActiveRequestsKeyboard(List<ActionRequiredReturnRequestDto> requests,
+                                                             ActionRequiredReturnRequestDto selected,
                                                              List<BuyerBotScreen> navigationPath) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
         if (requests != null) {
             for (ActionRequiredReturnRequestDto request : requests) {
-                if (request == null) {
+                if (request == null || request.requestId() == null || request.parcelId() == null) {
                     continue;
                 }
-                Long requestId = request.requestId();
-                Long parcelId = request.parcelId();
-                if (requestId == null || parcelId == null) {
-                    continue;
-                }
-                List<InlineKeyboardButton> buttons = new ArrayList<>();
-                buttons.add(InlineKeyboardButton.builder()
-                        .text("✏️ Трек/комментарий")
-                        .callbackData(CALLBACK_RETURNS_ACTIVE_UPDATE_PREFIX + requestId + ':' + parcelId)
-                        .build());
-                if (request.canStartExchange()) {
-                    buttons.add(InlineKeyboardButton.builder()
-                            .text("🔄 Запустить обмен")
-                            .callbackData(CALLBACK_RETURNS_ACTIVE_EXCHANGE_PREFIX + requestId + ':' + parcelId)
-                            .build());
-                }
-                if (request.canCloseWithoutExchange()) {
-                    buttons.add(InlineKeyboardButton.builder()
-                            .text("✅ Закрыть заявку")
-                            .callbackData(CALLBACK_RETURNS_ACTIVE_CLOSE_PREFIX + requestId + ':' + parcelId)
-                            .build());
-                }
-                if (!buttons.isEmpty()) {
-                    rows.add(new InlineKeyboardRow(buttons));
-                }
+                InlineKeyboardButton button = InlineKeyboardButton.builder()
+                        .text(buildRequestSelectionLabel(request, selected))
+                        .callbackData(CALLBACK_RETURNS_ACTIVE_SELECT_PREFIX + request.requestId() + ':' + request.parcelId())
+                        .build();
+                rows.add(new InlineKeyboardRow(button));
             }
+        }
+        if (selected != null && selected.requestId() != null && selected.parcelId() != null) {
+            rows.addAll(buildActionButtons(selected));
         }
         appendNavigationRow(rows, navigationPath);
         return InlineKeyboardMarkup.builder()
@@ -1196,6 +1185,47 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 .build();
     }
 
+    private String buildRequestSelectionLabel(ActionRequiredReturnRequestDto request,
+                                              ActionRequiredReturnRequestDto selected) {
+        String label = formatTrackNumber(request.trackNumber()) + " • " + resolveStoreLabel(request.storeName());
+        if (selected != null && request.requestId() != null && request.requestId().equals(selected.requestId())) {
+            return "▶ " + label;
+        }
+        return label;
+    }
+
+    private List<InlineKeyboardRow> buildActionButtons(ActionRequiredReturnRequestDto request) {
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        Long requestId = request.requestId();
+        Long parcelId = request.parcelId();
+        if (requestId == null || parcelId == null) {
+            return rows;
+        }
+        rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
+                .text(BUTTON_RETURNS_ACTION_TRACK)
+                .callbackData(CALLBACK_RETURNS_ACTIVE_TRACK_PREFIX + requestId + ':' + parcelId)
+                .build()));
+        rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
+                .text(BUTTON_RETURNS_ACTION_COMMENT)
+                .callbackData(CALLBACK_RETURNS_ACTIVE_COMMENT_PREFIX + requestId + ':' + parcelId)
+                .build()));
+        if (request.status() == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
+                    .text(BUTTON_RETURNS_ACTION_CANCEL_EXCHANGE)
+                    .callbackData(CALLBACK_RETURNS_ACTIVE_CANCEL_EXCHANGE_PREFIX + requestId + ':' + parcelId)
+                    .build()));
+            rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
+                    .text(BUTTON_RETURNS_ACTION_CONVERT)
+                    .callbackData(CALLBACK_RETURNS_ACTIVE_CONVERT_PREFIX + requestId + ':' + parcelId)
+                    .build()));
+        } else {
+            rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
+                    .text(BUTTON_RETURNS_ACTION_CANCEL_RETURN)
+                    .callbackData(CALLBACK_RETURNS_ACTIVE_CANCEL_PREFIX + requestId + ':' + parcelId)
+                    .build()));
+        }
+        return rows;
+    }
     /**
      * Возвращает отображаемое название магазина для таблицы активных заявок.
      *
@@ -1696,105 +1726,146 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
     }
 
-    /**
-     * Обрабатывает запуск обмена из таблицы активных заявок.
-     */
-    private void handleActiveRequestExchange(Long chatId, CallbackQuery callbackQuery, String data) {
-        Optional<RequestActionContext> contextOptional = parseActionContext(data, CALLBACK_RETURNS_ACTIVE_EXCHANGE_PREFIX);
+    private void handleActiveRequestSelection(Long chatId, CallbackQuery callbackQuery, String data) {
+        Optional<RequestActionContext> contextOptional = parseActionContext(data, CALLBACK_RETURNS_ACTIVE_SELECT_PREFIX);
         if (contextOptional.isEmpty()) {
             answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
             return;
         }
-
         RequestActionContext context = contextOptional.get();
-        String parcelLabel = findParcelById(chatId, context.parcelId())
-                .map(TelegramParcelInfoDTO::getTrackNumber)
-                .orElse(context.parcelId().toString());
-        answerCallbackQuery(callbackQuery, "Обновляем заявку");
-        try {
-            telegramService.approveExchangeFromTelegram(chatId, context.parcelId(), context.requestId());
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_EXCHANGE_SUCCESS);
-        } catch (IllegalStateException ex) {
-            log.warn("⚠️ Не удалось запустить обмен по заявке {}: {}", context.requestId(), ex.getMessage());
-            handleReturnRegistrationIllegalState(chatId, parcelLabel, ex);
-        } catch (IllegalArgumentException ex) {
-            log.warn("⚠️ Некорректные данные обмена по заявке {}: {}", context.requestId(), ex.getMessage());
-            handleReturnRegistrationIllegalArgument(chatId, ex);
-        } catch (AccessDeniedException ex) {
-            log.warn("⚠️ Попытка обмена по чужой заявке {} в чате {}", context.requestId(), chatId);
-            sendSimpleMessage(chatId, PARCEL_RETURN_ACCESS_DENIED);
-        } catch (Exception ex) {
-            log.error("❌ Ошибка запуска обмена по заявке {}", context.requestId(), ex);
-            sendSimpleMessage(chatId, PARCEL_EXCHANGE_FAILED);
-        }
-
-        sendActiveReturnRequestsScreen(chatId);
-    }
-
-    /**
-     * Обрабатывает закрытие заявки без обмена из таблицы активных обращений.
-     */
-    private void handleActiveRequestClosure(Long chatId, CallbackQuery callbackQuery, String data) {
-        Optional<RequestActionContext> contextOptional = parseActionContext(data, CALLBACK_RETURNS_ACTIVE_CLOSE_PREFIX);
-        if (contextOptional.isEmpty()) {
-            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
-            return;
-        }
-
-        RequestActionContext context = contextOptional.get();
-        answerCallbackQuery(callbackQuery, "Закрываем заявку");
-        try {
-            telegramService.closeReturnRequestFromTelegram(chatId, context.parcelId(), context.requestId());
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_CLOSE_SUCCESS);
-        } catch (AccessDeniedException ex) {
-            log.warn("⚠️ Попытка закрыть чужую заявку {} в чате {}", context.requestId(), chatId);
-            sendSimpleMessage(chatId, PARCEL_RETURN_ACCESS_DENIED);
-        } catch (IllegalArgumentException ex) {
-            log.warn("⚠️ Ошибка закрытия заявки {}: {}", context.requestId(), ex.getMessage());
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
-        } catch (Exception ex) {
-            log.error("❌ Ошибка закрытия заявки {}", context.requestId(), ex);
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
-        }
-
-        sendActiveReturnRequestsScreen(chatId);
-    }
-
-    /**
-     * Обрабатывает выбор действия по обновлению обратного трека и комментария.
-     */
-    private void handleActiveRequestTrackUpdate(Long chatId, CallbackQuery callbackQuery, String data) {
-        Optional<RequestActionContext> contextOptional = parseActionContext(data, CALLBACK_RETURNS_ACTIVE_UPDATE_PREFIX);
-        if (contextOptional.isEmpty()) {
-            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
-            return;
-        }
-
-        RequestActionContext context = contextOptional.get();
-        answerCallbackQuery(callbackQuery, "Ждём данные");
-
+        answerCallbackQuery(callbackQuery, "Заявка выбрана");
         ChatSession session = ensureChatSession(chatId);
         session.setActiveReturnRequestContext(context.requestId(), context.parcelId());
+        chatSessionRepository.save(session);
+        sendActiveReturnRequestsScreen(chatId);
+    }
+
+    private void handleActiveRequestTrack(Long chatId, CallbackQuery callbackQuery, String data) {
+        Optional<RequestActionContext> contextOptional = parseActionContext(data, CALLBACK_RETURNS_ACTIVE_TRACK_PREFIX);
+        if (contextOptional.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            return;
+        }
+        RequestActionContext context = contextOptional.get();
+        answerCallbackQuery(callbackQuery, "Ждём трек");
+        ChatSession session = ensureChatSession(chatId);
+        session.setActiveReturnRequestContext(context.requestId(), context.parcelId(), ReturnRequestEditMode.TRACK);
         session.setState(BuyerChatState.AWAITING_TRACK_UPDATE);
         chatSessionRepository.save(session);
         transitionToState(chatId, BuyerChatState.AWAITING_TRACK_UPDATE);
-
-        ActionRequiredReturnRequestDto requestInfo = telegramService.getReturnRequestsRequiringAction(chatId).stream()
-                .filter(dto -> context.requestId().equals(dto.requestId()))
-                .findFirst()
-                .orElse(null);
-
-        sendSimpleMessage(chatId, buildTrackUpdatePrompt(requestInfo));
+        sendSimpleMessage(chatId, RETURNS_ACTIVE_TRACK_PROMPT);
     }
 
-    /**
-     * Обрабатывает текстовый ввод пользователя с новым треком и комментарием.
-     */
+    private void handleActiveRequestComment(Long chatId, CallbackQuery callbackQuery, String data) {
+        Optional<RequestActionContext> contextOptional = parseActionContext(data, CALLBACK_RETURNS_ACTIVE_COMMENT_PREFIX);
+        if (contextOptional.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            return;
+        }
+        RequestActionContext context = contextOptional.get();
+        answerCallbackQuery(callbackQuery, "Ждём комментарий");
+        ChatSession session = ensureChatSession(chatId);
+        session.setActiveReturnRequestContext(context.requestId(), context.parcelId(), ReturnRequestEditMode.COMMENT);
+        session.setState(BuyerChatState.AWAITING_COMMENT_UPDATE);
+        chatSessionRepository.save(session);
+        transitionToState(chatId, BuyerChatState.AWAITING_COMMENT_UPDATE);
+        sendSimpleMessage(chatId, RETURNS_ACTIVE_COMMENT_PROMPT);
+    }
+
+    private void handleActiveRequestCancelReturn(Long chatId, CallbackQuery callbackQuery, String data) {
+        Optional<RequestActionContext> contextOptional = parseActionContext(data, CALLBACK_RETURNS_ACTIVE_CANCEL_PREFIX);
+        if (contextOptional.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            return;
+        }
+        RequestActionContext context = contextOptional.get();
+        answerCallbackQuery(callbackQuery, "Отменяем возврат");
+        try {
+            telegramService.closeReturnRequestFromTelegram(chatId, context.parcelId(), context.requestId());
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_CANCEL_RETURN_SUCCESS);
+        } catch (AccessDeniedException ex) {
+            log.warn("⚠️ Попытка отменить чужую заявку {} в чате {}", context.requestId(), chatId);
+            sendSimpleMessage(chatId, PARCEL_RETURN_ACCESS_DENIED);
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            log.warn("⚠️ Ошибка отмены возврата {}: {}", context.requestId(), ex.getMessage());
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
+        } catch (Exception ex) {
+            log.error("❌ Не удалось отменить возврат {}", context.requestId(), ex);
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
+        }
+        ChatSession session = ensureChatSession(chatId);
+        session.clearActiveReturnRequestContext();
+        chatSessionRepository.save(session);
+        sendActiveReturnRequestsScreen(chatId);
+    }
+
+    private void handleActiveRequestCancelExchange(Long chatId, CallbackQuery callbackQuery, String data) {
+        Optional<RequestActionContext> contextOptional = parseActionContext(data, CALLBACK_RETURNS_ACTIVE_CANCEL_EXCHANGE_PREFIX);
+        if (contextOptional.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            return;
+        }
+        RequestActionContext context = contextOptional.get();
+        answerCallbackQuery(callbackQuery, "Отменяем обмен");
+        try {
+            telegramService.cancelExchangeFromTelegram(chatId, context.parcelId(), context.requestId());
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_CANCEL_EXCHANGE_SUCCESS);
+        } catch (AccessDeniedException ex) {
+            log.warn("⚠️ Попытка отменить чужой обмен {} в чате {}", context.requestId(), chatId);
+            sendSimpleMessage(chatId, PARCEL_RETURN_ACCESS_DENIED);
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            log.warn("⚠️ Ошибка отмены обмена {}: {}", context.requestId(), ex.getMessage());
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
+        } catch (Exception ex) {
+            log.error("❌ Не удалось отменить обмен {}", context.requestId(), ex);
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
+        }
+        ChatSession session = ensureChatSession(chatId);
+        session.clearActiveReturnRequestContext();
+        chatSessionRepository.save(session);
+        sendActiveReturnRequestsScreen(chatId);
+    }
+
+    private void handleActiveRequestConvert(Long chatId, CallbackQuery callbackQuery, String data) {
+        Optional<RequestActionContext> contextOptional = parseActionContext(data, CALLBACK_RETURNS_ACTIVE_CONVERT_PREFIX);
+        if (contextOptional.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            return;
+        }
+        RequestActionContext context = contextOptional.get();
+        answerCallbackQuery(callbackQuery, "Переводим в возврат");
+        try {
+            telegramService.convertExchangeToReturnFromTelegram(chatId, context.parcelId(), context.requestId());
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_CONVERT_SUCCESS);
+        } catch (AccessDeniedException ex) {
+            log.warn("⚠️ Попытка изменить чужой обмен {} в чате {}", context.requestId(), chatId);
+            sendSimpleMessage(chatId, PARCEL_RETURN_ACCESS_DENIED);
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            log.warn("⚠️ Ошибка преобразования обмена {}: {}", context.requestId(), ex.getMessage());
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
+        } catch (Exception ex) {
+            log.error("❌ Не удалось перевести обмен {} в возврат", context.requestId(), ex);
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
+        }
+        ChatSession session = ensureChatSession(chatId);
+        session.clearActiveReturnRequestContext();
+        chatSessionRepository.save(session);
+        sendActiveReturnRequestsScreen(chatId);
+    }
+
+    private ActionRequiredReturnRequestDto findRequestInfo(Long chatId, Long requestId) {
+        return telegramService.getReturnRequestsRequiringAction(chatId).stream()
+                .filter(dto -> requestId.equals(dto.requestId()))
+                .findFirst()
+                .orElse(null);
+    }
+
     private void handleTrackUpdateInput(Long chatId, String text) {
         ChatSession session = ensureChatSession(chatId);
         Long requestId = session.getActiveReturnRequestId();
         Long parcelId = session.getActiveReturnParcelId();
-        if (requestId == null || parcelId == null) {
+        ReturnRequestEditMode mode = session.getReturnRequestEditMode();
+        if (requestId == null || parcelId == null || mode == null) {
             sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
             session.clearActiveReturnRequestContext();
             session.setState(BuyerChatState.IDLE);
@@ -1804,42 +1875,99 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        Optional<TrackUpdatePayload> payloadOptional = parseTrackUpdatePayload(text);
-        if (payloadOptional.isEmpty()) {
-            remindTrackUpdateInput(chatId);
+        ActionRequiredReturnRequestDto requestInfo = findRequestInfo(chatId, requestId);
+        if (requestInfo == null) {
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            session.clearActiveReturnRequestContext();
+            session.setState(BuyerChatState.IDLE);
+            chatSessionRepository.save(session);
+            sendActiveReturnRequestsScreen(chatId);
             return;
         }
 
-        TrackUpdatePayload payload = payloadOptional.get();
+        if (mode == ReturnRequestEditMode.TRACK) {
+            processTrackUpdate(chatId, session, requestInfo, parcelId, requestId, text);
+        } else {
+            processCommentUpdate(chatId, session, requestInfo, parcelId, requestId, text);
+        }
+    }
+
+    private void processTrackUpdate(Long chatId,
+                                    ChatSession session,
+                                    ActionRequiredReturnRequestDto requestInfo,
+                                    Long parcelId,
+                                    Long requestId,
+                                    String text) {
+        String normalized = text == null ? "" : text.strip();
+        if (normalized.isEmpty()) {
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_UPDATE_INVALID_TRACK);
+            return;
+        }
+        String newTrack = isSkipWord(normalized) ? null : normalized;
+        String comment = requestInfo.comment();
         try {
-            ReturnRequestUpdateResponse response = telegramService.updateReturnRequestDetailsFromTelegram(
-                    chatId,
-                    parcelId,
-                    requestId,
-                    payload.reverseTrack(),
-                    payload.comment()
-            );
-            sendSimpleMessage(chatId, formatTrackUpdateSuccess(response));
+            telegramService.updateReturnRequestDetailsFromTelegram(chatId, parcelId, requestId, newTrack, comment);
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_TRACK_SAVED);
+            finalizeRequestUpdate(chatId, session);
         } catch (AccessDeniedException ex) {
             log.warn("⚠️ Попытка обновить чужую заявку {} в чате {}", requestId, chatId);
             sendSimpleMessage(chatId, PARCEL_RETURN_ACCESS_DENIED);
+            finalizeRequestUpdate(chatId, session);
         } catch (IllegalArgumentException ex) {
-            log.warn("⚠️ Некорректные данные для обновления заявки {}: {}", requestId, ex.getMessage());
-            sendSimpleMessage(chatId, RETURNS_ACTIVE_UPDATE_INVALID);
+            log.warn("⚠️ Некорректный трек для заявки {}: {}", requestId, ex.getMessage());
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_UPDATE_INVALID_TRACK);
         } catch (IllegalStateException ex) {
             log.warn("⚠️ Заявку {} нельзя обновить: {}", requestId, ex.getMessage());
             sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
+            finalizeRequestUpdate(chatId, session);
         } catch (Exception ex) {
             log.error("❌ Ошибка обновления заявки {}", requestId, ex);
             sendSimpleMessage(chatId, RETURNS_ACTIVE_UPDATE_FAILED);
+            finalizeRequestUpdate(chatId, session);
         }
+    }
 
+    private void processCommentUpdate(Long chatId,
+                                      ChatSession session,
+                                      ActionRequiredReturnRequestDto requestInfo,
+                                      Long parcelId,
+                                      Long requestId,
+                                      String text) {
+        String normalized = text == null ? "" : text.strip();
+        if (normalized.isEmpty()) {
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_COMMENT_INVALID);
+            return;
+        }
+        String newComment = isSkipWord(normalized) ? null : normalized;
+        String reverseTrack = requestInfo.reverseTrackNumber();
+        try {
+            telegramService.updateReturnRequestDetailsFromTelegram(chatId, parcelId, requestId, reverseTrack, newComment);
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_COMMENT_SAVED);
+            finalizeRequestUpdate(chatId, session);
+        } catch (AccessDeniedException ex) {
+            log.warn("⚠️ Попытка обновить чужую заявку {} в чате {}", requestId, chatId);
+            sendSimpleMessage(chatId, PARCEL_RETURN_ACCESS_DENIED);
+            finalizeRequestUpdate(chatId, session);
+        } catch (IllegalArgumentException ex) {
+            log.warn("⚠️ Некорректный комментарий для заявки {}: {}", requestId, ex.getMessage());
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_COMMENT_INVALID);
+        } catch (IllegalStateException ex) {
+            log.warn("⚠️ Заявку {} нельзя обновить: {}", requestId, ex.getMessage());
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_FAILED);
+            finalizeRequestUpdate(chatId, session);
+        } catch (Exception ex) {
+            log.error("❌ Ошибка обновления заявки {}", requestId, ex);
+            sendSimpleMessage(chatId, RETURNS_ACTIVE_UPDATE_FAILED);
+            finalizeRequestUpdate(chatId, session);
+        }
+    }
+
+    private void finalizeRequestUpdate(Long chatId, ChatSession session) {
         session.clearActiveReturnRequestContext();
         session.setState(BuyerChatState.IDLE);
         chatSessionRepository.save(session);
         sendActiveReturnRequestsScreen(chatId);
     }
-
     /**
      * Парсит идентификаторы заявки и посылки из callback-строки.
      */
@@ -1870,68 +1998,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     /**
      * Парсит текстовое сообщение пользователя с новым треком и комментарием.
      */
-    private Optional<TrackUpdatePayload> parseTrackUpdatePayload(String text) {
-        if (text == null) {
-            return Optional.empty();
-        }
-        String[] lines = text.split("\\r?\\n");
-        if (lines.length == 0) {
-            return Optional.empty();
-        }
-        String trackLine = lines[0].trim();
-        if (trackLine.isEmpty()) {
-            return Optional.empty();
-        }
-        String reverseTrack = isSkipWord(trackLine) ? null : trackLine;
-
-        StringBuilder commentBuilder = new StringBuilder();
-        for (int i = 1; i < lines.length; i++) {
-            String part = lines[i] != null ? lines[i].trim() : "";
-            if (part.isEmpty()) {
-                continue;
-            }
-            if (commentBuilder.length() > 0) {
-                commentBuilder.append('\n');
-            }
-            commentBuilder.append(part);
-        }
-        String commentRaw = commentBuilder.toString().trim();
-        String comment = commentRaw.isEmpty() || isSkipWord(commentRaw) ? null : commentRaw;
-
-        return Optional.of(new TrackUpdatePayload(reverseTrack, comment));
-    }
-
-    /**
-     * Формирует текст успешного обновления заявки с перечислением актуальных данных.
-     */
-    private String formatTrackUpdateSuccess(ReturnRequestUpdateResponse response) {
-        if (response == null) {
-            return String.format(RETURNS_ACTIVE_UPDATE_SUCCESS_TEMPLATE, PARCEL_RETURN_NO_TRACK, PARCEL_RETURN_NO_COMMENT);
-        }
-        String track = response.reverseTrackNumber();
-        if (track == null || track.isBlank()) {
-            track = PARCEL_RETURN_NO_TRACK;
-        }
-        String comment = response.comment();
-        if (comment == null || comment.isBlank()) {
-            comment = PARCEL_RETURN_NO_COMMENT;
-        }
-        return String.format(RETURNS_ACTIVE_UPDATE_SUCCESS_TEMPLATE, track, comment);
-    }
-
-    /**
-     * Напоминает пользователю о корректном формате ввода данных обратного трека.
-     */
-    private void remindTrackUpdateInput(Long chatId) {
-        sendSimpleMessage(chatId, RETURNS_ACTIVE_UPDATE_INVALID);
-    }
-
-    /**
-     * Данные для обновления трека и комментария заявки.
-     */
-    private record TrackUpdatePayload(String reverseTrack, String comment) {
-    }
-
     /**
      * Унифицированный обработчик для отображения списков посылок выбранной категории.
      *
@@ -2879,7 +2945,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             case RETURNS_CREATE_TYPE -> BuyerChatState.AWAITING_REQUEST_TYPE;
             case RETURNS_CREATE_STORE -> BuyerChatState.AWAITING_STORE_SELECTION;
             case RETURNS_CREATE_REQUEST -> BuyerChatState.AWAITING_PARCEL_SELECTION;
-            case RETURNS_ACTIVE_REQUESTS -> BuyerChatState.AWAITING_REQUEST_ACTION;
+            case RETURNS_ACTIVE_REQUESTS -> BuyerChatState.AWAITING_ACTIVE_REQUEST_SELECTION;
             default -> BuyerChatState.IDLE;
         };
     }
@@ -3657,7 +3723,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param chatId идентификатор чата Telegram
      */
     private void remindRequestAction(Long chatId) {
-        sendSimpleMessage(chatId, RETURNS_ACTIVE_ACTION_HINT);
+        sendSimpleMessage(chatId, RETURNS_ACTIVE_SELECT_PROMPT);
     }
 
     /**

@@ -90,4 +90,55 @@ public class OrderExchangeService {
         replacement.setIncludedInStatistics(false);
         return replacement;
     }
+
+    /**
+     * Отменяет обменную посылку, созданную по заявке, если она ещё не обработана.
+     * <p>
+     * Метод помечает обменную посылку как отменённую, чтобы она не участвовала в дальнейшем
+     * обновлении статусов и была видна менеджеру как закрытая попытка обмена.
+     * </p>
+     *
+     * @param request заявка, для которой требуется отменить обменную посылку
+     */
+    @Transactional
+    public void cancelExchangeParcel(OrderReturnRequest request) {
+        if (request == null) {
+            return;
+        }
+        TrackParcel originalParcel = request.getParcel();
+        if (originalParcel == null) {
+            return;
+        }
+        TrackParcel replacement = trackParcelRepository.findTopByReplacementOfOrderByTimestampDesc(originalParcel);
+        if (replacement == null) {
+            return;
+        }
+        replacement.setStatus(GlobalStatus.REGISTRATION_CANCELLED);
+        replacement.setLastUpdate(ZonedDateTime.now(ZoneOffset.UTC));
+
+        if (replacement.getNumber() == null || replacement.getNumber().isBlank()) {
+            replacement.setNumber(buildCancelledExchangeNumber(request, replacement));
+        }
+        trackParcelRepository.save(replacement);
+        log.debug("Отменена обменная посылка {} для заявки {}", replacement.getId(), request.getId());
+    }
+
+    /**
+     * Формирует служебный трек-номер для отменённой обменной посылки.
+     * <p>
+     * При отмене обмена посылка получает статус, отличный от предварительной регистрации,
+     * что требует непустого трек-номера. Метод генерирует понятный идентификатор на основе
+     * номера заявки и посылки, соблюдая SRP: логика формирования вынесена из основного
+     * алгоритма отмены.
+     * </p>
+     *
+     * @param request     заявка, для которой отменяется обмен
+     * @param replacement отменяемая обменная посылка
+     * @return строка вида {@code CANCELLED-REQ-{id}-PARCEL-{id}}
+     */
+    private String buildCancelledExchangeNumber(OrderReturnRequest request, TrackParcel replacement) {
+        Long requestId = Optional.ofNullable(request.getId()).orElse(0L);
+        Long parcelId = Optional.ofNullable(replacement.getId()).orElse(0L);
+        return "CANCELLED-REQ-" + requestId + "-PARCEL-" + parcelId;
+    }
 }

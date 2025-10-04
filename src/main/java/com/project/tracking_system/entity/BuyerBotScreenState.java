@@ -1,5 +1,6 @@
 package com.project.tracking_system.entity;
 
+import com.project.tracking_system.service.telegram.ReturnRequestEditMode;
 import com.project.tracking_system.service.telegram.ReturnRequestType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -108,5 +109,24 @@ public class BuyerBotScreenState {
      */
     @Column(name = "return_idempotency_key", length = 64)
     private String returnIdempotencyKey;
+
+    /**
+     * Заявка, выбранная пользователем для редактирования.
+     */
+    @Column(name = "active_request_id")
+    private Long activeRequestId;
+
+    /**
+     * Посылка выбранной заявки, используется при обновлении данных.
+     */
+    @Column(name = "active_request_parcel_id")
+    private Long activeRequestParcelId;
+
+    /**
+     * Ожидаемый тип ввода от пользователя при редактировании заявки.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "active_request_edit_mode")
+    private ReturnRequestEditMode activeRequestEditMode;
 }
 

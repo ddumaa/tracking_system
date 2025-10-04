@@ -190,6 +190,14 @@ public interface TrackParcelRepository extends JpaRepository<TrackParcel, Long> 
     TrackParcel findByIdWithStoreAndUser(@Param("id") Long id);
 
     /**
+     * Находит последнюю созданную обменную посылку для указанной исходной отправки.
+     *
+     * @param original исходная посылка, инициировавшая обмен
+     * @return самая поздняя обменная посылка или {@code null}, если обменов не было
+     */
+    TrackParcel findTopByReplacementOfOrderByTimestampDesc(TrackParcel original);
+
+    /**
      * Очистить связь покупателя у его посылок.
      *
      * @param customerId идентификатор покупателя
