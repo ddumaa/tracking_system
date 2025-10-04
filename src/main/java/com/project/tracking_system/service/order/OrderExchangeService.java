@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
 /**
@@ -29,6 +30,8 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class OrderExchangeService {
+
+    private static final DateTimeFormatter SERVICE_TRACK_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
     private final TrackParcelRepository trackParcelRepository;
     private final OrderEpisodeLifecycleService episodeLifecycleService;
@@ -113,9 +116,76 @@ public class OrderExchangeService {
         if (replacement == null) {
             return;
         }
+        // Назначаем служебный трек до смены статуса, чтобы сохранить инвариант обязательности номера.
+        if (replacement.getNumber() == null || replacement.getNumber().isBlank()) {
+            replacement.setNumber(generateServiceTrackingNumber(request, replacement));
+        }
         replacement.setStatus(GlobalStatus.REGISTRATION_CANCELLED);
         replacement.setLastUpdate(ZonedDateTime.now(ZoneOffset.UTC));
         trackParcelRepository.save(replacement);
         log.debug("Отменена обменная посылка {} для заявки {}", replacement.getId(), request.getId());
+    }
+
+    /**
+     * Формирует служебный трек-номер для обменной посылки при отмене обмена.
+     * <p>
+     * Метод перезагружает сущность, если это возможно, чтобы работать с актуальными идентификаторами,
+     * и формирует короткий детерминированный код, не зависящий от незаполненных полей заявки.
+     * </p>
+     *
+     * @param request     заявка, по которой отменяется обмен
+     * @param replacement обменная посылка, требующая служебного номера
+     * @return строка служебного трек-номера
+     */
+    private String generateServiceTrackingNumber(OrderReturnRequest request, TrackParcel replacement) {
+        TrackParcel freshReplacement = reloadReplacementIfPossible(replacement);
+        Long replacementId = Optional.ofNullable(freshReplacement)
+                .map(TrackParcel::getId)
+                .orElse(null);
+        Long originalId = Optional.ofNullable(freshReplacement)
+                .map(TrackParcel::getReplacementOf)
+                .map(TrackParcel::getId)
+                .orElseGet(() -> Optional.ofNullable(request)
+                        .map(OrderReturnRequest::getParcel)
+                        .map(TrackParcel::getId)
+                        .orElse(null));
+        Long requestId = Optional.ofNullable(request)
+                .map(OrderReturnRequest::getId)
+                .orElse(null);
+
+        String timestamp = ZonedDateTime.now(ZoneOffset.UTC).format(SERVICE_TRACK_FORMATTER);
+        return String.format("SRV-%s-R%s-O%s-Q%s",
+                timestamp,
+                toSafeSegment(replacementId),
+                toSafeSegment(originalId),
+                toSafeSegment(requestId));
+    }
+
+    /**
+     * Перезагружает обменную посылку из БД, если идентификатор известен.
+     *
+     * @param replacement обменная посылка
+     * @return актуальная версия сущности или исходный объект
+     */
+    private TrackParcel reloadReplacementIfPossible(TrackParcel replacement) {
+        if (replacement == null) {
+            return null;
+        }
+        Long id = replacement.getId();
+        if (id == null) {
+            return replacement;
+        }
+        Optional<TrackParcel> fresh = trackParcelRepository.findById(id);
+        return fresh != null ? fresh.orElse(replacement) : replacement;
+    }
+
+    /**
+     * Преобразует идентификатор к безопасному сегменту для служебного номера.
+     *
+     * @param value исходное значение
+     * @return числовое значение или «NA», если идентификатор отсутствует
+     */
+    private String toSafeSegment(Long value) {
+        return value != null ? value.toString() : "NA";
     }
 }

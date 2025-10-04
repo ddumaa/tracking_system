@@ -308,6 +308,31 @@ class OrderReturnRequestServiceTest {
         verify(repository, never()).save(any());
     }
 
+    @Test
+    void reopenAsReturn_ResetsExchangeAndSavesRequest() {
+        TrackParcel parcel = buildParcel(23L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(950L);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setDecisionBy(user);
+        request.setDecisionAt(ZonedDateTime.now(ZoneOffset.UTC));
+
+        when(repository.findById(950L)).thenReturn(Optional.of(request));
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderReturnRequest result = service.reopenAsReturn(950L, 23L, user);
+
+        assertThat(result.getStatus()).isEqualTo(OrderReturnRequestStatus.REGISTERED);
+        assertThat(result.getDecisionBy()).isNull();
+        assertThat(result.getDecisionAt()).isNull();
+        assertThat(result.getClosedBy()).isNull();
+        assertThat(result.getClosedAt()).isNull();
+        verify(orderExchangeService).cancelExchangeParcel(request);
+        verify(episodeLifecycleService).decrementExchangeCount(parcel.getEpisode());
+    }
+
     private TrackParcel buildParcel(Long id, GlobalStatus status) {
         TrackParcel parcel = new TrackParcel();
         parcel.setId(id);

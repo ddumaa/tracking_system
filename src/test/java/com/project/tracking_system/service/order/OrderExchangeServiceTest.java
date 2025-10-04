@@ -14,6 +14,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
@@ -94,5 +96,32 @@ class OrderExchangeServiceTest {
         assertThatThrownBy(() -> service.createExchangeParcel(null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Не передана");
+    }
+
+    @Test
+    void cancelExchangeParcel_AssignsServiceTrackBeforeStatusChange() {
+        TrackParcel original = new TrackParcel();
+        original.setId(30L);
+
+        TrackParcel replacement = new TrackParcel();
+        replacement.setId(31L);
+        replacement.setStatus(GlobalStatus.PRE_REGISTERED);
+        replacement.setReplacementOf(original);
+
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(40L);
+        request.setParcel(original);
+
+        when(trackParcelRepository.findTopByReplacementOfOrderByTimestampDesc(original)).thenReturn(replacement);
+        when(trackParcelRepository.save(any(TrackParcel.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(trackParcelRepository.findById(31L)).thenReturn(Optional.of(replacement));
+
+        service.cancelExchangeParcel(request);
+
+        assertThat(replacement.getStatus()).isEqualTo(GlobalStatus.REGISTRATION_CANCELLED);
+        assertThat(replacement.isPreRegistered()).isFalse();
+        assertThat(replacement.getNumber()).isNotBlank();
+        assertThat(replacement.getNumber()).startsWith("SRV-");
+        verify(trackParcelRepository).save(replacement);
     }
 }
