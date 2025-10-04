@@ -1102,9 +1102,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         List<ActionRequiredReturnRequestDto> requests = telegramService.getReturnRequestsRequiringAction(chatId);
         ChatSession session = ensureChatSession(chatId);
+        ActionRequiredReturnRequestDto selected = resolveSelectedRequest(session, requests);
+        if (selected != null) {
+            navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_ACTIVE_REQUESTS, true);
+        }
         session.setNavigationPath(navigationPath);
         session.setLastScreen(BuyerBotScreen.RETURNS_ACTIVE_REQUESTS);
-        ActionRequiredReturnRequestDto selected = resolveSelectedRequest(session, requests);
 
         InlineKeyboardMarkup markup = buildActiveRequestsKeyboard(requests, selected, navigationPath);
         String text = buildActiveReturnRequestsMessage(requests, selected);
@@ -3184,6 +3187,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         BuyerBotScreen targetScreen = session.navigateBack();
+        if (targetScreen == BuyerBotScreen.RETURNS_ACTIVE_REQUESTS
+                && session.getActiveReturnRequestId() != null) {
+            // При возврате с экрана действий очищаем выбранную заявку, чтобы показать список заявок.
+            session.clearActiveReturnRequestContext();
+        }
         synchronizeStateAfterBackwardNavigation(chatId, session, targetScreen);
         answerCallbackQuery(callbackQuery, "Назад");
         renderScreen(chatId, targetScreen);

@@ -226,6 +226,10 @@ public class ChatSession {
         BuyerBotScreen current = projected.get(projected.size() - 1);
         if (current != screen) {
             projected.add(screen);
+            if (allowDuplicate && screen == BuyerBotScreen.RETURNS_ACTIVE_REQUESTS) {
+                // Для экрана активных заявок добавляем дубликат шага, чтобы «Назад» возвращал список заявок.
+                projected.add(screen);
+            }
         } else if (allowDuplicate) {
             projected.add(screen);
         }
