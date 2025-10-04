@@ -309,6 +309,50 @@ class OrderReturnRequestServiceTest {
     }
 
     @Test
+    void cancelExchange_UpdatesRequestWhenExchangeCancelable() {
+        TrackParcel parcel = buildParcel(25L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(960L);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+
+        when(repository.findById(960L)).thenReturn(Optional.of(request));
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderExchangeService.findLatestExchangeAndEnsureTrackNotProvided(request)).thenReturn(null);
+
+        OrderReturnRequest result = service.cancelExchange(960L, 25L, user);
+
+        assertThat(result.getStatus()).isEqualTo(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
+        assertThat(result.getClosedBy()).isEqualTo(user);
+        verify(orderExchangeService).findLatestExchangeAndEnsureTrackNotProvided(request);
+        verify(orderExchangeService).cancelExchangeParcel(request);
+        verify(episodeLifecycleService).decrementExchangeCount(parcel.getEpisode());
+        verify(repository).save(request);
+    }
+
+    @Test
+    void cancelExchange_ThrowsWhenExchangeAlreadyHasTrack() {
+        TrackParcel parcel = buildParcel(26L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(961L);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+
+        when(repository.findById(961L)).thenReturn(Optional.of(request));
+        when(orderExchangeService.findLatestExchangeAndEnsureTrackNotProvided(request))
+                .thenThrow(new IllegalStateException("Невозможно отменить обмен: магазин уже указал трек"));
+
+        assertThatThrownBy(() -> service.cancelExchange(961L, 26L, user))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("магазин уже указал трек");
+        verify(orderExchangeService, never()).cancelExchangeParcel(request);
+        verify(repository, never()).save(any());
+        verifyNoInteractions(episodeLifecycleService);
+    }
+
+    @Test
     void reopenAsReturn_ResetsExchangeAndSavesRequest() {
         TrackParcel parcel = buildParcel(23L, GlobalStatus.DELIVERED);
         OrderReturnRequest request = new OrderReturnRequest();
@@ -321,6 +365,7 @@ class OrderReturnRequestServiceTest {
 
         when(repository.findById(950L)).thenReturn(Optional.of(request));
         when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderExchangeService.findLatestExchangeAndEnsureTrackNotProvided(request)).thenReturn(null);
 
         OrderReturnRequest result = service.reopenAsReturn(950L, 23L, user);
 
@@ -329,8 +374,30 @@ class OrderReturnRequestServiceTest {
         assertThat(result.getDecisionAt()).isNull();
         assertThat(result.getClosedBy()).isNull();
         assertThat(result.getClosedAt()).isNull();
+        verify(orderExchangeService).findLatestExchangeAndEnsureTrackNotProvided(request);
         verify(orderExchangeService).cancelExchangeParcel(request);
         verify(episodeLifecycleService).decrementExchangeCount(parcel.getEpisode());
+    }
+
+    @Test
+    void reopenAsReturn_ThrowsWhenExchangeCancellationBlocked() {
+        TrackParcel parcel = buildParcel(24L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(951L);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+
+        when(repository.findById(951L)).thenReturn(Optional.of(request));
+        when(orderExchangeService.findLatestExchangeAndEnsureTrackNotProvided(request))
+                .thenThrow(new IllegalStateException("Невозможно отменить обмен: магазин уже указал трек"));
+
+        assertThatThrownBy(() -> service.reopenAsReturn(951L, 24L, user))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("магазин уже указал трек");
+        verify(orderExchangeService, never()).cancelExchangeParcel(request);
+        verify(repository, never()).save(any());
+        verifyNoInteractions(episodeLifecycleService);
     }
 
     private TrackParcel buildParcel(Long id, GlobalStatus status) {

@@ -583,7 +583,8 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 "REV-001",
                 true,
-                true
+                true,
+                null
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -693,6 +694,47 @@ class BuyerTelegramBotTest {
                 "Клавиатура после возврата должна снова содержать список заявок");
     }
 
+    @Test
+    void shouldShowExchangeCancellationWarningInDetails() throws Exception {
+        Long chatId = 5555L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        ActionRequiredReturnRequestDto exchangeRequest = new ActionRequiredReturnRequestDto(
+                42L,
+                24L,
+                "TRK-EX",
+                "Store",
+                "Доставлена",
+                OrderReturnRequestStatus.EXCHANGE_APPROVED,
+                OrderReturnRequestStatus.EXCHANGE_APPROVED.getDisplayName(),
+                "01.03.2025",
+                "28.02.2025",
+                "Размер не подошёл",
+                "Комментарий",
+                null,
+                false,
+                false,
+                "Невозможно отменить: магазин уже указал трек"
+        );
+
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenReturn(List.of(exchangeRequest))
+                .thenReturn(List.of(exchangeRequest));
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:select:42:24"));
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(editCaptor.capture());
+        String messageText = editCaptor.getValue().getText();
+        assertTrue(messageText.contains("Невозможно отменить: магазин уже указал трек"),
+                "Подробности заявки должны содержать предупреждение об отмене обмена");
+    }
+
     /**
      * Проверяет, что после возврата в меню бот сбрасывает выбор заявки
      * и повторно показывает список без сохранённого контекста.
@@ -718,7 +760,8 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 "REV-RESET",
                 true,
-                true
+                true,
+                null
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -799,7 +842,8 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 "REV-EX",
                 false,
-                true
+                true,
+                null
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -817,6 +861,160 @@ class BuyerTelegramBotTest {
         EditMessageText editMessage = editCaptor.getValue();
         assertTrue(editMessage.getText().contains("Текущая заявка на обмен"),
                 "Заголовок выбранной заявки должен отображать оформление обмена");
+    }
+
+    /**
+     * Убеждаемся, что при наличии предупреждения кнопка отмены обмена скрывается из меню.
+     */
+    @Test
+    void shouldHideCancelExchangeButtonWhenWarningPresent() throws Exception {
+        Long chatId = 6790L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        ActionRequiredReturnRequestDto exchangeRequest = new ActionRequiredReturnRequestDto(
+                7L,
+                9L,
+                "EX-TRK-2",
+                "Store",
+                "Доставлена",
+                OrderReturnRequestStatus.EXCHANGE_APPROVED,
+                OrderReturnRequestStatus.EXCHANGE_APPROVED.getDisplayName(),
+                "11.11.2024",
+                "10.11.2024",
+                "Обмен",
+                "Комментарий",
+                "REV-EX",
+                false,
+                true,
+                "Невозможно отменить: магазин уже указал трек"
+        );
+
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenReturn(List.of(exchangeRequest))
+                .thenReturn(List.of(exchangeRequest));
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:select:7:9"));
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(editCaptor.capture());
+        InlineKeyboardMarkup markup = editCaptor.getValue().getReplyMarkup();
+
+        boolean hasCancel = markup.getKeyboard().stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .map(InlineKeyboardButton::getCallbackData)
+                .filter(Objects::nonNull)
+                .anyMatch(callback -> callback.startsWith("returns:active:cancel_exchange:"));
+        assertFalse(hasCancel, "Кнопка отмены обмена должна отсутствовать при наличии предупреждения");
+
+        boolean hasConvert = markup.getKeyboard().stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .map(InlineKeyboardButton::getCallbackData)
+                .filter(Objects::nonNull)
+                .anyMatch(callback -> callback.startsWith("returns:active:convert:"));
+        assertTrue(hasConvert, "Кнопка перевода в возврат должна оставаться доступной");
+    }
+
+    /**
+     * Проверяет, что бот повторно отрисовывает карточку заявки без отправки нового сообщения,
+     * если магазин уже указал трек обменной посылки.
+     */
+    @Test
+    void shouldRefreshInlineMenuWhenExchangeCancellationBlocked() throws Exception {
+        Long chatId = 6791L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        String warningMessage = "Невозможно отменить обмен: трек уже указан";
+
+        ActionRequiredReturnRequestDto initialDto = new ActionRequiredReturnRequestDto(
+                12L,
+                34L,
+                "EX-TRK-3",
+                "Store",
+                "Доставлена",
+                OrderReturnRequestStatus.EXCHANGE_APPROVED,
+                OrderReturnRequestStatus.EXCHANGE_APPROVED.getDisplayName(),
+                "11.11.2024",
+                "10.11.2024",
+                "Обмен",
+                "Комментарий",
+                "REV-EX",
+                false,
+                true,
+                null
+        );
+
+        ActionRequiredReturnRequestDto updatedDto = new ActionRequiredReturnRequestDto(
+                12L,
+                34L,
+                "EX-TRK-3",
+                "Store",
+                "Доставлена",
+                OrderReturnRequestStatus.EXCHANGE_APPROVED,
+                OrderReturnRequestStatus.EXCHANGE_APPROVED.getDisplayName(),
+                "11.11.2024",
+                "10.11.2024",
+                "Обмен",
+                "Комментарий",
+                "REV-EX",
+                false,
+                true,
+                warningMessage
+        );
+
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenReturn(List.of(initialDto))
+                .thenReturn(List.of(initialDto))
+                .thenReturn(List.of(updatedDto));
+
+        doThrow(new IllegalStateException(warningMessage))
+                .when(telegramService)
+                .cancelExchangeFromTelegram(chatId, 34L, 12L);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:select:12:34"));
+
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:cancel_exchange:12:34"));
+
+        verify(telegramClient, never()).execute(isA(SendMessage.class));
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient, atLeastOnce()).execute(editCaptor.capture());
+        EditMessageText editMessage = editCaptor.getAllValues().get(editCaptor.getAllValues().size() - 1);
+
+        assertNotNull(editMessage.getText(), "Сообщение должно содержать текст с предупреждением");
+        assertTrue(editMessage.getText().contains(warningMessage),
+                "Текст должен включать причину блокировки отмены обмена");
+
+        InlineKeyboardMarkup markup = editMessage.getReplyMarkup();
+        assertNotNull(markup, "Инлайн-клавиатура должна быть переиспользована");
+
+        boolean hasCancel = markup.getKeyboard().stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .map(InlineKeyboardButton::getCallbackData)
+                .filter(Objects::nonNull)
+                .anyMatch(callback -> callback.startsWith("returns:active:cancel_exchange:"));
+        assertFalse(hasCancel, "После появления трека кнопка отмены обмена должна исчезнуть");
+
+        ArgumentCaptor<AnswerCallbackQuery> answerCaptor = ArgumentCaptor.forClass(AnswerCallbackQuery.class);
+        verify(telegramClient, atLeastOnce()).execute(answerCaptor.capture());
+        AnswerCallbackQuery answer = answerCaptor.getAllValues().get(answerCaptor.getAllValues().size() - 1);
+        assertEquals(warningMessage, answer.getText(),
+                "Ответ на callback обязан содержать причину отказа без отправки нового сообщения");
     }
 
     /**
@@ -843,7 +1041,8 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 "REV",
                 true,
-                true
+                true,
+                null
         );
         when(telegramService.getReturnRequestsRequiringAction(chatId))
                 .thenReturn(List.of(requestDto))
@@ -888,7 +1087,8 @@ class BuyerTelegramBotTest {
                 null,
                 null,
                 false,
-                true
+                true,
+                null
         );
         when(telegramService.getReturnRequestsRequiringAction(chatId))
                 .thenReturn(List.of(requestDto))
@@ -966,7 +1166,8 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 "REV-ERR",
                 true,
-                true
+                true,
+                null
         );
         when(telegramService.getReturnRequestsRequiringAction(chatId))
                 .thenReturn(List.of(requestDto));

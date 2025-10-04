@@ -319,6 +319,10 @@
                                                             Закрыть без обмена
                                                         </button>
                                                     </div>
+                                                    <div th:if="${request.exchangeCancellationMessage != null}"
+                                                         class="alert alert-warning mt-2 mb-0 py-2 px-3 text-start"
+                                                         role="alert"
+                                                         th:text="${request.exchangeCancellationMessage}"></div>
                                                 </td>
                                             </tr>
                                             </tbody>

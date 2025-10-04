@@ -226,6 +226,12 @@ public class OrderReturnRequestService {
         if (request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
             throw new IllegalStateException("Обмен ещё не запущен или заявка уже закрыта");
         }
+        try {
+            orderExchangeService.findLatestExchangeAndEnsureTrackNotProvided(request);
+        } catch (IllegalStateException ex) {
+            log.warn("Отмена обмена по заявке {} недоступна: {}", request.getId(), ex.getMessage());
+            throw ex;
+        }
         request.setStatus(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
         request.setClosedBy(user);
         request.setClosedAt(ZonedDateTime.now(ZoneOffset.UTC));
@@ -244,6 +250,12 @@ public class OrderReturnRequestService {
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
         if (request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
             throw new IllegalStateException("Заявка не находится в статусе обмена");
+        }
+        try {
+            orderExchangeService.findLatestExchangeAndEnsureTrackNotProvided(request);
+        } catch (IllegalStateException ex) {
+            log.warn("Перевод обмена в возврат по заявке {} недоступен: {}", request.getId(), ex.getMessage());
+            throw ex;
         }
         request.setStatus(OrderReturnRequestStatus.REGISTERED);
         request.setDecisionBy(null);

@@ -124,4 +124,44 @@ class OrderExchangeServiceTest {
         assertThat(replacement.getNumber()).startsWith("SRV-");
         verify(trackParcelRepository).save(replacement);
     }
+
+    @Test
+    void findLatestExchangeAndEnsureTrackNotProvided_ReturnsParcelWhenTrackMissing() {
+        TrackParcel original = new TrackParcel();
+        original.setId(60L);
+
+        TrackParcel replacement = new TrackParcel();
+        replacement.setId(61L);
+        replacement.setReplacementOf(original);
+
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(70L);
+        request.setParcel(original);
+
+        when(trackParcelRepository.findTopByReplacementOfOrderByTimestampDesc(original)).thenReturn(replacement);
+
+        TrackParcel result = service.findLatestExchangeAndEnsureTrackNotProvided(request);
+
+        assertThat(result).isSameAs(replacement);
+    }
+
+    @Test
+    void findLatestExchangeAndEnsureTrackNotProvided_ThrowsWhenTrackPresent() {
+        TrackParcel original = new TrackParcel();
+        original.setId(80L);
+
+        TrackParcel replacement = new TrackParcel();
+        replacement.setId(81L);
+        replacement.setReplacementOf(original);
+        replacement.setNumber("AB123");
+
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(90L);
+        request.setParcel(original);
+
+        when(trackParcelRepository.findTopByReplacementOfOrderByTimestampDesc(original)).thenReturn(replacement);
+        assertThatThrownBy(() -> service.findLatestExchangeAndEnsureTrackNotProvided(request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("магазин уже указал трек");
+    }
 }

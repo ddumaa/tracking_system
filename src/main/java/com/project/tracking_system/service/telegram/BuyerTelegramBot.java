@@ -1194,7 +1194,14 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         String reverse = escapeMarkdown(request.reverseTrackNumber() == null || request.reverseTrackNumber().isBlank()
                 ? PARCEL_RETURN_NO_TRACK
                 : request.reverseTrackNumber());
-        return String.format(RETURNS_ACTIVE_DETAILS_TEMPLATE, track, store, status, date, reason, comment, reverse);
+        StringBuilder details = new StringBuilder(String.format(RETURNS_ACTIVE_DETAILS_TEMPLATE,
+                track, store, status, date, reason, comment, reverse));
+        String exchangeWarning = request.exchangeCancellationMessage();
+        if (exchangeWarning != null && !exchangeWarning.isBlank()) {
+            details.append(System.lineSeparator())
+                    .append(escapeMarkdown(exchangeWarning));
+        }
+        return details.toString();
     }
 
     /**
@@ -1261,10 +1268,14 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 .callbackData(CALLBACK_RETURNS_ACTIVE_COMMENT_PREFIX + requestId + ':' + parcelId)
                 .build()));
         if (request.status() == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
-            rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
-                    .text(BUTTON_RETURNS_ACTION_CANCEL_EXCHANGE)
-                    .callbackData(CALLBACK_RETURNS_ACTIVE_CANCEL_EXCHANGE_PREFIX + requestId + ':' + parcelId)
-                    .build()));
+            boolean cancellationBlocked = request.exchangeCancellationMessage() != null
+                    && !request.exchangeCancellationMessage().isBlank();
+            if (!cancellationBlocked) {
+                rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
+                        .text(BUTTON_RETURNS_ACTION_CANCEL_EXCHANGE)
+                        .callbackData(CALLBACK_RETURNS_ACTIVE_CANCEL_EXCHANGE_PREFIX + requestId + ':' + parcelId)
+                        .build()));
+            }
             rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
                     .text(BUTTON_RETURNS_ACTION_CONVERT)
                     .callbackData(CALLBACK_RETURNS_ACTIVE_CONVERT_PREFIX + requestId + ':' + parcelId)
@@ -1946,6 +1957,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
     }
 
+    /**
+     * Обрабатывает попытку отмены обмена и обновляет экран активных заявок без отправки новых сообщений.
+     * <p>
+     * Если обмен нельзя отменить из-за появившегося трека, бот повторно рисует инлайн-меню
+     * с предупреждением и удаляет кнопку отмены, чтобы пользователь оставался в текущем контексте.
+     * </p>
+     */
     private void handleActiveRequestCancelExchange(Long chatId, CallbackQuery callbackQuery, String data) {
         Optional<RequestActionContext> contextOptional = parseActionContext(data, CALLBACK_RETURNS_ACTIVE_CANCEL_EXCHANGE_PREFIX);
         if (contextOptional.isEmpty()) {
@@ -1953,20 +1971,33 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
         RequestActionContext context = contextOptional.get();
-        answerCallbackQuery(callbackQuery, "Отменяем обмен");
         ChatSession session = ensureChatSession(chatId);
+        String callbackResponse = "Отменяем обмен";
         try {
             telegramService.cancelExchangeFromTelegram(chatId, context.parcelId(), context.requestId());
             finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_CANCEL_EXCHANGE_SUCCESS);
+            callbackResponse = RETURNS_ACTIVE_CANCEL_EXCHANGE_SUCCESS;
         } catch (AccessDeniedException ex) {
             log.warn("⚠️ Попытка отменить чужой обмен {} в чате {}", context.requestId(), chatId);
             finalizeRequestUpdate(chatId, session, PARCEL_RETURN_ACCESS_DENIED);
-        } catch (IllegalArgumentException | IllegalStateException ex) {
+            callbackResponse = PARCEL_RETURN_ACCESS_DENIED;
+        } catch (IllegalStateException ex) {
+            log.warn("⚠️ Отмена обмена {} недоступна: {}", context.requestId(), ex.getMessage());
+            String warningMessage = ex.getMessage();
+            sendActiveReturnRequestsScreen(chatId);
+            callbackResponse = warningMessage == null || warningMessage.isBlank()
+                    ? RETURNS_ACTIVE_ACTION_FAILED
+                    : warningMessage;
+        } catch (IllegalArgumentException ex) {
             log.warn("⚠️ Ошибка отмены обмена {}: {}", context.requestId(), ex.getMessage());
             finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_FAILED);
+            callbackResponse = RETURNS_ACTIVE_ACTION_FAILED;
         } catch (Exception ex) {
             log.error("❌ Не удалось отменить обмен {}", context.requestId(), ex);
             finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_FAILED);
+            callbackResponse = RETURNS_ACTIVE_ACTION_FAILED;
+        } finally {
+            answerCallbackQuery(callbackQuery, callbackResponse);
         }
     }
 

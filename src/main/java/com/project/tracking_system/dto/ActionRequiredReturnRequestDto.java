@@ -23,6 +23,7 @@ import com.project.tracking_system.entity.OrderReturnRequestStatus;
  * @param reverseTrackNumber        трек обратной отправки, если указан
  * @param canStartExchange          признак доступности запуска обмена
  * @param canCloseWithoutExchange   признак доступности закрытия без обмена
+ * @param exchangeCancellationMessage пояснение, почему отмена обмена недоступна, если применимо
  */
 public record ActionRequiredReturnRequestDto(Long requestId,
                                              Long parcelId,
@@ -37,5 +38,6 @@ public record ActionRequiredReturnRequestDto(Long requestId,
                                              String comment,
                                              String reverseTrackNumber,
                                              boolean canStartExchange,
-                                             boolean canCloseWithoutExchange) {
+                                             boolean canCloseWithoutExchange,
+                                             String exchangeCancellationMessage) {
 }

@@ -780,6 +780,15 @@
 
         parcelCard.body.appendChild(parcelHeader);
 
+        const exchangeCancellationMessage = returnRequest?.exchangeCancellationMessage;
+        if (exchangeCancellationMessage) {
+            const warning = document.createElement('div');
+            warning.className = 'alert alert-warning d-flex align-items-center gap-2 mt-3 mb-0';
+            warning.setAttribute('role', 'alert');
+            warning.textContent = exchangeCancellationMessage;
+            parcelCard.body.appendChild(warning);
+        }
+
         const chainNav = createChainNavigation(
             Array.isArray(data?.chain) ? data.chain : [],
             (item) => {

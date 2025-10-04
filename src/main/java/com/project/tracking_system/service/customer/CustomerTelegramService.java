@@ -12,6 +12,7 @@ import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.OrderReturnRequestRepository;
 import com.project.tracking_system.service.order.ExchangeApprovalResult;
+import com.project.tracking_system.service.order.OrderExchangeService;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
 import com.project.tracking_system.service.telegram.FullNameValidator;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
@@ -52,6 +53,7 @@ public class CustomerTelegramService {
     private final FullNameValidator fullNameValidator;
     private final OrderReturnRequestRepository returnRequestRepository;
     private final OrderReturnRequestService orderReturnRequestService;
+    private final OrderExchangeService orderExchangeService;
 
     /**
      * Формат для отображения дат заявок пользователю в Telegram.
@@ -610,6 +612,7 @@ public class CustomerTelegramService {
         boolean canStartExchange = orderReturnRequestService.canStartExchange(request);
         boolean canCloseWithoutExchange = status == OrderReturnRequestStatus.REGISTERED;
 
+        String exchangeCancellationMessage = resolveExchangeCancellationMessage(request);
         return new ActionRequiredReturnRequestDto(
                 request.getId(),
                 parcelId,
@@ -624,8 +627,27 @@ public class CustomerTelegramService {
                 request.getComment(),
                 request.getReverseTrackNumber(),
                 canStartExchange,
-                canCloseWithoutExchange
+                canCloseWithoutExchange,
+                exchangeCancellationMessage
         );
+    }
+
+    /**
+     * Формирует сообщение для Telegram о невозможности отмены обмена, если магазин указал трек.
+     */
+    private String resolveExchangeCancellationMessage(OrderReturnRequest request) {
+        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            return null;
+        }
+        try {
+            orderExchangeService.findLatestExchangeAndEnsureTrackNotProvided(request);
+            return null;
+        } catch (IllegalStateException ex) {
+            return ex.getMessage();
+        } catch (IllegalArgumentException ex) {
+            log.debug("Не удалось определить отмену обмена для заявки {}: {}", request.getId(), ex.getMessage());
+            return null;
+        }
     }
 
     /**

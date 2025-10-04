@@ -12,6 +12,7 @@ import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.TrackStatusEvent;
+import com.project.tracking_system.service.order.OrderExchangeService;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
 import com.project.tracking_system.service.admin.ApplicationSettingsService;
 import com.project.tracking_system.service.user.UserService;
@@ -51,6 +52,7 @@ public class TrackViewService {
     private final UserService userService;
     private final ApplicationSettingsService applicationSettingsService;
     private final OrderReturnRequestService orderReturnRequestService;
+    private final OrderExchangeService orderExchangeService;
 
     /**
      * Возвращает DTO с данными о посылке для текущего пользователя.
@@ -128,6 +130,7 @@ public class TrackViewService {
     private OrderReturnRequestDto mapReturnRequest(OrderReturnRequest request, ZoneId userZone) {
         boolean canStartExchange = orderReturnRequestService.canStartExchange(request);
         boolean canCloseWithoutExchange = request.getStatus() == OrderReturnRequestStatus.REGISTERED;
+        String exchangeCancellationMessage = resolveExchangeCancellationMessage(request);
         return new OrderReturnRequestDto(
                 request.getId(),
                 request.getStatus().getDisplayName(),
@@ -141,8 +144,30 @@ public class TrackViewService {
                 request.requiresAction(),
                 request.isExchangeApproved(),
                 canStartExchange,
-                canCloseWithoutExchange
+                canCloseWithoutExchange,
+                exchangeCancellationMessage
         );
+    }
+
+    /**
+     * Определяет сообщение о недоступности отмены обмена, если магазин уже указал трек.
+     *
+     * @param request заявка, для которой отображаются детали
+     * @return текст предупреждения или {@code null}, если отмена доступна
+     */
+    private String resolveExchangeCancellationMessage(OrderReturnRequest request) {
+        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            return null;
+        }
+        try {
+            orderExchangeService.findLatestExchangeAndEnsureTrackNotProvided(request);
+            return null;
+        } catch (IllegalStateException ex) {
+            return ex.getMessage();
+        } catch (IllegalArgumentException ex) {
+            log.debug("Не удалось определить отмену обмена для заявки {}: {}", request.getId(), ex.getMessage());
+            return null;
+        }
     }
 
     /**

@@ -37,6 +37,36 @@ public class OrderExchangeService {
     private final OrderEpisodeLifecycleService episodeLifecycleService;
 
     /**
+     * Возвращает последнюю обменную посылку и убеждается, что магазин не указал реальный трек.
+     * <p>
+     * Метод используется перед отменой обмена, чтобы избежать ситуации, когда
+     * покупателю уже отправили товар повторно и у посылки появился настоящий трек.
+     * В таком случае мы прерываем сценарий и позволяем клиенту увидеть понятное
+     * сообщение, почему отмена недоступна.
+     * </p>
+     *
+     * @param request заявка, по которой ранее запускался обмен
+     * @return найденная обменная посылка или {@code null}, если обмен не создавался
+     */
+    @Transactional(readOnly = true)
+    public TrackParcel findLatestExchangeAndEnsureTrackNotProvided(OrderReturnRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Не передана заявка на обмен");
+        }
+        TrackParcel originalParcel = Optional.ofNullable(request.getParcel())
+                .orElseThrow(() -> new IllegalArgumentException("Заявка не содержит исходную посылку"));
+
+        TrackParcel replacement = trackParcelRepository.findTopByReplacementOfOrderByTimestampDesc(originalParcel);
+        if (replacement != null) {
+            String trackNumber = replacement.getNumber();
+            if (trackNumber != null && !trackNumber.isBlank()) {
+                throw new IllegalStateException("Невозможно отменить обмен: магазин уже указал трек");
+            }
+        }
+        return replacement;
+    }
+
+    /**
      * Создаёт посылку-обмен на основании заявки.
      * <p>
      * Метод проверяет корректность входных данных, копирует магазин,
@@ -108,11 +138,13 @@ public class OrderExchangeService {
         if (request == null) {
             return;
         }
-        TrackParcel originalParcel = request.getParcel();
-        if (originalParcel == null) {
+        TrackParcel replacement;
+        try {
+            replacement = findLatestExchangeAndEnsureTrackNotProvided(request);
+        } catch (IllegalArgumentException ex) {
+            log.warn("Не удалось отменить обмен: {}", ex.getMessage());
             return;
         }
-        TrackParcel replacement = trackParcelRepository.findTopByReplacementOfOrderByTimestampDesc(originalParcel);
         if (replacement == null) {
             return;
         }

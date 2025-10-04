@@ -137,7 +137,7 @@ describe('track-modal render', () => {
         expect(buttons[0].getAttribute('aria-current')).toBe('true');
     });
 
-    test('shows register button when return can be created', () => {
+    test('shows registration form when return can be created', () => {
         setupDom();
         const data = {
             id: 7,
@@ -161,8 +161,54 @@ describe('track-modal render', () => {
 
         global.window.trackModal.render(data);
 
-        const button = document.querySelector('button.btn-outline-warning');
-        expect(button).not.toBeNull();
-        expect(button?.textContent).toContain('Зарегистрировать возврат');
+        const form = document.querySelector('form');
+        expect(form).not.toBeNull();
+        const submitButton = form?.querySelector('button.btn.btn-warning');
+        expect(submitButton).not.toBeNull();
+        expect(submitButton?.textContent).toContain('Отправить заявку');
+    });
+
+    test('shows exchange cancellation warning when message provided', () => {
+        setupDom();
+        const data = {
+            id: 55,
+            number: 'BY555555555BY',
+            deliveryService: 'Belpost',
+            systemStatus: 'В пути',
+            history: [],
+            refreshAllowed: false,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: 12,
+            exchange: true,
+            chain: [
+                { id: 55, number: 'BY555555555BY', exchange: true, current: true }
+            ],
+            returnRequest: {
+                id: 700,
+                status: 'Обмен одобрен',
+                reason: 'Не подошёл размер',
+                comment: null,
+                requestedAt: null,
+                createdAt: null,
+                decisionAt: null,
+                closedAt: null,
+                reverseTrackNumber: null,
+                requiresAction: true,
+                exchangeApproved: true,
+                canStartExchange: false,
+                canCloseWithoutExchange: false,
+                exchangeCancellationMessage: 'Магазин уже отправил обменную посылку'
+            },
+            canRegisterReturn: false,
+            requiresAction: true
+        };
+
+        global.window.trackModal.render(data);
+
+        const warning = document.querySelector('.alert.alert-warning');
+        expect(warning).not.toBeNull();
+        expect(warning?.textContent).toContain('Магазин уже отправил обменную посылку');
     });
 });

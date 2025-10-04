@@ -16,6 +16,7 @@ import com.project.tracking_system.service.track.TrackFacade;
 
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.UserService;
+import com.project.tracking_system.service.order.OrderExchangeService;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -66,6 +67,7 @@ public class DeparturesController {
     private final WebSocketController webSocketController;
     private final UserService userService;
     private final OrderReturnRequestService orderReturnRequestService;
+    private final OrderExchangeService orderExchangeService;
 
     /**
      * Максимальное количество ссылок пагинации, отображаемых одновременно.
@@ -373,6 +375,7 @@ public class DeparturesController {
         boolean canStartExchange = orderReturnRequestService.canStartExchange(request);
         boolean canCloseWithoutExchange = status == OrderReturnRequestStatus.REGISTERED;
 
+        String exchangeCancellationMessage = resolveExchangeCancellationMessage(request);
         return new ActionRequiredReturnRequestDto(
                 request.getId(),
                 parcelId,
@@ -387,8 +390,27 @@ public class DeparturesController {
                 request.getComment(),
                 request.getReverseTrackNumber(),
                 canStartExchange,
-                canCloseWithoutExchange
+                canCloseWithoutExchange,
+                exchangeCancellationMessage
         );
+    }
+
+    /**
+     * Определяет предупреждение об отмене обмена для отображения в таблице заявок.
+     */
+    private String resolveExchangeCancellationMessage(OrderReturnRequest request) {
+        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            return null;
+        }
+        try {
+            orderExchangeService.findLatestExchangeAndEnsureTrackNotProvided(request);
+            return null;
+        } catch (IllegalStateException ex) {
+            return ex.getMessage();
+        } catch (IllegalArgumentException ex) {
+            log.debug("Не удалось определить отмену обмена для заявки {}: {}", request.getId(), ex.getMessage());
+            return null;
+        }
     }
 
     /**
