@@ -3975,6 +3975,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      */
     /**
      * Сбрасывает временные данные сценария возврата при возврате в меню.
+     * <p>
+     * Метод дополнительно очищает контекст выбранной активной заявки, даже если
+     * временные поля оформления уже пусты, чтобы при повторном входе пользователь
+     * снова видел список заявок без сохранённого выбора.
+     * </p>
      *
      * @param chatId идентификатор чата Telegram
      */
@@ -3983,9 +3988,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (session == null) {
             return;
         }
-        if (session.getReturnParcelId() == null
-                && session.getReturnReason() == null
-                && session.getReturnIdempotencyKey() == null) {
+        boolean hasTemporaryContext = session.getReturnParcelId() != null
+                || session.getReturnReason() != null
+                || session.getReturnIdempotencyKey() != null;
+        boolean hasActiveRequestContext = session.getActiveReturnRequestId() != null
+                || session.getReturnRequestEditMode() != null;
+        if (!hasTemporaryContext && !hasActiveRequestContext) {
             return;
         }
         session.clearReturnRequestData();

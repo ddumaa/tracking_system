@@ -654,6 +654,88 @@ class BuyerTelegramBotTest {
     }
 
     /**
+     * Проверяет, что после возврата в меню бот сбрасывает выбор заявки
+     * и повторно показывает список без сохранённого контекста.
+     */
+    @Test
+    void shouldResetActiveRequestSelectionAfterReturningToMenu() throws Exception {
+        Long chatId = 9872L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        ActionRequiredReturnRequestDto requestDto = new ActionRequiredReturnRequestDto(
+                11L,
+                22L,
+                "TRK-RESET",
+                "Store A",
+                "Получена",
+                OrderReturnRequestStatus.REGISTERED,
+                OrderReturnRequestStatus.REGISTERED.getDisplayName(),
+                "12.12.2024",
+                "11.12.2024",
+                "Причина",
+                "Комментарий",
+                "REV-RESET",
+                true,
+                true
+        );
+
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenReturn(List.of(requestDto))
+                .thenReturn(List.of(requestDto))
+                .thenReturn(List.of(requestDto));
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:select:11:22"));
+
+        ChatSession sessionAfterSelection = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("После выбора заявки должна существовать сессия"));
+        assertEquals(requestDto.requestId(), sessionAfterSelection.getActiveReturnRequestId(),
+                "Выбранная заявка обязана сохраняться в сессии до выхода");
+
+        bot.consume(mockTextUpdate(chatId, MENU_BUTTON_TEXT));
+
+        ChatSession sessionAfterMenu = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("Состояние должно сохраняться после возврата в меню"));
+        assertNull(sessionAfterMenu.getActiveReturnRequestId(),
+                "После возврата в меню активная заявка должна сбрасываться");
+        assertNull(sessionAfterMenu.getReturnRequestEditMode(),
+                "Возврат в меню обязан очищать ожидаемый режим редактирования");
+
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient, atLeastOnce()).execute(editCaptor.capture());
+
+        assertFalse(editCaptor.getAllValues().isEmpty(),
+                "Повторное открытие раздела должно обновлять якорное сообщение");
+        EditMessageText lastEdit = editCaptor.getAllValues()
+                .get(editCaptor.getAllValues().size() - 1);
+        String text = lastEdit.getText();
+        assertNotNull(text, "Повторное открытие должно сопровождаться текстом");
+        assertTrue(text.contains("Выберите заявку"),
+                "После сброса контекста бот обязан снова предложить выбрать заявку");
+        assertFalse(text.contains("Текущая заявка"),
+                "Повторное открытие не должно показывать подробности предыдущего выбора");
+
+        InlineKeyboardMarkup markup = lastEdit.getReplyMarkup();
+        assertNotNull(markup, "Экран списка должен сопровождаться клавиатурой");
+        boolean hasSelectionButtons = markup.getKeyboard().stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .anyMatch(button -> {
+                    String callback = button.getCallbackData();
+                    return callback != null && callback.startsWith("returns:active:select:");
+                });
+        assertTrue(hasSelectionButtons,
+                "После возврата в меню клавиатура должна снова содержать кнопки выбора заявок");
+    }
+
+    /**
      * Проверяет, что при выборе заявки с одобренным обменом в тексте отображается корректный заголовок.
      */
     @Test
