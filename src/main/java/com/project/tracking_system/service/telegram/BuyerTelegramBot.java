@@ -1102,6 +1102,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         List<ActionRequiredReturnRequestDto> requests = telegramService.getReturnRequestsRequiringAction(chatId);
         ChatSession session = ensureChatSession(chatId);
+        session.setNavigationPath(navigationPath);
+        session.setLastScreen(BuyerBotScreen.RETURNS_ACTIVE_REQUESTS);
         ActionRequiredReturnRequestDto selected = resolveSelectedRequest(session, requests);
 
         InlineKeyboardMarkup markup = buildActiveRequestsKeyboard(requests, selected, navigationPath);
