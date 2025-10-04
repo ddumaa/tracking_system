@@ -1081,16 +1081,24 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     /**
      * Отображает экран с активными заявками возврата или обмена.
      * <p>
-     * Если чат ещё не привязан к покупателю, бот сообщает об этом и повторно
-     * отправляет запрос на номер телефона, не обращаясь к сервису за данными.
+     * Метод обновляет навигационный путь в сессии, гарантируя наличие шага «Возвраты и обмены»,
+     * благодаря чему кнопка «⬅️ Назад» всегда ведёт в меню возвратов. Если чат ещё не привязан к
+     * покупателю, бот сообщает об этом и повторно отправляет запрос на номер телефона, не обращаясь
+     * к сервису за данными.
      * </p>
      *
      * @param chatId идентификатор чата Telegram
      */
     private void sendActiveReturnRequestsScreen(Long chatId) {
-        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_ACTIVE_REQUESTS);
+        ChatSession session = ensureChatSession(chatId);
+        session.updateNavigationForScreen(BuyerBotScreen.RETURNS_ACTIVE_REQUESTS, false);
+        List<BuyerBotScreen> navigationPath = session.getNavigationPath();
 
-        if (telegramService.findByChatId(chatId).isEmpty()) {
+        boolean customerMissing = telegramService.findByChatId(chatId).isEmpty();
+        if (customerMissing) {
+            session.setState(BuyerChatState.IDLE);
+            chatSessionRepository.save(session);
+
             InlineKeyboardMarkup markup = buildNavigationKeyboard(navigationPath);
             String text = escapeMarkdown(RETURNS_ACTIVE_TITLE)
                     + "\n\n"
@@ -1101,17 +1109,15 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         List<ActionRequiredReturnRequestDto> requests = telegramService.getReturnRequestsRequiringAction(chatId);
-        ChatSession session = ensureChatSession(chatId);
-        session.setNavigationPath(navigationPath);
-        session.setLastScreen(BuyerBotScreen.RETURNS_ACTIVE_REQUESTS);
         ActionRequiredReturnRequestDto selected = resolveSelectedRequest(session, requests);
+
+        session.setState(BuyerChatState.AWAITING_ACTIVE_REQUEST_SELECTION);
+        chatSessionRepository.save(session);
 
         InlineKeyboardMarkup markup = buildActiveRequestsKeyboard(requests, selected, navigationPath);
         String text = buildActiveReturnRequestsMessage(requests, selected);
         sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_ACTIVE_REQUESTS, navigationPath);
 
-        session.setState(BuyerChatState.AWAITING_ACTIVE_REQUEST_SELECTION);
-        chatSessionRepository.save(session);
         transitionToState(chatId, BuyerChatState.AWAITING_ACTIVE_REQUEST_SELECTION);
     }
 
