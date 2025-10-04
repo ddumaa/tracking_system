@@ -73,6 +73,7 @@ class BuyerTelegramBotTest {
     private static final String MENU_BUTTON_TEXT = "🏠 Меню";
     private static final String BACK_BUTTON_TEXT = "⬅️ Назад";
     private static final String ACTIVE_BACK_TO_LIST_TEXT = "↩️ Вернуться к списку";
+    private static final String NAVIGATE_BACK_CALLBACK = "nav:back";
     private static final String OUTCOME_OK_TEXT = "Ок";
     private static final String OUTCOME_BACK_TEXT = "Назад";
 
@@ -631,6 +632,8 @@ class BuyerTelegramBotTest {
         List<InlineKeyboardButton> navigationRow = keyboard.get(keyboard.size() - 1);
         assertTrue(navigationRow.stream().anyMatch(button -> BACK_BUTTON_TEXT.equals(button.getText())),
                 "Последняя строка клавиатуры должна оставаться навигационной");
+        assertTrue(navigationRow.stream().anyMatch(button -> MENU_BUTTON_TEXT.equals(button.getText())),
+                "Навигационная строка обязана содержать кнопку перехода в меню");
 
         boolean hasTrackAction = keyboard.stream()
                 .filter(Objects::nonNull)
@@ -651,6 +654,34 @@ class BuyerTelegramBotTest {
         assertTrue(hasTrackAction, "Клавиатура должна содержать действие обновления трека");
         assertTrue(hasCommentAction, "Клавиатура должна содержать действие обновления комментария");
         assertTrue(hasCancelAction, "Клавиатура должна содержать действие отмены возврата");
+
+        Integer anchorMessageId = editMessage.getMessageId();
+        assertNotNull(anchorMessageId,
+                "Обновление сообщения после выбора заявки должно указывать идентификатор сообщения");
+
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, NAVIGATE_BACK_CALLBACK, anchorMessageId));
+
+        ArgumentCaptor<EditMessageText> backCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(backCaptor.capture());
+
+        EditMessageText backMessage = backCaptor.getValue();
+        assertTrue(backMessage.getText().contains("Выберите заявку"),
+                "После нажатия «Назад» бот обязан показать список заявок");
+
+        InlineKeyboardMarkup backMarkup = backMessage.getReplyMarkup();
+        assertNotNull(backMarkup, "Список заявок должен сопровождаться инлайн-клавиатурой");
+        boolean hasSelectionButtonsAfterBack = backMarkup.getKeyboard().stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .anyMatch(button -> {
+                    String callback = button.getCallbackData();
+                    return callback != null && callback.startsWith("returns:active:select:");
+                });
+        assertTrue(hasSelectionButtonsAfterBack,
+                "Клавиатура после возврата должна снова содержать список заявок");
     }
 
     /**

@@ -1216,18 +1216,20 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         List<InlineKeyboardRow> rows = new ArrayList<>();
         boolean hasRequests = requests != null && !requests.isEmpty();
 
-        if (hasRequests && selected == null) {
-            for (ActionRequiredReturnRequestDto request : requests) {
-                if (request == null || request.requestId() == null || request.parcelId() == null) {
-                    continue;
+        if (selected == null) {
+            if (hasRequests) {
+                for (ActionRequiredReturnRequestDto request : requests) {
+                    if (request == null || request.requestId() == null || request.parcelId() == null) {
+                        continue;
+                    }
+                    InlineKeyboardButton button = InlineKeyboardButton.builder()
+                            .text(buildRequestSelectionLabel(request, null))
+                            .callbackData(CALLBACK_RETURNS_ACTIVE_SELECT_PREFIX + request.requestId() + ':' + request.parcelId())
+                            .build();
+                    rows.add(new InlineKeyboardRow(button));
                 }
-                InlineKeyboardButton button = InlineKeyboardButton.builder()
-                        .text(buildRequestSelectionLabel(request, null))
-                        .callbackData(CALLBACK_RETURNS_ACTIVE_SELECT_PREFIX + request.requestId() + ':' + request.parcelId())
-                        .build();
-                rows.add(new InlineKeyboardRow(button));
             }
-        } else if (selected != null) {
+        } else {
             rows.add(buildBackToListRow());
         }
 
