@@ -597,10 +597,15 @@ class BuyerTelegramBotTest {
         ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
         verify(telegramClient).execute(editCaptor.capture());
 
-        InlineKeyboardMarkup markup = editCaptor.getValue().getReplyMarkup();
+        EditMessageText editMessage = editCaptor.getValue();
+        InlineKeyboardMarkup markup = editMessage.getReplyMarkup();
         assertNotNull(markup, "После выбора заявки должна отображаться клавиатура с действиями");
         List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
         assertFalse(keyboard.isEmpty(), "Список строк клавиатуры не должен быть пустым");
+
+        String messageText = editMessage.getText();
+        assertTrue(messageText.contains("Текущая заявка на возврат"),
+                "Заголовок выбранной заявки должен указывать на оформление возврата");
 
         InlineKeyboardButton backToList = keyboard.get(0).get(0);
         assertEquals(ACTIVE_BACK_TO_LIST_TEXT, backToList.getText(),
@@ -642,6 +647,50 @@ class BuyerTelegramBotTest {
         assertTrue(hasTrackAction, "Клавиатура должна содержать действие обновления трека");
         assertTrue(hasCommentAction, "Клавиатура должна содержать действие обновления комментария");
         assertTrue(hasCancelAction, "Клавиатура должна содержать действие отмены возврата");
+    }
+
+    /**
+     * Проверяет, что при выборе заявки с одобренным обменом в тексте отображается корректный заголовок.
+     */
+    @Test
+    void shouldShowExchangeHeaderAfterActiveExchangeSelected() throws Exception {
+        Long chatId = 6789L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        ActionRequiredReturnRequestDto exchangeRequest = new ActionRequiredReturnRequestDto(
+                5L,
+                8L,
+                "EX-TRK",
+                "Store",
+                "Доставлена",
+                OrderReturnRequestStatus.EXCHANGE_APPROVED,
+                OrderReturnRequestStatus.EXCHANGE_APPROVED.getDisplayName(),
+                "11.11.2024",
+                "10.11.2024",
+                "Обмен",
+                "Комментарий",
+                "REV-EX",
+                false,
+                true
+        );
+
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenReturn(List.of(exchangeRequest))
+                .thenReturn(List.of(exchangeRequest));
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:select:5:8"));
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(editCaptor.capture());
+
+        EditMessageText editMessage = editCaptor.getValue();
+        assertTrue(editMessage.getText().contains("Текущая заявка на обмен"),
+                "Заголовок выбранной заявки должен отображать оформление обмена");
     }
 
     /**
