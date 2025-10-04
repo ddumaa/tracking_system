@@ -135,14 +135,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String PARCEL_RETURN_ALREADY_REGISTERED_TEMPLATE =
             "ℹ️ По посылке %s уже оформлена активная заявка. Мы держим её на контроле.";
     private static final String PARCEL_RETURN_STEP_ACK = "Продолжаем оформление";
-    private static final String PARCEL_EXCHANGE_PROMPT =
-            "🔄 Подтвердите, что хотите обменять посылку %s. Напишите «Да», если обмен нужен, или «Нет», чтобы отменить.";
-    private static final String PARCEL_EXCHANGE_CONFIRMED_MESSAGE =
-            "✅ Запрос на обмен зафиксирован. Менеджер свяжется с вами для уточнения деталей.";
-    private static final String PARCEL_EXCHANGE_CANCELLED_MESSAGE =
-            "ℹ️ Обмен отменён. Если потребуется оформить его позже, выберите посылку ещё раз.";
-    private static final String PARCEL_EXCHANGE_CONFIRMATION_HINT =
-            "⚠️ Напишите «Да», если хотите обмен, или «Нет», чтобы остановиться.";
+    private static final String PARCEL_EXCHANGE_REASON_REMINDER =
+            "⚠️ Пожалуйста, выберите причину обмена с помощью кнопок ниже.";
     private static final String PARCEL_RETURN_CONTEXT_LOST =
             "⚠️ Не удалось восстановить контекст возврата. Повторите попытку через раздел \"🔁 Возвраты и обмены\" → «🆕 Создать заявку».";
     private static final DateTimeFormatter PARCEL_RETURN_DATE_FORMAT = DateTimeFormatter.ofPattern("d.MM.yyyy");
@@ -154,7 +148,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             "⚠️ Не удалось зафиксировать заявку. Попробуйте ещё раз позже или обратитесь в поддержку.";
     private static final String PARCEL_RETURN_IDEMPOTENCY_CONFLICT =
             "⚠️ Похоже, что данные заявки отличаются от предыдущих. Свяжитесь с поддержкой для проверки.";
-    private static final String PARCEL_EXCHANGE_DEFAULT_REASON = "Запрос обмена через Telegram";
     private static final String PARCEL_EXCHANGE_FAILED =
             "⚠️ Не удалось запустить обмен. Попробуйте ещё раз позже или обратитесь в поддержку.";
 
@@ -490,8 +483,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        if (state == BuyerChatState.AWAITING_EXCHANGE_CONFIRM) {
-            handleExchangeConfirmation(chatId, trimmed);
+        if (state == BuyerChatState.AWAITING_EXCHANGE_REASON) {
+            sendSimpleMessage(chatId, PARCEL_EXCHANGE_REASON_REMINDER);
             return;
         }
 
@@ -565,7 +558,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         rememberAnchorMessage(chatId, messageId);
 
-        boolean reasonNavigation = isReturnReasonNavigation(data, session);
+        boolean reasonNavigation = isReasonSelectionNavigation(data, session);
 
         if (CALLBACK_RETURNS_CREATE_TYPE_RETURN.equals(data)) {
             handleReturnRequestTypeSelection(chatId, callbackQuery, ReturnRequestType.RETURN);
@@ -588,7 +581,14 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         if (data.startsWith(CALLBACK_RETURNS_REASON_PREFIX) || reasonNavigation) {
-            handleReturnReasonCallback(chatId, callbackQuery, data);
+            boolean exchangeContext = session != null
+                    && (session.getState() == BuyerChatState.AWAITING_EXCHANGE_REASON
+                    || session.getLastScreen() == BuyerBotScreen.RETURNS_EXCHANGE_REASON);
+            if (exchangeContext) {
+                handleExchangeReasonCallback(chatId, callbackQuery, data);
+            } else {
+                handleReturnReasonCallback(chatId, callbackQuery, data);
+            }
             return;
         }
 
@@ -669,13 +669,13 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
-     * Определяет, относится ли callback к навигации на шаге выбора причины возврата.
+     * Определяет, относится ли callback к навигации на шагах выбора причины возврата или обмена.
      *
      * @param data    данные callback-запроса
      * @param session сохранённая сессия пользователя
      * @return {@code true}, если нажата кнопка «Назад» или «Меню» на экране выбора причины
      */
-    private boolean isReturnReasonNavigation(String data, ChatSession session) {
+    private boolean isReasonSelectionNavigation(String data, ChatSession session) {
         if (data == null) {
             return false;
         }
@@ -683,7 +683,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return false;
         }
         BuyerBotScreen lastScreen = session != null ? session.getLastScreen() : null;
-        return lastScreen == BuyerBotScreen.RETURNS_RETURN_REASON;
+        return lastScreen == BuyerBotScreen.RETURNS_RETURN_REASON
+                || lastScreen == BuyerBotScreen.RETURNS_EXCHANGE_REASON;
     }
 
     /**
@@ -817,7 +818,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 showReturnRequestParcelScreen(chatId, storeName, storeParcels);
             }
             case RETURNS_RETURN_REASON -> resendReturnReasonPrompt(chatId);
+            case RETURNS_EXCHANGE_REASON -> resendExchangeReasonPrompt(chatId);
             case RETURNS_RETURN_COMPLETION -> sendReturnCompletionScreen(chatId);
+            case RETURNS_EXCHANGE_COMPLETION -> sendExchangeCompletionScreen(chatId);
             case SETTINGS -> sendSettingsScreen(chatId);
             case HELP -> sendHelpScreen(chatId);
             case NAME_CONFIRMATION -> renderNameConfirmationScreen(chatId);
@@ -1519,6 +1522,40 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
+     * Обрабатывает выбор причины обмена из инлайн-клавиатуры.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     * @param data          данные callback с выбранной причиной
+     */
+    private void handleExchangeReasonCallback(Long chatId,
+                                              CallbackQuery callbackQuery,
+                                              String data) {
+        if (CALLBACK_NAVIGATE_BACK.equals(data)) {
+            handleNavigateBack(chatId, callbackQuery);
+            return;
+        }
+        if (CALLBACK_BACK_TO_MENU.equals(data)) {
+            handleCallbackBackToMenu(chatId, callbackQuery, true);
+            return;
+        }
+
+        Optional<String> reasonOptional = decodeReturnReason(data);
+        if (reasonOptional.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            return;
+        }
+
+        answerCallbackQuery(callbackQuery, PARCEL_RETURN_REASON_SELECTED_ACK);
+        MaybeInaccessibleMessage message = callbackQuery.getMessage();
+        Integer messageId = message != null ? message.getMessageId() : null;
+        if (messageId != null) {
+            removeInlineKeyboard(chatId, messageId);
+        }
+        handleExchangeReason(chatId, reasonOptional.get());
+    }
+
+    /**
      * Загружает доставленные посылки без активных заявок для оформления обращения.
      */
     private List<TelegramParcelInfoDTO> loadReturnableParcels(Long chatId) {
@@ -1696,6 +1733,60 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 .callbackData(CALLBACK_RETURNS_SHOW_ACTIVE)
                 .build();
         InlineKeyboardRow mainRow = new InlineKeyboardRow(doneButton, activeButton);
+        return InlineKeyboardMarkup.builder()
+                .keyboard(List.of(mainRow))
+                .build();
+    }
+
+    /**
+     * Формирует текст подтверждения успешной регистрации обмена.
+     *
+     * @param parcelLabel отображаемое обозначение посылки
+     * @param reason      причина обмена
+     * @param dateText    текстовое представление даты обращения
+     * @return готовый текст для итогового сообщения
+     */
+    private String buildExchangeCompletionText(String parcelLabel, String reason, String dateText) {
+        String safeParcel = (parcelLabel == null || parcelLabel.isBlank())
+                ? PARCEL_RETURN_NO_TRACK
+                : parcelLabel;
+        String safeReason = (reason == null || reason.isBlank())
+                ? PARCEL_RETURN_REASON_UNKNOWN
+                : reason;
+        String safeDate = (dateText == null || dateText.isBlank())
+                ? PARCEL_RETURN_DATE_UNKNOWN
+                : dateText;
+
+        StringBuilder builder = new StringBuilder();
+        builder.append(escapeMarkdown("✅ Зафиксировали запрос на обмен по посылке "))
+                .append(escapeMarkdown(safeParcel))
+                .append(escapeMarkdown("."))
+                .append('\n');
+        builder.append(escapeMarkdown("• Причина: "))
+                .append(escapeMarkdown(safeReason))
+                .append('\n');
+        builder.append(escapeMarkdown("• Дата обращения: "))
+                .append(escapeMarkdown(safeDate))
+                .append('\n');
+        builder.append(escapeMarkdown("ℹ️ Менеджер свяжется с вами для уточнения деталей."));
+        return builder.toString();
+    }
+
+    /**
+     * Формирует клавиатуру финального экрана обмена с подтверждающими действиями.
+     *
+     * @return инлайн-клавиатура с кнопкой подтверждения и перехода к активным заявкам
+     */
+    private InlineKeyboardMarkup buildExchangeCompletionKeyboard() {
+        InlineKeyboardButton okButton = InlineKeyboardButton.builder()
+                .text(BUTTON_OUTCOME_OK)
+                .callbackData(CALLBACK_RETURNS_DONE)
+                .build();
+        InlineKeyboardButton activeButton = InlineKeyboardButton.builder()
+                .text(BUTTON_RETURNS_ACTIVE)
+                .callbackData(CALLBACK_RETURNS_SHOW_ACTIVE)
+                .build();
+        InlineKeyboardRow mainRow = new InlineKeyboardRow(okButton, activeButton);
         return InlineKeyboardMarkup.builder()
                 .keyboard(List.of(mainRow))
                 .build();
@@ -2713,15 +2804,21 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                                        TelegramParcelInfoDTO parcel,
                                        ChatSession session) {
         String track = formatTrackNumber(parcel.getTrackNumber());
+        MaybeInaccessibleMessage callbackMessage = callbackQuery != null ? callbackQuery.getMessage() : null;
+        Integer sourceMessageId = callbackMessage != null ? callbackMessage.getMessageId() : null;
+        if (sourceMessageId != null) {
+            removeInlineKeyboard(chatId, sourceMessageId);
+        }
         session = session != null ? session : ensureChatSession(chatId);
         session.clearReturnRequestData();
+        session.setReturnRequestType(ReturnRequestType.EXCHANGE);
         session.setReturnParcelId(parcel.getParcelId());
         session.setReturnParcelTrackNumber(track);
         session.setReturnIdempotencyKey(UUID.randomUUID().toString());
-        session.setState(BuyerChatState.AWAITING_EXCHANGE_CONFIRM);
+        session.setState(BuyerChatState.AWAITING_EXCHANGE_REASON);
         chatSessionRepository.save(session);
-        transitionToState(chatId, BuyerChatState.AWAITING_EXCHANGE_CONFIRM);
-        sendSimpleMessage(chatId, String.format(PARCEL_EXCHANGE_PROMPT, track));
+        transitionToState(chatId, BuyerChatState.AWAITING_EXCHANGE_REASON);
+        sendExchangeReasonPrompt(chatId, track);
     }
 
     /**
@@ -2741,6 +2838,22 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
+     * Отправляет пользователю клавиатуру с причинами обмена.
+     *
+     * @param chatId    идентификатор чата Telegram
+     * @param trackLabel отображаемый трек-номер посылки
+     */
+    private void sendExchangeReasonPrompt(Long chatId, String trackLabel) {
+        if (chatId == null) {
+            return;
+        }
+        String text = buildExchangeReasonPromptText(trackLabel);
+        InlineKeyboardMarkup markup = buildReturnReasonKeyboard();
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_EXCHANGE_REASON);
+        sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_EXCHANGE_REASON, navigationPath);
+    }
+
+    /**
      * Формирует текст запроса причины возврата с экранированием MarkdownV2.
      *
      * @param trackLabel отображаемый трек-номер посылки
@@ -2749,6 +2862,19 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private String buildReturnReasonPromptText(String trackLabel) {
         String safeTrack = escapeMarkdown(trackLabel == null ? "" : trackLabel);
         return escapeMarkdown("📩 Начинаем оформление возврата по посылке ")
+                + safeTrack
+                + escapeMarkdown(". Выберите, пожалуйста, причину ниже.");
+    }
+
+    /**
+     * Формирует текст запроса причины обмена с экранированием MarkdownV2.
+     *
+     * @param trackLabel отображаемый трек-номер посылки
+     * @return безопасный для MarkdownV2 текст подсказки
+     */
+    private String buildExchangeReasonPromptText(String trackLabel) {
+        String safeTrack = escapeMarkdown(trackLabel == null ? "" : trackLabel);
+        return escapeMarkdown("📩 Начинаем оформление обмена по посылке ")
                 + safeTrack
                 + escapeMarkdown(". Выберите, пожалуйста, причину ниже.");
     }
@@ -2779,6 +2905,30 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         sendReturnReasonPrompt(chatId, trackLabel);
+    }
+
+    /**
+     * Повторно показывает клавиатуру выбора причины обмена, восстанавливая якорный экран.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void resendExchangeReasonPrompt(Long chatId) {
+        if (chatId == null) {
+            return;
+        }
+
+        ChatSession session = ensureChatSession(chatId);
+        Integer anchorMessageId = session.getAnchorMessageId();
+        if (anchorMessageId != null) {
+            removeInlineKeyboard(chatId, anchorMessageId);
+        }
+        String trackLabel = session.getReturnParcelTrackNumber();
+        if (trackLabel == null || trackLabel.isBlank()) {
+            sendMainMenu(chatId);
+            return;
+        }
+
+        sendExchangeReasonPrompt(chatId, trackLabel);
     }
 
     /**
@@ -3080,6 +3230,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             case RETURNS_CREATE_STORE -> BuyerChatState.AWAITING_STORE_SELECTION;
             case RETURNS_CREATE_REQUEST -> BuyerChatState.AWAITING_PARCEL_SELECTION;
             case RETURNS_ACTIVE_REQUESTS -> BuyerChatState.AWAITING_ACTIVE_REQUEST_SELECTION;
+            case RETURNS_RETURN_REASON -> BuyerChatState.AWAITING_RETURN_REASON;
+            case RETURNS_EXCHANGE_REASON -> BuyerChatState.AWAITING_EXCHANGE_REASON;
             default -> BuyerChatState.IDLE;
         };
     }
@@ -3411,7 +3563,34 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
-     * Обрабатывает подтверждение успешной регистрации возврата и возвращает пользователя в меню.
+     * Сохраняет выбранную причину обмена и завершает сценарий регистрации.
+     *
+     * @param chatId      идентификатор чата Telegram
+     * @param reasonLabel текст причины, выбранной пользователем
+     */
+    private void handleExchangeReason(Long chatId, String reasonLabel) {
+        if (chatId == null) {
+            return;
+        }
+
+        String normalized = reasonLabel == null ? "" : reasonLabel.strip();
+        if (normalized.isEmpty()) {
+            sendSimpleMessage(chatId, PARCEL_EXCHANGE_REASON_REMINDER);
+            return;
+        }
+
+        ChatSession session = ensureChatSession(chatId);
+        if (!ensureReturnContext(chatId, session)) {
+            return;
+        }
+
+        session.setReturnReason(normalized);
+        chatSessionRepository.save(session);
+        handleExchangeConfirmation(chatId);
+    }
+
+    /**
+     * Обрабатывает подтверждение успешной регистрации возврата или обмена и возвращает пользователя в меню.
      *
      * @param chatId        идентификатор чата Telegram
      * @param callbackQuery исходный callback-запрос
@@ -3433,26 +3612,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param chatId идентификатор чата Telegram
      * @param text   ответ пользователя
      */
-    private void handleExchangeConfirmation(Long chatId, String text) {
+    private void handleExchangeConfirmation(Long chatId) {
         ChatSession session = ensureChatSession(chatId);
         if (!ensureReturnContext(chatId, session)) {
-            return;
-        }
-
-        String normalized = text == null ? "" : text.strip().toLowerCase();
-        if (normalized.isEmpty()) {
-            sendSimpleMessage(chatId, PARCEL_EXCHANGE_CONFIRMATION_HINT);
-            return;
-        }
-
-        if (isSkipWord(normalized)) {
-            resetReturnScenario(chatId, session);
-            sendSimpleMessage(chatId, PARCEL_EXCHANGE_CANCELLED_MESSAGE);
-            return;
-        }
-
-        if (!isAffirmative(normalized)) {
-            sendSimpleMessage(chatId, PARCEL_EXCHANGE_CONFIRMATION_HINT);
             return;
         }
 
@@ -3466,13 +3628,15 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             session.setReturnIdempotencyKey(idempotencyKey);
         }
 
+        ZonedDateTime requestedAt = ZonedDateTime.now(ZoneOffset.UTC);
+
         OrderReturnRequest request;
         try {
             request = telegramService.registerReturnRequestFromTelegram(
                     chatId,
                     parcelId,
                     idempotencyKey,
-                    PARCEL_EXCHANGE_DEFAULT_REASON
+                    session.getReturnReason()
             );
             if (request == null) {
                 log.warn("⚠️ Сервис возвратов вернул null при регистрации обмена по посылке {}", parcelId);
@@ -3522,8 +3686,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        sendSimpleMessage(chatId, PARCEL_EXCHANGE_CONFIRMED_MESSAGE);
-        resetReturnScenario(chatId, session);
+        session.setState(BuyerChatState.IDLE);
+        chatSessionRepository.save(session);
+        transitionToState(chatId, BuyerChatState.IDLE);
+
+        sendExchangeCompletionScreen(chatId, session, requestedAt);
     }
 
     /**
@@ -3575,25 +3742,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 || normalized.equals("no")
                 || normalized.equals("none")
                 || normalized.equals("-");
-    }
-
-    /**
-     * Проверяет, что ответ пользователя является подтверждением.
-     *
-     * @param value нормализованное значение текста
-     * @return {@code true}, если пользователь подтвердил действие
-     */
-    private boolean isAffirmative(String value) {
-        if (value == null) {
-            return false;
-        }
-        String normalized = value.strip().toLowerCase();
-        return normalized.equals("да")
-                || normalized.equals("ок")
-                || normalized.equals("окей")
-                || normalized.equals("yes")
-                || normalized.equals("y")
-                || normalized.equals("подтверждаю");
     }
 
     /**
@@ -3695,6 +3843,51 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         String text = buildReturnCompletionText(parcelLabel, reason, dateText);
         InlineKeyboardMarkup markup = buildReturnCompletionKeyboard();
         sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_RETURN_COMPLETION, navigationPath);
+    }
+
+    /**
+     * Перерисовывает экран подтверждения оформления обмена на основе сохранённых данных.
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void sendExchangeCompletionScreen(Long chatId) {
+        ChatSession session = ensureChatSession(chatId);
+        if (session.getReturnParcelTrackNumber() == null && session.getReturnReason() == null) {
+            sendMainMenu(chatId);
+            return;
+        }
+        sendExchangeCompletionScreen(chatId, session, null);
+    }
+
+    /**
+     * Показывает экран подтверждения оформления обмена с итоговой сводкой.
+     *
+     * @param chatId      идентификатор чата Telegram
+     * @param session     активная сессия, содержащая данные заявки
+     * @param requestedAt дата регистрации заявки или {@code null}
+     */
+    private void sendExchangeCompletionScreen(Long chatId, ChatSession session, ZonedDateTime requestedAt) {
+        if (chatId == null) {
+            return;
+        }
+
+        ChatSession activeSession = session != null ? session : ensureChatSession(chatId);
+        String parcelLabel = activeSession.getReturnParcelTrackNumber();
+        if (parcelLabel == null || parcelLabel.isBlank()) {
+            parcelLabel = PARCEL_RETURN_NO_TRACK;
+        }
+        String reason = activeSession.getReturnReason();
+        if (reason == null || reason.isBlank()) {
+            reason = PARCEL_RETURN_REASON_UNKNOWN;
+        }
+        String dateText = requestedAt != null
+                ? formatReturnDateForSummary(requestedAt)
+                : PARCEL_RETURN_DATE_UNKNOWN;
+
+        List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_EXCHANGE_COMPLETION);
+        String text = buildExchangeCompletionText(parcelLabel, reason, dateText);
+        InlineKeyboardMarkup markup = buildExchangeCompletionKeyboard();
+        sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_EXCHANGE_COMPLETION, navigationPath);
     }
 
     /**

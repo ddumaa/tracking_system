@@ -59,7 +59,7 @@ public enum BuyerChatState {
     AWAITING_COMMENT_UPDATE,
 
     /**
-     * Бот ожидает подтверждения запуска обмена по ранее созданной заявке.
+     * Бот ожидает выбор причины обмена перед регистрацией заявки.
      */
-    AWAITING_EXCHANGE_CONFIRM
+    AWAITING_EXCHANGE_REASON
 }
