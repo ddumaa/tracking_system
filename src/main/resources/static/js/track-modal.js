@@ -852,6 +852,14 @@
 
             returnCard.body.appendChild(infoList);
 
+            if (returnRequest.cancelExchangeUnavailableReason) {
+                const warning = document.createElement('div');
+                warning.className = 'alert alert-warning mt-3 mb-0';
+                warning.setAttribute('role', 'status');
+                warning.textContent = returnRequest.cancelExchangeUnavailableReason;
+                returnCard.body.appendChild(warning);
+            }
+
             if (exchangeItem && exchangeItem.id !== undefined) {
                 const exchangeNotice = document.createElement('div');
                 exchangeNotice.className = 'alert alert-info d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3';

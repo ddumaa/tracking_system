@@ -609,6 +609,9 @@ public class CustomerTelegramService {
 
         boolean canStartExchange = orderReturnRequestService.canStartExchange(request);
         boolean canCloseWithoutExchange = status == OrderReturnRequestStatus.REGISTERED;
+        String cancelExchangeReason = orderReturnRequestService
+                .getExchangeCancellationBlockReason(request)
+                .orElse(null);
 
         return new ActionRequiredReturnRequestDto(
                 request.getId(),
@@ -624,7 +627,8 @@ public class CustomerTelegramService {
                 request.getComment(),
                 request.getReverseTrackNumber(),
                 canStartExchange,
-                canCloseWithoutExchange
+                canCloseWithoutExchange,
+                cancelExchangeReason
         );
     }
 
