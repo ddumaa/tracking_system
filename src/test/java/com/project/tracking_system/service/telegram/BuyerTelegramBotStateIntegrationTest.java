@@ -704,6 +704,78 @@ class BuyerTelegramBotStateIntegrationTest {
     }
 
     /**
+     * Проверяет, что кнопка «⬅️ Назад» со страницы активных заявок возвращает меню возвратов.
+     */
+    @Test
+    void shouldReturnToReturnsMenuFromActiveRequestsOnBack() throws Exception {
+        Long chatId = 5151L;
+
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        customer.setTelegramConfirmed(true);
+        customer.setNotificationsEnabled(true);
+        customer.setNameSource(NameSource.USER_CONFIRMED);
+        customer.setFullName("Тестовый Покупатель");
+
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+        when(telegramService.getReturnRequestsRequiringAction(chatId)).thenReturn(List.of());
+
+        bot.consume(textUpdate(chatId, "/start"));
+
+        ChatSession sessionAfterStart = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("После /start должна быть создана сессия"));
+        Integer menuAnchorId = sessionAfterStart.getAnchorMessageId();
+        assertNotNull(menuAnchorId, "Главное меню обязано фиксировать якорное сообщение");
+
+        clearInvocations(telegramClient);
+
+        bot.consume(callbackUpdate(chatId, menuAnchorId, "menu:returns"));
+
+        ChatSession sessionAfterReturnsMenu = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("Меню возвратов обязано сохраняться в сессии"));
+        Integer returnsMenuAnchorId = sessionAfterReturnsMenu.getAnchorMessageId();
+        assertNotNull(returnsMenuAnchorId, "Меню возвратов должно иметь актуальный якорь");
+
+        bot.consume(callbackUpdate(chatId, returnsMenuAnchorId, "returns:active"));
+
+        ChatSession sessionAfterActive = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("Список активных заявок должен сохраняться"));
+        assertEquals(List.of(
+                        BuyerBotScreen.MENU,
+                        BuyerBotScreen.RETURNS_MENU,
+                        BuyerBotScreen.RETURNS_ACTIVE_REQUESTS
+                ),
+                sessionAfterActive.getNavigationPath(),
+                "Путь навигации обязан содержать меню возвратов перед активными заявками");
+        Integer activeAnchorId = sessionAfterActive.getAnchorMessageId();
+        assertNotNull(activeAnchorId, "Экран активных заявок должен иметь якорь для кнопки назад");
+
+        clearInvocations(telegramClient);
+
+        bot.consume(callbackUpdate(chatId, activeAnchorId, "nav:back"));
+
+        assertEquals(BuyerChatState.IDLE, bot.getState(chatId),
+                "Возврат по кнопке назад должен приводить сценарий в состояние ожидания команд");
+
+        ChatSession sessionAfterBack = chatSessionRepository.find(chatId)
+                .orElseThrow(() -> new AssertionError("Навигация должна сохраняться после возврата"));
+        assertEquals(List.of(
+                        BuyerBotScreen.MENU,
+                        BuyerBotScreen.RETURNS_MENU
+                ),
+                sessionAfterBack.getNavigationPath(),
+                "После кнопки назад необходимо оставаться в меню возвратов");
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient, atLeastOnce()).execute(editCaptor.capture());
+        boolean returnedToMenu = editCaptor.getAllValues().stream()
+                .map(EditMessageText::getText)
+                .filter(Objects::nonNull)
+                .anyMatch(text -> text.contains("Возвраты и обмены"));
+        assertTrue(returnedToMenu, "Сообщение после возврата должно содержать текст меню возвратов");
+    }
+
+    /**
      * Создаёт пользователя Telegram с минимально необходимыми данными для тестов.
      *
      * @param chatId идентификатор пользователя Telegram

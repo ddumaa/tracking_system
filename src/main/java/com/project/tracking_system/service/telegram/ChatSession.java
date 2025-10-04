@@ -219,6 +219,10 @@ public class ChatSession {
             projected.add(BuyerBotScreen.MENU);
         }
 
+        if (screen == BuyerBotScreen.RETURNS_ACTIVE_REQUESTS) {
+            ensureReturnsMenuPrecedesActive(projected);
+        }
+
         BuyerBotScreen current = projected.get(projected.size() - 1);
         if (current != screen) {
             projected.add(screen);
@@ -226,6 +230,35 @@ public class ChatSession {
             projected.add(screen);
         }
         return projected;
+    }
+
+    /**
+     * Гарантирует наличие шага «Меню возвратов» перед экраном активных заявок.
+     * <p>
+     * Метод вставляет или восстанавливает экран {@link BuyerBotScreen#RETURNS_MENU}
+     * перед добавлением {@link BuyerBotScreen#RETURNS_ACTIVE_REQUESTS}, чтобы кнопка
+     * «Назад» возвращала пользователя к меню возвратов.
+     * </p>
+     *
+     * @param projected путь навигации, формируемый для нового экрана
+     */
+    private void ensureReturnsMenuPrecedesActive(List<BuyerBotScreen> projected) {
+        int returnsMenuIndex = projected.indexOf(BuyerBotScreen.RETURNS_MENU);
+        if (returnsMenuIndex >= 0) {
+            if (returnsMenuIndex < projected.size() - 1) {
+                projected.subList(returnsMenuIndex + 1, projected.size()).clear();
+            }
+            return;
+        }
+
+        if (projected.isEmpty() || projected.get(0) != BuyerBotScreen.MENU) {
+            projected.clear();
+            projected.add(BuyerBotScreen.MENU);
+        } else if (projected.size() > 1) {
+            projected.subList(1, projected.size()).clear();
+        }
+
+        projected.add(BuyerBotScreen.RETURNS_MENU);
     }
 
     /**
