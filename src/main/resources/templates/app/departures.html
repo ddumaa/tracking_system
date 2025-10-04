@@ -302,6 +302,11 @@
                                                     </div>
                                                 </td>
                                                 <td class="text-end">
+                                                    <div th:if="${request.cancelExchangeUnavailableReason != null}"
+                                                         class="alert alert-warning text-start small mb-2"
+                                                         role="status">
+                                                        <span th:text="${request.cancelExchangeUnavailableReason}"></span>
+                                                    </div>
                                                     <div class="d-flex flex-column flex-lg-row gap-2 justify-content-end">
                                                         <button type="button"
                                                                 class="btn btn-success btn-sm js-return-request-accept"

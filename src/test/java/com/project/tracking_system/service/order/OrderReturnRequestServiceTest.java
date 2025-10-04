@@ -183,6 +183,52 @@ class OrderReturnRequestServiceTest {
     }
 
     @Test
+    void cancelExchange_ClosesRequestWhenReplacementHasNoTrack() {
+        TrackParcel parcel = buildParcel(19L, GlobalStatus.DELIVERED);
+        TrackParcel replacement = new TrackParcel();
+        replacement.setId(77L);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(610L);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+
+        when(repository.findById(610L)).thenReturn(Optional.of(request));
+        when(orderExchangeService.getLatestExchangeParcelOrThrowIfTracked(request))
+                .thenReturn(Optional.of(replacement));
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderReturnRequest result = service.cancelExchange(610L, 19L, user);
+
+        assertThat(result.getStatus()).isEqualTo(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
+        assertThat(result.getClosedBy()).isEqualTo(user);
+        assertThat(result.getClosedAt()).isNotNull();
+        verify(orderExchangeService).cancelExchangeParcel(request, replacement);
+        verify(episodeLifecycleService).decrementExchangeCount(parcel.getEpisode());
+    }
+
+    @Test
+    void cancelExchange_ThrowsWhenTrackAlreadyAssigned() {
+        TrackParcel parcel = buildParcel(21L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(611L);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+
+        when(repository.findById(611L)).thenReturn(Optional.of(request));
+        when(orderExchangeService.getLatestExchangeParcelOrThrowIfTracked(request))
+                .thenThrow(new IllegalStateException("Отмена недоступна"));
+
+        assertThatThrownBy(() -> service.cancelExchange(611L, 21L, user))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Отмена недоступна");
+        verify(repository, never()).save(any());
+        verify(orderExchangeService, never()).cancelExchangeParcel(any(), any());
+        verify(episodeLifecycleService, never()).decrementExchangeCount(any());
+    }
+
+    @Test
     void findActiveRequestsWithDetails_ReturnsEmptyWhenUserIsNull() {
         List<OrderReturnRequest> result = service.findActiveRequestsWithDetails(null);
 
@@ -199,6 +245,19 @@ class OrderReturnRequestServiceTest {
 
         assertThat(result).containsExactly(request);
         verify(repository).findActiveRequestsWithDetails(eq(5L), any());
+    }
+
+    @Test
+    void getExchangeCancellationBlockReason_ReturnsMessageWhenBlocked() {
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        IllegalStateException cause = new IllegalStateException("Недоступно");
+        when(orderExchangeService.getLatestExchangeParcelOrThrowIfTracked(request))
+                .thenThrow(cause);
+
+        Optional<String> reason = service.getExchangeCancellationBlockReason(request);
+
+        assertThat(reason).contains("Недоступно");
     }
 
     @Test
@@ -319,7 +378,12 @@ class OrderReturnRequestServiceTest {
         request.setDecisionBy(user);
         request.setDecisionAt(ZonedDateTime.now(ZoneOffset.UTC));
 
+        TrackParcel replacement = new TrackParcel();
+        replacement.setId(81L);
+
         when(repository.findById(950L)).thenReturn(Optional.of(request));
+        when(orderExchangeService.getLatestExchangeParcelOrThrowIfTracked(request))
+                .thenReturn(Optional.of(replacement));
         when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         OrderReturnRequest result = service.reopenAsReturn(950L, 23L, user);
@@ -329,8 +393,29 @@ class OrderReturnRequestServiceTest {
         assertThat(result.getDecisionAt()).isNull();
         assertThat(result.getClosedBy()).isNull();
         assertThat(result.getClosedAt()).isNull();
-        verify(orderExchangeService).cancelExchangeParcel(request);
+        verify(orderExchangeService).cancelExchangeParcel(request, replacement);
         verify(episodeLifecycleService).decrementExchangeCount(parcel.getEpisode());
+    }
+
+    @Test
+    void reopenAsReturn_ThrowsWhenTrackAlreadyAssigned() {
+        TrackParcel parcel = buildParcel(24L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(960L);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+
+        when(repository.findById(960L)).thenReturn(Optional.of(request));
+        when(orderExchangeService.getLatestExchangeParcelOrThrowIfTracked(request))
+                .thenThrow(new IllegalStateException("Магазин уже указал трек"));
+
+        assertThatThrownBy(() -> service.reopenAsReturn(960L, 24L, user))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Магазин уже указал трек");
+        verify(repository, never()).save(any());
+        verify(orderExchangeService, never()).cancelExchangeParcel(any(), any());
+        verify(episodeLifecycleService, never()).decrementExchangeCount(any());
     }
 
     private TrackParcel buildParcel(Long id, GlobalStatus status) {

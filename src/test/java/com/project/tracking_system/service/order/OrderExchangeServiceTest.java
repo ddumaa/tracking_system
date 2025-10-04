@@ -124,4 +124,43 @@ class OrderExchangeServiceTest {
         assertThat(replacement.getNumber()).startsWith("SRV-");
         verify(trackParcelRepository).save(replacement);
     }
+
+    @Test
+    void getLatestExchangeParcelOrThrowIfTracked_ReturnsOptionalWhenNumberMissing() {
+        TrackParcel original = new TrackParcel();
+        original.setId(41L);
+
+        TrackParcel replacement = new TrackParcel();
+        replacement.setId(42L);
+        replacement.setReplacementOf(original);
+
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setParcel(original);
+
+        when(trackParcelRepository.findTopByReplacementOfOrderByTimestampDesc(original)).thenReturn(replacement);
+
+        Optional<TrackParcel> result = service.getLatestExchangeParcelOrThrowIfTracked(request);
+
+        assertThat(result).contains(replacement);
+    }
+
+    @Test
+    void getLatestExchangeParcelOrThrowIfTracked_ThrowsWhenNumberPresent() {
+        TrackParcel original = new TrackParcel();
+        original.setId(51L);
+
+        TrackParcel replacement = new TrackParcel();
+        replacement.setId(52L);
+        replacement.setReplacementOf(original);
+        replacement.setNumber("BY123");
+
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setParcel(original);
+
+        when(trackParcelRepository.findTopByReplacementOfOrderByTimestampDesc(original)).thenReturn(replacement);
+
+        assertThatThrownBy(() -> service.getLatestExchangeParcelOrThrowIfTracked(request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("магазин уже указал трек");
+    }
 }

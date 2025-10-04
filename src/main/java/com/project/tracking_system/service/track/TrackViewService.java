@@ -134,6 +134,10 @@ public class TrackViewService {
             requestedAt = formatNullableTimestamp(request.getCreatedAt(), userZone);
         }
 
+        String cancelExchangeReason = orderReturnRequestService
+                .getExchangeCancellationBlockReason(request)
+                .orElse(null);
+
         return new OrderReturnRequestDto(
                 request.getId(),
                 request.getStatus().getDisplayName(),
@@ -146,7 +150,8 @@ public class TrackViewService {
                 request.requiresAction(),
                 request.isExchangeApproved(),
                 canStartExchange,
-                canCloseWithoutExchange
+                canCloseWithoutExchange,
+                cancelExchangeReason
         );
     }
 

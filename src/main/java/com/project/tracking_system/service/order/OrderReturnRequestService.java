@@ -226,10 +226,18 @@ public class OrderReturnRequestService {
         if (request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
             throw new IllegalStateException("Обмен ещё не запущен или заявка уже закрыта");
         }
+        TrackParcel replacement;
+        try {
+            replacement = orderExchangeService.getLatestExchangeParcelOrThrowIfTracked(request)
+                    .orElse(null);
+        } catch (IllegalStateException ex) {
+            log.warn("Нельзя отменить обмен по заявке {}: {}", request.getId(), ex.getMessage());
+            throw ex;
+        }
         request.setStatus(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
         request.setClosedBy(user);
         request.setClosedAt(ZonedDateTime.now(ZoneOffset.UTC));
-        orderExchangeService.cancelExchangeParcel(request);
+        orderExchangeService.cancelExchangeParcel(request, replacement);
         episodeLifecycleService.decrementExchangeCount(request.getEpisode());
         OrderReturnRequest saved = returnRequestRepository.save(request);
         log.info("Обмен по заявке {} отменён пользователем", saved.getId());
@@ -245,12 +253,20 @@ public class OrderReturnRequestService {
         if (request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
             throw new IllegalStateException("Заявка не находится в статусе обмена");
         }
+        TrackParcel replacement;
+        try {
+            replacement = orderExchangeService.getLatestExchangeParcelOrThrowIfTracked(request)
+                    .orElse(null);
+        } catch (IllegalStateException ex) {
+            log.warn("Нельзя перевести обмен по заявке {} в возврат: {}", request.getId(), ex.getMessage());
+            throw ex;
+        }
         request.setStatus(OrderReturnRequestStatus.REGISTERED);
         request.setDecisionBy(null);
         request.setDecisionAt(null);
         request.setClosedBy(null);
         request.setClosedAt(null);
-        orderExchangeService.cancelExchangeParcel(request);
+        orderExchangeService.cancelExchangeParcel(request, replacement);
         episodeLifecycleService.decrementExchangeCount(request.getEpisode());
         OrderReturnRequest saved = returnRequestRepository.save(request);
         log.info("Заявка {} переведена из обмена в возврат", saved.getId());
@@ -283,6 +299,25 @@ public class OrderReturnRequestService {
         }
         return !returnRequestRepository.existsByEpisode_IdAndStatus(episodeId,
                 OrderReturnRequestStatus.EXCHANGE_APPROVED);
+    }
+
+    /**
+     * Возвращает причину недоступности отмены обмена, если магазин уже указал трек.
+     *
+     * @param request заявка на обмен
+     * @return текстовое сообщение или пустое значение, если ограничений нет
+     */
+    @Transactional(readOnly = true)
+    public Optional<String> getExchangeCancellationBlockReason(OrderReturnRequest request) {
+        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            return Optional.empty();
+        }
+        try {
+            orderExchangeService.getLatestExchangeParcelOrThrowIfTracked(request);
+            return Optional.empty();
+        } catch (IllegalStateException ex) {
+            return Optional.ofNullable(ex.getMessage());
+        }
     }
 
     /**

@@ -1194,7 +1194,14 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         String reverse = escapeMarkdown(request.reverseTrackNumber() == null || request.reverseTrackNumber().isBlank()
                 ? PARCEL_RETURN_NO_TRACK
                 : request.reverseTrackNumber());
-        return String.format(RETURNS_ACTIVE_DETAILS_TEMPLATE, track, store, status, date, reason, comment, reverse);
+        String details = String.format(RETURNS_ACTIVE_DETAILS_TEMPLATE, track, store, status, date, reason, comment, reverse);
+        String cancelReason = request.cancelExchangeUnavailableReason();
+        if (cancelReason != null && !cancelReason.isBlank()
+                && request.status() == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            details = details + System.lineSeparator()
+                    + escapeMarkdown("⚠️ " + cancelReason);
+        }
+        return details;
     }
 
     /**
@@ -1261,10 +1268,14 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 .callbackData(CALLBACK_RETURNS_ACTIVE_COMMENT_PREFIX + requestId + ':' + parcelId)
                 .build()));
         if (request.status() == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
-            rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
-                    .text(BUTTON_RETURNS_ACTION_CANCEL_EXCHANGE)
-                    .callbackData(CALLBACK_RETURNS_ACTIVE_CANCEL_EXCHANGE_PREFIX + requestId + ':' + parcelId)
-                    .build()));
+            boolean cancellationBlocked = request.cancelExchangeUnavailableReason() != null
+                    && !request.cancelExchangeUnavailableReason().isBlank();
+            if (!cancellationBlocked) {
+                rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
+                        .text(BUTTON_RETURNS_ACTION_CANCEL_EXCHANGE)
+                        .callbackData(CALLBACK_RETURNS_ACTIVE_CANCEL_EXCHANGE_PREFIX + requestId + ':' + parcelId)
+                        .build()));
+            }
             rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
                     .text(BUTTON_RETURNS_ACTION_CONVERT)
                     .callbackData(CALLBACK_RETURNS_ACTIVE_CONVERT_PREFIX + requestId + ':' + parcelId)
@@ -1963,7 +1974,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             finalizeRequestUpdate(chatId, session, PARCEL_RETURN_ACCESS_DENIED);
         } catch (IllegalArgumentException | IllegalStateException ex) {
             log.warn("⚠️ Ошибка отмены обмена {}: {}", context.requestId(), ex.getMessage());
-            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_FAILED);
+            String failureMessage = ex.getMessage();
+            if (failureMessage == null || failureMessage.isBlank()) {
+                failureMessage = RETURNS_ACTIVE_ACTION_FAILED;
+            }
+            finalizeRequestUpdate(chatId, session, failureMessage);
         } catch (Exception ex) {
             log.error("❌ Не удалось отменить обмен {}", context.requestId(), ex);
             finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_FAILED);

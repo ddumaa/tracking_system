@@ -33,6 +33,9 @@ public class OrderExchangeService {
 
     private static final DateTimeFormatter SERVICE_TRACK_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
+    private static final String EXCHANGE_CANCELLATION_BLOCKED_MESSAGE =
+            "Отмена обмена недоступна: магазин уже указал трек обменной посылки.";
+
     private final TrackParcelRepository trackParcelRepository;
     private final OrderEpisodeLifecycleService episodeLifecycleService;
 
@@ -105,25 +108,69 @@ public class OrderExchangeService {
      */
     @Transactional
     public void cancelExchangeParcel(OrderReturnRequest request) {
-        if (request == null) {
+        TrackParcel replacement = getLatestExchangeParcelOrThrowIfTracked(request).orElse(null);
+        cancelExchangeParcel(request, replacement);
+    }
+
+    /**
+     * Отменяет обменную посылку, если она была передана вызывающим кодом.
+     * <p>
+     * Метод используется, когда проверка на наличие пользовательского трека уже выполнена
+     * во внешнем слое. Это позволяет избежать повторного обращения к базе и сохранить SRP:
+     * текущий метод отвечает только за техническое завершение обмена и назначение
+     * служебного номера, если он отсутствует.
+     * </p>
+     *
+     * @param request     заявка на обмен
+     * @param replacement обменная посылка, которую требуется отменить
+     */
+    @Transactional
+    public void cancelExchangeParcel(OrderReturnRequest request, TrackParcel replacement) {
+        if (request == null || replacement == null) {
             return;
         }
-        TrackParcel originalParcel = request.getParcel();
-        if (originalParcel == null) {
-            return;
-        }
-        TrackParcel replacement = trackParcelRepository.findTopByReplacementOfOrderByTimestampDesc(originalParcel);
-        if (replacement == null) {
+        TrackParcel managedReplacement = reloadReplacementIfPossible(replacement);
+        if (managedReplacement == null) {
             return;
         }
         // Назначаем служебный трек до смены статуса, чтобы сохранить инвариант обязательности номера.
-        if (replacement.getNumber() == null || replacement.getNumber().isBlank()) {
-            replacement.setNumber(generateServiceTrackingNumber(request, replacement));
+        if (managedReplacement.getNumber() == null || managedReplacement.getNumber().isBlank()) {
+            managedReplacement.setNumber(generateServiceTrackingNumber(request, managedReplacement));
         }
-        replacement.setStatus(GlobalStatus.REGISTRATION_CANCELLED);
-        replacement.setLastUpdate(ZonedDateTime.now(ZoneOffset.UTC));
-        trackParcelRepository.save(replacement);
-        log.debug("Отменена обменная посылка {} для заявки {}", replacement.getId(), request.getId());
+        managedReplacement.setStatus(GlobalStatus.REGISTRATION_CANCELLED);
+        managedReplacement.setLastUpdate(ZonedDateTime.now(ZoneOffset.UTC));
+        trackParcelRepository.save(managedReplacement);
+        log.debug("Отменена обменная посылка {} для заявки {}", managedReplacement.getId(), request.getId());
+    }
+
+    /**
+     * Возвращает последнюю обменную посылку и проверяет, что магазин ещё не указал трек.
+     * <p>
+     * Метод защищает сценарии отмены обмена от конкурентных изменений: если магазин уже
+     * присвоил реальный трек-номер, пользователь видит понятное сообщение об ограничении,
+     * а бизнес-логика прекращает дальнейшие действия.
+     * </p>
+     *
+     * @param request заявка, для которой выполняется проверка
+     * @return обменная посылка или пустой результат, если обмен не создавался
+     */
+    @Transactional(readOnly = true)
+    public Optional<TrackParcel> getLatestExchangeParcelOrThrowIfTracked(OrderReturnRequest request) {
+        if (request == null) {
+            return Optional.empty();
+        }
+        TrackParcel originalParcel = request.getParcel();
+        if (originalParcel == null) {
+            return Optional.empty();
+        }
+        TrackParcel replacement = trackParcelRepository.findTopByReplacementOfOrderByTimestampDesc(originalParcel);
+        if (replacement == null) {
+            return Optional.empty();
+        }
+        if (replacement.getNumber() != null && !replacement.getNumber().isBlank()) {
+            throw new IllegalStateException(EXCHANGE_CANCELLATION_BLOCKED_MESSAGE);
+        }
+        return Optional.of(replacement);
     }
 
     /**
