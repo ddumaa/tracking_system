@@ -1,12 +1,16 @@
 package com.project.tracking_system.service.order;
 
 import com.project.tracking_system.dto.ReturnRequestUpdateResponse;
+import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderEpisode;
 import com.project.tracking_system.entity.OrderReturnRequest;
+import com.project.tracking_system.entity.OrderReturnRequestActionRequest;
+import com.project.tracking_system.entity.OrderReturnRequestActionType;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.repository.OrderReturnRequestActionRequestRepository;
 import com.project.tracking_system.repository.OrderReturnRequestRepository;
 import com.project.tracking_system.service.track.TrackParcelService;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +48,8 @@ class OrderReturnRequestServiceTest {
     @Mock
     private OrderReturnRequestRepository repository;
     @Mock
+    private OrderReturnRequestActionRequestRepository actionRequestRepository;
+    @Mock
     private TrackParcelService trackParcelService;
     @Mock
     private OrderEpisodeLifecycleService episodeLifecycleService;
@@ -56,7 +62,7 @@ class OrderReturnRequestServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new OrderReturnRequestService(repository, trackParcelService,
+        service = new OrderReturnRequestService(repository, actionRequestRepository, trackParcelService,
                 episodeLifecycleService, orderExchangeService);
         user = new User();
         user.setId(5L);
@@ -226,6 +232,66 @@ class OrderReturnRequestServiceTest {
         verify(repository, never()).save(any());
         verify(orderExchangeService, never()).cancelExchangeParcel(any(), any());
         verify(episodeLifecycleService, never()).decrementExchangeCount(any());
+    }
+
+    @Test
+    void requestMerchantAction_createsNewRequestWhenNotExists() {
+        TrackParcel parcel = buildParcel(30L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = buildExchangeRequest(700L, parcel);
+        Customer customer = new Customer();
+        customer.setId(55L);
+
+        when(repository.findById(700L)).thenReturn(Optional.of(request));
+        when(actionRequestRepository.findFirstByReturnRequest_IdAndActionAndProcessedAtIsNull(700L,
+                OrderReturnRequestActionType.CANCEL_EXCHANGE)).thenReturn(Optional.empty());
+        when(actionRequestRepository.save(any(OrderReturnRequestActionRequest.class))).thenAnswer(invocation -> {
+            OrderReturnRequestActionRequest actionRequest = invocation.getArgument(0);
+            actionRequest.setReturnRequest(request);
+            actionRequest.setCustomer(customer);
+            return actionRequest;
+        });
+
+        OrderReturnRequestActionRequest result = service.requestMerchantAction(
+                700L,
+                30L,
+                user,
+                customer,
+                OrderReturnRequestActionType.CANCEL_EXCHANGE
+        );
+
+        assertThat(result).isNotNull();
+        assertThat(result.getAction()).isEqualTo(OrderReturnRequestActionType.CANCEL_EXCHANGE);
+        assertThat(result.getCustomer()).isEqualTo(customer);
+        assertThat(result.getReturnRequest()).isEqualTo(request);
+        verify(actionRequestRepository).save(any(OrderReturnRequestActionRequest.class));
+    }
+
+    @Test
+    void requestMerchantAction_returnsExistingPendingRequest() {
+        TrackParcel parcel = buildParcel(31L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = buildExchangeRequest(701L, parcel);
+        Customer customer = new Customer();
+        customer.setId(56L);
+
+        OrderReturnRequestActionRequest existing = new OrderReturnRequestActionRequest();
+        existing.setReturnRequest(request);
+        existing.setCustomer(customer);
+        existing.setAction(OrderReturnRequestActionType.CONVERT_TO_RETURN);
+
+        when(repository.findById(701L)).thenReturn(Optional.of(request));
+        when(actionRequestRepository.findFirstByReturnRequest_IdAndActionAndProcessedAtIsNull(701L,
+                OrderReturnRequestActionType.CONVERT_TO_RETURN)).thenReturn(Optional.of(existing));
+
+        OrderReturnRequestActionRequest result = service.requestMerchantAction(
+                701L,
+                31L,
+                user,
+                customer,
+                OrderReturnRequestActionType.CONVERT_TO_RETURN
+        );
+
+        assertThat(result).isSameAs(existing);
+        verify(actionRequestRepository, never()).save(any());
     }
 
     @Test
@@ -416,6 +482,15 @@ class OrderReturnRequestServiceTest {
         verify(repository, never()).save(any());
         verify(orderExchangeService, never()).cancelExchangeParcel(any(), any());
         verify(episodeLifecycleService, never()).decrementExchangeCount(any());
+    }
+
+    private OrderReturnRequest buildExchangeRequest(Long id, TrackParcel parcel) {
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(id);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        return request;
     }
 
     private TrackParcel buildParcel(Long id, GlobalStatus status) {
