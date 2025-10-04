@@ -72,10 +72,7 @@ class BuyerTelegramBotTest {
 
     private static final String MENU_BUTTON_TEXT = "🏠 Меню";
     private static final String BACK_BUTTON_TEXT = "⬅️ Назад";
-    private static final String ACTIVE_BACK_TO_LIST_TEXT = "↩️ Вернуться к списку";
     private static final String NAVIGATE_BACK_CALLBACK = "nav:back";
-    private static final String OUTCOME_OK_TEXT = "Ок";
-    private static final String OUTCOME_BACK_TEXT = "Назад";
 
     @Mock
     private TelegramClient telegramClient;
@@ -612,11 +609,9 @@ class BuyerTelegramBotTest {
         assertTrue(messageText.contains("Текущая заявка на возврат"),
                 "Заголовок выбранной заявки должен указывать на оформление возврата");
 
-        InlineKeyboardButton backToList = keyboard.get(0).get(0);
-        assertEquals(ACTIVE_BACK_TO_LIST_TEXT, backToList.getText(),
-                "Первая строка должна содержать кнопку возврата к списку");
-        assertEquals("returns:active:list", backToList.getCallbackData(),
-                "Callback кнопки возврата к списку должен быть корректным");
+        InlineKeyboardButton firstAction = keyboard.get(0).get(0);
+        assertEquals("📮 Указать трек", firstAction.getText(),
+                "Первая строка после выбора должна начинаться с действий по заявке");
 
         boolean hasSelectionButtons = keyboard.stream()
                 .filter(Objects::nonNull)
@@ -629,9 +624,23 @@ class BuyerTelegramBotTest {
         assertFalse(hasSelectionButtons,
                 "После выбора заявки список заявок не должен отображаться в клавиатуре");
 
+        boolean hasForbiddenCallback = keyboard.stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .map(InlineKeyboardButton::getCallbackData)
+                .filter(Objects::nonNull)
+                .anyMatch("returns:active:list"::equals);
+        assertFalse(hasForbiddenCallback,
+                "После выбора заявки не должно оставаться кнопок со старым callback возврата к списку");
+
         List<InlineKeyboardButton> navigationRow = keyboard.get(keyboard.size() - 1);
-        assertTrue(navigationRow.stream().anyMatch(button -> BACK_BUTTON_TEXT.equals(button.getText())),
-                "Последняя строка клавиатуры должна оставаться навигационной");
+        InlineKeyboardButton backButton = navigationRow.stream()
+                .filter(button -> BACK_BUTTON_TEXT.equals(button.getText()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Навигационная строка обязана содержать кнопку «Назад»"));
+        assertEquals(NAVIGATE_BACK_CALLBACK, backButton.getCallbackData(),
+                "Кнопка навигации «Назад» должна использовать стандартный callback");
         assertTrue(navigationRow.stream().anyMatch(button -> MENU_BUTTON_TEXT.equals(button.getText())),
                 "Навигационная строка обязана содержать кнопку перехода в меню");
 
@@ -914,11 +923,19 @@ class BuyerTelegramBotTest {
         InlineKeyboardMarkup markup = editMessage.getReplyMarkup();
         assertNotNull(markup, "Для результата операции ожидается инлайн-клавиатура");
         List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
-        assertEquals(1, keyboard.size(), "Клавиатура результата должна содержать одну строку");
-        InlineKeyboardButton outcomeButton = keyboard.get(0).get(0);
-        assertEquals(OUTCOME_OK_TEXT, outcomeButton.getText(), "Кнопка подтверждения должна называться «Ок»");
-        assertEquals("returns:active:list", outcomeButton.getCallbackData(),
-                "Нажатие должно возвращать пользователя к списку заявок");
+        assertEquals(1, keyboard.size(), "Клавиатура результата должна содержать одну навигационную строку");
+        List<InlineKeyboardButton> navRow = keyboard.get(0);
+        InlineKeyboardButton backButton = navRow.stream()
+                .filter(button -> BACK_BUTTON_TEXT.equals(button.getText()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Результат операции обязан содержать кнопку «Назад»"));
+        assertEquals(NAVIGATE_BACK_CALLBACK, backButton.getCallbackData(),
+                "Кнопка возврата должна использовать стандартный callback навигации");
+        boolean legacyCallbackPresent = navRow.stream()
+                .map(InlineKeyboardButton::getCallbackData)
+                .filter(Objects::nonNull)
+                .anyMatch("returns:active:list"::equals);
+        assertFalse(legacyCallbackPresent, "Клавиатура результата не должна содержать устаревший callback возврата к списку");
 
         assertEquals(BuyerChatState.IDLE, chatSessionRepository.getState(chatId));
         ChatSession stored = chatSessionRepository.find(chatId).orElseThrow();
@@ -976,10 +993,18 @@ class BuyerTelegramBotTest {
 
         InlineKeyboardMarkup markup = editMessage.getReplyMarkup();
         assertNotNull(markup, "Для ошибки также требуется инлайн-клавиатура");
-        InlineKeyboardButton button = markup.getKeyboard().get(0).get(0);
-        assertEquals(OUTCOME_BACK_TEXT, button.getText(), "В случае ошибки должна быть кнопка «Назад»");
-        assertEquals("returns:active:list", button.getCallbackData(),
-                "Callback должен приводить к повторному открытию списка заявок");
+        List<InlineKeyboardButton> navRow = markup.getKeyboard().get(0);
+        InlineKeyboardButton backButton = navRow.stream()
+                .filter(button -> BACK_BUTTON_TEXT.equals(button.getText()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("При ошибке должна отображаться кнопка «Назад»"));
+        assertEquals(NAVIGATE_BACK_CALLBACK, backButton.getCallbackData(),
+                "Кнопка возврата после ошибки обязана использовать стандартный callback");
+        boolean containsLegacyCallback = navRow.stream()
+                .map(InlineKeyboardButton::getCallbackData)
+                .filter(Objects::nonNull)
+                .anyMatch("returns:active:list"::equals);
+        assertFalse(containsLegacyCallback, "Клавиатура ошибки не должна содержать устаревший callback возврата к списку");
 
         assertEquals(BuyerChatState.IDLE, chatSessionRepository.getState(chatId));
         ChatSession stored = chatSessionRepository.find(chatId).orElseThrow();
