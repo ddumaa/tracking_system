@@ -50,6 +50,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.Keyboard
 import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberUpdated;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -71,6 +72,8 @@ class BuyerTelegramBotTest {
     private static final String MENU_BUTTON_TEXT = "🏠 Меню";
     private static final String BACK_BUTTON_TEXT = "⬅️ Назад";
     private static final String ACTIVE_BACK_TO_LIST_TEXT = "↩️ Вернуться к списку";
+    private static final String OUTCOME_OK_TEXT = "Ок";
+    private static final String OUTCOME_BACK_TEXT = "Назад";
 
     @Mock
     private TelegramClient telegramClient;
@@ -777,22 +780,96 @@ class BuyerTelegramBotTest {
         when(telegramService.updateReturnRequestDetailsFromTelegram(chatId, 2L, 3L, "TRACK", null))
                 .thenReturn(response);
 
-        ChatSession session = new ChatSession(chatId, BuyerChatState.AWAITING_TRACK_UPDATE, null, null);
+        ChatSession session = new ChatSession(chatId, BuyerChatState.AWAITING_TRACK_UPDATE, 500, BuyerBotScreen.RETURNS_ACTIVE_REQUESTS);
         session.setActiveReturnRequestContext(3L, 2L, ReturnRequestEditMode.TRACK);
+        session.updateNavigationForScreen(BuyerBotScreen.RETURNS_ACTIVE_REQUESTS, false);
         chatSessionRepository.save(session);
 
+        clearInvocations(telegramClient);
         bot.consume(mockTextUpdate(chatId, "TRACK"));
 
         verify(telegramService).updateReturnRequestDetailsFromTelegram(chatId, 2L, 3L, "TRACK", null);
-        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
-        verify(telegramClient, atLeastOnce()).execute(captor.capture());
-        assertTrue(captor.getAllValues().stream()
-                        .map(SendMessage::getText)
-                        .anyMatch(text -> text.contains("Трек-номер сохранён")),
-                "Пользователь должен получить уведомление об успешном обновлении");
-        assertEquals(BuyerChatState.AWAITING_ACTIVE_REQUEST_SELECTION, chatSessionRepository.getState(chatId));
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(editCaptor.capture());
+        verify(telegramClient, never()).execute(isA(SendMessage.class));
+
+        EditMessageText editMessage = editCaptor.getValue();
+        assertTrue(editMessage.getText().contains("Трек-номер сохранён"),
+                "Пользователь должен увидеть подтверждение сохранения трека");
+
+        InlineKeyboardMarkup markup = editMessage.getReplyMarkup();
+        assertNotNull(markup, "Для результата операции ожидается инлайн-клавиатура");
+        List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
+        assertEquals(1, keyboard.size(), "Клавиатура результата должна содержать одну строку");
+        InlineKeyboardButton outcomeButton = keyboard.get(0).get(0);
+        assertEquals(OUTCOME_OK_TEXT, outcomeButton.getText(), "Кнопка подтверждения должна называться «Ок»");
+        assertEquals("returns:active:list", outcomeButton.getCallbackData(),
+                "Нажатие должно возвращать пользователя к списку заявок");
+
+        assertEquals(BuyerChatState.IDLE, chatSessionRepository.getState(chatId));
         ChatSession stored = chatSessionRepository.find(chatId).orElseThrow();
         assertNull(stored.getActiveReturnRequestId(), "Контекст редактируемой заявки должен очищаться");
+    }
+
+    /**
+     * Проверяет, что при ошибке доступа бот показывает кнопку возврата к списку заявок.
+     */
+    @Test
+    void shouldShowReturnButtonWhenTrackUpdateDenied() throws Exception {
+        Long chatId = 1313L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        ActionRequiredReturnRequestDto requestDto = new ActionRequiredReturnRequestDto(
+                7L,
+                9L,
+                "TRACK-ERR",
+                "Store",
+                "Доставлена",
+                OrderReturnRequestStatus.REGISTERED,
+                OrderReturnRequestStatus.REGISTERED.getDisplayName(),
+                "02.02.2025",
+                "01.02.2025",
+                "Причина",
+                "Комментарий",
+                "REV-ERR",
+                true,
+                true
+        );
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenReturn(List.of(requestDto));
+        when(telegramService.updateReturnRequestDetailsFromTelegram(chatId, 9L, 7L, "TRACK", "Комментарий"))
+                .thenThrow(new AccessDeniedException("denied"));
+
+        ChatSession session = new ChatSession(chatId, BuyerChatState.AWAITING_TRACK_UPDATE, 600, BuyerBotScreen.RETURNS_ACTIVE_REQUESTS);
+        session.setActiveReturnRequestContext(7L, 9L, ReturnRequestEditMode.TRACK);
+        session.updateNavigationForScreen(BuyerBotScreen.RETURNS_ACTIVE_REQUESTS, false);
+        chatSessionRepository.save(session);
+
+        clearInvocations(telegramClient);
+        bot.consume(mockTextUpdate(chatId, "TRACK"));
+
+        verify(telegramService).updateReturnRequestDetailsFromTelegram(chatId, 9L, 7L, "TRACK", "Комментарий");
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(editCaptor.capture());
+        verify(telegramClient, never()).execute(isA(SendMessage.class));
+
+        EditMessageText editMessage = editCaptor.getValue();
+        assertTrue(editMessage.getText().contains("Не удалось подтвердить владельца посылки"),
+                "Пользователь должен получить подсказку о невозможности обновления");
+
+        InlineKeyboardMarkup markup = editMessage.getReplyMarkup();
+        assertNotNull(markup, "Для ошибки также требуется инлайн-клавиатура");
+        InlineKeyboardButton button = markup.getKeyboard().get(0).get(0);
+        assertEquals(OUTCOME_BACK_TEXT, button.getText(), "В случае ошибки должна быть кнопка «Назад»");
+        assertEquals("returns:active:list", button.getCallbackData(),
+                "Callback должен приводить к повторному открытию списка заявок");
+
+        assertEquals(BuyerChatState.IDLE, chatSessionRepository.getState(chatId));
+        ChatSession stored = chatSessionRepository.find(chatId).orElseThrow();
+        assertNull(stored.getActiveReturnRequestId(), "Контекст должен очищаться после ошибки");
     }
 
     /**
