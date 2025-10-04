@@ -104,6 +104,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String CALLBACK_RETURNS_ACTIVE_CANCEL_PREFIX = "returns:active:cancel:";
     private static final String CALLBACK_RETURNS_ACTIVE_CANCEL_EXCHANGE_PREFIX = "returns:active:cancel_exchange:";
     private static final String CALLBACK_RETURNS_ACTIVE_CONVERT_PREFIX = "returns:active:convert:";
+    private static final String CALLBACK_RETURNS_ACTIVE_CONFIRM_PREFIX = "returns:active:confirm:";
     private static final String CALLBACK_RETURNS_DONE = "returns:done";
     private static final String CALLBACK_SETTINGS_TOGGLE_NOTIFICATIONS = "settings:toggle_notifications";
     private static final String CALLBACK_SETTINGS_CONFIRM_NAME = "settings:confirm_name";
@@ -196,6 +197,16 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             "ℹ️ Обмен отменён. Мы уведомим магазин.";
     private static final String RETURNS_ACTIVE_CONVERT_SUCCESS =
             "✅ Заявка переведена в возврат. Вы сможете добавить трек позднее.";
+    private static final String RETURNS_ACTIVE_CONFIRMATION_PROMPT =
+            "Подтвердите действие через кнопки ниже.";
+    private static final String RETURNS_ACTIVE_CANCEL_RETURN_CONFIRMATION =
+            "Вы уверены, что хотите отменить заявку на возврат?";
+    private static final String RETURNS_ACTIVE_CANCEL_RETURN_CONFIRMATION_WITH_TRACK =
+            "Вы указали обратный трек %s. Подтвердите отмену возврата?";
+    private static final String RETURNS_ACTIVE_CANCEL_EXCHANGE_CONFIRMATION =
+            "Вы уверены, что хотите отменить обмен?";
+    private static final String RETURNS_ACTIVE_CONVERT_CONFIRMATION =
+            "Перевести обмен обратно в возврат?";
     private static final String RETURNS_ACTIVE_NO_SELECTION =
             "⚠️ Выберите заявку перед выполнением действия.";
     private static final String RETURNS_ACTIVE_UPDATE_INVALID_TRACK =
@@ -207,8 +218,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String BUTTON_RETURNS_ACTION_TRACK = "📮 Указать трек";
     private static final String BUTTON_RETURNS_ACTION_COMMENT = "💬 Комментарий";
     private static final String BUTTON_RETURNS_ACTION_CANCEL_RETURN = "🚫 Отменить возврат";
+    private static final String BUTTON_RETURNS_ACTION_CANCEL_RETURN_CONFIRM =
+            "🚫 Отменить возврат (нужно подтверждение)";
     private static final String BUTTON_RETURNS_ACTION_CANCEL_EXCHANGE = "🚫 Отменить обмен";
     private static final String BUTTON_RETURNS_ACTION_CONVERT = "↩️ Перевести в возврат";
+    private static final String BUTTON_CONFIRM_YES = "✅ Да";
+    private static final String BUTTON_CONFIRM_NO = "↩️ Нет";
 
     private static final Base64.Encoder STORE_KEY_ENCODER = Base64.getUrlEncoder().withoutPadding();
     private static final Base64.Decoder STORE_KEY_DECODER = Base64.getUrlDecoder();
@@ -505,6 +520,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
+        if (state == BuyerChatState.AWAITING_ACTIVE_ACTION_CONFIRMATION) {
+            remindActionConfirmation(chatId);
+            return;
+        }
+
         if (state == BuyerChatState.AWAITING_TRACK_UPDATE
                 || state == BuyerChatState.AWAITING_COMMENT_UPDATE) {
             handleTrackUpdateInput(chatId, trimmed);
@@ -616,6 +636,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         if (data.startsWith(CALLBACK_RETURNS_ACTIVE_CONVERT_PREFIX)) {
             handleActiveRequestConvert(chatId, callbackQuery, data);
+            return;
+        }
+
+        if (data.startsWith(CALLBACK_RETURNS_ACTIVE_CONFIRM_PREFIX)) {
+            handleActiveRequestConfirmation(chatId, callbackQuery, data);
             return;
         }
 
@@ -1270,19 +1295,27 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (request.status() == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
             boolean cancellationBlocked = request.cancelExchangeUnavailableReason() != null
                     && !request.cancelExchangeUnavailableReason().isBlank();
-            if (!cancellationBlocked) {
+            boolean exchangeDispatched = request.exchangeShipmentDispatched();
+            if (!cancellationBlocked && !exchangeDispatched) {
                 rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
                         .text(BUTTON_RETURNS_ACTION_CANCEL_EXCHANGE)
                         .callbackData(CALLBACK_RETURNS_ACTIVE_CANCEL_EXCHANGE_PREFIX + requestId + ':' + parcelId)
                         .build()));
             }
-            rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
-                    .text(BUTTON_RETURNS_ACTION_CONVERT)
-                    .callbackData(CALLBACK_RETURNS_ACTIVE_CONVERT_PREFIX + requestId + ':' + parcelId)
-                    .build()));
+            if (!exchangeDispatched) {
+                rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
+                        .text(BUTTON_RETURNS_ACTION_CONVERT)
+                        .callbackData(CALLBACK_RETURNS_ACTIVE_CONVERT_PREFIX + requestId + ':' + parcelId)
+                        .build()));
+            }
         } else {
+            boolean reverseTrackProvided = request.reverseTrackNumber() != null
+                    && !request.reverseTrackNumber().isBlank();
+            String cancelText = reverseTrackProvided
+                    ? BUTTON_RETURNS_ACTION_CANCEL_RETURN_CONFIRM
+                    : BUTTON_RETURNS_ACTION_CANCEL_RETURN;
             rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
-                    .text(BUTTON_RETURNS_ACTION_CANCEL_RETURN)
+                    .text(cancelText)
                     .callbackData(CALLBACK_RETURNS_ACTIVE_CANCEL_PREFIX + requestId + ':' + parcelId)
                     .build()));
         }
@@ -1940,8 +1973,265 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
         RequestActionContext context = contextOptional.get();
-        answerCallbackQuery(callbackQuery, "Отменяем возврат");
+        Optional<ActiveRequestDetails> detailsOptional = loadActiveRequestDetails(chatId, context);
+        if (detailsOptional.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            sendActiveReturnRequestsScreen(chatId);
+            return;
+        }
+        answerCallbackQuery(callbackQuery, "Требуется подтверждение");
         ChatSession session = ensureChatSession(chatId);
+        showActiveRequestConfirmation(chatId, session, detailsOptional.get(), context, ActiveRequestAction.CANCEL_RETURN);
+    }
+
+    private void handleActiveRequestCancelExchange(Long chatId, CallbackQuery callbackQuery, String data) {
+        Optional<RequestActionContext> contextOptional = parseActionContext(data, CALLBACK_RETURNS_ACTIVE_CANCEL_EXCHANGE_PREFIX);
+        if (contextOptional.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            return;
+        }
+        RequestActionContext context = contextOptional.get();
+        Optional<ActiveRequestDetails> detailsOptional = loadActiveRequestDetails(chatId, context);
+        if (detailsOptional.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            sendActiveReturnRequestsScreen(chatId);
+            return;
+        }
+        ActiveRequestDetails details = detailsOptional.get();
+        if (details.selected().exchangeShipmentDispatched()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            sendActiveReturnRequestsScreen(chatId);
+            return;
+        }
+        answerCallbackQuery(callbackQuery, "Требуется подтверждение");
+        ChatSession session = ensureChatSession(chatId);
+        showActiveRequestConfirmation(chatId, session, details, context, ActiveRequestAction.CANCEL_EXCHANGE);
+    }
+
+    private void handleActiveRequestConvert(Long chatId, CallbackQuery callbackQuery, String data) {
+        Optional<RequestActionContext> contextOptional = parseActionContext(data, CALLBACK_RETURNS_ACTIVE_CONVERT_PREFIX);
+        if (contextOptional.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            return;
+        }
+        RequestActionContext context = contextOptional.get();
+        Optional<ActiveRequestDetails> detailsOptional = loadActiveRequestDetails(chatId, context);
+        if (detailsOptional.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            sendActiveReturnRequestsScreen(chatId);
+            return;
+        }
+        ActiveRequestDetails details = detailsOptional.get();
+        if (details.selected().exchangeShipmentDispatched()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            sendActiveReturnRequestsScreen(chatId);
+            return;
+        }
+        answerCallbackQuery(callbackQuery, "Требуется подтверждение");
+        ChatSession session = ensureChatSession(chatId);
+        showActiveRequestConfirmation(chatId, session, details, context, ActiveRequestAction.CONVERT_TO_RETURN);
+    }
+
+    private Optional<ActiveRequestDetails> loadActiveRequestDetails(Long chatId, RequestActionContext context) {
+        if (chatId == null || context == null) {
+            return Optional.empty();
+        }
+        List<ActionRequiredReturnRequestDto> requests = telegramService.getReturnRequestsRequiringAction(chatId);
+        if (requests == null || requests.isEmpty()) {
+            return Optional.empty();
+        }
+        ActionRequiredReturnRequestDto selected = findRequestInfo(requests, context.requestId());
+        if (selected == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new ActiveRequestDetails(requests, selected));
+    }
+
+    private ActionRequiredReturnRequestDto findRequestInfo(List<ActionRequiredReturnRequestDto> requests, Long requestId) {
+        if (requests == null || requests.isEmpty() || requestId == null) {
+            return null;
+        }
+        return requests.stream()
+                .filter(dto -> requestId.equals(dto.requestId()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private ActionRequiredReturnRequestDto findRequestInfo(Long chatId, Long requestId) {
+        List<ActionRequiredReturnRequestDto> requests = telegramService.getReturnRequestsRequiringAction(chatId);
+        return findRequestInfo(requests, requestId);
+    }
+
+    /**
+     * Показывает диалог подтверждения действия в текущем якорном сообщении.
+     *
+     * @param chatId   идентификатор чата Telegram
+     * @param session  сессия пользователя для обновления контекста
+     * @param details  сведения о выбранной заявке и списке заявок
+     * @param context  идентификаторы заявки и посылки
+     * @param action   действие, которое требуется подтвердить
+     */
+    private void showActiveRequestConfirmation(Long chatId,
+                                               ChatSession session,
+                                               ActiveRequestDetails details,
+                                               RequestActionContext context,
+                                               ActiveRequestAction action) {
+        if (chatId == null || session == null || details == null || context == null || action == null) {
+            return;
+        }
+        session.setActiveReturnRequestContext(context.requestId(), context.parcelId());
+        session.updateNavigationForScreen(BuyerBotScreen.RETURNS_ACTIVE_REQUESTS, true);
+        session.setState(BuyerChatState.AWAITING_ACTIVE_ACTION_CONFIRMATION);
+        chatSessionRepository.save(session);
+        transitionToState(chatId, BuyerChatState.AWAITING_ACTIVE_ACTION_CONFIRMATION);
+
+        List<BuyerBotScreen> navigationPath = session.getNavigationPath();
+        String message = buildActionConfirmationMessage(details.requests(), details.selected(), action);
+        InlineKeyboardMarkup markup = buildConfirmationKeyboard(context, action, navigationPath);
+        sendInlineMessage(chatId, message, markup, BuyerBotScreen.RETURNS_ACTIVE_REQUESTS, navigationPath);
+    }
+
+    /**
+     * Формирует текст подтверждения с учётом выбранного действия и обратного трека.
+     */
+    private String buildActionConfirmationMessage(List<ActionRequiredReturnRequestDto> requests,
+                                                  ActionRequiredReturnRequestDto selected,
+                                                  ActiveRequestAction action) {
+        String base = buildActiveReturnRequestsMessage(requests, selected);
+        String question = buildConfirmationQuestion(selected, action);
+        return new StringBuilder(base)
+                .append(System.lineSeparator())
+                .append(System.lineSeparator())
+                .append(escapeMarkdown(question))
+                .append(System.lineSeparator())
+                .append(escapeMarkdown(RETURNS_ACTIVE_CONFIRMATION_PROMPT))
+                .toString();
+    }
+
+    /**
+     * Возвращает текст вопроса подтверждения для выбранного действия.
+     */
+    private String buildConfirmationQuestion(ActionRequiredReturnRequestDto request, ActiveRequestAction action) {
+        if (request == null || action == null) {
+            return RETURNS_ACTIVE_CONFIRMATION_PROMPT;
+        }
+        return switch (action) {
+            case CANCEL_RETURN -> buildCancelReturnConfirmation(request);
+            case CANCEL_EXCHANGE -> RETURNS_ACTIVE_CANCEL_EXCHANGE_CONFIRMATION;
+            case CONVERT_TO_RETURN -> RETURNS_ACTIVE_CONVERT_CONFIRMATION;
+        };
+    }
+
+    private String buildCancelReturnConfirmation(ActionRequiredReturnRequestDto request) {
+        String reverse = request.reverseTrackNumber();
+        if (reverse != null && !reverse.isBlank()) {
+            return String.format(RETURNS_ACTIVE_CANCEL_RETURN_CONFIRMATION_WITH_TRACK, reverse);
+        }
+        return RETURNS_ACTIVE_CANCEL_RETURN_CONFIRMATION;
+    }
+
+    /**
+     * Формирует клавиатуру подтверждения с кнопками «Да» и «Нет» и строкой навигации.
+     */
+    private InlineKeyboardMarkup buildConfirmationKeyboard(RequestActionContext context,
+                                                           ActiveRequestAction action,
+                                                           List<BuyerBotScreen> navigationPath) {
+        InlineKeyboardButton yesButton = InlineKeyboardButton.builder()
+                .text(BUTTON_CONFIRM_YES)
+                .callbackData(buildConfirmationCallback(action, true, context))
+                .build();
+        InlineKeyboardButton noButton = InlineKeyboardButton.builder()
+                .text(BUTTON_CONFIRM_NO)
+                .callbackData(buildConfirmationCallback(action, false, context))
+                .build();
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        rows.add(new InlineKeyboardRow(yesButton, noButton));
+        appendNavigationRow(rows, navigationPath);
+        return InlineKeyboardMarkup.builder()
+                .keyboard(rows)
+                .build();
+    }
+
+    private String buildConfirmationCallback(ActiveRequestAction action,
+                                             boolean confirmed,
+                                             RequestActionContext context) {
+        if (action == null || context == null || context.requestId() == null || context.parcelId() == null) {
+            return CALLBACK_RETURNS_ACTIVE_CONFIRM_PREFIX;
+        }
+        String decision = confirmed ? "yes" : "no";
+        return CALLBACK_RETURNS_ACTIVE_CONFIRM_PREFIX
+                + action.code() + ':'
+                + decision + ':'
+                + context.requestId() + ':'
+                + context.parcelId();
+    }
+
+    private Optional<ActionConfirmationContext> parseConfirmationContext(String data) {
+        if (data == null || !data.startsWith(CALLBACK_RETURNS_ACTIVE_CONFIRM_PREFIX)) {
+            return Optional.empty();
+        }
+        String[] parts = data.substring(CALLBACK_RETURNS_ACTIVE_CONFIRM_PREFIX.length()).split(":");
+        if (parts.length != 4) {
+            return Optional.empty();
+        }
+        ActiveRequestAction action = ActiveRequestAction.fromCode(parts[0]);
+        if (action == null) {
+            return Optional.empty();
+        }
+        boolean confirmed;
+        if ("yes".equals(parts[1])) {
+            confirmed = true;
+        } else if ("no".equals(parts[1])) {
+            confirmed = false;
+        } else {
+            return Optional.empty();
+        }
+        try {
+            Long requestId = Long.parseLong(parts[2]);
+            Long parcelId = Long.parseLong(parts[3]);
+            return Optional.of(new ActionConfirmationContext(action, confirmed,
+                    new RequestActionContext(requestId, parcelId)));
+        } catch (NumberFormatException ex) {
+            log.warn("⚠️ Некорректные идентификаторы в подтверждении: {}", data);
+            return Optional.empty();
+        }
+    }
+
+    private void handleActiveRequestConfirmation(Long chatId, CallbackQuery callbackQuery, String data) {
+        Optional<ActionConfirmationContext> confirmationOptional = parseConfirmationContext(data);
+        if (confirmationOptional.isEmpty()) {
+            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            return;
+        }
+        ActionConfirmationContext confirmation = confirmationOptional.get();
+        if (!confirmation.confirmed()) {
+            answerCallbackQuery(callbackQuery, "Действие отменено");
+            sendActiveReturnRequestsScreen(chatId);
+            return;
+        }
+        answerCallbackQuery(callbackQuery, "Выполняем действие");
+        ChatSession session = ensureChatSession(chatId);
+        performConfirmedAction(chatId, session, confirmation);
+    }
+
+    private void performConfirmedAction(Long chatId,
+                                        ChatSession session,
+                                        ActionConfirmationContext confirmation) {
+        if (confirmation == null || confirmation.action() == null || confirmation.context() == null) {
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+            return;
+        }
+        RequestActionContext context = confirmation.context();
+        ActiveRequestAction action = confirmation.action();
+        switch (action) {
+            case CANCEL_RETURN -> executeCancelReturn(chatId, session, context);
+            case CANCEL_EXCHANGE -> executeCancelExchange(chatId, session, context);
+            case CONVERT_TO_RETURN -> executeConvertToReturn(chatId, session, context);
+            default -> finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
+        }
+    }
+
+    private void executeCancelReturn(Long chatId, ChatSession session, RequestActionContext context) {
         try {
             telegramService.closeReturnRequestFromTelegram(chatId, context.parcelId(), context.requestId());
             finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_CANCEL_RETURN_SUCCESS);
@@ -1957,15 +2247,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
     }
 
-    private void handleActiveRequestCancelExchange(Long chatId, CallbackQuery callbackQuery, String data) {
-        Optional<RequestActionContext> contextOptional = parseActionContext(data, CALLBACK_RETURNS_ACTIVE_CANCEL_EXCHANGE_PREFIX);
-        if (contextOptional.isEmpty()) {
-            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
-            return;
-        }
-        RequestActionContext context = contextOptional.get();
-        answerCallbackQuery(callbackQuery, "Отменяем обмен");
-        ChatSession session = ensureChatSession(chatId);
+    private void executeCancelExchange(Long chatId, ChatSession session, RequestActionContext context) {
         try {
             telegramService.cancelExchangeFromTelegram(chatId, context.parcelId(), context.requestId());
             finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_CANCEL_EXCHANGE_SUCCESS);
@@ -1985,15 +2267,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
     }
 
-    private void handleActiveRequestConvert(Long chatId, CallbackQuery callbackQuery, String data) {
-        Optional<RequestActionContext> contextOptional = parseActionContext(data, CALLBACK_RETURNS_ACTIVE_CONVERT_PREFIX);
-        if (contextOptional.isEmpty()) {
-            answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
-            return;
-        }
-        RequestActionContext context = contextOptional.get();
-        answerCallbackQuery(callbackQuery, "Переводим в возврат");
-        ChatSession session = ensureChatSession(chatId);
+    private void executeConvertToReturn(Long chatId, ChatSession session, RequestActionContext context) {
         try {
             telegramService.convertExchangeToReturnFromTelegram(chatId, context.parcelId(), context.requestId());
             finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_CONVERT_SUCCESS);
@@ -2007,13 +2281,6 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             log.error("❌ Не удалось перевести обмен {} в возврат", context.requestId(), ex);
             finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_FAILED);
         }
-    }
-
-    private ActionRequiredReturnRequestDto findRequestInfo(Long chatId, Long requestId) {
-        return telegramService.getReturnRequestsRequiringAction(chatId).stream()
-                .filter(dto -> requestId.equals(dto.requestId()))
-                .findFirst()
-                .orElse(null);
     }
 
     private void handleTrackUpdateInput(Long chatId, String text) {
@@ -2181,6 +2448,58 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * Контекст действия по заявке: идентификатор заявки и посылки.
      */
     private record RequestActionContext(Long requestId, Long parcelId) {
+    }
+
+    /**
+     * Содержит список заявок и выбранную позицию для вывода подтверждения действия.
+     */
+    private record ActiveRequestDetails(List<ActionRequiredReturnRequestDto> requests,
+                                        ActionRequiredReturnRequestDto selected) {
+    }
+
+    /**
+     * Контекст подтверждения действия с указанием типа операции и исходных идентификаторов.
+     */
+    private record ActionConfirmationContext(ActiveRequestAction action,
+                                             boolean confirmed,
+                                             RequestActionContext context) {
+    }
+
+    /**
+     * Возможные действия над активной заявкой, требующие подтверждения.
+     */
+    private enum ActiveRequestAction {
+        CANCEL_RETURN("cancel"),
+        CANCEL_EXCHANGE("cancel_exchange"),
+        CONVERT_TO_RETURN("convert");
+
+        private final String code;
+
+        ActiveRequestAction(String code) {
+            this.code = code;
+        }
+
+        /**
+         * Возвращает строковое представление действия для формирования callback-данных.
+         */
+        public String code() {
+            return code;
+        }
+
+        /**
+         * Восстанавливает действие из строкового кода.
+         */
+        public static ActiveRequestAction fromCode(String code) {
+            if (code == null) {
+                return null;
+            }
+            for (ActiveRequestAction action : values()) {
+                if (action.code.equals(code)) {
+                    return action;
+                }
+            }
+            return null;
+        }
     }
 
     /**
@@ -4053,6 +4372,15 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      */
     private void remindRequestAction(Long chatId) {
         sendSimpleMessage(chatId, RETURNS_ACTIVE_SELECT_PROMPT);
+    }
+
+    /**
+     * Напоминает пользователю подтвердить действие кнопками «Да/Нет».
+     *
+     * @param chatId идентификатор чата Telegram
+     */
+    private void remindActionConfirmation(Long chatId) {
+        sendSimpleMessage(chatId, RETURNS_ACTIVE_CONFIRMATION_PROMPT);
     }
 
     /**

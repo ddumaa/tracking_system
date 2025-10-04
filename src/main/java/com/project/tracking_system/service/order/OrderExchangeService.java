@@ -174,6 +174,29 @@ public class OrderExchangeService {
     }
 
     /**
+     * Возвращает последнюю обменную посылку без дополнительных проверок.
+     * <p>
+     * Метод используется для информирования пользователя о статусе отправки,
+     * поэтому не выбрасывает исключения даже при наличии трека, а просто
+     * возвращает найденную посылку.
+     * </p>
+     *
+     * @param request заявка на обмен, для которой требуется найти замену
+     * @return последняя обменная посылка или {@link Optional#empty()}, если обмен не создавался
+     */
+    @Transactional(readOnly = true)
+    public Optional<TrackParcel> findLatestExchangeParcel(OrderReturnRequest request) {
+        if (request == null) {
+            return Optional.empty();
+        }
+        TrackParcel originalParcel = request.getParcel();
+        if (originalParcel == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(trackParcelRepository.findTopByReplacementOfOrderByTimestampDesc(originalParcel));
+    }
+
+    /**
      * Формирует служебный трек-номер для обменной посылки при отмене обмена.
      * <p>
      * Метод перезагружает сущность, если это возможно, чтобы работать с актуальными идентификаторами,

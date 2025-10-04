@@ -375,6 +375,7 @@ public class DeparturesController {
         String cancelExchangeReason = orderReturnRequestService
                 .getExchangeCancellationBlockReason(request)
                 .orElse(null);
+        boolean exchangeShipmentDispatched = orderReturnRequestService.isExchangeShipmentDispatched(request);
 
         return new ActionRequiredReturnRequestDto(
                 request.getId(),
@@ -391,6 +392,7 @@ public class DeparturesController {
                 request.getReverseTrackNumber(),
                 canStartExchange,
                 canCloseWithoutExchange,
+                exchangeShipmentDispatched,
                 cancelExchangeReason
         );
     }

@@ -321,6 +321,43 @@ public class OrderReturnRequestService {
     }
 
     /**
+     * Проверяет, была ли отправлена обменная посылка по заявке.
+     * <p>
+     * Фиксирует факт отправки, если у посылки появился трек-номер либо она
+     * достигла финального статуса доставки. Используется для ограничения
+     * действий в интерфейсе Telegram.
+     * </p>
+     *
+     * @param request заявка на обмен
+     * @return {@code true}, если обменная посылка отправлена или доставлена
+     */
+    @Transactional(readOnly = true)
+    public boolean isExchangeShipmentDispatched(OrderReturnRequest request) {
+        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            return false;
+        }
+        return orderExchangeService.findLatestExchangeParcel(request)
+                .map(this::isParcelDispatched)
+                .orElse(false);
+    }
+
+    /**
+     * Определяет, считается ли обменная посылка отправленной.
+     *
+     * @param parcel обменная посылка
+     * @return {@code true}, если у посылки есть трек или финальный статус
+     */
+    private boolean isParcelDispatched(TrackParcel parcel) {
+        if (parcel == null) {
+            return false;
+        }
+        boolean hasTrack = parcel.getNumber() != null && !parcel.getNumber().isBlank();
+        GlobalStatus status = parcel.getStatus();
+        boolean finalStatus = status != null && status.isFinal();
+        return hasTrack || finalStatus;
+    }
+
+    /**
      * Возвращает идентификаторы посылок пользователя, по которым требуются действия.
      */
     @Transactional(readOnly = true)
