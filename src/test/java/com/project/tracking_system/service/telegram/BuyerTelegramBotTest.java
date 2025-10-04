@@ -1069,6 +1069,98 @@ class BuyerTelegramBotTest {
     }
 
     /**
+     * Проверяет, что на экране выбора причины доступны кнопки навигации и они возвращают пользователя на предыдущие шаги.
+     */
+    @Test
+    void shouldNavigateFromReturnReasonPrompt() throws Exception {
+        Long chatId = 2116L;
+        TelegramParcelInfoDTO delivered = new TelegramParcelInfoDTO(77L, "TRACK-77", "Store Sigma", GlobalStatus.DELIVERED, false);
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(delivered), List.of(), List.of());
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        bot.consume(mockCallbackUpdate(chatId, "parcel:return:77"));
+
+        ArgumentCaptor<SendMessage> promptCaptor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(promptCaptor.capture());
+        SendMessage reasonPrompt = promptCaptor.getAllValues().stream()
+                .filter(message -> {
+                    String text = message.getText();
+                    return text != null && text.contains("причину ниже");
+                })
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Не найдено сообщение с выбором причины"));
+
+        assertTrue(reasonPrompt.getReplyMarkup() instanceof InlineKeyboardMarkup,
+                "Сообщение с выбором причины должно содержать инлайн-клавиатуру");
+        InlineKeyboardMarkup reasonMarkup = (InlineKeyboardMarkup) reasonPrompt.getReplyMarkup();
+        List<List<InlineKeyboardButton>> reasonRows = reasonMarkup.getKeyboard();
+        assertEquals(3, reasonRows.size(),
+                "Клавиатура выбора причины должна содержать две строки причин и навигацию");
+        List<InlineKeyboardButton> navigationRow = reasonRows.get(2);
+        assertEquals(2, navigationRow.size(),
+                "В навигационной строке должны быть кнопки «Назад» и «Меню»");
+        InlineKeyboardButton backButton = navigationRow.get(0);
+        InlineKeyboardButton menuButton = navigationRow.get(1);
+        assertEquals(BACK_BUTTON_TEXT, backButton.getText(),
+                "Текст кнопки возврата должен соответствовать шаблону");
+        assertEquals(MENU_BUTTON_TEXT, menuButton.getText(),
+                "Текст кнопки меню должен совпадать с шаблоном");
+        assertEquals("nav:back", backButton.getCallbackData(),
+                "Callback кнопки возврата должен указывать на навигацию назад");
+        assertEquals("menu:back", menuButton.getCallbackData(),
+                "Callback кнопки меню должен вести в главное меню");
+
+        ChatSession session = chatSessionRepository.find(chatId).orElseThrow();
+        Integer reasonAnchorId = session.getAnchorMessageId();
+        assertNotNull(reasonAnchorId, "Сообщение выбора причины должно становиться якорным");
+
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "nav:back", reasonAnchorId));
+
+        verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
+            if (!(method instanceof EditMessageText editMessage)) {
+                return false;
+            }
+            String text = editMessage.getText();
+            return text != null && text.contains("Выберите посылку из магазина");
+        }));
+
+        ChatSession afterBackSession = chatSessionRepository.find(chatId).orElseThrow();
+        assertEquals(BuyerBotScreen.RETURNS_CREATE_REQUEST, afterBackSession.getLastScreen(),
+                "После нажатия «Назад» бот должен вернуть пользователя к выбору посылки");
+
+        Integer parcelAnchorId = afterBackSession.getAnchorMessageId();
+        assertNotNull(parcelAnchorId, "Экран выбора посылки должен иметь актуальный якорь");
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:create:parcel:77", parcelAnchorId));
+
+        ChatSession reasonAgainSession = chatSessionRepository.find(chatId).orElseThrow();
+        Integer reasonAnchorAgain = reasonAgainSession.getAnchorMessageId();
+        assertNotNull(reasonAnchorAgain, "Повторное открытие экрана причины должно обновлять якорь");
+        assertEquals(BuyerBotScreen.RETURNS_RETURN_REASON, reasonAgainSession.getLastScreen(),
+                "После повторного выбора посылки пользователь снова видит экран причины");
+
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "menu:back", reasonAnchorAgain));
+
+        verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
+            if (!(method instanceof EditMessageText editMessage)) {
+                return false;
+            }
+            String text = editMessage.getText();
+            return text != null && text.contains("Главное меню");
+        }));
+
+        ChatSession afterMenuSession = chatSessionRepository.find(chatId).orElseThrow();
+        assertEquals(BuyerBotScreen.MENU, afterMenuSession.getLastScreen(),
+                "После нажатия кнопки меню должен отображаться главный экран");
+        assertEquals(BuyerChatState.IDLE, chatSessionRepository.getState(chatId),
+                "При возврате в меню сценарий оформления возврата должен завершаться");
+    }
+
+    /**
      * Проверяет, что callback обмена отправляет пользователю инструкцию.
      */
     @Test

@@ -563,6 +563,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
         rememberAnchorMessage(chatId, messageId);
 
+        boolean reasonNavigation = isReturnReasonNavigation(data, session);
+
         if (CALLBACK_RETURNS_CREATE_TYPE_RETURN.equals(data)) {
             handleReturnRequestTypeSelection(chatId, callbackQuery, ReturnRequestType.RETURN);
             return;
@@ -583,7 +585,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
 
-        if (data.startsWith(CALLBACK_RETURNS_REASON_PREFIX)) {
+        if (data.startsWith(CALLBACK_RETURNS_REASON_PREFIX) || reasonNavigation) {
             handleReturnReasonCallback(chatId, callbackQuery, data);
             return;
         }
@@ -662,6 +664,24 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
         chatSessionRepository.updateAnchor(chatId, messageId);
+    }
+
+    /**
+     * Определяет, относится ли callback к навигации на шаге выбора причины возврата.
+     *
+     * @param data    данные callback-запроса
+     * @param session сохранённая сессия пользователя
+     * @return {@code true}, если нажата кнопка «Назад» или «Меню» на экране выбора причины
+     */
+    private boolean isReturnReasonNavigation(String data, ChatSession session) {
+        if (data == null) {
+            return false;
+        }
+        if (!CALLBACK_NAVIGATE_BACK.equals(data) && !CALLBACK_BACK_TO_MENU.equals(data)) {
+            return false;
+        }
+        BuyerBotScreen lastScreen = session != null ? session.getLastScreen() : null;
+        return lastScreen == BuyerBotScreen.RETURNS_RETURN_REASON;
     }
 
     /**
@@ -1472,6 +1492,15 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private void handleReturnReasonCallback(Long chatId,
                                             CallbackQuery callbackQuery,
                                             String data) {
+        if (CALLBACK_NAVIGATE_BACK.equals(data)) {
+            handleNavigateBack(chatId, callbackQuery);
+            return;
+        }
+        if (CALLBACK_BACK_TO_MENU.equals(data)) {
+            handleCallbackBackToMenu(chatId, callbackQuery, true);
+            return;
+        }
+
         Optional<String> reasonOptional = decodeReturnReason(data);
         if (reasonOptional.isEmpty()) {
             answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
@@ -1610,8 +1639,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                         .callbackData(CALLBACK_RETURNS_REASON_OTHER)
                         .build()
         );
+        InlineKeyboardRow navigationRow = buildBackAndMenuRow();
         return InlineKeyboardMarkup.builder()
-                .keyboard(List.of(firstRow, secondRow))
+                .keyboard(List.of(firstRow, secondRow, navigationRow))
                 .build();
     }
 
@@ -2922,6 +2952,19 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @param callbackQuery исходный callback-запрос
      */
     private void handleCallbackBackToMenu(Long chatId, CallbackQuery callbackQuery) {
+        handleCallbackBackToMenu(chatId, callbackQuery, false);
+    }
+
+    /**
+     * Возвращает пользователя в главное меню из инлайн-режима.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param callbackQuery исходный callback-запрос
+     * @param useRender     следует ли обновить экран через {@link #renderScreen(Long, BuyerBotScreen)}
+     */
+    private void handleCallbackBackToMenu(Long chatId,
+                                          CallbackQuery callbackQuery,
+                                          boolean useRender) {
         ChatSession session = chatSessionRepository.find(chatId).orElse(null);
         if (session != null) {
             resetReturnScenario(chatId, session);
@@ -2929,7 +2972,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             transitionToState(chatId, BuyerChatState.IDLE);
         }
         answerCallbackQuery(callbackQuery, "Открыл меню");
-        sendMainMenu(chatId);
+        if (useRender) {
+            renderScreen(chatId, BuyerBotScreen.MENU);
+        } else {
+            sendMainMenu(chatId);
+        }
     }
 
     /**
@@ -3141,12 +3188,21 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     /**
+     * Формирует строку с кнопками «Назад» и «Меню» для навигации.
+     *
+     * @return строка инлайн-клавиатуры с навигационными кнопками
+     */
+    private InlineKeyboardRow buildBackAndMenuRow() {
+        return new InlineKeyboardRow(buildBackButton(), buildMenuButton());
+    }
+
+    /**
      * Формирует клавиатуру с кнопками навигации «Назад» и «Меню».
      *
      * @return инлайн-клавиатура с двумя кнопками навигации
      */
     private InlineKeyboardMarkup buildBackAndMenuKeyboard() {
-        InlineKeyboardRow navigationRow = new InlineKeyboardRow(buildBackButton(), buildMenuButton());
+        InlineKeyboardRow navigationRow = buildBackAndMenuRow();
         return InlineKeyboardMarkup.builder()
                 .keyboard(List.of(navigationRow))
                 .build();
