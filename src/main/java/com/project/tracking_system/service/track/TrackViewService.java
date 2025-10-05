@@ -149,6 +149,7 @@ public class TrackViewService {
                 request.getReverseTrackNumber(),
                 request.requiresAction(),
                 request.isExchangeApproved(),
+                request.isExchangeRequested(),
                 canStartExchange,
                 canCloseWithoutExchange,
                 cancelExchangeReason

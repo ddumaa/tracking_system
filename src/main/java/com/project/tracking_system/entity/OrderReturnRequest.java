@@ -73,6 +73,12 @@ public class OrderReturnRequest {
     private String reverseTrackNumber;
 
     /**
+     * Признак, что пользователь запросил обмен при регистрации заявки.
+     */
+    @Column(name = "exchange_requested", nullable = false)
+    private boolean exchangeRequested = false;
+
+    /**
      * Текущее состояние заявки.
      */
     @Enumerated(EnumType.STRING)
@@ -181,6 +187,14 @@ public class OrderReturnRequest {
 
     public void setReverseTrackNumber(String reverseTrackNumber) {
         this.reverseTrackNumber = reverseTrackNumber;
+    }
+
+    public boolean isExchangeRequested() {
+        return exchangeRequested;
+    }
+
+    public void setExchangeRequested(boolean exchangeRequested) {
+        this.exchangeRequested = exchangeRequested;
     }
 
     public OrderReturnRequestStatus getStatus() {

@@ -97,6 +97,7 @@ public class OrderReturnRequestService {
      * @param comment         дополнительный комментарий пользователя
      * @param requestedAt     время запроса возврата пользователем
      * @param reverseTrack    трек обратной отправки (если есть)
+     * @param exchangeRequested признак, что пользователь сразу запросил обмен
      * @return созданная или ранее зарегистрированная заявка
      */
     @Transactional
@@ -106,7 +107,8 @@ public class OrderReturnRequestService {
                                              String reason,
                                              String comment,
                                              ZonedDateTime requestedAt,
-                                             String reverseTrack) {
+                                             String reverseTrack,
+                                             boolean exchangeRequested) {
         if (parcelId == null) {
             throw new IllegalArgumentException("Не указан идентификатор посылки");
         }
@@ -129,7 +131,8 @@ public class OrderReturnRequestService {
             if (!Objects.equals(existing.getReason(), normalizedReason)
                     || !Objects.equals(existing.getComment(), normalizedComment)
                     || !Objects.equals(existing.getRequestedAt(), normalizedRequestedAt)
-                    || !Objects.equals(existing.getReverseTrackNumber(), normalizedReverse)) {
+                    || !Objects.equals(existing.getReverseTrackNumber(), normalizedReverse)
+                    || existing.isExchangeRequested() != exchangeRequested) {
                 throw new IllegalStateException("Заявка с таким ключом уже зарегистрирована с другими данными");
             }
             return existing;
@@ -162,6 +165,9 @@ public class OrderReturnRequestService {
         request.setReverseTrackNumber(normalizedReverse);
         request.setStatus(OrderReturnRequestStatus.REGISTERED);
         request.setIdempotencyKey(idempotencyKey);
+        request.setExchangeRequested(exchangeRequested);
+
+        // Автоматический запуск обмена оставляем ручным, чтобы менеджер успел проверить данные перед созданием посылки.
 
         OrderReturnRequest saved = returnRequestRepository.save(request);
         log.info("Зарегистрирована заявка на возврат {} для посылки {}", saved.getId(), parcelId);

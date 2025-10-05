@@ -13,6 +13,7 @@ package com.project.tracking_system.dto;
  * @param reverseTrackNumber       трек обратной отправки, если указан
  * @param requiresAction           признак, что заявка ожидает действий
  * @param exchangeApproved         признак, что обмен уже запущен
+ * @param exchangeRequested        признак, что обмен был запрошен при регистрации
  * @param canStartExchange         доступность кнопки запуска обмена
  * @param canCloseWithoutExchange  доступность закрытия без обмена
  * @param cancelExchangeUnavailableReason сообщение для пользователя, если отмена обмена недоступна
@@ -27,8 +28,16 @@ public record OrderReturnRequestDto(Long id,
                                     String reverseTrackNumber,
                                     boolean requiresAction,
                                     boolean exchangeApproved,
+                                    boolean exchangeRequested,
                                     boolean canStartExchange,
                                     boolean canCloseWithoutExchange,
                                     String cancelExchangeUnavailableReason) {
+
+    /**
+     * Совместимый с фронтендом аксессор, чтобы не ломать проверку {@code isExchangeRequest}.
+     */
+    public boolean isExchangeRequest() {
+        return exchangeRequested;
+    }
 }
 
