@@ -106,6 +106,14 @@ describe('track-modal render', () => {
         expect(buttons[0].textContent).toContain('обмен');
         buttons[1].click();
         expect(loadSpy).toHaveBeenCalledWith(10);
+
+        const returnCard = Array.from(document.querySelectorAll('section.card'))
+            .find((card) => card.querySelector('h6')?.textContent === 'Возврат / обмен');
+        expect(returnCard).toBeDefined();
+        const definitions = returnCard?.querySelector('dl');
+        expect(definitions?.textContent).toContain('Тип обращения');
+        const typeHint = returnCard?.querySelector('p.text-muted.small');
+        expect(typeHint?.textContent).toContain('Заявка оформлена как обмен');
     });
 
     test('renders return without exchange as single current item', () => {
@@ -165,5 +173,19 @@ describe('track-modal render', () => {
         const button = document.querySelector('form button[type="submit"]');
         expect(button).not.toBeNull();
         expect(button?.textContent).toContain('Отправить заявку');
+
+        const radios = document.querySelectorAll('form input[type="radio"][name^="return-type"]');
+        expect(radios).toHaveLength(2);
+        const radioLabels = Array.from(document.querySelectorAll('form label.form-check-label'))
+            .map((label) => label.textContent);
+        expect(radioLabels).toEqual(expect.arrayContaining(['Возврат', 'Обмен']));
+
+        const reasonSelect = document.querySelector('form select[name="reason"]');
+        expect(reasonSelect).not.toBeNull();
+        const reasonOptions = Array.from(reasonSelect?.options || []).map((option) => option.textContent);
+        expect(reasonOptions).toEqual(expect.arrayContaining(['Не подошло', 'Брак', 'Не понравилось', 'Другое']));
+
+        const reverseTrackInput = document.querySelector('form input[name="reverseTrackNumber"]');
+        expect(reverseTrackInput).not.toBeNull();
     });
 });

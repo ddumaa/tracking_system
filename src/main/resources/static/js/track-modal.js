@@ -385,31 +385,117 @@
         }
     }
 
+    /** Варианты причин возврата, синхронизированные с Telegram-ботом. */
+    const RETURN_REASON_OPTIONS = Object.freeze([
+        { value: 'Не подошло', label: 'Не подошло' },
+        { value: 'Брак', label: 'Брак' },
+        { value: 'Не понравилось', label: 'Не понравилось' },
+        { value: 'Другое', label: 'Другое' }
+    ]);
+
+    /** Варианты типа обращения, отличающие возврат от обмена. */
+    const RETURN_REQUEST_TYPE_OPTIONS = Object.freeze([
+        { value: 'return', label: 'Возврат', isExchange: false },
+        { value: 'exchange', label: 'Обмен', isExchange: true }
+    ]);
+
+    /**
+     * Создаёт радио-кнопку выбора типа заявки и связанную подпись.
+     * Метод отделяет генерацию DOM, чтобы основная функция занималась только сборкой формы.
+     * @param {Object} option параметры варианта
+     * @param {string} option.value машинное значение
+     * @param {string} option.label отображаемый текст
+     * @param {boolean} option.isExchange признак обмена
+     * @param {string} groupName имя группы для объединения радио-кнопок
+     * @param {boolean} checked выбран ли элемент по умолчанию
+     * @returns {{input: HTMLInputElement, wrapper: HTMLElement}} созданные элементы
+     */
+    function createReturnTypeRadio(option, groupName, checked) {
+        const radioId = generateElementId('return-type-option');
+        const wrapper = document.createElement('div');
+        wrapper.className = 'form-check form-check-inline';
+
+        const input = document.createElement('input');
+        input.type = 'radio';
+        input.className = 'form-check-input';
+        input.name = groupName;
+        input.value = option.value;
+        input.id = radioId;
+        input.checked = checked;
+        input.dataset.isExchange = option.isExchange ? 'true' : 'false';
+
+        const label = document.createElement('label');
+        label.className = 'form-check-label';
+        label.setAttribute('for', radioId);
+        label.textContent = option.label;
+
+        wrapper.append(input, label);
+        return { input, wrapper };
+    }
+
     /**
      * Создаёт форму регистрации возврата и навешивает обработчики.
      * Метод инкапсулирует работу с DOM, соблюдая принцип единой ответственности.
      * @param {number} trackId идентификатор посылки
+     * @param {Object} [options] дополнительные параметры построения формы
+     * @param {Object|null} [options.returnRequest] текущая заявка, если уже существует
      * @returns {HTMLFormElement} форма отправки заявки
      */
-    function createReturnRegistrationForm(trackId) {
+    function createReturnRegistrationForm(trackId, options = {}) {
+        const { returnRequest = null } = options;
         const form = document.createElement('form');
         form.className = 'd-flex flex-column gap-2';
         form.noValidate = true;
 
-        const reasonInput = document.createElement('input');
-        reasonInput.type = 'text';
-        reasonInput.className = 'form-control';
-        reasonInput.name = 'reason';
-        reasonInput.required = true;
-        reasonInput.maxLength = 255;
-        reasonInput.id = generateElementId('return-reason');
-        reasonInput.autocomplete = 'off';
-        reasonInput.placeholder = 'Например, повреждение товара';
+        const typeGroupName = generateElementId('return-type');
+        const typeFieldset = document.createElement('fieldset');
+        typeFieldset.className = 'mb-3';
+
+        const typeLegend = document.createElement('legend');
+        typeLegend.className = 'form-label mb-1';
+        typeLegend.textContent = 'Тип обращения';
+        typeFieldset.appendChild(typeLegend);
+
+        const typeDescription = document.createElement('div');
+        typeDescription.className = 'form-text mb-2';
+        typeDescription.textContent = 'Выберите, хотите ли вы вернуть товар или получить обмен автоматически.';
+        typeFieldset.appendChild(typeDescription);
+
+        const typeControls = document.createElement('div');
+        typeControls.className = 'd-flex flex-wrap gap-3';
+
+        const typeInputs = RETURN_REQUEST_TYPE_OPTIONS.map((option, index) => {
+            const { input, wrapper } = createReturnTypeRadio(option, typeGroupName, index === 0);
+            typeControls.appendChild(wrapper);
+            return input;
+        });
+
+        typeFieldset.appendChild(typeControls);
+
+        const reasonSelect = document.createElement('select');
+        reasonSelect.className = 'form-select';
+        reasonSelect.name = 'reason';
+        reasonSelect.required = true;
+        reasonSelect.id = generateElementId('return-reason');
+
+        const placeholderOption = document.createElement('option');
+        placeholderOption.value = '';
+        placeholderOption.disabled = true;
+        placeholderOption.selected = true;
+        placeholderOption.textContent = 'Выберите причину обращения';
+        reasonSelect.appendChild(placeholderOption);
+
+        RETURN_REASON_OPTIONS.forEach((option) => {
+            const reasonOption = document.createElement('option');
+            reasonOption.value = option.value;
+            reasonOption.textContent = option.label;
+            reasonSelect.appendChild(reasonOption);
+        });
 
         const reasonControl = createLabeledControl(
             'Причина обращения',
-            reasonInput,
-            'Опишите причину возврата (до 255 символов).'
+            reasonSelect,
+            'Список синхронизирован с Telegram-ботом, чтобы аналитика совпадала.'
         );
 
         const commentInput = document.createElement('textarea');
@@ -426,51 +512,35 @@
             'Необязательное поле, до 2000 символов.'
         );
 
-        const requestedInput = document.createElement('input');
-        requestedInput.type = 'datetime-local';
-        requestedInput.className = 'form-control';
-        requestedInput.name = 'requestedAt';
-        requestedInput.required = true;
-        requestedInput.step = 60;
-        requestedInput.id = generateElementId('return-requested-at');
-        const nowValue = formatDateTimeLocal(new Date());
-        if (nowValue) {
-            requestedInput.value = nowValue;
+        let reverseInput = null;
+        let reverseControl = null;
+        if (!returnRequest?.reverseTrackNumber) {
+            reverseInput = document.createElement('input');
+            reverseInput.type = 'text';
+            reverseInput.className = 'form-control';
+            reverseInput.name = 'reverseTrackNumber';
+            reverseInput.maxLength = 64;
+            reverseInput.id = generateElementId('return-reverse-track');
+            reverseInput.placeholder = 'Например, LP123456789BY';
+            reverseInput.autocomplete = 'off';
+
+            reverseControl = createLabeledControl(
+                'Трек обратной отправки',
+                reverseInput,
+                'Укажите номер, если посылка уже отправлена обратно.'
+            );
         }
-        requestedInput.addEventListener('focus', () => {
-            const limit = formatDateTimeLocal(new Date());
-            if (limit) {
-                requestedInput.max = limit;
-            }
-        });
-
-        const requestedControl = createLabeledControl(
-            'Дата обращения',
-            requestedInput,
-            'Укажите фактический момент запроса возврата.'
-        );
-
-        const reverseInput = document.createElement('input');
-        reverseInput.type = 'text';
-        reverseInput.className = 'form-control';
-        reverseInput.name = 'reverseTrackNumber';
-        reverseInput.maxLength = 64;
-        reverseInput.id = generateElementId('return-reverse-track');
-        reverseInput.placeholder = 'Например, LP123456789BY';
-        reverseInput.autocomplete = 'off';
-
-        const reverseControl = createLabeledControl(
-            'Трек обратной отправки',
-            reverseInput,
-            'Необязательное поле, до 64 символов.'
-        );
 
         const submitButton = document.createElement('button');
         submitButton.type = 'submit';
         submitButton.className = 'btn btn-warning align-self-start';
         submitButton.textContent = 'Отправить заявку';
 
-        form.append(reasonControl, commentControl, requestedControl, reverseControl, submitButton);
+        form.append(typeFieldset, reasonControl, commentControl);
+        if (reverseControl) {
+            form.appendChild(reverseControl);
+        }
+        form.appendChild(submitButton);
 
         form.addEventListener('submit', (event) => {
             event.preventDefault();
@@ -478,15 +548,40 @@
                 return;
             }
             const formValues = {
-                reason: reasonInput.value,
+                reason: reasonSelect.value,
                 comment: commentInput.value,
-                requestedAt: requestedInput.value,
-                reverseTrackNumber: reverseInput.value
+                reverseTrackNumber: reverseInput ? reverseInput.value : '',
+                isExchange: typeInputs.some((input) => input.checked && input.dataset.isExchange === 'true')
             };
             runButtonAction(submitButton, () => handleRegisterReturnAction(trackId, formValues));
         });
 
         return form;
+    }
+
+    /**
+     * Определяет, относится ли заявка к обмену с учётом обратной совместимости.
+     * Метод проверяет новые и старые флаги, чтобы не допустить ложных выводов.
+     * @param {Object} returnRequest DTO заявки
+     * @returns {boolean} {@code true}, если пользователь запросил обмен
+     */
+    function isExchangeRequest(returnRequest) {
+        if (!returnRequest || typeof returnRequest !== 'object') {
+            return false;
+        }
+        if (typeof returnRequest.isExchange === 'boolean') {
+            return returnRequest.isExchange;
+        }
+        if (typeof returnRequest.exchangeRequested === 'boolean') {
+            return returnRequest.exchangeRequested;
+        }
+        if (typeof returnRequest.exchangeApproved === 'boolean' && returnRequest.exchangeApproved) {
+            return true;
+        }
+        if (typeof returnRequest.canStartExchange === 'boolean' && returnRequest.canStartExchange) {
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -497,10 +592,10 @@
     function buildReturnRegistrationPayload(formValues = {}) {
         const reason = (formValues.reason ?? '').trim();
         if (reason.length === 0) {
-            throw new Error('Укажите причину возврата');
+            throw new Error('Выберите причину обращения');
         }
         if (reason.length > 255) {
-            throw new Error('Причина возврата не должна превышать 255 символов');
+            throw new Error('Причина обращения не должна превышать 255 символов');
         }
 
         const commentRaw = (formValues.comment ?? '').trim();
@@ -508,38 +603,39 @@
             throw new Error('Комментарий не должен превышать 2000 символов');
         }
 
-        const requestedValue = formValues.requestedAt;
-        if (!requestedValue) {
-            throw new Error('Укажите дату обращения');
-        }
-        const requestedDate = new Date(requestedValue);
-        if (Number.isNaN(requestedDate.getTime())) {
-            throw new Error('Неверный формат даты обращения');
-        }
-        const now = new Date();
-        if (requestedDate.getTime() - now.getTime() > 60000) {
-            throw new Error('Дата обращения не может быть из будущего');
-        }
-
         const reverseRaw = (formValues.reverseTrackNumber ?? '').trim();
         if (reverseRaw.length > 64) {
             throw new Error('Трек обратной отправки не должен превышать 64 символа');
         }
 
-        return {
+        const isExchange = formValues.isExchange === true || formValues.isExchange === 'true';
+        const payload = {
             idempotencyKey: generateIdempotencyKey(),
             reason,
-            requestedAt: requestedDate.toISOString(),
+            requestedAt: new Date().toISOString(),
             comment: commentRaw.length > 0 ? commentRaw : null,
-            reverseTrackNumber: reverseRaw.length > 0 ? reverseRaw.toUpperCase() : null
+            isExchange
         };
+
+        if (reverseRaw.length > 0) {
+            payload.reverseTrackNumber = reverseRaw.toUpperCase();
+        }
+
+        return payload;
     }
 
+    /**
+     * Обрабатывает отправку формы регистрации возврата или обмена.
+     * Метод отправляет данные в API, уведомляет пользователя и при необходимости запускает обмен автоматически.
+     * @param {number} trackId идентификатор посылки
+     * @param {Object} formValues значения полей формы
+     */
     async function handleRegisterReturnAction(trackId, formValues) {
         if (!trackId) {
             return;
         }
         const requestBody = buildReturnRegistrationPayload(formValues);
+        const isExchange = Boolean(requestBody.isExchange);
         const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns`, {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
@@ -547,7 +643,20 @@
         renderTrackModal(payload);
         updateRowRequiresAction(payload);
         updateActionTabCounter();
-        notifyUser('Заявка на возврат зарегистрирована', 'success');
+        const successMessage = isExchange
+            ? 'Заявка на обмен зарегистрирована'
+            : 'Заявка на возврат зарегистрирована';
+        notifyUser(successMessage, 'success');
+
+        if (isExchange) {
+            const requestId = payload?.returnRequest?.id;
+            if (requestId !== undefined) {
+                await handleApproveExchangeAction(trackId, requestId, {
+                    successMessage: 'Обмен запущен автоматически',
+                    notificationType: 'success'
+                });
+            }
+        }
     }
 
     async function handleApproveExchangeAction(trackId, requestId, options = {}) {
@@ -842,6 +951,9 @@
             const infoList = document.createElement('dl');
             infoList.className = 'row g-2 mb-0';
 
+            const exchangeMode = isExchangeRequest(returnRequest);
+
+            appendDefinitionItem(infoList, 'Тип обращения', exchangeMode ? 'Обмен' : 'Возврат');
             appendDefinitionItem(infoList, 'Статус', returnRequest.status || '—');
             appendDefinitionItem(infoList, 'Причина', returnRequest.reason || '—');
             appendDefinitionItem(infoList, 'Комментарий', returnRequest.comment || '—');
@@ -851,6 +963,13 @@
             appendDefinitionItem(infoList, 'Трек обратной отправки', returnRequest.reverseTrackNumber || '—');
 
             returnCard.body.appendChild(infoList);
+
+            const typeHint = document.createElement('p');
+            typeHint.className = 'text-muted small mt-2 mb-0';
+            typeHint.textContent = exchangeMode
+                ? 'Заявка оформлена как обмен. После запуска обмена новая посылка появится ниже.'
+                : 'Заявка оформлена как возврат. Следите за статусом, чтобы завершить обработку.';
+            returnCard.body.appendChild(typeHint);
 
             if (returnRequest.cancelExchangeUnavailableReason) {
                 const warning = document.createElement('div');
@@ -887,10 +1006,10 @@
         } else if (data?.canRegisterReturn && trackId !== undefined) {
             const intro = document.createElement('p');
             intro.className = 'text-muted small';
-            intro.textContent = 'Заполните форму, чтобы зарегистрировать заявку на возврат или обмен.';
+            intro.textContent = 'Заполните форму, чтобы выбрать возврат или обмен. Для обмена система автоматически запустит повторную отправку.';
             returnCard.body.appendChild(intro);
 
-            const form = createReturnRegistrationForm(trackId);
+            const form = createReturnRegistrationForm(trackId, { returnRequest });
             returnCard.body.appendChild(form);
         } else {
             const emptyState = document.createElement('p');
