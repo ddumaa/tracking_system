@@ -241,7 +241,7 @@ class CustomerTelegramServiceTest {
         when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
         when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
         ArgumentCaptor<ZonedDateTime> requestedAtCaptor = ArgumentCaptor.forClass(ZonedDateTime.class);
-        when(orderReturnRequestService.registerReturn(eq(parcelId), eq(owner), eq(key), eq(reason), isNull(), any(ZonedDateTime.class), isNull()))
+        when(orderReturnRequestService.registerReturn(eq(parcelId), eq(owner), eq(key), eq(reason), isNull(), any(ZonedDateTime.class), isNull(), eq(false)))
                 .thenReturn(request);
 
         OrderReturnRequest result = customerTelegramService.registerReturnRequestFromTelegram(
@@ -252,7 +252,7 @@ class CustomerTelegramServiceTest {
         );
 
         assertSame(request, result, "Метод обязан возвращать заявку, полученную от доменного сервиса");
-        verify(orderReturnRequestService).registerReturn(eq(parcelId), eq(owner), eq(key), eq(reason), isNull(), requestedAtCaptor.capture(), isNull());
+        verify(orderReturnRequestService).registerReturn(eq(parcelId), eq(owner), eq(key), eq(reason), isNull(), requestedAtCaptor.capture(), isNull(), eq(false));
         ZonedDateTime capturedRequestedAt = requestedAtCaptor.getValue();
         assertNotNull(capturedRequestedAt, "Дата регистрации должна вычисляться автоматически");
         assertEquals(ZoneOffset.UTC, capturedRequestedAt.getZone(), "Дата должна фиксироваться в UTC");
@@ -288,7 +288,7 @@ class CustomerTelegramServiceTest {
                 "key",
                 "Причина"
         ));
-        verify(orderReturnRequestService, never()).registerReturn(any(), any(), any(), any(), any(), any(), any());
+        verify(orderReturnRequestService, never()).registerReturn(any(), any(), any(), any(), any(), any(), any(), anyBoolean());
     }
 
     /**

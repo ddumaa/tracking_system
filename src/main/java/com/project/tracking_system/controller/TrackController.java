@@ -136,7 +136,8 @@ public class TrackController {
                     request.reason(),
                     request.comment(),
                     requestedAt,
-                    request.reverseTrackNumber()
+                    request.reverseTrackNumber(),
+                    request.isExchange()
             );
             return trackViewService.getTrackDetails(id, user.getId());
         } catch (AccessDeniedException ex) {

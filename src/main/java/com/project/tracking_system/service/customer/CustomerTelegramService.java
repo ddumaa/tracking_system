@@ -411,7 +411,8 @@ public class CustomerTelegramService {
                 reason,
                 null,
                 requestedAt,
-                null
+                null,
+                false
         );
     }
 

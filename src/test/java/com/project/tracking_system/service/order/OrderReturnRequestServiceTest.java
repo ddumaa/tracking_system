@@ -44,6 +44,8 @@ class OrderReturnRequestServiceTest {
             2023, 5, 10, 12, 0, 0, 0, ZoneOffset.UTC
     );
     private static final String DEFAULT_REVERSE_TRACK = "BY1234567890";
+    private static final boolean EXCHANGE_REQUESTED = true;
+    private static final boolean NO_EXCHANGE_REQUESTED = false;
 
     @Mock
     private OrderReturnRequestRepository repository;
@@ -89,13 +91,15 @@ class OrderReturnRequestServiceTest {
                 DEFAULT_REASON,
                 DEFAULT_COMMENT,
                 DEFAULT_REQUESTED_AT,
-                DEFAULT_REVERSE_TRACK
+                DEFAULT_REVERSE_TRACK,
+                NO_EXCHANGE_REQUESTED
         );
 
         assertThat(saved.getId()).isEqualTo(100L);
         assertThat(saved.getStatus()).isEqualTo(OrderReturnRequestStatus.REGISTERED);
         assertThat(saved.getCreatedBy()).isEqualTo(user);
         assertThat(saved.getCreatedAt()).isNotNull();
+        assertThat(saved.isExchangeRequested()).isFalse();
 
         ArgumentCaptor<OrderReturnRequest> captor = ArgumentCaptor.forClass(OrderReturnRequest.class);
         verify(repository).save(captor.capture());
@@ -104,6 +108,38 @@ class OrderReturnRequestServiceTest {
         assertThat(captor.getValue().getComment()).isEqualTo(DEFAULT_COMMENT);
         assertThat(captor.getValue().getRequestedAt()).isEqualTo(DEFAULT_REQUESTED_AT);
         assertThat(captor.getValue().getReverseTrackNumber()).isEqualTo(DEFAULT_REVERSE_TRACK);
+        assertThat(captor.getValue().isExchangeRequested()).isFalse();
+        verifyNoInteractions(orderExchangeService);
+    }
+
+    @Test
+    void registerReturn_CreatesExchangeRequest_WhenFlagSet() {
+        TrackParcel parcel = buildParcel(20L, GlobalStatus.DELIVERED);
+        when(trackParcelService.findOwnedById(20L, 5L)).thenReturn(Optional.of(parcel));
+        when(repository.findByIdempotencyKey("key-exchange")).thenReturn(Optional.empty());
+        when(repository.findFirstByParcel_IdAndStatusIn(eq(20L), any())).thenReturn(Optional.empty());
+        when(episodeLifecycleService.ensureEpisode(parcel)).thenReturn(parcel.getEpisode());
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> {
+            OrderReturnRequest request = invocation.getArgument(0);
+            request.setId(101L);
+            return request;
+        });
+
+        OrderReturnRequest saved = service.registerReturn(
+                20L,
+                user,
+                "key-exchange",
+                DEFAULT_REASON,
+                DEFAULT_COMMENT,
+                DEFAULT_REQUESTED_AT,
+                DEFAULT_REVERSE_TRACK,
+                EXCHANGE_REQUESTED
+        );
+
+        assertThat(saved.isExchangeRequested()).isTrue();
+        assertThat(saved.getStatus()).isEqualTo(OrderReturnRequestStatus.REGISTERED);
+        verify(repository).save(any(OrderReturnRequest.class));
+        verifyNoInteractions(orderExchangeService);
     }
 
     @Test
@@ -119,10 +155,41 @@ class OrderReturnRequestServiceTest {
                 DEFAULT_REASON,
                 DEFAULT_COMMENT,
                 DEFAULT_REQUESTED_AT,
-                DEFAULT_REVERSE_TRACK
+                DEFAULT_REVERSE_TRACK,
+                NO_EXCHANGE_REQUESTED
         ))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("доступна только для статуса");
+    }
+
+    @Test
+    void registerReturn_ThrowsWhenExchangeFlagDiffersForIdempotentKey() {
+        TrackParcel parcel = buildParcel(22L, GlobalStatus.DELIVERED);
+        OrderReturnRequest existing = new OrderReturnRequest();
+        existing.setParcel(parcel);
+        existing.setEpisode(parcel.getEpisode());
+        existing.setStatus(OrderReturnRequestStatus.REGISTERED);
+        existing.setCreatedBy(user);
+        existing.setReason(DEFAULT_REASON);
+        existing.setComment(DEFAULT_COMMENT);
+        existing.setRequestedAt(DEFAULT_REQUESTED_AT);
+        existing.setReverseTrackNumber(DEFAULT_REVERSE_TRACK);
+        existing.setExchangeRequested(true);
+
+        when(repository.findByIdempotencyKey("dup")).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> service.registerReturn(
+                22L,
+                user,
+                "dup",
+                DEFAULT_REASON,
+                DEFAULT_COMMENT,
+                DEFAULT_REQUESTED_AT,
+                DEFAULT_REVERSE_TRACK,
+                NO_EXCHANGE_REQUESTED
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("другими данными");
     }
 
     @Test
@@ -342,6 +409,7 @@ class OrderReturnRequestServiceTest {
         existing.setComment(DEFAULT_COMMENT);
         existing.setRequestedAt(DEFAULT_REQUESTED_AT);
         existing.setReverseTrackNumber(DEFAULT_REVERSE_TRACK);
+        existing.setExchangeRequested(false);
 
         OrderReturnRequest result = service.registerReturn(
                 14L,
@@ -350,11 +418,13 @@ class OrderReturnRequestServiceTest {
                 DEFAULT_REASON,
                 DEFAULT_COMMENT,
                 DEFAULT_REQUESTED_AT,
-                DEFAULT_REVERSE_TRACK
+                DEFAULT_REVERSE_TRACK,
+                NO_EXCHANGE_REQUESTED
         );
 
         assertThat(result).isEqualTo(existing);
         verify(repository, never()).save(any());
+        verifyNoInteractions(orderExchangeService);
     }
 
     @Test
@@ -383,7 +453,8 @@ class OrderReturnRequestServiceTest {
                 DEFAULT_REASON,
                 DEFAULT_COMMENT,
                 DEFAULT_REQUESTED_AT,
-                DEFAULT_REVERSE_TRACK
+                DEFAULT_REVERSE_TRACK,
+                NO_EXCHANGE_REQUESTED
         ))
                 .isInstanceOf(AccessDeniedException.class);
     }

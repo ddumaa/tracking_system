@@ -98,7 +98,8 @@ class TrackControllerReturnTest {
                                 "\"reason\":\"" + DEFAULT_REASON + "\"," +
                                 "\"requestedAt\":\"" + DEFAULT_REQUESTED_AT + "\"," +
                                 "\"comment\":\"" + DEFAULT_COMMENT + "\"," +
-                                "\"reverseTrackNumber\":\"" + DEFAULT_REVERSE_TRACK + "\"" +
+                                "\"reverseTrackNumber\":\"" + DEFAULT_REVERSE_TRACK + "\"," +
+                                "\"isExchange\":false" +
                                 "}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(5L))
@@ -111,7 +112,62 @@ class TrackControllerReturnTest {
                 eq(DEFAULT_REASON),
                 eq(DEFAULT_COMMENT),
                 argThat(value -> value.equals(DEFAULT_REQUESTED_AT.atZoneSameInstant(ZoneOffset.UTC))),
-                eq(DEFAULT_REVERSE_TRACK)
+                eq(DEFAULT_REVERSE_TRACK),
+                eq(false)
+        );
+    }
+
+    @Test
+    void registerReturn_ForExchangeRequest_ForwardsFlag() throws Exception {
+        User principal = buildUser();
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                principal,
+                principal.getPassword(),
+                principal.getAuthorities()
+        );
+
+        TrackDetailsDto dto = new TrackDetailsDto(
+                8L,
+                "AB123",
+                "Belpost",
+                "Вручена",
+                null,
+                null,
+                List.of(),
+                true,
+                null,
+                false,
+                "UTC",
+                12L,
+                false,
+                List.of(),
+                null,
+                false,
+                false
+        );
+
+        when(trackViewService.getTrackDetails(8L, 1L)).thenReturn(dto);
+
+        mockMvc.perform(post("/api/v1/tracks/8/returns")
+                        .with(authentication(auth))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{" +
+                                "\"idempotencyKey\":\"exchange\"," +
+                                "\"reason\":\"" + DEFAULT_REASON + "\"," +
+                                "\"requestedAt\":\"" + DEFAULT_REQUESTED_AT + "\"," +
+                                "\"isExchange\":true" +
+                                "}"))
+                .andExpect(status().isOk());
+
+        Mockito.verify(orderReturnRequestService).registerReturn(
+                eq(8L),
+                eq(principal),
+                eq("exchange"),
+                eq(DEFAULT_REASON),
+                eq(null),
+                argThat(value -> value.equals(DEFAULT_REQUESTED_AT.atZoneSameInstant(ZoneOffset.UTC))),
+                eq(null),
+                eq(true)
         );
     }
 
