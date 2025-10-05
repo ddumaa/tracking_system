@@ -129,6 +129,7 @@ public class TrackController {
         }
         try {
             ZonedDateTime requestedAt = request.requestedAt().atZoneSameInstant(ZoneOffset.UTC);
+            // Флаг запроса обмена пока не передаётся в сервис, чтобы сохранить обратную совместимость REST-контракта.
             orderReturnRequestService.registerReturn(
                     id,
                     user,
