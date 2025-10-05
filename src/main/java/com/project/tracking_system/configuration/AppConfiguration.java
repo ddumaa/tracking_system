@@ -1,6 +1,8 @@
 package com.project.tracking_system.configuration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.modelmapper.ModelMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -42,14 +44,18 @@ public class AppConfiguration {
     /**
      * Создает бин {@link ObjectMapper} для работы с JSON данными.
      * <p>
-     * {@link ObjectMapper} используется для сериализации и десериализации JSON данных в Java объекты.
+     * {@link ObjectMapper} используется для сериализации и десериализации JSON данных в Java объекты,
+     * регистрируя модуль {@link JavaTimeModule} для корректной работы с типами даты и времени Java 8.
      * </p>
      *
      * @return Экземпляр {@link ObjectMapper}.
      */
     @Bean
     public ObjectMapper objectMapper() {
-        return new ObjectMapper();
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        return mapper;
     }
 
     /**
