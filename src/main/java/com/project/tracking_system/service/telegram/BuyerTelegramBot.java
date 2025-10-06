@@ -3943,12 +3943,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
 
     /**
      * Обрабатывает подтверждение обмена и завершает сценарий.
-     * <p>
-     * Покупатель фиксирует желание обменять товар: регистрируется заявка с признаком обмена,
-     * а запуск обменной посылки остаётся задачей магазина в веб-интерфейсе.
-     * </p>
      *
      * @param chatId идентификатор чата Telegram
+     * @param text   ответ пользователя
      */
     private void handleExchangeConfirmation(Long chatId) {
         ChatSession session = ensureChatSession(chatId);
@@ -3989,8 +3986,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 resetReturnScenario(chatId, session);
                 return;
             }
+            telegramService.approveExchangeFromTelegram(chatId, parcelId, requestId);
         } catch (IllegalStateException ex) {
-            log.warn("⚠️ Не удалось зарегистрировать запрос обмена по посылке {}: {}", parcelId, ex.getMessage());
+            log.warn("⚠️ Не удалось запустить обмен по посылке {}: {}", parcelId, ex.getMessage());
             String message = ex.getMessage();
             if (message != null && message.contains("активная заявка")) {
                 notifyReturnAlreadyRegistered(chatId, parcelLabel);
