@@ -26,10 +26,8 @@ import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -182,16 +180,15 @@ class TrackControllerReturnTest {
                 principal.getAuthorities()
         );
 
-        when(orderReturnRequestService.approveExchange(eq(7L), eq(9L), eq(principal), eq("EX-123"), eq(false)))
+        when(orderReturnRequestService.approveExchange(eq(7L), eq(9L), eq(principal)))
                 .thenThrow(new IllegalStateException("В эпизоде уже запущен обмен"));
 
         mockMvc.perform(post("/api/v1/tracks/9/returns/7/exchange")
                         .with(authentication(auth))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"exchangeTrackNumber\":\"EX-123\",\"preRegistered\":false}"))
+                        .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isConflict());
 
-        Mockito.verify(orderReturnRequestService).approveExchange(eq(7L), eq(9L), eq(principal), eq("EX-123"), eq(false));
+        Mockito.verify(orderReturnRequestService).approveExchange(eq(7L), eq(9L), eq(principal));
         Mockito.verify(trackViewService, Mockito.never()).getTrackDetails(any(), any());
         Mockito.verify(trackViewService, Mockito.never()).toChainItem(any(), any());
     }
@@ -232,7 +229,7 @@ class TrackControllerReturnTest {
 
         ExchangeApprovalResult result = new ExchangeApprovalResult(null, replacement);
 
-        when(orderReturnRequestService.approveExchange(eq(7L), eq(9L), eq(principal), eq("EX-123"), eq(false)))
+        when(orderReturnRequestService.approveExchange(eq(7L), eq(9L), eq(principal)))
                 .thenReturn(result);
         when(trackViewService.getTrackDetails(9L, 1L)).thenReturn(dto);
         TrackChainItemDto chainItemDto = new TrackChainItemDto(33L, "EX123", true, false);
@@ -240,58 +237,15 @@ class TrackControllerReturnTest {
 
         mockMvc.perform(post("/api/v1/tracks/9/returns/7/exchange")
                         .with(authentication(auth))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"exchangeTrackNumber\":\"EX-123\",\"preRegistered\":false}"))
+                        .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.details.id").value(9L))
                 .andExpect(jsonPath("$.exchange.id").value(33L))
                 .andExpect(jsonPath("$.exchange.exchange").value(true));
 
-        Mockito.verify(orderReturnRequestService).approveExchange(eq(7L), eq(9L), eq(principal), eq("EX-123"), eq(false));
+        Mockito.verify(orderReturnRequestService).approveExchange(eq(7L), eq(9L), eq(principal));
         Mockito.verify(trackViewService).getTrackDetails(9L, 1L);
         Mockito.verify(trackViewService).toChainItem(replacement, 9L);
-    }
-
-    @Test
-    void approveExchange_PreRegisteredWithoutTrack_ForwardsFlag() throws Exception {
-        User principal = buildUser();
-        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                principal,
-                principal.getPassword(),
-                principal.getAuthorities()
-        );
-
-        ExchangeApprovalResult result = new ExchangeApprovalResult(null, new TrackParcel());
-        when(orderReturnRequestService.approveExchange(eq(11L), eq(15L), eq(principal), isNull(), eq(true)))
-                .thenReturn(result);
-
-        mockMvc.perform(post("/api/v1/tracks/15/returns/11/exchange")
-                        .with(authentication(auth))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"preRegistered\":true}"))
-                .andExpect(status().isOk());
-
-        Mockito.verify(orderReturnRequestService)
-                .approveExchange(eq(11L), eq(15L), eq(principal), isNull(), eq(true));
-    }
-
-    @Test
-    void approveExchange_WhenTrackMissing_Returns400() throws Exception {
-        User principal = buildUser();
-        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                principal,
-                principal.getPassword(),
-                principal.getAuthorities()
-        );
-
-        mockMvc.perform(post("/api/v1/tracks/9/returns/7/exchange")
-                        .with(authentication(auth))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
-                .andExpect(status().isBadRequest());
-
-        Mockito.verify(orderReturnRequestService, Mockito.never())
-                .approveExchange(anyLong(), anyLong(), any(User.class), any(), anyBoolean());
     }
 
     private User buildUser() {

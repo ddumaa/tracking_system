@@ -91,18 +91,7 @@
                 if (typeof fn !== 'function') {
                     return Promise.reject(new Error('Создание обменной посылки недоступно'));
                 }
-                const userInput = window.prompt('Введите трек обменной отправки');
-                if (userInput === null) {
-                    return Promise.resolve(null);
-                }
-                const track = userInput.trim();
-                if (!track) {
-                    if (typeof window.notifyUser === 'function') {
-                        window.notifyUser('Трек обменной отправки обязателен', 'warning');
-                    }
-                    return Promise.resolve(null);
-                }
-                return fn(trackId, requestId, track, {
+                return fn(trackId, requestId, {
                     successMessage: 'Создана обменная посылка',
                     notificationType: 'success'
                 });

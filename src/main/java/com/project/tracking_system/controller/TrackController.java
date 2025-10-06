@@ -1,7 +1,6 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.ReturnRegistrationRequest;
-import com.project.tracking_system.dto.ExchangeApprovalRequest;
 import com.project.tracking_system.dto.ExchangeApprovalResponse;
 import com.project.tracking_system.dto.TrackChainItemDto;
 import com.project.tracking_system.dto.TrackDetailsDto;
@@ -151,19 +150,17 @@ public class TrackController {
     }
 
     /**
-     * Одобряет запуск обмена по зарегистрированной заявке, учитывая выбор предрегистрации.
+     * Одобряет запуск обмена по зарегистрированной заявке.
      */
     @PostMapping("/{id}/returns/{requestId}/exchange")
     public ExchangeApprovalResponse approveExchange(@PathVariable Long id,
                                                     @PathVariable Long requestId,
-                                                    @RequestBody @Valid ExchangeApprovalRequest request,
                                                     @AuthenticationPrincipal User user) {
         if (user == null) {
             throw new AccessDeniedException("Пользователь не авторизован");
         }
         try {
-            ExchangeApprovalResult result = orderReturnRequestService
-                    .approveExchange(requestId, id, user, request.exchangeTrackNumber(), request.preRegistered());
+            ExchangeApprovalResult result = orderReturnRequestService.approveExchange(requestId, id, user);
             TrackDetailsDto details = trackViewService.getTrackDetails(id, user.getId());
             TrackChainItemDto replacement = trackViewService.toChainItem(result.exchangeParcel(), id);
             return new ExchangeApprovalResponse(details, replacement);
