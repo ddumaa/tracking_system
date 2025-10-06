@@ -17,7 +17,6 @@ import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.OrderReturnRequestActionRequest;
-import com.project.tracking_system.service.order.ExchangeApprovalResult;
 import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
@@ -1837,9 +1836,6 @@ class BuyerTelegramBotTest {
         when(registered.getId()).thenReturn(555L);
         when(telegramService.registerReturnRequestFromTelegram(eq(chatId), eq(77L), anyString(), anyString()))
                 .thenReturn(registered);
-        when(telegramService.approveExchangeFromTelegram(chatId, 77L, 555L))
-                .thenReturn(new ExchangeApprovalResult(registered, null));
-
         Update reasonCallback = mockCallbackUpdate(chatId, "returns:create:reason:defect", anchorId);
         bot.consume(reasonCallback);
 
@@ -1848,7 +1844,8 @@ class BuyerTelegramBotTest {
         assertEquals("Брак", reasonCaptor.getValue(),
                 "В сервис заявок должна передаваться выбранная пользователем причина обмена");
 
-        verify(telegramService).approveExchangeFromTelegram(chatId, 77L, 555L);
+        verify(telegramService, never()).approveExchangeFromTelegram(anyLong(), anyLong(), anyLong(), anyString());
+        verify(telegramService, never()).approveExchangeFromTelegram(anyLong(), anyLong(), anyLong(), anyString(), anyBoolean());
 
         ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
         verify(telegramClient, atLeastOnce()).execute(messageCaptor.capture());
