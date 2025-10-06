@@ -329,7 +329,7 @@ class CustomerTelegramServiceTest {
     }
 
     @Test
-    void approveExchangeFromTelegram_withoutTrackForcesPreRegistration() {
+    void approveExchangeFromTelegram_withoutTrack_throwsIllegalArgument() {
         Long chatId = 910L;
         Long parcelId = 3004L;
         Long requestId = 4005L;
@@ -346,18 +346,13 @@ class CustomerTelegramServiceTest {
         parcel.setCustomer(customer);
         parcel.setUser(owner);
 
-        ExchangeApprovalResult approvalResult = new ExchangeApprovalResult(new OrderReturnRequest(), new TrackParcel());
-
         when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
         when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
-        when(orderReturnRequestService.approveExchange(requestId, parcelId, owner, null, true))
-                .thenReturn(approvalResult);
 
-        ExchangeApprovalResult result = customerTelegramService.approveExchangeFromTelegram(chatId, parcelId, requestId);
-
-        assertSame(approvalResult, result, "Должны вернуть результат OrderReturnRequestService");
-        verify(orderReturnRequestService)
-                .approveExchange(requestId, parcelId, owner, null, true);
+        assertThrows(IllegalArgumentException.class,
+                () -> customerTelegramService.approveExchangeFromTelegram(chatId, parcelId, requestId));
+        verify(orderReturnRequestService, never())
+                .approveExchange(anyLong(), anyLong(), any(User.class), any(), anyBoolean());
     }
 
     @Test
