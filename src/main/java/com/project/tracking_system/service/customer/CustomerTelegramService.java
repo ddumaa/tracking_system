@@ -385,7 +385,8 @@ public class CustomerTelegramService {
      * посылка закреплена за этим покупателем. После проверки делегируется логика
      * {@link OrderReturnRequestService}, которая валидирует идемпотентный ключ и данные заявки.
      * Комментарий и обратный трек заполняются позднее, поэтому при регистрации используются
-     * пустые значения, а время обращения фиксируется автоматически в часовом поясе UTC.
+     * пустые значения, а время обращения фиксируется автоматически в часовом поясе UTC. Если покупатель
+     * выбирает обмен, заявка помечается как запрос обмена, чтобы магазин увидел намерение.
      * </p>
      *
      * @param chatId          идентификатор Telegram-чата покупателя
@@ -412,28 +413,8 @@ public class CustomerTelegramService {
                 null,
                 requestedAt,
                 null,
-                false
+                true
         );
-    }
-
-    /**
-     * Запускает обмен по ранее зарегистрированной заявке покупателя.
-     * <p>
-     * Метод убеждается, что посылка принадлежит покупателю, а заявка с указанным идентификатором
-     * относится к той же посылке. Правила перехода статусов и проверка повторных запусков
-     * остаются на уровне {@link OrderReturnRequestService}.
-     * </p>
-     *
-     * @param chatId   идентификатор Telegram-чата
-     * @param parcelId идентификатор посылки
-     * @param requestId идентификатор заявки, которую требуется одобрить
-     * @return результат запуска обмена с обновлённой заявкой
-     */
-    @Transactional
-    public ExchangeApprovalResult approveExchangeFromTelegram(Long chatId,
-                                                               Long parcelId,
-                                                               Long requestId) {
-        return approveExchangeFromTelegram(chatId, parcelId, requestId, null, true);
     }
 
     /**
@@ -450,16 +431,15 @@ public class CustomerTelegramService {
                                                                Long parcelId,
                                                                Long requestId,
                                                                String exchangeTrackNumber) {
-        boolean preRegistered = exchangeTrackNumber == null || exchangeTrackNumber.isBlank();
-        return approveExchangeFromTelegram(chatId, parcelId, requestId, exchangeTrackNumber, preRegistered);
+        return approveExchangeFromTelegram(chatId, parcelId, requestId, exchangeTrackNumber, false);
     }
 
     /**
      * Запускает обмен по заявке с явным указанием предрегистрации.
      * <p>
-     * Метод используется внутренне: для покупателей в Telegram обмен инициируется без трека,
-     * поэтому принудительно выставляется предрегистрация, чтобы избежать ошибки проверки трека.
-     * Если магазин передаёт номер, предрегистрация отключается автоматически.
+     * Метод служит для редких случаев, когда магазин передал трек через Telegram.
+     * Для покупателей бот не создаёт обмен без участия магазина, поэтому
+     * вызывающий код должен заранее получить номер или явно разрешить предрегистрацию.
      * </p>
      *
      * @param chatId              идентификатор Telegram-чата
