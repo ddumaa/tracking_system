@@ -70,15 +70,14 @@ class OrderExchangeServiceTest {
             return parcel;
         });
 
-        TrackParcel exchange = service.createExchangeParcel(request, "EX-TRACK-2024", false);
+        TrackParcel exchange = service.createExchangeParcel(request);
 
         verify(episodeLifecycleService).registerExchange(savedCaptor.capture(), eq(original));
         TrackParcel prepared = savedCaptor.getValue();
         assertThat(prepared.getStore()).isEqualTo(store);
         assertThat(prepared.getCustomer()).isEqualTo(customer);
         assertThat(prepared.getUser()).isEqualTo(user);
-        assertThat(prepared.getStatus()).isEqualTo(GlobalStatus.UNKNOWN_STATUS);
-        assertThat(prepared.getNumber()).isEqualTo("EX-TRACK-2024");
+        assertThat(prepared.getStatus()).isEqualTo(GlobalStatus.PRE_REGISTERED);
         assertThat(exchange.getId()).isEqualTo(99L);
         assertThat(exchange.isExchange()).isTrue();
     }
@@ -87,50 +86,16 @@ class OrderExchangeServiceTest {
     void createExchangeParcel_ThrowsWhenRequestMissingParcel() {
         OrderReturnRequest request = new OrderReturnRequest();
 
-        assertThatThrownBy(() -> service.createExchangeParcel(request, "TRACK-001", false))
+        assertThatThrownBy(() -> service.createExchangeParcel(request))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("не содержит исходную посылку");
     }
 
     @Test
     void createExchangeParcel_ThrowsWhenRequestNull() {
-        assertThatThrownBy(() -> service.createExchangeParcel(null, "TRACK-001", false))
+        assertThatThrownBy(() -> service.createExchangeParcel(null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Не передана");
-    }
-
-    @Test
-    void createExchangeParcel_ThrowsWhenTrackBlank() {
-        OrderReturnRequest request = new OrderReturnRequest();
-        request.setParcel(new TrackParcel());
-
-        assertThatThrownBy(() -> service.createExchangeParcel(request, "  ", false))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Не указан трек");
-    }
-
-    @Test
-    void createExchangeParcel_PreRegistered_AllowsMissingTrack() {
-        Store store = new Store();
-        store.setId(5L);
-        User user = new User();
-        user.setId(7L);
-
-        TrackParcel original = new TrackParcel();
-        original.setId(55L);
-        original.setStore(store);
-        original.setUser(user);
-
-        OrderReturnRequest request = new OrderReturnRequest();
-        request.setParcel(original);
-
-        when(trackParcelRepository.save(any(TrackParcel.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        TrackParcel exchange = service.createExchangeParcel(request, null, true);
-
-        assertThat(exchange.isPreRegistered()).isTrue();
-        assertThat(exchange.getStatus()).isEqualTo(GlobalStatus.PRE_REGISTERED);
-        verify(episodeLifecycleService).registerExchange(exchange, original);
     }
 
     @Test

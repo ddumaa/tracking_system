@@ -433,27 +433,10 @@ public class CustomerTelegramService {
     public ExchangeApprovalResult approveExchangeFromTelegram(Long chatId,
                                                                Long parcelId,
                                                                Long requestId) {
-        return approveExchangeFromTelegram(chatId, parcelId, requestId, null);
-    }
-
-    /**
-     * Запускает обмен по заявке, используя указанный трек обменной отправки.
-     *
-     * @param chatId              идентификатор Telegram-чата
-     * @param parcelId            идентификатор посылки
-     * @param requestId           идентификатор заявки, которую требуется одобрить
-     * @param exchangeTrackNumber трек обменной посылки
-     * @return результат запуска обмена с обновлённой заявкой
-     */
-    @Transactional
-    public ExchangeApprovalResult approveExchangeFromTelegram(Long chatId,
-                                                               Long parcelId,
-                                                               Long requestId,
-                                                               String exchangeTrackNumber) {
         Customer customer = requireCustomerByChat(chatId);
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
-        return orderReturnRequestService.approveExchange(requestId, parcelId, owner, exchangeTrackNumber, false);
+        return orderReturnRequestService.approveExchange(requestId, parcelId, owner);
     }
 
     /**
