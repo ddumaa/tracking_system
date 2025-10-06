@@ -37,6 +37,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -295,10 +296,11 @@ class CustomerTelegramServiceTest {
      * Убеждаемся, что запуск обмена через Telegram проходит проверку владельца и делегируется бизнес-сервису.
      */
     @Test
-    void approveExchangeFromTelegram_whenRequestValid_callsOrderService() {
+    void approveExchangeFromTelegram_whenTrackProvided_callsOrderService() {
         Long chatId = 909L;
         Long parcelId = 3003L;
         Long requestId = 4004L;
+        String exchangeTrack = "TRK-EX-001";
 
         Customer customer = new Customer();
         customer.setId(91L);
@@ -316,12 +318,41 @@ class CustomerTelegramServiceTest {
 
         when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
         when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
-        when(orderReturnRequestService.approveExchange(requestId, parcelId, owner)).thenReturn(approvalResult);
+        when(orderReturnRequestService.approveExchange(requestId, parcelId, owner, exchangeTrack, false))
+                .thenReturn(approvalResult);
 
-        ExchangeApprovalResult result = customerTelegramService.approveExchangeFromTelegram(chatId, parcelId, requestId);
+        ExchangeApprovalResult result = customerTelegramService
+                .approveExchangeFromTelegram(chatId, parcelId, requestId, exchangeTrack);
 
         assertSame(approvalResult, result, "Метод должен возвращать результат обмена от OrderReturnRequestService");
-        verify(orderReturnRequestService).approveExchange(requestId, parcelId, owner);
+        verify(orderReturnRequestService).approveExchange(requestId, parcelId, owner, exchangeTrack, false);
+    }
+
+    @Test
+    void approveExchangeFromTelegram_withoutTrack_throwsIllegalArgument() {
+        Long chatId = 910L;
+        Long parcelId = 3004L;
+        Long requestId = 4005L;
+
+        Customer customer = new Customer();
+        customer.setId(92L);
+        customer.setTelegramChatId(chatId);
+
+        User owner = new User();
+        owner.setId(17L);
+
+        TrackParcel parcel = new TrackParcel();
+        parcel.setId(parcelId);
+        parcel.setCustomer(customer);
+        parcel.setUser(owner);
+
+        when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
+        when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> customerTelegramService.approveExchangeFromTelegram(chatId, parcelId, requestId));
+        verify(orderReturnRequestService, never())
+                .approveExchange(anyLong(), anyLong(), any(User.class), any(), anyBoolean());
     }
 
     @Test

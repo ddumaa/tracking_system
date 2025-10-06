@@ -175,20 +175,27 @@ public class OrderReturnRequestService {
     }
 
     /**
-     * Одобряет запуск обмена по заявке.
+     * Одобряет запуск обмена по заявке, требуя указания трек-номера обменной посылки.
      *
-     * @param requestId идентификатор заявки
-     * @param parcelId  идентификатор посылки
-     * @param user      автор решения
+     * @param requestId           идентификатор заявки
+     * @param parcelId            идентификатор посылки
+     * @param user                автор решения
+     * @param exchangeTrackNumber трек обменной отправки, который должен быть сохранён
      * @return результат с обновлённой заявкой и созданной обменной посылкой
      */
     @Transactional
-    public ExchangeApprovalResult approveExchange(Long requestId, Long parcelId, User user) {
+    public ExchangeApprovalResult approveExchange(Long requestId,
+                                                  Long parcelId,
+                                                  User user,
+                                                  String exchangeTrackNumber,
+                                                  boolean preRegistered) {
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
 
         if (request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
             throw new IllegalStateException("Заявка уже обработана");
         }
+
+        String normalizedTrack = normalizeExchangeTrackNumber(exchangeTrackNumber, preRegistered);
 
         Long episodeId = Optional.ofNullable(request.getEpisode())
                 .map(OrderEpisode::getId)
@@ -203,7 +210,7 @@ public class OrderReturnRequestService {
         request.setDecisionAt(ZonedDateTime.now(ZoneOffset.UTC));
 
         OrderReturnRequest saved = returnRequestRepository.save(request);
-        TrackParcel exchangeParcel = orderExchangeService.createExchangeParcel(saved);
+        TrackParcel exchangeParcel = orderExchangeService.createExchangeParcel(saved, normalizedTrack, preRegistered);
         log.info("Одобрен обмен по заявке {}", saved.getId());
         return new ExchangeApprovalResult(saved, exchangeParcel);
     }
@@ -536,6 +543,29 @@ public class OrderReturnRequestService {
         }
         if (normalized.length() > 64) {
             throw new IllegalArgumentException("Трек обратной отправки не должен превышать 64 символа");
+        }
+        return normalized.toUpperCase();
+    }
+
+    /**
+     * Валидирует трек обменной посылки перед сохранением, учитывая режим предрегистрации.
+     */
+    private String normalizeExchangeTrackNumber(String exchangeTrackNumber, boolean preRegistered) {
+        if (exchangeTrackNumber == null) {
+            if (preRegistered) {
+                return null;
+            }
+            throw new IllegalArgumentException("Не указан трек обменной отправки");
+        }
+        String normalized = exchangeTrackNumber.trim();
+        if (normalized.isEmpty()) {
+            if (preRegistered) {
+                return null;
+            }
+            throw new IllegalArgumentException("Не указан трек обменной отправки");
+        }
+        if (normalized.length() > 64) {
+            throw new IllegalArgumentException("Трек обменной отправки не должен превышать 64 символа");
         }
         return normalized.toUpperCase();
     }

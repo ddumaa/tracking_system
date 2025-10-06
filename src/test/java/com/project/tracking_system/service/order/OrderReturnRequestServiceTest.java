@@ -29,7 +29,10 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 /**
@@ -205,7 +208,7 @@ class OrderReturnRequestServiceTest {
         when(repository.existsByEpisode_IdAndStatus(parcel.getEpisode().getId(), OrderReturnRequestStatus.EXCHANGE_APPROVED))
                 .thenReturn(true);
 
-        assertThatThrownBy(() -> service.approveExchange(200L, 12L, user))
+        assertThatThrownBy(() -> service.approveExchange(200L, 12L, user, "EXCH-1", false))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("уже запущен обмен");
     }
@@ -225,15 +228,59 @@ class OrderReturnRequestServiceTest {
         when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         TrackParcel exchange = buildParcel(99L, GlobalStatus.PRE_REGISTERED);
-        when(orderExchangeService.createExchangeParcel(any(OrderReturnRequest.class))).thenReturn(exchange);
+        when(orderExchangeService.createExchangeParcel(any(OrderReturnRequest.class), anyString(), anyBoolean()))
+                .thenReturn(exchange);
 
-        ExchangeApprovalResult result = service.approveExchange(500L, 16L, user);
+        ExchangeApprovalResult result = service.approveExchange(500L, 16L, user, "ex-track-001", false);
 
         assertThat(result.request().getStatus()).isEqualTo(OrderReturnRequestStatus.EXCHANGE_APPROVED);
         assertThat(result.request().getDecisionBy()).isEqualTo(user);
         assertThat(result.request().getDecisionAt()).isNotNull();
         assertThat(result.exchangeParcel()).isEqualTo(exchange);
-        verify(orderExchangeService).createExchangeParcel(request);
+        verify(orderExchangeService).createExchangeParcel(request, "EX-TRACK-001", false);
+    }
+
+    @Test
+    void approveExchange_WhenTrackMissing_ThrowsIllegalArgument() {
+        TrackParcel parcel = buildParcel(21L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(600L);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+
+        when(repository.findById(600L)).thenReturn(Optional.of(request));
+        when(repository.existsByEpisode_IdAndStatus(parcel.getEpisode().getId(),
+                OrderReturnRequestStatus.EXCHANGE_APPROVED)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.approveExchange(600L, 21L, user, "  ", false))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Трек обменной отправки");
+        verify(orderExchangeService, never()).createExchangeParcel(any(), anyString(), anyBoolean());
+    }
+
+    @Test
+    void approveExchange_PreRegistered_AllowsEmptyTrack() {
+        TrackParcel parcel = buildParcel(23L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(700L);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+
+        when(repository.findById(700L)).thenReturn(Optional.of(request));
+        when(repository.existsByEpisode_IdAndStatus(parcel.getEpisode().getId(),
+                OrderReturnRequestStatus.EXCHANGE_APPROVED)).thenReturn(false);
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TrackParcel exchange = buildParcel(88L, GlobalStatus.PRE_REGISTERED);
+        when(orderExchangeService.createExchangeParcel(any(OrderReturnRequest.class), isNull(), eq(true)))
+                .thenReturn(exchange);
+
+        ExchangeApprovalResult result = service.approveExchange(700L, 23L, user, null, true);
+
+        assertThat(result.exchangeParcel()).isEqualTo(exchange);
+        verify(orderExchangeService).createExchangeParcel(request, null, true);
     }
 
     @Test

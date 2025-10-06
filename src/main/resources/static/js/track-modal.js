@@ -221,6 +221,213 @@
     }
 
     /**
+     * Формирует набор контролов для запуска обмена с инлайн-формой ввода трека.
+     * @param {number} trackId идентификатор посылки
+     * @param {number} requestId идентификатор заявки
+     * @returns {HTMLElement} контейнер с кнопкой и формой подтверждения
+     */
+    function createExchangeApprovalControls(trackId, requestId) {
+        const container = document.createElement('div');
+        container.className = 'd-flex flex-column gap-2 align-items-stretch';
+
+        let submitButton;
+        let cancelButton;
+        let trackInput;
+        let preRegInput;
+
+        const errorMessage = document.createElement('div');
+        errorMessage.className = 'text-danger small visually-hidden';
+        errorMessage.setAttribute('aria-live', 'assertive');
+
+        const clearError = () => {
+            errorMessage.textContent = '';
+            errorMessage.classList.add('visually-hidden');
+        };
+
+        const showError = (message) => {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('visually-hidden');
+        };
+
+        const setBusy = (busy) => {
+            if (submitButton) {
+                submitButton.disabled = busy;
+                if (busy) {
+                    submitButton.setAttribute('aria-busy', 'true');
+                } else {
+                    submitButton.removeAttribute('aria-busy');
+                }
+            }
+            if (cancelButton) {
+                cancelButton.disabled = busy;
+            }
+        };
+
+        const form = document.createElement('form');
+        form.className = 'd-flex flex-column gap-2 visually-hidden';
+        form.noValidate = true;
+
+        const triggerButton = createActionButton({
+            text: 'Запустить обмен',
+            variant: 'primary',
+            ariaLabel: 'Запустить обменную отправку',
+            onClick: () => {
+                clearError();
+                triggerButton.classList.add('visually-hidden');
+                form.classList.remove('visually-hidden');
+                if (trackInput) {
+                    trackInput.focus();
+                }
+            }
+        });
+
+        const controlsRow = document.createElement('div');
+        controlsRow.className = 'd-flex flex-column flex-lg-row align-items-stretch gap-2';
+
+        const fieldWrapper = document.createElement('div');
+        fieldWrapper.className = 'flex-grow-1';
+
+        trackInput = document.createElement('input');
+        trackInput.type = 'text';
+        trackInput.name = 'exchangeTrackNumber';
+        trackInput.className = 'form-control form-control-sm';
+        trackInput.placeholder = 'Трек обменной отправки';
+        trackInput.setAttribute('aria-label', 'Трек обменной отправки');
+        trackInput.setAttribute('aria-describedby', 'exchangeTrackHint');
+        trackInput.autocomplete = 'off';
+        fieldWrapper.appendChild(trackInput);
+
+        const buttonsWrapper = document.createElement('div');
+        buttonsWrapper.className = 'd-flex gap-2';
+
+        submitButton = document.createElement('button');
+        submitButton.type = 'submit';
+        submitButton.className = 'btn btn-sm btn-primary';
+        submitButton.textContent = 'Подтвердить';
+
+        cancelButton = document.createElement('button');
+        cancelButton.type = 'button';
+        cancelButton.className = 'btn btn-sm btn-outline-secondary';
+        cancelButton.textContent = 'Отмена';
+
+        buttonsWrapper.append(submitButton, cancelButton);
+        controlsRow.append(fieldWrapper, buttonsWrapper);
+
+        const preRegWrapper = document.createElement('div');
+        preRegWrapper.className = 'form-check form-switch text-start';
+
+        preRegInput = document.createElement('input');
+        preRegInput.type = 'checkbox';
+        preRegInput.className = 'form-check-input';
+        preRegInput.name = 'preRegistered';
+        const preRegId = generateElementId('exchange-pre-registered');
+        preRegInput.id = preRegId;
+
+        const preRegLabel = document.createElement('label');
+        preRegLabel.className = 'form-check-label';
+        preRegLabel.setAttribute('for', preRegId);
+        preRegLabel.textContent = 'Предрегистрация без трека';
+
+        const preRegHelp = document.createElement('div');
+        preRegHelp.className = 'form-text';
+        const preRegHelpId = generateElementId('exchange-pre-help');
+        preRegHelp.id = preRegHelpId;
+        preRegHelp.textContent = 'Посылка будет создана как предрегистрация, трек можно указать позже.';
+
+        preRegInput.setAttribute('aria-describedby', `${preRegHelpId}`);
+
+        preRegWrapper.append(preRegInput, preRegLabel, preRegHelp);
+
+        const syncTrackRequirements = () => {
+            const allowEmpty = preRegInput.checked;
+            trackInput.required = !allowEmpty;
+            trackInput.setAttribute('aria-required', allowEmpty ? 'false' : 'true');
+            const hintIds = ['exchangeTrackHint', preRegHelpId].filter(Boolean);
+            trackInput.setAttribute('aria-describedby', hintIds.join(' '));
+            trackInput.placeholder = allowEmpty
+                ? 'Трек обменной отправки (необязательно)'
+                : 'Трек обменной отправки';
+        };
+
+        syncTrackRequirements();
+
+        const resetForm = () => {
+            form.reset();
+            syncTrackRequirements();
+            clearError();
+            form.classList.add('visually-hidden');
+            triggerButton.classList.remove('visually-hidden');
+            triggerButton.focus();
+        };
+
+        cancelButton.addEventListener('click', () => {
+            resetForm();
+        });
+
+        preRegInput.addEventListener('change', () => {
+            syncTrackRequirements();
+            clearError();
+        });
+
+        form.append(controlsRow, preRegWrapper);
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const rawTrack = trackInput.value ? trackInput.value.trim() : '';
+            const allowEmpty = preRegInput.checked;
+            const trackRequiredMessage = 'Укажите трек обменной отправки или включите предрегистрацию';
+            if (!allowEmpty && !rawTrack) {
+                showError(trackRequiredMessage);
+                trackInput.focus();
+                return;
+            }
+            if (rawTrack && rawTrack.length > 64) {
+                showError('Трек обменной отправки не должен превышать 64 символа');
+                trackInput.focus();
+                return;
+            }
+            clearError();
+            setBusy(true);
+            try {
+                await submitExchangeApproval(trackId, requestId, {
+                    exchangeTrackNumber: rawTrack || null,
+                    preRegistered: allowEmpty
+                }, {
+                    successMessage: 'Запущен обмен по заявке',
+                    notificationType: 'success'
+                });
+                resetForm();
+            } catch (error) {
+                const message = error?.message || 'Не удалось запустить обмен';
+                showError(message);
+            } finally {
+                setBusy(false);
+            }
+        });
+
+        container.append(triggerButton, form, errorMessage);
+        return container;
+    }
+
+    /**
+     * Управляет отображением подсказки о необходимости указать трек обмена.
+     * @param {boolean} visible признак отображения подсказки
+     */
+    function toggleExchangeHint(visible) {
+        const hint = document.getElementById('exchangeTrackHint');
+        if (!hint) {
+            return;
+        }
+        if (visible) {
+            hint.classList.remove('d-none');
+            hint.setAttribute('aria-hidden', 'false');
+        } else {
+            hint.classList.add('d-none');
+            hint.setAttribute('aria-hidden', 'true');
+        }
+    }
+
+    /**
      * Формирует подписанный контрол формы с необязательным описанием.
      * @param {string} labelText текст подписи
      * @param {HTMLElement} control элемент управления
@@ -647,25 +854,52 @@
             ? 'Заявка на обмен зарегистрирована'
             : 'Заявка на возврат зарегистрирована';
         notifyUser(successMessage, 'success');
-
-        if (isExchange) {
-            const requestId = payload?.returnRequest?.id;
-            if (requestId !== undefined) {
-                await handleApproveExchangeAction(trackId, requestId, {
-                    successMessage: 'Обмен запущен автоматически',
-                    notificationType: 'success'
-                });
-            }
-        }
     }
 
-    async function handleApproveExchangeAction(trackId, requestId, options = {}) {
+    /**
+     * Подготавливает DTO запуска обмена с учётом предрегистрации.
+     * @param {string|Object|null} payload исходные данные формы
+     * @returns {{exchangeTrackNumber: (string|null), preRegistered: boolean}}
+     */
+    function buildExchangeApprovalPayload(payload) {
+        let trackValue = '';
+        let preRegistered = false;
+        if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+            trackValue = payload.exchangeTrackNumber ?? '';
+            preRegistered = payload.preRegistered === true;
+        } else if (typeof payload === 'string') {
+            trackValue = payload;
+        } else if (payload == null) {
+            trackValue = '';
+        } else {
+            throw new Error('Переданы некорректные данные обмена');
+        }
+
+        const normalizedTrack = typeof trackValue === 'string' ? trackValue.trim() : '';
+        if (!preRegistered && !normalizedTrack) {
+            throw new Error('Укажите трек обменной отправки или включите предрегистрацию');
+        }
+        if (normalizedTrack && normalizedTrack.length > 64) {
+            throw new Error('Трек обменной отправки не должен превышать 64 символа');
+        }
+
+        return {
+            exchangeTrackNumber: normalizedTrack ? normalizedTrack.toUpperCase() : null,
+            preRegistered
+        };
+    }
+
+    async function submitExchangeApproval(trackId, requestId, payload, options = {}) {
         if (!trackId || !requestId) {
             return null;
         }
-        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/exchange`);
-        const details = payload?.details ?? payload ?? null;
-        const exchangeItem = payload?.exchange ?? null;
+        const requestBody = buildExchangeApprovalPayload(payload);
+        const response = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/exchange`, {
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        });
+        const details = response?.details ?? response ?? null;
+        const exchangeItem = response?.exchange ?? null;
         renderTrackModal(details, { exchangeItem });
         if (details) {
             updateRowRequiresAction(details);
@@ -848,15 +1082,14 @@
         const trackId = data?.id;
         const returnRequest = data?.returnRequest;
 
-        if (returnRequest?.canStartExchange && trackId !== undefined && returnRequest.id !== undefined) {
-            const exchangeButton = createActionButton({
-                text: 'Запустить обмен',
-                variant: 'primary',
-                ariaLabel: 'Запустить обменную отправку',
-                onClick: (button) => runButtonAction(button,
-                    () => handleApproveExchangeAction(trackId, returnRequest.id))
-            });
-            trackActions.appendChild(exchangeButton);
+        const canStartExchange = Boolean(returnRequest?.canStartExchange
+            && trackId !== undefined
+            && returnRequest.id !== undefined);
+        toggleExchangeHint(canStartExchange);
+
+        if (canStartExchange) {
+            const exchangeControls = createExchangeApprovalControls(trackId, returnRequest.id);
+            trackActions.appendChild(exchangeControls);
         }
 
         if (returnRequest?.canCloseWithoutExchange && trackId !== undefined && returnRequest.id !== undefined) {
@@ -1336,7 +1569,20 @@
         loadModal,
         promptTrackNumber,
         render: renderTrackModal,
-        approveReturnExchange: (trackId, requestId, options) => handleApproveExchangeAction(trackId, requestId, options),
+        approveReturnExchange: (trackId, requestId, payload, options) => {
+            if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+                const { successMessage, notificationType, ...rest } = payload;
+                const mergedOptions = { ...(options || {}) };
+                if (successMessage) {
+                    mergedOptions.successMessage = successMessage;
+                }
+                if (notificationType) {
+                    mergedOptions.notificationType = notificationType;
+                }
+                return submitExchangeApproval(trackId, requestId, rest, mergedOptions);
+            }
+            return submitExchangeApproval(trackId, requestId, payload, options);
+        },
         closeReturnRequest: (trackId, requestId, options) => handleCloseWithoutExchange(trackId, requestId, options)
     };
 })();

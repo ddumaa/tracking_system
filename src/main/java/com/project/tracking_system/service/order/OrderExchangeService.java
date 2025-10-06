@@ -40,26 +40,37 @@ public class OrderExchangeService {
     private final OrderEpisodeLifecycleService episodeLifecycleService;
 
     /**
-     * Создаёт посылку-обмен на основании заявки.
+     * Создаёт посылку-обмен на основании заявки и фиксирует пользовательский трек.
      * <p>
      * Метод проверяет корректность входных данных, копирует магазин,
      * пользователя и покупателя из исходной посылки, создаёт новую
-     * запись со статусом {@link GlobalStatus#PRE_REGISTERED}, а затем
-     * делегирует регистрацию обмена {@link OrderEpisodeLifecycleService}.
+     * запись со статусом {@link GlobalStatus#PRE_REGISTERED}, если выбрана
+     * предрегистрация, либо со статусом {@link GlobalStatus#UNKNOWN_STATUS}
+     * при создании с треком. Метод назначает переданный трек (если он есть) и делегирует регистрацию обмена
+     * {@link OrderEpisodeLifecycleService}. Таким образом метод отвечает
+     * только за подготовку и сохранение обменной посылки (SRP).
      * </p>
      *
-     * @param request заявка, по которой запускается обмен
+     * @param request              заявка, по которой запускается обмен
+     * @param exchangeTrackNumber  трек обменной посылки, если она создаётся с номером
+     * @param preRegistered        признак создания посылки как предрегистрации
      * @return сохранённая посылка обмена
      */
     @Transactional
-    public TrackParcel createExchangeParcel(OrderReturnRequest request) {
+    public TrackParcel createExchangeParcel(OrderReturnRequest request,
+                                            String exchangeTrackNumber,
+                                            boolean preRegistered) {
         if (request == null) {
             throw new IllegalArgumentException("Не передана заявка на обмен");
+        }
+        if (!preRegistered && (exchangeTrackNumber == null || exchangeTrackNumber.isBlank())) {
+            throw new IllegalArgumentException("Не указан трек обменной посылки");
         }
         TrackParcel originalParcel = Optional.ofNullable(request.getParcel())
                 .orElseThrow(() -> new IllegalArgumentException("Заявка не содержит исходную посылку"));
 
-        TrackParcel replacement = buildReplacementFrom(originalParcel);
+        TrackParcel replacement = buildReplacementFrom(originalParcel, preRegistered);
+        replacement.setNumber(exchangeTrackNumber);
         episodeLifecycleService.registerExchange(replacement, originalParcel);
         TrackParcel saved = trackParcelRepository.save(replacement);
         log.info("Создана обменная посылка {} для заявки {}", saved.getId(), request.getId());
@@ -72,9 +83,13 @@ public class OrderExchangeService {
      * @param originalParcel исходная посылка, инициировавшая обмен
      * @return несохранённая сущность обмена
      */
-    private TrackParcel buildReplacementFrom(TrackParcel originalParcel) {
+    private TrackParcel buildReplacementFrom(TrackParcel originalParcel, boolean preRegistered) {
         TrackParcel replacement = new TrackParcel();
-        replacement.setStatus(GlobalStatus.PRE_REGISTERED);
+        if (preRegistered) {
+            replacement.setPreRegistered(true);
+        } else {
+            replacement.setStatus(GlobalStatus.UNKNOWN_STATUS);
+        }
         replacement.setNumber(null);
 
         Store store = originalParcel.getStore();
