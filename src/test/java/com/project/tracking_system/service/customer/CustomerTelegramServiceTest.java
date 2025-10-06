@@ -242,7 +242,7 @@ class CustomerTelegramServiceTest {
         when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
         when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
         ArgumentCaptor<ZonedDateTime> requestedAtCaptor = ArgumentCaptor.forClass(ZonedDateTime.class);
-        when(orderReturnRequestService.registerReturn(eq(parcelId), eq(owner), eq(key), eq(reason), isNull(), any(ZonedDateTime.class), isNull(), eq(true)))
+        when(orderReturnRequestService.registerReturn(eq(parcelId), eq(owner), eq(key), eq(reason), isNull(), any(ZonedDateTime.class), isNull(), eq(false)))
                 .thenReturn(request);
 
         OrderReturnRequest result = customerTelegramService.registerReturnRequestFromTelegram(
@@ -253,7 +253,7 @@ class CustomerTelegramServiceTest {
         );
 
         assertSame(request, result, "Метод обязан возвращать заявку, полученную от доменного сервиса");
-        verify(orderReturnRequestService).registerReturn(eq(parcelId), eq(owner), eq(key), eq(reason), isNull(), requestedAtCaptor.capture(), isNull(), eq(true));
+        verify(orderReturnRequestService).registerReturn(eq(parcelId), eq(owner), eq(key), eq(reason), isNull(), requestedAtCaptor.capture(), isNull(), eq(false));
         ZonedDateTime capturedRequestedAt = requestedAtCaptor.getValue();
         assertNotNull(capturedRequestedAt, "Дата регистрации должна вычисляться автоматически");
         assertEquals(ZoneOffset.UTC, capturedRequestedAt.getZone(), "Дата должна фиксироваться в UTC");
@@ -329,11 +329,10 @@ class CustomerTelegramServiceTest {
     }
 
     @Test
-    void approveExchangeFromTelegram_withExplicitPreRegistration_passesFlagToService() {
+    void approveExchangeFromTelegram_withoutTrackForcesPreRegistration() {
         Long chatId = 910L;
         Long parcelId = 3004L;
         Long requestId = 4005L;
-        boolean preRegistered = true;
 
         Customer customer = new Customer();
         customer.setId(92L);
@@ -351,20 +350,14 @@ class CustomerTelegramServiceTest {
 
         when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
         when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
-        when(orderReturnRequestService.approveExchange(requestId, parcelId, owner, null, preRegistered))
+        when(orderReturnRequestService.approveExchange(requestId, parcelId, owner, null, true))
                 .thenReturn(approvalResult);
 
-        ExchangeApprovalResult result = customerTelegramService.approveExchangeFromTelegram(
-                chatId,
-                parcelId,
-                requestId,
-                null,
-                preRegistered
-        );
+        ExchangeApprovalResult result = customerTelegramService.approveExchangeFromTelegram(chatId, parcelId, requestId);
 
-        assertSame(approvalResult, result, "Метод должен возвращать результат доменного сервиса");
+        assertSame(approvalResult, result, "Должны вернуть результат OrderReturnRequestService");
         verify(orderReturnRequestService)
-                .approveExchange(requestId, parcelId, owner, null, preRegistered);
+                .approveExchange(requestId, parcelId, owner, null, true);
     }
 
     @Test

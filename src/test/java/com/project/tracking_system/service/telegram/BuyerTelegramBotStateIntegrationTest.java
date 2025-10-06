@@ -96,6 +96,7 @@ class BuyerTelegramBotStateIntegrationTest {
         lenient().when(telegramService.getActiveReturnRequests(anyLong())).thenReturn(List.of());
         lenient().when(telegramService.registerReturnRequestFromTelegram(anyLong(), anyLong(), anyString(), anyString()))
                 .thenReturn(new OrderReturnRequest());
+        lenient().when(telegramService.approveExchangeFromTelegram(anyLong(), anyLong(), anyLong())).thenReturn(null);
         lenient().when(telegramClient.execute(any(EditMessageText.class))).thenReturn(null);
         lenient().when(telegramClient.execute(any(EditMessageReplyMarkup.class))).thenReturn(null);
         lenient().when(telegramClient.execute(any(AnswerCallbackQuery.class))).thenReturn(null);
