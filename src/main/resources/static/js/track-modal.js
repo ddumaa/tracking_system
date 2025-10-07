@@ -578,9 +578,6 @@
         if (typeof returnRequest.exchangeApproved === 'boolean' && returnRequest.exchangeApproved) {
             return true;
         }
-        if (typeof returnRequest.canStartExchange === 'boolean' && returnRequest.canStartExchange) {
-            return true;
-        }
         return false;
     }
 
@@ -644,19 +641,9 @@
         updateRowRequiresAction(payload);
         updateActionTabCounter();
         const successMessage = isExchange
-            ? 'Заявка на обмен зарегистрирована'
+            ? 'Заявка на обмен зарегистрирована. Менеджеры свяжутся после проверки.'
             : 'Заявка на возврат зарегистрирована';
         notifyUser(successMessage, 'success');
-
-        if (isExchange) {
-            const requestId = payload?.returnRequest?.id;
-            if (requestId !== undefined) {
-                await handleApproveExchangeAction(trackId, requestId, {
-                    successMessage: 'Обмен запущен автоматически',
-                    notificationType: 'success'
-                });
-            }
-        }
     }
 
     async function handleApproveExchangeAction(trackId, requestId, options = {}) {
@@ -695,6 +682,62 @@
         const notificationType = options.notificationType || 'info';
         notifyUser(message, notificationType);
         return payload;
+    }
+
+    /**
+     * Переводит обменную заявку обратно в режим возврата.
+     * @param {number} trackId идентификатор посылки
+     * @param {number} requestId идентификатор заявки
+     * @param {Object} options параметры уведомления
+     */
+    async function handleReopenReturnAction(trackId, requestId, options = {}) {
+        if (!trackId || !requestId) {
+            return null;
+        }
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/reopen`);
+        const details = payload?.details ?? payload ?? null;
+        renderTrackModal(details);
+        if (details) {
+            updateRowRequiresAction(details);
+        }
+        const summary = payload?.actionRequired ?? null;
+        if (summary && typeof window.returnRequests?.updateRow === 'function') {
+            window.returnRequests.updateRow(summary);
+        }
+        updateActionTabCounter();
+        const message = options.successMessage || 'Заявка переведена в возврат';
+        const notificationType = options.notificationType || 'info';
+        notifyUser(message, notificationType);
+        return details;
+    }
+
+    /**
+     * Отменяет обмен и закрывает заявку без отправки новой посылки.
+     * @param {number} trackId идентификатор посылки
+     * @param {number} requestId идентификатор заявки
+     * @param {Object} options параметры уведомления
+     */
+    async function handleCancelExchangeAction(trackId, requestId, options = {}) {
+        if (!trackId || !requestId) {
+            return null;
+        }
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/cancel`);
+        const details = payload?.details ?? payload ?? null;
+        renderTrackModal(details);
+        if (details) {
+            updateRowRequiresAction(details);
+        }
+        const summary = payload?.actionRequired ?? null;
+        if (summary && typeof window.returnRequests?.updateRow === 'function') {
+            window.returnRequests.updateRow(summary);
+        } else if (typeof window.returnRequests?.removeRowByIds === 'function') {
+            window.returnRequests.removeRowByIds(trackId, requestId);
+        }
+        updateActionTabCounter();
+        const message = options.successMessage || 'Обмен отменён и заявка закрыта';
+        const notificationType = options.notificationType || 'warning';
+        notifyUser(message, notificationType);
+        return details;
     }
 
     /**
@@ -782,6 +825,112 @@
     }
 
     /**
+     * Формирует карточку жизненного цикла заказа.
+     * Метод визуализирует этапы процесса для магазина и покупателя, сохраняя доступность.
+     * @param {Array<Object>} stages этапы жизненного цикла
+     * @param {Function} formatDate функция форматирования дат
+     * @returns {HTMLElement|null} карточка с этапами или {@code null}
+     */
+    function createLifecycleCard(stages, formatDate) {
+        if (!Array.isArray(stages) || stages.length === 0) {
+            return null;
+        }
+
+        const card = createCard('Жизненный цикл заказа');
+        const list = document.createElement('ol');
+        list.className = 'list-unstyled d-flex flex-column gap-3 mb-0';
+        list.setAttribute('role', 'list');
+
+        stages.forEach((stage, index) => {
+            if (!stage || typeof stage !== 'object') {
+                return;
+            }
+
+            const item = document.createElement('li');
+            item.className = 'd-flex flex-column flex-lg-row gap-2 gap-lg-3 align-items-lg-center';
+            item.setAttribute('role', 'listitem');
+            item.dataset.stageCode = stage.code || `stage-${index}`;
+
+            const badge = document.createElement('span');
+            badge.className = 'badge rounded-pill';
+            const state = stage.state || 'PLANNED';
+            switch (state) {
+                case 'COMPLETED':
+                    badge.classList.add('bg-success-subtle', 'text-success-emphasis');
+                    badge.textContent = 'Завершено';
+                    break;
+                case 'IN_PROGRESS':
+                    badge.classList.add('bg-primary-subtle', 'text-primary-emphasis');
+                    badge.textContent = 'В процессе';
+                    break;
+                default:
+                    badge.classList.add('bg-secondary-subtle', 'text-secondary-emphasis');
+                    badge.textContent = 'Ожидает';
+                    break;
+            }
+
+            const info = document.createElement('div');
+            info.className = 'd-flex flex-column gap-1 flex-grow-1';
+
+            const title = document.createElement('div');
+            title.className = 'fw-semibold';
+            title.textContent = stage.title || 'Этап';
+
+            const description = document.createElement('div');
+            description.className = 'text-muted small';
+            description.textContent = stage.description || '';
+
+            const metaParts = [];
+            if (stage.actor) {
+                metaParts.push(stage.actor);
+            }
+            if (stage.occurredAt) {
+                const formattedMoment = typeof formatDate === 'function'
+                    ? formatDate(stage.occurredAt)
+                    : stage.occurredAt;
+                metaParts.push(formattedMoment);
+            }
+            if (metaParts.length > 0) {
+                const meta = document.createElement('div');
+                meta.className = 'text-muted small';
+                meta.textContent = metaParts.join(' · ');
+                info.appendChild(meta);
+            }
+
+            const hasTrackLabel = typeof stage.trackContext === 'string' && stage.trackContext.length > 0;
+            const hasTrackNumber = typeof stage.trackNumber === 'string' && stage.trackNumber.length > 0;
+            if (hasTrackLabel || hasTrackNumber) {
+                const trackInfo = document.createElement('div');
+                trackInfo.className = 'text-muted small';
+                const parts = [];
+                if (hasTrackLabel) {
+                    parts.push(stage.trackContext);
+                }
+                if (hasTrackNumber) {
+                    parts.push(stage.trackNumber);
+                } else if (hasTrackLabel) {
+                    parts.push('трек не указан');
+                }
+                trackInfo.textContent = parts.join(' · ');
+                info.appendChild(trackInfo);
+            }
+
+            info.prepend(description);
+            info.prepend(title);
+
+            item.append(badge, info);
+            list.appendChild(item);
+        });
+
+        if (!list.hasChildNodes()) {
+            return null;
+        }
+
+        card.body.appendChild(list);
+        return card.card;
+    }
+
+    /**
      * Отрисовывает содержимое модального окна с деталями трека.
      * Метод собирает карточки интерфейса и обновляет заголовок без сетевых обращений (SRP).
      * @param {Object} data DTO с сервера
@@ -799,6 +948,7 @@
         const timeZone = data?.timeZone;
         const format = (value) => formatDateTime(value, timeZone);
         const history = Array.isArray(data?.history) ? data.history : [];
+        const lifecycleStages = Array.isArray(data?.lifecycle) ? data.lifecycle : [];
 
         container.replaceChildren();
         container.classList.remove('justify-content-center', 'align-items-center', 'text-muted');
@@ -847,27 +997,71 @@
 
         const trackId = data?.id;
         const returnRequest = data?.returnRequest;
+        const exchangeContext = isExchangeRequest(returnRequest);
 
         if (returnRequest?.canStartExchange && trackId !== undefined && returnRequest.id !== undefined) {
+            const exchangeButtonText = exchangeContext
+                ? 'Создать обменную посылку'
+                : 'Перевести в обмен';
+            const exchangeActionOptions = exchangeContext
+                ? { successMessage: 'Создана обменная посылка', notificationType: 'success' }
+                : { successMessage: 'Заявка переведена в обмен', notificationType: 'info' };
             const exchangeButton = createActionButton({
-                text: 'Запустить обмен',
+                text: exchangeButtonText,
                 variant: 'primary',
-                ariaLabel: 'Запустить обменную отправку',
+                ariaLabel: exchangeContext
+                    ? 'Создать обменную посылку'
+                    : 'Перевести заявку возврата в обмен',
                 onClick: (button) => runButtonAction(button,
-                    () => handleApproveExchangeAction(trackId, returnRequest.id))
+                    () => handleApproveExchangeAction(trackId, returnRequest.id, exchangeActionOptions))
             });
             trackActions.appendChild(exchangeButton);
         }
 
         if (returnRequest?.canCloseWithoutExchange && trackId !== undefined && returnRequest.id !== undefined) {
+            const closeButtonText = exchangeContext ? 'Закрыть без обмена' : 'Принять возврат';
+            const closeVariant = exchangeContext ? 'outline-secondary' : 'success';
+            const closeActionOptions = exchangeContext
+                ? { successMessage: 'Заявка закрыта без обмена', notificationType: 'info' }
+                : { successMessage: 'Возврат принят', notificationType: 'success' };
             const closeButton = createActionButton({
-                text: 'Закрыть без обмена',
-                variant: 'outline-secondary',
-                ariaLabel: 'Закрыть заявку без обмена',
+                text: closeButtonText,
+                variant: closeVariant,
+                ariaLabel: exchangeContext
+                    ? 'Закрыть заявку без запуска обменной посылки'
+                    : 'Подтвердить приём возврата',
                 onClick: (button) => runButtonAction(button,
-                    () => handleCloseWithoutExchange(trackId, returnRequest.id))
+                    () => handleCloseWithoutExchange(trackId, returnRequest.id, closeActionOptions))
             });
             trackActions.appendChild(closeButton);
+        }
+
+        if (returnRequest?.canReopenAsReturn && trackId !== undefined && returnRequest.id !== undefined) {
+            const reopenButton = createActionButton({
+                text: 'Перевести в возврат',
+                variant: 'outline-warning',
+                ariaLabel: 'Перевести обменную заявку обратно в возврат',
+                onClick: (button) => runButtonAction(button,
+                    () => handleReopenReturnAction(trackId, returnRequest.id, {
+                        successMessage: 'Заявка переведена в возврат',
+                        notificationType: 'info'
+                    }))
+            });
+            trackActions.appendChild(reopenButton);
+        }
+
+        if (returnRequest?.canCancelExchange && trackId !== undefined && returnRequest.id !== undefined) {
+            const cancelButton = createActionButton({
+                text: 'Отменить обмен',
+                variant: 'outline-danger',
+                ariaLabel: 'Отменить обмен и закрыть заявку',
+                onClick: (button) => runButtonAction(button,
+                    () => handleCancelExchangeAction(trackId, returnRequest.id, {
+                        successMessage: 'Обмен отменён и заявка закрыта',
+                        notificationType: 'warning'
+                    }))
+            });
+            trackActions.appendChild(cancelButton);
         }
 
         trackTitleRow.append(trackTitleColumn, trackActions);
@@ -951,7 +1145,7 @@
             const infoList = document.createElement('dl');
             infoList.className = 'row g-2 mb-0';
 
-            const exchangeMode = isExchangeRequest(returnRequest);
+            const exchangeMode = exchangeContext;
 
             appendDefinitionItem(infoList, 'Тип обращения', exchangeMode ? 'Обмен' : 'Возврат');
             appendDefinitionItem(infoList, 'Статус', returnRequest.status || '—');
@@ -967,8 +1161,8 @@
             const typeHint = document.createElement('p');
             typeHint.className = 'text-muted small mt-2 mb-0';
             typeHint.textContent = exchangeMode
-                ? 'Заявка оформлена как обмен. После запуска обмена новая посылка появится ниже.'
-                : 'Заявка оформлена как возврат. Следите за статусом, чтобы завершить обработку.';
+                ? 'Заявка оформлена как обмен. Новая посылка появится после того, как магазин подтвердит возврат и создаст отправление.'
+                : 'Заявка оформлена как возврат. При необходимости можно создать обменную посылку из блока действий выше.';
             returnCard.body.appendChild(typeHint);
 
             if (returnRequest.cancelExchangeUnavailableReason) {
@@ -1006,7 +1200,7 @@
         } else if (data?.canRegisterReturn && trackId !== undefined) {
             const intro = document.createElement('p');
             intro.className = 'text-muted small';
-            intro.textContent = 'Заполните форму, чтобы выбрать возврат или обмен. Для обмена система автоматически запустит повторную отправку.';
+            intro.textContent = 'Заполните форму: для обмена менеджеры создадут новую посылку после проверки возврата.';
             returnCard.body.appendChild(intro);
 
             const form = createReturnRegistrationForm(trackId, { returnRequest });
@@ -1019,6 +1213,11 @@
         }
 
         layout.appendChild(returnCard.card);
+
+        const lifecycleCard = createLifecycleCard(lifecycleStages, format);
+        if (lifecycleCard) {
+            layout.appendChild(lifecycleCard);
+        }
 
         const statusCard = createCard('Текущий статус');
         const statusRow = document.createElement('div');
@@ -1337,6 +1536,8 @@
         promptTrackNumber,
         render: renderTrackModal,
         approveReturnExchange: (trackId, requestId, options) => handleApproveExchangeAction(trackId, requestId, options),
-        closeReturnRequest: (trackId, requestId, options) => handleCloseWithoutExchange(trackId, requestId, options)
+        closeReturnRequest: (trackId, requestId, options) => handleCloseWithoutExchange(trackId, requestId, options),
+        reopenReturnRequest: (trackId, requestId, options) => handleReopenReturnAction(trackId, requestId, options),
+        cancelReturnExchange: (trackId, requestId, options) => handleCancelExchangeAction(trackId, requestId, options)
     };
 })();

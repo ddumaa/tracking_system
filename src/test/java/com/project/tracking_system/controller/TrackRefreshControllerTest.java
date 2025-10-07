@@ -61,6 +61,7 @@ class TrackRefreshControllerTest {
                 List.of(),
                 null,
                 false,
+                List.of(),
                 false
         );
         when(trackRefreshService.refreshTrack(eq(7L), eq(3L))).thenReturn(cooldownDetails);

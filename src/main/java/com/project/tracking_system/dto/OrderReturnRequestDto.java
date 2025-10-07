@@ -16,6 +16,8 @@ package com.project.tracking_system.dto;
  * @param exchangeRequested        признак, что обмен был запрошен при регистрации
  * @param canStartExchange         доступность кнопки запуска обмена
  * @param canCloseWithoutExchange  доступность закрытия без обмена
+ * @param canReopenAsReturn        доступность перевода обмена обратно в возврат
+ * @param canCancelExchange        доступность отмены обмена
  * @param cancelExchangeUnavailableReason сообщение для пользователя, если отмена обмена недоступна
  */
 public record OrderReturnRequestDto(Long id,
@@ -31,6 +33,8 @@ public record OrderReturnRequestDto(Long id,
                                     boolean exchangeRequested,
                                     boolean canStartExchange,
                                     boolean canCloseWithoutExchange,
+                                    boolean canReopenAsReturn,
+                                    boolean canCancelExchange,
                                     String cancelExchangeUnavailableReason) {
 
     /**

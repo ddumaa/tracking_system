@@ -583,8 +583,11 @@ class BuyerTelegramBotTest {
                 "Причина",
                 "Комментарий",
                 "REV-001",
+                false,
                 true,
                 true,
+                false,
+                false,
                 false,
                 null
         );
@@ -722,8 +725,11 @@ class BuyerTelegramBotTest {
                 "Причина",
                 "Комментарий",
                 "REV-RESET",
+                false,
                 true,
                 true,
+                false,
+                false,
                 false,
                 null
         );
@@ -805,8 +811,11 @@ class BuyerTelegramBotTest {
                 "Обмен",
                 "Комментарий",
                 "REV-EX",
+                true,
                 false,
                 true,
+                false,
+                false,
                 false,
                 null
         );
@@ -849,8 +858,11 @@ class BuyerTelegramBotTest {
                 "Обмен",
                 "Комментарий",
                 "REV-EX",
+                true,
                 false,
                 true,
+                false,
+                false,
                 false,
                 warning
         );
@@ -904,8 +916,11 @@ class BuyerTelegramBotTest {
                 "Обмен",
                 "Комментарий",
                 "REV-EX",
+                true,
                 false,
                 true,
+                false,
+                false,
                 true,
                 null
         );
@@ -956,8 +971,11 @@ class BuyerTelegramBotTest {
                 "Причина",
                 "Комментарий",
                 "REV-CNF",
+                false,
                 true,
                 true,
+                false,
+                false,
                 false,
                 null
         );
@@ -1018,8 +1036,11 @@ class BuyerTelegramBotTest {
                 "Обмен",
                 "Комментарий",
                 "REV-EX",
+                true,
                 false,
                 true,
+                false,
+                false,
                 true,
                 null
         );
@@ -1071,8 +1092,11 @@ class BuyerTelegramBotTest {
                 "Причина",
                 "Комментарий",
                 "REV-CF2",
+                false,
                 true,
                 true,
+                false,
+                false,
                 false,
                 null
         );
@@ -1121,8 +1145,11 @@ class BuyerTelegramBotTest {
                 "Причина",
                 "Комментарий",
                 null,
+                false,
                 true,
                 true,
+                false,
+                false,
                 false,
                 null
         );
@@ -1171,8 +1198,11 @@ class BuyerTelegramBotTest {
                 "Обмен",
                 "Комментарий",
                 null,
+                true,
                 false,
                 true,
+                false,
+                false,
                 true,
                 null
         );
@@ -1230,8 +1260,11 @@ class BuyerTelegramBotTest {
                 "Причина",
                 "Комментарий",
                 "REV",
+                false,
                 true,
                 true,
+                false,
+                false,
                 false,
                 null
         );
@@ -1279,6 +1312,9 @@ class BuyerTelegramBotTest {
                 null,
                 false,
                 true,
+                true,
+                false,
+                false,
                 false,
                 null
         );
@@ -1357,8 +1393,11 @@ class BuyerTelegramBotTest {
                 "Причина",
                 "Комментарий",
                 "REV-ERR",
+                false,
                 true,
                 true,
+                false,
+                false,
                 false,
                 null
         );

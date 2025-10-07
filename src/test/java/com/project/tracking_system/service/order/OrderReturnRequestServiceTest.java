@@ -514,6 +514,7 @@ class OrderReturnRequestServiceTest {
         request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
         request.setDecisionBy(user);
         request.setDecisionAt(ZonedDateTime.now(ZoneOffset.UTC));
+        request.setExchangeRequested(true);
 
         TrackParcel replacement = new TrackParcel();
         replacement.setId(81L);
@@ -530,6 +531,7 @@ class OrderReturnRequestServiceTest {
         assertThat(result.getDecisionAt()).isNull();
         assertThat(result.getClosedBy()).isNull();
         assertThat(result.getClosedAt()).isNull();
+        assertThat(result.isExchangeRequested()).isFalse();
         verify(orderExchangeService).cancelExchangeParcel(request, replacement);
         verify(episodeLifecycleService).decrementExchangeCount(parcel.getEpisode());
     }

@@ -1,7 +1,9 @@
 package com.project.tracking_system.controller;
 
-import com.project.tracking_system.dto.ReturnRegistrationRequest;
+import com.project.tracking_system.dto.ActionRequiredReturnRequestDto;
 import com.project.tracking_system.dto.ExchangeApprovalResponse;
+import com.project.tracking_system.dto.ReturnRegistrationRequest;
+import com.project.tracking_system.dto.ReturnRequestActionResponse;
 import com.project.tracking_system.dto.TrackChainItemDto;
 import com.project.tracking_system.dto.TrackDetailsDto;
 import com.project.tracking_system.dto.TrackNumberUpdateRequest;
@@ -9,9 +11,11 @@ import com.project.tracking_system.dto.TrackNumberUpdateResponse;
 import com.project.tracking_system.dto.TrackParcelDTO;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.GlobalStatus;
+import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.service.order.ExchangeApprovalResult;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
+import com.project.tracking_system.service.order.ReturnRequestActionMapper;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.track.TrackViewService;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +27,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.project.tracking_system.exception.TrackNumberAlreadyExistsException;
 
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Optional;
@@ -40,6 +45,7 @@ public class TrackController {
     private final TrackViewService trackViewService;
     private final TrackParcelService trackParcelService;
     private final OrderReturnRequestService orderReturnRequestService;
+    private final ReturnRequestActionMapper returnRequestActionMapper;
 
     /**
      * Возвращает информацию о треке по его идентификатору.
@@ -192,6 +198,73 @@ public class TrackController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         } catch (IllegalStateException ex) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Переводит одобренный обмен обратно в статус возврата.
+     */
+    @PostMapping("/{id}/returns/{requestId}/reopen")
+    public ReturnRequestActionResponse reopenExchange(@PathVariable Long id,
+                                                      @PathVariable Long requestId,
+                                                      @AuthenticationPrincipal User user) {
+        if (user == null) {
+            throw new AccessDeniedException("Пользователь не авторизован");
+        }
+        try {
+            OrderReturnRequest updated = orderReturnRequestService.reopenAsReturn(requestId, id, user);
+            TrackDetailsDto details = trackViewService.getTrackDetails(id, user.getId());
+            ZoneId zone = resolveZone(details);
+            ActionRequiredReturnRequestDto action = returnRequestActionMapper.toDto(updated, zone);
+            return new ReturnRequestActionResponse(details, action);
+        } catch (AccessDeniedException ex) {
+            throw ex;
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Отменяет обменную заявку и закрывает её без запуска нового отправления.
+     */
+    @PostMapping("/{id}/returns/{requestId}/cancel")
+    public ReturnRequestActionResponse cancelExchange(@PathVariable Long id,
+                                                      @PathVariable Long requestId,
+                                                      @AuthenticationPrincipal User user) {
+        if (user == null) {
+            throw new AccessDeniedException("Пользователь не авторизован");
+        }
+        try {
+            OrderReturnRequest updated = orderReturnRequestService.cancelExchange(requestId, id, user);
+            TrackDetailsDto details = trackViewService.getTrackDetails(id, user.getId());
+            ZoneId zone = resolveZone(details);
+            ActionRequiredReturnRequestDto action = updated.requiresAction()
+                    ? returnRequestActionMapper.toDto(updated, zone)
+                    : null;
+            return new ReturnRequestActionResponse(details, action);
+        } catch (AccessDeniedException ex) {
+            throw ex;
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Возвращает временную зону пользователя из DTO модалки.
+     */
+    private ZoneId resolveZone(TrackDetailsDto details) {
+        String timeZone = details != null ? details.timeZone() : null;
+        if (timeZone == null || timeZone.isBlank()) {
+            return ZoneOffset.UTC;
+        }
+        try {
+            return ZoneId.of(timeZone);
+        } catch (Exception ex) {
+            return ZoneOffset.UTC;
         }
     }
 }

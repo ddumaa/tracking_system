@@ -277,6 +277,7 @@ public class OrderReturnRequestService {
         request.setDecisionAt(null);
         request.setClosedBy(null);
         request.setClosedAt(null);
+        request.setExchangeRequested(false);
         orderExchangeService.cancelExchangeParcel(request, replacement);
         episodeLifecycleService.decrementExchangeCount(request.getEpisode());
         OrderReturnRequest saved = returnRequestRepository.save(request);
@@ -377,6 +378,40 @@ public class OrderReturnRequestService {
         } catch (IllegalStateException ex) {
             return Optional.ofNullable(ex.getMessage());
         }
+    }
+
+    /**
+     * Проверяет, можно ли вернуть обменную заявку в статус возврата.
+     *
+     * @param request заявка на обмен
+     * @return {@code true}, если обмен ещё не отправлен и не заблокирован
+     */
+    @Transactional(readOnly = true)
+    public boolean canReopenAsReturn(OrderReturnRequest request) {
+        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            return false;
+        }
+        if (isExchangeShipmentDispatched(request)) {
+            return false;
+        }
+        return getExchangeCancellationBlockReason(request).isEmpty();
+    }
+
+    /**
+     * Проверяет, можно ли отменить обмен без закрытия эпизода.
+     *
+     * @param request заявка на обмен
+     * @return {@code true}, если обмен можно отменить автоматически
+     */
+    @Transactional(readOnly = true)
+    public boolean canCancelExchange(OrderReturnRequest request) {
+        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            return false;
+        }
+        if (isExchangeShipmentDispatched(request)) {
+            return false;
+        }
+        return getExchangeCancellationBlockReason(request).isEmpty();
     }
 
     /**
