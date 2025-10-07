@@ -685,6 +685,62 @@
     }
 
     /**
+     * Переводит обменную заявку обратно в режим возврата.
+     * @param {number} trackId идентификатор посылки
+     * @param {number} requestId идентификатор заявки
+     * @param {Object} options параметры уведомления
+     */
+    async function handleReopenReturnAction(trackId, requestId, options = {}) {
+        if (!trackId || !requestId) {
+            return null;
+        }
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/reopen`);
+        const details = payload?.details ?? payload ?? null;
+        renderTrackModal(details);
+        if (details) {
+            updateRowRequiresAction(details);
+        }
+        const summary = payload?.actionRequired ?? null;
+        if (summary && typeof window.returnRequests?.updateRow === 'function') {
+            window.returnRequests.updateRow(summary);
+        }
+        updateActionTabCounter();
+        const message = options.successMessage || 'Заявка переведена в возврат';
+        const notificationType = options.notificationType || 'info';
+        notifyUser(message, notificationType);
+        return details;
+    }
+
+    /**
+     * Отменяет обмен и закрывает заявку без отправки новой посылки.
+     * @param {number} trackId идентификатор посылки
+     * @param {number} requestId идентификатор заявки
+     * @param {Object} options параметры уведомления
+     */
+    async function handleCancelExchangeAction(trackId, requestId, options = {}) {
+        if (!trackId || !requestId) {
+            return null;
+        }
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/cancel`);
+        const details = payload?.details ?? payload ?? null;
+        renderTrackModal(details);
+        if (details) {
+            updateRowRequiresAction(details);
+        }
+        const summary = payload?.actionRequired ?? null;
+        if (summary && typeof window.returnRequests?.updateRow === 'function') {
+            window.returnRequests.updateRow(summary);
+        } else if (typeof window.returnRequests?.removeRowByIds === 'function') {
+            window.returnRequests.removeRowByIds(trackId, requestId);
+        }
+        updateActionTabCounter();
+        const message = options.successMessage || 'Обмен отменён и заявка закрыта';
+        const notificationType = options.notificationType || 'warning';
+        notifyUser(message, notificationType);
+        return details;
+    }
+
+    /**
      * Создаёт карточку модального окна с заголовком и телом.
      * Метод устраняет дублирование разметки и упрощает расширение модалки (OCP).
      * @param {string} title заголовок карточки
@@ -769,6 +825,112 @@
     }
 
     /**
+     * Формирует карточку жизненного цикла заказа.
+     * Метод визуализирует этапы процесса для магазина и покупателя, сохраняя доступность.
+     * @param {Array<Object>} stages этапы жизненного цикла
+     * @param {Function} formatDate функция форматирования дат
+     * @returns {HTMLElement|null} карточка с этапами или {@code null}
+     */
+    function createLifecycleCard(stages, formatDate) {
+        if (!Array.isArray(stages) || stages.length === 0) {
+            return null;
+        }
+
+        const card = createCard('Жизненный цикл заказа');
+        const list = document.createElement('ol');
+        list.className = 'list-unstyled d-flex flex-column gap-3 mb-0';
+        list.setAttribute('role', 'list');
+
+        stages.forEach((stage, index) => {
+            if (!stage || typeof stage !== 'object') {
+                return;
+            }
+
+            const item = document.createElement('li');
+            item.className = 'd-flex flex-column flex-lg-row gap-2 gap-lg-3 align-items-lg-center';
+            item.setAttribute('role', 'listitem');
+            item.dataset.stageCode = stage.code || `stage-${index}`;
+
+            const badge = document.createElement('span');
+            badge.className = 'badge rounded-pill';
+            const state = stage.state || 'PLANNED';
+            switch (state) {
+                case 'COMPLETED':
+                    badge.classList.add('bg-success-subtle', 'text-success-emphasis');
+                    badge.textContent = 'Завершено';
+                    break;
+                case 'IN_PROGRESS':
+                    badge.classList.add('bg-primary-subtle', 'text-primary-emphasis');
+                    badge.textContent = 'В процессе';
+                    break;
+                default:
+                    badge.classList.add('bg-secondary-subtle', 'text-secondary-emphasis');
+                    badge.textContent = 'Ожидает';
+                    break;
+            }
+
+            const info = document.createElement('div');
+            info.className = 'd-flex flex-column gap-1 flex-grow-1';
+
+            const title = document.createElement('div');
+            title.className = 'fw-semibold';
+            title.textContent = stage.title || 'Этап';
+
+            const description = document.createElement('div');
+            description.className = 'text-muted small';
+            description.textContent = stage.description || '';
+
+            const metaParts = [];
+            if (stage.actor) {
+                metaParts.push(stage.actor);
+            }
+            if (stage.occurredAt) {
+                const formattedMoment = typeof formatDate === 'function'
+                    ? formatDate(stage.occurredAt)
+                    : stage.occurredAt;
+                metaParts.push(formattedMoment);
+            }
+            if (metaParts.length > 0) {
+                const meta = document.createElement('div');
+                meta.className = 'text-muted small';
+                meta.textContent = metaParts.join(' · ');
+                info.appendChild(meta);
+            }
+
+            const hasTrackLabel = typeof stage.trackContext === 'string' && stage.trackContext.length > 0;
+            const hasTrackNumber = typeof stage.trackNumber === 'string' && stage.trackNumber.length > 0;
+            if (hasTrackLabel || hasTrackNumber) {
+                const trackInfo = document.createElement('div');
+                trackInfo.className = 'text-muted small';
+                const parts = [];
+                if (hasTrackLabel) {
+                    parts.push(stage.trackContext);
+                }
+                if (hasTrackNumber) {
+                    parts.push(stage.trackNumber);
+                } else if (hasTrackLabel) {
+                    parts.push('трек не указан');
+                }
+                trackInfo.textContent = parts.join(' · ');
+                info.appendChild(trackInfo);
+            }
+
+            info.prepend(description);
+            info.prepend(title);
+
+            item.append(badge, info);
+            list.appendChild(item);
+        });
+
+        if (!list.hasChildNodes()) {
+            return null;
+        }
+
+        card.body.appendChild(list);
+        return card.card;
+    }
+
+    /**
      * Отрисовывает содержимое модального окна с деталями трека.
      * Метод собирает карточки интерфейса и обновляет заголовок без сетевых обращений (SRP).
      * @param {Object} data DTO с сервера
@@ -786,6 +948,7 @@
         const timeZone = data?.timeZone;
         const format = (value) => formatDateTime(value, timeZone);
         const history = Array.isArray(data?.history) ? data.history : [];
+        const lifecycleStages = Array.isArray(data?.lifecycle) ? data.lifecycle : [];
 
         container.replaceChildren();
         container.classList.remove('justify-content-center', 'align-items-center', 'text-muted');
@@ -871,6 +1034,34 @@
                     () => handleCloseWithoutExchange(trackId, returnRequest.id, closeActionOptions))
             });
             trackActions.appendChild(closeButton);
+        }
+
+        if (returnRequest?.canReopenAsReturn && trackId !== undefined && returnRequest.id !== undefined) {
+            const reopenButton = createActionButton({
+                text: 'Перевести в возврат',
+                variant: 'outline-warning',
+                ariaLabel: 'Перевести обменную заявку обратно в возврат',
+                onClick: (button) => runButtonAction(button,
+                    () => handleReopenReturnAction(trackId, returnRequest.id, {
+                        successMessage: 'Заявка переведена в возврат',
+                        notificationType: 'info'
+                    }))
+            });
+            trackActions.appendChild(reopenButton);
+        }
+
+        if (returnRequest?.canCancelExchange && trackId !== undefined && returnRequest.id !== undefined) {
+            const cancelButton = createActionButton({
+                text: 'Отменить обмен',
+                variant: 'outline-danger',
+                ariaLabel: 'Отменить обмен и закрыть заявку',
+                onClick: (button) => runButtonAction(button,
+                    () => handleCancelExchangeAction(trackId, returnRequest.id, {
+                        successMessage: 'Обмен отменён и заявка закрыта',
+                        notificationType: 'warning'
+                    }))
+            });
+            trackActions.appendChild(cancelButton);
         }
 
         trackTitleRow.append(trackTitleColumn, trackActions);
@@ -1022,6 +1213,11 @@
         }
 
         layout.appendChild(returnCard.card);
+
+        const lifecycleCard = createLifecycleCard(lifecycleStages, format);
+        if (lifecycleCard) {
+            layout.appendChild(lifecycleCard);
+        }
 
         const statusCard = createCard('Текущий статус');
         const statusRow = document.createElement('div');
@@ -1340,6 +1536,8 @@
         promptTrackNumber,
         render: renderTrackModal,
         approveReturnExchange: (trackId, requestId, options) => handleApproveExchangeAction(trackId, requestId, options),
-        closeReturnRequest: (trackId, requestId, options) => handleCloseWithoutExchange(trackId, requestId, options)
+        closeReturnRequest: (trackId, requestId, options) => handleCloseWithoutExchange(trackId, requestId, options),
+        reopenReturnRequest: (trackId, requestId, options) => handleReopenReturnAction(trackId, requestId, options),
+        cancelReturnExchange: (trackId, requestId, options) => handleCancelExchangeAction(trackId, requestId, options)
     };
 })();

@@ -587,6 +587,8 @@ class BuyerTelegramBotTest {
                 true,
                 true,
                 false,
+                false,
+                false,
                 null
         );
 
@@ -727,6 +729,8 @@ class BuyerTelegramBotTest {
                 true,
                 true,
                 false,
+                false,
+                false,
                 null
         );
 
@@ -811,6 +815,8 @@ class BuyerTelegramBotTest {
                 false,
                 true,
                 false,
+                false,
+                false,
                 null
         );
 
@@ -855,6 +861,8 @@ class BuyerTelegramBotTest {
                 true,
                 false,
                 true,
+                false,
+                false,
                 false,
                 warning
         );
@@ -911,6 +919,8 @@ class BuyerTelegramBotTest {
                 true,
                 false,
                 true,
+                false,
+                false,
                 true,
                 null
         );
@@ -964,6 +974,8 @@ class BuyerTelegramBotTest {
                 false,
                 true,
                 true,
+                false,
+                false,
                 false,
                 null
         );
@@ -1027,6 +1039,8 @@ class BuyerTelegramBotTest {
                 true,
                 false,
                 true,
+                false,
+                false,
                 true,
                 null
         );
@@ -1082,6 +1096,8 @@ class BuyerTelegramBotTest {
                 true,
                 true,
                 false,
+                false,
+                false,
                 null
         );
 
@@ -1133,6 +1149,8 @@ class BuyerTelegramBotTest {
                 true,
                 true,
                 false,
+                false,
+                false,
                 null
         );
 
@@ -1183,6 +1201,8 @@ class BuyerTelegramBotTest {
                 true,
                 false,
                 true,
+                false,
+                false,
                 true,
                 null
         );
@@ -1244,6 +1264,8 @@ class BuyerTelegramBotTest {
                 true,
                 true,
                 false,
+                false,
+                false,
                 null
         );
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -1291,6 +1313,8 @@ class BuyerTelegramBotTest {
                 false,
                 true,
                 true,
+                false,
+                false,
                 false,
                 null
         );
@@ -1372,6 +1396,8 @@ class BuyerTelegramBotTest {
                 false,
                 true,
                 true,
+                false,
+                false,
                 false,
                 null
         );

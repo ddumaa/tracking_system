@@ -85,6 +85,7 @@ class TrackControllerReturnTest {
                 List.of(),
                 null,
                 false,
+                List.of(),
                 false
         );
 
@@ -143,6 +144,7 @@ class TrackControllerReturnTest {
                 List.of(),
                 null,
                 false,
+                List.of(),
                 false
         );
 
@@ -219,6 +221,7 @@ class TrackControllerReturnTest {
                 List.of(),
                 null,
                 false,
+                List.of(),
                 false
         );
 
