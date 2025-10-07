@@ -578,9 +578,6 @@
         if (typeof returnRequest.exchangeApproved === 'boolean' && returnRequest.exchangeApproved) {
             return true;
         }
-        if (typeof returnRequest.canStartExchange === 'boolean' && returnRequest.canStartExchange) {
-            return true;
-        }
         return false;
     }
 
@@ -644,19 +641,9 @@
         updateRowRequiresAction(payload);
         updateActionTabCounter();
         const successMessage = isExchange
-            ? 'Заявка на обмен зарегистрирована'
+            ? 'Заявка на обмен зарегистрирована. Менеджеры свяжутся после проверки.'
             : 'Заявка на возврат зарегистрирована';
         notifyUser(successMessage, 'success');
-
-        if (isExchange) {
-            const requestId = payload?.returnRequest?.id;
-            if (requestId !== undefined) {
-                await handleApproveExchangeAction(trackId, requestId, {
-                    successMessage: 'Обмен запущен автоматически',
-                    notificationType: 'success'
-                });
-            }
-        }
     }
 
     async function handleApproveExchangeAction(trackId, requestId, options = {}) {
@@ -847,25 +834,41 @@
 
         const trackId = data?.id;
         const returnRequest = data?.returnRequest;
+        const exchangeContext = isExchangeRequest(returnRequest);
 
         if (returnRequest?.canStartExchange && trackId !== undefined && returnRequest.id !== undefined) {
+            const exchangeButtonText = exchangeContext
+                ? 'Создать обменную посылку'
+                : 'Перевести в обмен';
+            const exchangeActionOptions = exchangeContext
+                ? { successMessage: 'Создана обменная посылка', notificationType: 'success' }
+                : { successMessage: 'Заявка переведена в обмен', notificationType: 'info' };
             const exchangeButton = createActionButton({
-                text: 'Запустить обмен',
+                text: exchangeButtonText,
                 variant: 'primary',
-                ariaLabel: 'Запустить обменную отправку',
+                ariaLabel: exchangeContext
+                    ? 'Создать обменную посылку'
+                    : 'Перевести заявку возврата в обмен',
                 onClick: (button) => runButtonAction(button,
-                    () => handleApproveExchangeAction(trackId, returnRequest.id))
+                    () => handleApproveExchangeAction(trackId, returnRequest.id, exchangeActionOptions))
             });
             trackActions.appendChild(exchangeButton);
         }
 
         if (returnRequest?.canCloseWithoutExchange && trackId !== undefined && returnRequest.id !== undefined) {
+            const closeButtonText = exchangeContext ? 'Закрыть без обмена' : 'Принять возврат';
+            const closeVariant = exchangeContext ? 'outline-secondary' : 'success';
+            const closeActionOptions = exchangeContext
+                ? { successMessage: 'Заявка закрыта без обмена', notificationType: 'info' }
+                : { successMessage: 'Возврат принят', notificationType: 'success' };
             const closeButton = createActionButton({
-                text: 'Закрыть без обмена',
-                variant: 'outline-secondary',
-                ariaLabel: 'Закрыть заявку без обмена',
+                text: closeButtonText,
+                variant: closeVariant,
+                ariaLabel: exchangeContext
+                    ? 'Закрыть заявку без запуска обменной посылки'
+                    : 'Подтвердить приём возврата',
                 onClick: (button) => runButtonAction(button,
-                    () => handleCloseWithoutExchange(trackId, returnRequest.id))
+                    () => handleCloseWithoutExchange(trackId, returnRequest.id, closeActionOptions))
             });
             trackActions.appendChild(closeButton);
         }
@@ -951,7 +954,7 @@
             const infoList = document.createElement('dl');
             infoList.className = 'row g-2 mb-0';
 
-            const exchangeMode = isExchangeRequest(returnRequest);
+            const exchangeMode = exchangeContext;
 
             appendDefinitionItem(infoList, 'Тип обращения', exchangeMode ? 'Обмен' : 'Возврат');
             appendDefinitionItem(infoList, 'Статус', returnRequest.status || '—');
@@ -967,8 +970,8 @@
             const typeHint = document.createElement('p');
             typeHint.className = 'text-muted small mt-2 mb-0';
             typeHint.textContent = exchangeMode
-                ? 'Заявка оформлена как обмен. После запуска обмена новая посылка появится ниже.'
-                : 'Заявка оформлена как возврат. Следите за статусом, чтобы завершить обработку.';
+                ? 'Заявка оформлена как обмен. Новая посылка появится после того, как магазин подтвердит возврат и создаст отправление.'
+                : 'Заявка оформлена как возврат. При необходимости можно создать обменную посылку из блока действий выше.';
             returnCard.body.appendChild(typeHint);
 
             if (returnRequest.cancelExchangeUnavailableReason) {
@@ -1006,7 +1009,7 @@
         } else if (data?.canRegisterReturn && trackId !== undefined) {
             const intro = document.createElement('p');
             intro.className = 'text-muted small';
-            intro.textContent = 'Заполните форму, чтобы выбрать возврат или обмен. Для обмена система автоматически запустит повторную отправку.';
+            intro.textContent = 'Заполните форму: для обмена менеджеры создадут новую посылку после проверки возврата.';
             returnCard.body.appendChild(intro);
 
             const form = createReturnRegistrationForm(trackId, { returnRequest });

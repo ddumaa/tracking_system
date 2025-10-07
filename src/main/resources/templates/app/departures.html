@@ -264,7 +264,7 @@
                                             </thead>
                                             <tbody>
                                             <tr th:each="request : ${actionRequiredRequests}"
-                                                th:attr="data-track-id=${request.parcelId},data-request-id=${request.requestId}"
+                                                th:attr="data-track-id=${request.parcelId},data-request-id=${request.requestId},data-exchange-requested=${request.exchangeRequested}"
                                                 data-return-request-row>
                                                 <td class="text-start">
                                                     <div class="d-flex flex-column">
@@ -309,17 +309,19 @@
                                                     </div>
                                                     <div class="d-flex flex-column flex-lg-row gap-2 justify-content-end">
                                                         <button type="button"
-                                                                class="btn btn-success btn-sm js-return-request-accept"
-                                                                th:disabled="${!request.canCloseWithoutExchange}">
-                                                            Принять возврат
-                                                        </button>
-                                                        <button type="button"
                                                                 class="btn btn-primary btn-sm js-return-request-exchange"
+                                                                th:if="${request.canStartExchange}"
+                                                                th:data-action-label="${request.exchangeRequested ? 'Создать обменную посылку' : 'Перевести в обмен'}"
+                                                                th:text="${request.exchangeRequested ? 'Создать обменную посылку' : 'Перевести в обмен'}"
                                                                 th:disabled="${!request.canStartExchange}">
                                                             Создать обменную посылку
                                                         </button>
                                                         <button type="button"
-                                                                class="btn btn-outline-secondary btn-sm js-return-request-close"
+                                                                class="btn btn-sm js-return-request-close"
+                                                                th:classappend="${request.exchangeRequested ? ' btn-outline-secondary' : ' btn-success'}"
+                                                                th:if="${request.canCloseWithoutExchange}"
+                                                                th:data-action-label="${request.exchangeRequested ? 'Закрыть без обмена' : 'Принять возврат'}"
+                                                                th:text="${request.exchangeRequested ? 'Закрыть без обмена' : 'Принять возврат'}"
                                                                 th:disabled="${!request.canCloseWithoutExchange}">
                                                             Закрыть без обмена
                                                         </button>

@@ -92,7 +92,7 @@ describe('track-modal render', () => {
                 { id: 10, number: 'RB111222333CN', exchange: false, current: false }
             ],
             returnRequest: { id: 5, status: 'Зарегистрирована', decisionAt: null, closedAt: null,
-                requiresAction: true, exchangeApproved: false, canStartExchange: true, canCloseWithoutExchange: true,
+                requiresAction: true, exchangeApproved: false, exchangeRequested: true, canStartExchange: true, canCloseWithoutExchange: true,
                 cancelExchangeUnavailableReason: null },
             canRegisterReturn: false,
             requiresAction: true

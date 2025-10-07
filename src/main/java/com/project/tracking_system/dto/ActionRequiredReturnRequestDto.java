@@ -21,6 +21,7 @@ import com.project.tracking_system.entity.OrderReturnRequestStatus;
  * @param reason                    причина оформления возврата
  * @param comment                   дополнительный комментарий пользователя
  * @param reverseTrackNumber        трек обратной отправки, если указан
+ * @param exchangeRequested         признак, что покупатель запросил обмен при регистрации
  * @param canStartExchange          признак доступности запуска обмена
  * @param canCloseWithoutExchange   признак доступности закрытия без обмена
  * @param exchangeShipmentDispatched признак, что обменная посылка уже отправлена
@@ -38,6 +39,7 @@ public record ActionRequiredReturnRequestDto(Long requestId,
                                              String reason,
                                              String comment,
                                              String reverseTrackNumber,
+                                             boolean exchangeRequested,
                                              boolean canStartExchange,
                                              boolean canCloseWithoutExchange,
                                              boolean exchangeShipmentDispatched,

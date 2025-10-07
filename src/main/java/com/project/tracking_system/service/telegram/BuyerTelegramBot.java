@@ -1210,10 +1210,14 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * @return человеко-читаемое название типа: «возврат» или «обмен»
      */
     private String resolveRequestTypeLabel(ActionRequiredReturnRequestDto request) {
-        if (request == null || request.status() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+        if (request == null) {
             return "возврат";
         }
-        return "обмен";
+        if (request.status() == OrderReturnRequestStatus.EXCHANGE_APPROVED
+                || request.exchangeRequested()) {
+            return "обмен";
+        }
+        return "возврат";
     }
 
     private String formatSelectedRequestDetails(ActionRequiredReturnRequestDto request) {
