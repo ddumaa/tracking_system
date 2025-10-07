@@ -680,6 +680,7 @@ public class CustomerTelegramService {
                 request.getReason(),
                 request.getComment(),
                 request.getReverseTrackNumber(),
+                request.isExchangeRequested(),
                 canStartExchange,
                 canCloseWithoutExchange,
                 exchangeShipmentDispatched,

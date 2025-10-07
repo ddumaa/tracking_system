@@ -76,35 +76,19 @@
      */
     function getActionExecutors() {
         return {
-            accept(trackId, requestId) {
-                const fn = window.trackModal?.closeReturnRequest;
-                if (typeof fn !== 'function') {
-                    return Promise.reject(new Error('Действие временно недоступно'));
-                }
-                return fn(trackId, requestId, {
-                    successMessage: 'Возврат принят',
-                    notificationType: 'success'
-                });
-            },
-            exchange(trackId, requestId) {
+            exchange(trackId, requestId, options = {}) {
                 const fn = window.trackModal?.approveReturnExchange;
                 if (typeof fn !== 'function') {
                     return Promise.reject(new Error('Создание обменной посылки недоступно'));
                 }
-                return fn(trackId, requestId, {
-                    successMessage: 'Создана обменная посылка',
-                    notificationType: 'success'
-                });
+                return fn(trackId, requestId, options);
             },
-            close(trackId, requestId) {
+            close(trackId, requestId, options = {}) {
                 const fn = window.trackModal?.closeReturnRequest;
                 if (typeof fn !== 'function') {
                     return Promise.reject(new Error('Закрытие заявки недоступно'));
                 }
-                return fn(trackId, requestId, {
-                    successMessage: 'Заявка закрыта без обмена',
-                    notificationType: 'info'
-                });
+                return fn(trackId, requestId, options);
             }
         };
     }
@@ -119,7 +103,7 @@
         const executors = getActionExecutors();
 
         table.addEventListener('click', (event) => {
-            const button = event.target.closest('.js-return-request-accept, .js-return-request-exchange, .js-return-request-close');
+            const button = event.target.closest('.js-return-request-exchange, .js-return-request-close');
             if (!button) {
                 return;
             }
@@ -127,15 +111,13 @@
             if (!row) {
                 return;
             }
-            const { trackId, requestId } = row.dataset;
+            const { trackId, requestId, exchangeRequested } = row.dataset;
             if (!trackId || !requestId) {
                 return;
             }
 
-            let actionKey = 'accept';
-            if (button.classList.contains('js-return-request-exchange')) {
-                actionKey = 'exchange';
-            } else if (button.classList.contains('js-return-request-close')) {
+            let actionKey = 'exchange';
+            if (button.classList.contains('js-return-request-close')) {
                 actionKey = 'close';
             }
 
@@ -143,7 +125,20 @@
             if (typeof executor !== 'function') {
                 return;
             }
-            executeAction(button, () => executor(trackId, requestId));
+            const isExchangeRequested = exchangeRequested === 'true';
+            const actionOptions = {};
+            if (actionKey === 'exchange') {
+                actionOptions.successMessage = isExchangeRequested
+                    ? 'Создана обменная посылка'
+                    : 'Заявка переведена в обмен';
+                actionOptions.notificationType = isExchangeRequested ? 'success' : 'info';
+            } else if (actionKey === 'close') {
+                actionOptions.successMessage = isExchangeRequested
+                    ? 'Заявка закрыта без обмена'
+                    : 'Возврат принят';
+                actionOptions.notificationType = isExchangeRequested ? 'info' : 'success';
+            }
+            executeAction(button, () => executor(trackId, requestId, actionOptions));
         });
 
         refreshEmptyState();
