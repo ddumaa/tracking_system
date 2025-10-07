@@ -264,64 +264,87 @@
                                             </thead>
                                             <tbody>
                                             <tr th:each="request : ${actionRequiredRequests}"
-                                                th:attr="data-track-id=${request.parcelId},data-request-id=${request.requestId}"
+                                                th:attr="data-track-id=${request.parcelId},data-request-id=${request.requestId},data-exchange-requested=${request.exchangeRequested}"
                                                 data-return-request-row>
                                                 <td class="text-start">
                                                     <div class="d-flex flex-column">
                                                         <button th:if="${request.parcelId != null}" type="button"
                                                                 class="btn btn-link p-0 text-start open-modal"
+                                                                data-return-track-number
                                                                 th:text="${request.trackNumber != null ? request.trackNumber : 'Трек не указан'}"
                                                                 th:data-track-id="${request.parcelId}"
                                                                 th:data-itemnumber="${request.trackNumber}"
                                                                 aria-label="Открыть детали посылки"></button>
                                                         <span th:if="${request.parcelId == null}"
                                                               class="text-muted">Посылка недоступна</span>
-                                                        <span class="text-muted small"
+                                                        <span class="text-muted small" data-return-store
                                                               th:text="${request.storeName != null ? request.storeName : 'Магазин не указан'}"></span>
-                                                        <span class="text-muted small"
+                                                        <span class="text-muted small" data-return-parcel-status
                                                               th:text="${request.parcelStatus != null ? request.parcelStatus : 'Статус не определён'}"></span>
                                                     </div>
                                                 </td>
                                                 <td class="text-start">
                                                     <div class="d-flex flex-column">
-                                                        <span class="fw-semibold"
+                                                        <span class="fw-semibold" data-return-status-label
                                                               th:text="${request.statusLabel != null ? request.statusLabel : 'Статус не определён'}"></span>
-                                                        <span class="text-muted small"
+                                                        <span class="text-muted small" data-return-requested
                                                               th:text="${request.requestedAt != null ? 'Обращение: ' + request.requestedAt : 'Обращение: —'}"></span>
-                                                        <span class="text-muted small"
+                                                        <span class="text-muted small" data-return-created
                                                               th:text="${request.createdAt != null ? 'Регистрация: ' + request.createdAt : 'Регистрация: —'}"></span>
                                                     </div>
                                                 </td>
                                                 <td class="text-start">
                                                     <div class="d-flex flex-column gap-1">
-                                                        <span th:text="${request.reason != null ? request.reason : 'Причина не указана'}"></span>
-                                                        <span class="text-muted small"
+                                                        <span data-return-reason
+                                                              th:text="${request.reason != null ? request.reason : 'Причина не указана'}"></span>
+                                                        <span class="text-muted small" data-return-comment
                                                               th:text="${request.comment != null ? request.comment : 'Комментарий отсутствует'}"></span>
-                                                        <span class="text-muted small"
+                                                        <span class="text-muted small" data-return-reverse
                                                               th:text="${request.reverseTrackNumber != null ? 'Обратный трек: ' + request.reverseTrackNumber : 'Обратный трек: —'}"></span>
                                                     </div>
                                                 </td>
                                                 <td class="text-end">
-                                                    <div th:if="${request.cancelExchangeUnavailableReason != null}"
-                                                         class="alert alert-warning text-start small mb-2"
+                                                    <div class="alert alert-warning text-start small mb-2"
+                                                         data-return-cancel-warning
+                                                         th:classappend="${request.cancelExchangeUnavailableReason == null} ? ' d-none' : ''"
+                                                         th:attr="aria-hidden=${request.cancelExchangeUnavailableReason == null}"
                                                          role="status">
-                                                        <span th:text="${request.cancelExchangeUnavailableReason}"></span>
+                                                        <span data-return-cancel-warning-text
+                                                              th:text="${request.cancelExchangeUnavailableReason}"></span>
                                                     </div>
                                                     <div class="d-flex flex-column flex-lg-row gap-2 justify-content-end">
                                                         <button type="button"
-                                                                class="btn btn-success btn-sm js-return-request-accept"
-                                                                th:disabled="${!request.canCloseWithoutExchange}">
-                                                            Принять возврат
-                                                        </button>
-                                                        <button type="button"
                                                                 class="btn btn-primary btn-sm js-return-request-exchange"
+                                                                th:if="${request.canStartExchange}"
+                                                                th:data-action-label="${request.exchangeRequested ? 'Создать обменную посылку' : 'Перевести в обмен'}"
+                                                                th:text="${request.exchangeRequested ? 'Создать обменную посылку' : 'Перевести в обмен'}"
                                                                 th:disabled="${!request.canStartExchange}">
                                                             Создать обменную посылку
                                                         </button>
                                                         <button type="button"
-                                                                class="btn btn-outline-secondary btn-sm js-return-request-close"
+                                                                class="btn btn-sm js-return-request-close"
+                                                                th:classappend="${request.exchangeRequested ? ' btn-outline-secondary' : ' btn-success'}"
+                                                                th:if="${request.canCloseWithoutExchange}"
+                                                                th:data-action-label="${request.exchangeRequested ? 'Закрыть без обмена' : 'Принять возврат'}"
+                                                                th:text="${request.exchangeRequested ? 'Закрыть без обмена' : 'Принять возврат'}"
                                                                 th:disabled="${!request.canCloseWithoutExchange}">
                                                             Закрыть без обмена
+                                                        </button>
+                                                        <button type="button"
+                                                                class="btn btn-outline-warning btn-sm js-return-request-reopen"
+                                                                th:if="${request.canReopenAsReturn}"
+                                                                th:data-action-label="Перевести в возврат"
+                                                                th:text="Перевести в возврат"
+                                                                th:disabled="${!request.canReopenAsReturn}">
+                                                            Перевести в возврат
+                                                        </button>
+                                                        <button type="button"
+                                                                class="btn btn-outline-danger btn-sm js-return-request-cancel"
+                                                                th:if="${request.canCancelExchange}"
+                                                                th:data-action-label="Отменить обмен"
+                                                                th:text="Отменить обмен"
+                                                                th:disabled="${!request.canCancelExchange}">
+                                                            Отменить обмен
                                                         </button>
                                                     </div>
                                                 </td>

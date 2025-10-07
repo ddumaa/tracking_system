@@ -21,6 +21,7 @@ import java.util.List;
  * @param chain          цепочка связанных посылок в рамках эпизода
  * @param returnRequest  текущая заявка на возврат/обмен
  * @param canRegisterReturn признак доступности регистрации новой заявки
+ * @param lifecycle     этапы жизненного цикла заказа
  * @param requiresAction признак наличия незавершённых действий по посылке
  */
 public record TrackDetailsDto(Long id,
@@ -39,5 +40,6 @@ public record TrackDetailsDto(Long id,
                               List<TrackChainItemDto> chain,
                               OrderReturnRequestDto returnRequest,
                               boolean canRegisterReturn,
+                              List<TrackLifecycleStageDto> lifecycle,
                               boolean requiresAction) {
 }

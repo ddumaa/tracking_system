@@ -380,6 +380,40 @@ public class OrderReturnRequestService {
     }
 
     /**
+     * Проверяет, можно ли вернуть обменную заявку в статус возврата.
+     *
+     * @param request заявка на обмен
+     * @return {@code true}, если обмен ещё не отправлен и не заблокирован
+     */
+    @Transactional(readOnly = true)
+    public boolean canReopenAsReturn(OrderReturnRequest request) {
+        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            return false;
+        }
+        if (isExchangeShipmentDispatched(request)) {
+            return false;
+        }
+        return getExchangeCancellationBlockReason(request).isEmpty();
+    }
+
+    /**
+     * Проверяет, можно ли отменить обмен без закрытия эпизода.
+     *
+     * @param request заявка на обмен
+     * @return {@code true}, если обмен можно отменить автоматически
+     */
+    @Transactional(readOnly = true)
+    public boolean canCancelExchange(OrderReturnRequest request) {
+        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            return false;
+        }
+        if (isExchangeShipmentDispatched(request)) {
+            return false;
+        }
+        return getExchangeCancellationBlockReason(request).isEmpty();
+    }
+
+    /**
      * Проверяет, была ли отправлена обменная посылка по заявке.
      * <p>
      * Фиксирует факт отправки, если у посылки появился трек-номер либо она
