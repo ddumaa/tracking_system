@@ -54,6 +54,7 @@ public class ReturnRequestActionMapper {
         boolean exchangeShipmentDispatched = orderReturnRequestService.isExchangeShipmentDispatched(request);
         boolean canReopenAsReturn = orderReturnRequestService.canReopenAsReturn(request);
         boolean canCancelExchange = orderReturnRequestService.canCancelExchange(request);
+        boolean canConfirmReceipt = orderReturnRequestService.canConfirmReceipt(request);
 
         return new ActionRequiredReturnRequestDto(
                 request.getId(),
@@ -74,7 +75,10 @@ public class ReturnRequestActionMapper {
                 canReopenAsReturn,
                 canCancelExchange,
                 exchangeShipmentDispatched,
-                cancelExchangeReason
+                cancelExchangeReason,
+                request.isReturnReceiptConfirmed(),
+                formatRequestMoment(request.getReturnReceiptConfirmedAt(), userZone),
+                canConfirmReceipt
         );
     }
 

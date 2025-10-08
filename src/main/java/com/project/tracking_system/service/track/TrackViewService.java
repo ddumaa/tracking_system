@@ -188,10 +188,11 @@ public class TrackViewService {
 
         TrackLifecycleStageState merchantProcessingState = TrackLifecycleStageState.PLANNED;
         String merchantProcessingMoment = null;
-        boolean processed = isReturnProcessed(request) || currentStatus == GlobalStatus.RETURNED;
+        boolean processed = isReturnProcessed(request, parcel);
         if (processed) {
             merchantProcessingState = TrackLifecycleStageState.COMPLETED;
             merchantProcessingMoment = firstNonNull(
+                    formatNullableTimestamp(request.getReturnReceiptConfirmedAt(), userZone),
                     formatNullableTimestamp(request.getDecisionAt(), userZone),
                     formatNullableTimestamp(request.getClosedAt(), userZone),
                     outboundMoment
@@ -307,13 +308,14 @@ public class TrackViewService {
     /**
      * Проверяет, обработал ли магазин возврат.
      */
-    private boolean isReturnProcessed(OrderReturnRequest request) {
+    private boolean isReturnProcessed(OrderReturnRequest request, TrackParcel parcel) {
+        if (parcel != null && parcel.getStatus() == GlobalStatus.RETURNED) {
+            return true;
+        }
         if (request == null) {
             return false;
         }
-        OrderReturnRequestStatus status = request.getStatus();
-        return status == OrderReturnRequestStatus.CLOSED_NO_EXCHANGE
-                || status == OrderReturnRequestStatus.EXCHANGE_APPROVED;
+        return request.isReturnReceiptConfirmed();
     }
 
     /**
@@ -366,6 +368,7 @@ public class TrackViewService {
         boolean canCloseWithoutExchange = request.getStatus() == OrderReturnRequestStatus.REGISTERED;
         boolean canReopenAsReturn = orderReturnRequestService.canReopenAsReturn(request);
         boolean canCancelExchange = orderReturnRequestService.canCancelExchange(request);
+        boolean canConfirmReceipt = orderReturnRequestService.canConfirmReceipt(request);
         String requestedAt = formatNullableTimestamp(request.getRequestedAt(), userZone);
         // Подставляем дату регистрации, если пользовательское обращение отсутствует, чтобы модалка не показывала дубль.
         if (requestedAt == null) {
@@ -392,7 +395,10 @@ public class TrackViewService {
                 canCloseWithoutExchange,
                 canReopenAsReturn,
                 canCancelExchange,
-                cancelExchangeReason
+                cancelExchangeReason,
+                request.isReturnReceiptConfirmed(),
+                formatNullableTimestamp(request.getReturnReceiptConfirmedAt(), userZone),
+                canConfirmReceipt
         );
     }
 

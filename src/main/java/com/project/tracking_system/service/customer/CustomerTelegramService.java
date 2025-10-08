@@ -668,6 +668,7 @@ public class CustomerTelegramService {
                 .getExchangeCancellationBlockReason(request)
                 .orElse(null);
         boolean exchangeShipmentDispatched = orderReturnRequestService.isExchangeShipmentDispatched(request);
+        boolean canConfirmReceipt = orderReturnRequestService.canConfirmReceipt(request);
 
         return new ActionRequiredReturnRequestDto(
                 request.getId(),
@@ -688,7 +689,10 @@ public class CustomerTelegramService {
                 canReopenAsReturn,
                 canCancelExchange,
                 exchangeShipmentDispatched,
-                cancelExchangeReason
+                cancelExchangeReason,
+                request.isReturnReceiptConfirmed(),
+                formatRequestMoment(request.getReturnReceiptConfirmedAt()),
+                canConfirmReceipt
         );
     }
 

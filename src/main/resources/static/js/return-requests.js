@@ -93,6 +93,17 @@
             reverseSpan.textContent = reverseText;
         }
 
+        const confirmationSpan = row.querySelector('[data-return-confirmation]');
+        if (confirmationSpan && ('returnReceiptConfirmed' in summary || 'returnReceiptConfirmedAt' in summary)) {
+            const confirmed = Boolean(summary.returnReceiptConfirmed);
+            const confirmationText = confirmed
+                ? `Получение подтверждено: ${summary.returnReceiptConfirmedAt || '—'}`
+                : 'Получение ещё не подтверждено';
+            confirmationSpan.textContent = confirmationText;
+            confirmationSpan.classList.toggle('text-success', confirmed);
+            confirmationSpan.classList.toggle('text-muted', !confirmed);
+        }
+
         const warningBox = row.querySelector('[data-return-cancel-warning]');
         if (warningBox && 'cancelExchangeUnavailableReason' in summary) {
             const showWarning = Boolean(summary.cancelExchangeUnavailableReason);
@@ -148,6 +159,14 @@
             cancelButton.classList.toggle('d-none', !canCancel);
             cancelButton.setAttribute('aria-hidden', canCancel ? 'false' : 'true');
             cancelButton.disabled = !canCancel;
+        }
+
+        const confirmButton = row.querySelector('.js-return-request-confirm');
+        if (confirmButton && ('canConfirmReceipt' in summary || 'returnReceiptConfirmed' in summary)) {
+            const canConfirm = Boolean(summary.canConfirmReceipt);
+            confirmButton.classList.toggle('d-none', !canConfirm);
+            confirmButton.setAttribute('aria-hidden', canConfirm ? 'false' : 'true');
+            confirmButton.disabled = !canConfirm;
         }
 
         refreshEmptyState();
@@ -235,6 +254,13 @@
                     return Promise.reject(new Error('Отмена обмена недоступна'));
                 }
                 return fn(trackId, requestId, options);
+            },
+            confirm(trackId, requestId, options = {}) {
+                const fn = window.trackModal?.confirmReturnReceipt;
+                if (typeof fn !== 'function') {
+                    return Promise.reject(new Error('Подтверждение возврата недоступно'));
+                }
+                return fn(trackId, requestId, options);
             }
         };
     }
@@ -249,7 +275,7 @@
         const executors = getActionExecutors();
 
         table.addEventListener('click', (event) => {
-            const button = event.target.closest('.js-return-request-exchange, .js-return-request-close, .js-return-request-reopen, .js-return-request-cancel');
+            const button = event.target.closest('.js-return-request-exchange, .js-return-request-close, .js-return-request-reopen, .js-return-request-cancel, .js-return-request-confirm');
             if (!button) {
                 return;
             }
@@ -269,6 +295,8 @@
                 actionKey = 'reopen';
             } else if (button.classList.contains('js-return-request-cancel')) {
                 actionKey = 'cancel';
+            } else if (button.classList.contains('js-return-request-confirm')) {
+                actionKey = 'confirm';
             }
 
             const executor = executors[actionKey];
@@ -293,6 +321,9 @@
             } else if (actionKey === 'cancel') {
                 actionOptions.successMessage = 'Обмен отменён и заявка закрыта';
                 actionOptions.notificationType = 'warning';
+            } else if (actionKey === 'confirm') {
+                actionOptions.successMessage = 'Получение возврата подтверждено';
+                actionOptions.notificationType = 'success';
             }
             executeAction(button, () => executor(trackId, requestId, actionOptions));
         });

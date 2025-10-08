@@ -19,6 +19,9 @@ package com.project.tracking_system.dto;
  * @param canReopenAsReturn        доступность перевода обмена обратно в возврат
  * @param canCancelExchange        доступность отмены обмена
  * @param cancelExchangeUnavailableReason сообщение для пользователя, если отмена обмена недоступна
+ * @param returnReceiptConfirmed   признак ручного подтверждения возврата магазином
+ * @param returnReceiptConfirmedAt дата подтверждения возврата
+ * @param canConfirmReceipt        доступность кнопки подтверждения возврата
  */
 public record OrderReturnRequestDto(Long id,
                                     String status,
@@ -35,7 +38,10 @@ public record OrderReturnRequestDto(Long id,
                                     boolean canCloseWithoutExchange,
                                     boolean canReopenAsReturn,
                                     boolean canCancelExchange,
-                                    String cancelExchangeUnavailableReason) {
+                                    String cancelExchangeUnavailableReason,
+                                    boolean returnReceiptConfirmed,
+                                    String returnReceiptConfirmedAt,
+                                    boolean canConfirmReceipt) {
 
     /**
      * Совместимый с фронтендом аксессор, чтобы не ломать проверку {@code isExchangeRequest}.

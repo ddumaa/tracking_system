@@ -299,8 +299,11 @@
                                                               th:text="${request.reason != null ? request.reason : 'Причина не указана'}"></span>
                                                         <span class="text-muted small" data-return-comment
                                                               th:text="${request.comment != null ? request.comment : 'Комментарий отсутствует'}"></span>
-                                                        <span class="text-muted small" data-return-reverse
-                                                              th:text="${request.reverseTrackNumber != null ? 'Обратный трек: ' + request.reverseTrackNumber : 'Обратный трек: —'}"></span>
+                                                      <span class="text-muted small" data-return-reverse
+                                                            th:text="${request.reverseTrackNumber != null ? 'Обратный трек: ' + request.reverseTrackNumber : 'Обратный трек: —'}"></span>
+                                                      <span class="text-muted small" data-return-confirmation
+                                                            th:classappend="${request.returnReceiptConfirmed} ? ' text-success' : ''"
+                                                            th:text="${request.returnReceiptConfirmed ? 'Получение подтверждено: ' + (request.returnReceiptConfirmedAt != null ? request.returnReceiptConfirmedAt : '—') : 'Получение ещё не подтверждено'}"></span>
                                                     </div>
                                                 </td>
                                                 <td class="text-end">
@@ -337,13 +340,20 @@
                                                                 th:disabled="${!request.canReopenAsReturn}">
                                                             Перевести в возврат
                                                         </button>
-                                                        <button type="button"
-                                                                class="btn btn-outline-danger btn-sm js-return-request-cancel"
-                                                                th:if="${request.canCancelExchange}"
-                                                                data-action-label="Отменить обмен"
-                                                                th:disabled="${!request.canCancelExchange}">
-                                                            Отменить обмен
-                                                        </button>
+                                                      <button type="button"
+                                                              class="btn btn-outline-danger btn-sm js-return-request-cancel"
+                                                              th:if="${request.canCancelExchange}"
+                                                              data-action-label="Отменить обмен"
+                                                              th:disabled="${!request.canCancelExchange}">
+                                                          Отменить обмен
+                                                      </button>
+                                                      <button type="button"
+                                                              class="btn btn-outline-success btn-sm js-return-request-confirm"
+                                                              th:if="${request.canConfirmReceipt}"
+                                                              data-action-label="Подтвердить получение возврата"
+                                                              th:disabled="${!request.canConfirmReceipt}">
+                                                          Подтвердить получение
+                                                      </button>
                                                     </div>
                                                 </td>
                                             </tr>
