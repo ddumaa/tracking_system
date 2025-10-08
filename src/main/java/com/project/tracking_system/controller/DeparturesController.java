@@ -17,6 +17,7 @@ import com.project.tracking_system.service.track.TrackFacade;
 import com.project.tracking_system.service.store.StoreService;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
+import com.project.tracking_system.service.order.ReturnRequestActionMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -32,8 +33,6 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Set;
 import java.util.Objects;
@@ -66,6 +65,7 @@ public class DeparturesController {
     private final WebSocketController webSocketController;
     private final UserService userService;
     private final OrderReturnRequestService orderReturnRequestService;
+    private final ReturnRequestActionMapper returnRequestActionMapper;
 
     /**
      * Максимальное количество ссылок пагинации, отображаемых одновременно.
@@ -152,7 +152,7 @@ public class DeparturesController {
         ZoneId userZone = userService.getUserZone(userId);
         List<OrderReturnRequest> activeReturnRequests = orderReturnRequestService.findActiveRequestsWithDetails(userId);
         List<ActionRequiredReturnRequestDto> actionRequiredRequests = activeReturnRequests.stream()
-                .map(request -> mapActionRequiredRequest(request, userZone))
+                .map(request -> returnRequestActionMapper.toDto(request, userZone))
                 .toList();
 
         // Отмечаем посылки, требующие действий по возвратам/обменам
@@ -352,63 +352,4 @@ public class DeparturesController {
         return trackParcelService.findByStoreTracks(storeIds, pageIndex, size, userId, sortOrder);
     }
 
-    /**
-     * Преобразует заявку на возврат в DTO для вкладки «Требуют действия».
-     *
-     * @param request исходная заявка
-     * @param userZone часовой пояс пользователя для форматирования дат
-     * @return DTO с подготовленными строками для отображения
-     */
-    private ActionRequiredReturnRequestDto mapActionRequiredRequest(OrderReturnRequest request, ZoneId userZone) {
-        TrackParcel parcel = request.getParcel();
-        Long parcelId = parcel != null ? parcel.getId() : null;
-        String trackNumber = parcel != null ? parcel.getNumber() : null;
-        String storeName = parcel != null && parcel.getStore() != null ? parcel.getStore().getName() : null;
-        GlobalStatus parcelStatus = parcel != null ? parcel.getStatus() : null;
-        OrderReturnRequestStatus status = request.getStatus();
-
-        String requestedAt = formatRequestMoment(request.getRequestedAt(), userZone);
-        String createdAt = formatRequestMoment(request.getCreatedAt(), userZone);
-
-        boolean canStartExchange = orderReturnRequestService.canStartExchange(request);
-        boolean canCloseWithoutExchange = status == OrderReturnRequestStatus.REGISTERED;
-        String cancelExchangeReason = orderReturnRequestService
-                .getExchangeCancellationBlockReason(request)
-                .orElse(null);
-        boolean exchangeShipmentDispatched = orderReturnRequestService.isExchangeShipmentDispatched(request);
-
-        return new ActionRequiredReturnRequestDto(
-                request.getId(),
-                parcelId,
-                trackNumber,
-                storeName,
-                parcelStatus != null ? parcelStatus.getDescription() : null,
-                status,
-                status != null ? status.getDisplayName() : null,
-                requestedAt,
-                createdAt,
-                request.getReason(),
-                request.getComment(),
-                request.getReverseTrackNumber(),
-                request.isExchangeRequested(),
-                canStartExchange,
-                canCloseWithoutExchange,
-                exchangeShipmentDispatched,
-                cancelExchangeReason
-        );
-    }
-
-    /**
-     * Форматирует момент времени заявки в пользовательской временной зоне.
-     *
-     * @param moment исходное значение в UTC
-     * @param userZone часовой пояс пользователя
-     * @return отформатированная строка или {@code null}, если момент отсутствует
-     */
-    private String formatRequestMoment(ZonedDateTime moment, ZoneId userZone) {
-        if (moment == null || userZone == null) {
-            return null;
-        }
-        return REQUEST_DATE_FORMATTER.format(moment.withZoneSameInstant(userZone));
-    }
 }

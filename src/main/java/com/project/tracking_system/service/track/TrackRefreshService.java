@@ -167,6 +167,7 @@ public class TrackRefreshService {
                     details.chain(),
                     details.returnRequest(),
                     details.canRegisterReturn(),
+                    details.lifecycle(),
                     details.requiresAction()
             );
         }
@@ -192,6 +193,7 @@ public class TrackRefreshService {
                 details.chain(),
                 details.returnRequest(),
                 details.canRegisterReturn(),
+                details.lifecycle(),
                 details.requiresAction()
         );
     }

@@ -57,6 +57,7 @@ describe('track-modal render', () => {
             ],
             returnRequest: null,
             canRegisterReturn: false,
+            lifecycle: [],
             requiresAction: false
         };
 
@@ -95,6 +96,38 @@ describe('track-modal render', () => {
                 requiresAction: true, exchangeApproved: false, exchangeRequested: true, canStartExchange: true, canCloseWithoutExchange: true,
                 cancelExchangeUnavailableReason: null },
             canRegisterReturn: false,
+            lifecycle: [
+                {
+                    code: 'OUTBOUND',
+                    title: 'Отправление магазина',
+                    actor: 'Магазин',
+                    description: '...',
+                    state: 'COMPLETED',
+                    occurredAt: '2024-01-01T10:00:00Z',
+                    trackNumber: 'RB987654321CN',
+                    trackContext: 'Исходная посылка'
+                },
+                {
+                    code: 'CUSTOMER_RETURN',
+                    title: 'Возврат от покупателя',
+                    actor: 'Покупатель',
+                    description: '...',
+                    state: 'IN_PROGRESS',
+                    occurredAt: '2024-01-05T12:00:00Z',
+                    trackNumber: null,
+                    trackContext: 'Обратный трек'
+                },
+                {
+                    code: 'MERCHANT_ACCEPT_RETURN',
+                    title: 'Приём возврата магазином',
+                    actor: 'Магазин',
+                    description: '...',
+                    state: 'PLANNED',
+                    occurredAt: null,
+                    trackNumber: null,
+                    trackContext: null
+                }
+            ],
             requiresAction: true
         };
 
@@ -114,6 +147,13 @@ describe('track-modal render', () => {
         expect(definitions?.textContent).toContain('Тип обращения');
         const typeHint = returnCard?.querySelector('p.text-muted.small');
         expect(typeHint?.textContent).toContain('Заявка оформлена как обмен');
+
+        const lifecycleCard = Array.from(document.querySelectorAll('section.card'))
+            .find((card) => card.querySelector('h6')?.textContent === 'Жизненный цикл заказа');
+        expect(lifecycleCard?.textContent).toContain('Исходная посылка');
+        expect(lifecycleCard?.textContent).toContain('RB987654321CN');
+        expect(lifecycleCard?.textContent).toContain('Обратный трек');
+        expect(lifecycleCard?.textContent).toContain('трек не указан');
     });
 
     test('renders return without exchange as single current item', () => {
@@ -135,6 +175,7 @@ describe('track-modal render', () => {
             ],
             returnRequest: null,
             canRegisterReturn: false,
+            lifecycle: [],
             requiresAction: false
         };
 
@@ -165,13 +206,52 @@ describe('track-modal render', () => {
             ],
             returnRequest: null,
             canRegisterReturn: true,
+            lifecycle: [
+                {
+                    code: 'OUTBOUND',
+                    title: 'Отправление магазина',
+                    actor: 'Магазин',
+                    description: '...',
+                    state: 'COMPLETED',
+                    occurredAt: '2024-01-01T09:00:00Z',
+                    trackNumber: 'RR123',
+                    trackContext: 'Исходная посылка'
+                },
+                {
+                    code: 'CUSTOMER_RETURN',
+                    title: 'Возврат от покупателя',
+                    actor: 'Покупатель',
+                    description: '...',
+                    state: 'PLANNED',
+                    occurredAt: null,
+                    trackNumber: null,
+                    trackContext: null
+                },
+                {
+                    code: 'MERCHANT_ACCEPT_RETURN',
+                    title: 'Приём возврата магазином',
+                    actor: 'Магазин',
+                    description: '...',
+                    state: 'PLANNED',
+                    occurredAt: null,
+                    trackNumber: null,
+                    trackContext: null
+                }
+            ],
             requiresAction: false
         };
 
         global.window.trackModal.render(data);
 
+        const lifecycleHeading = Array.from(document.querySelectorAll('section.card h6'))
+            .find((heading) => heading.textContent.includes('Жизненный цикл заказа'));
+        expect(lifecycleHeading).toBeDefined();
+
         const button = document.querySelector('form button[type="submit"]');
         expect(button).not.toBeNull();
+
+        const stages = document.querySelectorAll('ol[role="list"] li');
+        expect(stages.length).toBeGreaterThanOrEqual(3);
         expect(button?.textContent).toContain('Отправить заявку');
 
         const radios = document.querySelectorAll('form input[type="radio"][name^="return-type"]');
