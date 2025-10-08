@@ -161,11 +161,19 @@ public class TrackViewService {
         );
         stages.add(outboundStage);
 
-        if (requestOpt.isEmpty()) {
-            return stages;
-        }
+        requestOpt.ifPresent(request -> appendReturnLifecycleStages(stages, parcel, request, userZone, outboundMoment));
+        return stages;
+    }
 
-        OrderReturnRequest request = requestOpt.orElseThrow();
+    /**
+     * Добавляет в коллекцию этапы, связанные с возвратом и обменом, только при наличии заявки.
+     * Метод изолирует расширенную бизнес-логику построения стадий, сохраняя принцип единственной ответственности.
+     */
+    private void appendReturnLifecycleStages(List<TrackLifecycleStageDto> stages,
+                                             TrackParcel parcel,
+                                             OrderReturnRequest request,
+                                             ZoneId userZone,
+                                             String outboundMoment) {
         TrackLifecycleStageState customerReturnState = TrackLifecycleStageState.PLANNED;
         String customerReturnMoment = null;
         boolean reverseStarted = hasReverseShipmentStarted(parcel, request);
@@ -273,8 +281,6 @@ public class TrackViewService {
                             : null
             ));
         }
-
-        return stages;
     }
 
     /**

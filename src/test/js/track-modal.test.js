@@ -82,6 +82,45 @@ describe('track-modal render', () => {
         expect(chainButtons[0].textContent).toContain('AB123456789BY');
     });
 
+    test('skips lifecycle card for outbound-only stage list', () => {
+        setupDom();
+        const data = {
+            id: 2,
+            number: 'CD987654321BY',
+            deliveryService: 'Belpost',
+            systemStatus: 'В пути',
+            history: [],
+            refreshAllowed: true,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: null,
+            exchange: false,
+            chain: [],
+            returnRequest: null,
+            canRegisterReturn: false,
+            lifecycle: [
+                {
+                    code: 'OUTBOUND',
+                    title: 'Отправление магазина',
+                    actor: 'Магазин',
+                    description: 'Магазин отправил посылку.',
+                    state: 'COMPLETED',
+                    occurredAt: '2024-01-01T10:00:00Z',
+                    trackNumber: 'CD987654321BY',
+                    trackContext: 'Исходная посылка'
+                }
+            ],
+            requiresAction: false
+        };
+
+        global.window.trackModal.render(data);
+
+        const lifecycleCard = Array.from(document.querySelectorAll('section.card'))
+            .find((card) => card.querySelector('h6')?.textContent === 'Жизненный цикл заказа');
+        expect(lifecycleCard).toBeUndefined();
+    });
+
     test('renders exchange chain with clickable original parcel', () => {
         setupDom();
         const loadSpy = jest.spyOn(global.window.trackModal, 'loadModal').mockImplementation(() => {});

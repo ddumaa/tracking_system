@@ -142,6 +142,9 @@ class TrackViewServiceTest {
         TrackDetailsDto details = service.getTrackDetails(24L, 4L);
 
         assertThat(details.lifecycle()).hasSize(1);
+        assertThat(details.lifecycle())
+                .extracting(TrackLifecycleStageDto::code)
+                .containsOnly("OUTBOUND");
         TrackLifecycleStageDto onlyStage = details.lifecycle().get(0);
         assertThat(onlyStage.code()).isEqualTo("OUTBOUND");
         assertThat(onlyStage.trackNumber()).isEqualTo("TRK24");
