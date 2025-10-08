@@ -1,5 +1,6 @@
 package com.project.tracking_system.controller;
 
+import com.project.tracking_system.dto.ReturnRequestUpdateResponse;
 import com.project.tracking_system.dto.TrackChainItemDto;
 import com.project.tracking_system.dto.TrackDetailsDto;
 import com.project.tracking_system.entity.Role;
@@ -30,6 +31,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -249,6 +251,81 @@ class TrackControllerReturnTest {
         Mockito.verify(orderReturnRequestService).approveExchange(eq(7L), eq(9L), eq(principal));
         Mockito.verify(trackViewService).getTrackDetails(9L, 1L);
         Mockito.verify(trackViewService).toChainItem(replacement, 9L);
+    }
+
+    @Test
+    void updateReverseTrack_ReturnsFreshDetails() throws Exception {
+        User principal = buildUser();
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                principal,
+                principal.getPassword(),
+                principal.getAuthorities()
+        );
+
+        TrackDetailsDto dto = new TrackDetailsDto(
+                13L,
+                "AB765",
+                "Belpost",
+                "Вручена",
+                null,
+                null,
+                List.of(),
+                true,
+                null,
+                false,
+                "UTC",
+                21L,
+                false,
+                List.of(),
+                null,
+                false,
+                List.of(),
+                true
+        );
+
+        when(trackViewService.getTrackDetails(13L, 1L)).thenReturn(dto);
+        when(orderReturnRequestService.updateReverseTrackAndComment(eq(3L), eq(13L), eq(principal), eq("RR123"), eq("Комментарий")))
+                .thenReturn(new ReturnRequestUpdateResponse(3L, "RR123", "Комментарий", null));
+
+        mockMvc.perform(patch("/api/v1/tracks/13/returns/3/reverse-track")
+                        .with(authentication(auth))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{" +
+                                "\"reverseTrackNumber\":\"RR123\"," +
+                                "\"comment\":\"Комментарий\"" +
+                                "}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(13L))
+                .andExpect(jsonPath("$.requiresAction").value(true));
+
+        Mockito.verify(orderReturnRequestService)
+                .updateReverseTrackAndComment(eq(3L), eq(13L), eq(principal), eq("RR123"), eq("Комментарий"));
+        Mockito.verify(trackViewService).getTrackDetails(13L, 1L);
+    }
+
+    @Test
+    void updateReverseTrack_WhenIllegalState_ReturnsConflict() throws Exception {
+        User principal = buildUser();
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                principal,
+                principal.getPassword(),
+                principal.getAuthorities()
+        );
+
+        when(orderReturnRequestService.updateReverseTrackAndComment(eq(4L), eq(15L), eq(principal), eq("RR321"), eq(null)))
+                .thenThrow(new IllegalStateException("Заявка закрыта"));
+
+        mockMvc.perform(patch("/api/v1/tracks/15/returns/4/reverse-track")
+                        .with(authentication(auth))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{" +
+                                "\"reverseTrackNumber\":\"RR321\"" +
+                                "}"))
+                .andExpect(status().isConflict());
+
+        Mockito.verify(orderReturnRequestService)
+                .updateReverseTrackAndComment(eq(4L), eq(15L), eq(principal), eq("RR321"), eq(null));
+        Mockito.verify(trackViewService, Mockito.never()).getTrackDetails(any(), any());
     }
 
     private User buildUser() {

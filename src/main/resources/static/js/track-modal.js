@@ -279,13 +279,15 @@
      * @returns {Promise<Object>} десериализованный ответ контроллера
      */
     async function sendReturnRequest(url, options = {}) {
+        const method = options.method || 'POST';
+        const headers = {
+            Accept: 'application/json',
+            ...buildCsrfHeaders(),
+            ...(options.headers || {})
+        };
         const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                ...buildCsrfHeaders(),
-                ...(options.headers || {})
-            },
+            method,
+            headers,
             body: options.body ?? null
         });
         const contentType = response.headers.get('content-type') || '';
@@ -560,6 +562,59 @@
     }
 
     /**
+     * Формирует форму обновления обратного трека активной заявки.
+     * Метод отделяет построение DOM, чтобы основная отрисовка модалки не усложнялась проверками.
+     * @param {number} trackId идентификатор посылки
+     * @param {Object} returnRequest DTO заявки на возврат
+     * @returns {HTMLFormElement} форма редактирования обратного трека
+     */
+    function createReverseTrackForm(trackId, returnRequest) {
+        const form = document.createElement('form');
+        form.className = 'd-flex flex-column gap-3 mt-3';
+        form.dataset.reverseTrackForm = 'true';
+
+        const reverseInput = document.createElement('input');
+        reverseInput.type = 'text';
+        reverseInput.className = 'form-control';
+        reverseInput.name = 'reverseTrackNumber';
+        reverseInput.maxLength = 64;
+        reverseInput.id = generateElementId('reverse-track-edit');
+        reverseInput.placeholder = 'Например, LP123456789BY';
+        reverseInput.autocomplete = 'off';
+        if (returnRequest?.reverseTrackNumber) {
+            reverseInput.value = returnRequest.reverseTrackNumber;
+        }
+
+        const helperText = returnRequest?.requiresAction
+            ? 'Укажите актуальный обратный трек: заявка ожидает действий.'
+            : 'Поле доступно, пока обратный трек не указан.';
+        const reverseControl = createLabeledControl(
+            'Трек обратной отправки',
+            reverseInput,
+            helperText
+        );
+
+        const submitButton = document.createElement('button');
+        submitButton.type = 'submit';
+        submitButton.className = 'btn btn-primary align-self-start';
+        submitButton.textContent = 'Сохранить трек';
+
+        form.append(reverseControl, submitButton);
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            runButtonAction(submitButton, () => handleReverseTrackUpdate(
+                trackId,
+                returnRequest?.id,
+                reverseInput.value,
+                returnRequest?.comment ?? null
+            ));
+        });
+
+        return form;
+    }
+
+    /**
      * Определяет, относится ли заявка к обмену с учётом обратной совместимости.
      * Метод проверяет новые и старые флаги, чтобы не допустить ложных выводов.
      * @param {Object} returnRequest DTO заявки
@@ -644,6 +699,52 @@
             ? 'Заявка на обмен зарегистрирована. Менеджеры свяжутся после проверки.'
             : 'Заявка на возврат зарегистрирована';
         notifyUser(successMessage, 'success');
+    }
+
+    /**
+     * Отправляет PATCH-запрос для обновления обратного трека заявки и синхронизирует интерфейс.
+     * Метод валидирует длину трека, приводит его к верхнему регистру и обновляет таблицы после ответа сервера.
+     * @param {number} trackId идентификатор посылки
+     * @param {number} requestId идентификатор заявки
+     * @param {string} reverseValue введённый пользователем трек
+     * @param {string|null} currentComment текущий комментарий заявки для сохранения
+     * @returns {Promise<Object|null>} обновлённые детали трека
+     */
+    async function handleReverseTrackUpdate(trackId, requestId, reverseValue, currentComment = null) {
+        if (!trackId || !requestId) {
+            throw new Error('Невозможно обновить обратный трек: отсутствуют идентификаторы.');
+        }
+        const reverseRaw = (reverseValue ?? '').trim();
+        if (reverseRaw.length === 0) {
+            throw new Error('Укажите обратный трек отправления.');
+        }
+        if (reverseRaw.length > 64) {
+            throw new Error('Трек обратной отправки не должен превышать 64 символа');
+        }
+
+        const payloadBody = {
+            reverseTrackNumber: reverseRaw.toUpperCase(),
+            comment: currentComment && currentComment.length > 0 ? currentComment : null
+        };
+
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/reverse-track`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payloadBody)
+        });
+        renderTrackModal(payload);
+        updateRowRequiresAction(payload);
+
+        const updatedRequest = payload?.returnRequest ?? null;
+        if (updatedRequest && typeof window.returnRequests?.updateRow === 'function') {
+            window.returnRequests.updateRow({
+                parcelId: trackId,
+                requestId: updatedRequest.id ?? requestId,
+                reverseTrackNumber: updatedRequest.reverseTrackNumber ?? null
+            });
+        }
+        notifyUser('Обратный трек сохранён', 'success');
+        return payload ?? null;
     }
 
     async function handleApproveExchangeAction(trackId, requestId, options = {}) {
@@ -1181,6 +1282,16 @@
                 returnCard.body.appendChild(warning);
             }
 
+            const canEditReverseTrack = Boolean(
+                returnRequest?.id !== undefined
+                && data?.id !== undefined
+                && (!returnRequest?.reverseTrackNumber || returnRequest?.requiresAction)
+            );
+            if (canEditReverseTrack) {
+                const reverseForm = createReverseTrackForm(data.id, returnRequest);
+                returnCard.body.appendChild(reverseForm);
+            }
+
             if (exchangeItem && exchangeItem.id !== undefined) {
                 const exchangeNotice = document.createElement('div');
                 exchangeNotice.className = 'alert alert-info d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3';
@@ -1546,6 +1657,7 @@
         approveReturnExchange: (trackId, requestId, options) => handleApproveExchangeAction(trackId, requestId, options),
         closeReturnRequest: (trackId, requestId, options) => handleCloseWithoutExchange(trackId, requestId, options),
         reopenReturnRequest: (trackId, requestId, options) => handleReopenReturnAction(trackId, requestId, options),
-        cancelReturnExchange: (trackId, requestId, options) => handleCancelExchangeAction(trackId, requestId, options)
+        cancelReturnExchange: (trackId, requestId, options) => handleCancelExchangeAction(trackId, requestId, options),
+        updateReverseTrack: (trackId, requestId, reverseValue, comment) => handleReverseTrackUpdate(trackId, requestId, reverseValue, comment)
     };
 })();
