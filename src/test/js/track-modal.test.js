@@ -21,9 +21,15 @@ describe('track-modal render', () => {
         };
         global.notifyUser = jest.fn();
         global.promptTrackNumber = jest.fn();
-        global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) }));
+        const defaultHeaders = { get: jest.fn(() => 'application/json') };
+        global.fetch = jest.fn(() => Promise.resolve({ ok: true, headers: defaultHeaders, json: () => Promise.resolve({}) }));
         global.crypto = { randomUUID: jest.fn(() => 'test-uuid') };
         require('../../main/resources/static/js/track-modal.js');
+        global.window.returnRequests = {
+            updateRow: jest.fn(),
+            removeRowByIds: jest.fn(),
+            refreshEmptyState: jest.fn()
+        };
     }
 
     afterEach(() => {
@@ -34,6 +40,9 @@ describe('track-modal render', () => {
         delete global.promptTrackNumber;
         delete global.fetch;
         delete global.crypto;
+        if (global.window && global.window.returnRequests) {
+            delete global.window.returnRequests;
+        }
     });
 
     test('renders episode number and single chain item for base parcel', () => {
@@ -154,6 +163,117 @@ describe('track-modal render', () => {
         expect(lifecycleCard?.textContent).toContain('RB987654321CN');
         expect(lifecycleCard?.textContent).toContain('Обратный трек');
         expect(lifecycleCard?.textContent).toContain('трек не указан');
+    });
+
+    test('submits reverse track form and rerenders modal', async () => {
+        setupDom();
+
+        const updatedDetails = {
+            id: 12,
+            number: 'BY123456789BY',
+            deliveryService: 'Belpost',
+            systemStatus: 'Вручена',
+            history: [],
+            refreshAllowed: true,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: 5,
+            exchange: false,
+            chain: [],
+            returnRequest: {
+                id: 5,
+                status: 'Зарегистрирована',
+                reason: 'Размер не подошёл',
+                comment: 'Свяжитесь со мной',
+                requestedAt: '2024-02-02T10:00:00Z',
+                decisionAt: null,
+                closedAt: null,
+                reverseTrackNumber: 'RR123456789BY',
+                requiresAction: false,
+                exchangeApproved: false,
+                exchangeRequested: false,
+                canStartExchange: true,
+                canCloseWithoutExchange: true,
+                canReopenAsReturn: false,
+                canCancelExchange: false
+            },
+            canRegisterReturn: false,
+            lifecycle: [],
+            requiresAction: false
+        };
+
+        const headers = { get: jest.fn(() => 'application/json') };
+        global.fetch.mockResolvedValueOnce({
+            ok: true,
+            headers,
+            json: () => Promise.resolve(updatedDetails)
+        });
+
+        const initialData = {
+            id: 12,
+            number: 'BY123456789BY',
+            deliveryService: 'Belpost',
+            systemStatus: 'Вручена',
+            history: [],
+            refreshAllowed: true,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: 5,
+            exchange: false,
+            chain: [],
+            returnRequest: {
+                id: 5,
+                status: 'Зарегистрирована',
+                reason: 'Размер не подошёл',
+                comment: 'Свяжитесь со мной',
+                requestedAt: '2024-02-02T10:00:00Z',
+                decisionAt: null,
+                closedAt: null,
+                reverseTrackNumber: null,
+                requiresAction: true,
+                exchangeApproved: false,
+                exchangeRequested: false,
+                canStartExchange: true,
+                canCloseWithoutExchange: true,
+                canReopenAsReturn: false,
+                canCancelExchange: false
+            },
+            canRegisterReturn: false,
+            lifecycle: [],
+            requiresAction: true
+        };
+
+        global.window.trackModal.render(initialData);
+
+        const form = document.querySelector('form[data-reverse-track-form]');
+        expect(form).not.toBeNull();
+        const input = form.querySelector('input[name="reverseTrackNumber"]');
+        expect(input).not.toBeNull();
+        input.value = ' rr123456789by ';
+
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+        await Promise.resolve();
+        await Promise.resolve();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(global.fetch).toHaveBeenCalledWith(
+            '/api/v1/tracks/12/returns/5/reverse-track',
+            expect.objectContaining({
+                method: 'PATCH'
+            })
+        );
+        expect(global.notifyUser).toHaveBeenCalledWith('Обратный трек сохранён', 'success');
+        const reverseInfo = Array.from(document.querySelectorAll('dl dd'))
+            .find((node) => node.textContent?.includes('RR123456789BY'));
+        expect(reverseInfo).toBeDefined();
+        expect(global.window.returnRequests.updateRow).toHaveBeenCalledWith(expect.objectContaining({
+            parcelId: 12,
+            requestId: 5,
+            reverseTrackNumber: 'RR123456789BY'
+        }));
     });
 
     test('renders return without exchange as single current item', () => {

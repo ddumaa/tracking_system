@@ -3,6 +3,7 @@ package com.project.tracking_system.controller;
 import com.project.tracking_system.dto.ActionRequiredReturnRequestDto;
 import com.project.tracking_system.dto.ExchangeApprovalResponse;
 import com.project.tracking_system.dto.ReturnRegistrationRequest;
+import com.project.tracking_system.dto.ReturnRequestReverseTrackUpdateRequest;
 import com.project.tracking_system.dto.ReturnRequestActionResponse;
 import com.project.tracking_system.dto.TrackChainItemDto;
 import com.project.tracking_system.dto.TrackDetailsDto;
@@ -191,6 +192,51 @@ public class TrackController {
         }
         try {
             orderReturnRequestService.closeWithoutExchange(requestId, id, user);
+            return trackViewService.getTrackDetails(id, user.getId());
+        } catch (AccessDeniedException ex) {
+            throw ex;
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Обновляет обратный трек и комментарий активной заявки на возврат.
+     * <p>
+     * Метод проверяет авторизацию пользователя, делегирует бизнес-проверки
+     * сервису заявок, а затем возвращает свежие детали трека для перерисовки модалки.
+     * </p>
+     *
+     * @param id        идентификатор посылки
+     * @param requestId идентификатор заявки на возврат
+     * @param request   тело запроса с изменёнными полями
+     * @param user      текущий пользователь
+     * @return обновлённые данные трека с заявкой
+     */
+    @RequestMapping(path = "/{id}/returns/{requestId}/reverse-track", method = {
+            RequestMethod.PATCH,
+            RequestMethod.PUT
+    })
+    public TrackDetailsDto updateReverseTrack(@PathVariable Long id,
+                                              @PathVariable Long requestId,
+                                              @RequestBody @Valid ReturnRequestReverseTrackUpdateRequest request,
+                                              @AuthenticationPrincipal User user) {
+        if (user == null) {
+            throw new AccessDeniedException("Пользователь не авторизован");
+        }
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Не переданы данные для обновления");
+        }
+        try {
+            orderReturnRequestService.updateReverseTrackAndComment(
+                    requestId,
+                    id,
+                    user,
+                    request.reverseTrackNumber(),
+                    request.comment()
+            );
             return trackViewService.getTrackDetails(id, user.getId());
         } catch (AccessDeniedException ex) {
             throw ex;

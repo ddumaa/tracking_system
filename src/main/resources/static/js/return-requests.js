@@ -34,55 +34,59 @@
         if (!row) {
             return;
         }
-        row.dataset.exchangeRequested = summary.exchangeRequested ? 'true' : 'false';
-        row.dataset.requestId = String(summary.requestId);
+        if ('exchangeRequested' in summary) {
+            row.dataset.exchangeRequested = summary.exchangeRequested ? 'true' : 'false';
+        }
+        if ('requestId' in summary) {
+            row.dataset.requestId = String(summary.requestId);
+        }
 
         const trackButton = row.querySelector('[data-return-track-number]');
-        if (trackButton) {
+        if (trackButton && 'trackNumber' in summary) {
             trackButton.textContent = summary.trackNumber || 'Трек не указан';
             trackButton.dataset.trackId = String(summary.parcelId);
             trackButton.dataset.itemnumber = summary.trackNumber || '';
         }
 
         const storeSpan = row.querySelector('[data-return-store]');
-        if (storeSpan) {
+        if (storeSpan && 'storeName' in summary) {
             storeSpan.textContent = summary.storeName || 'Магазин не указан';
         }
 
         const statusSpan = row.querySelector('[data-return-parcel-status]');
-        if (statusSpan) {
+        if (statusSpan && 'parcelStatus' in summary) {
             statusSpan.textContent = summary.parcelStatus || 'Статус не определён';
         }
 
         const requestStatus = row.querySelector('[data-return-status-label]');
-        if (requestStatus) {
+        if (requestStatus && 'statusLabel' in summary) {
             requestStatus.textContent = summary.statusLabel || 'Статус не определён';
         }
 
         const requestedSpan = row.querySelector('[data-return-requested]');
-        if (requestedSpan) {
+        if (requestedSpan && 'requestedAt' in summary) {
             const requestedText = summary.requestedAt ? `Обращение: ${summary.requestedAt}` : 'Обращение: —';
             requestedSpan.textContent = requestedText;
         }
 
         const createdSpan = row.querySelector('[data-return-created]');
-        if (createdSpan) {
+        if (createdSpan && 'createdAt' in summary) {
             const createdText = summary.createdAt ? `Регистрация: ${summary.createdAt}` : 'Регистрация: —';
             createdSpan.textContent = createdText;
         }
 
         const reasonSpan = row.querySelector('[data-return-reason]');
-        if (reasonSpan) {
+        if (reasonSpan && 'reason' in summary) {
             reasonSpan.textContent = summary.reason || 'Причина не указана';
         }
 
         const commentSpan = row.querySelector('[data-return-comment]');
-        if (commentSpan) {
+        if (commentSpan && 'comment' in summary) {
             commentSpan.textContent = summary.comment || 'Комментарий отсутствует';
         }
 
         const reverseSpan = row.querySelector('[data-return-reverse]');
-        if (reverseSpan) {
+        if (reverseSpan && 'reverseTrackNumber' in summary) {
             const reverseText = summary.reverseTrackNumber
                 ? `Обратный трек: ${summary.reverseTrackNumber}`
                 : 'Обратный трек: —';
@@ -90,7 +94,7 @@
         }
 
         const warningBox = row.querySelector('[data-return-cancel-warning]');
-        if (warningBox) {
+        if (warningBox && 'cancelExchangeUnavailableReason' in summary) {
             const showWarning = Boolean(summary.cancelExchangeUnavailableReason);
             warningBox.classList.toggle('d-none', !showWarning);
             warningBox.setAttribute('aria-hidden', showWarning ? 'false' : 'true');
@@ -101,7 +105,7 @@
         }
 
         const exchangeButton = row.querySelector('.js-return-request-exchange');
-        if (exchangeButton) {
+        if (exchangeButton && 'canStartExchange' in summary) {
             const canExchange = Boolean(summary.canStartExchange);
             exchangeButton.classList.toggle('d-none', !canExchange);
             exchangeButton.setAttribute('aria-hidden', canExchange ? 'false' : 'true');
@@ -116,7 +120,7 @@
         }
 
         const closeButton = row.querySelector('.js-return-request-close');
-        if (closeButton) {
+        if (closeButton && ('canCloseWithoutExchange' in summary || 'exchangeRequested' in summary)) {
             const canClose = Boolean(summary.canCloseWithoutExchange);
             closeButton.classList.toggle('d-none', !canClose);
             closeButton.setAttribute('aria-hidden', canClose ? 'false' : 'true');
@@ -131,7 +135,7 @@
         }
 
         const reopenButton = row.querySelector('.js-return-request-reopen');
-        if (reopenButton) {
+        if (reopenButton && 'canReopenAsReturn' in summary) {
             const canReopen = Boolean(summary.canReopenAsReturn);
             reopenButton.classList.toggle('d-none', !canReopen);
             reopenButton.setAttribute('aria-hidden', canReopen ? 'false' : 'true');
@@ -139,7 +143,7 @@
         }
 
         const cancelButton = row.querySelector('.js-return-request-cancel');
-        if (cancelButton) {
+        if (cancelButton && 'canCancelExchange' in summary) {
             const canCancel = Boolean(summary.canCancelExchange);
             cancelButton.classList.toggle('d-none', !canCancel);
             cancelButton.setAttribute('aria-hidden', canCancel ? 'false' : 'true');
