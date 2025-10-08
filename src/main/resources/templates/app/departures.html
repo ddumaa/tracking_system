@@ -333,16 +333,14 @@
                                                         <button type="button"
                                                                 class="btn btn-outline-warning btn-sm js-return-request-reopen"
                                                                 th:if="${request.canReopenAsReturn}"
-                                                                th:data-action-label="Перевести в возврат"
-                                                                th:text="Перевести в возврат"
+                                                                data-action-label="Перевести в возврат"
                                                                 th:disabled="${!request.canReopenAsReturn}">
                                                             Перевести в возврат
                                                         </button>
                                                         <button type="button"
                                                                 class="btn btn-outline-danger btn-sm js-return-request-cancel"
                                                                 th:if="${request.canCancelExchange}"
-                                                                th:data-action-label="Отменить обмен"
-                                                                th:text="Отменить обмен"
+                                                                data-action-label="Отменить обмен"
                                                                 th:disabled="${!request.canCancelExchange}">
                                                             Отменить обмен
                                                         </button>
