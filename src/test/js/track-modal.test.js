@@ -189,7 +189,7 @@ describe('track-modal render', () => {
                 id: 5,
                 status: 'Зарегистрирована',
                 reason: 'Размер не подошёл',
-                comment: 'Свяжитесь со мной',
+                comment: 'Обновлённый комментарий',
                 requestedAt: '2024-02-02T10:00:00Z',
                 decisionAt: null,
                 closedAt: null,
@@ -262,6 +262,11 @@ describe('track-modal render', () => {
         expect(input).not.toBeNull();
         input.value = ' rr123456789by ';
 
+        const commentField = form.querySelector('textarea[name="comment"]');
+        expect(commentField).not.toBeNull();
+        expect(commentField.value).toBe('Свяжитесь со мной');
+        commentField.value = '  Обновлённый комментарий  ';
+
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 
         await Promise.resolve();
@@ -271,17 +276,25 @@ describe('track-modal render', () => {
         expect(global.fetch).toHaveBeenCalledWith(
             '/api/v1/tracks/12/returns/5/reverse-track',
             expect.objectContaining({
-                method: 'PATCH'
+                method: 'PATCH',
+                body: JSON.stringify({
+                    reverseTrackNumber: 'RR123456789BY',
+                    comment: 'Обновлённый комментарий'
+                })
             })
         );
         expect(global.notifyUser).toHaveBeenCalledWith('Обратный трек сохранён', 'success');
         const reverseInfo = Array.from(document.querySelectorAll('dl dd'))
             .find((node) => node.textContent?.includes('RR123456789BY'));
         expect(reverseInfo).toBeDefined();
+        const commentInfo = Array.from(document.querySelectorAll('dl dd'))
+            .find((node) => node.textContent?.includes('Обновлённый комментарий'));
+        expect(commentInfo).toBeDefined();
         expect(global.window.returnRequests.updateRow).toHaveBeenCalledWith(expect.objectContaining({
             parcelId: 12,
             requestId: 5,
-            reverseTrackNumber: 'RR123456789BY'
+            reverseTrackNumber: 'RR123456789BY',
+            comment: 'Обновлённый комментарий'
         }));
     });
 
