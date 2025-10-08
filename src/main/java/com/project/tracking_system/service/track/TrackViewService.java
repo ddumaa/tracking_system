@@ -136,7 +136,7 @@ public class TrackViewService {
      * @param parcel       исходная посылка
      * @param requestOpt   активная заявка на возврат/обмен, если она есть
      * @param userZone     часовой пояс пользователя для форматирования времени
-     * @return упорядоченный список этапов цикла
+     * @return упорядоченный список этапов цикла; при отсутствии заявки содержит только исходное отправление
      */
     private List<TrackLifecycleStageDto> buildLifecycle(TrackParcel parcel,
                                                         Optional<OrderReturnRequest> requestOpt,
@@ -160,17 +160,20 @@ public class TrackViewService {
                 "Исходная посылка"
         ));
 
-        OrderReturnRequest request = requestOpt.orElse(null);
+        if (requestOpt.isEmpty()) {
+            return stages;
+        }
+
+        OrderReturnRequest request = requestOpt.orElseThrow();
         TrackLifecycleStageState customerReturnState = TrackLifecycleStageState.PLANNED;
         String customerReturnMoment = null;
-        if (request != null) {
-            boolean reverseStarted = hasReverseShipmentStarted(parcel, request);
-            customerReturnState = reverseStarted
-                    ? TrackLifecycleStageState.COMPLETED
-                    : TrackLifecycleStageState.IN_PROGRESS;
-            customerReturnMoment = formatNullableTimestamp(request.getRequestedAt(), userZone);
-        }
-        String reverseTrackNumber = request != null ? normalizeTrackNumber(request.getReverseTrackNumber()) : null;
+        boolean reverseStarted = hasReverseShipmentStarted(parcel, request);
+        customerReturnState = reverseStarted
+                ? TrackLifecycleStageState.COMPLETED
+                : TrackLifecycleStageState.IN_PROGRESS;
+        customerReturnMoment = formatNullableTimestamp(request.getRequestedAt(), userZone);
+        String reverseTrackNumber = normalizeTrackNumber(request.getReverseTrackNumber());
+        String reverseTrackContext = "Обратный трек";
         stages.add(new TrackLifecycleStageDto(
                 "CUSTOMER_RETURN",
                 "Возврат от покупателя",
@@ -179,26 +182,24 @@ public class TrackViewService {
                 customerReturnState,
                 customerReturnMoment,
                 reverseTrackNumber,
-                reverseTrackNumber != null || request != null ? "Обратный трек" : null
+                reverseTrackContext
         ));
 
         TrackLifecycleStageState merchantProcessingState = TrackLifecycleStageState.PLANNED;
         String merchantProcessingMoment = null;
-        if (request != null) {
-            boolean processed = isReturnProcessed(request) || currentStatus == GlobalStatus.RETURNED;
-            if (processed) {
-                merchantProcessingState = TrackLifecycleStageState.COMPLETED;
-                merchantProcessingMoment = firstNonNull(
-                        formatNullableTimestamp(request.getDecisionAt(), userZone),
-                        formatNullableTimestamp(request.getClosedAt(), userZone),
-                        outboundMoment
-                );
-                if (merchantProcessingMoment == null) {
-                    merchantProcessingMoment = formatNullableTimestamp(resolveStatusMoment(parcel), userZone);
-                }
-            } else if (hasReverseShipmentStarted(parcel, request)) {
-                merchantProcessingState = TrackLifecycleStageState.IN_PROGRESS;
+        boolean processed = isReturnProcessed(request) || currentStatus == GlobalStatus.RETURNED;
+        if (processed) {
+            merchantProcessingState = TrackLifecycleStageState.COMPLETED;
+            merchantProcessingMoment = firstNonNull(
+                    formatNullableTimestamp(request.getDecisionAt(), userZone),
+                    formatNullableTimestamp(request.getClosedAt(), userZone),
+                    outboundMoment
+            );
+            if (merchantProcessingMoment == null) {
+                merchantProcessingMoment = formatNullableTimestamp(resolveStatusMoment(parcel), userZone);
             }
+        } else if (hasReverseShipmentStarted(parcel, request)) {
+            merchantProcessingState = TrackLifecycleStageState.IN_PROGRESS;
         }
         stages.add(new TrackLifecycleStageDto(
                 "MERCHANT_ACCEPT_RETURN",
@@ -211,19 +212,17 @@ public class TrackViewService {
                 null
         ));
 
-        TrackParcel exchangeParcel = request != null
-                ? orderExchangeService.findLatestExchangeParcel(request).orElse(null)
-                : null;
+        TrackParcel exchangeParcel = orderExchangeService.findLatestExchangeParcel(request).orElse(null);
         if (shouldShowExchangeStages(request, exchangeParcel)) {
             TrackLifecycleStageState exchangeCreationState = TrackLifecycleStageState.PLANNED;
             String exchangeCreationMoment = null;
             if (exchangeParcel != null) {
                 exchangeCreationState = TrackLifecycleStageState.COMPLETED;
                 exchangeCreationMoment = formatNullableTimestamp(exchangeParcel.getTimestamp(), userZone);
-            } else if (request != null && request.getStatus() == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            } else if (request.getStatus() == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
                 exchangeCreationState = TrackLifecycleStageState.IN_PROGRESS;
                 exchangeCreationMoment = formatNullableTimestamp(request.getDecisionAt(), userZone);
-            } else if (request != null && request.isExchangeRequested()) {
+            } else if (request.isExchangeRequested()) {
                 exchangeCreationState = TrackLifecycleStageState.IN_PROGRESS;
                 exchangeCreationMoment = formatNullableTimestamp(request.getRequestedAt(), userZone);
             }

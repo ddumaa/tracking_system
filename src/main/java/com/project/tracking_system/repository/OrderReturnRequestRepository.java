@@ -76,5 +76,13 @@ public interface OrderReturnRequestRepository extends JpaRepository<OrderReturnR
             """)
     List<OrderReturnRequest> findActiveRequestsByCustomerWithDetails(@Param("customerId") Long customerId,
                                                                      @Param("statuses") Collection<OrderReturnRequestStatus> statuses);
+
+    /**
+     * Удаляет все заявки, связанные с указанными посылками.
+     *
+     * @param parcelIds идентификаторы посылок
+     * @return количество удалённых записей
+     */
+    long deleteByParcel_IdIn(Collection<Long> parcelIds);
 }
 

@@ -123,6 +123,27 @@ class TrackViewServiceTest {
     }
 
     /**
+     * Проверяем, что без заявки жизненный цикл содержит только исходный этап.
+     */
+    @Test
+    void getTrackDetails_WithoutReturnRequestLifecycleIsOutboundOnly() {
+        ZonedDateTime update = ZonedDateTime.now(ZoneOffset.UTC).minusHours(3);
+        TrackParcel parcel = buildParcel(24L, GlobalStatus.IN_TRANSIT, update);
+
+        when(trackParcelService.findOwnedById(24L, 4L)).thenReturn(Optional.of(parcel));
+        stubEpisodeParcels(parcel, 4L);
+        when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(4);
+        when(userService.getUserZone(4L)).thenReturn(ZoneId.of("UTC"));
+        when(trackStatusEventService.findEvents(24L)).thenReturn(List.of());
+        when(orderReturnRequestService.findCurrentForParcel(24L)).thenReturn(Optional.empty());
+
+        TrackDetailsDto details = service.getTrackDetails(24L, 4L);
+
+        assertThat(details.lifecycle()).hasSize(1);
+        assertThat(details.lifecycle().get(0).code()).isEqualTo("OUTBOUND");
+    }
+
+    /**
      * Если точная дата статуса не сохранена, используется отметка последнего обновления.
      */
     @Test
@@ -357,8 +378,8 @@ class TrackViewServiceTest {
         assertThat(details.returnRequest()).isNull();
         assertThat(details.requiresAction()).isFalse();
         assertThat(details.lifecycle())
-                .extracting(stage -> stage.code())
-                .contains("OUTBOUND", "CUSTOMER_RETURN", "MERCHANT_ACCEPT_RETURN");
+                .extracting(TrackLifecycleStageDto::code)
+                .containsExactly("OUTBOUND");
     }
 
     @Test

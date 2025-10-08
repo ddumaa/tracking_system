@@ -646,6 +646,7 @@ public class DeliveryHistoryService {
      * метод уменьшает значение {@code totalSent} в {@code StoreStatistics} на 1.</p>
      *
      * Это позволяет избежать искажения статистики при удалении черновиков и неактуальных треков.
+     * Если статистика магазина отсутствует, метод аккуратно завершает работу, чтобы не блокировать удаление.
      *
      * @param parcel объект удаляемой посылки
      */
@@ -663,8 +664,18 @@ public class DeliveryHistoryService {
         }
 
         Store store = parcel.getStore();
-        StoreStatistics stats = storeAnalyticsRepository.findByStoreId(store.getId())
-                .orElseThrow(() -> new IllegalStateException("❌ Статистика для магазина не найдена"));
+        if (store == null) {
+            log.warn("❌ У посылки {} отсутствует привязанный магазин. Статистика не будет скорректирована", parcel.getNumber());
+            return;
+        }
+
+        Optional<StoreStatistics> storeStatsOpt = storeAnalyticsRepository.findByStoreId(store.getId());
+        if (storeStatsOpt.isEmpty()) {
+            log.warn("❌ Для магазина ID={} не найдена статистика. Пропускаем корректировку при удалении посылки {}", store.getId(), parcel.getNumber());
+            return;
+        }
+
+        StoreStatistics stats = storeStatsOpt.get();
         // История или номер могут отсутствовать у черновых треков,
         // поэтому определяем службу максимально безопасно.
         PostalServiceType serviceType;

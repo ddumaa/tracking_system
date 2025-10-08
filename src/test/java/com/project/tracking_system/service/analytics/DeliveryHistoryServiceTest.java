@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.ZoneOffset;
@@ -257,6 +258,23 @@ class DeliveryHistoryServiceTest {
 
         verify(telegramNotificationService).sendStatusUpdate(eq(trackParcel), eq(GlobalStatus.DELIVERED));
         verify(customerNotificationLogRepository, never()).save(any(CustomerNotificationLog.class));
+    }
+
+    /**
+     * Убеждаемся, что отсутствие статистики по магазину не блокирует удаление трека.
+     */
+    @Test
+    void handleTrackParcelBeforeDelete_NoStoreStats_SkipsAdjustments() {
+        TrackParcel trackParcel = buildParcelWithCustomer(5L);
+        trackParcel.setIncludedInStatistics(false);
+
+        when(storeAnalyticsRepository.findByStoreId(trackParcel.getStore().getId())).thenReturn(Optional.empty());
+
+        assertDoesNotThrow(() -> deliveryHistoryService.handleTrackParcelBeforeDelete(trackParcel));
+
+        verify(customerService).rollbackStatsOnTrackDelete(trackParcel);
+        verify(storeAnalyticsRepository).findByStoreId(trackParcel.getStore().getId());
+        verifyNoInteractions(storeDailyStatisticsRepository, postalServiceStatisticsRepository, postalServiceDailyStatisticsRepository);
     }
 
     /**

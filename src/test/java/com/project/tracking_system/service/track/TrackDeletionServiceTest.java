@@ -3,6 +3,7 @@ package com.project.tracking_system.service.track;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.DeliveryHistory;
 import com.project.tracking_system.entity.GlobalStatus;
+import com.project.tracking_system.repository.OrderReturnRequestRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.analytics.DeliveryHistoryService;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,12 +27,14 @@ class TrackDeletionServiceTest {
     private TrackParcelRepository trackParcelRepository;
     @Mock
     private DeliveryHistoryService deliveryHistoryService;
+    @Mock
+    private OrderReturnRequestRepository orderReturnRequestRepository;
 
     private TrackDeletionService service;
 
     @BeforeEach
     void setUp() {
-        service = new TrackDeletionService(trackParcelRepository, deliveryHistoryService);
+        service = new TrackDeletionService(trackParcelRepository, deliveryHistoryService, orderReturnRequestRepository);
     }
 
     /**
@@ -40,10 +43,11 @@ class TrackDeletionServiceTest {
     @Test
     void deleteByNumbersAndUserId_DeletesParcelsAndClearsHistory() {
         List<String> numbers = List.of("T1", "T2");
-        TrackParcel first = buildParcel("T1");
-        TrackParcel second = buildParcel("T2");
+        TrackParcel first = buildParcel(1L, "T1");
+        TrackParcel second = buildParcel(2L, "T2");
         List<TrackParcel> parcels = List.of(first, second);
         when(trackParcelRepository.findByNumberInAndUserId(numbers, 1L)).thenReturn(parcels);
+        when(orderReturnRequestRepository.deleteByParcel_IdIn(any())).thenReturn(2L);
 
         service.deleteByNumbersAndUserId(numbers, 1L);
 
@@ -52,6 +56,8 @@ class TrackDeletionServiceTest {
         verify(deliveryHistoryService).handleTrackParcelBeforeDelete(second);
         assertNull(first.getDeliveryHistory());
         assertNull(second.getDeliveryHistory());
+        verify(orderReturnRequestRepository)
+                .deleteByParcel_IdIn(argThat(ids -> ids.containsAll(List.of(1L, 2L)) && ids.size() == 2));
         verify(trackParcelRepository).deleteAll(parcels);
     }
 
@@ -65,6 +71,7 @@ class TrackDeletionServiceTest {
 
         assertThrows(RuntimeException.class, () -> service.deleteByNumbersAndUserId(numbers, 2L));
         verify(trackParcelRepository).findByNumberInAndUserId(numbers, 2L);
+        verify(orderReturnRequestRepository, never()).deleteByParcel_IdIn(any());
         verify(trackParcelRepository, never()).deleteAll(any());
     }
 
@@ -74,16 +81,19 @@ class TrackDeletionServiceTest {
     @Test
     void deleteByIdsAndUserId_DeletesParcels() {
         List<Long> ids = List.of(1L, 2L);
-        TrackParcel first = buildParcel("T1");
-        TrackParcel second = buildParcel("T2");
+        TrackParcel first = buildParcel(10L, "T1");
+        TrackParcel second = buildParcel(11L, "T2");
         List<TrackParcel> parcels = List.of(first, second);
         when(trackParcelRepository.findByIdInAndUserId(ids, 1L)).thenReturn(parcels);
+        when(orderReturnRequestRepository.deleteByParcel_IdIn(any())).thenReturn(2L);
 
         service.deleteByIdsAndUserId(ids, 1L);
 
         verify(trackParcelRepository).findByIdInAndUserId(ids, 1L);
         verify(deliveryHistoryService).handleTrackParcelBeforeDelete(first);
         verify(deliveryHistoryService).handleTrackParcelBeforeDelete(second);
+        verify(orderReturnRequestRepository)
+                .deleteByParcel_IdIn(argThat(idsList -> idsList.containsAll(List.of(10L, 11L)) && idsList.size() == 2));
         verify(trackParcelRepository).deleteAll(parcels);
     }
 
@@ -97,6 +107,7 @@ class TrackDeletionServiceTest {
 
         assertThrows(RuntimeException.class, () -> service.deleteByIdsAndUserId(ids, 2L));
         verify(trackParcelRepository).findByIdInAndUserId(ids, 2L);
+        verify(orderReturnRequestRepository, never()).deleteByParcel_IdIn(any());
         verify(trackParcelRepository, never()).deleteAll(any());
     }
 
@@ -111,9 +122,11 @@ class TrackDeletionServiceTest {
         TrackParcel parcel = new TrackParcel();
         parcel.setNumber(null);
         parcel.setStatus(GlobalStatus.PRE_REGISTERED);
+        parcel.setId(3L);
 
         List<TrackParcel> parcels = List.of(parcel);
         when(trackParcelRepository.findByIdInAndUserId(ids, 1L)).thenReturn(parcels);
+        when(orderReturnRequestRepository.deleteByParcel_IdIn(any())).thenReturn(0L);
 
         // Убедимся, что выполнение не приводит к исключениям
         assertDoesNotThrow(() -> service.deleteByIdsAndUserId(ids, 1L));
@@ -121,14 +134,17 @@ class TrackDeletionServiceTest {
         // Проверяем, что были вызваны необходимые зависимости
         verify(trackParcelRepository).findByIdInAndUserId(ids, 1L);
         verify(deliveryHistoryService).handleTrackParcelBeforeDelete(parcel);
+        verify(orderReturnRequestRepository)
+                .deleteByParcel_IdIn(argThat(idsList -> idsList.contains(3L) && idsList.size() == 1));
         verify(trackParcelRepository).deleteAll(parcels);
     }
 
     /**
      * Создаёт тестовую посылку с историей доставки.
      */
-    private static TrackParcel buildParcel(String number) {
+    private static TrackParcel buildParcel(long id, String number) {
         TrackParcel parcel = new TrackParcel();
+        parcel.setId(id);
         parcel.setNumber(number);
         parcel.setStatus(GlobalStatus.IN_TRANSIT);
         DeliveryHistory history = new DeliveryHistory();
