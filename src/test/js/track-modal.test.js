@@ -187,6 +187,47 @@ describe('track-modal render', () => {
         expect(buttons[0].getAttribute('aria-current')).toBe('true');
     });
 
+    test('omits lifecycle card when only outbound stage is provided', () => {
+        setupDom();
+        const data = {
+            id: 9,
+            number: 'BY000000000BY',
+            deliveryService: 'Belpost',
+            systemStatus: 'Подготовка',
+            history: [],
+            refreshAllowed: true,
+            nextRefreshAt: null,
+            canEditTrack: true,
+            timeZone: 'UTC',
+            episodeNumber: 202,
+            exchange: false,
+            chain: [
+                { id: 9, number: 'BY000000000BY', exchange: false, current: true }
+            ],
+            returnRequest: null,
+            canRegisterReturn: true,
+            lifecycle: [
+                {
+                    code: 'OUTBOUND',
+                    title: 'Отправление магазина',
+                    actor: 'Магазин',
+                    description: '...',
+                    state: 'IN_PROGRESS',
+                    occurredAt: null,
+                    trackNumber: 'BY000000000BY',
+                    trackContext: 'Исходная посылка'
+                }
+            ],
+            requiresAction: false
+        };
+
+        global.window.trackModal.render(data);
+
+        const lifecycleCard = Array.from(document.querySelectorAll('section.card'))
+            .find((card) => card.querySelector('h6')?.textContent === 'Жизненный цикл заказа');
+        expect(lifecycleCard).toBeUndefined();
+    });
+
     test('shows register button when return can be created', () => {
         setupDom();
         const data = {

@@ -1,6 +1,7 @@
 package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.entity.TrackParcel;
+import com.project.tracking_system.repository.OrderReturnRequestRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.analytics.DeliveryHistoryService;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Сервис удаления треков пользователя.
@@ -21,6 +24,7 @@ public class TrackDeletionService {
 
     private final TrackParcelRepository trackParcelRepository;
     private final DeliveryHistoryService deliveryHistoryService;
+    private final OrderReturnRequestRepository orderReturnRequestRepository;
 
     /**
      * Удаляет посылки пользователя по номерам.
@@ -40,16 +44,8 @@ public class TrackDeletionService {
             throw new EntityNotFoundException("Нет посылок для удаления");
         }
 
-        // Обнуляем связь с DeliveryHistory, чтобы Hibernate не пытался сохранять зависимую сущность
-        for (TrackParcel parcel : parcelsToDelete) {
-            deliveryHistoryService.handleTrackParcelBeforeDelete(parcel);
-
-            if (parcel.getDeliveryHistory() != null) {
-                parcel.getDeliveryHistory().setTrackParcel(null);
-                parcel.setDeliveryHistory(null);
-            }
-        }
-
+        detachDeliveryHistory(parcelsToDelete);
+        deleteLinkedReturnRequests(parcelsToDelete);
         trackParcelRepository.deleteAll(parcelsToDelete);
         log.info("✅ Удалены {} посылок пользователя ID={}", parcelsToDelete.size(), userId);
     }
@@ -72,7 +68,20 @@ public class TrackDeletionService {
             throw new EntityNotFoundException("Нет посылок для удаления");
         }
 
-        for (TrackParcel parcel : parcelsToDelete) {
+        detachDeliveryHistory(parcelsToDelete);
+        deleteLinkedReturnRequests(parcelsToDelete);
+        trackParcelRepository.deleteAll(parcelsToDelete);
+        log.info("✅ Удалены {} посылок пользователя ID={}", parcelsToDelete.size(), userId);
+    }
+
+    /**
+     * Открепляет историю доставки от посылок перед удалением, чтобы Hibernate не пытался
+     * каскадно сохранять связанные записи.
+     *
+     * @param parcels посылки, подлежащие очистке
+     */
+    private void detachDeliveryHistory(List<TrackParcel> parcels) {
+        for (TrackParcel parcel : parcels) {
             deliveryHistoryService.handleTrackParcelBeforeDelete(parcel);
 
             if (parcel.getDeliveryHistory() != null) {
@@ -80,9 +89,27 @@ public class TrackDeletionService {
                 parcel.setDeliveryHistory(null);
             }
         }
-
-        trackParcelRepository.deleteAll(parcelsToDelete);
-        log.info("✅ Удалены {} посылок пользователя ID={}", parcelsToDelete.size(), userId);
     }
 
+    /**
+     * Удаляет связанные с посылками заявки на возврат/обмен, чтобы избежать нарушений
+     * внешних ключей при очистке треков.
+     *
+     * @param parcels список удаляемых посылок
+     */
+    private void deleteLinkedReturnRequests(List<TrackParcel> parcels) {
+        List<Long> parcelIds = parcels.stream()
+                .map(TrackParcel::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        if (parcelIds.isEmpty()) {
+            return;
+        }
+
+        long deleted = orderReturnRequestRepository.deleteByParcel_IdIn(parcelIds);
+        if (deleted > 0) {
+            log.info("🗑️ Удалено {} заявок на возврат, связанных с посылками {}", deleted, parcelIds);
+        }
+    }
 }

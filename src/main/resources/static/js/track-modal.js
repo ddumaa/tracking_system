@@ -836,6 +836,14 @@
             return null;
         }
 
+        const hasOnlyOutboundStage = stages.length === 1
+            && stages[0]
+            && typeof stages[0] === 'object'
+            && stages[0].code === 'OUTBOUND';
+        if (hasOnlyOutboundStage) {
+            return null;
+        }
+
         const card = createCard('Жизненный цикл заказа');
         const list = document.createElement('ol');
         list.className = 'list-unstyled d-flex flex-column gap-3 mb-0';
