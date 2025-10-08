@@ -203,6 +203,28 @@ public class TrackController {
     }
 
     /**
+     * Подтверждает вручную получение возврата без закрытия заявки.
+     */
+    @PostMapping("/{id}/returns/{requestId}/confirm-receipt")
+    public TrackDetailsDto confirmReturnReceipt(@PathVariable Long id,
+                                                @PathVariable Long requestId,
+                                                @AuthenticationPrincipal User user) {
+        if (user == null) {
+            throw new AccessDeniedException("Пользователь не авторизован");
+        }
+        try {
+            orderReturnRequestService.confirmReturnReceipt(requestId, id, user);
+            return trackViewService.getTrackDetails(id, user.getId());
+        } catch (AccessDeniedException ex) {
+            throw ex;
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        }
+    }
+
+    /**
      * Обновляет обратный трек и комментарий активной заявки на возврат.
      * <p>
      * Метод проверяет авторизацию пользователя, делегирует бизнес-проверки

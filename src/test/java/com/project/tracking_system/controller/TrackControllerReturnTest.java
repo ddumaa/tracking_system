@@ -198,6 +198,48 @@ class TrackControllerReturnTest {
     }
 
     @Test
+    void confirmReturnReceipt_ReturnsUpdatedDetails() throws Exception {
+        User principal = buildUser();
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                principal,
+                principal.getPassword(),
+                principal.getAuthorities()
+        );
+
+        TrackDetailsDto dto = new TrackDetailsDto(
+                9L,
+                "AB123",
+                "Belpost",
+                "Вручена",
+                null,
+                null,
+                List.of(),
+                true,
+                null,
+                false,
+                "UTC",
+                10L,
+                false,
+                List.of(),
+                null,
+                false,
+                List.of(),
+                false
+        );
+
+        when(trackViewService.getTrackDetails(9L, 1L)).thenReturn(dto);
+
+        mockMvc.perform(post("/api/v1/tracks/9/returns/7/confirm-receipt")
+                        .with(authentication(auth))
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(9L));
+
+        Mockito.verify(orderReturnRequestService).confirmReturnReceipt(7L, 9L, principal);
+        Mockito.verify(trackViewService).getTrackDetails(9L, 1L);
+    }
+
+    @Test
     void approveExchange_ReturnsDetailsAndExchangeItem() throws Exception {
         User principal = buildUser();
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(

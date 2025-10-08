@@ -786,6 +786,36 @@
     }
 
     /**
+     * Подтверждает вручную получение возврата и обновляет интерфейсы.
+     * @param {number} trackId идентификатор посылки
+     * @param {number} requestId идентификатор заявки
+     * @param {Object} options параметры уведомления
+     */
+    async function handleConfirmReceiptAction(trackId, requestId, options = {}) {
+        if (!trackId || !requestId) {
+            return null;
+        }
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/confirm-receipt`);
+        renderTrackModal(payload);
+        updateRowRequiresAction(payload);
+        const updatedRequest = payload?.returnRequest ?? null;
+        if (updatedRequest && typeof window.returnRequests?.updateRow === 'function') {
+            window.returnRequests.updateRow({
+                parcelId: trackId,
+                requestId: updatedRequest.id ?? requestId,
+                returnReceiptConfirmed: Boolean(updatedRequest.returnReceiptConfirmed),
+                returnReceiptConfirmedAt: updatedRequest.returnReceiptConfirmedAt ?? null,
+                canConfirmReceipt: Boolean(updatedRequest.canConfirmReceipt)
+            });
+        }
+        updateActionTabCounter();
+        const message = options.successMessage || 'Получение возврата подтверждено';
+        const notificationType = options.notificationType || 'success';
+        notifyUser(message, notificationType);
+        return payload;
+    }
+
+    /**
      * Переводит обменную заявку обратно в режим возврата.
      * @param {number} trackId идентификатор посылки
      * @param {number} requestId идентификатор заявки
@@ -1126,6 +1156,20 @@
             trackActions.appendChild(exchangeButton);
         }
 
+        if (returnRequest?.canConfirmReceipt && trackId !== undefined && returnRequest.id !== undefined) {
+            const confirmButton = createActionButton({
+                text: 'Подтвердить получение',
+                variant: 'outline-success',
+                ariaLabel: 'Подтвердить получение возврата без закрытия заявки',
+                onClick: (button) => runButtonAction(button,
+                    () => handleConfirmReceiptAction(trackId, returnRequest.id, {
+                        successMessage: 'Получение возврата подтверждено',
+                        notificationType: 'success'
+                    }))
+            });
+            trackActions.appendChild(confirmButton);
+        }
+
         if (returnRequest?.canCloseWithoutExchange && trackId !== undefined && returnRequest.id !== undefined) {
             const closeButtonText = exchangeContext ? 'Закрыть без обмена' : 'Принять возврат';
             const closeVariant = exchangeContext ? 'outline-secondary' : 'success';
@@ -1262,6 +1306,10 @@
             appendDefinitionItem(infoList, 'Дата обращения', format(returnRequest.requestedAt));
             appendDefinitionItem(infoList, 'Дата решения', format(returnRequest.decisionAt));
             appendDefinitionItem(infoList, 'Дата закрытия', format(returnRequest.closedAt));
+            const receiptDescription = returnRequest.returnReceiptConfirmed
+                ? `Подтверждено: ${format(returnRequest.returnReceiptConfirmedAt)}`
+                : 'Ещё не подтверждено';
+            appendDefinitionItem(infoList, 'Подтверждение получения', receiptDescription);
             appendDefinitionItem(infoList, 'Трек обратной отправки', returnRequest.reverseTrackNumber || '—');
 
             returnCard.body.appendChild(infoList);
@@ -1657,6 +1705,7 @@
         closeReturnRequest: (trackId, requestId, options) => handleCloseWithoutExchange(trackId, requestId, options),
         reopenReturnRequest: (trackId, requestId, options) => handleReopenReturnAction(trackId, requestId, options),
         cancelReturnExchange: (trackId, requestId, options) => handleCancelExchangeAction(trackId, requestId, options),
+        confirmReturnReceipt: (trackId, requestId, options) => handleConfirmReceiptAction(trackId, requestId, options),
         updateReverseTrack: (trackId, requestId, reverseValue, comment) => handleReverseTrackUpdate(trackId, requestId, reverseValue, comment)
     };
 })();

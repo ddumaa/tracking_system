@@ -589,7 +589,10 @@ class BuyerTelegramBotTest {
                 false,
                 false,
                 false,
-                null
+                null,
+                false,
+                null,
+                false
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -731,7 +734,10 @@ class BuyerTelegramBotTest {
                 false,
                 false,
                 false,
-                null
+                null,
+                false,
+                null,
+                false
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -817,7 +823,10 @@ class BuyerTelegramBotTest {
                 false,
                 false,
                 false,
-                null
+                null,
+                false,
+                null,
+                false
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -864,7 +873,10 @@ class BuyerTelegramBotTest {
                 false,
                 false,
                 false,
-                warning
+                warning,
+                false,
+                null,
+                false
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -922,7 +934,10 @@ class BuyerTelegramBotTest {
                 false,
                 false,
                 true,
-                null
+                null,
+                false,
+                null,
+                false
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -977,7 +992,10 @@ class BuyerTelegramBotTest {
                 false,
                 false,
                 false,
-                null
+                null,
+                false,
+                null,
+                false
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -1042,7 +1060,10 @@ class BuyerTelegramBotTest {
                 false,
                 false,
                 true,
-                null
+                null,
+                false,
+                null,
+                false
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -1098,7 +1119,10 @@ class BuyerTelegramBotTest {
                 false,
                 false,
                 false,
-                null
+                null,
+                false,
+                null,
+                false
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -1151,7 +1175,10 @@ class BuyerTelegramBotTest {
                 false,
                 false,
                 false,
-                null
+                null,
+                false,
+                null,
+                false
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -1204,7 +1231,10 @@ class BuyerTelegramBotTest {
                 false,
                 false,
                 true,
-                null
+                null,
+                false,
+                null,
+                false
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -1266,7 +1296,10 @@ class BuyerTelegramBotTest {
                 false,
                 false,
                 false,
-                null
+                null,
+                false,
+                null,
+                false
         );
         when(telegramService.getReturnRequestsRequiringAction(chatId))
                 .thenReturn(List.of(requestDto))
@@ -1316,7 +1349,10 @@ class BuyerTelegramBotTest {
                 false,
                 false,
                 false,
-                null
+                null,
+                false,
+                null,
+                false
         );
         when(telegramService.getReturnRequestsRequiringAction(chatId))
                 .thenReturn(List.of(requestDto))

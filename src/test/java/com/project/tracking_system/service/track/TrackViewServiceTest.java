@@ -3,6 +3,7 @@ package com.project.tracking_system.service.track;
 import com.project.tracking_system.dto.TrackChainItemDto;
 import com.project.tracking_system.dto.TrackDetailsDto;
 import com.project.tracking_system.dto.TrackLifecycleStageDto;
+import com.project.tracking_system.dto.TrackLifecycleStageState;
 import com.project.tracking_system.dto.TrackStatusEventDto;
 import com.project.tracking_system.entity.DeliveryHistory;
 import com.project.tracking_system.entity.GlobalStatus;
@@ -66,6 +67,7 @@ class TrackViewServiceTest {
         when(orderReturnRequestService.getExchangeCancellationBlockReason(any())).thenReturn(Optional.empty());
         when(orderReturnRequestService.canReopenAsReturn(any())).thenReturn(false);
         when(orderReturnRequestService.canCancelExchange(any())).thenReturn(false);
+        when(orderReturnRequestService.canConfirmReceipt(any())).thenReturn(false);
     }
 
     /**
@@ -402,6 +404,7 @@ class TrackViewServiceTest {
         when(trackStatusEventService.findEvents(81L)).thenReturn(List.of());
         when(orderReturnRequestService.findCurrentForParcel(81L)).thenReturn(Optional.of(request));
         when(orderReturnRequestService.canStartExchange(request)).thenReturn(true);
+        when(orderReturnRequestService.canConfirmReceipt(request)).thenReturn(true);
         when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.empty());
 
         TrackDetailsDto details = service.getTrackDetails(81L, 15L);
@@ -411,9 +414,65 @@ class TrackViewServiceTest {
         assertThat(details.returnRequest()).isNotNull();
         assertThat(details.returnRequest().requiresAction()).isTrue();
         assertThat(details.returnRequest().canStartExchange()).isTrue();
+        assertThat(details.returnRequest().canConfirmReceipt()).isTrue();
+        assertThat(details.returnRequest().returnReceiptConfirmed()).isFalse();
+        assertThat(details.returnRequest().returnReceiptConfirmedAt()).isNull();
         assertThat(details.lifecycle())
                 .extracting(stage -> stage.code())
                 .contains("OUTBOUND", "CUSTOMER_RETURN", "MERCHANT_ACCEPT_RETURN");
+    }
+
+    @Test
+    void getTrackDetails_ReturnProcessingStageCompletedAfterManualConfirmation() {
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        TrackParcel parcel = buildParcel(82L, GlobalStatus.DELIVERED, now);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        request.setReturnReceiptConfirmed(true);
+        request.setReturnReceiptConfirmedAt(now.minusHours(1));
+
+        when(trackParcelService.findOwnedById(82L, 16L)).thenReturn(Optional.of(parcel));
+        stubEpisodeParcels(parcel, 16L);
+        when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(4);
+        when(userService.getUserZone(16L)).thenReturn(ZoneId.of("UTC"));
+        when(trackStatusEventService.findEvents(82L)).thenReturn(List.of());
+        when(orderReturnRequestService.findCurrentForParcel(82L)).thenReturn(Optional.of(request));
+
+        TrackDetailsDto details = service.getTrackDetails(82L, 16L);
+
+        TrackLifecycleStageDto processingStage = details.lifecycle().stream()
+                .filter(stage -> stage.code().equals("MERCHANT_ACCEPT_RETURN"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(processingStage.state()).isEqualTo(TrackLifecycleStageState.COMPLETED);
+        assertThat(processingStage.occurredAt()).isNotNull();
+    }
+
+    @Test
+    void getTrackDetails_ReturnProcessingStageCompletedWhenParcelReturned() {
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        TrackParcel parcel = buildParcel(83L, GlobalStatus.RETURNED, now);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+
+        when(trackParcelService.findOwnedById(83L, 17L)).thenReturn(Optional.of(parcel));
+        stubEpisodeParcels(parcel, 17L);
+        when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(4);
+        when(userService.getUserZone(17L)).thenReturn(ZoneId.of("UTC"));
+        when(trackStatusEventService.findEvents(83L)).thenReturn(List.of());
+        when(orderReturnRequestService.findCurrentForParcel(83L)).thenReturn(Optional.of(request));
+
+        TrackDetailsDto details = service.getTrackDetails(83L, 17L);
+
+        TrackLifecycleStageDto processingStage = details.lifecycle().stream()
+                .filter(stage -> stage.code().equals("MERCHANT_ACCEPT_RETURN"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(processingStage.state()).isEqualTo(TrackLifecycleStageState.COMPLETED);
     }
 
     @Test

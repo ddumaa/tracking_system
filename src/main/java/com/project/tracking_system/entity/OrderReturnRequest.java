@@ -73,6 +73,18 @@ public class OrderReturnRequest {
     private String reverseTrackNumber;
 
     /**
+     * Признак, что магазин подтвердил получение возврата вручную.
+     */
+    @Column(name = "return_receipt_confirmed", nullable = false)
+    private boolean returnReceiptConfirmed = false;
+
+    /**
+     * Время, когда менеджер подтвердил получение возврата.
+     */
+    @Column(name = "return_receipt_confirmed_at")
+    private ZonedDateTime returnReceiptConfirmedAt;
+
+    /**
      * Признак, что пользователь запросил обмен при регистрации заявки.
      */
     @Column(name = "exchange_requested", nullable = false)
@@ -187,6 +199,22 @@ public class OrderReturnRequest {
 
     public void setReverseTrackNumber(String reverseTrackNumber) {
         this.reverseTrackNumber = reverseTrackNumber;
+    }
+
+    public boolean isReturnReceiptConfirmed() {
+        return returnReceiptConfirmed;
+    }
+
+    public void setReturnReceiptConfirmed(boolean returnReceiptConfirmed) {
+        this.returnReceiptConfirmed = returnReceiptConfirmed;
+    }
+
+    public ZonedDateTime getReturnReceiptConfirmedAt() {
+        return returnReceiptConfirmedAt;
+    }
+
+    public void setReturnReceiptConfirmedAt(ZonedDateTime returnReceiptConfirmedAt) {
+        this.returnReceiptConfirmedAt = returnReceiptConfirmedAt;
     }
 
     public boolean isExchangeRequested() {

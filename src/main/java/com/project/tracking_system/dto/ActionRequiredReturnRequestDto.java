@@ -28,6 +28,9 @@ import com.project.tracking_system.entity.OrderReturnRequestStatus;
  * @param canCancelExchange         признак доступности отмены обмена
  * @param exchangeShipmentDispatched признак, что обменная посылка уже отправлена
  * @param cancelExchangeUnavailableReason сообщение о недоступности отмены обмена
+ * @param returnReceiptConfirmed признак, что магазин подтвердил получение возврата
+ * @param returnReceiptConfirmedAt дата подтверждения возврата
+ * @param canConfirmReceipt доступность ручного подтверждения приёма
  */
 public record ActionRequiredReturnRequestDto(Long requestId,
                                              Long parcelId,
@@ -47,5 +50,8 @@ public record ActionRequiredReturnRequestDto(Long requestId,
                                              boolean canReopenAsReturn,
                                              boolean canCancelExchange,
                                              boolean exchangeShipmentDispatched,
-                                             String cancelExchangeUnavailableReason) {
+                                             String cancelExchangeUnavailableReason,
+                                             boolean returnReceiptConfirmed,
+                                             String returnReceiptConfirmedAt,
+                                             boolean canConfirmReceipt) {
 }

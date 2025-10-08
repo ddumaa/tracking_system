@@ -103,7 +103,7 @@ describe('track-modal render', () => {
             ],
             returnRequest: { id: 5, status: 'Зарегистрирована', decisionAt: null, closedAt: null,
                 requiresAction: true, exchangeApproved: false, exchangeRequested: true, canStartExchange: true, canCloseWithoutExchange: true,
-                cancelExchangeUnavailableReason: null },
+                cancelExchangeUnavailableReason: null, canConfirmReceipt: true, returnReceiptConfirmed: false, returnReceiptConfirmedAt: null },
             canRegisterReturn: false,
             lifecycle: [
                 {
@@ -156,6 +156,7 @@ describe('track-modal render', () => {
         expect(definitions?.textContent).toContain('Тип обращения');
         const typeHint = returnCard?.querySelector('p.text-muted.small');
         expect(typeHint?.textContent).toContain('Заявка оформлена как обмен');
+        expect(returnCard?.textContent).toContain('Подтверждение получения');
 
         const lifecycleCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Жизненный цикл заказа');
@@ -163,6 +164,9 @@ describe('track-modal render', () => {
         expect(lifecycleCard?.textContent).toContain('RB987654321CN');
         expect(lifecycleCard?.textContent).toContain('Обратный трек');
         expect(lifecycleCard?.textContent).toContain('трек не указан');
+
+        const confirmBtn = Array.from(document.querySelectorAll('button')).find((btn) => btn.textContent === 'Подтвердить получение');
+        expect(confirmBtn).toBeDefined();
     });
 
     test('submits reverse track form and rerenders modal', async () => {
@@ -196,7 +200,10 @@ describe('track-modal render', () => {
                 canStartExchange: true,
                 canCloseWithoutExchange: true,
                 canReopenAsReturn: false,
-                canCancelExchange: false
+                canCancelExchange: false,
+                returnReceiptConfirmed: false,
+                returnReceiptConfirmedAt: null,
+                canConfirmReceipt: true
             },
             canRegisterReturn: false,
             lifecycle: [],
@@ -274,6 +281,66 @@ describe('track-modal render', () => {
             requestId: 5,
             reverseTrackNumber: 'RR123456789BY'
         }));
+    });
+
+    test('confirms return receipt via API and updates table row', async () => {
+        setupDom();
+
+        const payload = {
+            id: 14,
+            number: 'BY000',
+            deliveryService: 'Belpost',
+            systemStatus: 'В пути',
+            history: [],
+            refreshAllowed: true,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: 3,
+            exchange: false,
+            chain: [],
+            returnRequest: {
+                id: 6,
+                status: 'Зарегистрирована',
+                reason: 'Брак',
+                comment: null,
+                requestedAt: '2024-02-02T10:00:00Z',
+                decisionAt: null,
+                closedAt: null,
+                reverseTrackNumber: null,
+                requiresAction: true,
+                exchangeApproved: false,
+                exchangeRequested: false,
+                canStartExchange: false,
+                canCloseWithoutExchange: true,
+                canReopenAsReturn: false,
+                canCancelExchange: false,
+                cancelExchangeUnavailableReason: null,
+                returnReceiptConfirmed: true,
+                returnReceiptConfirmedAt: '2024-03-01T09:00:00Z',
+                canConfirmReceipt: false
+            },
+            canRegisterReturn: false,
+            lifecycle: [],
+            requiresAction: false
+        };
+
+        global.fetch.mockResolvedValueOnce({
+            ok: true,
+            headers: { get: () => 'application/json' },
+            json: () => Promise.resolve(payload)
+        });
+
+        await global.window.trackModal.confirmReturnReceipt(14, 6, {});
+
+        expect(global.window.returnRequests.updateRow).toHaveBeenCalledWith(expect.objectContaining({
+            parcelId: 14,
+            requestId: 6,
+            returnReceiptConfirmed: true,
+            returnReceiptConfirmedAt: '2024-03-01T09:00:00Z',
+            canConfirmReceipt: false
+        }));
+        expect(global.notifyUser).toHaveBeenCalledWith('Получение возврата подтверждено', 'success');
     });
 
     test('renders return without exchange as single current item', () => {
