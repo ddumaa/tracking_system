@@ -16,7 +16,6 @@ import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.OrderReturnRequestRepository;
-import com.project.tracking_system.service.order.ExchangeApprovalResult;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
 import com.project.tracking_system.service.telegram.FullNameValidator;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
@@ -312,13 +311,13 @@ class CustomerTelegramServiceTest {
         parcel.setCustomer(customer);
         parcel.setUser(owner);
 
-        ExchangeApprovalResult approvalResult = new ExchangeApprovalResult(new OrderReturnRequest(), new TrackParcel());
+        OrderReturnRequest approvalResult = new OrderReturnRequest();
 
         when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
         when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
         when(orderReturnRequestService.approveExchange(requestId, parcelId, owner)).thenReturn(approvalResult);
 
-        ExchangeApprovalResult result = customerTelegramService.approveExchangeFromTelegram(chatId, parcelId, requestId);
+        OrderReturnRequest result = customerTelegramService.approveExchangeFromTelegram(chatId, parcelId, requestId);
 
         assertSame(approvalResult, result, "Метод должен возвращать результат обмена от OrderReturnRequestService");
         verify(orderReturnRequestService).approveExchange(requestId, parcelId, owner);

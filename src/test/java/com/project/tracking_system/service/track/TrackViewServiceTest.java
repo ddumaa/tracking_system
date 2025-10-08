@@ -289,6 +289,45 @@ class TrackViewServiceTest {
                 .contains("EXCHANGE_SHIPMENT", "EXCHANGE_DELIVERY");
     }
 
+    @Test
+    void getTrackDetails_ExchangeStagesStayPlannedWithoutTrack() {
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        TrackParcel parcel = buildParcel(84L, GlobalStatus.RETURNED, now);
+        when(trackParcelService.findOwnedById(84L, 19L)).thenReturn(Optional.of(parcel));
+        stubEpisodeParcels(parcel, 19L);
+        when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(4);
+        when(userService.getUserZone(19L)).thenReturn(ZoneId.of("UTC"));
+        when(trackStatusEventService.findEvents(84L)).thenReturn(List.of());
+
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setDecisionAt(now.minusHours(3));
+        when(orderReturnRequestService.findCurrentForParcel(84L)).thenReturn(Optional.of(request));
+
+        TrackParcel pendingExchange = buildParcel(85L, GlobalStatus.PRE_REGISTERED, now.minusHours(1));
+        pendingExchange.setNumber(null);
+        pendingExchange.setExchange(true);
+        when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.of(pendingExchange));
+
+        TrackDetailsDto details = service.getTrackDetails(84L, 19L);
+
+        TrackLifecycleStageDto shipmentStage = details.lifecycle().stream()
+                .filter(stage -> stage.code().equals("EXCHANGE_SHIPMENT"))
+                .findFirst()
+                .orElseThrow();
+        TrackLifecycleStageDto deliveryStage = details.lifecycle().stream()
+                .filter(stage -> stage.code().equals("EXCHANGE_DELIVERY"))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(shipmentStage.state()).isEqualTo(TrackLifecycleStageState.PLANNED);
+        assertThat(deliveryStage.state()).isEqualTo(TrackLifecycleStageState.PLANNED);
+        assertThat(shipmentStage.trackNumber()).isNull();
+        assertThat(deliveryStage.trackNumber()).isNull();
+    }
+
     /**
      * Проверяем, что этапы жизненного цикла содержат сведения о трек-номерах.
      */
@@ -339,6 +378,12 @@ class TrackViewServiceTest {
                 .orElseThrow();
         assertThat(exchangeDelivery.trackContext()).isEqualTo("Обменная посылка");
         assertThat(exchangeDelivery.trackNumber()).isEqualTo("EX-999");
+        TrackLifecycleStageDto exchangeShipment = lifecycle.stream()
+                .filter(stage -> "EXCHANGE_SHIPMENT".equals(stage.code()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(exchangeShipment.state()).isEqualTo(TrackLifecycleStageState.IN_PROGRESS);
+        assertThat(exchangeDelivery.state()).isEqualTo(TrackLifecycleStageState.IN_PROGRESS);
     }
 
     /**
@@ -405,6 +450,7 @@ class TrackViewServiceTest {
         when(orderReturnRequestService.findCurrentForParcel(81L)).thenReturn(Optional.of(request));
         when(orderReturnRequestService.canStartExchange(request)).thenReturn(true);
         when(orderReturnRequestService.canConfirmReceipt(request)).thenReturn(true);
+        when(orderReturnRequestService.canCreateExchangeParcel(request)).thenReturn(false);
         when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.empty());
 
         TrackDetailsDto details = service.getTrackDetails(81L, 15L);
@@ -414,6 +460,7 @@ class TrackViewServiceTest {
         assertThat(details.returnRequest()).isNotNull();
         assertThat(details.returnRequest().requiresAction()).isTrue();
         assertThat(details.returnRequest().canStartExchange()).isTrue();
+        assertThat(details.returnRequest().canCreateExchangeParcel()).isFalse();
         assertThat(details.returnRequest().canConfirmReceipt()).isTrue();
         assertThat(details.returnRequest().returnReceiptConfirmed()).isFalse();
         assertThat(details.returnRequest().returnReceiptConfirmedAt()).isNull();
@@ -448,6 +495,31 @@ class TrackViewServiceTest {
                 .orElseThrow();
         assertThat(processingStage.state()).isEqualTo(TrackLifecycleStageState.COMPLETED);
         assertThat(processingStage.occurredAt()).isNotNull();
+    }
+
+    @Test
+    void getTrackDetails_ReturnRequestExposesManualExchangeCreationFlag() {
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        TrackParcel parcel = buildParcel(83L, GlobalStatus.RETURNED, now);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setDecisionAt(now.minusHours(2));
+
+        when(trackParcelService.findOwnedById(83L, 17L)).thenReturn(Optional.of(parcel));
+        stubEpisodeParcels(parcel, 17L);
+        when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(4);
+        when(userService.getUserZone(17L)).thenReturn(ZoneId.of("UTC"));
+        when(trackStatusEventService.findEvents(83L)).thenReturn(List.of());
+        when(orderReturnRequestService.findCurrentForParcel(83L)).thenReturn(Optional.of(request));
+        when(orderReturnRequestService.canCreateExchangeParcel(request)).thenReturn(true);
+        when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.empty());
+
+        TrackDetailsDto details = service.getTrackDetails(83L, 17L);
+
+        assertThat(details.returnRequest()).isNotNull();
+        assertThat(details.returnRequest().canCreateExchangeParcel()).isTrue();
     }
 
     @Test

@@ -1,7 +1,7 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.ActionRequiredReturnRequestDto;
-import com.project.tracking_system.dto.ExchangeApprovalResponse;
+import com.project.tracking_system.dto.ExchangeParcelCreationResponse;
 import com.project.tracking_system.dto.ReturnRegistrationRequest;
 import com.project.tracking_system.dto.ReturnRequestReverseTrackUpdateRequest;
 import com.project.tracking_system.dto.ReturnRequestActionResponse;
@@ -14,7 +14,6 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.TrackParcel;
-import com.project.tracking_system.service.order.ExchangeApprovalResult;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
 import com.project.tracking_system.service.order.ReturnRequestActionMapper;
 import com.project.tracking_system.service.track.TrackParcelService;
@@ -160,17 +159,39 @@ public class TrackController {
      * Одобряет запуск обмена по зарегистрированной заявке.
      */
     @PostMapping("/{id}/returns/{requestId}/exchange")
-    public ExchangeApprovalResponse approveExchange(@PathVariable Long id,
-                                                    @PathVariable Long requestId,
-                                                    @AuthenticationPrincipal User user) {
+    public TrackDetailsDto approveExchange(@PathVariable Long id,
+                                           @PathVariable Long requestId,
+                                           @AuthenticationPrincipal User user) {
         if (user == null) {
             throw new AccessDeniedException("Пользователь не авторизован");
         }
         try {
-            ExchangeApprovalResult result = orderReturnRequestService.approveExchange(requestId, id, user);
+            orderReturnRequestService.approveExchange(requestId, id, user);
+            return trackViewService.getTrackDetails(id, user.getId());
+        } catch (AccessDeniedException ex) {
+            throw ex;
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Создаёт обменную посылку после одобрения обмена.
+     */
+    @PostMapping("/{id}/returns/{requestId}/exchange/parcel")
+    public ExchangeParcelCreationResponse createExchangeParcel(@PathVariable Long id,
+                                                               @PathVariable Long requestId,
+                                                               @AuthenticationPrincipal User user) {
+        if (user == null) {
+            throw new AccessDeniedException("Пользователь не авторизован");
+        }
+        try {
+            TrackParcel exchange = orderReturnRequestService.createExchangeParcel(requestId, id, user);
             TrackDetailsDto details = trackViewService.getTrackDetails(id, user.getId());
-            TrackChainItemDto replacement = trackViewService.toChainItem(result.exchangeParcel(), id);
-            return new ExchangeApprovalResponse(details, replacement);
+            TrackChainItemDto replacement = trackViewService.toChainItem(exchange, id);
+            return new ExchangeParcelCreationResponse(details, replacement);
         } catch (AccessDeniedException ex) {
             throw ex;
         } catch (IllegalArgumentException ex) {

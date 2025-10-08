@@ -211,7 +211,7 @@ class OrderReturnRequestServiceTest {
     }
 
     @Test
-    void approveExchange_CreatesExchangeParcel() {
+    void approveExchange_ChangesStatusWithoutCreatingParcel() {
         TrackParcel parcel = buildParcel(16L, GlobalStatus.DELIVERED);
         OrderReturnRequest request = new OrderReturnRequest();
         request.setId(500L);
@@ -224,18 +224,55 @@ class OrderReturnRequestServiceTest {
                 OrderReturnRequestStatus.EXCHANGE_APPROVED)).thenReturn(false);
         when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        TrackParcel exchange = buildParcel(99L, GlobalStatus.PRE_REGISTERED);
-        when(orderExchangeService.createExchangeParcel(any(OrderReturnRequest.class))).thenReturn(exchange);
+        OrderReturnRequest result = service.approveExchange(500L, 16L, user);
 
-        ExchangeApprovalResult result = service.approveExchange(500L, 16L, user);
+        assertThat(result.getStatus()).isEqualTo(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        assertThat(result.getDecisionBy()).isEqualTo(user);
+        assertThat(result.getDecisionAt()).isNotNull();
+        assertThat(result.isReturnReceiptConfirmed()).isTrue();
+        assertThat(result.getReturnReceiptConfirmedAt()).isNotNull();
+        verify(orderExchangeService, never()).createExchangeParcel(any());
+    }
 
-        assertThat(result.request().getStatus()).isEqualTo(OrderReturnRequestStatus.EXCHANGE_APPROVED);
-        assertThat(result.request().getDecisionBy()).isEqualTo(user);
-        assertThat(result.request().getDecisionAt()).isNotNull();
-        assertThat(result.request().isReturnReceiptConfirmed()).isTrue();
-        assertThat(result.request().getReturnReceiptConfirmedAt()).isNotNull();
-        assertThat(result.exchangeParcel()).isEqualTo(exchange);
+    @Test
+    void createExchangeParcel_CreatesParcelWhenAllowed() {
+        TrackParcel parcel = buildParcel(44L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(701L);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+
+        when(repository.findById(701L)).thenReturn(Optional.of(request));
+        when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.empty());
+
+        TrackParcel exchange = buildParcel(199L, GlobalStatus.PRE_REGISTERED);
+        when(orderExchangeService.createExchangeParcel(request)).thenReturn(exchange);
+
+        TrackParcel created = service.createExchangeParcel(701L, 44L, user);
+
+        assertThat(created).isEqualTo(exchange);
         verify(orderExchangeService).createExchangeParcel(request);
+    }
+
+    @Test
+    void createExchangeParcel_ThrowsWhenActiveExists() {
+        TrackParcel parcel = buildParcel(45L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(702L);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+
+        TrackParcel activeReplacement = buildParcel(300L, GlobalStatus.PRE_REGISTERED);
+
+        when(repository.findById(702L)).thenReturn(Optional.of(request));
+        when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.of(activeReplacement));
+
+        assertThatThrownBy(() -> service.createExchangeParcel(702L, 45L, user))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("уже создана");
+        verify(orderExchangeService, never()).createExchangeParcel(any());
     }
 
     @Test
