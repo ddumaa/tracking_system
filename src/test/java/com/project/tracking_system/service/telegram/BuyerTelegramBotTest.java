@@ -17,7 +17,6 @@ import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.OrderReturnRequestActionRequest;
-import com.project.tracking_system.service.order.ExchangeApprovalResult;
 import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
@@ -1913,7 +1912,7 @@ class BuyerTelegramBotTest {
         when(telegramService.registerReturnRequestFromTelegram(eq(chatId), eq(77L), anyString(), anyString()))
                 .thenReturn(registered);
         when(telegramService.approveExchangeFromTelegram(chatId, 77L, 555L))
-                .thenReturn(new ExchangeApprovalResult(registered, null));
+                .thenReturn(registered);
 
         Update reasonCallback = mockCallbackUpdate(chatId, "returns:create:reason:defect", anchorId);
         bot.consume(reasonCallback);

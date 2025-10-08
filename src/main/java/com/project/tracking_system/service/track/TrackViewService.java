@@ -216,20 +216,23 @@ public class TrackViewService {
 
         TrackParcel exchangeParcel = orderExchangeService.findLatestExchangeParcel(request).orElse(null);
         if (shouldShowExchangeStages(request, exchangeParcel)) {
+            boolean hasExchangeParcel = exchangeParcel != null;
+            boolean hasExchangeTrack = hasExchangeParcel
+                    && exchangeParcel.getNumber() != null
+                    && !exchangeParcel.getNumber().isBlank();
+            GlobalStatus exchangeStatus = hasExchangeParcel ? exchangeParcel.getStatus() : null;
+            boolean exchangeFinalStatus = exchangeStatus != null && exchangeStatus.isFinal();
+
             TrackLifecycleStageState exchangeCreationState = TrackLifecycleStageState.PLANNED;
             String exchangeCreationMoment = null;
-            if (exchangeParcel != null) {
-                exchangeCreationState = TrackLifecycleStageState.COMPLETED;
+            if (hasExchangeParcel && (hasExchangeTrack || exchangeFinalStatus)) {
+                exchangeCreationState = exchangeFinalStatus
+                        ? TrackLifecycleStageState.COMPLETED
+                        : TrackLifecycleStageState.IN_PROGRESS;
                 exchangeCreationMoment = formatNullableTimestamp(exchangeParcel.getTimestamp(), userZone);
-            } else if (request.getStatus() == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
-                exchangeCreationState = TrackLifecycleStageState.IN_PROGRESS;
-                exchangeCreationMoment = formatNullableTimestamp(request.getDecisionAt(), userZone);
-            } else if (request.isExchangeRequested()) {
-                exchangeCreationState = TrackLifecycleStageState.IN_PROGRESS;
-                exchangeCreationMoment = formatNullableTimestamp(request.getRequestedAt(), userZone);
             }
 
-            String exchangeTrackNumber = exchangeParcel != null
+            String exchangeTrackNumber = hasExchangeTrack
                     ? normalizeTrackNumber(exchangeParcel.getNumber())
                     : null;
             stages.add(new TrackLifecycleStageDto(
@@ -247,17 +250,13 @@ public class TrackViewService {
 
             TrackLifecycleStageState exchangeDeliveryState = TrackLifecycleStageState.PLANNED;
             String exchangeDeliveryMoment = null;
-            if (exchangeParcel != null) {
-                GlobalStatus exchangeStatus = exchangeParcel.getStatus();
-                if (exchangeStatus != null && exchangeStatus.isFinal()) {
+            if (hasExchangeParcel && (hasExchangeTrack || exchangeFinalStatus)) {
+                if (exchangeFinalStatus) {
                     exchangeDeliveryState = TrackLifecycleStageState.COMPLETED;
                     exchangeDeliveryMoment = formatNullableTimestamp(resolveStatusMoment(exchangeParcel), userZone);
-                } else if (exchangeParcel.getNumber() != null && !exchangeParcel.getNumber().isBlank()) {
-                    exchangeDeliveryState = TrackLifecycleStageState.IN_PROGRESS;
-                    exchangeDeliveryMoment = formatNullableTimestamp(exchangeParcel.getLastUpdate(), userZone);
                 } else {
                     exchangeDeliveryState = TrackLifecycleStageState.IN_PROGRESS;
-                    exchangeDeliveryMoment = formatNullableTimestamp(exchangeParcel.getTimestamp(), userZone);
+                    exchangeDeliveryMoment = formatNullableTimestamp(exchangeParcel.getLastUpdate(), userZone);
                 }
             }
 
@@ -369,6 +368,7 @@ public class TrackViewService {
         boolean canReopenAsReturn = orderReturnRequestService.canReopenAsReturn(request);
         boolean canCancelExchange = orderReturnRequestService.canCancelExchange(request);
         boolean canConfirmReceipt = orderReturnRequestService.canConfirmReceipt(request);
+        boolean canCreateExchangeParcel = orderReturnRequestService.canCreateExchangeParcel(request);
         String requestedAt = formatNullableTimestamp(request.getRequestedAt(), userZone);
         // Подставляем дату регистрации, если пользовательское обращение отсутствует, чтобы модалка не показывала дубль.
         if (requestedAt == null) {
@@ -392,6 +392,7 @@ public class TrackViewService {
                 request.isExchangeApproved(),
                 request.isExchangeRequested(),
                 canStartExchange,
+                canCreateExchangeParcel,
                 canCloseWithoutExchange,
                 canReopenAsReturn,
                 canCancelExchange,

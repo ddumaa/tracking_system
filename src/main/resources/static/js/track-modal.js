@@ -753,6 +753,26 @@
         }
         const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/exchange`);
         const details = payload?.details ?? payload ?? null;
+        renderTrackModal(details);
+        if (details) {
+            updateRowRequiresAction(details);
+        }
+        if (typeof window.returnRequests?.removeRowByIds === 'function') {
+            window.returnRequests.removeRowByIds(trackId, requestId);
+        }
+        updateActionTabCounter();
+        const successMessage = options.successMessage || 'Запущен обмен по заявке';
+        const notificationType = options.notificationType || 'success';
+        notifyUser(successMessage, notificationType);
+        return details;
+    }
+
+    async function handleCreateExchangeParcelAction(trackId, requestId, options = {}) {
+        if (!trackId || !requestId) {
+            return null;
+        }
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/exchange/parcel`);
+        const details = payload?.details ?? null;
         const exchangeItem = payload?.exchange ?? null;
         renderTrackModal(details, { exchangeItem });
         if (details) {
@@ -762,7 +782,7 @@
             window.returnRequests.removeRowByIds(trackId, requestId);
         }
         updateActionTabCounter();
-        const successMessage = options.successMessage || 'Запущен обмен по заявке';
+        const successMessage = options.successMessage || 'Создана обменная посылка';
         const notificationType = options.notificationType || 'success';
         notifyUser(successMessage, notificationType);
         return details;
@@ -1136,24 +1156,35 @@
         const trackId = data?.id;
         const returnRequest = data?.returnRequest;
         const exchangeContext = isExchangeRequest(returnRequest);
+        const canStartExchange = Boolean(returnRequest?.canStartExchange);
+        const canCreateExchangeParcel = Boolean(returnRequest?.canCreateExchangeParcel);
 
-        if (returnRequest?.canStartExchange && trackId !== undefined && returnRequest.id !== undefined) {
-            const exchangeButtonText = exchangeContext
-                ? 'Создать обменную посылку'
-                : 'Перевести в обмен';
-            const exchangeActionOptions = exchangeContext
-                ? { successMessage: 'Создана обменная посылка', notificationType: 'success' }
-                : { successMessage: 'Заявка переведена в обмен', notificationType: 'info' };
+        if (canStartExchange && trackId !== undefined && returnRequest?.id !== undefined) {
             const exchangeButton = createActionButton({
-                text: exchangeButtonText,
+                text: 'Перевести в обмен',
                 variant: 'primary',
-                ariaLabel: exchangeContext
-                    ? 'Создать обменную посылку'
-                    : 'Перевести заявку возврата в обмен',
+                ariaLabel: 'Перевести заявку возврата в обмен',
                 onClick: (button) => runButtonAction(button,
-                    () => handleApproveExchangeAction(trackId, returnRequest.id, exchangeActionOptions))
+                    () => handleApproveExchangeAction(trackId, returnRequest.id, {
+                        successMessage: 'Заявка переведена в обмен',
+                        notificationType: 'info'
+                    }))
             });
             trackActions.appendChild(exchangeButton);
+        }
+
+        if (canCreateExchangeParcel && trackId !== undefined && returnRequest?.id !== undefined) {
+            const createButton = createActionButton({
+                text: 'Создать обменную посылку',
+                variant: 'primary',
+                ariaLabel: 'Создать обменную посылку для покупателя',
+                onClick: (button) => runButtonAction(button,
+                    () => handleCreateExchangeParcelAction(trackId, returnRequest.id, {
+                        successMessage: 'Создана обменная посылка',
+                        notificationType: 'success'
+                    }))
+            });
+            trackActions.appendChild(createButton);
         }
 
         if (returnRequest?.canConfirmReceipt && trackId !== undefined && returnRequest.id !== undefined) {

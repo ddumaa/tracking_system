@@ -15,6 +15,7 @@ package com.project.tracking_system.dto;
  * @param exchangeApproved         признак, что обмен уже запущен
  * @param exchangeRequested        признак, что обмен был запрошен при регистрации
  * @param canStartExchange         доступность кнопки запуска обмена
+ * @param canCreateExchangeParcel  доступность создания обменной посылки
  * @param canCloseWithoutExchange  доступность закрытия без обмена
  * @param canReopenAsReturn        доступность перевода обмена обратно в возврат
  * @param canCancelExchange        доступность отмены обмена
@@ -35,6 +36,7 @@ public record OrderReturnRequestDto(Long id,
                                     boolean exchangeApproved,
                                     boolean exchangeRequested,
                                     boolean canStartExchange,
+                                    boolean canCreateExchangeParcel,
                                     boolean canCloseWithoutExchange,
                                     boolean canReopenAsReturn,
                                     boolean canCancelExchange,

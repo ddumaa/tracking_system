@@ -183,7 +183,7 @@ public class OrderReturnRequestService {
      * @return результат с обновлённой заявкой и созданной обменной посылкой
      */
     @Transactional
-    public ExchangeApprovalResult approveExchange(Long requestId, Long parcelId, User user) {
+    public OrderReturnRequest approveExchange(Long requestId, Long parcelId, User user) {
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
 
         if (request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
@@ -204,9 +204,35 @@ public class OrderReturnRequestService {
         request.setDecisionAt(ZonedDateTime.now(ZoneOffset.UTC));
 
         OrderReturnRequest saved = returnRequestRepository.save(request);
-        TrackParcel exchangeParcel = orderExchangeService.createExchangeParcel(saved);
-        log.info("Одобрен обмен по заявке {}", saved.getId());
-        return new ExchangeApprovalResult(saved, exchangeParcel);
+        log.info("Одобрен обмен по заявке {} без автоматического создания обменной посылки", saved.getId());
+        return saved;
+    }
+
+    /**
+     * Создаёт обменную посылку по ранее одобренной заявке.
+     * <p>
+     * Метод убеждается, что заявка принадлежит пользователю, переведена в статус обмена
+     * и что ранее не было создано активной обменной посылки. После валидации делегируется
+     * {@link OrderExchangeService} для фактического создания отправления.
+     * </p>
+     *
+     * @param requestId идентификатор заявки на обмен
+     * @param parcelId  идентификатор исходной посылки
+     * @param user      пользователь магазина, выполняющий действие
+     * @return созданная обменная посылка
+     */
+    @Transactional
+    public TrackParcel createExchangeParcel(Long requestId, Long parcelId, User user) {
+        OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
+        if (request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            throw new IllegalStateException("Обменная посылка доступна только после одобрения обмена");
+        }
+        if (!canCreateExchangeParcel(request)) {
+            throw new IllegalStateException("Обменная посылка уже создана или находится в работе");
+        }
+        TrackParcel replacement = orderExchangeService.createExchangeParcel(request);
+        log.info("Создана обменная посылка {} для заявки {}", replacement.getId(), request.getId());
+        return replacement;
     }
 
     /**
@@ -443,6 +469,33 @@ public class OrderReturnRequestService {
             return false;
         }
         return getExchangeCancellationBlockReason(request).isEmpty();
+    }
+
+    /**
+     * Проверяет, может ли магазин создать новую обменную посылку по заявке.
+     * <p>
+     * К созданию допускаются только заявки в статусе обмена без активной посылки
+     * или после отмены предыдущего обмена.
+     * </p>
+     *
+     * @param request заявка на обмен
+     * @return {@code true}, если обменную посылку можно создать
+     */
+    @Transactional(readOnly = true)
+    public boolean canCreateExchangeParcel(OrderReturnRequest request) {
+        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            return false;
+        }
+        Optional<TrackParcel> latest = orderExchangeService.findLatestExchangeParcel(request);
+        if (latest.isEmpty()) {
+            return true;
+        }
+        TrackParcel replacement = latest.get();
+        GlobalStatus status = replacement.getStatus();
+        if (status == GlobalStatus.REGISTRATION_CANCELLED) {
+            return true;
+        }
+        return false;
     }
 
     /**

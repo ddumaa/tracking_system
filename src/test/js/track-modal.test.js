@@ -102,7 +102,7 @@ describe('track-modal render', () => {
                 { id: 10, number: 'RB111222333CN', exchange: false, current: false }
             ],
             returnRequest: { id: 5, status: 'Зарегистрирована', decisionAt: null, closedAt: null,
-                requiresAction: true, exchangeApproved: false, exchangeRequested: true, canStartExchange: true, canCloseWithoutExchange: true,
+                requiresAction: true, exchangeApproved: false, exchangeRequested: true, canStartExchange: true, canCreateExchangeParcel: false, canCloseWithoutExchange: true,
                 cancelExchangeUnavailableReason: null, canConfirmReceipt: true, returnReceiptConfirmed: false, returnReceiptConfirmedAt: null },
             canRegisterReturn: false,
             lifecycle: [
@@ -198,6 +198,7 @@ describe('track-modal render', () => {
                 exchangeApproved: false,
                 exchangeRequested: false,
                 canStartExchange: true,
+                canCreateExchangeParcel: false,
                 canCloseWithoutExchange: true,
                 canReopenAsReturn: false,
                 canCancelExchange: false,
@@ -243,6 +244,7 @@ describe('track-modal render', () => {
                 exchangeApproved: false,
                 exchangeRequested: false,
                 canStartExchange: true,
+                canCreateExchangeParcel: false,
                 canCloseWithoutExchange: true,
                 canReopenAsReturn: false,
                 canCancelExchange: false
@@ -415,6 +417,157 @@ describe('track-modal render', () => {
         expect(lifecycleCard).toBeUndefined();
         const lifecycleList = document.querySelector('ol[role="list"]');
         expect(lifecycleList).toBeNull();
+    });
+
+    test('approves exchange via action button', async () => {
+        setupDom();
+        const headers = { get: jest.fn(() => 'application/json') };
+        const responsePayload = {
+            id: 12,
+            number: 'BY123',
+            deliveryService: null,
+            systemStatus: 'Вручена',
+            history: [],
+            refreshAllowed: true,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: 5,
+            exchange: false,
+            chain: [],
+            returnRequest: null,
+            canRegisterReturn: false,
+            lifecycle: [],
+            requiresAction: false
+        };
+        global.fetch.mockResolvedValueOnce({ ok: true, headers, json: () => Promise.resolve(responsePayload) });
+
+        const data = {
+            id: 12,
+            number: 'BY123',
+            deliveryService: null,
+            systemStatus: 'Вручена',
+            history: [],
+            refreshAllowed: true,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: 5,
+            exchange: false,
+            chain: [],
+            returnRequest: {
+                id: 5,
+                status: 'Зарегистрирована',
+                requiresAction: true,
+                exchangeApproved: false,
+                exchangeRequested: true,
+                canStartExchange: true,
+                canCreateExchangeParcel: false,
+                canCloseWithoutExchange: true,
+                canReopenAsReturn: false,
+                canCancelExchange: false,
+                returnReceiptConfirmed: false,
+                returnReceiptConfirmedAt: null,
+                canConfirmReceipt: true
+            },
+            canRegisterReturn: false,
+            lifecycle: [],
+            requiresAction: true
+        };
+
+        global.window.trackModal.render(data);
+
+        const approveButton = Array.from(document.querySelectorAll('button'))
+            .find((btn) => btn.textContent === 'Перевести в обмен');
+        expect(approveButton).toBeDefined();
+        approveButton?.click();
+
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(global.fetch).toHaveBeenCalledWith(
+            '/api/v1/tracks/12/returns/5/exchange',
+            expect.objectContaining({ method: 'POST' })
+        );
+        expect(global.notifyUser).toHaveBeenCalledWith('Заявка переведена в обмен', 'info');
+    });
+
+    test('creates exchange parcel via dedicated action', async () => {
+        setupDom();
+        const headers = { get: jest.fn(() => 'application/json') };
+        const responsePayload = {
+            details: {
+                id: 14,
+                number: 'BY555',
+                deliveryService: null,
+                systemStatus: 'Вручена',
+                history: [],
+                refreshAllowed: true,
+                nextRefreshAt: null,
+                canEditTrack: false,
+                timeZone: 'UTC',
+                episodeNumber: 8,
+                exchange: false,
+                chain: [],
+                returnRequest: null,
+                canRegisterReturn: false,
+                lifecycle: [],
+                requiresAction: false
+            },
+            exchange: { id: 44, number: 'EX123', exchange: true, current: false }
+        };
+        global.fetch.mockResolvedValueOnce({ ok: true, headers, json: () => Promise.resolve(responsePayload) });
+
+        const data = {
+            id: 14,
+            number: 'BY555',
+            deliveryService: null,
+            systemStatus: 'Вручена',
+            history: [],
+            refreshAllowed: true,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: 8,
+            exchange: false,
+            chain: [],
+            returnRequest: {
+                id: 6,
+                status: 'Обмен одобрен',
+                requiresAction: true,
+                exchangeApproved: true,
+                exchangeRequested: true,
+                canStartExchange: false,
+                canCreateExchangeParcel: true,
+                canCloseWithoutExchange: false,
+                canReopenAsReturn: true,
+                canCancelExchange: false,
+                returnReceiptConfirmed: true,
+                returnReceiptConfirmedAt: '2024-02-01T10:00:00Z',
+                canConfirmReceipt: false
+            },
+            canRegisterReturn: false,
+            lifecycle: [],
+            requiresAction: true
+        };
+
+        global.window.trackModal.render(data);
+
+        const createButton = Array.from(document.querySelectorAll('button'))
+            .find((btn) => btn.textContent === 'Создать обменную посылку');
+        expect(createButton).toBeDefined();
+        createButton?.click();
+
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(global.fetch).toHaveBeenCalledWith(
+            '/api/v1/tracks/14/returns/6/exchange/parcel',
+            expect.objectContaining({ method: 'POST' })
+        );
+        expect(global.notifyUser).toHaveBeenCalledWith('Создана обменная посылка', 'success');
     });
 
     test('shows register button when return can be created', () => {

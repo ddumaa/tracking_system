@@ -11,7 +11,6 @@ import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.OrderReturnRequestRepository;
-import com.project.tracking_system.service.order.ExchangeApprovalResult;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
 import com.project.tracking_system.service.telegram.FullNameValidator;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
@@ -427,12 +426,12 @@ public class CustomerTelegramService {
      * @param chatId   идентификатор Telegram-чата
      * @param parcelId идентификатор посылки
      * @param requestId идентификатор заявки, которую требуется одобрить
-     * @return результат запуска обмена с обновлённой заявкой
+     * @return заявка после перевода в обмен
      */
     @Transactional
-    public ExchangeApprovalResult approveExchangeFromTelegram(Long chatId,
-                                                               Long parcelId,
-                                                               Long requestId) {
+    public OrderReturnRequest approveExchangeFromTelegram(Long chatId,
+                                                          Long parcelId,
+                                                          Long requestId) {
         Customer customer = requireCustomerByChat(chatId);
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
