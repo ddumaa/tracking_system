@@ -149,7 +149,7 @@ public class TrackViewService {
                 ? null
                 : formatNullableTimestamp(resolveStatusMoment(parcel), userZone);
         String outboundTrackNumber = normalizeTrackNumber(parcel.getNumber());
-        stages.add(new TrackLifecycleStageDto(
+        TrackLifecycleStageDto outboundStage = new TrackLifecycleStageDto(
                 "OUTBOUND",
                 "Отправление магазина",
                 "Магазин",
@@ -158,7 +158,8 @@ public class TrackViewService {
                 outboundMoment,
                 outboundTrackNumber,
                 "Исходная посылка"
-        ));
+        );
+        stages.add(outboundStage);
 
         if (requestOpt.isEmpty()) {
             return stages;

@@ -346,6 +346,8 @@ describe('track-modal render', () => {
         const lifecycleCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Жизненный цикл заказа');
         expect(lifecycleCard).toBeUndefined();
+        const lifecycleList = document.querySelector('ol[role="list"]');
+        expect(lifecycleList).toBeNull();
     });
 
     test('shows register button when return can be created', () => {
