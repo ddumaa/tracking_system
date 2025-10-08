@@ -937,10 +937,13 @@
             return null;
         }
 
-        const hasOnlyOutboundStage = stages.length === 1
-            && stages[0]
-            && typeof stages[0] === 'object'
-            && stages[0].code === 'OUTBOUND';
+        const normalizedStages = stages.filter((stage) => stage && typeof stage === 'object');
+        if (normalizedStages.length === 0) {
+            return null;
+        }
+
+        const hasOnlyOutboundStage = normalizedStages.length === 1
+            && normalizedStages[0].code === 'OUTBOUND';
         if (hasOnlyOutboundStage) {
             return null;
         }
@@ -950,11 +953,7 @@
         list.className = 'list-unstyled d-flex flex-column gap-3 mb-0';
         list.setAttribute('role', 'list');
 
-        stages.forEach((stage, index) => {
-            if (!stage || typeof stage !== 'object') {
-                return;
-            }
-
+        normalizedStages.forEach((stage, index) => {
             const item = document.createElement('li');
             item.className = 'd-flex flex-column flex-lg-row gap-2 gap-lg-3 align-items-lg-center';
             item.setAttribute('role', 'listitem');

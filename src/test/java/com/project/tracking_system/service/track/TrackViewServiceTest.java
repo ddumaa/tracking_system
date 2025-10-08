@@ -140,7 +140,10 @@ class TrackViewServiceTest {
         TrackDetailsDto details = service.getTrackDetails(24L, 4L);
 
         assertThat(details.lifecycle()).hasSize(1);
-        assertThat(details.lifecycle().get(0).code()).isEqualTo("OUTBOUND");
+        TrackLifecycleStageDto onlyStage = details.lifecycle().get(0);
+        assertThat(onlyStage.code()).isEqualTo("OUTBOUND");
+        assertThat(onlyStage.trackNumber()).isEqualTo("TRK24");
+        assertThat(onlyStage.trackContext()).isEqualTo("Исходная посылка");
     }
 
     /**
@@ -431,7 +434,7 @@ class TrackViewServiceTest {
     private static TrackParcel buildParcel(Long id, GlobalStatus status, ZonedDateTime update) {
         TrackParcel parcel = new TrackParcel();
         parcel.setId(id);
-        parcel.setNumber("A1");
+        parcel.setNumber("TRK" + id);
         parcel.setStatus(status);
         parcel.setLastUpdate(update);
         parcel.setTimestamp(update);
