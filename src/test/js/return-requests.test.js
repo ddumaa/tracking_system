@@ -14,6 +14,7 @@ describe('return-requests table updates', () => {
                             <button type="button" data-return-track-number>Исходный трек</button>
                         </td>
                         <td>
+                            <span data-return-comment>Комментарий отсутствует</span>
                             <span data-return-reverse>Обратный трек: —</span>
                             <span data-return-confirmation>Получение ещё не подтверждено</span>
                         </td>
@@ -47,6 +48,21 @@ describe('return-requests table updates', () => {
         const reverseSpan = row.querySelector('[data-return-reverse]');
         expect(reverseSpan?.textContent).toBe('Обратный трек: RR000111222BY');
         expect(trackButton?.textContent).toBe('Исходный трек');
+    });
+
+    test('updates comment cell when payload contains comment', () => {
+        const row = document.querySelector('tr[data-return-request-row]');
+        expect(row).not.toBeNull();
+        const commentSpan = row.querySelector('[data-return-comment]');
+        expect(commentSpan?.textContent).toBe('Комментарий отсутствует');
+
+        global.window.returnRequests.updateRow({
+            parcelId: 44,
+            requestId: 7,
+            comment: 'Обновлённый комментарий'
+        });
+
+        expect(commentSpan?.textContent).toBe('Обновлённый комментарий');
     });
 
     test('updates confirmation label when receipt confirmed', () => {

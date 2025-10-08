@@ -585,6 +585,17 @@
             reverseInput.value = returnRequest.reverseTrackNumber;
         }
 
+        const commentInput = document.createElement('textarea');
+        commentInput.className = 'form-control';
+        commentInput.name = 'comment';
+        commentInput.rows = 3;
+        commentInput.maxLength = 2000;
+        commentInput.id = generateElementId('reverse-track-comment');
+        commentInput.placeholder = 'Комментарий к возврату (необязательно)';
+        if (returnRequest?.comment) {
+            commentInput.value = returnRequest.comment;
+        }
+
         const helperText = returnRequest?.requiresAction
             ? 'Укажите актуальный обратный трек: заявка ожидает действий.'
             : 'Поле доступно, пока обратный трек не указан.';
@@ -594,12 +605,18 @@
             helperText
         );
 
+        const commentControl = createLabeledControl(
+            'Комментарий к заявке',
+            commentInput,
+            'Обновите при необходимости, максимум 2000 символов.'
+        );
+
         const submitButton = document.createElement('button');
         submitButton.type = 'submit';
         submitButton.className = 'btn btn-primary align-self-start';
         submitButton.textContent = 'Сохранить трек';
 
-        form.append(reverseControl, submitButton);
+        form.append(reverseControl, commentControl, submitButton);
 
         form.addEventListener('submit', (event) => {
             event.preventDefault();
@@ -607,7 +624,7 @@
                 trackId,
                 returnRequest?.id,
                 reverseInput.value,
-                returnRequest?.comment ?? null
+                commentInput.value
             ));
         });
 
@@ -707,10 +724,10 @@
      * @param {number} trackId идентификатор посылки
      * @param {number} requestId идентификатор заявки
      * @param {string} reverseValue введённый пользователем трек
-     * @param {string|null} currentComment текущий комментарий заявки для сохранения
+     * @param {string|null} commentValue введённый пользователем комментарий
      * @returns {Promise<Object|null>} обновлённые детали трека
      */
-    async function handleReverseTrackUpdate(trackId, requestId, reverseValue, currentComment = null) {
+    async function handleReverseTrackUpdate(trackId, requestId, reverseValue, commentValue = null) {
         if (!trackId || !requestId) {
             throw new Error('Невозможно обновить обратный трек: отсутствуют идентификаторы.');
         }
@@ -722,9 +739,14 @@
             throw new Error('Трек обратной отправки не должен превышать 64 символа');
         }
 
+        const commentRaw = (commentValue ?? '').trim();
+        if (commentRaw.length > 2000) {
+            throw new Error('Комментарий не должен превышать 2000 символов');
+        }
+
         const payloadBody = {
             reverseTrackNumber: reverseRaw.toUpperCase(),
-            comment: currentComment && currentComment.length > 0 ? currentComment : null
+            comment: commentRaw.length > 0 ? commentRaw : null
         };
 
         const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/reverse-track`, {
@@ -740,7 +762,8 @@
             window.returnRequests.updateRow({
                 parcelId: trackId,
                 requestId: updatedRequest.id ?? requestId,
-                reverseTrackNumber: updatedRequest.reverseTrackNumber ?? null
+                reverseTrackNumber: updatedRequest.reverseTrackNumber ?? null,
+                comment: updatedRequest.comment ?? (commentRaw.length > 0 ? commentRaw : null)
             });
         }
         notifyUser('Обратный трек сохранён', 'success');
