@@ -335,7 +335,7 @@ class OrderReturnRequestServiceTest {
     }
 
     @Test
-    void confirmReturnProcessing_ThrowsWhenNotRegistered() {
+    void confirmReturnProcessing_ThrowsWhenExchangeApproved() {
         TrackParcel parcel = buildParcel(33L, GlobalStatus.DELIVERED);
         OrderReturnRequest request = new OrderReturnRequest();
         request.setId(903L);
@@ -347,7 +347,28 @@ class OrderReturnRequestServiceTest {
 
         assertThatThrownBy(() -> service.confirmReturnProcessing(903L, 33L, user))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("активной заявки");
+                .hasMessageContaining("активной заявки или закрытия без обмена");
+    }
+
+    @Test
+    void confirmReturnProcessing_AllowsClosedRequest() {
+        TrackParcel parcel = buildParcel(34L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(904L);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
+        request.setClosedBy(user);
+        request.setClosedAt(ZonedDateTime.now(ZoneOffset.UTC).minusHours(1));
+
+        when(repository.findById(904L)).thenReturn(Optional.of(request));
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderReturnRequest result = service.confirmReturnProcessing(904L, 34L, user);
+
+        assertThat(result.isReturnReceiptConfirmed()).isTrue();
+        assertThat(result.getReturnReceiptConfirmedAt()).isNotNull();
+        assertThat(result.getStatus()).isEqualTo(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
     }
 
     @Test
@@ -371,8 +392,8 @@ class OrderReturnRequestServiceTest {
         assertThat(result.getStatus()).isEqualTo(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
         assertThat(result.getClosedBy()).isEqualTo(user);
         assertThat(result.getClosedAt()).isNotNull();
-        assertThat(result.isReturnReceiptConfirmed()).isTrue();
-        assertThat(result.getReturnReceiptConfirmedAt()).isNotNull();
+        assertThat(result.isReturnReceiptConfirmed()).isFalse();
+        assertThat(result.getReturnReceiptConfirmedAt()).isNull();
         verify(orderExchangeService).cancelExchangeParcel(request, replacement);
         verify(episodeLifecycleService).decrementExchangeCount(parcel.getEpisode());
     }
@@ -399,9 +420,16 @@ class OrderReturnRequestServiceTest {
     }
 
     @Test
-    void canConfirmReceipt_ReturnsTrueOnlyForRegisteredAndNotConfirmed() {
+    void canConfirmReceipt_ReturnsTrueForActiveOrClosedWithoutConfirmation() {
         OrderReturnRequest request = new OrderReturnRequest();
         request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        assertThat(service.canConfirmReceipt(request)).isTrue();
+
+        request.setReturnReceiptConfirmed(true);
+        assertThat(service.canConfirmReceipt(request)).isFalse();
+
+        request.setReturnReceiptConfirmed(false);
+        request.setStatus(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
         assertThat(service.canConfirmReceipt(request)).isTrue();
 
         request.setReturnReceiptConfirmed(true);
