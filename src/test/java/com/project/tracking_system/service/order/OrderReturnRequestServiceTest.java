@@ -13,6 +13,7 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.repository.OrderReturnRequestActionRequestRepository;
 import com.project.tracking_system.repository.OrderReturnRequestRepository;
 import com.project.tracking_system.service.track.TrackParcelService;
+import com.project.tracking_system.service.track.TrackViewCacheInvalidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -57,6 +58,8 @@ class OrderReturnRequestServiceTest {
     private OrderEpisodeLifecycleService episodeLifecycleService;
     @Mock
     private OrderExchangeService orderExchangeService;
+    @Mock
+    private TrackViewCacheInvalidator trackViewCacheInvalidator;
 
     private OrderReturnRequestService service;
 
@@ -65,7 +68,7 @@ class OrderReturnRequestServiceTest {
     @BeforeEach
     void setUp() {
         service = new OrderReturnRequestService(repository, actionRequestRepository, trackParcelService,
-                episodeLifecycleService, orderExchangeService);
+                episodeLifecycleService, orderExchangeService, trackViewCacheInvalidator);
         user = new User();
         user.setId(5L);
     }
@@ -110,6 +113,7 @@ class OrderReturnRequestServiceTest {
         assertThat(captor.getValue().getReverseTrackNumber()).isEqualTo(DEFAULT_REVERSE_TRACK);
         assertThat(captor.getValue().isExchangeRequested()).isFalse();
         verifyNoInteractions(orderExchangeService);
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
     }
 
     @Test
@@ -140,6 +144,7 @@ class OrderReturnRequestServiceTest {
         assertThat(saved.getStatus()).isEqualTo(OrderReturnRequestStatus.REGISTERED);
         verify(repository).save(any(OrderReturnRequest.class));
         verifyNoInteractions(orderExchangeService);
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
     }
 
     @Test
@@ -232,6 +237,7 @@ class OrderReturnRequestServiceTest {
         assertThat(result.isReturnReceiptConfirmed()).isFalse();
         assertThat(result.getReturnReceiptConfirmedAt()).isNull();
         verify(orderExchangeService, never()).createExchangeParcel(any());
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
     }
 
     @Test
@@ -294,6 +300,7 @@ class OrderReturnRequestServiceTest {
         assertThat(result.getClosedAt()).isNotNull();
         assertThat(result.isReturnReceiptConfirmed()).isFalse();
         assertThat(result.getReturnReceiptConfirmedAt()).isNull();
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
     }
 
     @Test
@@ -313,6 +320,7 @@ class OrderReturnRequestServiceTest {
         assertThat(result.isReturnReceiptConfirmed()).isTrue();
         assertThat(result.getReturnReceiptConfirmedAt()).isNotNull();
         assertThat(result.getStatus()).isEqualTo(OrderReturnRequestStatus.REGISTERED);
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
     }
 
     @Test
@@ -369,6 +377,7 @@ class OrderReturnRequestServiceTest {
         assertThat(result.isReturnReceiptConfirmed()).isTrue();
         assertThat(result.getReturnReceiptConfirmedAt()).isNotNull();
         assertThat(result.getStatus()).isEqualTo(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
     }
 
     @Test
@@ -396,6 +405,7 @@ class OrderReturnRequestServiceTest {
         assertThat(result.getReturnReceiptConfirmedAt()).isNull();
         verify(orderExchangeService).cancelExchangeParcel(request, replacement);
         verify(episodeLifecycleService).decrementExchangeCount(parcel.getEpisode());
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
     }
 
     @Test
@@ -620,6 +630,7 @@ class OrderReturnRequestServiceTest {
         assertThat(response.comment()).isEqualTo("комментарий");
         assertThat(response.requestId()).isEqualTo(801L);
         verify(repository).save(any(OrderReturnRequest.class));
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
     }
 
     @Test
@@ -673,6 +684,7 @@ class OrderReturnRequestServiceTest {
         assertThat(result.isExchangeRequested()).isFalse();
         verify(orderExchangeService).cancelExchangeParcel(request, replacement);
         verify(episodeLifecycleService).decrementExchangeCount(parcel.getEpisode());
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
     }
 
     @Test

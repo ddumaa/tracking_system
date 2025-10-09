@@ -33,12 +33,36 @@ public class TrackViewCacheInvalidator {
      * </p>
      */
     @Scheduled(fixedDelay = 8_000)
-    public void evictTrackDetails() {
+    public void evictAllTrackDetails() {
         Cache cache = cacheManager.getCache(CACHE_NAME);
         if (cache != null) {
             cache.clear();
             log.trace("Очистка кэша {} выполнена", CACHE_NAME);
         }
+    }
+
+    /**
+     * Удаляет из кэша детали конкретной посылки пользователя.
+     * <p>
+     * Метод вызывается сервисами, которые меняют состояние возврата/обмена,
+     * чтобы соблюсти принцип актуальности данных: повторное открытие модалки
+     * сразу получит обновлённые детали без устаревших кэшированных значений.
+     * </p>
+     *
+     * @param userId   идентификатор владельца посылки
+     * @param parcelId идентификатор посылки
+     */
+    public void evictTrackDetails(Long userId, Long parcelId) {
+        if (userId == null || parcelId == null) {
+            return;
+        }
+        Cache cache = cacheManager.getCache(CACHE_NAME);
+        if (cache == null) {
+            return;
+        }
+        String cacheKey = userId + ":" + parcelId;
+        cache.evict(cacheKey);
+        log.trace("Удалена запись {} из кэша {}", cacheKey, CACHE_NAME);
     }
 }
 
