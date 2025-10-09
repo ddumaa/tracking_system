@@ -198,6 +198,110 @@ header {
   /* Адаптивные стили */
   /* ============================= */
 }
+
+/* Модальное окно отслеживания */
+.track-modal-dialog {
+  max-width: 1140px;
+}
+
+.track-modal-body {
+  background-color: var(--bs-body-bg);
+  padding: 1.5rem;
+}
+
+@media (max-width: 576px) {
+  .track-modal-body {
+    padding: 1rem;
+  }
+}
+
+.track-modal-placeholder {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.5rem;
+}
+
+.track-modal-container {
+  width: 100%;
+  display: block;
+}
+
+.track-modal-layout {
+  margin: 0;
+}
+
+.track-modal-main > .card:last-child {
+  margin-bottom: 0;
+}
+
+.track-modal-side {
+  position: relative;
+}
+
+.track-side-panel {
+  background-color: transparent;
+}
+
+.track-side-panel--pinned {
+  position: sticky;
+  top: 1rem;
+}
+
+@media (max-width: 991.98px) {
+  .track-side-panel--pinned {
+    position: static;
+  }
+}
+
+.track-side-panel__header {
+  background-color: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 1rem;
+  padding: 0.75rem 1rem;
+}
+
+.track-side-panel__title {
+  letter-spacing: 0.08em;
+}
+
+.track-side-panel__controls .btn {
+  padding: 0.25rem 0.5rem;
+  line-height: 1;
+  min-width: 2rem;
+}
+
+.track-side-panel__pin.active,
+.track-side-panel__pin[aria-pressed="true"] {
+  background-color: var(--bs-primary-bg-subtle);
+  border-color: var(--bs-primary-border-subtle);
+  color: var(--bs-primary-text-emphasis);
+}
+
+.track-side-panel__toggle-icon {
+  display: inline-block;
+  transition: transform 0.2s ease-in-out;
+}
+
+.track-side-panel__toggle[aria-expanded="true"] .track-side-panel__toggle-icon {
+  transform: rotate(90deg);
+}
+
+.track-side-panel__collapse {
+  width: 100%;
+}
+
+.track-side-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.track-modal-side .card:last-child {
+  margin-bottom: 0;
+}
 header .container {
   display: flex;
   align-items: center;
