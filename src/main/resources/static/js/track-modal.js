@@ -537,6 +537,37 @@
     };
 
     /**
+     * Сбрасывает кэш ленивых данных для конкретного трека.
+     * Метод отделяет управление состоянием от бизнес-логики действий (SRP) и
+     * упрощает повторное использование при любых обновлениях данных.
+     * @param {number|string} trackId идентификатор трека, чьи данные нужно сбросить
+     */
+    function invalidateLazyDataCache(trackId) {
+        if (trackId === undefined || trackId === null) {
+            return;
+        }
+
+        const candidates = new Set();
+        candidates.add(trackId);
+
+        if (typeof trackId === 'string') {
+            const numericId = Number(trackId);
+            if (Number.isFinite(numericId)) {
+                candidates.add(numericId);
+            }
+        }
+
+        if (typeof trackId === 'number' && Number.isFinite(trackId)) {
+            candidates.add(String(trackId));
+        }
+
+        candidates.forEach((key) => {
+            lazyDataCache.history.delete(key);
+            lazyDataCache.lifecycle.delete(key);
+        });
+    }
+
+    /**
      * Загружает историю событий трека ровно один раз.
      * Функция выполняет запрос к REST-контроллеру и кэширует промис, чтобы переиспользовать результат (LSP и SRP).
      * @param {number} trackId идентификатор трека
@@ -1304,6 +1335,7 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
         });
+        invalidateLazyDataCache(trackId);
         renderTrackModal(payload);
         updateRowRequiresAction(payload);
         updateActionTabCounter();
@@ -1349,6 +1381,7 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payloadBody)
         });
+        invalidateLazyDataCache(trackId);
         renderTrackModal(payload);
         updateRowRequiresAction(payload);
 
@@ -1371,6 +1404,7 @@
         }
         const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/exchange`);
         const details = payload?.details ?? payload ?? null;
+        invalidateLazyDataCache(trackId);
         renderTrackModal(details);
         if (details) {
             updateRowRequiresAction(details);
@@ -1392,6 +1426,7 @@
         const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/exchange/parcel`);
         const details = payload?.details ?? null;
         const exchangeItem = payload?.exchange ?? null;
+        invalidateLazyDataCache(trackId);
         renderTrackModal(details, { exchangeItem });
         if (details) {
             updateRowRequiresAction(details);
@@ -1411,6 +1446,7 @@
             return null;
         }
         const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/close`);
+        invalidateLazyDataCache(trackId);
         renderTrackModal(payload);
         updateRowRequiresAction(payload);
         if (typeof window.returnRequests?.removeRowByIds === 'function') {
@@ -1434,6 +1470,7 @@
             return null;
         }
         const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/confirm-processing`);
+        invalidateLazyDataCache(trackId);
         renderTrackModal(payload);
         updateRowRequiresAction(payload);
         const updatedRequest = payload?.returnRequest ?? null;
@@ -1465,6 +1502,7 @@
         }
         const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/reopen`);
         const details = payload?.details ?? payload ?? null;
+        invalidateLazyDataCache(trackId);
         renderTrackModal(details);
         if (details) {
             updateRowRequiresAction(details);
@@ -1492,6 +1530,7 @@
         }
         const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/cancel`);
         const details = payload?.details ?? payload ?? null;
+        invalidateLazyDataCache(trackId);
         renderTrackModal(details);
         if (details) {
             updateRowRequiresAction(details);
@@ -2212,6 +2251,7 @@
             }
 
             if (payload?.details) {
+                invalidateLazyDataCache(id);
                 renderTrackModal(payload.details);
             }
             if (payload?.summary) {
@@ -2286,6 +2326,7 @@
                 return response.json();
             })
             .then(data => {
+                invalidateLazyDataCache(data?.id ?? trackId);
                 renderTrackModal(data);
                 const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('infoModal'));
                 modal.show();
@@ -2325,6 +2366,7 @@
         loadModal,
         promptTrackNumber,
         render: renderTrackModal,
+        invalidateLazySections: (trackId) => invalidateLazyDataCache(trackId),
         approveReturnExchange: (trackId, requestId, options) => handleApproveExchangeAction(trackId, requestId, options),
         closeReturnRequest: (trackId, requestId, options) => handleCloseWithoutExchange(trackId, requestId, options),
         reopenReturnRequest: (trackId, requestId, options) => handleReopenReturnAction(trackId, requestId, options),
