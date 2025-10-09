@@ -528,6 +528,376 @@
     }
 
     /**
+     * Кэширует результаты ленивых запросов истории и жизненного цикла.
+     * Используем {@link Map}, чтобы соблюдать SRP и изолировать хранение состояния (принцип единой ответственности).
+     */
+    const lazyDataCache = {
+        history: new Map(),
+        lifecycle: new Map()
+    };
+
+    /**
+     * Загружает историю событий трека ровно один раз.
+     * Функция выполняет запрос к REST-контроллеру и кэширует промис, чтобы переиспользовать результат (LSP и SRP).
+     * @param {number} trackId идентификатор трека
+     * @returns {Promise<Array<Object>>} массив событий истории
+     */
+    function loadHistoryOnce(trackId) {
+        if (trackId === undefined || trackId === null) {
+            return Promise.reject(new Error('История недоступна для неопределённого трека'));
+        }
+        if (lazyDataCache.history.has(trackId)) {
+            return lazyDataCache.history.get(trackId);
+        }
+        const request = sendReturnRequest(`/api/v1/tracks/${trackId}/history`, { method: 'GET' })
+            .then((payload) => {
+                const historyArray = Array.isArray(payload)
+                    ? payload
+                    : (Array.isArray(payload?.history) ? payload.history : []);
+                return historyArray;
+            })
+            .catch((error) => {
+                lazyDataCache.history.delete(trackId);
+                throw error;
+            });
+        lazyDataCache.history.set(trackId, request);
+        return request;
+    }
+
+    /**
+     * Загружает этапы жизненного цикла заказа один раз и кэширует ответ.
+     * Метод скрывает детали API и переиспользует инфраструктуру fetch, соблюдая принцип инверсии зависимостей.
+     * @param {number} trackId идентификатор трека
+     * @returns {Promise<Array<Object>>} массив этапов жизненного цикла
+     */
+    function loadLifecycleOnce(trackId) {
+        if (trackId === undefined || trackId === null) {
+            return Promise.reject(new Error('Жизненный цикл недоступен для неопределённого трека'));
+        }
+        if (lazyDataCache.lifecycle.has(trackId)) {
+            return lazyDataCache.lifecycle.get(trackId);
+        }
+        const request = sendReturnRequest(`/api/v1/tracks/${trackId}/lifecycle`, { method: 'GET' })
+            .then((payload) => {
+                const lifecycleArray = Array.isArray(payload)
+                    ? payload
+                    : (Array.isArray(payload?.lifecycle) ? payload.lifecycle : []);
+                return lifecycleArray;
+            })
+            .catch((error) => {
+                lazyDataCache.lifecycle.delete(trackId);
+                throw error;
+            });
+        lazyDataCache.lifecycle.set(trackId, request);
+        return request;
+    }
+
+    /**
+     * Генерирует скелетон-заглушку для ленивых секций.
+     * Метод изолирует создание декоративных элементов, чтобы их можно было переиспользовать (SRP).
+     * @param {number} lines количество строк скелетона
+     * @returns {HTMLElement} контейнер со скелетоном
+     */
+    function createSkeletonPlaceholder(lines = 3) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'placeholder-glow track-lazy-section__placeholder';
+        for (let index = 0; index < lines; index += 1) {
+            const span = document.createElement('span');
+            span.className = 'placeholder col-12';
+            if (index === lines - 1) {
+                span.classList.add('w-75');
+            }
+            span.classList.add('mb-2');
+            wrapper.appendChild(span);
+        }
+        return wrapper;
+    }
+
+    let lazySectionIdCounter = 0;
+
+    /**
+     * Создаёт секцию с ленивой загрузкой контента и управлением состоянием.
+     * Функция инкапсулирует работу с ошибками, повторными попытками и скелетоном, упрощая переиспользование (SRP + OCP).
+     * @param {Object} options параметры секции
+     * @param {string} options.buttonLabel текст кнопки в закрытом состоянии
+     * @param {string} [options.expandedLabel] текст кнопки после раскрытия
+     * @param {string} [options.emptyStateText] сообщение об отсутствии данных
+     * @param {() => Promise<HTMLElement|null>} options.loadContent асинхронный загрузчик содержимого
+     * @returns {HTMLElement} контейнер секции
+     */
+    function createLazySection({
+        buttonLabel,
+        expandedLabel,
+        emptyStateText,
+        loadContent
+    }) {
+        const container = document.createElement('div');
+        container.className = 'track-lazy-section d-flex flex-column gap-3';
+
+        const sectionId = `trackLazySection-${lazySectionIdCounter += 1}`;
+
+        const toggleButton = document.createElement('button');
+        toggleButton.type = 'button';
+        toggleButton.className = 'btn btn-outline-primary align-self-start';
+        toggleButton.textContent = buttonLabel;
+        toggleButton.setAttribute('aria-controls', sectionId);
+        toggleButton.setAttribute('aria-expanded', 'false');
+
+        const contentWrapper = document.createElement('div');
+        contentWrapper.id = sectionId;
+        contentWrapper.className = 'track-lazy-section__content d-none';
+
+        const skeleton = createSkeletonPlaceholder();
+        const resultContainer = document.createElement('div');
+        resultContainer.className = 'track-lazy-section__result d-none';
+
+        const errorContainer = document.createElement('div');
+        errorContainer.className = 'alert alert-danger d-none track-lazy-section__error';
+        errorContainer.setAttribute('role', 'status');
+
+        const errorText = document.createElement('p');
+        errorText.className = 'mb-2';
+        errorContainer.appendChild(errorText);
+
+        const retryButton = document.createElement('button');
+        retryButton.type = 'button';
+        retryButton.className = 'btn btn-outline-danger btn-sm';
+        retryButton.textContent = 'Повторить';
+        errorContainer.appendChild(retryButton);
+
+        contentWrapper.append(skeleton, errorContainer, resultContainer);
+        container.append(toggleButton, contentWrapper);
+
+        let isExpanded = false;
+        let isLoaded = false;
+        let isLoading = false;
+
+        const handleSuccess = (element) => {
+            const contentElement = element ?? (() => {
+                if (!emptyStateText) {
+                    return null;
+                }
+                const emptyParagraph = document.createElement('p');
+                emptyParagraph.className = 'text-muted mb-0';
+                emptyParagraph.textContent = emptyStateText;
+                return emptyParagraph;
+            })();
+
+            resultContainer.replaceChildren();
+            if (contentElement) {
+                resultContainer.appendChild(contentElement);
+            }
+            skeleton.classList.add('d-none');
+            errorContainer.classList.add('d-none');
+            resultContainer.classList.remove('d-none');
+            isLoaded = true;
+        };
+
+        const handleError = (error) => {
+            const message = error?.message || 'Не удалось загрузить данные';
+            skeleton.classList.add('d-none');
+            resultContainer.classList.add('d-none');
+            errorText.textContent = message;
+            errorContainer.classList.remove('d-none');
+            notifyUser(message, 'danger');
+            isLoaded = false;
+        };
+
+        const requestContent = async () => {
+            if (typeof loadContent !== 'function') {
+                handleError(new Error('Загрузчик секции не настроен'));
+                return;
+            }
+            isLoading = true;
+            skeleton.classList.remove('d-none');
+            resultContainer.classList.add('d-none');
+            errorContainer.classList.add('d-none');
+            try {
+                const element = await loadContent();
+                handleSuccess(element);
+            } catch (error) {
+                handleError(error);
+            } finally {
+                isLoading = false;
+            }
+        };
+
+        const expandSection = () => {
+            if (isExpanded) {
+                return;
+            }
+            isExpanded = true;
+            toggleButton.setAttribute('aria-expanded', 'true');
+            toggleButton.textContent = expandedLabel || buttonLabel;
+            contentWrapper.classList.remove('d-none');
+            if (!isLoaded && !isLoading) {
+                void requestContent();
+            }
+        };
+
+        const collapseSection = () => {
+            if (!isExpanded) {
+                return;
+            }
+            isExpanded = false;
+            toggleButton.setAttribute('aria-expanded', 'false');
+            toggleButton.textContent = buttonLabel;
+            contentWrapper.classList.add('d-none');
+        };
+
+        toggleButton.addEventListener('click', () => {
+            if (isExpanded) {
+                collapseSection();
+            } else {
+                expandSection();
+            }
+        });
+
+        retryButton.addEventListener('click', () => {
+            skeleton.classList.remove('d-none');
+            errorContainer.classList.add('d-none');
+            void requestContent();
+        });
+
+        return container;
+    }
+
+    /**
+     * Формирует таймлайн истории трека на основе событий.
+     * Метод отвечает только за визуализацию событий, что облегчает тестирование и расширение.
+     * @param {Array<Object>} history события истории
+     * @param {Function} format функция форматирования даты
+     * @returns {HTMLElement|null} таймлайн или {@code null}
+     */
+    function createHistoryTimeline(history, format) {
+        if (!Array.isArray(history) || history.length === 0) {
+            return null;
+        }
+        const timeline = document.createElement('div');
+        timeline.className = 'timeline';
+        history.forEach((event, index) => {
+            if (!event || typeof event !== 'object') {
+                return;
+            }
+            const item = document.createElement('div');
+            item.className = 'timeline-item';
+            if (index === 0) {
+                item.classList.add('timeline-item-current');
+            }
+
+            const marker = document.createElement('span');
+            marker.className = 'timeline-marker';
+            item.appendChild(marker);
+
+            const dateEl = document.createElement('div');
+            dateEl.className = 'timeline-date text-muted small';
+            dateEl.textContent = format(event.timestamp);
+            item.appendChild(dateEl);
+
+            const statusEl = document.createElement('div');
+            statusEl.className = 'timeline-status';
+            statusEl.textContent = event?.status || '—';
+            item.appendChild(statusEl);
+
+            if (event?.details) {
+                const detailsEl = document.createElement('div');
+                detailsEl.className = 'timeline-details text-muted small';
+                detailsEl.textContent = event.details;
+                item.appendChild(detailsEl);
+            }
+
+            timeline.appendChild(item);
+        });
+        return timeline;
+    }
+
+    /**
+     * Создаёт упорядоченный список этапов жизненного цикла заказа.
+     * Выделение логики визуализации в отдельную функцию следует принципу SRP.
+     * @param {Array<Object>} stages этапы жизненного цикла
+     * @param {Function} formatDate функция форматирования дат
+     * @returns {HTMLElement|null} список этапов или {@code null}
+     */
+    function buildLifecycleList(stages, formatDate) {
+        if (!Array.isArray(stages) || stages.length === 0) {
+            return null;
+        }
+
+        const normalizedStages = stages.filter((stage) => stage && typeof stage === 'object');
+        if (normalizedStages.length === 0) {
+            return null;
+        }
+
+        const hasOnlyOutboundStage = normalizedStages.length === 1
+            && normalizedStages[0].code === 'OUTBOUND';
+        if (hasOnlyOutboundStage) {
+            return null;
+        }
+
+        const list = document.createElement('ol');
+        list.className = 'list-unstyled d-flex flex-column gap-3 mb-0';
+        list.setAttribute('role', 'list');
+
+        normalizedStages.forEach((stage, index) => {
+            const item = document.createElement('li');
+            item.className = 'd-flex flex-column flex-lg-row gap-2 gap-lg-3 align-items-lg-center';
+            item.setAttribute('role', 'listitem');
+            item.dataset.stageCode = stage.code || `stage-${index}`;
+
+            const badge = document.createElement('span');
+            badge.className = 'badge rounded-pill';
+            const state = stage.state || 'PLANNED';
+            switch (state) {
+                case 'COMPLETED':
+                    badge.classList.add('bg-success-subtle', 'text-success-emphasis');
+                    badge.textContent = 'Завершено';
+                    break;
+                case 'IN_PROGRESS':
+                    badge.classList.add('bg-primary-subtle', 'text-primary-emphasis');
+                    badge.textContent = 'В процессе';
+                    break;
+                default:
+                    badge.classList.add('bg-secondary-subtle', 'text-secondary-emphasis');
+                    badge.textContent = 'Ожидает';
+                    break;
+            }
+            item.appendChild(badge);
+
+            const title = document.createElement('div');
+            title.className = 'fw-semibold flex-grow-1';
+            title.textContent = stage.title || 'Этап';
+            item.appendChild(title);
+
+            if (stage.description) {
+                const description = document.createElement('div');
+                description.className = 'text-muted small flex-grow-1';
+                description.textContent = stage.description;
+                item.appendChild(description);
+            }
+
+            if (stage.startedAt || stage.finishedAt) {
+                const dates = document.createElement('div');
+                dates.className = 'text-muted small text-lg-end';
+                const started = stage.startedAt ? formatDate(stage.startedAt) : null;
+                const finished = stage.finishedAt ? formatDate(stage.finishedAt) : null;
+                const dateParts = [];
+                if (started) {
+                    dateParts.push(`Начало: ${started}`);
+                }
+                if (finished) {
+                    dateParts.push(`Завершение: ${finished}`);
+                }
+                dates.textContent = dateParts.join(' · ');
+                item.appendChild(dates);
+            }
+
+            list.appendChild(item);
+        });
+
+        return list;
+    }
+
+    /**
      * Обновляет строку таблицы, чтобы отразить требуемые действия.
      * @param {Object} details DTO деталей трека
      */
@@ -1230,119 +1600,6 @@
     }
 
     /**
-     * Формирует карточку жизненного цикла заказа.
-     * Метод визуализирует этапы процесса для магазина и покупателя, сохраняя доступность.
-     * @param {Array<Object>} stages этапы жизненного цикла
-     * @param {Function} formatDate функция форматирования дат
-     * @returns {HTMLElement|null} карточка с этапами или {@code null}
-     */
-    function createLifecycleCard(stages, formatDate) {
-        if (!Array.isArray(stages) || stages.length === 0) {
-            return null;
-        }
-
-        const normalizedStages = stages.filter((stage) => stage && typeof stage === 'object');
-        if (normalizedStages.length === 0) {
-            return null;
-        }
-
-        const hasOnlyOutboundStage = normalizedStages.length === 1
-            && normalizedStages[0].code === 'OUTBOUND';
-        if (hasOnlyOutboundStage) {
-            return null;
-        }
-
-        const card = createCard('Жизненный цикл заказа');
-        const list = document.createElement('ol');
-        list.className = 'list-unstyled d-flex flex-column gap-3 mb-0';
-        list.setAttribute('role', 'list');
-
-        normalizedStages.forEach((stage, index) => {
-            const item = document.createElement('li');
-            item.className = 'd-flex flex-column flex-lg-row gap-2 gap-lg-3 align-items-lg-center';
-            item.setAttribute('role', 'listitem');
-            item.dataset.stageCode = stage.code || `stage-${index}`;
-
-            const badge = document.createElement('span');
-            badge.className = 'badge rounded-pill';
-            const state = stage.state || 'PLANNED';
-            switch (state) {
-                case 'COMPLETED':
-                    badge.classList.add('bg-success-subtle', 'text-success-emphasis');
-                    badge.textContent = 'Завершено';
-                    break;
-                case 'IN_PROGRESS':
-                    badge.classList.add('bg-primary-subtle', 'text-primary-emphasis');
-                    badge.textContent = 'В процессе';
-                    break;
-                default:
-                    badge.classList.add('bg-secondary-subtle', 'text-secondary-emphasis');
-                    badge.textContent = 'Ожидает';
-                    break;
-            }
-
-            const info = document.createElement('div');
-            info.className = 'd-flex flex-column gap-1 flex-grow-1';
-
-            const title = document.createElement('div');
-            title.className = 'fw-semibold';
-            title.textContent = stage.title || 'Этап';
-
-            const description = document.createElement('div');
-            description.className = 'text-muted small';
-            description.textContent = stage.description || '';
-
-            const metaParts = [];
-            if (stage.actor) {
-                metaParts.push(stage.actor);
-            }
-            if (stage.occurredAt) {
-                const formattedMoment = typeof formatDate === 'function'
-                    ? formatDate(stage.occurredAt)
-                    : stage.occurredAt;
-                metaParts.push(formattedMoment);
-            }
-            if (metaParts.length > 0) {
-                const meta = document.createElement('div');
-                meta.className = 'text-muted small';
-                meta.textContent = metaParts.join(' · ');
-                info.appendChild(meta);
-            }
-
-            const hasTrackLabel = typeof stage.trackContext === 'string' && stage.trackContext.length > 0;
-            const hasTrackNumber = typeof stage.trackNumber === 'string' && stage.trackNumber.length > 0;
-            if (hasTrackLabel || hasTrackNumber) {
-                const trackInfo = document.createElement('div');
-                trackInfo.className = 'text-muted small';
-                const parts = [];
-                if (hasTrackLabel) {
-                    parts.push(stage.trackContext);
-                }
-                if (hasTrackNumber) {
-                    parts.push(stage.trackNumber);
-                } else if (hasTrackLabel) {
-                    parts.push('трек не указан');
-                }
-                trackInfo.textContent = parts.join(' · ');
-                info.appendChild(trackInfo);
-            }
-
-            info.prepend(description);
-            info.prepend(title);
-
-            item.append(badge, info);
-            list.appendChild(item);
-        });
-
-        if (!list.hasChildNodes()) {
-            return null;
-        }
-
-        card.body.appendChild(list);
-        return card.card;
-    }
-
-    /**
      * Отрисовывает содержимое модального окна с деталями трека.
      * Метод собирает карточки интерфейса и обновляет заголовок без сетевых обращений (SRP).
      * @param {Object} data DTO с сервера
@@ -1364,9 +1621,6 @@
 
         const timeZone = data?.timeZone;
         const format = (value) => formatDateTime(value, timeZone);
-        const history = Array.isArray(data?.history) ? data.history : [];
-        const lifecycleStages = Array.isArray(data?.lifecycle) ? data.lifecycle : [];
-
         container.replaceChildren();
         container.classList.remove('justify-content-center', 'align-items-center', 'text-muted', 'track-modal-placeholder');
         container.classList.add('track-modal-container');
@@ -1675,7 +1929,26 @@
             returnCard.body.appendChild(emptyState);
         }
 
-        const lifecycleCard = createLifecycleCard(lifecycleStages, format);
+        const lifecycleCard = (() => {
+            const { card, body } = createCard('Жизненный цикл заказа');
+            const lifecycleSection = createLazySection({
+                buttonLabel: 'Жизненный цикл заказа',
+                expandedLabel: 'Скрыть этапы',
+                emptyStateText: 'Этапы пока недоступны',
+                loadContent: async () => {
+                    if (trackId === undefined || trackId === null) {
+                        const message = document.createElement('p');
+                        message.className = 'text-muted mb-0';
+                        message.textContent = 'Жизненный цикл доступен только для сохранённых треков.';
+                        return message;
+                    }
+                    const stages = await loadLifecycleOnce(trackId);
+                    return buildLifecycleList(stages, format);
+                }
+            });
+            body.appendChild(lifecycleSection);
+            return card;
+        })();
 
         const statusCard = createCard('Текущий статус');
         const statusRow = document.createElement('div');
@@ -1729,48 +2002,22 @@
         mainColumn.appendChild(statusCard.card);
 
         const historyCard = createCard('История трека');
-        if (history.length === 0) {
-            const emptyHistory = document.createElement('p');
-            emptyHistory.className = 'text-muted mb-0';
-            emptyHistory.textContent = 'История пока пуста';
-            historyCard.body.appendChild(emptyHistory);
-        } else {
-            const timeline = document.createElement('div');
-            timeline.className = 'timeline';
-
-            history.forEach((event, index) => {
-                const item = document.createElement('div');
-                item.className = 'timeline-item';
-                if (index === 0) {
-                    item.classList.add('timeline-item-current');
+        const historySection = createLazySection({
+            buttonLabel: 'Показать историю',
+            expandedLabel: 'Скрыть историю',
+            emptyStateText: 'История пока пуста',
+            loadContent: async () => {
+                if (trackId === undefined || trackId === null) {
+                    const message = document.createElement('p');
+                    message.className = 'text-muted mb-0';
+                    message.textContent = 'История доступна только для сохранённых треков.';
+                    return message;
                 }
-
-                const marker = document.createElement('span');
-                marker.className = 'timeline-marker';
-                item.appendChild(marker);
-
-                const dateEl = document.createElement('div');
-                dateEl.className = 'timeline-date text-muted small';
-                dateEl.textContent = format(event.timestamp);
-                item.appendChild(dateEl);
-
-                const statusEl = document.createElement('div');
-                statusEl.className = 'timeline-status';
-                statusEl.textContent = event.status || '—';
-                item.appendChild(statusEl);
-
-                if (event.details) {
-                    const detailsEl = document.createElement('div');
-                    detailsEl.className = 'timeline-details text-muted small';
-                    detailsEl.textContent = event.details;
-                    item.appendChild(detailsEl);
-                }
-
-                timeline.appendChild(item);
-            });
-
-            historyCard.body.appendChild(timeline);
-        }
+                const history = await loadHistoryOnce(trackId);
+                return createHistoryTimeline(history, format);
+            }
+        });
+        historyCard.body.appendChild(historySection);
         mainColumn.appendChild(historyCard.card);
 
         const sidePanel = document.createElement('aside');
