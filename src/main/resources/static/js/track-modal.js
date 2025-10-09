@@ -1905,19 +1905,22 @@
                 const startLabel = returnRequest.exchangeRequested
                     ? 'Создать обменную посылку'
                     : 'Перевести в обмен';
+                const startHandler = returnRequest.exchangeRequested
+                    ? () => handleCreateExchangeParcelAction(trackId, returnRequest.id, {
+                        successMessage: 'Создана обменная посылка',
+                        notificationType: 'success'
+                    })
+                    : () => handleApproveExchangeAction(trackId, returnRequest.id, {
+                        successMessage: 'Заявка переведена в обмен',
+                        notificationType: 'info'
+                    });
                 const startButton = createActionButton({
                     text: startLabel,
                     variant: 'primary',
                     ariaLabel: returnRequest.exchangeRequested
                         ? 'Создать обменную посылку для покупателя'
                         : 'Перевести заявку возврата в обмен',
-                    onClick: (button) => runButtonAction(button,
-                        () => handleApproveExchangeAction(trackId, returnRequest.id, {
-                            successMessage: returnRequest.exchangeRequested
-                                ? 'Создана обменная посылка'
-                                : 'Заявка переведена в обмен',
-                            notificationType: returnRequest.exchangeRequested ? 'success' : 'info'
-                        })),
+                    onClick: (button) => runButtonAction(button, startHandler),
                     fullWidth: true
                 });
                 appendAction(primaryStack, startButton);
