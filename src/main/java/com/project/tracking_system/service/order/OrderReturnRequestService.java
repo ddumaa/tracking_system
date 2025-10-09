@@ -13,6 +13,7 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.repository.OrderReturnRequestActionRequestRepository;
 import com.project.tracking_system.repository.OrderReturnRequestRepository;
 import com.project.tracking_system.service.track.TrackParcelService;
+import com.project.tracking_system.service.track.TrackViewCacheInvalidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
@@ -46,6 +47,7 @@ public class OrderReturnRequestService {
     private final TrackParcelService trackParcelService;
     private final OrderEpisodeLifecycleService episodeLifecycleService;
     private final OrderExchangeService orderExchangeService;
+    private final TrackViewCacheInvalidator trackViewCacheInvalidator;
 
     /**
      * Обновляет трек обратной отправки и комментарий активной заявки.
@@ -78,6 +80,7 @@ public class OrderReturnRequestService {
         request.setComment(normalizedComment);
 
         OrderReturnRequest saved = returnRequestRepository.save(request);
+        evictTrackDetailsCache(saved);
         log.info("Обновлены данные обратной отправки заявки {}", saved.getId());
         return new ReturnRequestUpdateResponse(
                 saved.getId(),
@@ -170,6 +173,7 @@ public class OrderReturnRequestService {
         // Автоматический запуск обмена оставляем ручным, чтобы менеджер успел проверить данные перед созданием посылки.
 
         OrderReturnRequest saved = returnRequestRepository.save(request);
+        evictTrackDetailsCache(saved);
         log.info("Зарегистрирована заявка на возврат {} для посылки {}", saved.getId(), parcelId);
         return saved;
     }
@@ -208,6 +212,7 @@ public class OrderReturnRequestService {
         request.setDecisionAt(ZonedDateTime.now(ZoneOffset.UTC));
 
         OrderReturnRequest saved = returnRequestRepository.save(request);
+        evictTrackDetailsCache(saved);
         log.info("Одобрен обмен по заявке {} без автоматического создания обменной посылки", saved.getId());
         return saved;
     }
@@ -255,6 +260,7 @@ public class OrderReturnRequestService {
         request.setClosedAt(ZonedDateTime.now(ZoneOffset.UTC));
 
         OrderReturnRequest saved = returnRequestRepository.save(request);
+        evictTrackDetailsCache(saved);
         log.info("Заявка {} закрыта без обмена", saved.getId());
         return saved;
     }
@@ -288,6 +294,7 @@ public class OrderReturnRequestService {
         }
         markReturnProcessingConfirmed(request);
         OrderReturnRequest saved = returnRequestRepository.save(request);
+        evictTrackDetailsCache(saved);
         log.info("Получение возврата подтверждено вручную для заявки {}", saved.getId());
         return saved;
     }
@@ -315,6 +322,7 @@ public class OrderReturnRequestService {
         orderExchangeService.cancelExchangeParcel(request, replacement);
         episodeLifecycleService.decrementExchangeCount(request.getEpisode());
         OrderReturnRequest saved = returnRequestRepository.save(request);
+        evictTrackDetailsCache(saved);
         log.info("Обмен по заявке {} отменён пользователем", saved.getId());
         return saved;
     }
@@ -345,6 +353,7 @@ public class OrderReturnRequestService {
         orderExchangeService.cancelExchangeParcel(request, replacement);
         episodeLifecycleService.decrementExchangeCount(request.getEpisode());
         OrderReturnRequest saved = returnRequestRepository.save(request);
+        evictTrackDetailsCache(saved);
         log.info("Заявка {} переведена из обмена в возврат", saved.getId());
         return saved;
     }
@@ -612,6 +621,33 @@ public class OrderReturnRequestService {
                 .orElse(null);
         if (ownerId == null || !ownerId.equals(userId)) {
             throw new AccessDeniedException("Заявка принадлежит другому пользователю");
+        }
+    }
+
+    /**
+     * Очищает кэш деталей трека для посылки изменённой заявки.
+     * <p>
+     * Вспомогательный метод инкапсулирует построение ключа кэша, чтобы не
+     * дублировать логику и соблюдать принцип DRY. Если идентификаторы
+     * отсутствуют (например, заявка ещё не привязана к посылке), очистка
+     * пропускается.
+     * </p>
+     *
+     * @param request заявка, для которой сохранены изменения
+     */
+    private void evictTrackDetailsCache(OrderReturnRequest request) {
+        TrackParcel parcel = Optional.ofNullable(request)
+                .map(OrderReturnRequest::getParcel)
+                .orElse(null);
+        Long parcelId = Optional.ofNullable(parcel)
+                .map(TrackParcel::getId)
+                .orElse(null);
+        Long userId = Optional.ofNullable(parcel)
+                .map(TrackParcel::getUser)
+                .map(User::getId)
+                .orElse(null);
+        if (parcelId != null && userId != null) {
+            trackViewCacheInvalidator.evictTrackDetails(userId, parcelId);
         }
     }
 
