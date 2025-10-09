@@ -293,6 +293,41 @@ class TrackViewServiceTest {
     }
 
     @Test
+    void getTrackDetails_ExchangeStagesStayPlannedUntilParcelCreated() {
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        TrackParcel parcel = buildParcel(83L, GlobalStatus.RETURNED, now);
+        when(trackParcelService.findOwnedById(83L, 20L)).thenReturn(Optional.of(parcel));
+        stubEpisodeParcels(parcel, 20L);
+        when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(4);
+        when(userService.getUserZone(20L)).thenReturn(ZoneId.of("UTC"));
+        when(trackStatusEventService.findEvents(83L)).thenReturn(List.of());
+
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setDecisionAt(now.minusHours(2));
+        when(orderReturnRequestService.findCurrentForParcel(83L)).thenReturn(Optional.of(request));
+        when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.empty());
+
+        TrackDetailsDto details = service.getTrackDetails(83L, 20L);
+
+        TrackLifecycleStageDto shipmentStage = details.lifecycle().stream()
+                .filter(stage -> stage.code().equals("EXCHANGE_SHIPMENT"))
+                .findFirst()
+                .orElseThrow();
+        TrackLifecycleStageDto deliveryStage = details.lifecycle().stream()
+                .filter(stage -> stage.code().equals("EXCHANGE_DELIVERY"))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(shipmentStage.state()).isEqualTo(TrackLifecycleStageState.PLANNED);
+        assertThat(deliveryStage.state()).isEqualTo(TrackLifecycleStageState.PLANNED);
+        assertThat(shipmentStage.trackNumber()).isNull();
+        assertThat(deliveryStage.trackNumber()).isNull();
+    }
+
+    @Test
     void getTrackDetails_ExchangeStagesStayPlannedWithoutTrack() {
         ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
         TrackParcel parcel = buildParcel(84L, GlobalStatus.RETURNED, now);

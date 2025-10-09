@@ -176,11 +176,16 @@ public class OrderReturnRequestService {
 
     /**
      * Одобряет запуск обмена по заявке.
+     * <p>
+     * Метод переводит заявку в статус обмена и фиксирует менеджера, принявшего решение.
+     * Создание обменной посылки выполняется отдельным действием через {@link #createExchangeParcel(Long, Long, User)},
+     * чтобы соблюсти SRP и дать менеджеру время на проверку данных перед оформлением отправления.
+     * </p>
      *
      * @param requestId идентификатор заявки
      * @param parcelId  идентификатор посылки
      * @param user      автор решения
-     * @return результат с обновлённой заявкой и созданной обменной посылкой
+     * @return обновлённая заявка после одобрения обмена
      */
     @Transactional
     public OrderReturnRequest approveExchange(Long requestId, Long parcelId, User user) {
