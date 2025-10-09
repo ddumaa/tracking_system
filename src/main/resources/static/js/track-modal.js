@@ -7,6 +7,15 @@
     /** Счётчик для генерации уникальных идентификаторов элементов формы. */
     let elementSequence = 0;
 
+    /** Ключ хранилища для состояния закрепления правой панели. */
+    const SIDE_PANEL_PIN_KEY = 'trackModal.sidePanel.pinned';
+
+    /** Ключ хранилища для состояния сворачивания правой панели. */
+    const SIDE_PANEL_COLLAPSE_KEY = 'trackModal.sidePanel.collapsed';
+
+    /** Функция очистки обработчиков правой панели. */
+    let disposeSidePanelInteractions = null;
+
     /**
      * Останавливает активный таймер обновления.
      * Метод вызывается при повторном рендере и закрытии модального окна,
@@ -154,6 +163,222 @@
             console.warn('Не удалось форматировать дату', isoString, error);
             return isoString;
         }
+    }
+
+    /**
+     * Читает булево значение из localStorage с запасным вариантом.
+     * Метод инкапсулирует работу с хранилищем, чтобы остальной код не зависел от реализации хранения (SRP).
+     * @param {string} key ключ хранения
+     * @param {boolean} fallback запасное значение
+     * @returns {boolean} результирующее значение
+     */
+    function readBooleanFromStorage(key, fallback) {
+        try {
+            const storedValue = window.localStorage.getItem(key);
+            if (storedValue === null) {
+                return fallback;
+            }
+            return storedValue === 'true';
+        } catch (error) {
+            console.warn('Не удалось прочитать состояние панели', key, error);
+            return fallback;
+        }
+    }
+
+    /**
+     * Сохраняет булево значение в localStorage.
+     * Метод обрабатывает возможные ошибки записи, чтобы приложение продолжало работу даже при ограничениях хранилища.
+     * @param {string} key ключ хранения
+     * @param {boolean} value сохраняемое значение
+     */
+    function writeBooleanToStorage(key, value) {
+        try {
+            window.localStorage.setItem(key, value ? 'true' : 'false');
+        } catch (error) {
+            console.warn('Не удалось сохранить состояние панели', key, error);
+        }
+    }
+
+    /**
+     * Настраивает адаптивное поведение правой панели модального окна.
+     * Метод управляет закреплением и сворачиванием панели, соблюдая принцип единой ответственности.
+     * @param {Object} options параметры конфигурации
+     * @param {HTMLElement} options.panel контейнер панели
+     * @param {HTMLElement} options.collapse элемент collapse
+     * @param {HTMLButtonElement} options.pinButton кнопка закрепления
+     * @param {HTMLButtonElement} options.toggleButton кнопка сворачивания
+     * @param {HTMLElement} options.pinLabel скрытый текст кнопки закрепления
+     * @param {HTMLElement} options.toggleLabel скрытый текст кнопки сворачивания
+     * @returns {Function} функция очистки обработчиков
+     */
+    function setupSidePanelInteractions({
+        panel,
+        collapse,
+        pinButton,
+        toggleButton,
+        pinLabel,
+        toggleLabel
+    }) {
+        if (!panel || !collapse || !pinButton || !toggleButton || !pinLabel || !toggleLabel) {
+            return () => {};
+        }
+
+        const mediaQuery = window.matchMedia('(min-width: 992px)');
+        const collapseInstance = (typeof bootstrap !== 'undefined' && bootstrap.Collapse)
+            ? bootstrap.Collapse.getOrCreateInstance(collapse, { toggle: false })
+            : null;
+
+        let isPinned = readBooleanFromStorage(SIDE_PANEL_PIN_KEY, true);
+        let isCollapsed = readBooleanFromStorage(SIDE_PANEL_COLLAPSE_KEY, false);
+        let collapsePreference = isCollapsed;
+        let suppressStorageUpdate = false;
+
+        const updatePinVisual = (pinned) => {
+            pinButton.setAttribute('aria-pressed', String(pinned));
+            pinButton.setAttribute('aria-label', pinned ? 'Открепить панель' : 'Закрепить панель');
+            pinButton.setAttribute('title', pinned ? 'Открепить панель' : 'Закрепить панель');
+            pinLabel.textContent = pinned ? 'Открепить панель' : 'Закрепить панель';
+            pinButton.classList.toggle('active', pinned);
+            panel.classList.toggle('track-side-panel--pinned', pinned);
+        };
+
+        const updateCollapseVisual = (collapsed) => {
+            toggleButton.classList.toggle('collapsed', collapsed);
+            toggleButton.setAttribute('aria-expanded', String(!collapsed));
+            toggleButton.setAttribute('title', collapsed ? 'Развернуть панель' : 'Свернуть панель');
+            toggleLabel.textContent = collapsed ? 'Развернуть панель' : 'Свернуть панель';
+        };
+
+        if (isPinned) {
+            isCollapsed = false;
+        }
+
+        updatePinVisual(isPinned);
+        updateCollapseVisual(isCollapsed);
+
+        if (collapseInstance) {
+            if (isCollapsed) {
+                suppressStorageUpdate = true;
+                collapseInstance.hide();
+            }
+        } else {
+            collapse.classList.toggle('show', !isCollapsed);
+        }
+
+        const handleCollapseShown = () => {
+            isCollapsed = false;
+            updateCollapseVisual(false);
+            if (!suppressStorageUpdate) {
+                collapsePreference = false;
+                writeBooleanToStorage(SIDE_PANEL_COLLAPSE_KEY, false);
+            }
+            suppressStorageUpdate = false;
+        };
+
+        const handleCollapseHidden = () => {
+            isCollapsed = true;
+            updateCollapseVisual(true);
+            if (!suppressStorageUpdate) {
+                collapsePreference = true;
+                writeBooleanToStorage(SIDE_PANEL_COLLAPSE_KEY, true);
+            }
+            suppressStorageUpdate = false;
+        };
+
+        collapse.addEventListener('shown.bs.collapse', handleCollapseShown);
+        collapse.addEventListener('hidden.bs.collapse', handleCollapseHidden);
+
+        let fallbackToggleHandler = null;
+        if (!collapseInstance) {
+            fallbackToggleHandler = (event) => {
+                event.preventDefault();
+                const shouldHide = collapse.classList.contains('show');
+                if (shouldHide) {
+                    collapse.classList.remove('show');
+                    handleCollapseHidden();
+                } else {
+                    collapse.classList.add('show');
+                    handleCollapseShown();
+                }
+            };
+            toggleButton.addEventListener('click', fallbackToggleHandler);
+        }
+
+        const handlePinClick = () => {
+            isPinned = !isPinned;
+            if (isPinned) {
+                isCollapsed = false;
+                updateCollapseVisual(false);
+                if (collapseInstance) {
+                    suppressStorageUpdate = true;
+                    collapseInstance.show();
+                } else {
+                    suppressStorageUpdate = true;
+                    collapse.classList.add('show');
+                    handleCollapseShown();
+                }
+            } else {
+                handleMediaChange(mediaQuery);
+            }
+            updatePinVisual(isPinned);
+            writeBooleanToStorage(SIDE_PANEL_PIN_KEY, isPinned);
+        };
+
+        pinButton.addEventListener('click', handlePinClick);
+
+        const handleMediaChange = (event) => {
+            const matches = event.matches !== undefined ? event.matches : event.currentTarget.matches;
+            if (matches) {
+                suppressStorageUpdate = true;
+                if (collapseInstance) {
+                    collapseInstance.show();
+                } else {
+                    collapse.classList.add('show');
+                    handleCollapseShown();
+                }
+                updateCollapseVisual(false);
+            } else {
+                const shouldCollapse = collapsePreference;
+                isCollapsed = shouldCollapse;
+                suppressStorageUpdate = true;
+                if (shouldCollapse) {
+                    if (collapseInstance) {
+                        collapseInstance.hide();
+                    } else {
+                        collapse.classList.remove('show');
+                        handleCollapseHidden();
+                    }
+                } else if (collapseInstance) {
+                    collapseInstance.show();
+                } else {
+                    collapse.classList.add('show');
+                    handleCollapseShown();
+                }
+                updateCollapseVisual(shouldCollapse);
+            }
+        };
+
+        if (typeof mediaQuery.addEventListener === 'function') {
+            mediaQuery.addEventListener('change', handleMediaChange);
+        } else if (typeof mediaQuery.addListener === 'function') {
+            mediaQuery.addListener(handleMediaChange);
+        }
+
+        handleMediaChange(mediaQuery);
+
+        return () => {
+            collapse.removeEventListener('shown.bs.collapse', handleCollapseShown);
+            collapse.removeEventListener('hidden.bs.collapse', handleCollapseHidden);
+            pinButton.removeEventListener('click', handlePinClick);
+            if (fallbackToggleHandler) {
+                toggleButton.removeEventListener('click', fallbackToggleHandler);
+            }
+            if (typeof mediaQuery.removeEventListener === 'function') {
+                mediaQuery.removeEventListener('change', handleMediaChange);
+            } else if (typeof mediaQuery.removeListener === 'function') {
+                mediaQuery.removeListener(handleMediaChange);
+            }
+        };
     }
 
     /**
@@ -1125,6 +1350,11 @@
     function renderTrackModal(data, options = {}) {
         clearRefreshTimer();
 
+        if (typeof disposeSidePanelInteractions === 'function') {
+            disposeSidePanelInteractions();
+            disposeSidePanelInteractions = null;
+        }
+
         const modal = document.getElementById('infoModal');
         const container = document.getElementById('trackModalContent')
             || modal?.querySelector('.modal-body');
@@ -1138,15 +1368,22 @@
         const lifecycleStages = Array.isArray(data?.lifecycle) ? data.lifecycle : [];
 
         container.replaceChildren();
-        container.classList.remove('justify-content-center', 'align-items-center', 'text-muted');
+        container.classList.remove('justify-content-center', 'align-items-center', 'text-muted', 'track-modal-placeholder');
+        container.classList.add('track-modal-container');
 
         const exchangeItem = options?.exchangeItem || null;
 
-        const layout = document.createElement('div');
-        layout.className = 'd-flex flex-column gap-3 w-100';
+        const layoutRow = document.createElement('div');
+        layoutRow.className = 'row g-3 track-modal-layout';
         if (data?.id !== undefined) {
-            layout.dataset.trackId = String(data.id);
+            layoutRow.dataset.trackId = String(data.id);
         }
+
+        const mainColumn = document.createElement('div');
+        mainColumn.className = 'col-12 col-lg-8 d-flex flex-column gap-3 track-modal-main';
+
+        const sideColumn = document.createElement('div');
+        sideColumn.className = 'col-12 col-lg-4 track-modal-side d-flex flex-column gap-3';
 
         const parcelCard = createCard('Трек');
         const parcelHeader = document.createElement('div');
@@ -1350,7 +1587,7 @@
             trackActions.appendChild(editButton);
         }
 
-        layout.appendChild(parcelCard.card);
+        mainColumn.appendChild(parcelCard.card);
 
         const returnCard = createCard('Возврат / обмен');
         if (returnRequest) {
@@ -1438,12 +1675,7 @@
             returnCard.body.appendChild(emptyState);
         }
 
-        layout.appendChild(returnCard.card);
-
         const lifecycleCard = createLifecycleCard(lifecycleStages, format);
-        if (lifecycleCard) {
-            layout.appendChild(lifecycleCard);
-        }
 
         const statusCard = createCard('Текущий статус');
         const statusRow = document.createElement('div');
@@ -1494,7 +1726,7 @@
         statusRow.append(statusColumn, actionContainer);
 
         statusCard.body.append(statusRow);
-        layout.appendChild(statusCard.card);
+        mainColumn.appendChild(statusCard.card);
 
         const historyCard = createCard('История трека');
         if (history.length === 0) {
@@ -1539,9 +1771,94 @@
 
             historyCard.body.appendChild(timeline);
         }
-        layout.appendChild(historyCard.card);
+        mainColumn.appendChild(historyCard.card);
 
-        container.appendChild(layout);
+        const sidePanel = document.createElement('aside');
+        sidePanel.className = 'track-side-panel d-flex flex-column gap-3';
+        sidePanel.setAttribute('role', 'complementary');
+        sidePanel.setAttribute('aria-label', 'Информация об обращении и этапах');
+
+        const sideHeader = document.createElement('div');
+        sideHeader.className = 'track-side-panel__header d-flex align-items-center justify-content-between gap-2';
+
+        const sideTitle = document.createElement('h6');
+        sideTitle.id = 'trackSidePanelTitle';
+        sideTitle.className = 'track-side-panel__title mb-0 text-uppercase text-muted small';
+        sideTitle.textContent = 'Обращение и этапы';
+
+        const controls = document.createElement('div');
+        controls.className = 'track-side-panel__controls d-flex align-items-center gap-1';
+
+        const pinButton = document.createElement('button');
+        pinButton.type = 'button';
+        pinButton.className = 'btn btn-sm btn-outline-secondary track-side-panel__pin';
+        pinButton.setAttribute('aria-pressed', 'false');
+        pinButton.setAttribute('title', 'Закрепить панель');
+
+        const pinIcon = document.createElement('span');
+        pinIcon.className = 'track-side-panel__pin-icon';
+        pinIcon.setAttribute('aria-hidden', 'true');
+        pinIcon.textContent = '📌';
+
+        const pinLabel = document.createElement('span');
+        pinLabel.className = 'visually-hidden';
+        pinLabel.textContent = 'Закрепить панель';
+
+        pinButton.append(pinIcon, pinLabel);
+
+        const collapseId = 'trackSidePanelCollapse';
+
+        const toggleButton = document.createElement('button');
+        toggleButton.type = 'button';
+        toggleButton.className = 'btn btn-sm btn-outline-secondary track-side-panel__toggle d-lg-none';
+        toggleButton.dataset.bsToggle = 'collapse';
+        toggleButton.dataset.bsTarget = `#${collapseId}`;
+        toggleButton.setAttribute('aria-controls', collapseId);
+        toggleButton.setAttribute('aria-expanded', 'true');
+        toggleButton.setAttribute('title', 'Свернуть панель');
+
+        const toggleIcon = document.createElement('span');
+        toggleIcon.className = 'track-side-panel__toggle-icon';
+        toggleIcon.setAttribute('aria-hidden', 'true');
+        toggleIcon.textContent = '⯈';
+
+        const toggleLabel = document.createElement('span');
+        toggleLabel.className = 'visually-hidden';
+        toggleLabel.textContent = 'Свернуть панель';
+
+        toggleButton.append(toggleIcon, toggleLabel);
+
+        controls.append(pinButton, toggleButton);
+        sideHeader.append(sideTitle, controls);
+
+        const collapseWrapper = document.createElement('div');
+        collapseWrapper.id = collapseId;
+        collapseWrapper.className = 'collapse show track-side-panel__collapse';
+        collapseWrapper.setAttribute('role', 'region');
+        collapseWrapper.setAttribute('aria-labelledby', sideTitle.id);
+
+        const sideContent = document.createElement('div');
+        sideContent.className = 'track-side-panel__body d-flex flex-column gap-3';
+        sideContent.appendChild(returnCard.card);
+        if (lifecycleCard) {
+            sideContent.appendChild(lifecycleCard);
+        }
+
+        collapseWrapper.appendChild(sideContent);
+        sidePanel.append(sideHeader, collapseWrapper);
+        sideColumn.appendChild(sidePanel);
+
+        layoutRow.append(mainColumn, sideColumn);
+        container.appendChild(layoutRow);
+
+        disposeSidePanelInteractions = setupSidePanelInteractions({
+            panel: sidePanel,
+            collapse: collapseWrapper,
+            pinButton,
+            toggleButton,
+            pinLabel,
+            toggleLabel
+        });
 
         const nextRefreshAt = data?.nextRefreshAt || null;
         const isFinalStatus = data?.refreshAllowed === false && !data?.nextRefreshAt;
