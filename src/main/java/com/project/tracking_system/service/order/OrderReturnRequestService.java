@@ -198,7 +198,6 @@ public class OrderReturnRequestService {
             throw new IllegalStateException("В эпизоде уже запущен обмен");
         }
 
-        markReturnReceiptConfirmed(request);
         request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
         request.setDecisionBy(user);
         request.setDecisionAt(ZonedDateTime.now(ZoneOffset.UTC));
@@ -246,7 +245,6 @@ public class OrderReturnRequestService {
             throw new IllegalStateException("Заявка уже обработана");
         }
 
-        markReturnReceiptConfirmed(request);
         request.setStatus(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
         request.setClosedBy(user);
         request.setClosedAt(ZonedDateTime.now(ZoneOffset.UTC));
@@ -257,20 +255,21 @@ public class OrderReturnRequestService {
     }
 
     /**
-     * Подтверждает вручную получение возврата магазином.
+     * Подтверждает вручную обработку возврата магазином.
      * <p>
      * Метод фиксирует момент приёма возврата, не переводя заявку в финальный статус,
      * что соответствует принципу SRP: сервис управляет только бизнес-событиями,
-     * а решение об обмене принимается отдельно.
+     * а решение об обмене принимается отдельно. Отдельный флаг используется для
+     * отображения завершённости этапа «Приём возврата магазином».
      * </p>
      *
      * @param requestId идентификатор заявки
      * @param parcelId  идентификатор исходной посылки
-     * @param user      менеджер, подтверждающий получение
+     * @param user      менеджер, подтверждающий обработку
      * @return обновлённая заявка
      */
     @Transactional
-    public OrderReturnRequest confirmReturnReceipt(Long requestId, Long parcelId, User user) {
+    public OrderReturnRequest confirmReturnProcessing(Long requestId, Long parcelId, User user) {
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
         if (request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
             throw new IllegalStateException("Подтверждение доступно только для активной заявки");
@@ -278,7 +277,7 @@ public class OrderReturnRequestService {
         if (request.isReturnReceiptConfirmed()) {
             return request;
         }
-        markReturnReceiptConfirmed(request);
+        markReturnProcessingConfirmed(request);
         OrderReturnRequest saved = returnRequestRepository.save(request);
         log.info("Получение возврата подтверждено вручную для заявки {}", saved.getId());
         return saved;
@@ -301,7 +300,6 @@ public class OrderReturnRequestService {
             log.warn("Нельзя отменить обмен по заявке {}: {}", request.getId(), ex.getMessage());
             throw ex;
         }
-        markReturnReceiptConfirmed(request);
         request.setStatus(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
         request.setClosedBy(user);
         request.setClosedAt(ZonedDateTime.now(ZoneOffset.UTC));
@@ -608,8 +606,12 @@ public class OrderReturnRequestService {
 
     /**
      * Устанавливает отметку о фактическом приёме возврата.
+     * <p>
+     * Приватный хелпер гарантирует, что фиксация момента обработки собрана в одном месте,
+     * что облегчает расширение бизнес-правил и соответствует принципу DRY.
+     * </p>
      */
-    private void markReturnReceiptConfirmed(OrderReturnRequest request) {
+    private void markReturnProcessingConfirmed(OrderReturnRequest request) {
         if (request == null || request.isReturnReceiptConfirmed()) {
             return;
         }

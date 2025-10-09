@@ -229,8 +229,8 @@ class OrderReturnRequestServiceTest {
         assertThat(result.getStatus()).isEqualTo(OrderReturnRequestStatus.EXCHANGE_APPROVED);
         assertThat(result.getDecisionBy()).isEqualTo(user);
         assertThat(result.getDecisionAt()).isNotNull();
-        assertThat(result.isReturnReceiptConfirmed()).isTrue();
-        assertThat(result.getReturnReceiptConfirmedAt()).isNotNull();
+        assertThat(result.isReturnReceiptConfirmed()).isFalse();
+        assertThat(result.getReturnReceiptConfirmedAt()).isNull();
         verify(orderExchangeService, never()).createExchangeParcel(any());
     }
 
@@ -292,12 +292,12 @@ class OrderReturnRequestServiceTest {
         assertThat(result.getStatus()).isEqualTo(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
         assertThat(result.getClosedBy()).isEqualTo(user);
         assertThat(result.getClosedAt()).isNotNull();
-        assertThat(result.isReturnReceiptConfirmed()).isTrue();
-        assertThat(result.getReturnReceiptConfirmedAt()).isNotNull();
+        assertThat(result.isReturnReceiptConfirmed()).isFalse();
+        assertThat(result.getReturnReceiptConfirmedAt()).isNull();
     }
 
     @Test
-    void confirmReturnReceipt_SetsFlagWithoutClosing() {
+    void confirmReturnProcessing_SetsFlagWithoutClosing() {
         TrackParcel parcel = buildParcel(31L, GlobalStatus.DELIVERED);
         OrderReturnRequest request = new OrderReturnRequest();
         request.setId(901L);
@@ -308,7 +308,7 @@ class OrderReturnRequestServiceTest {
         when(repository.findById(901L)).thenReturn(Optional.of(request));
         when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        OrderReturnRequest result = service.confirmReturnReceipt(901L, 31L, user);
+        OrderReturnRequest result = service.confirmReturnProcessing(901L, 31L, user);
 
         assertThat(result.isReturnReceiptConfirmed()).isTrue();
         assertThat(result.getReturnReceiptConfirmedAt()).isNotNull();
@@ -316,7 +316,7 @@ class OrderReturnRequestServiceTest {
     }
 
     @Test
-    void confirmReturnReceipt_ReturnsExistingWhenAlreadyConfirmed() {
+    void confirmReturnProcessing_ReturnsExistingWhenAlreadyConfirmed() {
         TrackParcel parcel = buildParcel(32L, GlobalStatus.DELIVERED);
         OrderReturnRequest request = new OrderReturnRequest();
         request.setId(902L);
@@ -328,14 +328,14 @@ class OrderReturnRequestServiceTest {
 
         when(repository.findById(902L)).thenReturn(Optional.of(request));
 
-        OrderReturnRequest result = service.confirmReturnReceipt(902L, 32L, user);
+        OrderReturnRequest result = service.confirmReturnProcessing(902L, 32L, user);
 
         assertThat(result).isSameAs(request);
         verify(repository, never()).save(any());
     }
 
     @Test
-    void confirmReturnReceipt_ThrowsWhenNotRegistered() {
+    void confirmReturnProcessing_ThrowsWhenNotRegistered() {
         TrackParcel parcel = buildParcel(33L, GlobalStatus.DELIVERED);
         OrderReturnRequest request = new OrderReturnRequest();
         request.setId(903L);
@@ -345,7 +345,7 @@ class OrderReturnRequestServiceTest {
 
         when(repository.findById(903L)).thenReturn(Optional.of(request));
 
-        assertThatThrownBy(() -> service.confirmReturnReceipt(903L, 33L, user))
+        assertThatThrownBy(() -> service.confirmReturnProcessing(903L, 33L, user))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("активной заявки");
     }

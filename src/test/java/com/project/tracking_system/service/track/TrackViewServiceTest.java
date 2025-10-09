@@ -501,6 +501,34 @@ class TrackViewServiceTest {
     }
 
     @Test
+    void getTrackDetails_ReturnProcessingStageStaysInProgressUntilConfirmed() {
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        TrackParcel parcel = buildParcel(84L, GlobalStatus.DELIVERED, now);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
+        request.setReverseTrackNumber("REV-123");
+        request.setClosedAt(now.minusHours(1));
+
+        when(trackParcelService.findOwnedById(84L, 18L)).thenReturn(Optional.of(parcel));
+        stubEpisodeParcels(parcel, 18L);
+        when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(4);
+        when(userService.getUserZone(18L)).thenReturn(ZoneId.of("UTC"));
+        when(trackStatusEventService.findEvents(84L)).thenReturn(List.of());
+        when(orderReturnRequestService.findCurrentForParcel(84L)).thenReturn(Optional.of(request));
+
+        TrackDetailsDto details = service.getTrackDetails(84L, 18L);
+
+        TrackLifecycleStageDto processingStage = details.lifecycle().stream()
+                .filter(stage -> stage.code().equals("MERCHANT_ACCEPT_RETURN"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(processingStage.state()).isEqualTo(TrackLifecycleStageState.IN_PROGRESS);
+        assertThat(processingStage.occurredAt()).isNull();
+    }
+
+    @Test
     void getTrackDetails_ReturnRequestExposesManualExchangeCreationFlag() {
         ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
         TrackParcel parcel = buildParcel(83L, GlobalStatus.RETURNED, now);

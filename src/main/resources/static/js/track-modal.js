@@ -834,11 +834,11 @@
      * @param {number} requestId идентификатор заявки
      * @param {Object} options параметры уведомления
      */
-    async function handleConfirmReceiptAction(trackId, requestId, options = {}) {
+    async function handleConfirmProcessingAction(trackId, requestId, options = {}) {
         if (!trackId || !requestId) {
             return null;
         }
-        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/confirm-receipt`);
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/confirm-processing`);
         renderTrackModal(payload);
         updateRowRequiresAction(payload);
         const updatedRequest = payload?.returnRequest ?? null;
@@ -852,7 +852,7 @@
             });
         }
         updateActionTabCounter();
-        const message = options.successMessage || 'Получение возврата подтверждено';
+        const message = options.successMessage || 'Обработка возврата подтверждена';
         const notificationType = options.notificationType || 'success';
         notifyUser(message, notificationType);
         return payload;
@@ -1216,7 +1216,7 @@
                 variant: 'outline-success',
                 ariaLabel: 'Подтвердить получение возврата без закрытия заявки',
                 onClick: (button) => runButtonAction(button,
-                    () => handleConfirmReceiptAction(trackId, returnRequest.id, {
+                    () => handleConfirmProcessingAction(trackId, returnRequest.id, {
                         successMessage: 'Получение возврата подтверждено',
                         notificationType: 'success'
                     }))
@@ -1759,7 +1759,7 @@
         closeReturnRequest: (trackId, requestId, options) => handleCloseWithoutExchange(trackId, requestId, options),
         reopenReturnRequest: (trackId, requestId, options) => handleReopenReturnAction(trackId, requestId, options),
         cancelReturnExchange: (trackId, requestId, options) => handleCancelExchangeAction(trackId, requestId, options),
-        confirmReturnReceipt: (trackId, requestId, options) => handleConfirmReceiptAction(trackId, requestId, options),
+        confirmReturnProcessing: (trackId, requestId, options) => handleConfirmProcessingAction(trackId, requestId, options),
         updateReverseTrack: (trackId, requestId, reverseValue, comment) => handleReverseTrackUpdate(trackId, requestId, reverseValue, comment)
     };
 })();
