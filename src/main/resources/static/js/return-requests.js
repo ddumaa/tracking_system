@@ -256,9 +256,9 @@
                 return fn(trackId, requestId, options);
             },
             confirm(trackId, requestId, options = {}) {
-                const fn = window.trackModal?.confirmReturnReceipt;
+                const fn = window.trackModal?.confirmReturnProcessing;
                 if (typeof fn !== 'function') {
-                    return Promise.reject(new Error('Подтверждение возврата недоступно'));
+                    return Promise.reject(new Error('Подтверждение обработки возврата недоступно'));
                 }
                 return fn(trackId, requestId, options);
             }
@@ -322,7 +322,7 @@
                 actionOptions.successMessage = 'Обмен отменён и заявка закрыта';
                 actionOptions.notificationType = 'warning';
             } else if (actionKey === 'confirm') {
-                actionOptions.successMessage = 'Получение возврата подтверждено';
+                actionOptions.successMessage = 'Обработка возврата подтверждена';
                 actionOptions.notificationType = 'success';
             }
             executeAction(button, () => executor(trackId, requestId, actionOptions));

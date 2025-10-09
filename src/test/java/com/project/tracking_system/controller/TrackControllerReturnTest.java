@@ -197,7 +197,7 @@ class TrackControllerReturnTest {
     }
 
     @Test
-    void confirmReturnReceipt_ReturnsUpdatedDetails() throws Exception {
+    void confirmReturnProcessing_ReturnsUpdatedDetails() throws Exception {
         User principal = buildUser();
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                 principal,
@@ -228,13 +228,13 @@ class TrackControllerReturnTest {
 
         when(trackViewService.getTrackDetails(9L, 1L)).thenReturn(dto);
 
-        mockMvc.perform(post("/api/v1/tracks/9/returns/7/confirm-receipt")
+        mockMvc.perform(post("/api/v1/tracks/9/returns/7/confirm-processing")
                         .with(authentication(auth))
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(9L));
 
-        Mockito.verify(orderReturnRequestService).confirmReturnReceipt(7L, 9L, principal);
+        Mockito.verify(orderReturnRequestService).confirmReturnProcessing(7L, 9L, principal);
         Mockito.verify(trackViewService).getTrackDetails(9L, 1L);
     }
 

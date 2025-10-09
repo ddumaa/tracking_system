@@ -385,7 +385,7 @@ describe('track-modal render', () => {
             json: () => Promise.resolve(payload)
         });
 
-        await global.window.trackModal.confirmReturnReceipt(14, 6, {});
+        await global.window.trackModal.confirmReturnProcessing(14, 6, {});
 
         expect(global.window.returnRequests.updateRow).toHaveBeenCalledWith(expect.objectContaining({
             parcelId: 14,
@@ -394,7 +394,7 @@ describe('track-modal render', () => {
             returnReceiptConfirmedAt: '2024-03-01T09:00:00Z',
             canConfirmReceipt: false
         }));
-        expect(global.notifyUser).toHaveBeenCalledWith('Получение возврата подтверждено', 'success');
+        expect(global.notifyUser).toHaveBeenCalledWith('Обработка возврата подтверждена', 'success');
     });
 
     test('renders return without exchange as single current item', () => {

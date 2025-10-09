@@ -224,17 +224,17 @@ public class TrackController {
     }
 
     /**
-     * Подтверждает вручную получение возврата без закрытия заявки.
+     * Подтверждает вручную обработку возврата без закрытия заявки.
      */
-    @PostMapping("/{id}/returns/{requestId}/confirm-receipt")
-    public TrackDetailsDto confirmReturnReceipt(@PathVariable Long id,
-                                                @PathVariable Long requestId,
-                                                @AuthenticationPrincipal User user) {
+    @PostMapping("/{id}/returns/{requestId}/confirm-processing")
+    public TrackDetailsDto confirmReturnProcessing(@PathVariable Long id,
+                                                   @PathVariable Long requestId,
+                                                   @AuthenticationPrincipal User user) {
         if (user == null) {
             throw new AccessDeniedException("Пользователь не авторизован");
         }
         try {
-            orderReturnRequestService.confirmReturnReceipt(requestId, id, user);
+            orderReturnRequestService.confirmReturnProcessing(requestId, id, user);
             return trackViewService.getTrackDetails(id, user.getId());
         } catch (AccessDeniedException ex) {
             throw ex;

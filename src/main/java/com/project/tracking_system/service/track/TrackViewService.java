@@ -312,6 +312,11 @@ public class TrackViewService {
 
     /**
      * Проверяет, обработал ли магазин возврат.
+     * <p>
+     * Этап считается завершённым только после явного подтверждения менеджером
+     * или если исходная посылка получила финальный возвратный статус,
+     * что исключает ложные срабатывания при простом закрытии заявки.
+     * </p>
      */
     private boolean isReturnProcessed(OrderReturnRequest request, TrackParcel parcel) {
         if (parcel != null && parcel.getStatus() == GlobalStatus.RETURNED) {
