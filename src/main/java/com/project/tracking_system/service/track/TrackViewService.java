@@ -503,6 +503,7 @@ public class TrackViewService {
                     parcel.getId(),
                     parcel.getNumber(),
                     parcel.isExchange(),
+                    isReturnShipment(parcel),
                     true
             ));
         }
@@ -516,6 +517,7 @@ public class TrackViewService {
                     parcel.getId(),
                     parcel.getNumber(),
                     parcel.isExchange(),
+                    isReturnShipment(parcel),
                     true
             ));
         }
@@ -528,6 +530,7 @@ public class TrackViewService {
                         item.getId(),
                         item.getNumber(),
                         item.isExchange(),
+                        isReturnShipment(item),
                         item.getId().equals(parcel.getId())
                 ))
                 .toList();
@@ -541,6 +544,7 @@ public class TrackViewService {
                 parcel.getId(),
                 parcel.getNumber(),
                 parcel.isExchange(),
+                isReturnShipment(parcel),
                 true
         ));
         return augmented;
@@ -564,8 +568,38 @@ public class TrackViewService {
                 parcelId,
                 parcel.getNumber(),
                 parcel.isExchange(),
+                isReturnShipment(parcel),
                 isCurrent
         );
+    }
+
+    /**
+     * Определяет, что посылка представляет собой обратную отправку покупателя в магазин.
+     * <p>
+     * Логика использует доменные статусы и факт возврата в истории доставки, чтобы
+     * отметить такие посылки в списке цепочки и показать менеджеру, что посылка движется
+     * к магазину, а не к покупателю.
+     * </p>
+     *
+     * @param parcel посылка для проверки
+     * @return {@code true}, если посылка едет обратно в магазин
+     */
+    private boolean isReturnShipment(TrackParcel parcel) {
+        if (parcel == null) {
+            return false;
+        }
+        if (parcel.isExchange()) {
+            return false;
+        }
+        GlobalStatus status = parcel.getStatus();
+        if (status == GlobalStatus.RETURN_IN_PROGRESS
+                || status == GlobalStatus.RETURN_PENDING_PICKUP
+                || status == GlobalStatus.RETURNED) {
+            return true;
+        }
+        return Optional.ofNullable(parcel.getDeliveryHistory())
+                .map(DeliveryHistory::getReturnedDate)
+                .isPresent();
     }
 
     /**

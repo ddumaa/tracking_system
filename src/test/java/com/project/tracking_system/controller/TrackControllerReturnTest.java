@@ -321,7 +321,7 @@ class TrackControllerReturnTest {
         when(orderReturnRequestService.createExchangeParcel(eq(7L), eq(9L), eq(principal)))
                 .thenReturn(replacement);
         when(trackViewService.getTrackDetails(9L, 1L)).thenReturn(dto);
-        TrackChainItemDto chainItemDto = new TrackChainItemDto(33L, "EX123", true, false);
+        TrackChainItemDto chainItemDto = new TrackChainItemDto(33L, "EX123", true, false, false);
         when(trackViewService.toChainItem(replacement, 9L)).thenReturn(chainItemDto);
 
         mockMvc.perform(post("/api/v1/tracks/9/returns/7/exchange/parcel")

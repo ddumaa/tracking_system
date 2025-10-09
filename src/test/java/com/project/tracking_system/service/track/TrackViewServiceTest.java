@@ -619,7 +619,20 @@ class TrackViewServiceTest {
 
         assertThat(dto.id()).isEqualTo(90L);
         assertThat(dto.exchange()).isTrue();
+        assertThat(dto.returnShipment()).isFalse();
         assertThat(dto.current()).isFalse();
+    }
+
+    @Test
+    void toChainItem_FlagsReturnShipmentWhenStatusIsReturnInProgress() {
+        TrackParcel parcel = buildParcel(91L, GlobalStatus.RETURN_IN_PROGRESS, ZonedDateTime.now(ZoneOffset.UTC));
+
+        TrackChainItemDto dto = service.toChainItem(parcel, 91L);
+
+        assertThat(dto.id()).isEqualTo(91L);
+        assertThat(dto.exchange()).isFalse();
+        assertThat(dto.returnShipment()).isTrue();
+        assertThat(dto.current()).isTrue();
     }
 
     /**

@@ -967,13 +967,19 @@
             button.dataset.trackId = String(item.id);
 
             const numberText = item.number ? item.number : 'Без номера';
-            const visualText = item.exchange ? `${numberText} · обмен` : numberText;
+            const isExchange = Boolean(item.exchange);
+            const isReturn = Boolean(item.returnShipment);
+            const postfix = isExchange ? ' · обмен' : (isReturn ? ' · возврат' : '');
+            const visualText = `${numberText}${postfix}`;
             button.textContent = visualText;
 
             const ariaParts = [];
             ariaParts.push(item.number ? `Трек ${item.number}` : 'Трек без номера');
-            if (item.exchange) {
+            if (isExchange) {
                 ariaParts.push('обмен');
+            }
+            if (isReturn) {
+                ariaParts.push('возвратная посылка');
             }
             if (item.current) {
                 ariaParts.push('текущий');
