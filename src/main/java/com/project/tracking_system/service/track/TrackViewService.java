@@ -319,13 +319,71 @@ public class TrackViewService {
      * </p>
      */
     private boolean isReturnProcessed(OrderReturnRequest request, TrackParcel parcel) {
-        if (parcel != null && parcel.getStatus() == GlobalStatus.RETURNED) {
-            return true;
-        }
         if (request == null) {
             return false;
         }
-        return request.isReturnReceiptConfirmed();
+        if (request.isReturnReceiptConfirmed()) {
+            return true;
+        }
+        if (parcel == null) {
+            return false;
+        }
+        GlobalStatus status = parcel.getStatus();
+        if (status == null) {
+            return false;
+        }
+        if (status == GlobalStatus.RETURNED) {
+            return true;
+        }
+        if (status == GlobalStatus.DELIVERED && wasReturnDeliveredAfterRequest(parcel, request)) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Проверяет, достигла ли посылка финального статуса «Вручена» уже после запроса на возврат.
+     * <p>
+     * Исходная отправка тоже заканчивается статусом «Вручена», поэтому мы сравниваем временные метки
+     * и считаем этап завершённым только когда магазин действительно получил обратную посылку.
+     * </p>
+     */
+    private boolean wasReturnDeliveredAfterRequest(TrackParcel parcel, OrderReturnRequest request) {
+        ZonedDateTime statusMoment = resolveStatusMoment(parcel);
+        if (statusMoment == null) {
+            return false;
+        }
+        ZonedDateTime requestMoment = coalesceReturnRequestMoment(request);
+        return requestMoment != null && !statusMoment.isBefore(requestMoment);
+    }
+
+    /**
+     * Определяет базовый момент начала обработки возврата.
+     * <p>
+     * Приоритет отдаётся времени пользовательского запроса, а при его отсутствии используем дату регистрации,
+     * чтобы корректно работать с переоткрытыми заявками и тестовыми данными.
+     * </p>
+     */
+    private ZonedDateTime coalesceReturnRequestMoment(OrderReturnRequest request) {
+        if (request == null) {
+            return null;
+        }
+        return firstNonNullMoment(request.getRequestedAt(), request.getCreatedAt());
+    }
+
+    /**
+     * Возвращает первую непустую временную метку из переданных аргументов.
+     */
+    private ZonedDateTime firstNonNullMoment(ZonedDateTime... moments) {
+        if (moments == null) {
+            return null;
+        }
+        for (ZonedDateTime moment : moments) {
+            if (moment != null) {
+                return moment;
+            }
+        }
+        return null;
     }
 
     /**

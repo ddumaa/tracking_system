@@ -503,13 +503,16 @@ class TrackViewServiceTest {
     @Test
     void getTrackDetails_ReturnProcessingStageStaysInProgressUntilConfirmed() {
         ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
-        TrackParcel parcel = buildParcel(84L, GlobalStatus.DELIVERED, now);
+        ZonedDateTime deliveredBeforeRequest = now.minusDays(3);
+        TrackParcel parcel = buildParcel(84L, GlobalStatus.DELIVERED, deliveredBeforeRequest);
         OrderReturnRequest request = new OrderReturnRequest();
         request.setParcel(parcel);
         request.setEpisode(parcel.getEpisode());
         request.setStatus(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
         request.setReverseTrackNumber("REV-123");
         request.setClosedAt(now.minusHours(1));
+        request.setCreatedAt(now.minusDays(1));
+        request.setRequestedAt(now.minusDays(1));
 
         when(trackParcelService.findOwnedById(84L, 18L)).thenReturn(Optional.of(parcel));
         stubEpisodeParcels(parcel, 18L);
@@ -526,6 +529,35 @@ class TrackViewServiceTest {
                 .orElseThrow();
         assertThat(processingStage.state()).isEqualTo(TrackLifecycleStageState.IN_PROGRESS);
         assertThat(processingStage.occurredAt()).isNull();
+    }
+
+    @Test
+    void getTrackDetails_ReturnProcessingStageCompletedAfterInboundDelivery() {
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        TrackParcel parcel = buildParcel(186L, GlobalStatus.DELIVERED, now);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStatus(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
+        request.setClosedAt(now.minusHours(1));
+        request.setCreatedAt(now.minusDays(2));
+        request.setRequestedAt(now.minusDays(2));
+
+        when(trackParcelService.findOwnedById(186L, 19L)).thenReturn(Optional.of(parcel));
+        stubEpisodeParcels(parcel, 19L);
+        when(applicationSettingsService.getTrackUpdateIntervalHours()).thenReturn(4);
+        when(userService.getUserZone(19L)).thenReturn(ZoneId.of("UTC"));
+        when(trackStatusEventService.findEvents(186L)).thenReturn(List.of());
+        when(orderReturnRequestService.findCurrentForParcel(186L)).thenReturn(Optional.of(request));
+
+        TrackDetailsDto details = service.getTrackDetails(186L, 19L);
+
+        TrackLifecycleStageDto processingStage = details.lifecycle().stream()
+                .filter(stage -> stage.code().equals("MERCHANT_ACCEPT_RETURN"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(processingStage.state()).isEqualTo(TrackLifecycleStageState.COMPLETED);
+        assertThat(processingStage.occurredAt()).isNotNull();
     }
 
     @Test
