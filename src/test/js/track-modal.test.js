@@ -60,9 +60,9 @@ describe('track-modal render', () => {
             canEditTrack: false,
             timeZone: 'UTC',
             episodeNumber: 42,
-            exchange: false,
+            exchange: false, returnShipment: false,
             chain: [
-                { id: 1, number: 'AB123456789BY', exchange: false, current: true }
+                { id: 1, number: 'AB123456789BY', exchange: false, returnShipment: false, current: true }
             ],
             returnRequest: null,
             canRegisterReturn: false,
@@ -95,7 +95,7 @@ describe('track-modal render', () => {
             canEditTrack: false,
             timeZone: 'UTC',
             episodeNumber: null,
-            exchange: false,
+            exchange: false, returnShipment: false,
             chain: [],
             returnRequest: null,
             canRegisterReturn: false,
@@ -135,10 +135,10 @@ describe('track-modal render', () => {
             canEditTrack: true,
             timeZone: 'UTC',
             episodeNumber: 77,
-            exchange: true,
+            exchange: true, returnShipment: false,
             chain: [
-                { id: 11, number: 'RB987654321CN', exchange: true, current: true },
-                { id: 10, number: 'RB111222333CN', exchange: false, current: false }
+                { id: 11, number: 'RB987654321CN', exchange: true, returnShipment: false, current: true },
+                { id: 10, number: 'RB111222333CN', exchange: false, returnShipment: false, current: false }
             ],
             returnRequest: { id: 5, status: 'Зарегистрирована', decisionAt: null, closedAt: null,
                 requiresAction: true, exchangeApproved: false, exchangeRequested: true, canStartExchange: true, canCreateExchangeParcel: false, canCloseWithoutExchange: true,
@@ -208,6 +208,58 @@ describe('track-modal render', () => {
         expect(confirmBtn).toBeDefined();
     });
 
+    test('marks return shipment in chain label and aria text', () => {
+        setupDom();
+        const data = {
+            id: 21,
+            number: 'RR123456789BY',
+            deliveryService: 'Belpost',
+            systemStatus: 'Возвращается',
+            history: [],
+            refreshAllowed: false,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: 13,
+            exchange: false, returnShipment: true,
+            chain: [
+                { id: 21, number: 'RR123456789BY', exchange: false, returnShipment: true, current: true }
+            ],
+            returnRequest: null,
+            canRegisterReturn: false,
+            lifecycle: [
+                {
+                    code: 'OUTBOUND',
+                    title: 'Отправление магазина',
+                    actor: 'Магазин',
+                    description: 'Магазин отправил посылку.',
+                    state: 'COMPLETED',
+                    occurredAt: '2024-01-01T10:00:00Z',
+                    trackNumber: 'RR123456789BY',
+                    trackContext: 'Исходная посылка'
+                },
+                {
+                    code: 'CUSTOMER_RETURN',
+                    title: 'Возврат от покупателя',
+                    actor: 'Покупатель',
+                    description: '...',
+                    state: 'COMPLETED',
+                    occurredAt: '2024-01-05T12:00:00Z',
+                    trackNumber: 'RR123456789BY',
+                    trackContext: 'Обратный трек'
+                }
+            ],
+            requiresAction: false
+        };
+
+        global.window.trackModal.render(data);
+
+        const button = document.querySelector('button.track-chain__item');
+        expect(button).not.toBeNull();
+        expect(button?.textContent).toContain('· возврат');
+        expect(button?.getAttribute('aria-label')).toContain('возвратная посылка');
+    });
+
     test('submits reverse track form and rerenders modal', async () => {
         setupDom();
 
@@ -222,7 +274,7 @@ describe('track-modal render', () => {
             canEditTrack: false,
             timeZone: 'UTC',
             episodeNumber: 5,
-            exchange: false,
+            exchange: false, returnShipment: false,
             chain: [],
             returnRequest: {
                 id: 5,
@@ -268,7 +320,7 @@ describe('track-modal render', () => {
             canEditTrack: false,
             timeZone: 'UTC',
             episodeNumber: 5,
-            exchange: false,
+            exchange: false, returnShipment: false,
             chain: [],
             returnRequest: {
                 id: 5,
@@ -351,7 +403,7 @@ describe('track-modal render', () => {
             canEditTrack: false,
             timeZone: 'UTC',
             episodeNumber: 3,
-            exchange: false,
+            exchange: false, returnShipment: false,
             chain: [],
             returnRequest: {
                 id: 6,
@@ -410,9 +462,9 @@ describe('track-modal render', () => {
             canEditTrack: false,
             timeZone: 'UTC',
             episodeNumber: 101,
-            exchange: false,
+            exchange: false, returnShipment: false,
             chain: [
-                { id: 5, number: 'BY555555555BY', exchange: false, current: true }
+                { id: 5, number: 'BY555555555BY', exchange: false, returnShipment: false, current: true }
             ],
             returnRequest: null,
             canRegisterReturn: false,
@@ -441,9 +493,9 @@ describe('track-modal render', () => {
             canEditTrack: true,
             timeZone: 'UTC',
             episodeNumber: 202,
-            exchange: false,
+            exchange: false, returnShipment: false,
             chain: [
-                { id: 9, number: 'BY000000000BY', exchange: false, current: true }
+                { id: 9, number: 'BY000000000BY', exchange: false, returnShipment: false, current: true }
             ],
             returnRequest: null,
             canRegisterReturn: true,
@@ -485,7 +537,7 @@ describe('track-modal render', () => {
             canEditTrack: false,
             timeZone: 'UTC',
             episodeNumber: 5,
-            exchange: false,
+            exchange: false, returnShipment: false,
             chain: [],
             returnRequest: null,
             canRegisterReturn: false,
@@ -505,7 +557,7 @@ describe('track-modal render', () => {
             canEditTrack: false,
             timeZone: 'UTC',
             episodeNumber: 5,
-            exchange: false,
+            exchange: false, returnShipment: false,
             chain: [],
             returnRequest: {
                 id: 5,
@@ -560,14 +612,14 @@ describe('track-modal render', () => {
                 canEditTrack: false,
                 timeZone: 'UTC',
                 episodeNumber: 8,
-                exchange: false,
+                exchange: false, returnShipment: false,
                 chain: [],
                 returnRequest: null,
                 canRegisterReturn: false,
                 lifecycle: [],
                 requiresAction: false
             },
-            exchange: { id: 44, number: 'EX123', exchange: true, current: false }
+            exchange: { id: 44, number: 'EX123', exchange: true, returnShipment: false, current: false }
         };
         global.fetch.mockResolvedValueOnce({ ok: true, headers, json: () => Promise.resolve(responsePayload) });
 
@@ -582,7 +634,7 @@ describe('track-modal render', () => {
             canEditTrack: false,
             timeZone: 'UTC',
             episodeNumber: 8,
-            exchange: false,
+            exchange: false, returnShipment: false,
             chain: [],
             returnRequest: {
                 id: 6,
@@ -635,9 +687,9 @@ describe('track-modal render', () => {
             canEditTrack: false,
             timeZone: 'UTC',
             episodeNumber: 12,
-            exchange: false,
+            exchange: false, returnShipment: false,
             chain: [
-                { id: 7, number: 'RR123', exchange: false, current: true }
+                { id: 7, number: 'RR123', exchange: false, returnShipment: false, current: true }
             ],
             returnRequest: null,
             canRegisterReturn: true,
