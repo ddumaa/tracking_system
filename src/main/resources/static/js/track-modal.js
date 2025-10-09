@@ -69,10 +69,12 @@
         const applyState = ({ text, disabled, tooltipText }) => {
             button.disabled = disabled;
             button.setAttribute('aria-disabled', String(disabled));
-            const normalizedText = text || '';
-            countdown.textContent = normalizedText;
-            const usesTooltip = Boolean(tooltipText) && normalizedText.length === 0;
-            const shouldHide = usesTooltip || normalizedText.length === 0;
+            const normalizedText = typeof text === 'string' ? text : '';
+            // Обеспечиваем видимый индикатор ожидания, даже если сервер не передал конкретный таймер.
+            const displayText = normalizedText || (disabled ? 'Можно выполнить через —' : '');
+            countdown.textContent = displayText;
+            const usesTooltip = Boolean(tooltipText) && !disabled && displayText.length === 0;
+            const shouldHide = usesTooltip || (!disabled && displayText.length === 0);
             countdown.classList.toggle('visually-hidden', shouldHide);
             countdown.setAttribute('aria-hidden', shouldHide ? 'true' : 'false');
             const tooltipValue = tooltipText || defaultTooltipText;
