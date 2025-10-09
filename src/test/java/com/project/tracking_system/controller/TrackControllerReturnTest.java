@@ -33,6 +33,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -410,6 +411,56 @@ class TrackControllerReturnTest {
         Mockito.verify(orderReturnRequestService)
                 .updateReverseTrackAndComment(eq(4L), eq(15L), eq(principal), eq("RR321"), eq(null));
         Mockito.verify(trackViewService, Mockito.never()).getTrackDetails(any(), any());
+    }
+
+    @Test
+    void updateReverseTrack_WithPutMethod_DelegatesToService() throws Exception {
+        User principal = buildUser();
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                principal,
+                principal.getPassword(),
+                principal.getAuthorities()
+        );
+
+        TrackDetailsDto dto = new TrackDetailsDto(
+                17L,
+                "CD987",
+                "Belpost",
+                "Вручена",
+                null,
+                null,
+                List.of(),
+                true,
+                null,
+                false,
+                "UTC",
+                33L,
+                false,
+                List.of(),
+                null,
+                false,
+                List.of(),
+                false
+        );
+
+        when(trackViewService.getTrackDetails(17L, 1L)).thenReturn(dto);
+
+        when(orderReturnRequestService.updateReverseTrackAndComment(eq(9L), eq(17L), eq(principal), eq("RR987"), eq("Новый комментарий")))
+                .thenReturn(new ReturnRequestUpdateResponse(9L, "RR987", "Новый комментарий", null));
+
+        mockMvc.perform(put("/api/v1/tracks/17/returns/9/reverse-track")
+                        .with(authentication(auth))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{" +
+                                "\"reverseTrackNumber\":\"RR987\"," +
+                                "\"comment\":\"Новый комментарий\"" +
+                                "}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(17L));
+
+        Mockito.verify(orderReturnRequestService)
+                .updateReverseTrackAndComment(eq(9L), eq(17L), eq(principal), eq("RR987"), eq("Новый комментарий"));
+        Mockito.verify(trackViewService).getTrackDetails(17L, 1L);
     }
 
     private User buildUser() {
