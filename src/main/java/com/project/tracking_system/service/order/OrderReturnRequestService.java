@@ -267,12 +267,16 @@ public class OrderReturnRequestService {
      * @param parcelId  идентификатор исходной посылки
      * @param user      менеджер, подтверждающий обработку
      * @return обновлённая заявка
+     * @implNote Метод разрешает подтверждение и после закрытия без обмена, чтобы менеджер мог
+     * завершить этап обработки даже после отмены обмена.
      */
     @Transactional
     public OrderReturnRequest confirmReturnProcessing(Long requestId, Long parcelId, User user) {
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
-        if (request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
-            throw new IllegalStateException("Подтверждение доступно только для активной заявки");
+        OrderReturnRequestStatus status = request.getStatus();
+        if (status != OrderReturnRequestStatus.REGISTERED
+                && status != OrderReturnRequestStatus.CLOSED_NO_EXCHANGE) {
+            throw new IllegalStateException("Подтверждение доступно только для активной заявки или закрытия без обмена");
         }
         if (request.isReturnReceiptConfirmed()) {
             return request;
@@ -504,7 +508,9 @@ public class OrderReturnRequestService {
         if (request == null) {
             return false;
         }
-        return request.getStatus() == OrderReturnRequestStatus.REGISTERED
+        OrderReturnRequestStatus status = request.getStatus();
+        return (status == OrderReturnRequestStatus.REGISTERED
+                || status == OrderReturnRequestStatus.CLOSED_NO_EXCHANGE)
                 && !request.isReturnReceiptConfirmed();
     }
 
