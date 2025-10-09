@@ -29,6 +29,35 @@
     }
 
     /**
+     * Проверяет, нужно ли автоматически раскрывать историю эпизода.
+     * Метод выступает фасадом для анализа DTO, чтобы логика принятия решения
+     * была сосредоточена в одном месте и удовлетворяла принципу SRP.
+     * @param {Object} data DTO выбранного трека
+     * @returns {boolean} {@code true}, если историю стоит раскрыть сразу
+     */
+    function shouldAutoExpandEpisodeHistory(data) {
+        if (!data || typeof data !== 'object') {
+            return false;
+        }
+
+        const request = data.returnRequest || null;
+        if (request && typeof request === 'object') {
+            if (request.requiresAction) {
+                return true;
+            }
+            if (!request.closedAt) {
+                return true;
+            }
+        }
+
+        if (data.requiresAction) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Запускает таймер для разблокировки кнопки обновления.
      * Метод выводит пользовательское сообщение, если обратный отсчёт недоступен (OCP),
      * и делегирует обновление тултипа внешнему обработчику, сохраняя SRP.
@@ -428,10 +457,14 @@
      * @param {Function} options.onClick обработчик клика
      * @returns {HTMLButtonElement} созданная кнопка
      */
-    function createActionButton({ text, variant = 'outline-primary', ariaLabel, onClick }) {
+    function createActionButton({ text, variant = 'outline-primary', ariaLabel, onClick, fullWidth = false }) {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = `btn btn-${variant} btn-sm`;
+        const classList = ['btn', `btn-${variant}`, 'btn-sm'];
+        if (fullWidth) {
+            classList.push('w-100');
+        }
+        button.className = classList.join(' ');
         button.textContent = text;
         if (ariaLabel) {
             button.setAttribute('aria-label', ariaLabel);
@@ -495,6 +528,21 @@
         definition.textContent = value && value.length > 0 ? value : '—';
 
         list.append(title, definition);
+    }
+
+    /**
+     * Возвращает первое непустое строковое значение из набора кандидатов.
+     * Метод помогает формировать подсказки с graceful fallback, не нарушая SRP.
+     * @param {...string} values список потенциальных строк
+     * @returns {string|null} первая непустая строка либо {@code null}
+     */
+    function firstNonEmpty(...values) {
+        for (const value of values) {
+            if (typeof value === 'string' && value.trim().length > 0) {
+                return value.trim();
+            }
+        }
+        return null;
     }
 
     /**
@@ -654,13 +702,15 @@
      * @param {string} [options.expandedLabel] текст кнопки после раскрытия
      * @param {string} [options.emptyStateText] сообщение об отсутствии данных
      * @param {() => Promise<HTMLElement|null>} options.loadContent асинхронный загрузчик содержимого
-     * @returns {HTMLElement} контейнер секции
+     * @param {boolean} [options.initiallyExpanded] нужно ли раскрыть блок сразу
+     * @returns {{container: HTMLElement, expand: Function, collapse: Function}} управляющий объект секции
      */
     function createLazySection({
         buttonLabel,
         expandedLabel,
         emptyStateText,
-        loadContent
+        loadContent,
+        initiallyExpanded = false
     }) {
         const container = document.createElement('div');
         container.className = 'track-lazy-section d-flex flex-column gap-3';
@@ -790,7 +840,15 @@
             void requestContent();
         });
 
-        return container;
+        if (initiallyExpanded) {
+            expandSection();
+        }
+
+        return {
+            container,
+            expand: expandSection,
+            collapse: collapseSection
+        };
     }
 
     /**
@@ -1718,94 +1776,6 @@
         const canStartExchange = Boolean(returnRequest?.canStartExchange);
         const canCreateExchangeParcel = Boolean(returnRequest?.canCreateExchangeParcel);
 
-        if (canStartExchange && trackId !== undefined && returnRequest?.id !== undefined) {
-            const exchangeButton = createActionButton({
-                text: 'Перевести в обмен',
-                variant: 'primary',
-                ariaLabel: 'Перевести заявку возврата в обмен',
-                onClick: (button) => runButtonAction(button,
-                    () => handleApproveExchangeAction(trackId, returnRequest.id, {
-                        successMessage: 'Заявка переведена в обмен',
-                        notificationType: 'info'
-                    }))
-            });
-            trackActions.appendChild(exchangeButton);
-        }
-
-        if (canCreateExchangeParcel && trackId !== undefined && returnRequest?.id !== undefined) {
-            const createButton = createActionButton({
-                text: 'Создать обменную посылку',
-                variant: 'primary',
-                ariaLabel: 'Создать обменную посылку для покупателя',
-                onClick: (button) => runButtonAction(button,
-                    () => handleCreateExchangeParcelAction(trackId, returnRequest.id, {
-                        successMessage: 'Создана обменная посылка',
-                        notificationType: 'success'
-                    }))
-            });
-            trackActions.appendChild(createButton);
-        }
-
-        if (returnRequest?.canConfirmReceipt && trackId !== undefined && returnRequest.id !== undefined) {
-            const confirmButton = createActionButton({
-                text: 'Подтвердить получение',
-                variant: 'outline-success',
-                ariaLabel: 'Подтвердить получение возврата без закрытия заявки',
-                onClick: (button) => runButtonAction(button,
-                    () => handleConfirmProcessingAction(trackId, returnRequest.id, {
-                        successMessage: 'Получение возврата подтверждено',
-                        notificationType: 'success'
-                    }))
-            });
-            trackActions.appendChild(confirmButton);
-        }
-
-        if (returnRequest?.canCloseWithoutExchange && trackId !== undefined && returnRequest.id !== undefined) {
-            const closeButtonText = exchangeContext ? 'Закрыть без обмена' : 'Принять возврат';
-            const closeVariant = exchangeContext ? 'outline-secondary' : 'success';
-            const closeActionOptions = exchangeContext
-                ? { successMessage: 'Заявка закрыта без обмена', notificationType: 'info' }
-                : { successMessage: 'Возврат принят', notificationType: 'success' };
-            const closeButton = createActionButton({
-                text: closeButtonText,
-                variant: closeVariant,
-                ariaLabel: exchangeContext
-                    ? 'Закрыть заявку без запуска обменной посылки'
-                    : 'Подтвердить приём возврата',
-                onClick: (button) => runButtonAction(button,
-                    () => handleCloseWithoutExchange(trackId, returnRequest.id, closeActionOptions))
-            });
-            trackActions.appendChild(closeButton);
-        }
-
-        if (returnRequest?.canReopenAsReturn && trackId !== undefined && returnRequest.id !== undefined) {
-            const reopenButton = createActionButton({
-                text: 'Перевести в возврат',
-                variant: 'outline-warning',
-                ariaLabel: 'Перевести обменную заявку обратно в возврат',
-                onClick: (button) => runButtonAction(button,
-                    () => handleReopenReturnAction(trackId, returnRequest.id, {
-                        successMessage: 'Заявка переведена в возврат',
-                        notificationType: 'info'
-                    }))
-            });
-            trackActions.appendChild(reopenButton);
-        }
-
-        if (returnRequest?.canCancelExchange && trackId !== undefined && returnRequest.id !== undefined) {
-            const cancelButton = createActionButton({
-                text: 'Отменить обмен',
-                variant: 'outline-danger',
-                ariaLabel: 'Отменить обмен и закрыть заявку',
-                onClick: (button) => runButtonAction(button,
-                    () => handleCancelExchangeAction(trackId, returnRequest.id, {
-                        successMessage: 'Обмен отменён и заявка закрыта',
-                        notificationType: 'warning'
-                    }))
-            });
-            trackActions.appendChild(cancelButton);
-        }
-
         trackTitleRow.append(trackTitleColumn, trackActions);
 
         const serviceInfo = document.createElement('div');
@@ -1882,17 +1852,257 @@
 
         mainColumn.appendChild(parcelCard.card);
 
-        const returnCard = createCard('Возврат / обмен');
+        const returnCard = createCard('Обращение');
         if (returnRequest) {
+            const statusSection = document.createElement('div');
+            statusSection.className = 'd-flex flex-column gap-2';
+
+            const statusHeading = document.createElement('div');
+            statusHeading.className = 'fw-semibold';
+            statusHeading.textContent = 'Статус обращения';
+            statusSection.appendChild(statusHeading);
+
+            const badgeRow = document.createElement('div');
+            badgeRow.className = 'd-flex flex-wrap align-items-center gap-2';
+
+            const typeBadge = document.createElement('span');
+            typeBadge.className = exchangeContext
+                ? 'badge rounded-pill bg-warning-subtle text-warning-emphasis'
+                : 'badge rounded-pill bg-info-subtle text-info-emphasis';
+            typeBadge.textContent = exchangeContext ? 'Обмен' : 'Возврат';
+            typeBadge.setAttribute('aria-label', `Тип обращения: ${typeBadge.textContent}`);
+            badgeRow.appendChild(typeBadge);
+
+            const statusLabelText = firstNonEmpty(returnRequest.statusLabel, returnRequest.status, 'Статус не определён');
+            const badgeClass = firstNonEmpty(returnRequest.statusBadgeClass);
+            const statusBadge = document.createElement('span');
+            statusBadge.className = `badge rounded-pill ${badgeClass || 'bg-secondary-subtle text-secondary-emphasis'}`;
+            statusBadge.textContent = statusLabelText;
+            statusBadge.setAttribute('aria-label', `Текущий статус обращения: ${statusLabelText}`);
+            badgeRow.appendChild(statusBadge);
+
+            statusSection.appendChild(badgeRow);
+            returnCard.body.appendChild(statusSection);
+
+            const actionsWrapper = document.createElement('div');
+            actionsWrapper.className = 'd-flex flex-column gap-3 mt-3';
+
+            const primaryStack = document.createElement('div');
+            primaryStack.className = 'd-flex flex-column gap-2';
+            primaryStack.dataset.returnPrimaryActions = 'true';
+
+            const secondaryStack = document.createElement('div');
+            secondaryStack.className = 'd-flex flex-column gap-2';
+            secondaryStack.dataset.returnSecondaryActions = 'true';
+
+            const appendAction = (stack, button) => {
+                if (button) {
+                    stack.appendChild(button);
+                }
+            };
+
+            if (canStartExchange && trackId !== undefined && returnRequest.id !== undefined) {
+                const startLabel = returnRequest.exchangeRequested
+                    ? 'Создать обменную посылку'
+                    : 'Перевести в обмен';
+                const startButton = createActionButton({
+                    text: startLabel,
+                    variant: 'primary',
+                    ariaLabel: returnRequest.exchangeRequested
+                        ? 'Создать обменную посылку для покупателя'
+                        : 'Перевести заявку возврата в обмен',
+                    onClick: (button) => runButtonAction(button,
+                        () => handleApproveExchangeAction(trackId, returnRequest.id, {
+                            successMessage: returnRequest.exchangeRequested
+                                ? 'Создана обменная посылка'
+                                : 'Заявка переведена в обмен',
+                            notificationType: returnRequest.exchangeRequested ? 'success' : 'info'
+                        })),
+                    fullWidth: true
+                });
+                appendAction(primaryStack, startButton);
+            }
+
+            const allowDirectCreation = canCreateExchangeParcel
+                && trackId !== undefined
+                && returnRequest?.id !== undefined
+                && !(canStartExchange && returnRequest.exchangeRequested);
+            if (allowDirectCreation) {
+                const createButton = createActionButton({
+                    text: 'Создать обменную посылку',
+                    variant: 'primary',
+                    ariaLabel: 'Создать обменную посылку для покупателя',
+                    onClick: (button) => runButtonAction(button,
+                        () => handleCreateExchangeParcelAction(trackId, returnRequest.id, {
+                            successMessage: 'Создана обменная посылка',
+                            notificationType: 'success'
+                        })),
+                    fullWidth: true
+                });
+                appendAction(primaryStack, createButton);
+            }
+
+            if (returnRequest?.canCloseWithoutExchange && trackId !== undefined && returnRequest.id !== undefined) {
+                const closeButtonText = exchangeContext ? 'Закрыть без обмена' : 'Принять возврат';
+                const closeVariant = exchangeContext ? 'outline-secondary' : 'success';
+                const closeOptions = exchangeContext
+                    ? { successMessage: 'Заявка закрыта без обмена', notificationType: 'info' }
+                    : { successMessage: 'Возврат принят', notificationType: 'success' };
+                const closeButton = createActionButton({
+                    text: closeButtonText,
+                    variant: closeVariant,
+                    ariaLabel: exchangeContext
+                        ? 'Закрыть заявку без запуска обменной посылки'
+                        : 'Подтвердить приём возврата',
+                    onClick: (button) => runButtonAction(button,
+                        () => handleCloseWithoutExchange(trackId, returnRequest.id, closeOptions)),
+                    fullWidth: true
+                });
+                appendAction(exchangeContext ? secondaryStack : primaryStack, closeButton);
+            }
+
+            if (returnRequest?.canConfirmReceipt && trackId !== undefined && returnRequest.id !== undefined) {
+                const confirmButton = createActionButton({
+                    text: 'Подтвердить получение',
+                    variant: 'outline-success',
+                    ariaLabel: 'Подтвердить получение возврата без закрытия заявки',
+                    onClick: (button) => runButtonAction(button,
+                        () => handleConfirmProcessingAction(trackId, returnRequest.id, {
+                            successMessage: 'Получение возврата подтверждено',
+                            notificationType: 'success'
+                        })),
+                    fullWidth: true
+                });
+                appendAction(secondaryStack, confirmButton);
+            }
+
+            if (returnRequest?.canReopenAsReturn && trackId !== undefined && returnRequest.id !== undefined) {
+                const reopenButton = createActionButton({
+                    text: 'Перевести в возврат',
+                    variant: 'outline-warning',
+                    ariaLabel: 'Перевести обменную заявку обратно в возврат',
+                    onClick: (button) => runButtonAction(button,
+                        () => handleReopenReturnAction(trackId, returnRequest.id, {
+                            successMessage: 'Заявка переведена в возврат',
+                            notificationType: 'info'
+                        })),
+                    fullWidth: true
+                });
+                appendAction(secondaryStack, reopenButton);
+            }
+
+            if (returnRequest?.canCancelExchange && trackId !== undefined && returnRequest.id !== undefined) {
+                const cancelButton = createActionButton({
+                    text: 'Отменить обмен',
+                    variant: 'outline-danger',
+                    ariaLabel: 'Отменить обмен и закрыть заявку',
+                    onClick: (button) => runButtonAction(button,
+                        () => handleCancelExchangeAction(trackId, returnRequest.id, {
+                            successMessage: 'Обмен отменён и заявка закрыта',
+                            notificationType: 'warning'
+                        })),
+                    fullWidth: true
+                });
+                appendAction(secondaryStack, cancelButton);
+            }
+
+            if (primaryStack.childElementCount > 0) {
+                actionsWrapper.appendChild(primaryStack);
+            }
+            if (secondaryStack.childElementCount > 0) {
+                actionsWrapper.appendChild(secondaryStack);
+            }
+
+            const hintText = firstNonEmpty(
+                returnRequest.hint,
+                exchangeContext
+                    ? 'Заявка оформлена как обмен. Новая посылка появится после подтверждения возврата.'
+                    : 'Заявка оформлена как возврат. Выберите подходящее действие, чтобы завершить процесс.'
+            );
+            const detailsUrl = firstNonEmpty(returnRequest.detailsUrl, returnRequest.hintUrl, returnRequest.helpUrl);
+            if (hintText) {
+                const hintParagraph = document.createElement('p');
+                hintParagraph.className = 'text-muted small mb-0';
+                hintParagraph.textContent = hintText;
+                const moreLink = document.createElement('a');
+                moreLink.textContent = 'Подробнее';
+                moreLink.className = 'ms-1';
+                if (detailsUrl) {
+                    moreLink.href = detailsUrl;
+                    moreLink.target = '_blank';
+                    moreLink.rel = 'noreferrer noopener';
+                } else {
+                    moreLink.href = '#';
+                    moreLink.classList.add('disabled', 'pe-none');
+                    moreLink.setAttribute('aria-disabled', 'true');
+                }
+                hintParagraph.append(' ');
+                hintParagraph.appendChild(moreLink);
+                actionsWrapper.appendChild(hintParagraph);
+            }
+
+            if (actionsWrapper.childElementCount > 0) {
+                returnCard.body.appendChild(actionsWrapper);
+            }
+
+            const warnings = [];
+            if (Array.isArray(returnRequest.warnings)) {
+                returnRequest.warnings.forEach((warning) => {
+                    const normalized = firstNonEmpty(warning);
+                    if (normalized) {
+                        warnings.push(normalized);
+                    }
+                });
+            }
+            if (firstNonEmpty(returnRequest.cancelExchangeUnavailableReason)) {
+                warnings.push(returnRequest.cancelExchangeUnavailableReason);
+            }
+            warnings.forEach((warningText) => {
+                const warning = document.createElement('div');
+                warning.className = 'alert alert-warning mt-2 mb-0';
+                warning.setAttribute('role', 'status');
+                warning.textContent = warningText;
+                returnCard.body.appendChild(warning);
+            });
+
+            const exchangeData = data?.exchangeParcel
+                || returnRequest?.exchangeParcel
+                || (exchangeItem && exchangeItem.id !== undefined ? exchangeItem : null);
+            if (exchangeData && exchangeData.id !== undefined) {
+                const exchangeNotice = document.createElement('div');
+                exchangeNotice.className = 'alert alert-info d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3';
+
+                const noticeText = document.createElement('div');
+                noticeText.className = 'mb-0 flex-grow-1';
+                const exchangeTrack = exchangeData.number ? `трек ${exchangeData.number}` : 'трек не указан';
+                const exchangeStatus = firstNonEmpty(exchangeData.statusLabel, exchangeData.status);
+                noticeText.textContent = exchangeStatus
+                    ? `Обменная посылка, ${exchangeTrack}. ${exchangeStatus}.`
+                    : `Обменная посылка, ${exchangeTrack}.`;
+
+                const openButton = document.createElement('button');
+                openButton.type = 'button';
+                openButton.className = 'btn btn-outline-primary btn-sm ms-auto';
+                openButton.textContent = 'Открыть';
+                openButton.setAttribute('aria-label', 'Открыть обменную посылку');
+                openButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    if (window.trackModal && typeof window.trackModal.loadModal === 'function') {
+                        window.trackModal.loadModal(exchangeData.id);
+                    }
+                });
+
+                exchangeNotice.append(noticeText, openButton);
+                returnCard.body.appendChild(exchangeNotice);
+            }
+
             const infoList = document.createElement('dl');
-            infoList.className = 'row g-2 mb-0';
+            infoList.className = 'row g-2 mb-0 mt-3';
 
-            const exchangeMode = exchangeContext;
-
-            appendDefinitionItem(infoList, 'Тип обращения', exchangeMode ? 'Обмен' : 'Возврат');
-            appendDefinitionItem(infoList, 'Статус', returnRequest.status || '—');
-            appendDefinitionItem(infoList, 'Причина', returnRequest.reason || '—');
-            appendDefinitionItem(infoList, 'Комментарий', returnRequest.comment || '—');
+            appendDefinitionItem(infoList, 'Тип обращения', exchangeContext ? 'Обмен' : 'Возврат');
+            const reasonLabel = firstNonEmpty(returnRequest.reasonLabel, 'Причина');
+            appendDefinitionItem(infoList, reasonLabel, firstNonEmpty(returnRequest.reason, '—'));
+            appendDefinitionItem(infoList, 'Комментарий', firstNonEmpty(returnRequest.comment, '—'));
             appendDefinitionItem(infoList, 'Дата обращения', format(returnRequest.requestedAt));
             appendDefinitionItem(infoList, 'Дата решения', format(returnRequest.decisionAt));
             appendDefinitionItem(infoList, 'Дата закрытия', format(returnRequest.closedAt));
@@ -1904,21 +2114,6 @@
 
             returnCard.body.appendChild(infoList);
 
-            const typeHint = document.createElement('p');
-            typeHint.className = 'text-muted small mt-2 mb-0';
-            typeHint.textContent = exchangeMode
-                ? 'Заявка оформлена как обмен. Новая посылка появится после того, как магазин подтвердит возврат и создаст отправление.'
-                : 'Заявка оформлена как возврат. При необходимости можно создать обменную посылку из блока действий выше.';
-            returnCard.body.appendChild(typeHint);
-
-            if (returnRequest.cancelExchangeUnavailableReason) {
-                const warning = document.createElement('div');
-                warning.className = 'alert alert-warning mt-3 mb-0';
-                warning.setAttribute('role', 'status');
-                warning.textContent = returnRequest.cancelExchangeUnavailableReason;
-                returnCard.body.appendChild(warning);
-            }
-
             const canEditReverseTrack = Boolean(
                 returnRequest?.id !== undefined
                 && data?.id !== undefined
@@ -1927,31 +2122,6 @@
             if (canEditReverseTrack) {
                 const reverseForm = createReverseTrackForm(data.id, returnRequest);
                 returnCard.body.appendChild(reverseForm);
-            }
-
-            if (exchangeItem && exchangeItem.id !== undefined) {
-                const exchangeNotice = document.createElement('div');
-                exchangeNotice.className = 'alert alert-info d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3';
-
-                const noticeText = document.createElement('div');
-                noticeText.className = 'mb-0 flex-grow-1';
-                const numberLabel = exchangeItem.number ? `трек ${exchangeItem.number}` : 'трек без номера';
-                noticeText.textContent = `Создана обменная посылка, ${numberLabel}.`;
-
-                const openButton = document.createElement('button');
-                openButton.type = 'button';
-                openButton.className = 'btn btn-outline-primary btn-sm ms-auto';
-                openButton.textContent = 'Открыть';
-                openButton.setAttribute('aria-label', 'Открыть обменную посылку');
-                openButton.addEventListener('click', (event) => {
-                    event.preventDefault();
-                    if (window.trackModal && typeof window.trackModal.loadModal === 'function') {
-                        window.trackModal.loadModal(exchangeItem.id);
-                    }
-                });
-
-                exchangeNotice.append(noticeText, openButton);
-                returnCard.body.appendChild(exchangeNotice);
             }
         } else if (data?.canRegisterReturn && trackId !== undefined) {
             const intro = document.createElement('p');
@@ -1985,7 +2155,7 @@
                     return buildLifecycleList(stages, format);
                 }
             });
-            body.appendChild(lifecycleSection);
+            body.appendChild(lifecycleSection.container);
             return card;
         })();
 
@@ -2054,9 +2224,10 @@
                 }
                 const history = await loadHistoryOnce(trackId);
                 return createHistoryTimeline(history, format);
-            }
+            },
+            initiallyExpanded: shouldAutoExpandEpisodeHistory(data)
         });
-        historyCard.body.appendChild(historySection);
+        historyCard.body.appendChild(historySection.container);
         mainColumn.appendChild(historyCard.card);
 
         const sidePanel = document.createElement('aside');
