@@ -93,6 +93,9 @@ async function handleTrackRefresh(button) {
 
         if (payload && typeof payload === 'object') {
             if (typeof window.trackModal?.render === 'function') {
+                if (typeof window.trackModal?.invalidateLazySections === 'function') {
+                    window.trackModal.invalidateLazySections(payload?.id ?? trackId);
+                }
                 window.trackModal.render(payload);
             }
 
