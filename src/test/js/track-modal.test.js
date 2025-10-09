@@ -21,6 +21,13 @@ describe('track-modal render', () => {
         };
         global.notifyUser = jest.fn();
         global.promptTrackNumber = jest.fn();
+        global.window.matchMedia = jest.fn(() => ({
+            matches: false,
+            addEventListener: jest.fn(),
+            removeEventListener: jest.fn(),
+            addListener: jest.fn(),
+            removeListener: jest.fn()
+        }));
         const defaultHeaders = { get: jest.fn(() => 'application/json') };
         global.fetch = jest.fn(() => Promise.resolve({ ok: true, headers: defaultHeaders, json: () => Promise.resolve({}) }));
         global.crypto = { randomUUID: jest.fn(() => 'test-uuid') };
@@ -40,6 +47,9 @@ describe('track-modal render', () => {
         delete global.promptTrackNumber;
         delete global.fetch;
         delete global.crypto;
+        if (global.window && global.window.matchMedia) {
+            delete global.window.matchMedia;
+        }
         if (global.window && global.window.returnRequests) {
             delete global.window.returnRequests;
         }
@@ -82,7 +92,7 @@ describe('track-modal render', () => {
         expect(chainButtons[0].textContent).toContain('AB123456789BY');
     });
 
-    test('skips lifecycle card for outbound-only stage list', () => {
+    test('shows lifecycle placeholder for outbound-only stage list', async () => {
         setupDom();
         const data = {
             id: 2,
@@ -118,10 +128,17 @@ describe('track-modal render', () => {
 
         const lifecycleCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Жизненный цикл заказа');
-        expect(lifecycleCard).toBeUndefined();
+        expect(lifecycleCard).toBeDefined();
+        const toggle = lifecycleCard?.querySelector('button');
+        toggle?.click();
+        await Promise.resolve();
+        await Promise.resolve();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const placeholderText = lifecycleCard?.querySelector('.track-lazy-section__result p')?.textContent || '';
+        expect(placeholderText).toContain('Этапы пока недоступны');
     });
 
-    test('renders exchange chain with clickable original parcel', () => {
+    test('renders exchange chain with clickable original parcel', async () => {
         setupDom();
         const loadSpy = jest.spyOn(global.window.trackModal, 'loadModal').mockImplementation(() => {});
         const data = {
@@ -140,9 +157,34 @@ describe('track-modal render', () => {
                 { id: 11, number: 'RB987654321CN', exchange: true, returnShipment: false, current: true },
                 { id: 10, number: 'RB111222333CN', exchange: false, returnShipment: false, current: false }
             ],
-            returnRequest: { id: 5, status: 'Зарегистрирована', decisionAt: null, closedAt: null,
-                requiresAction: true, exchangeApproved: false, exchangeRequested: true, canStartExchange: true, canCreateExchangeParcel: false, canCloseWithoutExchange: true,
-                cancelExchangeUnavailableReason: null, canConfirmReceipt: true, returnReceiptConfirmed: false, returnReceiptConfirmedAt: null },
+            returnRequest: {
+                id: 5,
+                status: 'Зарегистрирована',
+                statusLabel: 'Зарегистрирована',
+                statusBadgeClass: 'bg-warning-subtle text-warning-emphasis',
+                reasonLabel: 'Причина',
+                reason: 'Размер не подошёл',
+                comment: 'Свяжитесь со мной',
+                requestedAt: '2024-01-05T12:00:00Z',
+                decisionAt: null,
+                closedAt: null,
+                reverseTrackNumber: null,
+                requiresAction: true,
+                exchangeApproved: false,
+                exchangeRequested: false,
+                canStartExchange: true,
+                canCreateExchangeParcel: false,
+                canCloseWithoutExchange: true,
+                canReopenAsReturn: false,
+                canCancelExchange: false,
+                cancelExchangeUnavailableReason: null,
+                canConfirmReceipt: true,
+                returnReceiptConfirmed: false,
+                returnReceiptConfirmedAt: null,
+                hint: 'Подтвердите возврат, чтобы оформить обмен.',
+                warnings: ['Свяжитесь с покупателем перед отправкой.'],
+                detailsUrl: 'https://example.com/returns'
+            },
             canRegisterReturn: false,
             lifecycle: [
                 {
@@ -179,6 +221,25 @@ describe('track-modal render', () => {
             requiresAction: true
         };
 
+        const headers = { get: jest.fn(() => 'application/json') };
+        global.fetch.mockImplementation((url) => {
+            if (String(url).includes('/lifecycle')) {
+                return Promise.resolve({
+                    ok: true,
+                    headers,
+                    json: () => Promise.resolve({ lifecycle: data.lifecycle })
+                });
+            }
+            if (String(url).includes('/history')) {
+                return Promise.resolve({
+                    ok: true,
+                    headers,
+                    json: () => Promise.resolve({ history: [] })
+                });
+            }
+            return Promise.resolve({ ok: true, headers, json: () => Promise.resolve({}) });
+        });
+
         global.window.trackModal.render(data);
 
         const buttons = document.querySelectorAll('button.track-chain__item');
@@ -189,20 +250,30 @@ describe('track-modal render', () => {
         expect(loadSpy).toHaveBeenCalledWith(10);
 
         const returnCard = Array.from(document.querySelectorAll('section.card'))
-            .find((card) => card.querySelector('h6')?.textContent === 'Возврат / обмен');
+            .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
         expect(returnCard).toBeDefined();
         const definitions = returnCard?.querySelector('dl');
         expect(definitions?.textContent).toContain('Тип обращения');
-        const typeHint = returnCard?.querySelector('p.text-muted.small');
-        expect(typeHint?.textContent).toContain('Заявка оформлена как обмен');
+        const hint = returnCard?.querySelector('p.text-muted.small');
+        expect(hint?.textContent).toContain('Подтвердите возврат');
+        const warningBanner = returnCard?.querySelector('.alert.alert-warning');
+        expect(warningBanner?.textContent).toContain('Свяжитесь с покупателем');
         expect(returnCard?.textContent).toContain('Подтверждение получения');
 
         const lifecycleCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Жизненный цикл заказа');
-        expect(lifecycleCard?.textContent).toContain('Исходная посылка');
-        expect(lifecycleCard?.textContent).toContain('RB987654321CN');
-        expect(lifecycleCard?.textContent).toContain('Обратный трек');
-        expect(lifecycleCard?.textContent).toContain('трек не указан');
+        expect(lifecycleCard).toBeDefined();
+        const toggleLifecycle = lifecycleCard?.querySelector('button');
+        toggleLifecycle?.click();
+        await Promise.resolve();
+        await Promise.resolve();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const lifecycleItems = Array.from(lifecycleCard?.querySelectorAll('ol[role="list"] li') || []);
+        const lifecycleText = lifecycleItems.map((item) => item.textContent?.trim() || '').join(' ');
+        expect(lifecycleItems.length).toBeGreaterThanOrEqual(2);
+        expect(lifecycleText).toContain('Отправление магазина');
+        expect(lifecycleText).toContain('Возврат от покупателя');
+        expect(lifecycleText).toContain('Приём возврата магазином');
 
         const confirmBtn = Array.from(document.querySelectorAll('button')).find((btn) => btn.textContent === 'Подтвердить получение');
         expect(confirmBtn).toBeDefined();
@@ -279,6 +350,9 @@ describe('track-modal render', () => {
             returnRequest: {
                 id: 5,
                 status: 'Зарегистрирована',
+                statusLabel: 'Зарегистрирована',
+                statusBadgeClass: 'bg-warning-subtle text-warning-emphasis',
+                reasonLabel: 'Причина',
                 reason: 'Размер не подошёл',
                 comment: 'Обновлённый комментарий',
                 requestedAt: '2024-02-02T10:00:00Z',
@@ -295,7 +369,10 @@ describe('track-modal render', () => {
                 canCancelExchange: false,
                 returnReceiptConfirmed: false,
                 returnReceiptConfirmedAt: null,
-                canConfirmReceipt: true
+                canConfirmReceipt: true,
+                hint: 'Возврат подтверждён, проверьте трек.',
+                warnings: [],
+                detailsUrl: 'https://example.com/returns'
             },
             canRegisterReturn: false,
             lifecycle: [],
@@ -325,6 +402,9 @@ describe('track-modal render', () => {
             returnRequest: {
                 id: 5,
                 status: 'Зарегистрирована',
+                statusLabel: 'Зарегистрирована',
+                statusBadgeClass: 'bg-warning-subtle text-warning-emphasis',
+                reasonLabel: 'Причина',
                 reason: 'Размер не подошёл',
                 comment: 'Свяжитесь со мной',
                 requestedAt: '2024-02-02T10:00:00Z',
@@ -338,7 +418,10 @@ describe('track-modal render', () => {
                 canCreateExchangeParcel: false,
                 canCloseWithoutExchange: true,
                 canReopenAsReturn: false,
-                canCancelExchange: false
+                canCancelExchange: false,
+                hint: 'Укажите обратный трек для ускорения обработки.',
+                warnings: [],
+                detailsUrl: 'https://example.com/returns'
             },
             canRegisterReturn: false,
             lifecycle: [],
@@ -408,6 +491,9 @@ describe('track-modal render', () => {
             returnRequest: {
                 id: 6,
                 status: 'Зарегистрирована',
+                statusLabel: 'Зарегистрирована',
+                statusBadgeClass: 'bg-success-subtle text-success-emphasis',
+                reasonLabel: 'Причина',
                 reason: 'Брак',
                 comment: null,
                 requestedAt: '2024-02-02T10:00:00Z',
@@ -424,7 +510,10 @@ describe('track-modal render', () => {
                 cancelExchangeUnavailableReason: null,
                 returnReceiptConfirmed: true,
                 returnReceiptConfirmedAt: '2024-03-01T09:00:00Z',
-                canConfirmReceipt: false
+                canConfirmReceipt: false,
+                hint: 'Покупатель уже подтвердил возврат.',
+                warnings: [],
+                detailsUrl: 'https://example.com/returns'
             },
             canRegisterReturn: false,
             lifecycle: [],
@@ -480,7 +569,7 @@ describe('track-modal render', () => {
         expect(buttons[0].getAttribute('aria-current')).toBe('true');
     });
 
-    test('omits lifecycle card when only outbound stage is provided', () => {
+    test('keeps lifecycle card collapsed when only outbound stage is provided', async () => {
         setupDom();
         const data = {
             id: 9,
@@ -518,8 +607,12 @@ describe('track-modal render', () => {
 
         const lifecycleCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Жизненный цикл заказа');
-        expect(lifecycleCard).toBeUndefined();
-        const lifecycleList = document.querySelector('ol[role="list"]');
+        expect(lifecycleCard).toBeDefined();
+        const toggle = lifecycleCard?.querySelector('button');
+        toggle?.click();
+        await Promise.resolve();
+        await Promise.resolve();
+        const lifecycleList = lifecycleCard?.querySelector('ol[role="list"]');
         expect(lifecycleList).toBeNull();
     });
 
@@ -562,9 +655,18 @@ describe('track-modal render', () => {
             returnRequest: {
                 id: 5,
                 status: 'Зарегистрирована',
+                statusLabel: 'Зарегистрирована',
+                statusBadgeClass: 'bg-warning-subtle text-warning-emphasis',
+                reasonLabel: 'Причина',
+                reason: 'Размер не подошёл',
+                comment: 'Требуется обмен',
+                requestedAt: '2024-02-10T09:00:00Z',
+                decisionAt: null,
+                closedAt: null,
+                reverseTrackNumber: null,
                 requiresAction: true,
                 exchangeApproved: false,
-                exchangeRequested: true,
+                exchangeRequested: false,
                 canStartExchange: true,
                 canCreateExchangeParcel: false,
                 canCloseWithoutExchange: true,
@@ -572,7 +674,10 @@ describe('track-modal render', () => {
                 canCancelExchange: false,
                 returnReceiptConfirmed: false,
                 returnReceiptConfirmedAt: null,
-                canConfirmReceipt: true
+                canConfirmReceipt: true,
+                hint: 'Переведите заявку, чтобы запустить обмен.',
+                warnings: [],
+                detailsUrl: 'https://example.com/returns'
             },
             canRegisterReturn: false,
             lifecycle: [],
@@ -581,8 +686,13 @@ describe('track-modal render', () => {
 
         global.window.trackModal.render(data);
 
-        const approveButton = Array.from(document.querySelectorAll('button'))
-            .find((btn) => btn.textContent === 'Перевести в обмен');
+        const actionCard = Array.from(document.querySelectorAll('section.card'))
+            .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
+        const actionButtons = Array.from(actionCard?.querySelectorAll('button') || [])
+            .map((btn) => btn.textContent?.trim());
+        expect(actionButtons).toContain('Перевести в обмен');
+        const approveButton = Array.from(actionCard?.querySelectorAll('button') || [])
+            .find((btn) => btn.textContent?.trim() === 'Перевести в обмен');
         expect(approveButton).toBeDefined();
         approveButton?.click();
 
@@ -639,6 +749,15 @@ describe('track-modal render', () => {
             returnRequest: {
                 id: 6,
                 status: 'Обмен одобрен',
+                statusLabel: 'Обмен одобрен',
+                statusBadgeClass: 'bg-primary-subtle text-primary-emphasis',
+                reasonLabel: 'Причина',
+                reason: 'Брак',
+                comment: 'Согласован обмен',
+                requestedAt: '2024-02-11T11:00:00Z',
+                decisionAt: '2024-02-12T11:00:00Z',
+                closedAt: null,
+                reverseTrackNumber: null,
                 requiresAction: true,
                 exchangeApproved: true,
                 exchangeRequested: true,
@@ -649,7 +768,10 @@ describe('track-modal render', () => {
                 canCancelExchange: false,
                 returnReceiptConfirmed: true,
                 returnReceiptConfirmedAt: '2024-02-01T10:00:00Z',
-                canConfirmReceipt: false
+                canConfirmReceipt: false,
+                hint: 'Создайте обменную посылку, чтобы завершить процесс.',
+                warnings: [],
+                detailsUrl: 'https://example.com/returns'
             },
             canRegisterReturn: false,
             lifecycle: [],
@@ -658,7 +780,9 @@ describe('track-modal render', () => {
 
         global.window.trackModal.render(data);
 
-        const createButton = Array.from(document.querySelectorAll('button'))
+        const card = Array.from(document.querySelectorAll('section.card'))
+            .find((item) => item.querySelector('h6')?.textContent === 'Обращение');
+        const createButton = Array.from(card?.querySelectorAll('button') || [])
             .find((btn) => btn.textContent === 'Создать обменную посылку');
         expect(createButton).toBeDefined();
         createButton?.click();
@@ -674,7 +798,182 @@ describe('track-modal render', () => {
         expect(global.notifyUser).toHaveBeenCalledWith('Создана обменная посылка', 'success');
     });
 
-    test('shows register button when return can be created', () => {
+    test('shows exchange parcel widget with open CTA', () => {
+        setupDom();
+        const loadSpy = jest.spyOn(global.window.trackModal, 'loadModal').mockImplementation(() => {});
+        const data = {
+            id: 18,
+            number: 'BY777',
+            deliveryService: 'Belpost',
+            systemStatus: 'Вручена',
+            history: [],
+            refreshAllowed: true,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: 9,
+            exchange: false, returnShipment: false,
+            chain: [],
+            exchangeParcel: { id: 77, number: 'EX777', statusLabel: 'В пути' },
+            returnRequest: {
+                id: 9,
+                status: 'Обмен запускается',
+                statusLabel: 'Обмен запускается',
+                statusBadgeClass: 'bg-info-subtle text-info-emphasis',
+                reasonLabel: 'Причина',
+                reason: 'Не подошёл размер',
+                comment: 'Попросили обмен',
+                requestedAt: '2024-02-15T12:00:00Z',
+                decisionAt: null,
+                closedAt: null,
+                reverseTrackNumber: null,
+                requiresAction: true,
+                exchangeApproved: true,
+                exchangeRequested: true,
+                canStartExchange: false,
+                canCreateExchangeParcel: false,
+                canCloseWithoutExchange: false,
+                canReopenAsReturn: true,
+                canCancelExchange: true,
+                returnReceiptConfirmed: true,
+                returnReceiptConfirmedAt: '2024-02-16T12:00:00Z',
+                canConfirmReceipt: false,
+                hint: 'Обменная посылка готова к отправке.',
+                warnings: ['Проверьте состав вложения.'],
+                detailsUrl: 'https://example.com/returns',
+                cancelExchangeUnavailableReason: null
+            },
+            canRegisterReturn: false,
+            lifecycle: [],
+            requiresAction: true
+        };
+
+        global.window.trackModal.render(data);
+
+        const card = Array.from(document.querySelectorAll('section.card'))
+            .find((item) => item.querySelector('h6')?.textContent === 'Обращение');
+        const exchangeAlert = card?.querySelector('.alert.alert-info');
+        expect(exchangeAlert?.textContent).toContain('EX777');
+        expect(exchangeAlert?.textContent).toContain('В пути');
+        const openButton = exchangeAlert?.querySelector('button');
+        expect(openButton).toBeDefined();
+        openButton?.click();
+        expect(loadSpy).toHaveBeenCalledWith(77);
+    });
+
+    test('auto expands history for active return request', async () => {
+        setupDom();
+        const data = {
+            id: 21,
+            number: 'BY111',
+            deliveryService: 'Belpost',
+            systemStatus: 'В пути',
+            history: [],
+            refreshAllowed: true,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: 33,
+            exchange: false, returnShipment: false,
+            chain: [
+                { id: 21, number: 'BY111', exchange: false, returnShipment: false, current: true }
+            ],
+            returnRequest: {
+                id: 3,
+                status: 'Зарегистрирована',
+                reason: 'Размер не подошёл',
+                comment: null,
+                requestedAt: '2024-02-01T10:00:00Z',
+                decisionAt: null,
+                closedAt: null,
+                reverseTrackNumber: null,
+                requiresAction: true,
+                exchangeApproved: false,
+                exchangeRequested: false,
+                canStartExchange: true,
+                canCreateExchangeParcel: false,
+                canCloseWithoutExchange: true,
+                canReopenAsReturn: false,
+                canCancelExchange: false,
+                cancelExchangeUnavailableReason: null,
+                returnReceiptConfirmed: false,
+                returnReceiptConfirmedAt: null,
+                canConfirmReceipt: true
+            },
+            canRegisterReturn: false,
+            lifecycle: [],
+            requiresAction: true
+        };
+
+        global.window.trackModal.render(data);
+
+        await Promise.resolve();
+
+        const historyCard = Array.from(document.querySelectorAll('section.card'))
+            .find((card) => card.querySelector('h6')?.textContent === 'История трека');
+        const toggle = historyCard?.querySelector('button');
+        const content = historyCard?.querySelector('.track-lazy-section__content');
+        expect(toggle?.getAttribute('aria-expanded')).toBe('true');
+        expect(content?.classList.contains('d-none')).toBe(false);
+    });
+
+    test('keeps history collapsed when there is no active appeal', async () => {
+        setupDom();
+        const data = {
+            id: 22,
+            number: 'BY222',
+            deliveryService: 'Belpost',
+            systemStatus: 'Доставлена',
+            history: [],
+            refreshAllowed: true,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: 34,
+            exchange: false, returnShipment: false,
+            chain: [
+                { id: 22, number: 'BY222', exchange: false, returnShipment: false, current: true }
+            ],
+            returnRequest: {
+                id: 4,
+                status: 'Закрыта',
+                reason: 'Не подошло',
+                comment: 'Возврат завершён',
+                requestedAt: '2024-01-01T10:00:00Z',
+                decisionAt: '2024-01-05T10:00:00Z',
+                closedAt: '2024-01-06T10:00:00Z',
+                reverseTrackNumber: 'RR123456',
+                requiresAction: false,
+                exchangeApproved: false,
+                exchangeRequested: false,
+                canStartExchange: false,
+                canCreateExchangeParcel: false,
+                canCloseWithoutExchange: false,
+                canReopenAsReturn: false,
+                canCancelExchange: false,
+                cancelExchangeUnavailableReason: null,
+                returnReceiptConfirmed: true,
+                returnReceiptConfirmedAt: '2024-01-06T11:00:00Z',
+                canConfirmReceipt: false
+            },
+            canRegisterReturn: false,
+            lifecycle: [],
+            requiresAction: false
+        };
+
+        global.window.trackModal.render(data);
+
+        await Promise.resolve();
+
+        const historyCard = Array.from(document.querySelectorAll('section.card'))
+            .find((card) => card.querySelector('h6')?.textContent === 'История трека');
+        const toggle = historyCard?.querySelector('button');
+        const content = historyCard?.querySelector('.track-lazy-section__content');
+        expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+        expect(content?.classList.contains('d-none')).toBe(true);
+    });
+
+    test('shows register button when return can be created', async () => {
         setupDom();
         const data = {
             id: 7,
@@ -728,16 +1027,35 @@ describe('track-modal render', () => {
             requiresAction: false
         };
 
+        const headers = { get: jest.fn(() => 'application/json') };
+        global.fetch.mockImplementation((url) => {
+            if (String(url).includes('/lifecycle')) {
+                return Promise.resolve({
+                    ok: true,
+                    headers,
+                    json: () => Promise.resolve({ lifecycle: data.lifecycle })
+                });
+            }
+            return Promise.resolve({ ok: true, headers, json: () => Promise.resolve({ history: [] }) });
+        });
+
         global.window.trackModal.render(data);
 
         const lifecycleHeading = Array.from(document.querySelectorAll('section.card h6'))
             .find((heading) => heading.textContent.includes('Жизненный цикл заказа'));
         expect(lifecycleHeading).toBeDefined();
 
+        const lifecycleCard = lifecycleHeading?.closest('section.card');
+        const toggleLifecycle = lifecycleCard?.querySelector('button');
+        toggleLifecycle?.click();
+        await Promise.resolve();
+        await Promise.resolve();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
         const button = document.querySelector('form button[type="submit"]');
         expect(button).not.toBeNull();
 
-        const stages = document.querySelectorAll('ol[role="list"] li');
+        const stages = lifecycleCard?.querySelectorAll('ol[role="list"] li') || [];
         expect(stages.length).toBeGreaterThanOrEqual(3);
         expect(button?.textContent).toContain('Отправить заявку');
 
