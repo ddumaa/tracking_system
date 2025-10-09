@@ -74,12 +74,19 @@ public class OrderReturnRequest {
 
     /**
      * Признак, что магазин подтвердил получение возврата вручную.
+     * <p>
+     * Флаг устанавливается сотрудником после проверки склада и исключает повторное подтверждение,
+     * помогая сервисам корректно ограничивать действия пользователей.
+     * </p>
      */
     @Column(name = "return_receipt_confirmed", nullable = false)
     private boolean returnReceiptConfirmed = false;
 
     /**
-     * Время, когда менеджер подтвердил получение возврата.
+     * Время, когда магазин зафиксировал подтверждение получения возврата.
+     * <p>
+     * Метка позволяет отображать точный момент проверки в интерфейсе и в уведомлениях клиентов.
+     * </p>
      */
     @Column(name = "return_receipt_confirmed_at")
     private ZonedDateTime returnReceiptConfirmedAt;
@@ -201,18 +208,38 @@ public class OrderReturnRequest {
         this.reverseTrackNumber = reverseTrackNumber;
     }
 
+    /**
+     * Возвращает признак ручного подтверждения возврата магазином.
+     *
+     * @return {@code true}, если склад уже подтвердил получение возврата
+     */
     public boolean isReturnReceiptConfirmed() {
         return returnReceiptConfirmed;
     }
 
+    /**
+     * Устанавливает признак ручного подтверждения возврата магазином.
+     *
+     * @param returnReceiptConfirmed новое значение флага подтверждения
+     */
     public void setReturnReceiptConfirmed(boolean returnReceiptConfirmed) {
         this.returnReceiptConfirmed = returnReceiptConfirmed;
     }
 
+    /**
+     * Возвращает время, когда магазин подтвердил получение возврата.
+     *
+     * @return метка времени подтверждения или {@code null}, если подтверждения не было
+     */
     public ZonedDateTime getReturnReceiptConfirmedAt() {
         return returnReceiptConfirmedAt;
     }
 
+    /**
+     * Устанавливает момент подтверждения возврата магазином.
+     *
+     * @param returnReceiptConfirmedAt новая метка времени подтверждения
+     */
     public void setReturnReceiptConfirmedAt(ZonedDateTime returnReceiptConfirmedAt) {
         this.returnReceiptConfirmedAt = returnReceiptConfirmedAt;
     }
