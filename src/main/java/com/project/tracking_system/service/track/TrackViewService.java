@@ -129,6 +129,39 @@ public class TrackViewService {
     }
 
     /**
+     * Возвращает историю статусов посылки в пользовательском часовом поясе.
+     * Метод инкапсулирует загрузку посылки с проверкой прав и переиспользует
+     * единые правила форматирования времени для всех клиентов.
+     *
+     * @param trackId идентификатор посылки
+     * @param userId  идентификатор пользователя
+     * @return хронологический список событий; если событий нет, возвращается пустой список
+     */
+    @Transactional(readOnly = true)
+    public List<TrackStatusEventDto> getTrackHistory(Long trackId, Long userId) {
+        TrackParcel parcel = loadParcel(trackId, userId);
+        ZoneId userZone = userService.getUserZone(userId);
+        return buildHistory(parcel, userZone);
+    }
+
+    /**
+     * Возвращает этапы жизненного цикла посылки с учётом активной заявки на возврат/обмен.
+     * Метод повторно использует проверку прав доступа и доменную логику построения стадий,
+     * гарантируя единый подход для всех клиентов.
+     *
+     * @param trackId идентификатор посылки
+     * @param userId  идентификатор пользователя
+     * @return список этапов; при отсутствии заявки может содержать только исходное отправление
+     */
+    @Transactional(readOnly = true)
+    public List<TrackLifecycleStageDto> getTrackLifecycle(Long trackId, Long userId) {
+        TrackParcel parcel = loadParcel(trackId, userId);
+        ZoneId userZone = userService.getUserZone(userId);
+        Optional<OrderReturnRequest> currentRequest = orderReturnRequestService.findCurrentForParcel(parcel.getId());
+        return buildLifecycle(parcel, currentRequest, userZone);
+    }
+
+    /**
      * Формирует этапы жизненного цикла заказа для модального окна.
      * Метод объединяет данные посылки, заявки и обменной посылки, сохраняя SRP: вычисление
      * состояния этапов изолировано от контроллеров и шаблонов.

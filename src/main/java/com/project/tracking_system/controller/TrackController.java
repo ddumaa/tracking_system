@@ -7,9 +7,11 @@ import com.project.tracking_system.dto.ReturnRequestReverseTrackUpdateRequest;
 import com.project.tracking_system.dto.ReturnRequestActionResponse;
 import com.project.tracking_system.dto.TrackChainItemDto;
 import com.project.tracking_system.dto.TrackDetailsDto;
+import com.project.tracking_system.dto.TrackLifecycleStageDto;
 import com.project.tracking_system.dto.TrackNumberUpdateRequest;
 import com.project.tracking_system.dto.TrackNumberUpdateResponse;
 import com.project.tracking_system.dto.TrackParcelDTO;
+import com.project.tracking_system.dto.TrackStatusEventDto;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderReturnRequest;
@@ -30,6 +32,7 @@ import com.project.tracking_system.exception.TrackNumberAlreadyExistsException;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import jakarta.validation.Valid;
@@ -60,6 +63,42 @@ public class TrackController {
             throw new AccessDeniedException("Пользователь не авторизован");
         }
         return trackViewService.getTrackDetails(id, user.getId());
+    }
+
+    /**
+     * Возвращает историю статусов посылки для текущего пользователя.
+     * Метод повторно использует доменную логику {@link TrackViewService},
+     * чтобы гарантировать единообразные проверки прав и форматирование времени.
+     *
+     * @param id   идентификатор посылки
+     * @param user текущий пользователь
+     * @return упорядоченный список событий; при отсутствии данных возвращается пустой список
+     */
+    @GetMapping("/{id}/history")
+    public List<TrackStatusEventDto> getTrackHistory(@PathVariable Long id,
+                                                     @AuthenticationPrincipal User user) {
+        if (user == null) {
+            throw new AccessDeniedException("Пользователь не авторизован");
+        }
+        return trackViewService.getTrackHistory(id, user.getId());
+    }
+
+    /**
+     * Возвращает этапы жизненного цикла посылки для текущего пользователя.
+     * Метод использует {@link TrackViewService}, чтобы переиспользовать все проверки
+     * доступа и форматирование дат, а также получить согласованный набор этапов.
+     *
+     * @param id   идентификатор посылки
+     * @param user текущий пользователь
+     * @return жизненный цикл посылки; при отсутствии этапов возвращается пустой список
+     */
+    @GetMapping("/{id}/lifecycle")
+    public List<TrackLifecycleStageDto> getTrackLifecycle(@PathVariable Long id,
+                                                          @AuthenticationPrincipal User user) {
+        if (user == null) {
+            throw new AccessDeniedException("Пользователь не авторизован");
+        }
+        return trackViewService.getTrackLifecycle(id, user.getId());
     }
 
     /**
