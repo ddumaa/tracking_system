@@ -257,10 +257,29 @@
             ? bootstrap.Collapse.getOrCreateInstance(collapse, { toggle: false })
             : null;
 
+        const layout = panel.closest('.track-modal-layout');
+        const sideColumn = panel.closest('.track-modal-side');
+        const mainColumn = layout?.querySelector('.track-modal-main') || null;
+
         let isPinned = readBooleanFromStorage(SIDE_PANEL_PIN_KEY, true);
         let isCollapsed = readBooleanFromStorage(SIDE_PANEL_COLLAPSE_KEY, false);
         let collapsePreference = isCollapsed;
         let suppressStorageUpdate = false;
+
+        /**
+         * Синхронизирует классы колонок с состоянием collapse.
+         * Метод добавляет модификаторы, чтобы CSS растягивал основную колонку и сжимал боковую на широких экранах (OCP).
+         * @param {boolean} collapsed актуальное состояние панели
+         */
+        const syncLayoutWithCollapse = (collapsed) => {
+            if (!layout || !sideColumn || !mainColumn) {
+                return;
+            }
+            const shouldCollapse = Boolean(collapsed);
+            layout.classList.toggle('track-modal-layout--side-collapsed', shouldCollapse);
+            sideColumn.classList.toggle('track-modal-side--collapsed', shouldCollapse);
+            mainColumn.classList.toggle('track-modal-main--expanded', shouldCollapse);
+        };
 
         const updatePinVisual = (pinned) => {
             pinButton.setAttribute('aria-pressed', String(pinned));
@@ -284,6 +303,7 @@
 
         updatePinVisual(isPinned);
         updateCollapseVisual(isCollapsed);
+        syncLayoutWithCollapse(isCollapsed);
 
         if (collapseInstance) {
             if (isCollapsed) {
@@ -297,6 +317,7 @@
         const handleCollapseShown = () => {
             isCollapsed = false;
             updateCollapseVisual(false);
+            syncLayoutWithCollapse(false);
             if (!suppressStorageUpdate) {
                 collapsePreference = false;
                 writeBooleanToStorage(SIDE_PANEL_COLLAPSE_KEY, false);
@@ -307,6 +328,7 @@
         const handleCollapseHidden = () => {
             isCollapsed = true;
             updateCollapseVisual(true);
+            syncLayoutWithCollapse(true);
             if (!suppressStorageUpdate) {
                 collapsePreference = true;
                 writeBooleanToStorage(SIDE_PANEL_COLLAPSE_KEY, true);
@@ -351,6 +373,7 @@
             }
             updatePinVisual(isPinned);
             writeBooleanToStorage(SIDE_PANEL_PIN_KEY, isPinned);
+            syncLayoutWithCollapse(isCollapsed);
         };
 
         pinButton.addEventListener('click', handlePinClick);
@@ -385,6 +408,7 @@
                 }
                 updateCollapseVisual(shouldCollapse);
             }
+            syncLayoutWithCollapse(isCollapsed);
         };
 
         if (typeof mediaQuery.addEventListener === 'function') {

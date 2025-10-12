@@ -300,6 +300,39 @@ header {
 }
 
 @media (min-width: 992px) {
+  .track-modal-layout {
+    flex-wrap: nowrap;
+  }
+
+  .track-modal-layout .track-modal-main,
+  .track-modal-layout .track-modal-side {
+    width: 50%;
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+
+  .track-modal-main--expanded {
+    width: auto;
+    flex: 1 1 auto;
+    max-width: 100%;
+  }
+
+  .track-modal-side--collapsed {
+    width: auto;
+    flex: 0 0 auto;
+    max-width: none;
+  }
+
+  .track-side-panel,
+  .track-side-panel__collapse {
+    width: 100%;
+  }
+
+  .track-modal-side--collapsed .track-side-panel,
+  .track-modal-side--collapsed .track-side-panel__collapse {
+    width: auto;
+  }
+
   .track-side-panel__toggle {
     margin-left: 0.75rem;
     padding-left: 0.75rem;
