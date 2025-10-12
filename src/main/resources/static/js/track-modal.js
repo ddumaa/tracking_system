@@ -2270,7 +2270,7 @@
 
         const toggleButton = document.createElement('button');
         toggleButton.type = 'button';
-        toggleButton.className = 'btn btn-sm btn-outline-secondary track-side-panel__toggle d-lg-none';
+        toggleButton.className = 'btn btn-sm btn-outline-secondary track-side-panel__toggle';
         toggleButton.dataset.bsToggle = 'collapse';
         toggleButton.dataset.bsTarget = `#${collapseId}`;
         toggleButton.setAttribute('aria-controls', collapseId);

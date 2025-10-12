@@ -285,6 +285,28 @@ header {
   transition: transform 0.2s ease-in-out;
 }
 
+.track-side-panel__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: color 0.2s ease-in-out, border-color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+}
+
+.track-side-panel__toggle:hover,
+.track-side-panel__toggle:focus-visible {
+  color: var(--bs-primary-text-emphasis);
+  border-color: var(--bs-primary-border-subtle);
+  background-color: var(--bs-primary-bg-subtle);
+}
+
+@media (min-width: 992px) {
+  .track-side-panel__toggle {
+    margin-left: 0.75rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+}
+
 .track-side-panel__toggle[aria-expanded="true"] .track-side-panel__toggle-icon {
   transform: rotate(90deg);
 }
