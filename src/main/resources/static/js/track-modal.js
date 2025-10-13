@@ -231,21 +231,26 @@
      * @param {Object} options параметры конфигурации
      * @param {HTMLElement} options.container основной контейнер модального окна
      * @param {HTMLElement} options.drawer панель, выезжающая поверх основного контента
-     * @param {HTMLButtonElement} options.toggleButton кнопка управления состоянием панели
+     * @param {Array<HTMLElement>} options.toggleButtons коллекция кнопок управления панелью
      * @returns {Function} функция очистки обработчиков
      */
     function setupSidePanelInteractions({
         container,
         drawer,
-        toggleButton
+        toggleButtons
     }) {
-        if (!container || !drawer || !toggleButton) {
+        const buttons = Array.isArray(toggleButtons)
+            ? toggleButtons.filter((button) => button instanceof HTMLElement)
+            : [];
+        if (!container || !drawer || buttons.length === 0) {
             return () => {};
         }
 
         const drawerId = drawer.id || `trackModalDrawer${++elementSequence}`;
         drawer.id = drawerId;
-        toggleButton.setAttribute('aria-controls', drawerId);
+        buttons.forEach((button) => {
+            button.setAttribute('aria-controls', drawerId);
+        });
 
         let isOpen = !readBooleanFromStorage(SIDE_PANEL_COLLAPSE_KEY, false);
 
@@ -258,8 +263,10 @@
             const label = open
                 ? 'Скрыть панель «Обмен/Возврат»'
                 : 'Показать панель «Обмен/Возврат»';
-            toggleButton.setAttribute('aria-label', label);
-            toggleButton.setAttribute('title', label);
+            buttons.forEach((button) => {
+                button.setAttribute('aria-label', label);
+                button.setAttribute('title', label);
+            });
         };
 
         /**
@@ -272,11 +279,20 @@
             drawer.classList.toggle('track-modal-drawer--open', shouldOpen);
             drawer.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
             container.classList.toggle('track-modal-container--drawer-open', shouldOpen);
-            toggleButton.setAttribute('aria-expanded', String(shouldOpen));
+            buttons.forEach((button) => {
+                button.setAttribute('aria-expanded', String(shouldOpen));
+            });
             updateToggleAria(shouldOpen);
         };
 
         applyState(isOpen);
+
+        const focusFirstToggle = () => {
+            const [firstToggle] = buttons;
+            if (firstToggle && typeof firstToggle.focus === 'function') {
+                firstToggle.focus();
+            }
+        };
 
         const handleToggleClick = (event) => {
             event.preventDefault();
@@ -290,14 +306,21 @@
                 isOpen = false;
                 applyState(isOpen);
                 writeBooleanToStorage(SIDE_PANEL_COLLAPSE_KEY, true);
+                if (drawer.contains(event.target)) {
+                    focusFirstToggle();
+                }
             }
         };
 
-        toggleButton.addEventListener('click', handleToggleClick);
+        buttons.forEach((button) => {
+            button.addEventListener('click', handleToggleClick);
+        });
         container.addEventListener('keydown', handleKeydown);
 
         return () => {
-            toggleButton.removeEventListener('click', handleToggleClick);
+            buttons.forEach((button) => {
+                button.removeEventListener('click', handleToggleClick);
+            });
             container.removeEventListener('keydown', handleKeydown);
         };
     }
@@ -366,6 +389,22 @@
                 onClick(button);
             });
         }
+        return button;
+    }
+
+    /**
+     * Создаёт встроенную кнопку управления панелью обмена и возврата.
+     * Метод скрывает оформление и базовые aria-атрибуты, чтобы остальной код соблюдал принцип SRP.
+     * @returns {HTMLButtonElement} кнопка переключения панели
+     */
+    function createDrawerControlButton() {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-2';
+        button.textContent = 'Обмен/Возврат';
+        button.setAttribute('aria-expanded', 'false');
+        button.setAttribute('aria-label', 'Показать панель «Обмен/Возврат»');
+        button.setAttribute('title', 'Показать панель «Обмен/Возврат»');
         return button;
     }
 
@@ -1664,6 +1703,9 @@
         const trackActions = document.createElement('div');
         trackActions.className = 'd-flex justify-content-end flex-grow-1 gap-2';
 
+        const inlineDrawerToggle = createDrawerControlButton();
+        trackActions.appendChild(inlineDrawerToggle);
+
         const trackId = data?.id;
         const returnRequest = data?.returnRequest;
         const exchangeContext = isExchangeRequest(returnRequest);
@@ -2155,18 +2197,10 @@
         container.appendChild(mainColumn);
         container.appendChild(drawer);
 
-        const drawerToggle = document.createElement('button');
-        drawerToggle.type = 'button';
-        drawerToggle.className = 'track-modal-drawer-toggle';
-        drawerToggle.textContent = 'Обмен/Возврат';
-        drawerToggle.setAttribute('aria-expanded', 'false');
-
-        container.appendChild(drawerToggle);
-
         disposeSidePanelInteractions = setupSidePanelInteractions({
             container,
             drawer,
-            toggleButton: drawerToggle
+            toggleButtons: [inlineDrawerToggle]
         });
 
         const nextRefreshAt = data?.nextRefreshAt || null;
