@@ -409,6 +409,22 @@
     }
 
     /**
+     * Создаёт кнопку закрытия панели обмена и возврата.
+     * Метод подготавливает визуальное оформление и ARIA-атрибуты, позволяя переиспользовать кнопку в любом контейнере.
+     * @returns {HTMLButtonElement} кнопка закрытия панели
+     */
+    function createDrawerCloseButton() {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn btn-link btn-sm track-side-panel__close';
+        button.textContent = 'Закрыть';
+        button.setAttribute('aria-expanded', 'false');
+        button.setAttribute('aria-label', 'Скрыть панель «Обмен/Возврат»');
+        button.setAttribute('title', 'Скрыть панель «Обмен/Возврат»');
+        return button;
+    }
+
+    /**
      * Формирует подписанный контрол формы с необязательным описанием.
      * @param {string} labelText текст подписи
      * @param {HTMLElement} control элемент управления
@@ -2181,7 +2197,9 @@
         sideTitle.className = 'track-side-panel__title mb-0 text-uppercase text-muted small';
         sideTitle.textContent = 'Обращение и этапы';
 
-        sideHeader.appendChild(sideTitle);
+        const sideCloseButton = createDrawerCloseButton();
+
+        sideHeader.append(sideTitle, sideCloseButton);
 
         const sideContent = document.createElement('div');
         sideContent.className = 'track-side-panel__body d-flex flex-column gap-3';
@@ -2200,7 +2218,7 @@
         disposeSidePanelInteractions = setupSidePanelInteractions({
             container,
             drawer,
-            toggleButtons: [inlineDrawerToggle]
+            toggleButtons: [inlineDrawerToggle, sideCloseButton]
         });
 
         const nextRefreshAt = data?.nextRefreshAt || null;
