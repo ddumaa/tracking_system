@@ -307,6 +307,38 @@ header {
   }
 }
 
+@media (min-width: 992px) {
+  .track-modal-container {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--track-modal-drawer-gap);
+  }
+
+  .track-modal-main {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .track-modal-container--drawer-open {
+    align-items: stretch;
+  }
+
+  .track-modal-container--drawer-open .track-modal-main {
+    padding-right: 0;
+    flex-basis: calc(100% - var(--track-modal-drawer-width) - var(--track-modal-drawer-gap));
+  }
+
+  .track-modal-container--drawer-open .track-modal-drawer {
+    position: relative;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    flex: 0 0 var(--track-modal-drawer-width);
+    max-width: var(--track-modal-drawer-width);
+    transform: none;
+  }
+}
+
 @media (max-width: 991.98px) {
   .track-modal-container {
     --track-modal-drawer-width: min(320px, 88vw);
