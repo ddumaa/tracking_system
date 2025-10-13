@@ -183,6 +183,83 @@
   hyphens: auto;
 }
 
+// Стили вертикального таба панели обмена/возврата вынесены отдельно,
+// чтобы упростить поддержку и повторное использование компонентов модального окна.
+.track-modal-tab {
+  position: sticky;
+  top: 1.5rem;
+  align-self: flex-start;
+  margin-left: auto;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.75rem 0.5rem;
+  min-height: 7.5rem;
+  border: 1px solid var(--bs-primary);
+  border-right: none;
+  border-radius: 0.75rem 0 0 0.75rem;
+  background-color: var(--bs-body-bg);
+  color: var(--bs-primary);
+  box-shadow: 0 8px 20px rgba(13, 110, 253, 0.15);
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  text-decoration: none;
+  letter-spacing: 0.08em;
+
+  &:focus-visible {
+    outline: 2px solid rgba(13, 110, 253, 0.6);
+    outline-offset: 2px;
+  }
+
+  &:hover:not([aria-disabled='true']) {
+    box-shadow: 0 10px 24px rgba(13, 110, 253, 0.22);
+  }
+
+  &[aria-expanded='true'] {
+    background-color: var(--bs-primary);
+    color: #fff;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.2);
+
+    .track-modal-tab__symbol {
+      color: inherit;
+    }
+  }
+
+  &[aria-disabled='true'],
+  &.track-modal-tab--disabled {
+    color: var(--bs-secondary-color);
+    background-color: var(--bs-tertiary-bg);
+    border-color: var(--bs-border-color);
+    box-shadow: none;
+    cursor: not-allowed;
+
+    &:focus,
+    &:focus-visible {
+      outline: none;
+    }
+  }
+
+  &__label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem;
+    font-size: 0.75rem;
+    line-height: 1;
+  }
+
+  &__symbol {
+    display: block;
+    color: inherit;
+
+    &--divider {
+      padding-top: 0.25rem;
+    }
+  }
+}
+
 // 🔹 Адаптация для мобильных устройств
 @include ui.respond-to(sm) {
   .cookie-modal {
