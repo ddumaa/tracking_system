@@ -893,6 +893,7 @@ button:hover {
   overflow-x: hidden;
   --track-modal-drawer-width: min(380px, 92vw);
   --track-modal-drawer-gap: 0.75rem;
+  --track-modal-tab-peek: 1.5rem;
 }
 
 .track-modal-main-shell {
@@ -938,7 +939,7 @@ button:hover {
 .track-modal-tab-slot {
   position: absolute;
   top: 0;
-  right: 0;
+  right: calc(var(--track-modal-tab-peek, 1.5rem) * -1);
   bottom: 0;
   display: flex;
   justify-content: flex-end;
@@ -1044,15 +1045,12 @@ button:hover {
     flex: 1 1 auto;
     min-width: 0;
   }
-  .track-modal-tab-slot {
-    right: 0;
-  }
   .track-modal-tab-slot .track-modal-drawer-toggle {
-    transform: translateX(calc(100% + var(--track-modal-drawer-gap, 0.75rem)));
+    transform: none;
   }
   .track-modal-tab-slot .track-modal-drawer-toggle[aria-expanded=true],
   .track-modal-container--drawer-open .track-modal-tab-slot .track-modal-drawer-toggle {
-    transform: translateX(0);
+    transform: translateX(calc(var(--track-modal-tab-peek, 1.5rem) * -1));
   }
   .track-modal-container--drawer-open {
     gap: var(--track-modal-drawer-gap);
