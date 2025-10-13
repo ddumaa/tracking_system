@@ -1815,6 +1815,9 @@
             delete container.dataset.trackId;
         }
 
+        const mainShell = document.createElement('div');
+        mainShell.className = 'track-modal-main-shell';
+
         const mainLayout = document.createElement('div');
         mainLayout.className = 'track-modal-main-layout';
 
@@ -1870,7 +1873,7 @@
         const toggleSlot = document.createElement('div');
         toggleSlot.className = 'track-modal-tab-slot';
         toggleSlot.appendChild(inlineDrawerToggle);
-        mainLayout.appendChild(toggleSlot);
+        mainShell.append(mainLayout, toggleSlot);
 
         const trackId = data?.id;
         const returnRequest = data?.returnRequest || null;
@@ -2379,7 +2382,7 @@
         drawer.setAttribute('aria-labelledby', sideTitle.id);
         drawer.appendChild(sidePanel);
 
-        container.appendChild(mainLayout);
+        container.appendChild(mainShell);
         container.appendChild(drawer);
 
         disposeSidePanelInteractions = setupSidePanelInteractions({
