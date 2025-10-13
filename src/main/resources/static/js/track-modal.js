@@ -290,7 +290,6 @@
          */
         const applyState = (open) => {
             const shouldOpen = !isDrawerDisabled && Boolean(open);
-            drawer.classList.toggle('track-modal-drawer--open', shouldOpen);
             drawer.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
             container.classList.toggle('track-modal-container--drawer-open', shouldOpen);
             buttons.forEach((button) => {
