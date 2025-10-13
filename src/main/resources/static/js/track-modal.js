@@ -14,6 +14,36 @@
     let disposeSidePanelInteractions = null;
 
     /**
+     * Кэш последнего отображённого набора данных модального окна.
+     * Используется для построения fallback-модели при частичных ответах API.
+     * @type {Object|null}
+     */
+    let lastRenderedData = null;
+
+    /**
+     * Создаёт глубокую копию данных модального окна.
+     * @param {Object|null} source исходные данные
+     * @returns {Object|null} клон объекта или {@code null}
+     */
+    function cloneTrackDetails(source) {
+        if (!source || typeof source !== 'object') {
+            return null;
+        }
+        if (typeof structuredClone === 'function') {
+            try {
+                return structuredClone(source);
+            } catch (error) {
+                // Игнорируем и используем JSON-клонирование ниже.
+            }
+        }
+        try {
+            return JSON.parse(JSON.stringify(source));
+        } catch (error) {
+            return null;
+        }
+    }
+
+    /**
      * Останавливает активный таймер обновления.
      * Метод вызывается при повторном рендере и закрытии модального окна,
      * чтобы не выполнять лишние вычисления в фоне.
@@ -254,6 +284,11 @@
 
         let isOpen = !readBooleanFromStorage(SIDE_PANEL_COLLAPSE_KEY, false);
 
+        const hasInteractiveToggle = buttons.some((button) => !button.disabled);
+        if (!hasInteractiveToggle) {
+            isOpen = false;
+        }
+
         /**
          * Обновляет aria-атрибуты кнопки, чтобы отражать текущее состояние панели.
          * Метод изолирует текстовые ресурсы, чтобы облегчить локализацию (OCP).
@@ -264,8 +299,14 @@
                 ? 'Скрыть панель «Обмен/Возврат»'
                 : 'Показать панель «Обмен/Возврат»';
             buttons.forEach((button) => {
+                if (button.disabled) {
+                    return;
+                }
                 button.setAttribute('aria-label', label);
                 button.setAttribute('title', label);
+                if (button.hasAttribute('data-bs-toggle')) {
+                    button.setAttribute('data-bs-original-title', label);
+                }
             });
         };
 
@@ -281,6 +322,9 @@
             container.classList.toggle('track-modal-container--drawer-open', shouldOpen);
             buttons.forEach((button) => {
                 button.setAttribute('aria-expanded', String(shouldOpen));
+                if (button.classList.contains('track-modal-toggle')) {
+                    button.classList.toggle('track-modal-toggle--active', shouldOpen);
+                }
             });
             updateToggleAria(shouldOpen);
         };
@@ -288,7 +332,7 @@
         applyState(isOpen);
 
         const focusFirstToggle = () => {
-            const [firstToggle] = buttons;
+            const firstToggle = buttons.find((button) => !button.disabled);
             if (firstToggle && typeof firstToggle.focus === 'function') {
                 firstToggle.focus();
             }
@@ -400,11 +444,20 @@
     function createDrawerControlButton() {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-2';
-        button.textContent = 'Обмен/Возврат';
+        button.className = 'track-modal-toggle';
         button.setAttribute('aria-expanded', 'false');
         button.setAttribute('aria-label', 'Показать панель «Обмен/Возврат»');
         button.setAttribute('title', 'Показать панель «Обмен/Возврат»');
+
+        const icon = document.createElement('i');
+        icon.className = 'bi bi-arrow-left-right track-modal-toggle__icon';
+        icon.setAttribute('aria-hidden', 'true');
+
+        const label = document.createElement('span');
+        label.className = 'track-modal-toggle__label';
+        label.textContent = 'Обмен-возврат';
+
+        button.append(icon, label);
         return button;
     }
 
@@ -1385,21 +1438,51 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payloadBody)
         });
-        invalidateLazyDataCache(trackId);
-        renderTrackModal(payload);
-        updateRowRequiresAction(payload);
 
-        const updatedRequest = payload?.returnRequest ?? null;
+        const baseDetails = (payload && typeof payload === 'object' && !Array.isArray(payload))
+            ? (payload.details && typeof payload.details === 'object' ? payload.details : payload)
+            : null;
+
+        let detailsForRender = (baseDetails && typeof baseDetails === 'object' && !Array.isArray(baseDetails))
+            ? baseDetails
+            : null;
+
+        if (!detailsForRender || !detailsForRender.returnRequest) {
+            const fallback = cloneTrackDetails(lastRenderedData);
+            if (fallback && typeof fallback === 'object' && fallback.returnRequest) {
+                const mergedRequest = {
+                    ...fallback.returnRequest,
+                    ...(detailsForRender?.returnRequest || {})
+                };
+                mergedRequest.reverseTrackNumber = payloadBody.reverseTrackNumber;
+                if (payloadBody.comment !== null) {
+                    mergedRequest.comment = payloadBody.comment;
+                }
+                fallback.returnRequest = mergedRequest;
+                detailsForRender = fallback;
+            }
+        }
+
+        const finalDetails = detailsForRender
+            || baseDetails
+            || cloneTrackDetails(lastRenderedData)
+            || {};
+
+        invalidateLazyDataCache(trackId);
+        renderTrackModal(finalDetails);
+        updateRowRequiresAction(finalDetails);
+
+        const updatedRequest = finalDetails?.returnRequest ?? null;
         if (updatedRequest && typeof window.returnRequests?.updateRow === 'function') {
             window.returnRequests.updateRow({
                 parcelId: trackId,
                 requestId: updatedRequest.id ?? requestId,
                 reverseTrackNumber: updatedRequest.reverseTrackNumber ?? null,
-                comment: updatedRequest.comment ?? (commentRaw.length > 0 ? commentRaw : null)
+                comment: updatedRequest.comment ?? payloadBody.comment
             });
         }
         notifyUser('Обратный трек сохранён', 'success');
-        return payload ?? null;
+        return finalDetails;
     }
 
     async function handleApproveExchangeAction(trackId, requestId, options = {}) {
@@ -1655,6 +1738,7 @@
             disposeSidePanelInteractions = null;
         }
 
+
         const modal = document.getElementById('infoModal');
         const container = document.getElementById('trackModalContent')
             || modal?.querySelector('.modal-body');
@@ -1668,6 +1752,9 @@
         container.classList.remove('justify-content-center', 'align-items-center', 'text-muted', 'track-modal-placeholder');
         container.classList.add('track-modal-container');
 
+        const snapshot = cloneTrackDetails(data);
+        lastRenderedData = snapshot || null;
+
         const exchangeItem = options?.exchangeItem || null;
 
         if (data?.id !== undefined) {
@@ -1679,11 +1766,20 @@
         const mainColumn = document.createElement('div');
         mainColumn.className = 'track-modal-main d-flex flex-column gap-3';
 
+        const mainWrapper = document.createElement('section');
+        mainWrapper.className = 'track-modal-main-wrapper';
+        mainWrapper.appendChild(mainColumn);
+
         const drawer = document.createElement('aside');
         drawer.className = 'track-modal-drawer';
         drawer.setAttribute('role', 'complementary');
         drawer.setAttribute('tabindex', '-1');
         drawer.setAttribute('aria-hidden', 'true');
+
+        const sidePanelToggle = createDrawerControlButton();
+        sidePanelToggle.setAttribute('data-bs-toggle', 'tooltip');
+        sidePanelToggle.setAttribute('data-bs-placement', 'left');
+        sidePanelToggle.setAttribute('data-bs-original-title', 'Показать панель «Обмен/Возврат»');
 
         const parcelCard = createCard('Трек');
         const parcelHeader = document.createElement('div');
@@ -1719,14 +1815,22 @@
         const trackActions = document.createElement('div');
         trackActions.className = 'd-flex justify-content-end flex-grow-1 gap-2';
 
-        const inlineDrawerToggle = createDrawerControlButton();
-        trackActions.appendChild(inlineDrawerToggle);
-
         const trackId = data?.id;
         const returnRequest = data?.returnRequest;
         const exchangeContext = isExchangeRequest(returnRequest);
         const canStartExchange = Boolean(returnRequest?.canStartExchange);
         const canCreateExchangeParcel = Boolean(returnRequest?.canCreateExchangeParcel);
+
+        const hasReturnRequest = Boolean(returnRequest);
+        const canInitiateReturn = Boolean(data?.canRegisterReturn) || Boolean(returnRequest?.createAllowed);
+        if (!hasReturnRequest && !canInitiateReturn) {
+            sidePanelToggle.disabled = true;
+            sidePanelToggle.classList.add('track-modal-toggle--disabled');
+            sidePanelToggle.setAttribute('aria-disabled', 'true');
+            const disabledTooltip = 'Недоступно';
+            sidePanelToggle.setAttribute('title', disabledTooltip);
+            sidePanelToggle.setAttribute('data-bs-original-title', disabledTooltip);
+        }
 
         trackTitleRow.append(trackTitleColumn, trackActions);
 
@@ -1774,6 +1878,8 @@
             }
             tooltipFactory.getOrCreateInstance(element);
         };
+
+        activateTooltip(sidePanelToggle);
 
         if (data?.canEditTrack && data?.id !== undefined) {
             const editButton = document.createElement('button');
@@ -2212,13 +2318,12 @@
         drawer.setAttribute('aria-labelledby', sideTitle.id);
         drawer.appendChild(sidePanel);
 
-        container.appendChild(mainColumn);
-        container.appendChild(drawer);
+        container.append(mainWrapper, sidePanelToggle, drawer);
 
         disposeSidePanelInteractions = setupSidePanelInteractions({
             container,
             drawer,
-            toggleButtons: [inlineDrawerToggle, sideCloseButton]
+            toggleButtons: [sidePanelToggle, sideCloseButton]
         });
 
         const nextRefreshAt = data?.nextRefreshAt || null;
