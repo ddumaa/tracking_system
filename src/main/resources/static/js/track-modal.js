@@ -1815,12 +1815,16 @@
             delete container.dataset.trackId;
         }
 
+        const mainLayout = document.createElement('div');
+        mainLayout.className = 'track-modal-main-layout';
+
         const mainWrapper = document.createElement('div');
         mainWrapper.className = 'track-modal-main-wrapper';
 
         const mainColumn = document.createElement('div');
         mainColumn.className = 'track-modal-main d-flex flex-column gap-3';
         mainWrapper.appendChild(mainColumn);
+        mainLayout.appendChild(mainWrapper);
 
         const drawer = document.createElement('aside');
         drawer.className = 'track-modal-drawer';
@@ -1863,7 +1867,10 @@
         trackActions.className = 'd-flex justify-content-end flex-grow-1 gap-2';
 
         const inlineDrawerToggle = createDrawerControlButton();
-        mainWrapper.appendChild(inlineDrawerToggle);
+        const toggleSlot = document.createElement('div');
+        toggleSlot.className = 'track-modal-tab-slot';
+        toggleSlot.appendChild(inlineDrawerToggle);
+        mainLayout.appendChild(toggleSlot);
 
         const trackId = data?.id;
         const returnRequest = data?.returnRequest || null;
@@ -2372,7 +2379,7 @@
         drawer.setAttribute('aria-labelledby', sideTitle.id);
         drawer.appendChild(sidePanel);
 
-        container.appendChild(mainWrapper);
+        container.appendChild(mainLayout);
         container.appendChild(drawer);
 
         disposeSidePanelInteractions = setupSidePanelInteractions({

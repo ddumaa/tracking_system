@@ -894,17 +894,27 @@ button:hover {
   --track-modal-drawer-gap: 0.75rem;
 }
 
-.track-modal-main-wrapper {
+.track-modal-main-layout {
   position: relative;
   width: 100%;
   display: flex;
   flex-wrap: nowrap;
   align-items: flex-start;
-  gap: var(--track-modal-drawer-gap, 0.75rem);
+  gap: 0;
+  overflow: visible;
+}
+
+.track-modal-main-wrapper {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .track-modal-main {
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
@@ -913,9 +923,22 @@ button:hover {
   margin-bottom: 0;
 }
 
-.track-modal-drawer-toggle {
+.track-modal-tab-slot {
+  position: relative;
   flex: 0 0 auto;
-  margin-left: auto;
+  width: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  overflow: visible;
+}
+
+.track-modal-drawer-toggle {
+  position: sticky;
+  top: 1.5rem;
+  flex: 0 0 auto;
+  margin-left: 0;
+  transform: translateX(var(--track-modal-drawer-gap, 0.75rem));
   z-index: 2;
 }
 
@@ -987,8 +1010,11 @@ button:hover {
   .track-modal-container {
     display: flex;
     align-items: stretch;
-    overflow-x: hidden;
     gap: 0;
+  }
+  .track-modal-main-layout {
+    flex: 1 1 auto;
+    min-width: 0;
   }
   .track-modal-main-wrapper {
     flex: 1 1 auto;
@@ -1053,10 +1079,7 @@ button:hover {
   }
 }
 .track-modal-tab {
-  position: sticky;
-  top: 1.5rem;
   align-self: flex-start;
-  margin-left: auto;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
@@ -1070,7 +1093,8 @@ button:hover {
   background-color: var(--bs-body-bg);
   color: var(--bs-primary);
   box-shadow: 0 8px 20px rgba(13, 110, 253, 0.15);
-  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease,
+    transform 0.2s ease;
   text-decoration: none;
   letter-spacing: 0.08em;
 }
@@ -1082,6 +1106,7 @@ button:hover {
   box-shadow: 0 10px 24px rgba(13, 110, 253, 0.22);
 }
 .track-modal-tab[aria-expanded=true] {
+  transform: translateX(calc(var(--track-modal-drawer-gap, 0.75rem) - 0.25rem));
   background-color: var(--bs-primary);
   color: #fff;
   box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.2);
@@ -1089,14 +1114,17 @@ button:hover {
 .track-modal-tab[aria-expanded=true] .track-modal-tab__symbol {
   color: inherit;
 }
-.track-modal-tab[aria-disabled=true], .track-modal-tab.track-modal-tab--disabled {
+.track-modal-tab[aria-disabled=true], .track-modal-tab.track-modal-tab--disabled,
+.track-modal-tab:disabled {
   color: var(--bs-secondary-color);
   background-color: var(--bs-tertiary-bg);
   border-color: var(--bs-border-color);
   box-shadow: none;
   cursor: not-allowed;
 }
-.track-modal-tab[aria-disabled=true]:focus, .track-modal-tab[aria-disabled=true]:focus-visible, .track-modal-tab.track-modal-tab--disabled:focus, .track-modal-tab.track-modal-tab--disabled:focus-visible {
+.track-modal-tab[aria-disabled=true]:focus, .track-modal-tab[aria-disabled=true]:focus-visible,
+.track-modal-tab.track-modal-tab--disabled:focus, .track-modal-tab.track-modal-tab--disabled:focus-visible,
+.track-modal-tab:disabled:focus, .track-modal-tab:disabled:focus-visible {
   outline: none;
 }
 .track-modal-tab__label {
