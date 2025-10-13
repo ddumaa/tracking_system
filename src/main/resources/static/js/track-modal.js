@@ -420,7 +420,7 @@
     function createDrawerControlButton() {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'track-modal-tab btn';
+        button.className = 'track-modal-tab btn track-modal-drawer-toggle';
         button.dataset.toggleLabelCollapsed = 'Показать панель «Обмен/Возврат»';
         button.dataset.toggleLabelExpanded = 'Скрыть панель «Обмен/Возврат»';
         button.dataset.disabledTitle = 'Недоступно';
@@ -469,6 +469,7 @@
         const isDisabled = Boolean(disabled);
 
         button.setAttribute('aria-disabled', String(isDisabled));
+        button.tabIndex = isDisabled ? -1 : 0;
         if (isDisabled) {
             button.classList.add('track-modal-tab--disabled');
             button.setAttribute('title', disabledTitle);
@@ -1814,8 +1815,12 @@
             delete container.dataset.trackId;
         }
 
+        const mainWrapper = document.createElement('div');
+        mainWrapper.className = 'track-modal-main-wrapper';
+
         const mainColumn = document.createElement('div');
         mainColumn.className = 'track-modal-main d-flex flex-column gap-3';
+        mainWrapper.appendChild(mainColumn);
 
         const drawer = document.createElement('aside');
         drawer.className = 'track-modal-drawer';
@@ -1858,7 +1863,7 @@
         trackActions.className = 'd-flex justify-content-end flex-grow-1 gap-2';
 
         const inlineDrawerToggle = createDrawerControlButton();
-        trackActions.appendChild(inlineDrawerToggle);
+        mainWrapper.appendChild(inlineDrawerToggle);
 
         const trackId = data?.id;
         const returnRequest = data?.returnRequest || null;
@@ -1944,6 +1949,10 @@
             });
             activateTooltip(editButton);
             trackActions.appendChild(editButton);
+        }
+
+        if (trackActions.childElementCount === 0 && trackActions.parentElement === trackTitleRow) {
+            trackTitleRow.removeChild(trackActions);
         }
 
         mainColumn.appendChild(parcelCard.card);
@@ -2363,7 +2372,7 @@
         drawer.setAttribute('aria-labelledby', sideTitle.id);
         drawer.appendChild(sidePanel);
 
-        container.appendChild(mainColumn);
+        container.appendChild(mainWrapper);
         container.appendChild(drawer);
 
         disposeSidePanelInteractions = setupSidePanelInteractions({

@@ -191,10 +191,25 @@
   --track-modal-drawer-gap: 0.75rem;
 }
 
+.track-modal-main-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: var(--track-modal-drawer-gap, 0.75rem);
+}
+
 .track-modal-main {
   width: 100%;
   display: flex;
   flex-direction: column;
+}
+
+.track-modal-drawer-toggle {
+  flex: 0 0 auto;
+  margin-left: auto;
+  z-index: 2;
 }
 
 .track-modal-drawer {
@@ -270,6 +285,11 @@
     align-items: stretch;
     overflow-x: hidden;
     gap: 0;
+  }
+
+  .track-modal-main-wrapper {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .track-modal-main {
