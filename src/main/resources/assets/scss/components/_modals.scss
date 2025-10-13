@@ -212,14 +212,26 @@
   position: relative;
   width: 100%;
   display: block;
+  overflow-x: hidden;
   --track-modal-drawer-width: min(380px, 92vw);
   --track-modal-drawer-gap: 0.75rem;
+}
+
+.track-modal-main-shell {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  align-items: stretch;
+  overflow: visible;
 }
 
 .track-modal-main-layout {
   position: relative;
   width: 100%;
   display: flex;
+  flex: 1 1 auto;
   flex-wrap: nowrap;
   align-items: flex-start;
   gap: 0;
@@ -247,13 +259,16 @@
 
 
 .track-modal-tab-slot {
-  position: relative;
-  flex: 0 0 auto;
-  width: 0;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   justify-content: flex-end;
   align-items: flex-start;
+  width: 0;
   overflow: visible;
+  pointer-events: none;
 }
 
 .track-modal-drawer-toggle {
@@ -261,8 +276,10 @@
   top: 1.5rem;
   flex: 0 0 auto;
   margin-left: 0;
-  transform: translateX(var(--track-modal-drawer-gap, 0.75rem));
   z-index: 2;
+  transform: none;
+  transition: transform 0.3s ease-in-out;
+  pointer-events: auto;
 }
 
 .track-modal-drawer {
@@ -336,8 +353,11 @@
   .track-modal-container {
     display: flex;
     align-items: stretch;
-    overflow-x: hidden;
     gap: 0;
+  }
+
+  .track-modal-main-shell {
+    flex: 1 1 auto;
   }
 
   .track-modal-main-layout {
@@ -353,6 +373,19 @@
   .track-modal-main {
     flex: 1 1 auto;
     min-width: 0;
+  }
+
+  .track-modal-tab-slot {
+    right: 0;
+  }
+
+  .track-modal-tab-slot .track-modal-drawer-toggle {
+    transform: translateX(calc(100% + var(--track-modal-drawer-gap, 0.75rem)));
+  }
+
+  .track-modal-tab-slot .track-modal-drawer-toggle[aria-expanded='true'],
+  .track-modal-container--drawer-open .track-modal-tab-slot .track-modal-drawer-toggle {
+    transform: translateX(0);
   }
 
   .track-modal-container--drawer-open {
@@ -398,6 +431,16 @@
 
   .track-modal-drawer {
     padding: 1.25rem 1rem;
+  }
+
+  .track-modal-tab-slot {
+    position: static;
+    width: auto;
+    pointer-events: auto;
+  }
+
+  .track-modal-tab-slot .track-modal-drawer-toggle {
+    transform: none;
   }
 }
 
@@ -453,7 +496,7 @@
   }
 
   &[aria-expanded='true'] {
-    transform: translateX(calc(var(--track-modal-drawer-gap, 0.75rem) - 0.25rem));
+    transform: translateX(0);
     background-color: var(--bs-primary);
     color: #fff;
     box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.2);

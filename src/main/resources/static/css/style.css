@@ -890,14 +890,26 @@ button:hover {
   position: relative;
   width: 100%;
   display: block;
+  overflow-x: hidden;
   --track-modal-drawer-width: min(380px, 92vw);
   --track-modal-drawer-gap: 0.75rem;
+}
+
+.track-modal-main-shell {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  align-items: stretch;
+  overflow: visible;
 }
 
 .track-modal-main-layout {
   position: relative;
   width: 100%;
   display: flex;
+  flex: 1 1 auto;
   flex-wrap: nowrap;
   align-items: flex-start;
   gap: 0;
@@ -924,13 +936,16 @@ button:hover {
 }
 
 .track-modal-tab-slot {
-  position: relative;
-  flex: 0 0 auto;
-  width: 0;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   justify-content: flex-end;
   align-items: flex-start;
+  width: 0;
   overflow: visible;
+  pointer-events: none;
 }
 
 .track-modal-drawer-toggle {
@@ -938,8 +953,10 @@ button:hover {
   top: 1.5rem;
   flex: 0 0 auto;
   margin-left: 0;
-  transform: translateX(var(--track-modal-drawer-gap, 0.75rem));
   z-index: 2;
+  transform: none;
+  transition: transform 0.3s ease-in-out;
+  pointer-events: auto;
 }
 
 .track-modal-drawer {
@@ -1012,6 +1029,9 @@ button:hover {
     align-items: stretch;
     gap: 0;
   }
+  .track-modal-main-shell {
+    flex: 1 1 auto;
+  }
   .track-modal-main-layout {
     flex: 1 1 auto;
     min-width: 0;
@@ -1023,6 +1043,16 @@ button:hover {
   .track-modal-main {
     flex: 1 1 auto;
     min-width: 0;
+  }
+  .track-modal-tab-slot {
+    right: 0;
+  }
+  .track-modal-tab-slot .track-modal-drawer-toggle {
+    transform: translateX(calc(100% + var(--track-modal-drawer-gap, 0.75rem)));
+  }
+  .track-modal-tab-slot .track-modal-drawer-toggle[aria-expanded=true],
+  .track-modal-container--drawer-open .track-modal-tab-slot .track-modal-drawer-toggle {
+    transform: translateX(0);
   }
   .track-modal-container--drawer-open {
     gap: var(--track-modal-drawer-gap);
@@ -1062,6 +1092,14 @@ button:hover {
   .track-modal-drawer {
     padding: 1.25rem 1rem;
   }
+  .track-modal-tab-slot {
+    position: static;
+    width: auto;
+    pointer-events: auto;
+  }
+  .track-modal-tab-slot .track-modal-drawer-toggle {
+    transform: none;
+  }
 }
 @media (max-width: 767.98px) {
   .track-modal-container {
@@ -1079,6 +1117,8 @@ button:hover {
   }
 }
 .track-modal-tab {
+  position: sticky;
+  top: 1.5rem;
   align-self: flex-start;
   display: inline-flex;
   flex-direction: column;
@@ -1093,8 +1133,7 @@ button:hover {
   background-color: var(--bs-body-bg);
   color: var(--bs-primary);
   box-shadow: 0 8px 20px rgba(13, 110, 253, 0.15);
-  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease,
-    transform 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
   text-decoration: none;
   letter-spacing: 0.08em;
 }
@@ -1106,7 +1145,7 @@ button:hover {
   box-shadow: 0 10px 24px rgba(13, 110, 253, 0.22);
 }
 .track-modal-tab[aria-expanded=true] {
-  transform: translateX(calc(var(--track-modal-drawer-gap, 0.75rem) - 0.25rem));
+  transform: translateX(0);
   background-color: var(--bs-primary);
   color: #fff;
   box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.2);
@@ -1114,17 +1153,14 @@ button:hover {
 .track-modal-tab[aria-expanded=true] .track-modal-tab__symbol {
   color: inherit;
 }
-.track-modal-tab[aria-disabled=true], .track-modal-tab.track-modal-tab--disabled,
-.track-modal-tab:disabled {
+.track-modal-tab[aria-disabled=true], .track-modal-tab.track-modal-tab--disabled, .track-modal-tab:disabled {
   color: var(--bs-secondary-color);
   background-color: var(--bs-tertiary-bg);
   border-color: var(--bs-border-color);
   box-shadow: none;
   cursor: not-allowed;
 }
-.track-modal-tab[aria-disabled=true]:focus, .track-modal-tab[aria-disabled=true]:focus-visible,
-.track-modal-tab.track-modal-tab--disabled:focus, .track-modal-tab.track-modal-tab--disabled:focus-visible,
-.track-modal-tab:disabled:focus, .track-modal-tab:disabled:focus-visible {
+.track-modal-tab[aria-disabled=true]:focus, .track-modal-tab[aria-disabled=true]:focus-visible, .track-modal-tab.track-modal-tab--disabled:focus, .track-modal-tab.track-modal-tab--disabled:focus-visible, .track-modal-tab:disabled:focus, .track-modal-tab:disabled:focus-visible {
   outline: none;
 }
 .track-modal-tab__label {
