@@ -183,6 +183,30 @@
   hyphens: auto;
 }
 
+.track-modal-dialog {
+  max-width: 1140px;
+}
+
+.track-modal-body {
+  background-color: var(--bs-body-bg);
+  padding: 1.5rem;
+}
+
+@media (max-width: 576px) {
+  .track-modal-body {
+    padding: 1rem;
+  }
+}
+
+.track-modal-placeholder {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.5rem;
+}
+
 .track-modal-container {
   position: relative;
   width: 100%;
@@ -204,6 +228,10 @@
   width: 100%;
   display: flex;
   flex-direction: column;
+}
+
+.track-modal-main > .card:last-child {
+  margin-bottom: 0;
 }
 
 .track-modal-drawer-toggle {
