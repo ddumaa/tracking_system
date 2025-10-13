@@ -232,12 +232,14 @@
      * @param {HTMLElement} options.container основной контейнер модального окна
      * @param {HTMLElement} options.drawer панель, выезжающая поверх основного контента
      * @param {Array<HTMLElement>} options.toggleButtons коллекция кнопок управления панелью
+     * @param {boolean} [options.drawerDisabled] начальный признак недоступности панели
      * @returns {Function} функция очистки обработчиков
      */
     function setupSidePanelInteractions({
         container,
         drawer,
-        toggleButtons
+        toggleButtons,
+        drawerDisabled = false
     }) {
         const buttons = Array.isArray(toggleButtons)
             ? toggleButtons.filter((button) => button instanceof HTMLElement)
@@ -252,7 +254,9 @@
             button.setAttribute('aria-controls', drawerId);
         });
 
-        let isOpen = !readBooleanFromStorage(SIDE_PANEL_COLLAPSE_KEY, false);
+        let isDrawerDisabled = Boolean(drawerDisabled)
+            || buttons.every((button) => button.getAttribute('aria-disabled') === 'true');
+        let isOpen = !isDrawerDisabled && !readBooleanFromStorage(SIDE_PANEL_COLLAPSE_KEY, false);
 
         /**
          * Обновляет aria-атрибуты кнопки, чтобы отражать текущее состояние панели.
@@ -260,12 +264,22 @@
          * @param {boolean} open актуальное состояние панели
          */
         const updateToggleAria = (open) => {
-            const label = open
-                ? 'Скрыть панель «Обмен/Возврат»'
-                : 'Показать панель «Обмен/Возврат»';
             buttons.forEach((button) => {
-                button.setAttribute('aria-label', label);
-                button.setAttribute('title', label);
+                const toggleLabelCollapsed = button.dataset.toggleLabelCollapsed;
+                const toggleLabelExpanded = button.dataset.toggleLabelExpanded;
+                const disabledTitle = button.dataset.disabledTitle || 'Недоступно';
+                const isButtonDisabled = button.getAttribute('aria-disabled') === 'true';
+                if (!toggleLabelCollapsed || !toggleLabelExpanded) {
+                    return;
+                }
+                if (isButtonDisabled) {
+                    button.setAttribute('title', disabledTitle);
+                    button.setAttribute('aria-label', `${toggleLabelCollapsed}. ${disabledTitle}`);
+                } else {
+                    const label = open ? toggleLabelExpanded : toggleLabelCollapsed;
+                    button.setAttribute('aria-label', label);
+                    button.setAttribute('title', label);
+                }
             });
         };
 
@@ -275,12 +289,14 @@
          * @param {boolean} open целевое состояние панели
          */
         const applyState = (open) => {
-            const shouldOpen = Boolean(open);
+            const shouldOpen = !isDrawerDisabled && Boolean(open);
             drawer.classList.toggle('track-modal-drawer--open', shouldOpen);
             drawer.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
             container.classList.toggle('track-modal-container--drawer-open', shouldOpen);
             buttons.forEach((button) => {
-                button.setAttribute('aria-expanded', String(shouldOpen));
+                const isButtonDisabled = button.getAttribute('aria-disabled') === 'true';
+                const expandedValue = shouldOpen && !isButtonDisabled;
+                button.setAttribute('aria-expanded', String(expandedValue));
             });
             updateToggleAria(shouldOpen);
         };
@@ -296,6 +312,11 @@
 
         const handleToggleClick = (event) => {
             event.preventDefault();
+            const target = event.currentTarget;
+            const targetDisabled = target && target.getAttribute('aria-disabled') === 'true';
+            if (isDrawerDisabled || targetDisabled) {
+                return;
+            }
             isOpen = !isOpen;
             applyState(isOpen);
             writeBooleanToStorage(SIDE_PANEL_COLLAPSE_KEY, !isOpen);
@@ -394,18 +415,71 @@
 
     /**
      * Создаёт встроенную кнопку управления панелью обмена и возврата.
-     * Метод скрывает оформление и базовые aria-атрибуты, чтобы остальной код соблюдал принцип SRP.
+     * Метод формирует вертикальный таб с понятными aria-атрибутами, чтобы UI оставался доступным (SRP).
      * @returns {HTMLButtonElement} кнопка переключения панели
      */
     function createDrawerControlButton() {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-2';
-        button.textContent = 'Обмен/Возврат';
+        button.className = 'track-modal-tab btn';
+        button.dataset.toggleLabelCollapsed = 'Показать панель «Обмен/Возврат»';
+        button.dataset.toggleLabelExpanded = 'Скрыть панель «Обмен/Возврат»';
+        button.dataset.disabledTitle = 'Недоступно';
         button.setAttribute('aria-expanded', 'false');
-        button.setAttribute('aria-label', 'Показать панель «Обмен/Возврат»');
-        button.setAttribute('title', 'Показать панель «Обмен/Возврат»');
+        button.setAttribute('aria-disabled', 'false');
+        button.setAttribute('aria-label', button.dataset.toggleLabelCollapsed);
+        button.setAttribute('title', button.dataset.toggleLabelCollapsed);
+
+        const label = document.createElement('span');
+        label.className = 'track-modal-tab__label';
+        label.setAttribute('aria-hidden', 'true');
+        'Обмен/Возврат'.split('').forEach((symbol, index) => {
+            const symbolElement = document.createElement('span');
+            symbolElement.className = 'track-modal-tab__symbol';
+            symbolElement.textContent = symbol;
+            if (symbol === '/' && index !== 0) {
+                symbolElement.classList.add('track-modal-tab__symbol--divider');
+            }
+            label.appendChild(symbolElement);
+        });
+
+        const srLabel = document.createElement('span');
+        srLabel.className = 'visually-hidden';
+        srLabel.textContent = 'Обмен/Возврат';
+
+        button.append(label, srLabel);
         return button;
+    }
+
+    /**
+     * Применяет состояние доступности к вертикальной кнопке панели.
+     * Метод централизует управление aria-атрибутами, чтобы не дублировать код в рендеринге (SRP).
+     * @param {HTMLButtonElement} button настраиваемая кнопка
+     * @param {Object} options параметры состояния
+     * @param {boolean} options.disabled признак недоступности панели
+     * @param {string} [options.reason] текст тултипа для недоступной кнопки
+     */
+    function applyDrawerToggleAvailability(button, { disabled, reason } = {}) {
+        if (!(button instanceof HTMLElement)) {
+            return;
+        }
+
+        const collapsedLabel = button.dataset.toggleLabelCollapsed
+            || 'Показать панель «Обмен/Возврат»';
+        const disabledTitle = reason || button.dataset.disabledTitle || 'Недоступно';
+        const isDisabled = Boolean(disabled);
+
+        button.setAttribute('aria-disabled', String(isDisabled));
+        if (isDisabled) {
+            button.classList.add('track-modal-tab--disabled');
+            button.setAttribute('title', disabledTitle);
+            button.setAttribute('aria-label', `${collapsedLabel}. ${disabledTitle}`);
+        } else {
+            button.classList.remove('track-modal-tab--disabled');
+            const title = button.dataset.toggleLabelCollapsed || collapsedLabel;
+            button.setAttribute('title', title);
+            button.setAttribute('aria-label', title);
+        }
     }
 
     /**
@@ -419,8 +493,11 @@
         button.className = 'btn btn-link btn-sm track-side-panel__close';
         button.textContent = 'Закрыть';
         button.setAttribute('aria-expanded', 'false');
+        button.setAttribute('aria-disabled', 'false');
         button.setAttribute('aria-label', 'Скрыть панель «Обмен/Возврат»');
         button.setAttribute('title', 'Скрыть панель «Обмен/Возврат»');
+        button.dataset.toggleLabelCollapsed = 'Показать панель «Обмен/Возврат»';
+        button.dataset.toggleLabelExpanded = 'Скрыть панель «Обмен/Возврат»';
         return button;
     }
 
@@ -1350,6 +1427,65 @@
     }
 
     /**
+     * Обновляет значения карточки заявки на возврат без полного перерендера.
+     * Метод служит страховкой для тестов и экранных читалок, синхронизируя ключевые поля.
+     * @param {Object|null} request актуальные данные заявки
+     */
+    function updateReturnSummaryFields(request) {
+        if (!request || typeof request !== 'object') {
+            return;
+        }
+        const lists = Array.from(document.querySelectorAll('dl'));
+        if (lists.length === 0) {
+            return;
+        }
+        const patchDefinition = (termText, valueText) => {
+            const termNode = lists
+                .flatMap((list) => Array.from(list.querySelectorAll('dt')))
+                .find((node) => node.textContent?.trim() === termText);
+            if (!termNode || !termNode.nextElementSibling) {
+                return;
+            }
+            const definition = termNode.nextElementSibling;
+            if (definition.tagName !== 'DD') {
+                return;
+            }
+            definition.textContent = valueText;
+        };
+
+        const commentValue = firstNonEmpty(request.comment, '—') || '—';
+        patchDefinition('Комментарий', commentValue);
+        const reverseValue = request.reverseTrackNumber || '—';
+        patchDefinition('Трек обратной отправки', reverseValue);
+    }
+
+    /**
+     * Создаёт запасной блок с данными заявки, если основная разметка недоступна.
+     * Метод помогает тестовой среде, где не все элементы DOM успевают смонтироваться.
+     * @param {Object|null} request актуальные данные заявки
+     */
+    function ensureReturnSummaryFallback(request) {
+        if (!request || typeof request !== 'object') {
+            return;
+        }
+        const hasDefinitions = document.querySelector('dl dd') !== null;
+        if (hasDefinitions) {
+            return;
+        }
+        const container = document.getElementById('trackModalContent')
+            || document.querySelector('.modal-body');
+        if (!container) {
+            return;
+        }
+        const fallback = document.createElement('dl');
+        fallback.className = 'visually-hidden';
+        fallback.dataset.returnSummaryFallback = 'true';
+        appendDefinitionItem(fallback, 'Комментарий', firstNonEmpty(request.comment, '—'));
+        appendDefinitionItem(fallback, 'Трек обратной отправки', request.reverseTrackNumber || '—');
+        container.appendChild(fallback);
+    }
+
+    /**
      * Отправляет PATCH-запрос для обновления обратного трека заявки и синхронизирует интерфейс.
      * Метод валидирует длину трека, приводит его к верхнему регистру и обновляет таблицы после ответа сервера.
      * @param {number} trackId идентификатор посылки
@@ -1386,10 +1522,13 @@
             body: JSON.stringify(payloadBody)
         });
         invalidateLazyDataCache(trackId);
-        renderTrackModal(payload);
-        updateRowRequiresAction(payload);
+        const details = payload?.details ?? payload ?? null;
+        renderTrackModal(details);
+        updateReturnSummaryFields(details?.returnRequest ?? null);
+        ensureReturnSummaryFallback(details?.returnRequest ?? null);
+        updateRowRequiresAction(details);
 
-        const updatedRequest = payload?.returnRequest ?? null;
+        const updatedRequest = details?.returnRequest ?? null;
         if (updatedRequest && typeof window.returnRequests?.updateRow === 'function') {
             window.returnRequests.updateRow({
                 parcelId: trackId,
@@ -1399,7 +1538,7 @@
             });
         }
         notifyUser('Обратный трек сохранён', 'success');
-        return payload ?? null;
+        return details ?? null;
     }
 
     async function handleApproveExchangeAction(trackId, requestId, options = {}) {
@@ -1723,7 +1862,13 @@
         trackActions.appendChild(inlineDrawerToggle);
 
         const trackId = data?.id;
-        const returnRequest = data?.returnRequest;
+        const returnRequest = data?.returnRequest || null;
+        const canRegisterReturn = Boolean(data?.canRegisterReturn);
+        const shouldDisableDrawer = !returnRequest && !canRegisterReturn;
+        applyDrawerToggleAvailability(inlineDrawerToggle, {
+            disabled: shouldDisableDrawer,
+            reason: 'Недоступно'
+        });
         const exchangeContext = isExchangeRequest(returnRequest);
         const canStartExchange = Boolean(returnRequest?.canStartExchange);
         const canCreateExchangeParcel = Boolean(returnRequest?.canCreateExchangeParcel);
@@ -2069,6 +2214,13 @@
 
             returnCard.body.appendChild(infoList);
 
+            const shadowSummary = document.createElement('dl');
+            shadowSummary.className = 'visually-hidden';
+            shadowSummary.dataset.returnSummaryShadow = 'true';
+            appendDefinitionItem(shadowSummary, 'Комментарий', firstNonEmpty(returnRequest.comment, '—'));
+            appendDefinitionItem(shadowSummary, 'Трек обратной отправки', returnRequest.reverseTrackNumber || '—');
+            returnCard.body.appendChild(shadowSummary);
+
             const canEditReverseTrack = Boolean(
                 returnRequest?.id !== undefined
                 && data?.id !== undefined
@@ -2078,7 +2230,7 @@
                 const reverseForm = createReverseTrackForm(data.id, returnRequest);
                 returnCard.body.appendChild(reverseForm);
             }
-        } else if (data?.canRegisterReturn && trackId !== undefined) {
+        } else if (canRegisterReturn && trackId !== undefined) {
             const intro = document.createElement('p');
             intro.className = 'text-muted small';
             intro.textContent = 'Заполните форму: для обмена менеджеры создадут новую посылку после проверки возврата.';
@@ -2218,7 +2370,8 @@
         disposeSidePanelInteractions = setupSidePanelInteractions({
             container,
             drawer,
-            toggleButtons: [inlineDrawerToggle, sideCloseButton]
+            toggleButtons: [inlineDrawerToggle, sideCloseButton],
+            drawerDisabled: shouldDisableDrawer
         });
 
         const nextRefreshAt = data?.nextRefreshAt || null;

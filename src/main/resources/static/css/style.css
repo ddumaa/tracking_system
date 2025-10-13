@@ -238,6 +238,81 @@ header {
   flex-direction: column;
 }
 
+.track-modal-tab {
+  position: sticky;
+  top: 1.5rem;
+  align-self: flex-start;
+  margin-left: auto;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.75rem 0.5rem;
+  min-height: 7.5rem;
+  border: 1px solid var(--bs-primary);
+  border-right: none;
+  border-radius: 0.75rem 0 0 0.75rem;
+  background-color: var(--bs-body-bg);
+  color: var(--bs-primary);
+  box-shadow: 0 8px 20px rgba(13, 110, 253, 0.15);
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  text-decoration: none;
+  letter-spacing: 0.08em;
+}
+
+.track-modal-tab:focus-visible {
+  outline: 2px solid rgba(13, 110, 253, 0.6);
+  outline-offset: 2px;
+}
+
+.track-modal-tab:hover:not([aria-disabled="true"]) {
+  box-shadow: 0 10px 24px rgba(13, 110, 253, 0.22);
+}
+
+.track-modal-tab[aria-expanded="true"] {
+  background-color: var(--bs-primary);
+  color: #fff;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.2);
+}
+
+.track-modal-tab[aria-expanded="true"] .track-modal-tab__symbol {
+  color: inherit;
+}
+
+.track-modal-tab[aria-disabled="true"],
+.track-modal-tab.track-modal-tab--disabled {
+  color: var(--bs-secondary-color);
+  background-color: var(--bs-tertiary-bg);
+  border-color: var(--bs-border-color);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.track-modal-tab[aria-disabled="true"]:focus,
+.track-modal-tab[aria-disabled="true"]:focus-visible {
+  outline: none;
+}
+
+.track-modal-tab__label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.track-modal-tab__symbol {
+  display: block;
+  color: inherit;
+}
+
+.track-modal-tab__symbol--divider {
+  padding-top: 0.25rem;
+}
+
 .track-modal-main > .card:last-child {
   margin-bottom: 0;
 }
