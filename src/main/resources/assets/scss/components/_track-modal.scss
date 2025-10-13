@@ -1,0 +1,287 @@
+@use "../ui" as ui;
+
+.track-modal-dialog {
+  max-width: 1140px;
+}
+
+.track-modal-body {
+  background-color: var(--bs-body-bg);
+  padding: 1.5rem;
+  overflow: hidden;
+}
+
+@include ui.respond-to(sm) {
+  .track-modal-body {
+    padding: 1rem;
+  }
+}
+
+.track-modal-placeholder {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.5rem;
+}
+
+.track-modal-container {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  overflow-x: hidden;
+  --track-modal-gap: clamp(0.5rem, 1vw, 0.75rem);
+  --track-modal-main-max: min(720px, 100%);
+  --track-modal-drawer-width: clamp(26.25rem, 32vw, 32.5rem);
+  --track-modal-easing: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.track-modal-main-wrapper {
+  position: relative;
+  flex: 1 1 var(--track-modal-main-max);
+  width: 100%;
+  max-width: var(--track-modal-main-max);
+  margin-right: var(--track-modal-gap);
+  padding: 1.5rem;
+  border-radius: 1rem;
+  background-color: var(--bs-body-bg);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  overflow: hidden;
+}
+
+.track-modal-main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.track-modal-main > .card:last-child {
+  margin-bottom: 0;
+}
+
+.track-modal-toggle {
+  align-self: stretch;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  margin-right: var(--track-modal-gap);
+  padding: 1rem 0.65rem;
+  min-width: 3.25rem;
+  border-radius: 1rem;
+  border: 1px solid var(--bs-border-color);
+  background-color: var(--bs-body-bg);
+  color: var(--bs-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.14);
+  transition: background-color 0.2s var(--track-modal-easing),
+    color 0.2s var(--track-modal-easing),
+    box-shadow 0.2s var(--track-modal-easing),
+    transform 0.2s var(--track-modal-easing);
+}
+
+.track-modal-toggle__icon {
+  font-size: 1.1rem;
+  transform: rotate(90deg);
+}
+
+.track-modal-toggle__label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  letter-spacing: 0.18em;
+}
+
+.track-modal-toggle:hover,
+.track-modal-toggle:focus-visible {
+  background-color: rgba(var(--bs-primary-rgb), 0.08);
+  color: var(--bs-primary);
+  outline: none;
+}
+
+.track-modal-toggle:focus-visible {
+  box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+.track-modal-toggle--active {
+  background-color: rgba(var(--bs-primary-rgb), 0.12);
+  color: var(--bs-primary);
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.2);
+}
+
+.track-modal-toggle:disabled,
+.track-modal-toggle--disabled {
+  color: var(--bs-secondary-color);
+  background-color: var(--bs-secondary-bg);
+  border-color: var(--bs-border-color);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.track-modal-toggle:disabled .track-modal-toggle__icon,
+.track-modal-toggle--disabled .track-modal-toggle__icon {
+  opacity: 0.6;
+}
+
+.track-modal-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: var(--track-modal-drawer-width);
+  max-width: var(--track-modal-drawer-width);
+  padding: 1.5rem 1.25rem;
+  border-radius: 1rem;
+  background-color: var(--bs-body-bg);
+  box-shadow: -16px 0 48px rgba(15, 23, 42, 0.18);
+  overflow-y: auto;
+  opacity: 0;
+  transform: translateX(calc(100% + var(--track-modal-gap)));
+  pointer-events: none;
+  transition: transform 0.2s var(--track-modal-easing),
+    opacity 0.2s var(--track-modal-easing);
+  z-index: 5;
+}
+
+.track-modal-drawer--open,
+.track-modal-container--drawer-open .track-modal-drawer {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  margin-left: 0;
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.16);
+}
+
+.track-side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  height: 100%;
+}
+
+.track-side-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+.track-side-panel__title {
+  margin: 0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bs-secondary-color);
+}
+
+.track-side-panel__close {
+  margin-left: auto;
+  color: var(--bs-secondary-color);
+  text-decoration: none;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  transition: background-color 0.15s var(--track-modal-easing),
+    color 0.15s var(--track-modal-easing);
+}
+
+.track-side-panel__close:hover,
+.track-side-panel__close:focus-visible {
+  color: var(--bs-primary);
+  background-color: rgba(var(--bs-primary-rgb), 0.1);
+  text-decoration: none;
+  outline: none;
+}
+
+.track-side-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@include ui.respond-to(xl) {
+  .track-modal-container {
+    --track-modal-main-max: min(680px, 100%);
+    --track-modal-drawer-width: clamp(24rem, 38vw, 31rem);
+  }
+}
+
+@include ui.respond-to(lg) {
+  .track-modal-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .track-modal-main-wrapper {
+    margin-right: 0;
+    max-width: 100%;
+  }
+
+  .track-modal-toggle {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translate(50%, -50%);
+    margin-right: 0;
+    z-index: 7;
+  }
+
+  .track-modal-container--drawer-open .track-modal-toggle {
+    transform: translate(50%, -50%) scale(0.95);
+  }
+
+  .track-modal-drawer {
+    inset: 0;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 1rem;
+    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.2);
+    transform: translateX(100%);
+    padding: 1.25rem 1rem;
+  }
+
+  .track-modal-container--drawer-open .track-modal-drawer {
+    position: absolute;
+    transform: translateX(0);
+  }
+}
+
+@include ui.respond-to(md) {
+  .track-modal-main-wrapper {
+    padding: 1.25rem;
+  }
+}
+
+@include ui.respond-to(sm) {
+  .track-modal-main-wrapper {
+    padding: 1rem;
+    border-radius: 0.75rem;
+  }
+
+  .track-modal-toggle {
+    min-width: 2.75rem;
+  }
+
+  .track-modal-drawer {
+    border-radius: 0.75rem;
+  }
+}
