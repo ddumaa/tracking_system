@@ -263,6 +263,15 @@
   overflow: visible;
 }
 
+.track-modal-main-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  overflow: visible;
+}
+
 .track-modal-main-wrapper {
   position: relative;
   flex: 0 0 var(--track-modal-main-width);
@@ -289,7 +298,8 @@
 }
 
 .track-modal-container--drawer-open .track-modal-main-shell,
-.track-modal-container--drawer-open .track-modal-main-wrapper {
+.track-modal-container--drawer-open .track-modal-main-wrapper,
+.track-modal-container--drawer-open .track-modal-main-body {
   flex-shrink: 0;
   max-width: var(--track-modal-main-width);
 }
@@ -403,7 +413,8 @@
   }
 
   .track-modal-main-shell,
-  .track-modal-main-wrapper {
+  .track-modal-main-wrapper,
+  .track-modal-main-body {
     flex: 0 0 var(--track-modal-main-width);
     max-width: var(--track-modal-main-width);
     min-width: 0;
