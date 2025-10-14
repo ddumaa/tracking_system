@@ -1447,21 +1447,31 @@
      * Создаёт карточку модального окна с заголовком и телом.
      * Метод устраняет дублирование разметки и упрощает расширение модалки (OCP).
      * @param {string} title заголовок карточки
-     * @returns {{card: HTMLElement, body: HTMLElement}} карточка и контейнер содержимого
+     * @param {Object} [options] дополнительные настройки разметки
+     * @param {string|null} [options.headingId] идентификатор заголовка для aria-связей
+     * @returns {{card: HTMLElement, body: HTMLElement, heading: HTMLElement|null}} карточка, контейнер содержимого и заголовок
      */
-    function createCard(title) {
+    function createCard(title, options = {}) {
         const card = document.createElement('section');
         card.className = 'card shadow-sm border-0 rounded-4 mb-3';
         const body = document.createElement('div');
         body.className = 'card-body';
+        const { headingId = null } = options;
+        let heading = null;
         if (title) {
-            const heading = document.createElement('h6');
+            heading = document.createElement('h6');
             heading.className = 'text-uppercase text-muted small mb-3';
             heading.textContent = title;
+            if (headingId) {
+                heading.id = headingId;
+            }
             body.appendChild(heading);
         }
         card.appendChild(body);
-        return { card, body };
+        if (headingId) {
+            card.setAttribute('aria-labelledby', headingId);
+        }
+        return { card, body, heading };
     }
 
     /**
@@ -1703,7 +1713,7 @@
 
         mainColumn.appendChild(parcelCard.card);
 
-        const returnCard = createCard('Обращение');
+        const returnCard = createCard('Обращение', { headingId: generateElementId('track-return-title') });
         if (returnRequest) {
             const statusSection = document.createElement('div');
             statusSection.className = 'd-flex flex-column gap-2';
@@ -2000,7 +2010,7 @@
         }
 
         const lifecycleCard = (() => {
-            const { card, body } = createCard('Жизненный цикл заказа');
+            const lifecycle = createCard('Жизненный цикл заказа', { headingId: generateElementId('track-lifecycle-title') });
             const lifecycleSection = createLazySection({
                 buttonLabel: 'Жизненный цикл заказа',
                 expandedLabel: 'Скрыть этапы',
@@ -2016,8 +2026,8 @@
                     return buildLifecycleList(stages, format);
                 }
             });
-            body.appendChild(lifecycleSection.container);
-            return card;
+            lifecycle.body.appendChild(lifecycleSection.container);
+            return lifecycle;
         })();
 
         const statusCard = createCard('Текущий статус');
@@ -2095,26 +2105,22 @@
         sidePanel.className = 'track-side-panel d-flex flex-column gap-3';
         sidePanel.setAttribute('role', 'region');
 
-        const sideHeader = document.createElement('div');
-        sideHeader.className = 'track-side-panel__header d-flex align-items-center justify-content-between gap-2';
+        [returnCard, lifecycleCard]
+            .filter((cardInfo) => Boolean(cardInfo))
+            .forEach((cardInfo) => sidePanel.appendChild(cardInfo.card));
 
-        const sideTitle = document.createElement('h6');
-        sideTitle.id = 'trackSidePanelTitle';
-        sideTitle.className = 'track-side-panel__title mb-0 text-uppercase text-muted small';
-        sideTitle.textContent = 'Обращение и этапы';
+        const labelTargets = [returnCard?.heading, lifecycleCard?.heading]
+            .filter((heading) => heading?.id)
+            .map((heading) => heading.id);
 
-        sideHeader.append(sideTitle);
-
-        const sideContent = document.createElement('div');
-        sideContent.className = 'track-side-panel__body d-flex flex-column gap-3';
-        sideContent.appendChild(returnCard.card);
-        if (lifecycleCard) {
-            sideContent.appendChild(lifecycleCard);
+        if (labelTargets.length > 0) {
+            const labelledBy = labelTargets.join(' ');
+            sidePanel.setAttribute('aria-labelledby', labelledBy);
+            drawer.setAttribute('aria-labelledby', labelledBy);
+        } else {
+            sidePanel.removeAttribute('aria-labelledby');
+            drawer.removeAttribute('aria-labelledby');
         }
-
-        sidePanel.append(sideHeader, sideContent);
-        sidePanel.setAttribute('aria-labelledby', sideTitle.id);
-        drawer.setAttribute('aria-labelledby', sideTitle.id);
         drawer.appendChild(sidePanel);
 
         container.appendChild(mainColumn);
