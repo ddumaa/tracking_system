@@ -247,6 +247,15 @@
   flex-direction: column;
 }
 
+.track-modal-main-column-shell {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  overflow: visible;
+}
+
 .track-modal-main {
   flex: 1 1 auto;
   min-width: 0;
@@ -376,6 +385,11 @@
     min-width: 0;
   }
 
+  .track-modal-main-column-shell {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
   .track-modal-tab-slot .track-modal-drawer-toggle {
     transform: none;
   }
@@ -434,6 +448,10 @@
     position: static;
     width: auto;
     pointer-events: auto;
+  }
+
+  .track-modal-main-column-shell {
+    overflow: visible;
   }
 
   .track-modal-tab-slot .track-modal-drawer-toggle {
