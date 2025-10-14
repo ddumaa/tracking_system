@@ -864,31 +864,28 @@ button:hover {
 }
 
 .track-modal-dialog {
-  --track-modal-dialog-base-width: 1140px;
-  --track-modal-dialog-horizontal-padding: 2rem;
+  --track-modal-horizontal-padding: 2rem;
   --track-modal-viewport-width: max(
-    calc(100vw - var(--track-modal-dialog-horizontal-padding)),
+    calc(100vw - var(--track-modal-horizontal-padding)),
     0px
   );
-  --track-modal-main-width: min(
-    var(--track-modal-dialog-base-width),
+  --track-modal-gap: 1.5rem;
+  --track-modal-main-width: clamp(520px, 58vw, 760px);
+  --track-modal-side-width: clamp(420px, 34vw, 520px);
+  width: min(
+    calc(
+      var(--track-modal-main-width) + var(--track-modal-side-width) +
+        var(--track-modal-gap)
+    ),
     var(--track-modal-viewport-width)
   );
-  --track-modal-main-column-width: var(--track-modal-main-width);
-  --track-modal-drawer-gap: 0.75rem;
-  --track-modal-drawer-width: min(380px, 92vw);
-  --track-modal-tab-peek: 1.5rem;
-  --track-modal-dialog-open-target-width: calc(
-    var(--track-modal-main-column-width) + var(--track-modal-drawer-gap, 0px) +
-      var(--track-modal-drawer-width, 0px)
-  );
-  --track-modal-dialog-open-width: clamp(
-    0px,
-    var(--track-modal-dialog-open-target-width),
+  max-width: min(
+    calc(
+      var(--track-modal-main-width) + var(--track-modal-side-width) +
+        var(--track-modal-gap)
+    ),
     var(--track-modal-viewport-width)
   );
-  width: min(100%, var(--track-modal-main-width));
-  max-width: var(--track-modal-main-width);
 }
 
 .track-modal-body {
@@ -911,363 +908,91 @@ button:hover {
 }
 
 .track-modal-container {
-  position: relative;
-  width: 100%;
-  display: block;
-  overflow-x: hidden;
-}
-
-.track-modal-dialog.track-modal-dialog--drawer-open,
-.track-modal-container--drawer-open .track-modal-dialog {
-  width: min(100%, var(--track-modal-dialog-open-width));
-  max-width: clamp(
-    0px,
-    var(--track-modal-dialog-open-target-width),
-    var(--track-modal-viewport-width)
-  );
-}
-
-.track-modal-main-shell {
-  position: relative;
   display: flex;
-  flex: 0 0 var(--track-modal-main-width);
-  width: min(100%, var(--track-modal-main-width));
-  min-width: 0;
-  align-items: stretch;
-  overflow: visible;
-}
-
-.track-modal-main-layout {
-  position: relative;
-  width: 100%;
-  display: flex;
-  flex: 1 1 auto;
   flex-wrap: nowrap;
   align-items: flex-start;
-  gap: 0;
-  overflow: visible;
+  justify-content: stretch;
+  gap: var(--track-modal-gap, 1.5rem);
+  width: 100%;
+  min-width: 0;
 }
 
-.track-modal-main-body {
-  position: relative;
-  flex: 1 1 auto;
+.track-modal-container > * {
   min-width: 0;
-  display: flex;
-  align-items: stretch;
-  overflow: visible;
-}
-
-.track-modal-main-wrapper {
-  position: relative;
-  flex: 0 0 var(--track-modal-main-width);
-  width: min(100%, var(--track-modal-main-width));
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.track-modal-main-column-shell {
-  position: relative;
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  align-items: stretch;
-  overflow: visible;
 }
 
 .track-modal-main {
-  flex: 1 1 auto;
+  flex: 1 1 var(--track-modal-main-width, 640px);
+  max-width: var(--track-modal-main-width, 640px);
   min-width: 0;
   display: flex;
   flex-direction: column;
-}
-
-.track-modal-container--drawer-open .track-modal-main-shell,
-.track-modal-container--drawer-open .track-modal-main-wrapper,
-.track-modal-container--drawer-open .track-modal-main-body {
-  flex-shrink: 0;
-  max-width: var(--track-modal-main-width);
+  gap: 1.5rem;
 }
 
 .track-modal-main > .card:last-child {
   margin-bottom: 0;
 }
 
-.track-modal-tab-slot {
-  position: absolute;
-  top: 0;
-  right: calc(var(--track-modal-tab-peek, 1.5rem) * -1);
-  bottom: 0;
-  display: flex;
-  justify-content: flex-end;
-  align-items: flex-start;
-  width: 0;
-  overflow: visible;
-  pointer-events: none;
-}
-
-.track-modal-drawer-toggle {
-  position: sticky;
-  top: 1.5rem;
-  flex: 0 0 auto;
-  margin-left: 0;
-  z-index: 2;
-  transform: none;
-  transition: transform 0.3s ease-in-out;
-  pointer-events: auto;
-}
-
 .track-modal-drawer {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: auto;
+  flex: 0 0 var(--track-modal-side-width, 480px);
+  max-width: var(--track-modal-side-width, 480px);
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  background-color: var(--bs-body-bg);
+  border-radius: 1.25rem;
+  box-shadow: -24px 0 48px rgba(15, 23, 42, 0.16);
   padding: 1.5rem 1.25rem;
-  width: var(--track-modal-drawer-width);
-  max-width: var(--track-modal-drawer-width);
-  border-radius: 1rem;
-  background-color: var(--bs-body-bg);
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.24);
-  transform: translateX(100%);
-  transition: transform 0.3s ease-in-out;
-  overflow: hidden;
-  overflow-y: auto;
-  z-index: 5;
 }
 
-.track-modal-drawer--open,
-.track-modal-container--drawer-open .track-modal-drawer {
-  transform: translateX(0);
-}
-
-.track-side-panel {
-  background-color: transparent;
-}
-
-.track-side-panel__header {
-  background-color: var(--bs-body-bg);
-  border: 1px solid var(--bs-border-color);
-  border-radius: 1rem;
-  padding: 0.75rem 1rem;
-}
-
-.track-side-panel__close {
-  margin-left: auto;
-  color: var(--bs-secondary-color);
-  text-decoration: none;
-  font-weight: 500;
-}
-.track-side-panel__close:focus, .track-side-panel__close:hover {
-  color: var(--bs-secondary-color);
-  text-decoration: underline;
-}
-
-.track-side-panel__title {
-  letter-spacing: 0.08em;
-}
-
-.track-side-panel__body {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+@media (max-width: 1399.98px) {
+  .track-modal-dialog {
+    --track-modal-main-width: clamp(500px, 60vw, 720px);
+    --track-modal-side-width: clamp(400px, 36vw, 500px);
+  }
 }
 
 @media (max-width: 1199.98px) {
   .track-modal-dialog {
-    --track-modal-drawer-width: min(340px, 90vw);
+    --track-modal-side-width: clamp(380px, 40vw, 480px);
   }
 }
-@media (min-width: 992px) {
-  .track-modal-container {
-    display: flex;
-    align-items: stretch;
-    gap: 0;
-  }
-  .track-modal-main-layout {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-  .track-modal-main-shell,
-  .track-modal-main-wrapper,
-  .track-modal-main-body {
-    flex: 1 1 auto;
-    max-width: none;
-    min-width: 0;
-  }
-  .track-modal-main {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-  .track-modal-main-column-shell {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-  .track-modal-container:not(.track-modal-container--drawer-open)
-    .track-modal-main-shell,
-  .track-modal-container:not(.track-modal-container--drawer-open)
-    .track-modal-main-wrapper,
-  .track-modal-container:not(.track-modal-container--drawer-open)
-    .track-modal-main-body {
-    flex: 0 0 var(--track-modal-main-width);
-    max-width: var(--track-modal-main-width);
-  }
-  .track-modal-container--drawer-open .track-modal-main-shell,
-  .track-modal-container--drawer-open .track-modal-main-wrapper,
-  .track-modal-container--drawer-open .track-modal-main-body {
-    flex: 1 1 auto;
-    flex-basis: var(--track-modal-main-column-width);
-    max-width: var(--track-modal-main-column-width);
-  }
-  .track-modal-tab-slot .track-modal-drawer-toggle {
-    transform: none;
-  }
-  .track-modal-tab-slot .track-modal-drawer-toggle[aria-expanded=true],
-  .track-modal-container--drawer-open .track-modal-tab-slot .track-modal-drawer-toggle {
-    transform: translateX(calc(var(--track-modal-tab-peek, 1.5rem) * -1));
-  }
-  .track-modal-container--drawer-open {
-    gap: var(--track-modal-drawer-gap);
-  }
-  .track-modal-drawer {
-    position: relative;
-    top: auto;
-    right: auto;
-    bottom: auto;
-    left: auto;
-    transform: none;
-    flex: 0 1 auto;
-    flex-basis: 0;
-    max-width: 0;
-    overflow: hidden;
-    overflow-y: auto;
-    padding-left: 0;
-    padding-right: 0;
-    pointer-events: none;
-    opacity: 0;
-    transition: flex-basis 0.3s ease-in-out, max-width 0.3s ease-in-out, padding 0.3s ease-in-out, opacity 0.3s ease-in-out;
-  }
-  .track-modal-drawer--open,
-  .track-modal-container--drawer-open .track-modal-drawer {
-    transform: none;
-  }
-  .track-modal-container:not(.track-modal-container--drawer-open) .track-modal-drawer {
-    flex-basis: 0;
-    max-width: 0;
-    opacity: 0;
-    padding-left: 0;
-    padding-right: 0;
-    pointer-events: none;
-  }
-  .track-modal-container--drawer-open .track-modal-drawer {
-    flex: 0 0 var(--track-modal-drawer-width);
-    flex-basis: var(--track-modal-drawer-width);
-    max-width: var(--track-modal-drawer-width);
-    opacity: 1;
-    padding-left: 1.5rem;
-    padding-right: 1.25rem;
-    pointer-events: auto;
-  }
-}
+
 @media (max-width: 991.98px) {
   .track-modal-dialog {
-    --track-modal-drawer-width: min(320px, 88vw);
+    --track-modal-horizontal-padding: 1.5rem;
+    --track-modal-gap: 1.25rem;
+    width: min(var(--track-modal-viewport-width), var(--track-modal-main-width));
+    max-width: min(var(--track-modal-viewport-width), var(--track-modal-main-width));
+  }
+  .track-modal-container {
+    flex-direction: column;
+    gap: 1.25rem;
   }
   .track-modal-drawer {
-    padding: 1.25rem 1rem;
-  }
-  .track-modal-tab-slot {
-    position: static;
-    width: auto;
-    pointer-events: auto;
-  }
-  .track-modal-main-column-shell {
-    overflow: visible;
-  }
-  .track-modal-tab-slot .track-modal-drawer-toggle {
-    transform: none;
+    flex: 0 0 auto;
+    max-width: 100%;
+    width: 100%;
+    padding: 1.5rem 1.25rem;
+    box-shadow: 0 -16px 32px rgba(15, 23, 42, 0.18);
+    border-radius: 1.25rem;
   }
 }
+
 @media (max-width: 767.98px) {
   .track-modal-dialog {
-    --track-modal-drawer-width: 100%;
+    --track-modal-horizontal-padding: 1.25rem;
+  }
+  .track-modal-container {
+    gap: 1rem;
   }
   .track-modal-drawer {
-    left: 0;
-    border-radius: 1rem 1rem 0 0;
-    box-shadow: 0 -12px 24px rgba(15, 23, 42, 0.18);
-    transform: translateY(100%);
+    margin-left: -1rem;
+    margin-right: -1rem;
+    width: calc(100% + 2rem);
+    border-radius: 1.25rem 1.25rem 0 0;
   }
-  .track-modal-drawer--open,
-  .track-modal-container--drawer-open .track-modal-drawer {
-    transform: translateY(0);
-  }
-}
-.track-modal-tab {
-  position: sticky;
-  top: 1.5rem;
-  align-self: flex-start;
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  padding: 0.75rem 0.5rem;
-  min-height: 7.5rem;
-  border: 1px solid var(--bs-primary);
-  border-right: none;
-  border-radius: 0.75rem 0 0 0.75rem;
-  background-color: var(--bs-body-bg);
-  color: var(--bs-primary);
-  box-shadow: 0 8px 20px rgba(13, 110, 253, 0.15);
-  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-  text-decoration: none;
-  letter-spacing: 0.08em;
-}
-.track-modal-tab:focus-visible {
-  outline: 2px solid rgba(13, 110, 253, 0.6);
-  outline-offset: 2px;
-}
-.track-modal-tab:hover:not([aria-disabled=true]) {
-  box-shadow: 0 10px 24px rgba(13, 110, 253, 0.22);
-}
-.track-modal-tab[aria-expanded=true] {
-  transform: translateX(0);
-  background-color: var(--bs-primary);
-  color: #fff;
-  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.2);
-}
-.track-modal-tab[aria-expanded=true] .track-modal-tab__symbol {
-  color: inherit;
-}
-.track-modal-tab[aria-disabled=true], .track-modal-tab.track-modal-tab--disabled, .track-modal-tab:disabled {
-  color: var(--bs-secondary-color);
-  background-color: var(--bs-tertiary-bg);
-  border-color: var(--bs-border-color);
-  box-shadow: none;
-  cursor: not-allowed;
-}
-.track-modal-tab[aria-disabled=true]:focus, .track-modal-tab[aria-disabled=true]:focus-visible, .track-modal-tab.track-modal-tab--disabled:focus, .track-modal-tab.track-modal-tab--disabled:focus-visible, .track-modal-tab:disabled:focus, .track-modal-tab:disabled:focus-visible {
-  outline: none;
-}
-.track-modal-tab__label {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.15rem;
-  font-size: 0.75rem;
-  line-height: 1;
-}
-.track-modal-tab__symbol {
-  display: block;
-  color: inherit;
-}
-.track-modal-tab__symbol--divider {
-  padding-top: 0.25rem;
 }
 
 @media (max-width: 576px) {
