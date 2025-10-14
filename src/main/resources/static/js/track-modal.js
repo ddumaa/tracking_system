@@ -1785,6 +1785,8 @@
      * Отрисовывает содержимое модального окна с деталями трека.
      * Метод собирает карточки интерфейса и обновляет заголовок без сетевых обращений (SRP).
      * @param {Object} data DTO с сервера
+     * @param {Object} [options] дополнительные настройки от вызывающего кода
+     * @param {Object|null} [options.exchangeItem] данные обменной посылки для отображения
      */
     function renderTrackModal(data, options = {}) {
         clearRefreshTimer();
@@ -1824,10 +1826,14 @@
         const mainWrapper = document.createElement('div');
         mainWrapper.className = 'track-modal-main-wrapper';
 
+        const mainColumnShell = document.createElement('div');
+        mainColumnShell.className = 'track-modal-main-column-shell';
+
         const mainColumn = document.createElement('div');
         mainColumn.className = 'track-modal-main d-flex flex-column gap-3';
         mainWrapper.appendChild(mainColumn);
-        mainLayout.appendChild(mainWrapper);
+        mainColumnShell.appendChild(mainWrapper);
+        mainLayout.appendChild(mainColumnShell);
 
         const drawer = document.createElement('aside');
         drawer.className = 'track-modal-drawer';
@@ -1873,7 +1879,8 @@
         const toggleSlot = document.createElement('div');
         toggleSlot.className = 'track-modal-tab-slot';
         toggleSlot.appendChild(inlineDrawerToggle);
-        mainShell.append(mainLayout, toggleSlot);
+        mainColumnShell.appendChild(toggleSlot);
+        mainShell.appendChild(mainLayout);
 
         const trackId = data?.id;
         const returnRequest = data?.returnRequest || null;
