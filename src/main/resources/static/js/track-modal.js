@@ -276,11 +276,13 @@
                 }
                 if (isButtonDisabled) {
                     button.setAttribute('title', disabledTitle);
+                    button.setAttribute('data-bs-original-title', disabledTitle);
                     button.setAttribute('aria-label', `${toggleLabelCollapsed}. ${disabledTitle}`);
                 } else {
                     const label = open ? toggleLabelExpanded : toggleLabelCollapsed;
                     button.setAttribute('aria-label', label);
                     button.setAttribute('title', label);
+                    button.setAttribute('data-bs-original-title', label);
                 }
             });
         };
@@ -478,11 +480,14 @@
         if (isDisabled) {
             button.classList.add('track-modal-tab--disabled');
             button.setAttribute('title', disabledTitle);
+            button.setAttribute('data-bs-original-title', disabledTitle);
             button.setAttribute('aria-label', `${collapsedLabel}. ${disabledTitle}`);
+            button.setAttribute('aria-expanded', 'false');
         } else {
             button.classList.remove('track-modal-tab--disabled');
             const title = button.dataset.toggleLabelCollapsed || collapsedLabel;
             button.setAttribute('title', title);
+            button.setAttribute('data-bs-original-title', title);
             button.setAttribute('aria-label', title);
         }
     }
@@ -1844,7 +1849,12 @@
         mainColumn.className = 'track-modal-main d-flex flex-column gap-3';
         mainWrapper.appendChild(mainColumn);
         mainColumnShell.appendChild(mainWrapper);
-        mainLayout.appendChild(mainColumnShell);
+
+        const mainBody = document.createElement('div');
+        mainBody.className = 'track-modal-main-body';
+        mainBody.appendChild(mainColumnShell);
+
+        mainLayout.appendChild(mainBody);
 
         const drawer = document.createElement('aside');
         drawer.className = 'track-modal-drawer';
@@ -1890,7 +1900,7 @@
         const toggleSlot = document.createElement('div');
         toggleSlot.className = 'track-modal-tab-slot';
         toggleSlot.appendChild(inlineDrawerToggle);
-        mainColumnShell.appendChild(toggleSlot);
+        mainBody.appendChild(toggleSlot);
         mainShell.appendChild(mainLayout);
 
         const trackId = data?.id;
