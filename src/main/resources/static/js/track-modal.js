@@ -2102,9 +2102,25 @@
             .filter((cardInfo) => Boolean(cardInfo));
 
         if (sideCards.length > 0) {
-            const sideFragment = document.createDocumentFragment();
-            sideCards.forEach((cardInfo) => sideFragment.appendChild(cardInfo.card));
-            container.appendChild(sideFragment);
+            /**
+             * Создаёт правую колонку модального окна и наполняет её карточками.
+             * Метод формирует единый контейнер, чтобы сетка корректно выравнивала
+             * вспомогательные блоки и их позиция не менялась при изменении контента.
+             * @returns {HTMLElement} обёртка с карточками правой части
+             */
+            const createSideColumn = () => {
+                const sideColumn = document.createElement('aside');
+                sideColumn.className = 'track-modal-side d-flex flex-column gap-3';
+                sideColumn.setAttribute('aria-label', 'Дополнительные сведения о треке');
+                sideCards.forEach((cardInfo) => {
+                    if (cardInfo?.card instanceof HTMLElement) {
+                        sideColumn.appendChild(cardInfo.card);
+                    }
+                });
+                return sideColumn;
+            };
+
+            container.appendChild(createSideColumn());
         }
 
         const nextRefreshAt = data?.nextRefreshAt || null;
