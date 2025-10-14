@@ -37,9 +37,13 @@
 
 .timeline-status {
   font-weight: 500;
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 .timeline-details {
   margin-top: 0.25rem;
   line-height: 1.4;
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
