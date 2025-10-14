@@ -1091,25 +1091,70 @@
     }
 
     /**
-     * Определяет, относится ли заявка к обмену с учётом обратной совместимости.
-     * Метод проверяет новые и старые флаги, чтобы не допустить ложных выводов.
-     * @param {Object} returnRequest DTO заявки
-     * @returns {boolean} {@code true}, если пользователь запросил обмен
+     * Перечисление доступных контекстов обработки заявки на возврат.
+     * Константа помогает явно документировать допустимые значения и
+     * использовать их повторно при проверке условий (принцип OCP).
      */
-    function isExchangeRequest(returnRequest) {
+    const ReturnRequestActionMode = Object.freeze({
+        RETURN: 'return',
+        EXCHANGE: 'exchange'
+    });
+
+    /**
+     * Набор известных статус-кодов заявки и соответствующих им режимов действий.
+     * Словарь позволяет централизованно маппить код статуса на нужные кнопки,
+     * чтобы не размазывать знание по файлу и не нарушать SRP.
+     */
+    const RETURN_STATUS_CONTEXT = Object.freeze({
+        REGISTERED: ReturnRequestActionMode.RETURN,
+        EXCHANGE_APPROVED: ReturnRequestActionMode.EXCHANGE,
+        CLOSED_NO_EXCHANGE: ReturnRequestActionMode.RETURN
+    });
+
+    /**
+     * Нормализует подпись статуса и определяет режим действий, если код недоступен.
+     * Метод анализирует текстовую метку, чтобы сохранить совместимость со старыми ответами API,
+     * где вместо кода передавалось локализованное имя статуса.
+     * @param {string} statusLabel локализованное название статуса
+     * @returns {string|null} строковое значение из {@link ReturnRequestActionMode} или {@code null}
+     */
+    function resolveModeByLabel(statusLabel) {
+        if (typeof statusLabel !== 'string' || statusLabel.trim().length === 0) {
+            return null;
+        }
+        const normalized = statusLabel.trim().toLowerCase();
+        if (normalized.includes('обмен')) {
+            return ReturnRequestActionMode.EXCHANGE;
+        }
+        if (normalized.includes('возврат')) {
+            return ReturnRequestActionMode.RETURN;
+        }
+        return null;
+    }
+
+    /**
+     * Определяет, какие кнопки действий следует показывать, исходя из статуса заявки.
+     * Метод опирается на код статуса, а при его отсутствии пытается распознать метку,
+     * чтобы покрыть случаи, когда заявка изначально оформлялась как возврат
+     * или была переведена обратно из обмена.
+     * @param {Object} returnRequest DTO заявки
+     * @returns {string} одно из значений {@link ReturnRequestActionMode}
+     */
+    function getReturnRequestActionMode(returnRequest) {
         if (!returnRequest || typeof returnRequest !== 'object') {
-            return false;
+            return ReturnRequestActionMode.RETURN;
         }
-        if (typeof returnRequest.isExchange === 'boolean') {
-            return returnRequest.isExchange;
+        const statusRaw = typeof returnRequest.status === 'string'
+            ? returnRequest.status.trim().toUpperCase()
+            : '';
+        if (statusRaw.length > 0 && RETURN_STATUS_CONTEXT[statusRaw]) {
+            return RETURN_STATUS_CONTEXT[statusRaw];
         }
-        if (typeof returnRequest.exchangeRequested === 'boolean') {
-            return returnRequest.exchangeRequested;
+        const modeFromLabel = resolveModeByLabel(returnRequest.statusLabel);
+        if (modeFromLabel) {
+            return modeFromLabel;
         }
-        if (typeof returnRequest.exchangeApproved === 'boolean' && returnRequest.exchangeApproved) {
-            return true;
-        }
-        return false;
+        return ReturnRequestActionMode.RETURN;
     }
 
     /**
@@ -1616,7 +1661,8 @@
         const trackId = data?.id;
         const returnRequest = data?.returnRequest || null;
         const canRegisterReturn = Boolean(data?.canRegisterReturn);
-        const exchangeContext = isExchangeRequest(returnRequest);
+        const requestActionMode = getReturnRequestActionMode(returnRequest);
+        const exchangeContext = requestActionMode === ReturnRequestActionMode.EXCHANGE;
         const canStartExchange = Boolean(returnRequest?.canStartExchange);
         const canCreateExchangeParcel = Boolean(returnRequest?.canCreateExchangeParcel);
 
@@ -1801,7 +1847,11 @@
                 appendAction(primaryStack, createButton);
             }
 
-            if (returnRequest?.canCloseWithoutExchange && trackId !== undefined && returnRequest.id !== undefined) {
+            const canCloseWithoutExchange = Boolean(returnRequest?.canCloseWithoutExchange)
+                && trackId !== undefined
+                && returnRequest?.id !== undefined;
+
+            if (canCloseWithoutExchange) {
                 const closeButtonText = exchangeContext ? 'Закрыть без обмена' : 'Принять возврат';
                 const closeVariant = exchangeContext ? 'outline-secondary' : 'success';
                 const closeOptions = exchangeContext
@@ -1820,7 +1870,15 @@
                 appendAction(exchangeContext ? secondaryStack : primaryStack, closeButton);
             }
 
-            if (returnRequest?.canConfirmReceipt && trackId !== undefined && returnRequest.id !== undefined) {
+            const allowReceiptConfirmationWithoutClosing = Boolean(returnRequest?.canConfirmReceipt)
+                && !exchangeContext
+                && !canCloseWithoutExchange
+                && trackId !== undefined
+                && returnRequest?.id !== undefined;
+
+            if (allowReceiptConfirmationWithoutClosing) {
+                // «Подтвердить получение» фиксирует поступление товара, оставляя заявку открытой для дальнейших действий,
+                // тогда как «Принять возврат» завершает процесс и закрывает заявку без обмена.
                 const confirmButton = createActionButton({
                     text: 'Подтвердить получение',
                     variant: 'outline-success',
