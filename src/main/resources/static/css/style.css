@@ -874,6 +874,9 @@ button:hover {
     var(--track-modal-dialog-base-width),
     var(--track-modal-viewport-width)
   );
+  --track-modal-drawer-gap: 0.75rem;
+  --track-modal-drawer-width: min(380px, 92vw);
+  --track-modal-tab-peek: 1.5rem;
   --track-modal-dialog-open-width: min(
     calc(
       var(--track-modal-main-width) + var(--track-modal-drawer-gap, 0px) +
@@ -909,9 +912,6 @@ button:hover {
   width: 100%;
   display: block;
   overflow-x: hidden;
-  --track-modal-drawer-width: min(380px, 92vw);
-  --track-modal-drawer-gap: 0.75rem;
-  --track-modal-tab-peek: 1.5rem;
 }
 
 .track-modal-dialog.track-modal-dialog--drawer-open,
@@ -1060,7 +1060,7 @@ button:hover {
 }
 
 @media (max-width: 1199.98px) {
-  .track-modal-container {
+  .track-modal-dialog {
     --track-modal-drawer-width: min(340px, 90vw);
   }
 }
@@ -1127,7 +1127,7 @@ button:hover {
   }
 }
 @media (max-width: 991.98px) {
-  .track-modal-container {
+  .track-modal-dialog {
     --track-modal-drawer-width: min(320px, 88vw);
   }
   .track-modal-drawer {
@@ -1146,7 +1146,7 @@ button:hover {
   }
 }
 @media (max-width: 767.98px) {
-  .track-modal-container {
+  .track-modal-dialog {
     --track-modal-drawer-width: 100%;
   }
   .track-modal-drawer {
