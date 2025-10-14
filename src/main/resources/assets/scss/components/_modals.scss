@@ -190,7 +190,7 @@
     0px
   );
   --track-modal-gap: 1.5rem;
-  --track-modal-main-width: clamp(520px, 58vw, 760px);
+  --track-modal-main-width: clamp(480px, 54vw, 700px);
   --track-modal-side-width: clamp(420px, 34vw, 520px);
   width: min(
     calc(
@@ -231,8 +231,8 @@
 
 .track-modal-container {
   display: grid;
-  grid-template-columns: minmax(0, var(--track-modal-main-width, 640px))
-    minmax(0, var(--track-modal-side-width, 480px));
+  grid-template-columns: minmax(0, var(--track-modal-main-width, 700px))
+    minmax(0, var(--track-modal-side-width, 520px));
   align-items: start;
   gap: var(--track-modal-gap, 1.5rem);
   width: 100%;
@@ -246,7 +246,7 @@
 .track-modal-main {
   grid-column: 1;
   grid-row: 1 / -1;
-  max-width: var(--track-modal-main-width, 640px);
+  max-width: var(--track-modal-main-width, 700px);
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -259,14 +259,14 @@
 
 .track-modal-container > .card {
   grid-column: 2;
-  max-width: var(--track-modal-side-width, 480px);
+  max-width: var(--track-modal-side-width, 520px);
   width: 100%;
   min-width: 0;
 }
 
 @media (max-width: 1399.98px) {
   .track-modal-dialog {
-    --track-modal-main-width: clamp(500px, 60vw, 720px);
+    --track-modal-main-width: clamp(460px, 56vw, 660px);
     --track-modal-side-width: clamp(400px, 36vw, 500px);
   }
 }
