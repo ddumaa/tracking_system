@@ -864,7 +864,25 @@ button:hover {
 }
 
 .track-modal-dialog {
-  max-width: 1140px;
+  --track-modal-dialog-base-width: 1140px;
+  --track-modal-dialog-horizontal-padding: 2rem;
+  --track-modal-viewport-width: max(
+    calc(100vw - var(--track-modal-dialog-horizontal-padding)),
+    0px
+  );
+  --track-modal-main-width: min(
+    var(--track-modal-dialog-base-width),
+    var(--track-modal-viewport-width)
+  );
+  --track-modal-dialog-open-width: min(
+    calc(
+      var(--track-modal-main-width) + var(--track-modal-drawer-gap, 0px) +
+        var(--track-modal-drawer-width, 0px)
+    ),
+    var(--track-modal-viewport-width)
+  );
+  width: min(100%, var(--track-modal-main-width));
+  max-width: var(--track-modal-main-width);
 }
 
 .track-modal-body {
@@ -896,11 +914,17 @@ button:hover {
   --track-modal-tab-peek: 1.5rem;
 }
 
+.track-modal-dialog.track-modal-dialog--drawer-open,
+.track-modal-container--drawer-open .track-modal-dialog {
+  width: min(100%, var(--track-modal-dialog-open-width));
+  max-width: var(--track-modal-dialog-open-width);
+}
+
 .track-modal-main-shell {
   position: relative;
   display: flex;
-  flex: 1 1 auto;
-  width: 100%;
+  flex: 0 0 var(--track-modal-main-width);
+  width: min(100%, var(--track-modal-main-width));
   min-width: 0;
   align-items: stretch;
   overflow: visible;
@@ -919,7 +943,8 @@ button:hover {
 
 .track-modal-main-wrapper {
   position: relative;
-  flex: 1 1 auto;
+  flex: 0 0 var(--track-modal-main-width);
+  width: min(100%, var(--track-modal-main-width));
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -939,6 +964,12 @@ button:hover {
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+
+.track-modal-container--drawer-open .track-modal-main-shell,
+.track-modal-container--drawer-open .track-modal-main-wrapper {
+  flex-shrink: 0;
+  max-width: var(--track-modal-main-width);
 }
 
 .track-modal-main > .card:last-child {
@@ -1039,15 +1070,14 @@ button:hover {
     align-items: stretch;
     gap: 0;
   }
-  .track-modal-main-shell {
-    flex: 1 1 auto;
-  }
   .track-modal-main-layout {
     flex: 1 1 auto;
     min-width: 0;
   }
+  .track-modal-main-shell,
   .track-modal-main-wrapper {
-    flex: 1 1 auto;
+    flex: 0 0 var(--track-modal-main-width);
+    max-width: var(--track-modal-main-width);
     min-width: 0;
   }
   .track-modal-main {
