@@ -1579,11 +1579,6 @@
         mainColumn.setAttribute('role', 'region');
         mainColumn.setAttribute('aria-label', 'Сведения о треке');
 
-        const drawer = document.createElement('aside');
-        drawer.className = 'track-modal-drawer';
-        drawer.setAttribute('role', 'complementary');
-        drawer.setAttribute('tabindex', '-1');
-
         const parcelCard = createCard('Трек');
         const parcelHeader = document.createElement('div');
         parcelHeader.className = 'd-flex flex-wrap justify-content-between align-items-start gap-3';
@@ -2101,23 +2096,33 @@
         historyCard.body.appendChild(historySection.container);
         mainColumn.appendChild(historyCard.card);
 
-        const labelTargets = [returnCard?.heading, lifecycleCard?.heading]
-            .filter((heading) => heading?.id)
-            .map((heading) => heading.id);
-
-        if (labelTargets.length > 0) {
-            const labelledBy = labelTargets.join(' ');
-            drawer.setAttribute('aria-labelledby', labelledBy);
-        } else {
-            drawer.removeAttribute('aria-labelledby');
-        }
-
-        [returnCard, lifecycleCard]
-            .filter((cardInfo) => Boolean(cardInfo))
-            .forEach((cardInfo) => drawer.appendChild(cardInfo.card));
-
         container.appendChild(mainColumn);
-        container.appendChild(drawer);
+
+        const sideCards = [returnCard, lifecycleCard]
+            .filter((cardInfo) => Boolean(cardInfo));
+
+        if (sideCards.length > 0) {
+            const sideFragment = document.createDocumentFragment();
+            sideCards.forEach((cardInfo) => sideFragment.appendChild(cardInfo.card));
+
+            const labelTargets = sideCards
+                .map((cardInfo) => cardInfo.heading?.id)
+                .filter((id) => Boolean(id));
+
+            const sideRegion = document.createElement('div');
+            sideRegion.className = 'track-modal-side';
+            sideRegion.setAttribute('role', 'complementary');
+            sideRegion.setAttribute('tabindex', '-1');
+
+            if (labelTargets.length > 0) {
+                sideRegion.setAttribute('aria-labelledby', labelTargets.join(' '));
+            } else {
+                sideRegion.removeAttribute('aria-labelledby');
+            }
+
+            sideRegion.appendChild(sideFragment);
+            container.appendChild(sideRegion);
+        }
 
         const nextRefreshAt = data?.nextRefreshAt || null;
         const isFinalStatus = data?.refreshAllowed === false && !data?.nextRefreshAt;

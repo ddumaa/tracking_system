@@ -922,7 +922,7 @@ button:hover {
   margin-bottom: 0;
 }
 
-.track-modal-drawer {
+.track-modal-side {
   flex: 0 0 var(--track-modal-side-width, 480px);
   max-width: var(--track-modal-side-width, 480px);
   min-width: 0;
@@ -956,7 +956,7 @@ button:hover {
     flex-direction: column;
     gap: 1.25rem;
   }
-  .track-modal-drawer {
+  .track-modal-side {
     flex: 0 0 auto;
     max-width: 100%;
     width: 100%;
@@ -972,7 +972,7 @@ button:hover {
   .track-modal-container {
     gap: 1rem;
   }
-  .track-modal-drawer {
+  .track-modal-side {
     margin-left: -1rem;
     margin-right: -1rem;
     width: calc(100% + 2rem);
