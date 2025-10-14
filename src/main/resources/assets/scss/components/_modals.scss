@@ -194,14 +194,17 @@
     var(--track-modal-dialog-base-width),
     var(--track-modal-viewport-width)
   );
+  --track-modal-main-column-width: var(--track-modal-main-width);
   --track-modal-drawer-gap: 0.75rem;
   --track-modal-drawer-width: min(380px, 92vw);
   --track-modal-tab-peek: 1.5rem;
-  --track-modal-dialog-open-width: min(
-    calc(
-      var(--track-modal-main-width) + var(--track-modal-drawer-gap, 0px) +
-        var(--track-modal-drawer-width, 0px)
-    ),
+  --track-modal-dialog-open-target-width: calc(
+    var(--track-modal-main-column-width) + var(--track-modal-drawer-gap, 0px) +
+      var(--track-modal-drawer-width, 0px)
+  );
+  --track-modal-dialog-open-width: clamp(
+    0px,
+    var(--track-modal-dialog-open-target-width),
     var(--track-modal-viewport-width)
   );
   width: min(100%, var(--track-modal-main-width));
@@ -239,7 +242,11 @@
 .track-modal-dialog.track-modal-dialog--drawer-open,
 .track-modal-container--drawer-open .track-modal-dialog {
   width: min(100%, var(--track-modal-dialog-open-width));
-  max-width: var(--track-modal-dialog-open-width);
+  max-width: clamp(
+    0px,
+    var(--track-modal-dialog-open-target-width),
+    var(--track-modal-viewport-width)
+  );
 }
 
 .track-modal-main-shell {
@@ -415,8 +422,8 @@
   .track-modal-main-shell,
   .track-modal-main-wrapper,
   .track-modal-main-body {
-    flex: 0 0 var(--track-modal-main-width);
-    max-width: var(--track-modal-main-width);
+    flex: 1 1 auto;
+    max-width: none;
     min-width: 0;
   }
 
@@ -428,6 +435,24 @@
   .track-modal-main-column-shell {
     flex: 1 1 auto;
     min-width: 0;
+  }
+
+  .track-modal-container:not(.track-modal-container--drawer-open)
+    .track-modal-main-shell,
+  .track-modal-container:not(.track-modal-container--drawer-open)
+    .track-modal-main-wrapper,
+  .track-modal-container:not(.track-modal-container--drawer-open)
+    .track-modal-main-body {
+    flex: 0 0 var(--track-modal-main-width);
+    max-width: var(--track-modal-main-width);
+  }
+
+  .track-modal-container--drawer-open .track-modal-main-shell,
+  .track-modal-container--drawer-open .track-modal-main-wrapper,
+  .track-modal-container--drawer-open .track-modal-main-body {
+    flex: 1 1 auto;
+    flex-basis: var(--track-modal-main-column-width);
+    max-width: var(--track-modal-main-column-width);
   }
 
   .track-modal-tab-slot .track-modal-drawer-toggle {
@@ -450,19 +475,27 @@
     bottom: auto;
     left: auto;
     transform: none;
-    flex: 0 0 var(--track-modal-drawer-width);
-    max-width: var(--track-modal-drawer-width);
-    width: var(--track-modal-drawer-width);
+    flex: 0 1 auto;
+    flex-basis: 0;
+    max-width: 0;
     overflow: hidden;
     overflow-y: auto;
+    padding-left: 0;
+    padding-right: 0;
+    pointer-events: none;
+    opacity: 0;
     transition: flex-basis 0.3s ease-in-out, max-width 0.3s ease-in-out,
-      width 0.3s ease-in-out, padding 0.3s ease-in-out, opacity 0.3s ease-in-out;
+      padding 0.3s ease-in-out, opacity 0.3s ease-in-out;
+  }
+
+  .track-modal-drawer--open,
+  .track-modal-container--drawer-open .track-modal-drawer {
+    transform: none;
   }
 
   .track-modal-container:not(.track-modal-container--drawer-open) .track-modal-drawer {
     flex-basis: 0;
     max-width: 0;
-    width: 0;
     opacity: 0;
     padding-left: 0;
     padding-right: 0;
@@ -470,7 +503,12 @@
   }
 
   .track-modal-container--drawer-open .track-modal-drawer {
+    flex: 0 0 var(--track-modal-drawer-width);
+    flex-basis: var(--track-modal-drawer-width);
+    max-width: var(--track-modal-drawer-width);
     opacity: 1;
+    padding-left: 1.5rem;
+    padding-right: 1.25rem;
     pointer-events: auto;
   }
 }
