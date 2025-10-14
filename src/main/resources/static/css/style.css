@@ -922,11 +922,19 @@ button:hover {
   margin-bottom: 0;
 }
 
-.track-modal-container > .card {
+.track-modal-container > .card,
+.track-modal-side {
   grid-column: 2;
+  grid-row: 1/-1;
   max-width: var(--track-modal-side-width, 520px);
   width: 100%;
   min-width: 0;
+}
+
+.track-modal-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--track-modal-gap, 1.5rem);
 }
 
 @media (max-width: 1399.98px) {
@@ -952,7 +960,8 @@ button:hover {
     flex-direction: column;
     gap: 1.25rem;
   }
-  .track-modal-container > .card {
+  .track-modal-container > .card,
+  .track-modal-side {
     max-width: 100%;
     width: 100%;
   }
@@ -964,7 +973,8 @@ button:hover {
   .track-modal-container {
     gap: 1rem;
   }
-  .track-modal-container > .card {
+  .track-modal-container > .card,
+  .track-modal-side > .card {
     margin-left: -1rem;
     margin-right: -1rem;
     width: calc(100% + 2rem);
