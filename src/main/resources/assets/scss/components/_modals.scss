@@ -12,7 +12,7 @@
     padding: 1rem;
   }
 
-  .modal-dialog {
+  .modal-dialog:not(.track-modal-dialog) {
     max-width: 600px;
     width: 100%;
     margin: auto;
@@ -62,7 +62,7 @@
   }
 
   @include ui.respond-to(md){
-    .modal-dialog {
+    .modal-dialog:not(.track-modal-dialog) {
       max-width: 90%;
     }
 
@@ -91,7 +91,7 @@
   }
 
   @include ui.respond-to(sm) {
-    .modal-dialog {
+    .modal-dialog:not(.track-modal-dialog) {
       max-width: 95%;
     }
 
