@@ -1133,16 +1133,40 @@
     }
 
     /**
+     * Определяет, переведена ли заявка в обменный режим по флагам DTO.
+     * Метод централизует анализ признаков обмена, чтобы бизнес-логика не дублировалась в разных местах (SRP).
+     * @param {Object} returnRequest DTO заявки на возврат
+     * @returns {boolean} {@code true}, если заявка рассматривается как обменная
+     */
+    function isExchangeRequest(returnRequest) {
+        if (!returnRequest || typeof returnRequest !== 'object') {
+            return false;
+        }
+        if (returnRequest.exchangeRequested || returnRequest.exchangeApproved) {
+            return true;
+        }
+        if (returnRequest.exchangeParcel && typeof returnRequest.exchangeParcel === 'object') {
+            return true;
+        }
+        if (returnRequest.exchange && typeof returnRequest.exchange === 'object') {
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Определяет, какие кнопки действий следует показывать, исходя из статуса заявки.
-     * Метод опирается на код статуса, а при его отсутствии пытается распознать метку,
-     * чтобы покрыть случаи, когда заявка изначально оформлялась как возврат
-     * или была переведена обратно из обмена.
+     * Метод сначала проверяет обменные флаги, а затем анализирует код и подпись статуса,
+     * чтобы покрыть случаи ручного перевода обращения из возврата в обмен.
      * @param {Object} returnRequest DTO заявки
      * @returns {string} одно из значений {@link ReturnRequestActionMode}
      */
     function getReturnRequestActionMode(returnRequest) {
         if (!returnRequest || typeof returnRequest !== 'object') {
             return ReturnRequestActionMode.RETURN;
+        }
+        if (isExchangeRequest(returnRequest)) {
+            return ReturnRequestActionMode.EXCHANGE;
         }
         const statusRaw = typeof returnRequest.status === 'string'
             ? returnRequest.status.trim().toUpperCase()
@@ -1155,6 +1179,27 @@
             return modeFromLabel;
         }
         return ReturnRequestActionMode.RETURN;
+    }
+
+    /**
+     * Возвращает текст статуса обращения для отображения пользователю.
+     * Метод синхронизирует подпись с вычисленным режимом, чтобы при переходе в обмен не оставалось старой метки.
+     * @param {Object} returnRequest DTO заявки
+     * @param {string} actionMode вычисленный режим из {@link ReturnRequestActionMode}
+     * @returns {string} текст для бейджа статуса
+     */
+    function getReturnRequestStatusLabel(returnRequest, actionMode) {
+        const rawLabel = firstNonEmpty(returnRequest?.statusLabel, returnRequest?.status, null);
+        if (actionMode === ReturnRequestActionMode.EXCHANGE) {
+            if (typeof rawLabel === 'string' && rawLabel.trim().length > 0) {
+                const normalized = rawLabel.trim().toLowerCase();
+                if (normalized.includes('обмен')) {
+                    return rawLabel;
+                }
+            }
+            return 'Обмен';
+        }
+        return rawLabel || 'Статус не определён';
     }
 
     /**
@@ -1775,7 +1820,7 @@
             typeBadge.setAttribute('aria-label', `Тип обращения: ${typeBadge.textContent}`);
             badgeRow.appendChild(typeBadge);
 
-            const statusLabelText = firstNonEmpty(returnRequest.statusLabel, returnRequest.status, 'Статус не определён');
+            const statusLabelText = getReturnRequestStatusLabel(returnRequest, requestActionMode);
             const badgeClass = firstNonEmpty(returnRequest.statusBadgeClass);
             const statusBadge = document.createElement('span');
             statusBadge.className = `badge rounded-pill ${badgeClass || 'bg-secondary-subtle text-secondary-emphasis'}`;
