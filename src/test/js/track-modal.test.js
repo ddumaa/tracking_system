@@ -861,6 +861,69 @@ describe('track-modal render', () => {
         expect(loadSpy).toHaveBeenCalledWith(77);
     });
 
+    test('forces exchange labels when flags indicate exchange mode', () => {
+        setupDom();
+        const data = {
+            id: 31,
+            number: 'BY999',
+            deliveryService: 'Belpost',
+            systemStatus: 'В пути',
+            history: [],
+            refreshAllowed: true,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: 10,
+            exchange: false,
+            returnShipment: false,
+            chain: [
+                { id: 31, number: 'BY999', exchange: false, returnShipment: false, current: true }
+            ],
+            returnRequest: {
+                id: 11,
+                status: 'Возврат',
+                statusLabel: 'Возврат',
+                statusBadgeClass: 'bg-info-subtle text-info-emphasis',
+                reasonLabel: 'Причина',
+                reason: 'Не подошёл размер',
+                comment: null,
+                requestedAt: '2024-02-20T10:00:00Z',
+                decisionAt: null,
+                closedAt: null,
+                reverseTrackNumber: null,
+                requiresAction: true,
+                exchangeApproved: false,
+                exchangeRequested: true,
+                canStartExchange: false,
+                canCreateExchangeParcel: false,
+                canCloseWithoutExchange: false,
+                canReopenAsReturn: false,
+                canCancelExchange: false,
+                cancelExchangeUnavailableReason: null,
+                returnReceiptConfirmed: false,
+                returnReceiptConfirmedAt: null,
+                canConfirmReceipt: false,
+                hint: null,
+                warnings: []
+            },
+            canRegisterReturn: false,
+            lifecycle: [],
+            requiresAction: true
+        };
+
+        global.window.trackModal.render(data);
+
+        const returnCard = Array.from(document.querySelectorAll('section.card'))
+            .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
+        const badges = Array.from(returnCard?.querySelectorAll('.badge.rounded-pill') || []);
+        expect(badges[0]?.textContent).toBe('Обмен');
+        expect(badges[1]?.textContent).toBe('Обмен');
+
+        const definitions = returnCard?.querySelector('dl');
+        expect(definitions?.textContent).toContain('Тип обращения');
+        expect(definitions?.textContent).toContain('Обмен');
+    });
+
     test('auto expands history for active return request', async () => {
         setupDom();
         const data = {
