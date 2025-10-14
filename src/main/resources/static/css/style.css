@@ -896,10 +896,9 @@ button:hover {
 }
 
 .track-modal-container {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: flex-start;
-  justify-content: stretch;
+  display: grid;
+  grid-template-columns: minmax(0, var(--track-modal-main-width, 640px)) minmax(0, var(--track-modal-side-width, 480px));
+  align-items: start;
   gap: var(--track-modal-gap, 1.5rem);
   width: 100%;
   min-width: 0;
@@ -910,7 +909,8 @@ button:hover {
 }
 
 .track-modal-main {
-  flex: 1 1 var(--track-modal-main-width, 640px);
+  grid-column: 1;
+  grid-row: 1/-1;
   max-width: var(--track-modal-main-width, 640px);
   min-width: 0;
   display: flex;
@@ -922,16 +922,11 @@ button:hover {
   margin-bottom: 0;
 }
 
-.track-modal-side {
-  flex: 0 0 var(--track-modal-side-width, 480px);
+.track-modal-container > .card {
+  grid-column: 2;
   max-width: var(--track-modal-side-width, 480px);
+  width: 100%;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  background-color: var(--bs-body-bg);
-  border-radius: 1.25rem;
-  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.16);
-  padding: 1.5rem 1.25rem;
 }
 
 @media (max-width: 1399.98px) {
@@ -953,16 +948,13 @@ button:hover {
     max-width: min(var(--track-modal-viewport-width), var(--track-modal-main-width));
   }
   .track-modal-container {
+    display: flex;
     flex-direction: column;
     gap: 1.25rem;
   }
-  .track-modal-side {
-    flex: 0 0 auto;
+  .track-modal-container > .card {
     max-width: 100%;
     width: 100%;
-    padding: 1.5rem 1.25rem;
-    box-shadow: 0 -16px 32px rgba(15, 23, 42, 0.18);
-    border-radius: 1.25rem;
   }
 }
 @media (max-width: 767.98px) {
@@ -972,7 +964,7 @@ button:hover {
   .track-modal-container {
     gap: 1rem;
   }
-  .track-modal-side {
+  .track-modal-container > .card {
     margin-left: -1rem;
     margin-right: -1rem;
     width: calc(100% + 2rem);

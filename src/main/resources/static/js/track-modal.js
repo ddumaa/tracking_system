@@ -2104,24 +2104,7 @@
         if (sideCards.length > 0) {
             const sideFragment = document.createDocumentFragment();
             sideCards.forEach((cardInfo) => sideFragment.appendChild(cardInfo.card));
-
-            const labelTargets = sideCards
-                .map((cardInfo) => cardInfo.heading?.id)
-                .filter((id) => Boolean(id));
-
-            const sideRegion = document.createElement('div');
-            sideRegion.className = 'track-modal-side';
-            sideRegion.setAttribute('role', 'complementary');
-            sideRegion.setAttribute('tabindex', '-1');
-
-            if (labelTargets.length > 0) {
-                sideRegion.setAttribute('aria-labelledby', labelTargets.join(' '));
-            } else {
-                sideRegion.removeAttribute('aria-labelledby');
-            }
-
-            sideRegion.appendChild(sideFragment);
-            container.appendChild(sideRegion);
+            container.appendChild(sideFragment);
         }
 
         const nextRefreshAt = data?.nextRefreshAt || null;
