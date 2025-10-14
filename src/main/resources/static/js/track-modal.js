@@ -1583,7 +1583,6 @@
         drawer.className = 'track-modal-drawer';
         drawer.setAttribute('role', 'complementary');
         drawer.setAttribute('tabindex', '-1');
-        drawer.classList.add('gap-3');
 
         const parcelCard = createCard('Трек');
         const parcelHeader = document.createElement('div');
