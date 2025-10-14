@@ -1583,6 +1583,7 @@
         drawer.className = 'track-modal-drawer';
         drawer.setAttribute('role', 'complementary');
         drawer.setAttribute('tabindex', '-1');
+        drawer.classList.add('gap-3');
 
         const parcelCard = createCard('Трек');
         const parcelHeader = document.createElement('div');
@@ -2101,27 +2102,20 @@
         historyCard.body.appendChild(historySection.container);
         mainColumn.appendChild(historyCard.card);
 
-        const sidePanel = document.createElement('div');
-        sidePanel.className = 'track-side-panel d-flex flex-column gap-3';
-        sidePanel.setAttribute('role', 'region');
-
-        [returnCard, lifecycleCard]
-            .filter((cardInfo) => Boolean(cardInfo))
-            .forEach((cardInfo) => sidePanel.appendChild(cardInfo.card));
-
         const labelTargets = [returnCard?.heading, lifecycleCard?.heading]
             .filter((heading) => heading?.id)
             .map((heading) => heading.id);
 
         if (labelTargets.length > 0) {
             const labelledBy = labelTargets.join(' ');
-            sidePanel.setAttribute('aria-labelledby', labelledBy);
             drawer.setAttribute('aria-labelledby', labelledBy);
         } else {
-            sidePanel.removeAttribute('aria-labelledby');
             drawer.removeAttribute('aria-labelledby');
         }
-        drawer.appendChild(sidePanel);
+
+        [returnCard, lifecycleCard]
+            .filter((cardInfo) => Boolean(cardInfo))
+            .forEach((cardInfo) => drawer.appendChild(cardInfo.card));
 
         container.appendChild(mainColumn);
         container.appendChild(drawer);
