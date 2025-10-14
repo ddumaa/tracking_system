@@ -233,13 +233,15 @@
      * @param {HTMLElement} options.drawer панель, выезжающая поверх основного контента
      * @param {Array<HTMLElement>} options.toggleButtons коллекция кнопок управления панелью
      * @param {boolean} [options.drawerDisabled] начальный признак недоступности панели
+     * @param {HTMLElement|null} [options.dialog] ссылка на элемент диалога для переключения модификатора
      * @returns {Function} функция очистки обработчиков
      */
     function setupSidePanelInteractions({
         container,
         drawer,
         toggleButtons,
-        drawerDisabled = false
+        drawerDisabled = false,
+        dialog = null
     }) {
         const buttons = Array.isArray(toggleButtons)
             ? toggleButtons.filter((button) => button instanceof HTMLElement)
@@ -292,6 +294,9 @@
             const shouldOpen = !isDrawerDisabled && Boolean(open);
             drawer.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
             container.classList.toggle('track-modal-container--drawer-open', shouldOpen);
+            if (dialog instanceof HTMLElement) {
+                dialog.classList.toggle('track-modal-dialog--drawer-open', shouldOpen);
+            }
             buttons.forEach((button) => {
                 const isButtonDisabled = button.getAttribute('aria-disabled') === 'true';
                 const expandedValue = shouldOpen && !isButtonDisabled;
@@ -1797,11 +1802,17 @@
         }
 
         const modal = document.getElementById('infoModal');
+        const dialog = modal?.querySelector('.track-modal-dialog') || null;
+        if (dialog) {
+            dialog.classList.remove('track-modal-dialog--drawer-open');
+        }
         const container = document.getElementById('trackModalContent')
             || modal?.querySelector('.modal-body');
         if (!container) {
             return;
         }
+
+        container.classList.remove('track-modal-container--drawer-open');
 
         const timeZone = data?.timeZone;
         const format = (value) => formatDateTime(value, timeZone);
@@ -2396,7 +2407,8 @@
             container,
             drawer,
             toggleButtons: [inlineDrawerToggle, sideCloseButton],
-            drawerDisabled: shouldDisableDrawer
+            drawerDisabled: shouldDisableDrawer,
+            dialog
         });
 
         const nextRefreshAt = data?.nextRefreshAt || null;
