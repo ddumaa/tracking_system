@@ -7,12 +7,6 @@
     /** Счётчик для генерации уникальных идентификаторов элементов формы. */
     let elementSequence = 0;
 
-    /** Ключ хранилища для состояния сворачивания правой панели. */
-    const SIDE_PANEL_COLLAPSE_KEY = 'trackModal.sidePanel.collapsed';
-
-    /** Функция очистки обработчиков правой панели. */
-    let disposeSidePanelInteractions = null;
-
     /**
      * Останавливает активный таймер обновления.
      * Метод вызывается при повторном рендере и закрытии модального окна,
@@ -192,166 +186,6 @@
     }
 
     /**
-     * Читает булево значение из localStorage с запасным вариантом.
-     * Метод инкапсулирует работу с хранилищем, чтобы остальной код не зависел от реализации хранения (SRP).
-     * @param {string} key ключ хранения
-     * @param {boolean} fallback запасное значение
-     * @returns {boolean} результирующее значение
-     */
-    function readBooleanFromStorage(key, fallback) {
-        try {
-            const storedValue = window.localStorage.getItem(key);
-            if (storedValue === null) {
-                return fallback;
-            }
-            return storedValue === 'true';
-        } catch (error) {
-            console.warn('Не удалось прочитать состояние панели', key, error);
-            return fallback;
-        }
-    }
-
-    /**
-     * Сохраняет булево значение в localStorage.
-     * Метод обрабатывает возможные ошибки записи, чтобы приложение продолжало работу даже при ограничениях хранилища.
-     * @param {string} key ключ хранения
-     * @param {boolean} value сохраняемое значение
-     */
-    function writeBooleanToStorage(key, value) {
-        try {
-            window.localStorage.setItem(key, value ? 'true' : 'false');
-        } catch (error) {
-            console.warn('Не удалось сохранить состояние панели', key, error);
-        }
-    }
-
-    /**
-     * Настраивает выезжающий блок с информацией об обмене и возврате.
-     * Метод управляет состоянием панели и синхронизирует aria-атрибуты, соблюдая принцип SRP.
-     * @param {Object} options параметры конфигурации
-     * @param {HTMLElement} options.container основной контейнер модального окна
-     * @param {HTMLElement} options.drawer панель, выезжающая поверх основного контента
-     * @param {Array<HTMLElement>} options.toggleButtons коллекция кнопок управления панелью
-     * @param {boolean} [options.drawerDisabled] начальный признак недоступности панели
-     * @param {HTMLElement|null} [options.dialog] ссылка на элемент диалога для переключения модификатора
-     * @returns {Function} функция очистки обработчиков
-     */
-    function setupSidePanelInteractions({
-        container,
-        drawer,
-        toggleButtons,
-        drawerDisabled = false,
-        dialog = null
-    }) {
-        const buttons = Array.isArray(toggleButtons)
-            ? toggleButtons.filter((button) => button instanceof HTMLElement)
-            : [];
-        if (!container || !drawer || buttons.length === 0) {
-            return () => {};
-        }
-
-        const drawerId = drawer.id || `trackModalDrawer${++elementSequence}`;
-        drawer.id = drawerId;
-        buttons.forEach((button) => {
-            button.setAttribute('aria-controls', drawerId);
-        });
-
-        let isDrawerDisabled = Boolean(drawerDisabled)
-            || buttons.every((button) => button.getAttribute('aria-disabled') === 'true');
-        let isOpen = !isDrawerDisabled && !readBooleanFromStorage(SIDE_PANEL_COLLAPSE_KEY, false);
-
-        /**
-         * Обновляет aria-атрибуты кнопки, чтобы отражать текущее состояние панели.
-         * Метод изолирует текстовые ресурсы, чтобы облегчить локализацию (OCP).
-         * @param {boolean} open актуальное состояние панели
-         */
-        const updateToggleAria = (open) => {
-            buttons.forEach((button) => {
-                const toggleLabelCollapsed = button.dataset.toggleLabelCollapsed;
-                const toggleLabelExpanded = button.dataset.toggleLabelExpanded;
-                const disabledTitle = button.dataset.disabledTitle || 'Недоступно';
-                const isButtonDisabled = button.getAttribute('aria-disabled') === 'true';
-                if (!toggleLabelCollapsed || !toggleLabelExpanded) {
-                    return;
-                }
-                if (isButtonDisabled) {
-                    button.setAttribute('title', disabledTitle);
-                    button.setAttribute('data-bs-original-title', disabledTitle);
-                    button.setAttribute('aria-label', `${toggleLabelCollapsed}. ${disabledTitle}`);
-                } else {
-                    const label = open ? toggleLabelExpanded : toggleLabelCollapsed;
-                    button.setAttribute('aria-label', label);
-                    button.setAttribute('title', label);
-                    button.setAttribute('data-bs-original-title', label);
-                }
-            });
-        };
-
-        /**
-         * Применяет визуальное состояние панели и синхронизирует хранилище.
-         * Метод отвечает только за обновление DOM и не содержит побочных эффектов вне области ответственности.
-         * @param {boolean} open целевое состояние панели
-         */
-        const applyState = (open) => {
-            const shouldOpen = !isDrawerDisabled && Boolean(open);
-            drawer.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
-            container.classList.toggle('track-modal-container--drawer-open', shouldOpen);
-            if (dialog instanceof HTMLElement) {
-                dialog.classList.toggle('track-modal-dialog--drawer-open', shouldOpen);
-            }
-            buttons.forEach((button) => {
-                const isButtonDisabled = button.getAttribute('aria-disabled') === 'true';
-                const expandedValue = shouldOpen && !isButtonDisabled;
-                button.setAttribute('aria-expanded', String(expandedValue));
-            });
-            updateToggleAria(shouldOpen);
-        };
-
-        applyState(isOpen);
-
-        const focusFirstToggle = () => {
-            const [firstToggle] = buttons;
-            if (firstToggle && typeof firstToggle.focus === 'function') {
-                firstToggle.focus();
-            }
-        };
-
-        const handleToggleClick = (event) => {
-            event.preventDefault();
-            const target = event.currentTarget;
-            const targetDisabled = target && target.getAttribute('aria-disabled') === 'true';
-            if (isDrawerDisabled || targetDisabled) {
-                return;
-            }
-            isOpen = !isOpen;
-            applyState(isOpen);
-            writeBooleanToStorage(SIDE_PANEL_COLLAPSE_KEY, !isOpen);
-        };
-
-        const handleKeydown = (event) => {
-            if (event.key === 'Escape' && isOpen) {
-                isOpen = false;
-                applyState(isOpen);
-                writeBooleanToStorage(SIDE_PANEL_COLLAPSE_KEY, true);
-                if (drawer.contains(event.target)) {
-                    focusFirstToggle();
-                }
-            }
-        };
-
-        buttons.forEach((button) => {
-            button.addEventListener('click', handleToggleClick);
-        });
-        container.addEventListener('keydown', handleKeydown);
-
-        return () => {
-            buttons.forEach((button) => {
-                button.removeEventListener('click', handleToggleClick);
-            });
-            container.removeEventListener('keydown', handleKeydown);
-        };
-    }
-    /**
      * Возвращает значение в формате datetime-local для указанной даты.
      * Метод обеспечивает совместимость с нативными контролами браузера.
      * @param {Date} date исходная дата
@@ -416,98 +250,6 @@
                 onClick(button);
             });
         }
-        return button;
-    }
-
-    /**
-     * Создаёт встроенную кнопку управления панелью обмена и возврата.
-     * Метод формирует вертикальный таб с понятными aria-атрибутами, чтобы UI оставался доступным (SRP).
-     * @returns {HTMLButtonElement} кнопка переключения панели
-     */
-    function createDrawerControlButton() {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'track-modal-tab btn track-modal-drawer-toggle';
-        button.dataset.toggleLabelCollapsed = 'Показать панель «Обмен/Возврат»';
-        button.dataset.toggleLabelExpanded = 'Скрыть панель «Обмен/Возврат»';
-        button.dataset.disabledTitle = 'Недоступно';
-        button.setAttribute('aria-expanded', 'false');
-        button.setAttribute('aria-disabled', 'false');
-        button.setAttribute('aria-label', button.dataset.toggleLabelCollapsed);
-        button.setAttribute('title', button.dataset.toggleLabelCollapsed);
-
-        const label = document.createElement('span');
-        label.className = 'track-modal-tab__label';
-        label.setAttribute('aria-hidden', 'true');
-        'Обмен/Возврат'.split('').forEach((symbol, index) => {
-            const symbolElement = document.createElement('span');
-            symbolElement.className = 'track-modal-tab__symbol';
-            symbolElement.textContent = symbol;
-            if (symbol === '/' && index !== 0) {
-                symbolElement.classList.add('track-modal-tab__symbol--divider');
-            }
-            label.appendChild(symbolElement);
-        });
-
-        const srLabel = document.createElement('span');
-        srLabel.className = 'visually-hidden';
-        srLabel.textContent = 'Обмен/Возврат';
-
-        button.append(label, srLabel);
-        return button;
-    }
-
-    /**
-     * Применяет состояние доступности к вертикальной кнопке панели.
-     * Метод централизует управление aria-атрибутами, чтобы не дублировать код в рендеринге (SRP).
-     * @param {HTMLButtonElement} button настраиваемая кнопка
-     * @param {Object} options параметры состояния
-     * @param {boolean} options.disabled признак недоступности панели
-     * @param {string} [options.reason] текст тултипа для недоступной кнопки
-     */
-    function applyDrawerToggleAvailability(button, { disabled, reason } = {}) {
-        if (!(button instanceof HTMLElement)) {
-            return;
-        }
-
-        const collapsedLabel = button.dataset.toggleLabelCollapsed
-            || 'Показать панель «Обмен/Возврат»';
-        const disabledTitle = reason || button.dataset.disabledTitle || 'Недоступно';
-        const isDisabled = Boolean(disabled);
-
-        button.setAttribute('aria-disabled', String(isDisabled));
-        button.tabIndex = isDisabled ? -1 : 0;
-        if (isDisabled) {
-            button.classList.add('track-modal-tab--disabled');
-            button.setAttribute('title', disabledTitle);
-            button.setAttribute('data-bs-original-title', disabledTitle);
-            button.setAttribute('aria-label', `${collapsedLabel}. ${disabledTitle}`);
-            button.setAttribute('aria-expanded', 'false');
-        } else {
-            button.classList.remove('track-modal-tab--disabled');
-            const title = button.dataset.toggleLabelCollapsed || collapsedLabel;
-            button.setAttribute('title', title);
-            button.setAttribute('data-bs-original-title', title);
-            button.setAttribute('aria-label', title);
-        }
-    }
-
-    /**
-     * Создаёт кнопку закрытия панели обмена и возврата.
-     * Метод подготавливает визуальное оформление и ARIA-атрибуты, позволяя переиспользовать кнопку в любом контейнере.
-     * @returns {HTMLButtonElement} кнопка закрытия панели
-     */
-    function createDrawerCloseButton() {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'btn btn-link btn-sm track-side-panel__close';
-        button.textContent = 'Закрыть';
-        button.setAttribute('aria-expanded', 'false');
-        button.setAttribute('aria-disabled', 'false');
-        button.setAttribute('aria-label', 'Скрыть панель «Обмен/Возврат»');
-        button.setAttribute('title', 'Скрыть панель «Обмен/Возврат»');
-        button.dataset.toggleLabelCollapsed = 'Показать панель «Обмен/Возврат»';
-        button.dataset.toggleLabelExpanded = 'Скрыть панель «Обмен/Возврат»';
         return button;
     }
 
@@ -1801,23 +1543,12 @@
     function renderTrackModal(data, options = {}) {
         clearRefreshTimer();
 
-        if (typeof disposeSidePanelInteractions === 'function') {
-            disposeSidePanelInteractions();
-            disposeSidePanelInteractions = null;
-        }
-
         const modal = document.getElementById('infoModal');
-        const dialog = modal?.querySelector('.track-modal-dialog') || null;
-        if (dialog) {
-            dialog.classList.remove('track-modal-dialog--drawer-open');
-        }
         const container = document.getElementById('trackModalContent')
             || modal?.querySelector('.modal-body');
         if (!container) {
             return;
         }
-
-        container.classList.remove('track-modal-container--drawer-open');
 
         const timeZone = data?.timeZone;
         const format = (value) => formatDateTime(value, timeZone);
@@ -1833,34 +1564,15 @@
             delete container.dataset.trackId;
         }
 
-        const mainShell = document.createElement('div');
-        mainShell.className = 'track-modal-main-shell';
-
-        const mainLayout = document.createElement('div');
-        mainLayout.className = 'track-modal-main-layout';
-
-        const mainWrapper = document.createElement('div');
-        mainWrapper.className = 'track-modal-main-wrapper';
-
-        const mainColumnShell = document.createElement('div');
-        mainColumnShell.className = 'track-modal-main-column-shell';
-
-        const mainColumn = document.createElement('div');
+        const mainColumn = document.createElement('section');
         mainColumn.className = 'track-modal-main d-flex flex-column gap-3';
-        mainWrapper.appendChild(mainColumn);
-        mainColumnShell.appendChild(mainWrapper);
-
-        const mainBody = document.createElement('div');
-        mainBody.className = 'track-modal-main-body';
-        mainBody.appendChild(mainColumnShell);
-
-        mainLayout.appendChild(mainBody);
+        mainColumn.setAttribute('role', 'region');
+        mainColumn.setAttribute('aria-label', 'Сведения о треке');
 
         const drawer = document.createElement('aside');
         drawer.className = 'track-modal-drawer';
         drawer.setAttribute('role', 'complementary');
         drawer.setAttribute('tabindex', '-1');
-        drawer.setAttribute('aria-hidden', 'true');
 
         const parcelCard = createCard('Трек');
         const parcelHeader = document.createElement('div');
@@ -1896,21 +1608,9 @@
         const trackActions = document.createElement('div');
         trackActions.className = 'd-flex justify-content-end flex-grow-1 gap-2';
 
-        const inlineDrawerToggle = createDrawerControlButton();
-        const toggleSlot = document.createElement('div');
-        toggleSlot.className = 'track-modal-tab-slot';
-        toggleSlot.appendChild(inlineDrawerToggle);
-        mainBody.appendChild(toggleSlot);
-        mainShell.appendChild(mainLayout);
-
         const trackId = data?.id;
         const returnRequest = data?.returnRequest || null;
         const canRegisterReturn = Boolean(data?.canRegisterReturn);
-        const shouldDisableDrawer = !returnRequest && !canRegisterReturn;
-        applyDrawerToggleAvailability(inlineDrawerToggle, {
-            disabled: shouldDisableDrawer,
-            reason: 'Недоступно'
-        });
         const exchangeContext = isExchangeRequest(returnRequest);
         const canStartExchange = Boolean(returnRequest?.canStartExchange);
         const canCreateExchangeParcel = Boolean(returnRequest?.canCreateExchangeParcel);
@@ -1991,6 +1691,14 @@
 
         if (trackActions.childElementCount === 0 && trackActions.parentElement === trackTitleRow) {
             trackTitleRow.removeChild(trackActions);
+        }
+
+        const parcelHeading = parcelCard.card.querySelector('h6');
+        if (parcelHeading) {
+            const regionTitleId = 'trackMainRegionTitle';
+            parcelHeading.id = regionTitleId;
+            mainColumn.setAttribute('aria-labelledby', regionTitleId);
+            mainColumn.removeAttribute('aria-label');
         }
 
         mainColumn.appendChild(parcelCard.card);
@@ -2395,9 +2103,7 @@
         sideTitle.className = 'track-side-panel__title mb-0 text-uppercase text-muted small';
         sideTitle.textContent = 'Обращение и этапы';
 
-        const sideCloseButton = createDrawerCloseButton();
-
-        sideHeader.append(sideTitle, sideCloseButton);
+        sideHeader.append(sideTitle);
 
         const sideContent = document.createElement('div');
         sideContent.className = 'track-side-panel__body d-flex flex-column gap-3';
@@ -2407,19 +2113,12 @@
         }
 
         sidePanel.append(sideHeader, sideContent);
+        sidePanel.setAttribute('aria-labelledby', sideTitle.id);
         drawer.setAttribute('aria-labelledby', sideTitle.id);
         drawer.appendChild(sidePanel);
 
-        container.appendChild(mainShell);
+        container.appendChild(mainColumn);
         container.appendChild(drawer);
-
-        disposeSidePanelInteractions = setupSidePanelInteractions({
-            container,
-            drawer,
-            toggleButtons: [inlineDrawerToggle, sideCloseButton],
-            drawerDisabled: shouldDisableDrawer,
-            dialog
-        });
 
         const nextRefreshAt = data?.nextRefreshAt || null;
         const isFinalStatus = data?.refreshAllowed === false && !data?.nextRefreshAt;
