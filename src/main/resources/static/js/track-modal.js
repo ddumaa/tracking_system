@@ -1402,11 +1402,19 @@
     const RETURN_REQUEST_STATE_ACTIONS = Object.freeze({
         [ReturnRequestState.RETURN]: Object.freeze({
             primary: [ReturnRequestAction.ACCEPT],
-            secondary: [ReturnRequestAction.TO_EXCHANGE, ReturnRequestAction.CLOSE]
+            secondary: [
+                ReturnRequestAction.TO_EXCHANGE,
+                ReturnRequestAction.UPDATE_REVERSE_TRACK,
+                ReturnRequestAction.CLOSE
+            ]
         }),
         [ReturnRequestState.EXCHANGE]: Object.freeze({
             primary: [ReturnRequestAction.LAUNCH_EXCHANGE, ReturnRequestAction.ACCEPT_REVERSE],
-            secondary: [ReturnRequestAction.TO_RETURN, ReturnRequestAction.CLOSE]
+            secondary: [
+                ReturnRequestAction.TO_RETURN,
+                ReturnRequestAction.UPDATE_REVERSE_TRACK,
+                ReturnRequestAction.CLOSE
+            ]
         })
     });
 
