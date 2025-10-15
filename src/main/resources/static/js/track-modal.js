@@ -1477,7 +1477,7 @@
             const allowUpdateReverseTrack = exchangeByMode
                 && (reverseMissing || Boolean(request.requiresAction));
             const allowCancelExchange = exchangeByMode
-                ? Boolean(request.canCancelExchange)
+                ? Boolean(request.canCancelExchange || request.canCloseWithoutExchange)
                 : false;
             return {
                 allowConfirmReceipt: Boolean(request.canConfirmReceipt),
@@ -1644,7 +1644,7 @@
                 ariaLabel: 'Закрыть обращение без продолжения обмена',
                 onClick: (button) => runButtonAction(button,
                     () => handleCancelExchangeAction(trackId, returnRequest.id, {
-                        successMessage: 'Обмен отменён',
+                        successMessage: 'Заявка закрыта',
                         notificationType: 'warning'
                     })),
                 fullWidth: true
@@ -1889,39 +1889,6 @@
         return details;
     }
 
-    /**
-     * Отменяет обменную заявку и синхронизирует интерфейс с серверным состоянием.
-     * Метод запрашивает отмену обмена, заново отрисовывает модальное окно и обновляет счётчики,
-     * сохраняя ответственность в рамках одного шага и не изменяя пользовательский выбор режима вручную.
-     * @param {number} trackId идентификатор посылки
-     * @param {number} requestId идентификатор заявки
-     * @param {Object} options параметры пользовательского уведомления
-     * @returns {Promise<Object|null>} обновлённые детали трека либо {@code null}
-     */
-    async function handleCancelExchangeAction(trackId, requestId, options = {}) {
-        if (!trackId || !requestId) {
-            return null;
-        }
-        const currentMode = returnActionModeStore.getValue();
-        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/cancel`);
-        const details = payload?.details ?? payload ?? null;
-        invalidateLazyDataCache(trackId);
-        renderTrackModal(details, { actionModeOverride: currentMode });
-        if (details) {
-            updateRowRequiresAction(details);
-        }
-        const summary = payload?.actionRequired ?? null;
-        if (summary && typeof window.returnRequests?.updateRow === 'function') {
-            window.returnRequests.updateRow(summary);
-        }
-        updateActionTabCounter();
-        const message = options.successMessage || 'Обмен отменён';
-        const notificationType = options.notificationType || 'info';
-        notifyUser(message, notificationType);
-
-        return details;
-    }
-
     async function handleCloseWithoutExchange(trackId, requestId, options = {}) {
         if (!trackId || !requestId) {
             return null;
@@ -1938,6 +1905,19 @@
         const notificationType = options.notificationType || 'info';
         notifyUser(message, notificationType);
         return payload;
+    }
+
+    /**
+     * Отменяет обращение на обмен, переиспользуя общую логику закрытия заявки.
+     * Метод делегирует закрытие универсальному обработчику, чтобы поведение
+     * оставалось единым для любых типов обращений и соблюдался принцип DRY.
+     * @param {number} trackId идентификатор посылки
+     * @param {number} requestId идентификатор заявки
+     * @param {Object} options параметры пользовательского уведомления
+     * @returns {Promise<Object|null>} результат закрытия обращения
+     */
+    async function handleCancelExchangeAction(trackId, requestId, options = {}) {
+        return handleCloseWithoutExchange(trackId, requestId, options);
     }
 
     /**

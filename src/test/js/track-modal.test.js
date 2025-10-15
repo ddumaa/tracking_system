@@ -351,7 +351,7 @@ describe('track-modal render', () => {
         expect(texts).toContain('Закрыть обращение');
     });
 
-    test('sends cancel request for exchange when close action triggered', async () => {
+    test('sends close request for exchange when cancel action triggered', async () => {
         setupDom();
 
         const headers = { get: jest.fn(() => 'application/json') };
@@ -402,7 +402,7 @@ describe('track-modal render', () => {
         };
         const payload = { details: updatedDetails, actionRequired: { parcelId: 31, requestId: 81, requiresAction: true } };
         global.fetch.mockImplementation((url) => {
-            if (String(url).includes('/cancel')) {
+            if (String(url).includes('/close')) {
                 return Promise.resolve({ ok: true, headers, json: () => Promise.resolve(payload) });
             }
             return Promise.resolve({ ok: true, headers, json: () => Promise.resolve({}) });
@@ -468,10 +468,10 @@ describe('track-modal render', () => {
         await Promise.resolve();
 
         expect(global.fetch).toHaveBeenCalledWith(
-            '/api/v1/tracks/31/returns/81/cancel',
+            '/api/v1/tracks/31/returns/81/close',
             expect.objectContaining({ method: 'POST' })
         );
-        expect(global.notifyUser).toHaveBeenCalledWith('Обмен отменён', 'warning');
+        expect(global.notifyUser).toHaveBeenCalledWith('Заявка закрыта', 'warning');
 
         const rerenderedCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
