@@ -602,6 +602,8 @@ describe('track-modal render', () => {
         const reopenButton = Array.from(actionCard?.querySelectorAll('button') || [])
             .find((btn) => btn.textContent?.trim() === 'Перевести в возврат');
         expect(reopenButton).toBeDefined();
+        expect(reopenButton?.classList.contains('d-none')).toBe(false);
+        expect(reopenButton?.getAttribute('aria-hidden')).toBe('false');
         expect(reopenButton?.getAttribute('aria-label'))
             .toBe('Перевести обращение из обмена обратно в возврат');
     });
@@ -663,6 +665,79 @@ describe('track-modal render', () => {
         const reopenButton = Array.from(actionCard?.querySelectorAll('button') || [])
             .find((btn) => btn.textContent?.trim() === 'Перевести в возврат');
         expect(reopenButton).toBeDefined();
+        expect(reopenButton?.classList.contains('d-none')).toBe(false);
+        expect(reopenButton?.getAttribute('aria-hidden')).toBe('false');
+        expect(reopenButton?.getAttribute('aria-label'))
+            .toBe('Перевести обращение из обмена обратно в возврат');
+    });
+
+    test('shows reopen action when permissions deny conversion but обменные признаки присутствуют', () => {
+        setupDom();
+
+        const data = {
+            id: 103,
+            number: 'BY2024005',
+            deliveryService: 'Belpost',
+            systemStatus: 'Обмен в работе',
+            history: [],
+            refreshAllowed: true,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: 25,
+            exchange: false, returnShipment: false,
+            chain: [],
+            returnRequest: {
+                id: 93,
+                status: 'Обмен запрошен',
+                statusLabel: 'Обмен запрошен',
+                statusBadgeClass: 'bg-warning-subtle text-warning-emphasis',
+                reasonLabel: 'Причина',
+                reason: 'Не подошёл фасон',
+                comment: 'Ожидание решения по обмену',
+                requestedAt: '2024-02-14T12:00:00Z',
+                decisionAt: null,
+                closedAt: null,
+                reverseTrackNumber: null,
+                requiresAction: true,
+                exchangeRequested: true,
+                exchangeApproved: false,
+                canStartExchange: false,
+                canCreateExchangeParcel: false,
+                canCloseWithoutExchange: false,
+                canReopenAsReturn: false,
+                canCancelExchange: false,
+                returnReceiptConfirmed: false,
+                returnReceiptConfirmedAt: null,
+                canConfirmReceipt: false,
+                hint: 'Уточните у покупателя детали обмена.',
+                warnings: [],
+                detailsUrl: null,
+                actionPermissions: {
+                    allowConfirmReceipt: false,
+                    allowConvertToExchange: false,
+                    allowCloseRequest: false,
+                    allowCancelExchange: false,
+                    allowUpdateReverseTrack: false,
+                    allowConvertToReturn: false
+                }
+            },
+            canRegisterReturn: false,
+            lifecycle: [],
+            requiresAction: true
+        };
+
+        global.window.trackModal.render(data);
+
+        const actionCard = Array.from(document.querySelectorAll('section.card'))
+            .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
+        expect(actionCard).toBeDefined();
+
+        const reopenButton = Array.from(actionCard?.querySelectorAll('button') || [])
+            .find((btn) => btn.textContent?.trim() === 'Перевести в возврат');
+        expect(reopenButton).toBeDefined();
+        expect(reopenButton?.classList.contains('d-none')).toBe(false);
+        expect(reopenButton?.getAttribute('aria-hidden')).toBe('false');
         expect(reopenButton?.getAttribute('aria-label'))
             .toBe('Перевести обращение из обмена обратно в возврат');
     });
