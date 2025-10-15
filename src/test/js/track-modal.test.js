@@ -347,7 +347,7 @@ describe('track-modal render', () => {
         expect(confirmButton).toBeDefined();
 
         expect(texts).toContain('Перевести в возврат');
-        expect(texts).toContain('Отменить обмен');
+        expect(texts).toContain('Отменить обращение');
     });
 
     test('shows reopen action for requested exchange without explicit flag', () => {
