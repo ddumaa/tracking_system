@@ -275,15 +275,15 @@ describe('track-modal render', () => {
         expect(lifecycleText).toContain('Возврат от покупателя');
         expect(lifecycleText).toContain('Приём возврата магазином');
 
-        const confirmBtn = Array.from(document.querySelectorAll('button')).find((btn) => btn.textContent === 'Подтвердить получение');
-        expect(confirmBtn).toBeUndefined();
+        const confirmBtn = Array.from(document.querySelectorAll('button'))
+            .find((btn) => btn.getAttribute('aria-label') === 'Принять обратную посылку без закрытия заявки');
+        expect(confirmBtn).toBeDefined();
+        expect(confirmBtn?.textContent).toContain('Принять обратную посылку');
 
         const closeButton = Array.from(document.querySelectorAll('button'))
-            .find((btn) => {
-                const text = btn.textContent?.trim();
-                return text === 'Закрыть без обмена' || text === 'Принять возврат';
-            });
+            .find((btn) => btn.getAttribute('aria-label') === 'Закрыть заявку без запуска обменной посылки');
         expect(closeButton).toBeDefined();
+        expect(closeButton?.textContent).toContain('Закрыть без обмена');
     });
 
     test('shows receipt confirmation alongside exchange actions when confirmation allowed', () => {
@@ -343,7 +343,8 @@ describe('track-modal render', () => {
         const buttons = Array.from(actionCard?.querySelectorAll('button') || []);
         const texts = buttons.map((btn) => btn.textContent?.trim());
 
-        const confirmButton = buttons.find((btn) => btn.textContent === 'Подтвердить получение');
+        const confirmButton = buttons
+            .find((btn) => btn.getAttribute('aria-label') === 'Принять обратную посылку без закрытия заявки');
         expect(confirmButton).toBeDefined();
 
         expect(texts).toContain('Перевести в возврат');
@@ -527,11 +528,11 @@ describe('track-modal render', () => {
         expect(actionCard).toBeDefined();
 
         const confirmButton = Array.from(actionCard?.querySelectorAll('button') || [])
-            .find((btn) => btn.textContent === 'Подтвердить получение');
+            .find((btn) => btn.getAttribute('aria-label') === 'Принять обратную посылку без закрытия заявки');
         expect(confirmButton).toBeUndefined();
 
         const closeButton = Array.from(actionCard?.querySelectorAll('button') || [])
-            .find((btn) => btn.textContent === 'Закрыть без обмена');
+            .find((btn) => btn.textContent === 'Принять возврат');
         expect(closeButton).toBeDefined();
     });
 

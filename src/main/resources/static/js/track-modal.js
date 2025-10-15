@@ -1941,18 +1941,21 @@
                 appendAction(exchangeContext ? secondaryStack : primaryStack, closeButton);
             }
 
-            const allowReceiptConfirmationWithoutClosing = Boolean(returnRequest?.canConfirmReceipt)
-                && !canCloseWithoutExchange
+            const shouldRenderReceiptConfirmation = Boolean(returnRequest?.canConfirmReceipt)
+                && (!canCloseWithoutExchange || exchangeContext)
                 && trackId !== undefined
                 && returnRequest?.id !== undefined;
 
-            if (allowReceiptConfirmationWithoutClosing) {
-                // «Подтвердить получение» фиксирует поступление товара, оставляя заявку открытой для дальнейших действий,
-                // тогда как «Принять возврат» завершает процесс и закрывает заявку без обмена.
+            if (shouldRenderReceiptConfirmation) {
+                // Кнопка подтверждает факт приёма возврата, сохраняя заявку открытой для следующих шагов обмена либо возврата.
+                const receiptButtonText = exchangeContext ? 'Принять обратную посылку' : 'Подтвердить получение';
+                const receiptAriaLabel = exchangeContext
+                    ? 'Принять обратную посылку без закрытия заявки'
+                    : 'Подтвердить получение возврата без закрытия заявки';
                 const confirmButton = createActionButton({
-                    text: 'Подтвердить получение',
+                    text: receiptButtonText,
                     variant: 'outline-success',
-                    ariaLabel: 'Подтвердить получение возврата без закрытия заявки',
+                    ariaLabel: receiptAriaLabel,
                     onClick: (button) => runButtonAction(button,
                         () => handleConfirmProcessingAction(trackId, returnRequest.id, {
                             successMessage: 'Получение возврата подтверждено',
