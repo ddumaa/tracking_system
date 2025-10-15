@@ -1182,6 +1182,52 @@
     }
 
     /**
+     * Определяет доступность действия «Перевести в возврат» для обменной заявки.
+     * Метод объединяет анализ API-флагов и текущего режима, чтобы кнопка отображалась только там,
+     * где это поддерживается бэкендом, избегая дублирования с закрытием без обмена (принцип SRP).
+     * @param {Object} returnRequest DTO заявки на возврат
+     * @param {string} actionMode вычисленный режим из {@link ReturnRequestActionMode}
+     * @param {boolean} hasCloseWithoutExchangeAction есть ли уже действие закрытия без обмена
+     * @returns {{allowed: boolean, reason: string|null}} объект с доступностью и причиной блокировки
+     */
+    function getReopenAsReturnAvailability(returnRequest, actionMode, hasCloseWithoutExchangeAction) {
+        const defaultResult = { allowed: false, reason: null };
+        if (!returnRequest || typeof returnRequest !== 'object') {
+            return defaultResult;
+        }
+
+        const unavailableReason = firstNonEmpty(
+            returnRequest?.reopenAsReturnUnavailableReason,
+            returnRequest?.convertExchangeToReturnUnavailableReason,
+            null
+        );
+        if (unavailableReason) {
+            return { allowed: false, reason: unavailableReason };
+        }
+
+        if (hasCloseWithoutExchangeAction) {
+            return defaultResult;
+        }
+
+        if (returnRequest?.canReopenAsReturn) {
+            return { allowed: true, reason: null };
+        }
+
+        const isExchangeContext = actionMode === ReturnRequestActionMode.EXCHANGE
+            || Boolean(returnRequest.exchangeRequested)
+            || Boolean(returnRequest.exchangeApproved);
+        if (!isExchangeContext) {
+            return defaultResult;
+        }
+
+        if (returnRequest?.canConvertExchangeToReturn) {
+            return { allowed: true, reason: null };
+        }
+
+        return defaultResult;
+    }
+
+    /**
      * Возвращает текст статуса обращения для отображения пользователю.
      * Метод синхронизирует подпись с вычисленным режимом, чтобы при переходе в обмен не оставалось старой метки.
      * @param {Object} returnRequest DTO заявки
@@ -1937,7 +1983,13 @@
                 appendAction(secondaryStack, confirmButton);
             }
 
-            if (returnRequest?.canReopenAsReturn && trackId !== undefined && returnRequest.id !== undefined) {
+            const reopenAvailability = getReopenAsReturnAvailability(
+                returnRequest,
+                requestActionMode,
+                canCloseWithoutExchange
+            );
+
+            if (reopenAvailability.allowed && trackId !== undefined && returnRequest.id !== undefined) {
                 const reopenButton = createActionButton({
                     text: 'Перевести в возврат',
                     variant: 'outline-warning',
@@ -2017,6 +2069,9 @@
             }
             if (firstNonEmpty(returnRequest.cancelExchangeUnavailableReason)) {
                 warnings.push(returnRequest.cancelExchangeUnavailableReason);
+            }
+            if (firstNonEmpty(reopenAvailability.reason)) {
+                warnings.push(reopenAvailability.reason);
             }
             warnings.forEach((warningText) => {
                 const warning = document.createElement('div');

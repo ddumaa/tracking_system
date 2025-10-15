@@ -350,6 +350,70 @@ describe('track-modal render', () => {
         expect(texts).toContain('Отменить обмен');
     });
 
+    test('shows reopen action for exchange creation without explicit canReopenAsReturn', () => {
+        setupDom();
+
+        const data = {
+            id: 45,
+            number: 'BY20241234',
+            deliveryService: 'Belpost',
+            systemStatus: 'Зарегистрирована',
+            history: [],
+            refreshAllowed: true,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: 101,
+            exchange: false, returnShipment: false,
+            chain: [],
+            returnRequest: {
+                id: 901,
+                status: 'Заявка на обмен',
+                statusLabel: 'Заявка на обмен',
+                statusBadgeClass: 'bg-warning-subtle text-warning-emphasis',
+                reasonLabel: 'Причина',
+                reason: 'Замена размера',
+                comment: 'Хочу другой размер',
+                requestedAt: '2024-03-12T09:00:00Z',
+                decisionAt: null,
+                closedAt: null,
+                reverseTrackNumber: null,
+                requiresAction: true,
+                exchangeRequested: true,
+                exchangeApproved: false,
+                canStartExchange: true,
+                canCreateExchangeParcel: false,
+                canCloseWithoutExchange: false,
+                canReopenAsReturn: false,
+                canConvertExchangeToReturn: true,
+                reopenAsReturnUnavailableReason: null,
+                canCancelExchange: false,
+                returnReceiptConfirmed: false,
+                returnReceiptConfirmedAt: null,
+                canConfirmReceipt: false,
+                hint: 'Можно оформить обмен или вернуться к возврату.',
+                warnings: [],
+                detailsUrl: null
+            },
+            canRegisterReturn: false,
+            lifecycle: [],
+            requiresAction: true
+        };
+
+        global.window.trackModal.render(data);
+
+        const actionCard = Array.from(document.querySelectorAll('section.card'))
+            .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
+        expect(actionCard).toBeDefined();
+
+        const buttons = Array.from(actionCard?.querySelectorAll('button') || []);
+        const reopenButtons = buttons.filter((btn) => btn.textContent?.trim() === 'Перевести в возврат');
+
+        expect(reopenButtons).toHaveLength(1);
+        const closeButtons = buttons.filter((btn) => btn.textContent?.includes('Закрыть без обмена'));
+        expect(closeButtons).toHaveLength(0);
+    });
+
     test('hides receipt confirmation when closing without exchange is possible', () => {
         setupDom();
 
