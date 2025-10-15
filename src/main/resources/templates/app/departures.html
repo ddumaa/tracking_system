@@ -307,41 +307,60 @@
                                                     </div>
                                                 </td>
                                                 <td class="text-end">
-                                                    <div class="d-flex flex-column flex-lg-row gap-2 justify-content-end">
+                                                    <div class="d-flex flex-column flex-lg-row gap-2 justify-content-end"
+                                                         th:with="isExchangeApproved=${request.status == T(com.project.tracking_system.entity.OrderReturnRequestStatus).EXCHANGE_APPROVED},
+                                                                  allowConfirm=${request.canConfirmReceipt},
+                                                                  allowConvertToExchange=${request.canStartExchange},
+                                                                  allowClose=${request.canCloseWithoutExchange},
+                                                                  hasReverse=${request.reverseTrackNumber != null and !#strings.isEmpty(request.reverseTrackNumber)},
+                                                                  allowConvertToReturn=${request.canReopenAsReturn},
+                                                                  allowUpdateReverse=${isExchangeApproved and !hasReverse}">
                                                         <button type="button"
-                                                                class="btn btn-success btn-sm js-return-request-confirm-return d-none"
+                                                                class="btn btn-success btn-sm js-return-request-confirm-return"
+                                                                th:classappend="${allowConfirm and !isExchangeApproved} ? '' : ' d-none'"
                                                                 data-action-label="Принять возврат"
-                                                                aria-hidden="true">
+                                                                th:attr="aria-hidden=${allowConfirm and !isExchangeApproved ? false : true}"
+                                                                th:disabled="${!(allowConfirm and !isExchangeApproved)}">
                                                             Принять возврат
                                                         </button>
                                                         <button type="button"
-                                                                class="btn btn-primary btn-sm js-return-request-to-exchange d-none"
+                                                                class="btn btn-primary btn-sm js-return-request-to-exchange"
+                                                                th:classappend="${allowConvertToExchange} ? '' : ' d-none'"
                                                                 data-action-label="Перевести в обмен"
-                                                                aria-hidden="true">
+                                                                th:attr="aria-hidden=${allowConvertToExchange ? false : true}"
+                                                                th:disabled="${!allowConvertToExchange}">
                                                             Перевести в обмен
                                                         </button>
                                                         <button type="button"
-                                                                class="btn btn-outline-secondary btn-sm js-return-request-close d-none"
+                                                                class="btn btn-outline-secondary btn-sm js-return-request-close"
+                                                                th:classappend="${allowClose} ? '' : ' d-none'"
                                                                 data-action-label="Закрыть обращение"
-                                                                aria-hidden="true">
+                                                                th:attr="aria-hidden=${allowClose ? false : true}"
+                                                                th:disabled="${!allowClose}">
                                                             Закрыть обращение
                                                         </button>
                                                         <button type="button"
-                                                                class="btn btn-outline-primary btn-sm js-return-request-add-reverse d-none"
+                                                                class="btn btn-outline-primary btn-sm js-return-request-add-reverse"
+                                                                th:classappend="${allowUpdateReverse} ? '' : ' d-none'"
                                                                 data-action-label="Добавить трек обратной посылки"
-                                                                aria-hidden="true">
+                                                                th:attr="aria-hidden=${allowUpdateReverse ? false : true}"
+                                                                th:disabled="${!allowUpdateReverse}">
                                                             Добавить трек обратной посылки
                                                         </button>
                                                         <button type="button"
-                                                                class="btn btn-outline-warning btn-sm js-return-request-to-return d-none"
+                                                                class="btn btn-outline-warning btn-sm js-return-request-to-return"
+                                                                th:classappend="${allowConvertToReturn} ? '' : ' d-none'"
                                                                 data-action-label="Перевести в возврат"
-                                                                aria-hidden="true">
+                                                                th:attr="aria-hidden=${allowConvertToReturn ? false : true}"
+                                                                th:disabled="${!allowConvertToReturn}">
                                                             Перевести в возврат
                                                         </button>
                                                         <button type="button"
-                                                                class="btn btn-success btn-sm js-return-request-confirm-reverse d-none"
+                                                                class="btn btn-success btn-sm js-return-request-confirm-reverse"
+                                                                th:classappend="${allowConfirm and isExchangeApproved} ? '' : ' d-none'"
                                                                 data-action-label="Принять обратную посылку"
-                                                                aria-hidden="true">
+                                                                th:attr="aria-hidden=${allowConfirm and isExchangeApproved ? false : true}"
+                                                                th:disabled="${!(allowConfirm and isExchangeApproved)}">
                                                             Принять обратную посылку
                                                         </button>
                                                     </div>
