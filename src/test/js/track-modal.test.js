@@ -276,7 +276,141 @@ describe('track-modal render', () => {
         expect(lifecycleText).toContain('Приём возврата магазином');
 
         const confirmBtn = Array.from(document.querySelectorAll('button')).find((btn) => btn.textContent === 'Подтвердить получение');
-        expect(confirmBtn).toBeDefined();
+        expect(confirmBtn).toBeUndefined();
+
+        const closeButton = Array.from(document.querySelectorAll('button'))
+            .find((btn) => {
+                const text = btn.textContent?.trim();
+                return text === 'Закрыть без обмена' || text === 'Принять возврат';
+            });
+        expect(closeButton).toBeDefined();
+    });
+
+    test('shows receipt confirmation alongside exchange actions when confirmation allowed', () => {
+        setupDom();
+
+        const data = {
+            id: 31,
+            number: 'BY2024001',
+            deliveryService: 'Belpost',
+            systemStatus: 'Вручена',
+            history: [],
+            refreshAllowed: true,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: 21,
+            exchange: false, returnShipment: false,
+            chain: [],
+            returnRequest: {
+                id: 81,
+                status: 'Обмен в работе',
+                statusLabel: 'Обмен в работе',
+                statusBadgeClass: 'bg-info-subtle text-info-emphasis',
+                reasonLabel: 'Причина',
+                reason: 'Не подошёл размер',
+                comment: 'Покупатель ждёт замену',
+                requestedAt: '2024-02-10T12:00:00Z',
+                decisionAt: null,
+                closedAt: null,
+                reverseTrackNumber: null,
+                requiresAction: true,
+                exchangeApproved: true,
+                exchangeRequested: true,
+                canStartExchange: false,
+                canCreateExchangeParcel: false,
+                canCloseWithoutExchange: false,
+                canReopenAsReturn: true,
+                canCancelExchange: true,
+                returnReceiptConfirmed: false,
+                returnReceiptConfirmedAt: null,
+                canConfirmReceipt: true,
+                hint: 'Можно подтвердить поступление и продолжить обмен.',
+                warnings: [],
+                detailsUrl: 'https://example.com/returns'
+            },
+            canRegisterReturn: false,
+            lifecycle: [],
+            requiresAction: true
+        };
+
+        global.window.trackModal.render(data);
+
+        const actionCard = Array.from(document.querySelectorAll('section.card'))
+            .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
+        expect(actionCard).toBeDefined();
+
+        const buttons = Array.from(actionCard?.querySelectorAll('button') || []);
+        const texts = buttons.map((btn) => btn.textContent?.trim());
+
+        const confirmButton = buttons.find((btn) => btn.textContent === 'Подтвердить получение');
+        expect(confirmButton).toBeDefined();
+
+        expect(texts).toContain('Перевести в возврат');
+        expect(texts).toContain('Отменить обмен');
+    });
+
+    test('hides receipt confirmation when closing without exchange is possible', () => {
+        setupDom();
+
+        const data = {
+            id: 32,
+            number: 'BY2024002',
+            deliveryService: 'Belpost',
+            systemStatus: 'Вручена',
+            history: [],
+            refreshAllowed: true,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: 22,
+            exchange: false, returnShipment: false,
+            chain: [],
+            returnRequest: {
+                id: 82,
+                status: 'Обмен согласован',
+                statusLabel: 'Обмен согласован',
+                statusBadgeClass: 'bg-info-subtle text-info-emphasis',
+                reasonLabel: 'Причина',
+                reason: 'Замена по размеру',
+                comment: 'Магазин готов отправить обменную посылку',
+                requestedAt: '2024-02-11T12:00:00Z',
+                decisionAt: null,
+                closedAt: null,
+                reverseTrackNumber: null,
+                requiresAction: true,
+                exchangeApproved: true,
+                exchangeRequested: true,
+                canStartExchange: false,
+                canCreateExchangeParcel: false,
+                canCloseWithoutExchange: true,
+                canReopenAsReturn: false,
+                canCancelExchange: false,
+                returnReceiptConfirmed: false,
+                returnReceiptConfirmedAt: null,
+                canConfirmReceipt: true,
+                hint: 'Можно закрыть заявку без обмена, если товара нет.',
+                warnings: [],
+                detailsUrl: 'https://example.com/returns'
+            },
+            canRegisterReturn: false,
+            lifecycle: [],
+            requiresAction: true
+        };
+
+        global.window.trackModal.render(data);
+
+        const actionCard = Array.from(document.querySelectorAll('section.card'))
+            .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
+        expect(actionCard).toBeDefined();
+
+        const confirmButton = Array.from(actionCard?.querySelectorAll('button') || [])
+            .find((btn) => btn.textContent === 'Подтвердить получение');
+        expect(confirmButton).toBeUndefined();
+
+        const closeButton = Array.from(actionCard?.querySelectorAll('button') || [])
+            .find((btn) => btn.textContent === 'Закрыть без обмена');
+        expect(closeButton).toBeDefined();
     });
 
     test('marks return shipment in chain label and aria text', () => {
@@ -379,13 +513,6 @@ describe('track-modal render', () => {
             requiresAction: false
         };
 
-        const headers = { get: jest.fn(() => 'application/json') };
-        global.fetch.mockResolvedValueOnce({
-            ok: true,
-            headers,
-            json: () => Promise.resolve(updatedDetails)
-        });
-
         const initialData = {
             id: 12,
             number: 'BY123456789BY',
@@ -429,6 +556,13 @@ describe('track-modal render', () => {
         };
 
         global.window.trackModal.render(initialData);
+
+        const headers = { get: jest.fn(() => 'application/json') };
+        global.fetch.mockResolvedValueOnce({
+            ok: true,
+            headers,
+            json: () => Promise.resolve(updatedDetails)
+        });
 
         const form = document.querySelector('form[data-reverse-track-form]');
         expect(form).not.toBeNull();
