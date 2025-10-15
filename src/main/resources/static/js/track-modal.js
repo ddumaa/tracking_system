@@ -1155,6 +1155,32 @@
     }
 
     /**
+     * Определяет, следует ли отображать кнопку возврата обращения из обмена.
+     * Метод инкапсулирует проверку флагов, чтобы единообразно реагировать на новые стадии обмена
+     * и не дублировать условия в разных частях рендера (принцип SRP).
+     * @param {Object} returnRequest DTO заявки
+     * @param {string} actionMode вычисленный режим обработки из {@link ReturnRequestActionMode}
+     * @returns {boolean} {@code true}, если кнопку нужно показать
+     */
+    function shouldShowReopenAsReturn(returnRequest, actionMode) {
+        if (!returnRequest || typeof returnRequest !== 'object') {
+            return false;
+        }
+        if (returnRequest.canReopenAsReturn) {
+            return true;
+        }
+        if (actionMode !== ReturnRequestActionMode.EXCHANGE) {
+            return false;
+        }
+        if (isExchangeRequest(returnRequest)) {
+            return true;
+        }
+        const hasExchangeLifecycleFlag = Object.keys(returnRequest)
+            .some((key) => key.toLowerCase().startsWith('exchange') && Boolean(returnRequest[key]));
+        return hasExchangeLifecycleFlag;
+    }
+
+    /**
      * Определяет, какие кнопки действий следует показывать, исходя из статуса заявки.
      * Метод сначала проверяет обменные флаги, а затем анализирует код и подпись статуса,
      * чтобы покрыть случаи ручного перевода обращения из возврата в обмен.
@@ -1937,11 +1963,21 @@
                 appendAction(secondaryStack, confirmButton);
             }
 
-            if (returnRequest?.canReopenAsReturn && trackId !== undefined && returnRequest.id !== undefined) {
+            const shouldRenderReopenButton = trackId !== undefined
+                && returnRequest?.id !== undefined
+                && shouldShowReopenAsReturn(returnRequest, requestActionMode);
+
+            if (shouldRenderReopenButton) {
+                const reopenButtonText = exchangeContext ? 'Перевести в возврат' : 'Возобновить возврат';
+                const reopenAriaLabel = exchangeContext
+                    ? (returnRequest.canReopenAsReturn
+                        ? 'Перевести обменную заявку обратно в возврат'
+                        : 'Прекратить обмен и продолжить обработку как возврат')
+                    : 'Повторно открыть обращение как возврат для дальнейшей обработки';
                 const reopenButton = createActionButton({
-                    text: 'Перевести в возврат',
+                    text: reopenButtonText,
                     variant: 'outline-warning',
-                    ariaLabel: 'Перевести обменную заявку обратно в возврат',
+                    ariaLabel: reopenAriaLabel,
                     onClick: (button) => runButtonAction(button,
                         () => handleReopenReturnAction(trackId, returnRequest.id, {
                             successMessage: 'Заявка переведена в возврат',
