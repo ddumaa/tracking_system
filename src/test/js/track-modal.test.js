@@ -276,14 +276,13 @@ describe('track-modal render', () => {
         expect(lifecycleText).toContain('Приём возврата магазином');
 
         const confirmBtn = Array.from(document.querySelectorAll('button'))
-            .find((btn) => btn.getAttribute('aria-label') === 'Принять обратную посылку без закрытия заявки');
+            .find((btn) => btn.getAttribute('aria-label') === 'Подтвердить получение возврата и завершить обращение');
         expect(confirmBtn).toBeDefined();
-        expect(confirmBtn?.textContent).toContain('Принять обратную посылку');
+        expect(confirmBtn?.textContent).toContain('Принять возврат');
 
         const closeButton = Array.from(document.querySelectorAll('button'))
-            .find((btn) => btn.getAttribute('aria-label') === 'Закрыть заявку без запуска обменной посылки');
+            .find((btn) => btn.textContent?.includes('Закрыть обращение'));
         expect(closeButton).toBeDefined();
-        expect(closeButton?.textContent).toContain('Закрыть без обмена');
     });
 
     test('shows receipt confirmation alongside exchange actions when confirmation allowed', () => {
@@ -344,11 +343,12 @@ describe('track-modal render', () => {
         const texts = buttons.map((btn) => btn.textContent?.trim());
 
         const confirmButton = buttons
-            .find((btn) => btn.getAttribute('aria-label') === 'Принять обратную посылку без закрытия заявки');
+            .find((btn) => btn.getAttribute('aria-label') === 'Подтвердить получение обратной посылки');
         expect(confirmButton).toBeDefined();
 
         expect(texts).toContain('Перевести в возврат');
-        expect(texts).toContain('Отменить обращение');
+        expect(texts).toContain('Добавить трек обратной посылки');
+        expect(texts).toContain('Закрыть обращение');
     });
 
     test('does not render return details link without url', () => {
@@ -474,7 +474,7 @@ describe('track-modal render', () => {
             .find((btn) => btn.textContent?.trim() === 'Перевести в возврат');
         expect(reopenButton).toBeDefined();
         expect(reopenButton?.getAttribute('aria-label'))
-            .toBe('Прекратить обмен и продолжить обработку как возврат');
+            .toBe('Перевести обращение из обмена обратно в возврат');
     });
 
     test('shows reopen action for approved exchange without explicit flag', () => {
@@ -535,7 +535,7 @@ describe('track-modal render', () => {
             .find((btn) => btn.textContent?.trim() === 'Перевести в возврат');
         expect(reopenButton).toBeDefined();
         expect(reopenButton?.getAttribute('aria-label'))
-            .toBe('Прекратить обмен и продолжить обработку как возврат');
+            .toBe('Перевести обращение из обмена обратно в возврат');
     });
 
     test('hides receipt confirmation when closing without exchange is possible', () => {
@@ -593,11 +593,11 @@ describe('track-modal render', () => {
         expect(actionCard).toBeDefined();
 
         const confirmButton = Array.from(actionCard?.querySelectorAll('button') || [])
-            .find((btn) => btn.getAttribute('aria-label') === 'Принять обратную посылку без закрытия заявки');
-        expect(confirmButton).toBeUndefined();
+            .find((btn) => btn.getAttribute('aria-label') === 'Подтвердить получение обратной посылки');
+        expect(confirmButton).toBeDefined();
 
         const closeButton = Array.from(actionCard?.querySelectorAll('button') || [])
-            .find((btn) => btn.textContent === 'Принять возврат');
+            .find((btn) => btn.textContent === 'Закрыть обращение');
         expect(closeButton).toBeDefined();
     });
 
@@ -1029,31 +1029,20 @@ describe('track-modal render', () => {
         expect(global.notifyUser).toHaveBeenCalledWith('Заявка переведена в обмен', 'info');
     });
 
-    test('creates exchange parcel via dedicated action', async () => {
+    test('starts exchange via dedicated action', async () => {
         setupDom();
+
         const headers = { get: jest.fn(() => 'application/json') };
-        const responsePayload = {
-            details: {
-                id: 14,
-                number: 'BY555',
-                deliveryService: null,
-                systemStatus: 'Вручена',
-                history: [],
-                refreshAllowed: true,
-                nextRefreshAt: null,
-                canEditTrack: false,
-                timeZone: 'UTC',
-                episodeNumber: 8,
-                exchange: false, returnShipment: false,
-                chain: [],
-                returnRequest: null,
-                canRegisterReturn: false,
-                lifecycle: [],
-                requiresAction: false
-            },
-            exchange: { id: 44, number: 'EX123', exchange: true, returnShipment: false, current: false }
-        };
-        global.fetch.mockResolvedValueOnce({ ok: true, headers, json: () => Promise.resolve(responsePayload) });
+        const responsePayload = { details: { returnRequest: { id: 6 } } };
+        global.fetch.mockImplementation((url) => {
+            if (String(url).includes('/exchange')) {
+                return Promise.resolve({ ok: true, headers, json: () => Promise.resolve(responsePayload) });
+            }
+            if (String(url).includes('/details')) {
+                return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+            }
+            return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+        });
 
         const data = {
             id: 14,
@@ -1070,9 +1059,9 @@ describe('track-modal render', () => {
             chain: [],
             returnRequest: {
                 id: 6,
-                status: 'Обмен одобрен',
-                statusLabel: 'Обмен одобрен',
-                statusBadgeClass: 'bg-primary-subtle text-primary-emphasis',
+                status: 'Зарегистрирована',
+                statusLabel: 'Зарегистрирована',
+                statusBadgeClass: 'bg-info-subtle text-info-emphasis',
                 reasonLabel: 'Причина',
                 reason: 'Брак',
                 comment: 'Согласован обмен',
@@ -1081,10 +1070,10 @@ describe('track-modal render', () => {
                 closedAt: null,
                 reverseTrackNumber: null,
                 requiresAction: true,
-                exchangeApproved: true,
-                exchangeRequested: true,
-                canStartExchange: false,
-                canCreateExchangeParcel: true,
+                exchangeApproved: false,
+                exchangeRequested: false,
+                canStartExchange: true,
+                canCreateExchangeParcel: false,
                 canCloseWithoutExchange: false,
                 canReopenAsReturn: true,
                 canCancelExchange: false,
@@ -1104,20 +1093,20 @@ describe('track-modal render', () => {
 
         const card = Array.from(document.querySelectorAll('section.card'))
             .find((item) => item.querySelector('h6')?.textContent === 'Обращение');
-        const createButton = Array.from(card?.querySelectorAll('button') || [])
-            .find((btn) => btn.textContent === 'Создать обменную посылку');
-        expect(createButton).toBeDefined();
-        createButton?.click();
+        const convertButton = Array.from(card?.querySelectorAll('button') || [])
+            .find((btn) => btn.getAttribute('aria-label') === 'Запустить обмен по обращению');
+        expect(convertButton).toBeDefined();
+        convertButton?.click();
 
         await Promise.resolve();
         await Promise.resolve();
         await Promise.resolve();
 
         expect(global.fetch).toHaveBeenCalledWith(
-            '/api/v1/tracks/14/returns/6/exchange/parcel',
+            '/api/v1/tracks/14/returns/6/exchange',
             expect.objectContaining({ method: 'POST' })
         );
-        expect(global.notifyUser).toHaveBeenCalledWith('Создана обменная посылка', 'success');
+        expect(global.notifyUser).toHaveBeenCalledWith('Заявка переведена в обмен', 'info');
     });
 
     test('shows exchange parcel widget with open CTA', () => {

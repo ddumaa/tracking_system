@@ -104,70 +104,60 @@
             confirmationSpan.classList.toggle('text-muted', !confirmed);
         }
 
-        const warningBox = row.querySelector('[data-return-cancel-warning]');
-        if (warningBox && 'cancelExchangeUnavailableReason' in summary) {
-            const showWarning = Boolean(summary.cancelExchangeUnavailableReason);
-            warningBox.classList.toggle('d-none', !showWarning);
-            warningBox.setAttribute('aria-hidden', showWarning ? 'false' : 'true');
-            const warningText = warningBox.querySelector('[data-return-cancel-warning-text]');
-            if (warningText) {
-                warningText.textContent = summary.cancelExchangeUnavailableReason || '';
-            }
-        }
+        const derivePermissions = (item) => {
+            const statusValue = typeof item?.status === 'string' ? item.status.toUpperCase() : '';
+            const exchangeStatus = statusValue === 'EXCHANGE_APPROVED';
+            const reverseMissing = !item?.reverseTrackNumber;
+            return {
+                allowConfirmReceipt: Boolean(item?.canConfirmReceipt),
+                allowConvertToExchange: Boolean(item?.canStartExchange),
+                allowCloseRequest: Boolean(item?.canCloseWithoutExchange),
+                allowUpdateReverseTrack: exchangeStatus && reverseMissing,
+                allowConvertToReturn: Boolean(item?.canReopenAsReturn)
+            };
+        };
 
-        const exchangeButton = row.querySelector('.js-return-request-exchange');
-        if (exchangeButton && 'canStartExchange' in summary) {
-            const canExchange = Boolean(summary.canStartExchange);
-            exchangeButton.classList.toggle('d-none', !canExchange);
-            exchangeButton.setAttribute('aria-hidden', canExchange ? 'false' : 'true');
-            exchangeButton.disabled = !canExchange;
-            if (canExchange) {
-                const exchangeText = summary.exchangeRequested
-                    ? 'Создать обменную посылку'
-                    : 'Перевести в обмен';
-                exchangeButton.textContent = exchangeText;
-                exchangeButton.dataset.actionLabel = exchangeText;
+        const permissions = summary.actionPermissions
+            ? summary.actionPermissions
+            : derivePermissions(summary);
+        const allowConfirmReceipt = Boolean(permissions.allowConfirmReceipt);
+        const allowConvertToExchange = Boolean(permissions.allowConvertToExchange);
+        const allowCloseRequest = Boolean(permissions.allowCloseRequest);
+        const allowUpdateReverseTrack = Boolean(permissions.allowUpdateReverseTrack);
+        const allowConvertToReturn = Boolean(permissions.allowConvertToReturn);
+        const statusRaw = typeof summary.status === 'string' ? summary.status.toUpperCase() : '';
+        const isExchangeStatus = statusRaw === 'EXCHANGE_APPROVED';
+
+        const syncButton = (button, visible, label) => {
+            if (!button) {
+                return;
             }
-        }
+            button.classList.toggle('d-none', !visible);
+            button.setAttribute('aria-hidden', visible ? 'false' : 'true');
+            button.disabled = !visible;
+            if (visible && label) {
+                button.textContent = label;
+                button.dataset.actionLabel = label;
+            }
+        };
+
+        const confirmReturnButton = row.querySelector('.js-return-request-confirm-return');
+        syncButton(confirmReturnButton, allowConfirmReceipt && !isExchangeStatus, 'Принять возврат');
+
+        const toExchangeButton = row.querySelector('.js-return-request-to-exchange');
+        syncButton(toExchangeButton, allowConvertToExchange, 'Перевести в обмен');
 
         const closeButton = row.querySelector('.js-return-request-close');
-        if (closeButton && ('canCloseWithoutExchange' in summary || 'exchangeRequested' in summary)) {
-            const canClose = Boolean(summary.canCloseWithoutExchange);
-            closeButton.classList.toggle('d-none', !canClose);
-            closeButton.setAttribute('aria-hidden', canClose ? 'false' : 'true');
-            closeButton.disabled = !canClose;
-            if (canClose) {
-                const closeText = summary.exchangeRequested ? 'Закрыть без обмена' : 'Принять возврат';
-                closeButton.textContent = closeText;
-                closeButton.dataset.actionLabel = closeText;
-                closeButton.classList.toggle('btn-outline-secondary', Boolean(summary.exchangeRequested));
-                closeButton.classList.toggle('btn-success', !summary.exchangeRequested);
-            }
-        }
+        syncButton(closeButton, allowCloseRequest, 'Закрыть обращение');
 
-        const reopenButton = row.querySelector('.js-return-request-reopen');
-        if (reopenButton && 'canReopenAsReturn' in summary) {
-            const canReopen = Boolean(summary.canReopenAsReturn);
-            reopenButton.classList.toggle('d-none', !canReopen);
-            reopenButton.setAttribute('aria-hidden', canReopen ? 'false' : 'true');
-            reopenButton.disabled = !canReopen;
-        }
+        const addReverseButton = row.querySelector('.js-return-request-add-reverse');
+        syncButton(addReverseButton, allowUpdateReverseTrack, 'Добавить трек обратной посылки');
 
-        const cancelButton = row.querySelector('.js-return-request-cancel');
-        if (cancelButton && 'canCancelExchange' in summary) {
-            const canCancel = Boolean(summary.canCancelExchange);
-            cancelButton.classList.toggle('d-none', !canCancel);
-            cancelButton.setAttribute('aria-hidden', canCancel ? 'false' : 'true');
-            cancelButton.disabled = !canCancel;
-        }
+        const toReturnButton = row.querySelector('.js-return-request-to-return');
+        syncButton(toReturnButton, allowConvertToReturn, 'Перевести в возврат');
 
-        const confirmButton = row.querySelector('.js-return-request-confirm');
-        if (confirmButton && ('canConfirmReceipt' in summary || 'returnReceiptConfirmed' in summary)) {
-            const canConfirm = Boolean(summary.canConfirmReceipt);
-            confirmButton.classList.toggle('d-none', !canConfirm);
-            confirmButton.setAttribute('aria-hidden', canConfirm ? 'false' : 'true');
-            confirmButton.disabled = !canConfirm;
-        }
+        const confirmReverseButton = row.querySelector('.js-return-request-confirm-reverse');
+        syncButton(confirmReverseButton, allowConfirmReceipt && isExchangeStatus, 'Принять обратную посылку');
 
         refreshEmptyState();
     }
@@ -227,7 +217,7 @@
      */
     function getActionExecutors() {
         return {
-            exchange(trackId, requestId, options = {}) {
+            toExchange(trackId, requestId, options = {}) {
                 const fn = window.trackModal?.approveReturnExchange;
                 if (typeof fn !== 'function') {
                     return Promise.reject(new Error('Создание обменной посылки недоступно'));
@@ -241,17 +231,10 @@
                 }
                 return fn(trackId, requestId, options);
             },
-            reopen(trackId, requestId, options = {}) {
+            toReturn(trackId, requestId, options = {}) {
                 const fn = window.trackModal?.reopenReturnRequest;
                 if (typeof fn !== 'function') {
                     return Promise.reject(new Error('Перевод в возврат недоступен'));
-                }
-                return fn(trackId, requestId, options);
-            },
-            cancel(trackId, requestId, options = {}) {
-                const fn = window.trackModal?.cancelReturnExchange;
-                if (typeof fn !== 'function') {
-                    return Promise.reject(new Error('Отмена обмена недоступна'));
                 }
                 return fn(trackId, requestId, options);
             },
@@ -261,6 +244,13 @@
                     return Promise.reject(new Error('Подтверждение обработки возврата недоступно'));
                 }
                 return fn(trackId, requestId, options);
+            },
+            reverse(trackId, requestId, reverseValue, comment = null) {
+                const fn = window.trackModal?.updateReverseTrack;
+                if (typeof fn !== 'function') {
+                    return Promise.reject(new Error('Обновление обратного трека недоступно'));
+                }
+                return fn(trackId, requestId, reverseValue, comment);
             }
         };
     }
@@ -275,7 +265,7 @@
         const executors = getActionExecutors();
 
         table.addEventListener('click', (event) => {
-            const button = event.target.closest('.js-return-request-exchange, .js-return-request-close, .js-return-request-reopen, .js-return-request-cancel, .js-return-request-confirm');
+            const button = event.target.closest('.js-return-request-confirm-return, .js-return-request-to-exchange, .js-return-request-close, .js-return-request-add-reverse, .js-return-request-to-return, .js-return-request-confirm-reverse');
             if (!button) {
                 return;
             }
@@ -283,47 +273,71 @@
             if (!row) {
                 return;
             }
-            const { trackId, requestId, exchangeRequested } = row.dataset;
+            const { trackId, requestId } = row.dataset;
             if (!trackId || !requestId) {
                 return;
             }
 
-            let actionKey = 'exchange';
-            if (button.classList.contains('js-return-request-close')) {
-                actionKey = 'close';
-            } else if (button.classList.contains('js-return-request-reopen')) {
-                actionKey = 'reopen';
-            } else if (button.classList.contains('js-return-request-cancel')) {
-                actionKey = 'cancel';
-            } else if (button.classList.contains('js-return-request-confirm')) {
+            if (button.classList.contains('js-return-request-add-reverse')) {
+                const reversePrompt = window.prompt('Укажите трек обратной посылки');
+                if (!reversePrompt) {
+                    return;
+                }
+                const reverseValue = reversePrompt.trim();
+                if (reverseValue.length === 0) {
+                    if (typeof window.notifyUser === 'function') {
+                        window.notifyUser('Трек обратной посылки не может быть пустым', 'warning');
+                    }
+                    return;
+                }
+                const commentPrompt = window.prompt('Комментарий к обращению (необязательно)');
+                const commentValue = commentPrompt ? commentPrompt.trim() : '';
+                executeAction(button, () => executors.reverse(
+                    trackId,
+                    requestId,
+                    reverseValue,
+                    commentValue.length > 0 ? commentValue : null
+                ));
+                return;
+            }
+
+            let actionKey = '';
+            let actionOptions = {};
+            if (button.classList.contains('js-return-request-confirm-return')) {
                 actionKey = 'confirm';
+                actionOptions = {
+                    successMessage: 'Возврат подтверждён',
+                    notificationType: 'success'
+                };
+            } else if (button.classList.contains('js-return-request-to-exchange')) {
+                actionKey = 'toExchange';
+                actionOptions = {
+                    successMessage: 'Заявка переведена в обмен',
+                    notificationType: 'info'
+                };
+            } else if (button.classList.contains('js-return-request-close')) {
+                actionKey = 'close';
+                actionOptions = {
+                    successMessage: 'Заявка закрыта',
+                    notificationType: 'warning'
+                };
+            } else if (button.classList.contains('js-return-request-to-return')) {
+                actionKey = 'toReturn';
+                actionOptions = {
+                    successMessage: 'Заявка переведена в возврат',
+                    notificationType: 'info'
+                };
+            } else if (button.classList.contains('js-return-request-confirm-reverse')) {
+                actionKey = 'confirm';
+                actionOptions = {
+                    successMessage: 'Получение обратной посылки подтверждено',
+                    notificationType: 'success'
+                };
             }
 
             const executor = executors[actionKey];
             if (typeof executor !== 'function') {
                 return;
-            }
-            const isExchangeRequested = exchangeRequested === 'true';
-            const actionOptions = {};
-            if (actionKey === 'exchange') {
-                actionOptions.successMessage = isExchangeRequested
-                    ? 'Создана обменная посылка'
-                    : 'Заявка переведена в обмен';
-                actionOptions.notificationType = isExchangeRequested ? 'success' : 'info';
-            } else if (actionKey === 'close') {
-                actionOptions.successMessage = isExchangeRequested
-                    ? 'Заявка закрыта без обмена'
-                    : 'Возврат принят';
-                actionOptions.notificationType = isExchangeRequested ? 'info' : 'success';
-            } else if (actionKey === 'reopen') {
-                actionOptions.successMessage = 'Заявка переведена в возврат';
-                actionOptions.notificationType = 'info';
-            } else if (actionKey === 'cancel') {
-                actionOptions.successMessage = 'Обмен отменён и заявка закрыта';
-                actionOptions.notificationType = 'warning';
-            } else if (actionKey === 'confirm') {
-                actionOptions.successMessage = 'Обработка возврата подтверждена';
-                actionOptions.notificationType = 'success';
             }
             executeAction(button, () => executor(trackId, requestId, actionOptions));
         });

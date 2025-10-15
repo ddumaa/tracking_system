@@ -307,53 +307,43 @@
                                                     </div>
                                                 </td>
                                                 <td class="text-end">
-                                                    <div class="alert alert-warning text-start small mb-2"
-                                                         data-return-cancel-warning
-                                                         th:classappend="${request.cancelExchangeUnavailableReason == null} ? ' d-none' : ''"
-                                                         th:attr="aria-hidden=${request.cancelExchangeUnavailableReason == null}"
-                                                         role="status">
-                                                        <span data-return-cancel-warning-text
-                                                              th:text="${request.cancelExchangeUnavailableReason}"></span>
-                                                    </div>
                                                     <div class="d-flex flex-column flex-lg-row gap-2 justify-content-end">
                                                         <button type="button"
-                                                                class="btn btn-primary btn-sm js-return-request-exchange"
-                                                                th:if="${request.canStartExchange}"
-                                                                th:data-action-label="${request.exchangeRequested ? 'Создать обменную посылку' : 'Перевести в обмен'}"
-                                                                th:text="${request.exchangeRequested ? 'Создать обменную посылку' : 'Перевести в обмен'}"
-                                                                th:disabled="${!request.canStartExchange}">
-                                                            Создать обменную посылку
+                                                                class="btn btn-success btn-sm js-return-request-confirm-return d-none"
+                                                                data-action-label="Принять возврат"
+                                                                aria-hidden="true">
+                                                            Принять возврат
                                                         </button>
                                                         <button type="button"
-                                                                class="btn btn-sm js-return-request-close"
-                                                                th:classappend="${request.exchangeRequested ? ' btn-outline-secondary' : ' btn-success'}"
-                                                                th:if="${request.canCloseWithoutExchange}"
-                                                                th:data-action-label="${request.exchangeRequested ? 'Закрыть без обмена' : 'Принять возврат'}"
-                                                                th:text="${request.exchangeRequested ? 'Закрыть без обмена' : 'Принять возврат'}"
-                                                                th:disabled="${!request.canCloseWithoutExchange}">
-                                                            Закрыть без обмена
+                                                                class="btn btn-primary btn-sm js-return-request-to-exchange d-none"
+                                                                data-action-label="Перевести в обмен"
+                                                                aria-hidden="true">
+                                                            Перевести в обмен
                                                         </button>
                                                         <button type="button"
-                                                                class="btn btn-outline-warning btn-sm js-return-request-reopen"
-                                                                th:if="${request.canReopenAsReturn}"
+                                                                class="btn btn-outline-secondary btn-sm js-return-request-close d-none"
+                                                                data-action-label="Закрыть обращение"
+                                                                aria-hidden="true">
+                                                            Закрыть обращение
+                                                        </button>
+                                                        <button type="button"
+                                                                class="btn btn-outline-primary btn-sm js-return-request-add-reverse d-none"
+                                                                data-action-label="Добавить трек обратной посылки"
+                                                                aria-hidden="true">
+                                                            Добавить трек обратной посылки
+                                                        </button>
+                                                        <button type="button"
+                                                                class="btn btn-outline-warning btn-sm js-return-request-to-return d-none"
                                                                 data-action-label="Перевести в возврат"
-                                                                th:disabled="${!request.canReopenAsReturn}">
+                                                                aria-hidden="true">
                                                             Перевести в возврат
                                                         </button>
-                                                      <button type="button"
-                                                              class="btn btn-outline-danger btn-sm js-return-request-cancel"
-                                                              th:if="${request.canCancelExchange}"
-                                                              data-action-label="Отменить обмен"
-                                                              th:disabled="${!request.canCancelExchange}">
-                                                          Отменить обмен
-                                                      </button>
-                                                      <button type="button"
-                                                              class="btn btn-outline-success btn-sm js-return-request-confirm"
-                                                              th:if="${request.canConfirmReceipt}"
-                                                              data-action-label="Подтвердить получение возврата"
-                                                              th:disabled="${!request.canConfirmReceipt}">
-                                                          Подтвердить получение
-                                                      </button>
+                                                        <button type="button"
+                                                                class="btn btn-success btn-sm js-return-request-confirm-reverse d-none"
+                                                                data-action-label="Принять обратную посылку"
+                                                                aria-hidden="true">
+                                                            Принять обратную посылку
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>

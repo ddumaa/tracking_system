@@ -1332,8 +1332,8 @@
             ? actionMode
             : ReturnRequestActionMode.RETURN;
         const fallback = normalizedMode === ReturnRequestActionMode.EXCHANGE
-            ? 'Заявка оформлена как обмен. Новая посылка появится после подтверждения возврата.'
-            : 'Заявка оформлена как возврат. Выберите подходящее действие, чтобы завершить процесс.';
+            ? 'Заявка оформлена как обмен. Добавьте трек обратной посылки или подтвердите её получение.'
+            : 'Заявка оформлена как возврат. Можно принять возврат, перевести обращение в обмен или закрыть его.';
         return firstNonEmpty(returnRequest?.hint, fallback);
     }
 
@@ -1444,8 +1444,6 @@
      * @param {string} params.mode выбранный режим
      * @param {Object} params.returnRequest DTO заявки
      * @param {number} params.trackId идентификатор трека
-     * @param {boolean} params.canStartExchange доступность запуска обмена
-     * @param {boolean} params.canCreateExchangeParcel доступность создания обменной посылки напрямую
      */
     function renderReturnActionsSection(container, params) {
         if (!container) {
@@ -1454,15 +1452,46 @@
         const {
             mode,
             returnRequest,
-            trackId,
-            canStartExchange,
-            canCreateExchangeParcel
+            trackId
         } = params || {};
 
         const normalizedMode = Object.values(ReturnRequestActionMode).includes(mode)
             ? mode
             : ReturnRequestActionMode.RETURN;
         const exchangeContext = normalizedMode === ReturnRequestActionMode.EXCHANGE;
+
+        const derivePermissions = (request) => {
+            if (!request || typeof request !== 'object') {
+                return {
+                    allowConfirmReceipt: false,
+                    allowConvertToExchange: false,
+                    allowCloseRequest: false,
+                    allowUpdateReverseTrack: false,
+                    allowConvertToReturn: false
+                };
+            }
+            const exchangeByMode = normalizedMode === ReturnRequestActionMode.EXCHANGE
+                || isExchangeRequest(request);
+            const reverseMissing = !request.reverseTrackNumber;
+            const allowUpdateReverseTrack = exchangeByMode
+                && (reverseMissing || Boolean(request.requiresAction));
+            return {
+                allowConfirmReceipt: Boolean(request.canConfirmReceipt),
+                allowConvertToExchange: Boolean(request.canStartExchange),
+                allowCloseRequest: Boolean(request.canCloseWithoutExchange),
+                allowUpdateReverseTrack,
+                allowConvertToReturn: Boolean(request.canReopenAsReturn)
+            };
+        };
+
+        const permissions = returnRequest?.actionPermissions
+            ? returnRequest.actionPermissions
+            : derivePermissions(returnRequest);
+        const allowConfirmReceipt = Boolean(permissions?.allowConfirmReceipt);
+        const allowConvertToExchange = Boolean(permissions?.allowConvertToExchange);
+        const allowCloseRequest = Boolean(permissions?.allowCloseRequest);
+        const allowUpdateReverse = Boolean(permissions?.allowUpdateReverseTrack);
+        const allowConvertToReturn = Boolean(permissions?.allowConvertToReturn);
 
         container.replaceChildren();
 
@@ -1480,109 +1509,99 @@
             }
         };
 
-        if (canStartExchange && trackId !== undefined && returnRequest?.id !== undefined) {
-            const startLabel = returnRequest.exchangeRequested
-                ? 'Создать обменную посылку'
-                : 'Перевести в обмен';
-            const startHandler = returnRequest.exchangeRequested
-                ? () => handleCreateExchangeParcelAction(trackId, returnRequest.id, {
-                    successMessage: 'Создана обменная посылка',
-                    notificationType: 'success'
-                })
-                : () => handleApproveExchangeAction(trackId, returnRequest.id, {
-                    successMessage: 'Заявка переведена в обмен',
-                    notificationType: 'info'
-                });
-            const startButton = createActionButton({
-                text: startLabel,
-                variant: 'primary',
-                ariaLabel: returnRequest.exchangeRequested
-                    ? 'Создать обменную посылку для покупателя'
-                    : 'Перевести заявку возврата в обмен',
-                onClick: (button) => runButtonAction(button, startHandler),
-                fullWidth: true
-            });
-            appendAction(primaryStack, startButton);
+        const applyAvailability = (button, allowed) => {
+            if (!button) {
+                return;
+            }
+            const canShow = Boolean(allowed);
+            button.classList.toggle('d-none', !canShow);
+            button.setAttribute('aria-hidden', canShow ? 'false' : 'true');
+            button.disabled = !canShow;
+            button.setAttribute('aria-disabled', canShow ? 'false' : 'true');
+        };
+
+        let reverseForm = null;
+        if (exchangeContext && trackId !== undefined && returnRequest?.id !== undefined && allowUpdateReverse) {
+            reverseForm = createReverseTrackForm(trackId, returnRequest);
+            reverseForm.classList.add('border', 'border-light', 'rounded-3', 'p-3', 'bg-body-tertiary');
+            reverseForm.classList.add('d-none');
+            reverseForm.setAttribute('aria-hidden', 'true');
         }
 
-        const allowDirectCreation = canCreateExchangeParcel
-            && trackId !== undefined
-            && returnRequest?.id !== undefined
-            && !(canStartExchange && returnRequest.exchangeRequested);
-        if (allowDirectCreation) {
-            const createButton = createActionButton({
-                text: 'Создать обменную посылку',
-                variant: 'primary',
-                ariaLabel: 'Создать обменную посылку для покупателя',
-                onClick: (button) => runButtonAction(button,
-                    () => handleCreateExchangeParcelAction(trackId, returnRequest.id, {
-                        successMessage: 'Создана обменная посылка',
-                        notificationType: 'success'
-                    })),
-                fullWidth: true
-            });
-            appendAction(primaryStack, createButton);
-        }
+        const canOperate = trackId !== undefined && returnRequest?.id !== undefined;
 
-        const canCloseWithoutExchange = Boolean(returnRequest?.canCloseWithoutExchange)
-            && trackId !== undefined
-            && returnRequest?.id !== undefined;
-        if (canCloseWithoutExchange) {
-            const closeButtonText = exchangeContext ? 'Закрыть без обмена' : 'Принять возврат';
-            const closeVariant = exchangeContext ? 'outline-secondary' : 'success';
-            const closeOptions = exchangeContext
-                ? { successMessage: 'Заявка закрыта без обмена', notificationType: 'info' }
-                : { successMessage: 'Возврат принят', notificationType: 'success' };
-            const closeButton = createActionButton({
-                text: closeButtonText,
-                variant: closeVariant,
-                ariaLabel: exchangeContext
-                    ? 'Закрыть заявку без запуска обменной посылки'
-                    : 'Подтвердить приём возврата',
-                onClick: (button) => runButtonAction(button,
-                    () => handleCloseWithoutExchange(trackId, returnRequest.id, closeOptions)),
-                fullWidth: true
-            });
-            appendAction(exchangeContext ? secondaryStack : primaryStack, closeButton);
-        }
-
-        const shouldRenderReceiptConfirmation = Boolean(returnRequest?.canConfirmReceipt)
-            && (!canCloseWithoutExchange || exchangeContext)
-            && trackId !== undefined
-            && returnRequest?.id !== undefined;
-        if (shouldRenderReceiptConfirmation) {
-            const receiptButtonText = exchangeContext ? 'Принять обратную посылку' : 'Подтвердить получение';
-            const receiptAriaLabel = exchangeContext
-                ? 'Принять обратную посылку без закрытия заявки'
-                : 'Подтвердить получение возврата без закрытия заявки';
-            const confirmButton = createActionButton({
-                text: receiptButtonText,
-                variant: 'outline-success',
-                ariaLabel: receiptAriaLabel,
+        if (!exchangeContext && canOperate) {
+            const acceptButton = createActionButton({
+                text: 'Принять возврат',
+                variant: 'success',
+                ariaLabel: 'Подтвердить получение возврата и завершить обращение',
                 onClick: (button) => runButtonAction(button,
                     () => handleConfirmProcessingAction(trackId, returnRequest.id, {
-                        successMessage: 'Получение возврата подтверждено',
+                        successMessage: 'Возврат подтверждён',
                         notificationType: 'success'
                     })),
                 fullWidth: true
             });
-            appendAction(secondaryStack, confirmButton);
+            applyAvailability(acceptButton, allowConfirmReceipt);
+            appendAction(primaryStack, acceptButton);
+
+            const convertToExchangeButton = createActionButton({
+                text: 'Перевести в обмен',
+                variant: 'primary',
+                ariaLabel: 'Запустить обмен по обращению',
+                onClick: (button) => runButtonAction(button,
+                    () => handleApproveExchangeAction(trackId, returnRequest.id, {
+                        successMessage: 'Заявка переведена в обмен',
+                        notificationType: 'info'
+                    })),
+                fullWidth: true
+            });
+            applyAvailability(convertToExchangeButton, allowConvertToExchange);
+            appendAction(primaryStack, convertToExchangeButton);
+
+            const closeButton = createActionButton({
+                text: 'Закрыть обращение',
+                variant: 'outline-secondary',
+                ariaLabel: 'Закрыть обращение без запуска обмена',
+                onClick: (button) => runButtonAction(button,
+                    () => handleCloseWithoutExchange(trackId, returnRequest.id, {
+                        successMessage: 'Заявка закрыта',
+                        notificationType: 'warning'
+                    })),
+                fullWidth: true
+            });
+            applyAvailability(closeButton, allowCloseRequest);
+            appendAction(secondaryStack, closeButton);
         }
 
-        const shouldRenderReopenButton = trackId !== undefined
-            && returnRequest?.id !== undefined
-            && shouldShowReopenAsReturn(returnRequest, normalizedMode);
-        if (shouldRenderReopenButton) {
-            const reopenButtonText = exchangeContext ? 'Перевести в возврат' : 'Возобновить возврат';
-            const reopenAriaLabel = exchangeContext
-                ? (returnRequest.canReopenAsReturn
-                    ? 'Перевести обменную заявку обратно в возврат'
-                    : 'Прекратить обмен и продолжить обработку как возврат')
-                : 'Повторно открыть обращение как возврат для дальнейшей обработки';
-            const reopenButton = createActionButton({
-                text: reopenButtonText,
+        if (exchangeContext && canOperate) {
+            const reverseButton = createActionButton({
+                text: 'Добавить трек обратной посылки',
+                variant: 'primary',
+                ariaLabel: 'Добавить или обновить трек обратной отправки',
+                onClick: () => {
+                    if (!reverseForm) {
+                        return;
+                    }
+                    const willHide = !reverseForm.classList.contains('d-none');
+                    reverseForm.classList.toggle('d-none', willHide);
+                    reverseForm.setAttribute('aria-hidden', willHide ? 'true' : 'false');
+                    if (!willHide) {
+                        const reverseInput = reverseForm.querySelector('input[name="reverseTrackNumber"]');
+                        if (reverseInput instanceof HTMLElement) {
+                            reverseInput.focus();
+                        }
+                    }
+                },
+                fullWidth: true
+            });
+            applyAvailability(reverseButton, allowUpdateReverse);
+            appendAction(primaryStack, reverseButton);
+
+            const convertBackButton = createActionButton({
+                text: 'Перевести в возврат',
                 variant: 'outline-warning',
-                ariaLabel: reopenAriaLabel,
+                ariaLabel: 'Перевести обращение из обмена обратно в возврат',
                 onClick: (button) => runButtonAction(button,
                     () => handleReopenReturnAction(trackId, returnRequest.id, {
                         successMessage: 'Заявка переведена в возврат',
@@ -1590,23 +1609,36 @@
                     })),
                 fullWidth: true
             });
-            appendAction(secondaryStack, reopenButton);
-        }
+            applyAvailability(convertBackButton, allowConvertToReturn);
+            appendAction(primaryStack, convertBackButton);
 
-        if (returnRequest?.canCancelExchange && trackId !== undefined && returnRequest.id !== undefined) {
-            const cancelActionLabel = 'Отменить обращение';
-            const cancelButton = createActionButton({
-                text: cancelActionLabel,
-                variant: 'outline-danger',
-                ariaLabel: cancelActionLabel,
+            const acceptReverseButton = createActionButton({
+                text: 'Принять обратную посылку',
+                variant: 'success',
+                ariaLabel: 'Подтвердить получение обратной посылки',
                 onClick: (button) => runButtonAction(button,
-                    () => handleCancelExchangeAction(trackId, returnRequest.id, {
-                        successMessage: 'Обмен отменён и заявка закрыта',
+                    () => handleConfirmProcessingAction(trackId, returnRequest.id, {
+                        successMessage: 'Получение обратной посылки подтверждено',
+                        notificationType: 'success'
+                    })),
+                fullWidth: true
+            });
+            applyAvailability(acceptReverseButton, allowConfirmReceipt);
+            appendAction(primaryStack, acceptReverseButton);
+
+            const closeButton = createActionButton({
+                text: 'Закрыть обращение',
+                variant: 'outline-secondary',
+                ariaLabel: 'Закрыть обращение без продолжения обмена',
+                onClick: (button) => runButtonAction(button,
+                    () => handleCloseWithoutExchange(trackId, returnRequest.id, {
+                        successMessage: 'Заявка закрыта',
                         notificationType: 'warning'
                     })),
                 fullWidth: true
             });
-            appendAction(secondaryStack, cancelButton);
+            applyAvailability(closeButton, allowCloseRequest);
+            appendAction(secondaryStack, closeButton);
         }
 
         if (primaryStack.childElementCount > 0) {
@@ -1614,6 +1646,10 @@
         }
         if (secondaryStack.childElementCount > 0) {
             container.appendChild(secondaryStack);
+        }
+
+        if (reverseForm) {
+            container.appendChild(reverseForm);
         }
 
         const hintText = getReturnRequestHint(returnRequest, normalizedMode);
@@ -1639,7 +1675,6 @@
         container.classList.toggle('d-none', isEmpty);
         container.setAttribute('aria-hidden', isEmpty ? 'true' : 'false');
     }
-
     /**
      * Подготавливает тело запроса регистрации возврата.
      * @param {Object} formValues значения полей формы
@@ -1842,28 +1877,6 @@
         return details;
     }
 
-    async function handleCreateExchangeParcelAction(trackId, requestId, options = {}) {
-        if (!trackId || !requestId) {
-            return null;
-        }
-        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/exchange/parcel`);
-        const details = payload?.details ?? null;
-        const exchangeItem = payload?.exchange ?? null;
-        invalidateLazyDataCache(trackId);
-        renderTrackModal(details, { exchangeItem });
-        if (details) {
-            updateRowRequiresAction(details);
-        }
-        if (typeof window.returnRequests?.removeRowByIds === 'function') {
-            window.returnRequests.removeRowByIds(trackId, requestId);
-        }
-        updateActionTabCounter();
-        const successMessage = options.successMessage || 'Создана обменная посылка';
-        const notificationType = options.notificationType || 'success';
-        notifyUser(successMessage, notificationType);
-        return details;
-    }
-
     async function handleCloseWithoutExchange(trackId, requestId, options = {}) {
         if (!trackId || !requestId) {
             return null;
@@ -1937,36 +1950,6 @@
         updateActionTabCounter();
         const message = options.successMessage || 'Заявка переведена в возврат';
         const notificationType = options.notificationType || 'info';
-        notifyUser(message, notificationType);
-        return details;
-    }
-
-    /**
-     * Отменяет обмен и закрывает заявку без отправки новой посылки.
-     * @param {number} trackId идентификатор посылки
-     * @param {number} requestId идентификатор заявки
-     * @param {Object} options параметры уведомления
-     */
-    async function handleCancelExchangeAction(trackId, requestId, options = {}) {
-        if (!trackId || !requestId) {
-            return null;
-        }
-        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/cancel`);
-        const details = payload?.details ?? payload ?? null;
-        invalidateLazyDataCache(trackId);
-        renderTrackModal(details);
-        if (details) {
-            updateRowRequiresAction(details);
-        }
-        const summary = payload?.actionRequired ?? null;
-        if (summary && typeof window.returnRequests?.updateRow === 'function') {
-            window.returnRequests.updateRow(summary);
-        } else if (typeof window.returnRequests?.removeRowByIds === 'function') {
-            window.returnRequests.removeRowByIds(trackId, requestId);
-        }
-        updateActionTabCounter();
-        const message = options.successMessage || 'Обмен отменён и заявка закрыта';
-        const notificationType = options.notificationType || 'warning';
         notifyUser(message, notificationType);
         return details;
     }
@@ -2145,8 +2128,6 @@
         const returnRequest = data?.returnRequest || null;
         const canRegisterReturn = Boolean(data?.canRegisterReturn);
         returnActionModeStore.reset(deriveInitialReturnActionMode(returnRequest));
-        const canStartExchange = Boolean(returnRequest?.canStartExchange);
-        const canCreateExchangeParcel = Boolean(returnRequest?.canCreateExchangeParcel);
 
         trackTitleRow.append(trackTitleColumn, trackActions);
 
@@ -2293,9 +2274,7 @@
                 renderReturnActionsSection(actionsContainer, {
                     mode,
                     returnRequest,
-                    trackId,
-                    canStartExchange,
-                    canCreateExchangeParcel
+                    trackId
                 });
             };
 
@@ -2749,7 +2728,6 @@
         approveReturnExchange: (trackId, requestId, options) => handleApproveExchangeAction(trackId, requestId, options),
         closeReturnRequest: (trackId, requestId, options) => handleCloseWithoutExchange(trackId, requestId, options),
         reopenReturnRequest: (trackId, requestId, options) => handleReopenReturnAction(trackId, requestId, options),
-        cancelReturnExchange: (trackId, requestId, options) => handleCancelExchangeAction(trackId, requestId, options),
         confirmReturnProcessing: (trackId, requestId, options) => handleConfirmProcessingAction(trackId, requestId, options),
         updateReverseTrack: (trackId, requestId, reverseValue, comment) => handleReverseTrackUpdate(trackId, requestId, reverseValue, comment)
     };
