@@ -1989,10 +1989,11 @@
             }
 
             if (returnRequest?.canCancelExchange && trackId !== undefined && returnRequest.id !== undefined) {
+                const cancelActionLabel = 'Отменить обращение';
                 const cancelButton = createActionButton({
-                    text: 'Отменить обмен',
+                    text: cancelActionLabel,
                     variant: 'outline-danger',
-                    ariaLabel: 'Отменить обмен и закрыть заявку',
+                    ariaLabel: cancelActionLabel,
                     onClick: (button) => runButtonAction(button,
                         () => handleCancelExchangeAction(trackId, returnRequest.id, {
                             successMessage: 'Обмен отменён и заявка закрыта',
