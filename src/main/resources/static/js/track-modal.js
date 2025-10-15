@@ -1466,6 +1466,7 @@
                     allowConfirmReceipt: false,
                     allowConvertToExchange: false,
                     allowCloseRequest: false,
+                    allowCancelExchange: false,
                     allowUpdateReverseTrack: false,
                     allowConvertToReturn: false
                 };
@@ -1475,10 +1476,14 @@
             const reverseMissing = !request.reverseTrackNumber;
             const allowUpdateReverseTrack = exchangeByMode
                 && (reverseMissing || Boolean(request.requiresAction));
+            const allowCancelExchange = exchangeByMode
+                ? Boolean(request.canCancelExchange)
+                : false;
             return {
                 allowConfirmReceipt: Boolean(request.canConfirmReceipt),
                 allowConvertToExchange: Boolean(request.canStartExchange),
                 allowCloseRequest: Boolean(request.canCloseWithoutExchange),
+                allowCancelExchange,
                 allowUpdateReverseTrack,
                 allowConvertToReturn: Boolean(request.canReopenAsReturn)
             };
@@ -1490,6 +1495,7 @@
         const allowConfirmReceipt = Boolean(permissions?.allowConfirmReceipt);
         const allowConvertToExchange = Boolean(permissions?.allowConvertToExchange);
         const allowCloseRequest = Boolean(permissions?.allowCloseRequest);
+        const allowCancelExchange = Boolean(permissions?.allowCancelExchange);
         const allowUpdateReverse = Boolean(permissions?.allowUpdateReverseTrack);
         const allowConvertToReturn = Boolean(permissions?.allowConvertToReturn);
 
@@ -1637,13 +1643,13 @@
                 variant: 'outline-secondary',
                 ariaLabel: 'Закрыть обращение без продолжения обмена',
                 onClick: (button) => runButtonAction(button,
-                    () => handleCloseWithoutExchange(trackId, returnRequest.id, {
-                        successMessage: 'Заявка закрыта',
+                    () => handleCancelExchangeAction(trackId, returnRequest.id, {
+                        successMessage: 'Обмен отменён',
                         notificationType: 'warning'
                     })),
                 fullWidth: true
             });
-            applyAvailability(closeButton, allowCloseRequest);
+            applyAvailability(closeButton, allowCancelExchange);
             appendAction(secondaryStack, closeButton);
         }
 
@@ -1880,6 +1886,44 @@
         const successMessage = options.successMessage || 'Запущен обмен по заявке';
         const notificationType = options.notificationType || 'success';
         notifyUser(successMessage, notificationType);
+        return details;
+    }
+
+    /**
+     * Отменяет обменную заявку и возвращает интерфейс в режим возврата.
+     * Метод запрашивает отмену обмена, заново отрисовывает модальное окно,
+     * обновляет счётчики и при необходимости переключает стор режима действий на возврат,
+     * соблюдая принцип SRP.
+     * @param {number} trackId идентификатор посылки
+     * @param {number} requestId идентификатор заявки
+     * @param {Object} options параметры пользовательского уведомления
+     * @returns {Promise<Object|null>} обновлённые детали трека либо {@code null}
+     */
+    async function handleCancelExchangeAction(trackId, requestId, options = {}) {
+        if (!trackId || !requestId) {
+            return null;
+        }
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/cancel`);
+        const details = payload?.details ?? payload ?? null;
+        invalidateLazyDataCache(trackId);
+        renderTrackModal(details);
+        if (details) {
+            updateRowRequiresAction(details);
+        }
+        const summary = payload?.actionRequired ?? null;
+        if (summary && typeof window.returnRequests?.updateRow === 'function') {
+            window.returnRequests.updateRow(summary);
+        }
+        updateActionTabCounter();
+        const message = options.successMessage || 'Обмен отменён';
+        const notificationType = options.notificationType || 'info';
+        notifyUser(message, notificationType);
+
+        const updatedRequest = details?.returnRequest ?? null;
+        if (updatedRequest && !isExchangeRequest(updatedRequest)) {
+            returnActionModeStore.setValue(ReturnRequestActionMode.RETURN);
+        }
+
         return details;
     }
 
@@ -2724,6 +2768,7 @@
         render: renderTrackModal,
         invalidateLazySections: (trackId) => invalidateLazyDataCache(trackId),
         approveReturnExchange: (trackId, requestId, options) => handleApproveExchangeAction(trackId, requestId, options),
+        cancelReturnExchange: (trackId, requestId, options) => handleCancelExchangeAction(trackId, requestId, options),
         closeReturnRequest: (trackId, requestId, options) => handleCloseWithoutExchange(trackId, requestId, options),
         reopenReturnRequest: (trackId, requestId, options) => handleReopenReturnAction(trackId, requestId, options),
         confirmReturnProcessing: (trackId, requestId, options) => handleConfirmProcessingAction(trackId, requestId, options),

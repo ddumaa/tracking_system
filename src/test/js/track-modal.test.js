@@ -176,7 +176,7 @@ describe('track-modal render', () => {
                 canCreateExchangeParcel: false,
                 canCloseWithoutExchange: true,
                 canReopenAsReturn: false,
-                canCancelExchange: false,
+                canCancelExchange: true,
                 cancelExchangeUnavailableReason: null,
                 canConfirmReceipt: true,
                 returnReceiptConfirmed: false,
@@ -349,6 +349,135 @@ describe('track-modal render', () => {
         expect(texts).toContain('Перевести в возврат');
         expect(texts).toContain('Добавить трек обратной посылки');
         expect(texts).toContain('Закрыть обращение');
+    });
+
+    test('sends cancel request for exchange when close action triggered', async () => {
+        setupDom();
+
+        const headers = { get: jest.fn(() => 'application/json') };
+        const updatedDetails = {
+            id: 31,
+            number: 'BY2024001',
+            deliveryService: 'Belpost',
+            systemStatus: 'Вручена',
+            history: [],
+            refreshAllowed: true,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: 21,
+            exchange: false,
+            returnShipment: false,
+            chain: [],
+            returnRequest: {
+                id: 81,
+                status: 'Возврат',
+                statusLabel: 'Возврат',
+                statusBadgeClass: 'bg-info-subtle text-info-emphasis',
+                reasonLabel: 'Причина',
+                reason: 'Не подошёл размер',
+                comment: 'Покупатель ждёт замену',
+                requestedAt: '2024-02-10T12:00:00Z',
+                decisionAt: null,
+                closedAt: null,
+                reverseTrackNumber: null,
+                requiresAction: true,
+                exchangeApproved: false,
+                exchangeRequested: false,
+                canStartExchange: true,
+                canCreateExchangeParcel: false,
+                canCloseWithoutExchange: true,
+                canReopenAsReturn: false,
+                canCancelExchange: false,
+                returnReceiptConfirmed: false,
+                returnReceiptConfirmedAt: null,
+                canConfirmReceipt: true,
+                hint: 'Можно подтвердить поступление и продолжить обмен.',
+                warnings: [],
+                detailsUrl: 'https://example.com/returns'
+            },
+            canRegisterReturn: false,
+            lifecycle: [],
+            requiresAction: true
+        };
+        const payload = { details: updatedDetails, actionRequired: { parcelId: 31, requestId: 81, requiresAction: true } };
+        global.fetch.mockImplementation((url) => {
+            if (String(url).includes('/cancel')) {
+                return Promise.resolve({ ok: true, headers, json: () => Promise.resolve(payload) });
+            }
+            return Promise.resolve({ ok: true, headers, json: () => Promise.resolve({}) });
+        });
+
+        const initialData = {
+            id: 31,
+            number: 'BY2024001',
+            deliveryService: 'Belpost',
+            systemStatus: 'Вручена',
+            history: [],
+            refreshAllowed: true,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: 21,
+            exchange: false,
+            returnShipment: false,
+            chain: [],
+            returnRequest: {
+                id: 81,
+                status: 'Обмен в работе',
+                statusLabel: 'Обмен в работе',
+                statusBadgeClass: 'bg-info-subtle text-info-emphasis',
+                reasonLabel: 'Причина',
+                reason: 'Не подошёл размер',
+                comment: 'Покупатель ждёт замену',
+                requestedAt: '2024-02-10T12:00:00Z',
+                decisionAt: null,
+                closedAt: null,
+                reverseTrackNumber: null,
+                requiresAction: true,
+                exchangeApproved: true,
+                exchangeRequested: true,
+                canStartExchange: false,
+                canCreateExchangeParcel: false,
+                canCloseWithoutExchange: true,
+                canReopenAsReturn: true,
+                canCancelExchange: true,
+                returnReceiptConfirmed: false,
+                returnReceiptConfirmedAt: null,
+                canConfirmReceipt: true,
+                hint: 'Можно подтвердить поступление и продолжить обмен.',
+                warnings: [],
+                detailsUrl: 'https://example.com/returns'
+            },
+            canRegisterReturn: false,
+            lifecycle: [],
+            requiresAction: true
+        };
+
+        global.window.trackModal.render(initialData);
+
+        const actionCard = Array.from(document.querySelectorAll('section.card'))
+            .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
+        const closeButton = Array.from(actionCard?.querySelectorAll('button') || [])
+            .find((btn) => btn.textContent === 'Закрыть обращение');
+        expect(closeButton).toBeDefined();
+        closeButton?.click();
+
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(global.fetch).toHaveBeenCalledWith(
+            '/api/v1/tracks/31/returns/81/cancel',
+            expect.objectContaining({ method: 'POST' })
+        );
+        expect(global.notifyUser).toHaveBeenCalledWith('Обмен отменён', 'warning');
+
+        const rerenderedCard = Array.from(document.querySelectorAll('section.card'))
+            .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
+        const rerenderButtons = Array.from(rerenderedCard?.querySelectorAll('button') || [])
+            .map((btn) => btn.textContent?.trim());
+        expect(rerenderButtons).toContain('Перевести в обмен');
     });
 
     test('does not render return details link without url', () => {
