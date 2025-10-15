@@ -1550,10 +1550,13 @@
                 variant: 'primary',
                 ariaLabel: 'Запустить обмен по обращению',
                 onClick: (button) => runButtonAction(button,
-                    () => handleApproveExchangeAction(trackId, returnRequest.id, {
-                        successMessage: 'Заявка переведена в обмен',
-                        notificationType: 'info'
-                    })),
+                    async () => {
+                        await handleApproveExchangeAction(trackId, returnRequest.id, {
+                            successMessage: 'Заявка переведена в обмен',
+                            notificationType: 'info'
+                        });
+                        returnActionModeStore.setValue(ReturnRequestActionMode.EXCHANGE);
+                    }),
                 fullWidth: true
             });
             applyAvailability(convertToExchangeButton, allowConvertToExchange);
@@ -1603,10 +1606,13 @@
                 variant: 'outline-warning',
                 ariaLabel: 'Перевести обращение из обмена обратно в возврат',
                 onClick: (button) => runButtonAction(button,
-                    () => handleReopenReturnAction(trackId, returnRequest.id, {
-                        successMessage: 'Заявка переведена в возврат',
-                        notificationType: 'info'
-                    })),
+                    async () => {
+                        await handleReopenReturnAction(trackId, returnRequest.id, {
+                            successMessage: 'Заявка переведена в возврат',
+                            notificationType: 'info'
+                        });
+                        returnActionModeStore.setValue(ReturnRequestActionMode.RETURN);
+                    }),
                 fullWidth: true
             });
             applyAvailability(convertBackButton, allowConvertToReturn);
@@ -2220,14 +2226,6 @@
         const returnCard = createCard('Обращение', { headingId: generateElementId('track-return-title') });
         if (returnRequest) {
             const currentMode = returnActionModeStore.getValue();
-
-            const modeSelector = createReturnActionModeSelector({
-                initialMode: currentMode,
-                onModeChange: (mode) => {
-                    returnActionModeStore.setValue(mode);
-                }
-            });
-            returnCard.body.appendChild(modeSelector);
 
             const statusSection = document.createElement('div');
             statusSection.className = 'd-flex flex-column gap-2';
