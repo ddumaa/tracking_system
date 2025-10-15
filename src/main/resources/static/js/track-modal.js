@@ -1098,11 +1098,8 @@
      * без дополнительных эвристик (принцип SRP).
      */
     const ReturnRequestState = Object.freeze({
-        REGISTERED_RETURN: 'REGISTERED_RETURN',
-        REGISTERED_EXCHANGE: 'REGISTERED_EXCHANGE',
-        EXCHANGE_LAUNCHED: 'EXCHANGE_LAUNCHED',
-        COMPLETED: 'COMPLETED',
-        CLOSED: 'CLOSED'
+        RETURN: 'RETURN',
+        EXCHANGE: 'EXCHANGE'
     });
 
     /**
@@ -1123,7 +1120,7 @@
      * @returns {{reset: (function(string): string), setValue: (function(string): string), getValue: (function(): string), subscribe: (function(Function): Function)}} интерфейс управления состоянием
      */
     function createReturnRequestStateStore() {
-        let value = ReturnRequestState.REGISTERED_RETURN;
+        let value = ReturnRequestState.RETURN;
         const subscribers = new Set();
 
         return {
@@ -1144,7 +1141,7 @@
                 subscribers.clear();
                 value = isKnownReturnRequestState(nextValue)
                     ? nextValue
-                    : ReturnRequestState.REGISTERED_RETURN;
+                    : ReturnRequestState.RETURN;
                 return value;
             },
 
@@ -1157,7 +1154,7 @@
             setValue(nextValue) {
                 const normalized = isKnownReturnRequestState(nextValue)
                     ? nextValue
-                    : ReturnRequestState.REGISTERED_RETURN;
+                    : ReturnRequestState.RETURN;
                 if (normalized === value) {
                     return value;
                 }
@@ -1202,25 +1199,13 @@
      * анализировать локализованные строки из ответа API.
      */
     const RETURN_REQUEST_STATE_DESCRIPTORS = Object.freeze({
-        [ReturnRequestState.REGISTERED_RETURN]: Object.freeze({
-            statusLabel: 'Возврат зарегистрирован',
+        [ReturnRequestState.RETURN]: Object.freeze({
+            statusLabel: 'Возврат в обработке',
             hint: 'Заявка оформлена как возврат. Примите возврат или переведите обращение в обмен.'
         }),
-        [ReturnRequestState.REGISTERED_EXCHANGE]: Object.freeze({
-            statusLabel: 'Обмен зарегистрирован',
-            hint: 'Заявка оформлена как обмен. Запустите обмен после проверки возврата.'
-        }),
-        [ReturnRequestState.EXCHANGE_LAUNCHED]: Object.freeze({
-            statusLabel: 'Обмен запущен',
-            hint: 'Добавьте трек обратной посылки и подтвердите её отправку, когда всё будет готово.'
-        }),
-        [ReturnRequestState.COMPLETED]: Object.freeze({
-            statusLabel: 'Обращение завершено',
-            hint: 'Обращение завершено. Действия недоступны.'
-        }),
-        [ReturnRequestState.CLOSED]: Object.freeze({
-            statusLabel: 'Обращение закрыто',
-            hint: 'Обращение закрыто. Действия недоступны.'
+        [ReturnRequestState.EXCHANGE]: Object.freeze({
+            statusLabel: 'Обмен в обработке',
+            hint: 'Заявка оформлена как обмен. Создайте обменную посылку или переведите обращение в возврат.'
         })
     });
 
@@ -1239,17 +1224,22 @@
         }
         const normalizedState = isKnownReturnRequestState(state)
             ? state
-            : ReturnRequestState.REGISTERED_RETURN;
-        return normalizedState.includes('EXCHANGE') ? 'Обмен' : 'Возврат';
+            : ReturnRequestState.RETURN;
+        return normalizedState === ReturnRequestState.EXCHANGE ? 'Обмен' : 'Возврат';
     }
 
     /**
      * Возвращает статусную подпись для бейджа исходя из нормализованного состояния.
-     * Метод устраняет зависимость от локализованных строк, предоставленных сервером.
+     * Метод вначале использует текст из DTO, а затем — справочник состояния, чтобы сохранить единый источник истины (SRP).
      * @param {string} state код состояния
+     * @param {Object|null} returnRequest DTO обращения
      * @returns {string} текст для бейджа статуса
      */
-    function getReturnRequestStatusLabel(state) {
+    function getReturnRequestStatusLabel(state, returnRequest) {
+        const explicitLabel = firstNonEmpty(returnRequest?.statusLabel, returnRequest?.status);
+        if (explicitLabel) {
+            return explicitLabel;
+        }
         if (!isKnownReturnRequestState(state)) {
             return 'Статус не определён';
         }
@@ -1290,10 +1280,10 @@
     function applyReturnRequestState(state, bindings, context = {}) {
         const normalizedState = isKnownReturnRequestState(state)
             ? state
-            : ReturnRequestState.REGISTERED_RETURN;
+            : ReturnRequestState.RETURN;
         const { returnRequest = null } = context;
         const typeLabel = getReturnRequestTypeLabel(normalizedState, returnRequest);
-        const isExchange = typeLabel.toLowerCase().includes('обмен');
+        const isExchange = normalizedState === ReturnRequestState.EXCHANGE;
 
         if (bindings?.typeBadge) {
             bindings.typeBadge.className = isExchange
@@ -1304,7 +1294,7 @@
         }
 
         if (bindings?.statusBadge) {
-            const statusLabel = getReturnRequestStatusLabel(normalizedState);
+            const statusLabel = getReturnRequestStatusLabel(normalizedState, returnRequest);
             bindings.statusBadge.textContent = statusLabel;
             bindings.statusBadge.setAttribute('aria-label', `Текущий статус обращения: ${statusLabel}`);
         }
@@ -1319,38 +1309,76 @@
      * Словарь обеспечивает обратную совместимость, не заставляя клиентов анализировать произвольные строки.
      */
     const LEGACY_STATUS_STATE = Object.freeze({
-        REGISTERED: ReturnRequestState.REGISTERED_RETURN,
-        REGISTERED_RETURN: ReturnRequestState.REGISTERED_RETURN,
-        REGISTERED_EXCHANGE: ReturnRequestState.REGISTERED_EXCHANGE,
-        EXCHANGE_APPROVED: ReturnRequestState.REGISTERED_EXCHANGE,
-        EXCHANGE_LAUNCHED: ReturnRequestState.EXCHANGE_LAUNCHED,
-        EXCHANGE_STARTED: ReturnRequestState.EXCHANGE_LAUNCHED,
-        COMPLETED: ReturnRequestState.COMPLETED,
-        CLOSED: ReturnRequestState.CLOSED,
-        CLOSED_NO_EXCHANGE: ReturnRequestState.CLOSED
+        REGISTERED: ReturnRequestState.RETURN,
+        REGISTERED_RETURN: ReturnRequestState.RETURN,
+        REGISTERED_EXCHANGE: ReturnRequestState.EXCHANGE,
+        EXCHANGE_APPROVED: ReturnRequestState.EXCHANGE,
+        EXCHANGE_LAUNCHED: ReturnRequestState.EXCHANGE,
+        EXCHANGE_STARTED: ReturnRequestState.EXCHANGE,
+        COMPLETED: ReturnRequestState.RETURN,
+        CLOSED: ReturnRequestState.RETURN,
+        CLOSED_NO_EXCHANGE: ReturnRequestState.RETURN
     });
 
     /**
+     * Нормализует строковое представление состояния обращения.
+     * Метод концентрирует правила преобразования, чтобы весь модуль использовал единый словарь (SRP).
+     * @param {string|undefined|null} rawValue исходное значение из DTO
+     * @returns {string|null} {@link ReturnRequestState} либо {@code null}, если сопоставление не найдено
+     */
+    function normalizeReturnRequestStateInput(rawValue) {
+        if (typeof rawValue !== 'string') {
+            return null;
+        }
+        const normalized = rawValue.trim().toUpperCase();
+        if (!normalized) {
+            return null;
+        }
+        if (isKnownReturnRequestState(normalized)) {
+            return normalized;
+        }
+        if (LEGACY_STATUS_STATE[normalized]) {
+            return LEGACY_STATUS_STATE[normalized];
+        }
+        return null;
+    }
+
+    /**
      * Определяет нормализованное состояние обращения по данным сервера.
-     * Метод учитывает новое поле {@code state} и, при его отсутствии, использует маппинг старых кодов.
+     * Метод учитывает явный признак обмена, текстовые статусы и устаревшие коды, оставляя только два сценария (SRP).
      * @param {Object|null} returnRequest DTO обращения
      * @returns {string} значение из {@link ReturnRequestState}
      */
     function deriveReturnRequestState(returnRequest) {
         if (!returnRequest || typeof returnRequest !== 'object') {
-            return ReturnRequestState.REGISTERED_RETURN;
+            return ReturnRequestState.RETURN;
         }
-        const stateValue = firstNonEmpty(returnRequest.state);
-        if (stateValue && isKnownReturnRequestState(stateValue)) {
-            return stateValue;
+
+        const explicitState = normalizeReturnRequestStateInput(firstNonEmpty(returnRequest.state));
+        if (explicitState) {
+            return explicitState;
         }
-        const statusRaw = typeof returnRequest.status === 'string'
-            ? returnRequest.status.trim().toUpperCase()
-            : '';
-        if (statusRaw && LEGACY_STATUS_STATE[statusRaw]) {
-            return LEGACY_STATUS_STATE[statusRaw];
+
+        if (typeof returnRequest.isExchange === 'boolean') {
+            return returnRequest.isExchange ? ReturnRequestState.EXCHANGE : ReturnRequestState.RETURN;
         }
-        return ReturnRequestState.REGISTERED_RETURN;
+
+        const statusState = normalizeReturnRequestStateInput(firstNonEmpty(returnRequest.status));
+        if (statusState) {
+            return statusState;
+        }
+
+        const exchangeHints = [
+            returnRequest.exchange === true,
+            returnRequest.exchangeRequested === true,
+            returnRequest.requiresExchange === true,
+            Boolean(returnRequest.exchangeParcel)
+        ];
+        if (exchangeHints.some(Boolean)) {
+            return ReturnRequestState.EXCHANGE;
+        }
+
+        return ReturnRequestState.RETURN;
     }
 
     /**
@@ -1368,29 +1396,17 @@
     });
 
     /**
-     * Предопределённые наборы кнопок для каждого состояния обращения.
-     * Структура избавляет интерфейс от условной логики и облегчает модификацию сценариев (OCP).
+     * Предопределённые наборы кнопок для каждого сценария обращения.
+     * Благодаря фиксированным конфигурациям модуль всегда собирает одну из двух групп действий (OCP).
      */
     const RETURN_REQUEST_STATE_ACTIONS = Object.freeze({
-        [ReturnRequestState.REGISTERED_RETURN]: Object.freeze({
+        [ReturnRequestState.RETURN]: Object.freeze({
             primary: [ReturnRequestAction.ACCEPT],
             secondary: [ReturnRequestAction.TO_EXCHANGE, ReturnRequestAction.CLOSE]
         }),
-        [ReturnRequestState.REGISTERED_EXCHANGE]: Object.freeze({
-            primary: [ReturnRequestAction.LAUNCH_EXCHANGE],
-            secondary: [ReturnRequestAction.TO_RETURN, ReturnRequestAction.UPDATE_REVERSE_TRACK, ReturnRequestAction.CLOSE]
-        }),
-        [ReturnRequestState.EXCHANGE_LAUNCHED]: Object.freeze({
-            primary: [ReturnRequestAction.ACCEPT_REVERSE],
-            secondary: [ReturnRequestAction.UPDATE_REVERSE_TRACK, ReturnRequestAction.TO_RETURN, ReturnRequestAction.CLOSE]
-        }),
-        [ReturnRequestState.COMPLETED]: Object.freeze({
-            primary: [],
-            secondary: []
-        }),
-        [ReturnRequestState.CLOSED]: Object.freeze({
-            primary: [],
-            secondary: []
+        [ReturnRequestState.EXCHANGE]: Object.freeze({
+            primary: [ReturnRequestAction.LAUNCH_EXCHANGE, ReturnRequestAction.ACCEPT_REVERSE],
+            secondary: [ReturnRequestAction.TO_RETURN, ReturnRequestAction.CLOSE]
         })
     });
 
@@ -1402,18 +1418,25 @@
      */
     function extractNextState(result) {
         if (typeof result === 'string') {
-            return isKnownReturnRequestState(result) ? result : null;
+            return normalizeReturnRequestStateInput(result);
         }
         if (!result || typeof result !== 'object') {
             return null;
         }
-        const candidate = firstNonEmpty(
+        const candidate = normalizeReturnRequestStateInput(firstNonEmpty(
             result.state,
             result.details?.state,
             result.details?.returnRequest?.state,
             result.returnRequest?.state
-        );
-        return candidate && isKnownReturnRequestState(candidate) ? candidate : null;
+        ));
+        if (candidate) {
+            return candidate;
+        }
+        const nestedRequest = result.details?.returnRequest || result.returnRequest;
+        if (nestedRequest && typeof nestedRequest === 'object') {
+            return deriveReturnRequestState(nestedRequest);
+        }
+        return null;
     }
 
     /**
@@ -1516,12 +1539,12 @@
                 return null;
             }
             return createActionButton({
-                text: 'Запустить обмен',
+                text: 'Создать обменную посылку',
                 variant: 'primary',
-                ariaLabel: 'Запустить обмен по обращению',
+                ariaLabel: 'Создать обменную посылку по обращению',
                 onClick: (button) => runButtonAction(button, async () => {
                     const result = await handleApproveExchangeAction(trackId, requestId, {
-                        successMessage: 'Обмен запущен',
+                        successMessage: 'Обменная посылка создана',
                         notificationType: 'info'
                     });
                     const nextState = extractNextState(result);
@@ -1663,7 +1686,7 @@
 
         const normalizedState = isKnownReturnRequestState(state)
             ? state
-            : ReturnRequestState.REGISTERED_RETURN;
+            : ReturnRequestState.RETURN;
         const permissions = resolveReturnRequestPermissions(returnRequest);
 
         container.replaceChildren();
@@ -2285,9 +2308,8 @@
         const returnRequest = data?.returnRequest || null;
         const canRegisterReturn = Boolean(data?.canRegisterReturn);
         const overrideState = options?.actionStateOverride ?? null;
-        const initialState = overrideState && isKnownReturnRequestState(overrideState)
-            ? overrideState
-            : deriveReturnRequestState(returnRequest);
+        const overrideScenario = normalizeReturnRequestStateInput(overrideState);
+        const initialState = overrideScenario || deriveReturnRequestState(returnRequest);
         returnRequestStateStore.reset(initialState);
 
         trackTitleRow.append(trackTitleColumn, trackActions);
