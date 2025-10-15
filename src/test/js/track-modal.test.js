@@ -159,7 +159,8 @@ describe('track-modal render', () => {
             ],
             returnRequest: {
                 id: 5,
-                status: 'Зарегистрирована',
+                state: 'REGISTERED_RETURN',
+status: 'Зарегистрирована',
                 statusLabel: 'Зарегистрирована',
                 statusBadgeClass: 'bg-warning-subtle text-warning-emphasis',
                 reasonLabel: 'Причина',
@@ -303,7 +304,8 @@ describe('track-modal render', () => {
             chain: [],
             returnRequest: {
                 id: 81,
-                status: 'Обмен в работе',
+                state: 'EXCHANGE_LAUNCHED',
+                status: 'EXCHANGE_STARTED',
                 statusLabel: 'Обмен в работе',
                 statusBadgeClass: 'bg-info-subtle text-info-emphasis',
                 reasonLabel: 'Причина',
@@ -314,16 +316,17 @@ describe('track-modal render', () => {
                 closedAt: null,
                 reverseTrackNumber: null,
                 requiresAction: true,
-                exchangeApproved: true,
-                exchangeRequested: true,
-                canStartExchange: false,
-                canCreateExchangeParcel: false,
-                canCloseWithoutExchange: false,
-                canReopenAsReturn: true,
-                canCancelExchange: true,
+                actionPermissions: {
+                    allowAccept: false,
+                    allowLaunchExchange: false,
+                    allowAcceptReverse: true,
+                    allowClose: true,
+                    allowConvertToReturn: true,
+                    allowConvertToExchange: false,
+                    allowUpdateReverseTrack: true
+                },
                 returnReceiptConfirmed: false,
                 returnReceiptConfirmedAt: null,
-                canConfirmReceipt: true,
                 hint: 'Можно подтвердить поступление и продолжить обмен.',
                 warnings: [],
                 detailsUrl: 'https://example.com/returns'
@@ -371,7 +374,8 @@ describe('track-modal render', () => {
             chain: [],
             returnRequest: {
                 id: 81,
-                status: 'Возврат',
+                state: 'REGISTERED_RETURN',
+                status: 'REGISTERED',
                 statusLabel: 'Возврат',
                 statusBadgeClass: 'bg-info-subtle text-info-emphasis',
                 reasonLabel: 'Причина',
@@ -382,16 +386,17 @@ describe('track-modal render', () => {
                 closedAt: null,
                 reverseTrackNumber: null,
                 requiresAction: true,
-                exchangeApproved: false,
-                exchangeRequested: false,
-                canStartExchange: true,
-                canCreateExchangeParcel: false,
-                canCloseWithoutExchange: true,
-                canReopenAsReturn: false,
-                canCancelExchange: false,
+                actionPermissions: {
+                    allowAccept: false,
+                    allowLaunchExchange: false,
+                    allowAcceptReverse: false,
+                    allowClose: true,
+                    allowConvertToReturn: false,
+                    allowConvertToExchange: true,
+                    allowUpdateReverseTrack: false
+                },
                 returnReceiptConfirmed: false,
                 returnReceiptConfirmedAt: null,
-                canConfirmReceipt: true,
                 hint: 'Можно подтвердить поступление и продолжить обмен.',
                 warnings: [],
                 detailsUrl: 'https://example.com/returns'
@@ -424,7 +429,8 @@ describe('track-modal render', () => {
             chain: [],
             returnRequest: {
                 id: 81,
-                status: 'Обмен в работе',
+                state: 'EXCHANGE_LAUNCHED',
+                status: 'EXCHANGE_STARTED',
                 statusLabel: 'Обмен в работе',
                 statusBadgeClass: 'bg-info-subtle text-info-emphasis',
                 reasonLabel: 'Причина',
@@ -435,16 +441,17 @@ describe('track-modal render', () => {
                 closedAt: null,
                 reverseTrackNumber: null,
                 requiresAction: true,
-                exchangeApproved: true,
-                exchangeRequested: true,
-                canStartExchange: false,
-                canCreateExchangeParcel: false,
-                canCloseWithoutExchange: true,
-                canReopenAsReturn: true,
-                canCancelExchange: true,
+                actionPermissions: {
+                    allowAccept: false,
+                    allowLaunchExchange: false,
+                    allowAcceptReverse: true,
+                    allowClose: true,
+                    allowConvertToReturn: true,
+                    allowConvertToExchange: false,
+                    allowUpdateReverseTrack: true
+                },
                 returnReceiptConfirmed: false,
                 returnReceiptConfirmedAt: null,
-                canConfirmReceipt: true,
                 hint: 'Можно подтвердить поступление и продолжить обмен.',
                 warnings: [],
                 detailsUrl: 'https://example.com/returns'
@@ -471,7 +478,7 @@ describe('track-modal render', () => {
             '/api/v1/tracks/31/returns/81/close',
             expect.objectContaining({ method: 'POST' })
         );
-        expect(global.notifyUser).toHaveBeenCalledWith('Заявка закрыта', 'warning');
+        expect(global.notifyUser).toHaveBeenCalledWith('Обращение закрыто', 'warning');
 
         const rerenderedCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
@@ -500,7 +507,8 @@ describe('track-modal render', () => {
             chain: [],
             returnRequest: {
                 id: 901,
-                status: 'Зарегистрирована',
+                state: 'REGISTERED_RETURN',
+status: 'Зарегистрирована',
                 statusLabel: 'Зарегистрирована',
                 statusBadgeClass: 'bg-info-subtle text-info-emphasis',
                 reasonLabel: 'Причина',
@@ -563,7 +571,8 @@ describe('track-modal render', () => {
             chain: [],
             returnRequest: {
                 id: 91,
-                status: 'Обмен запрошен',
+                state: 'REGISTERED_EXCHANGE',
+                status: 'REGISTERED',
                 statusLabel: 'Обмен запрошен',
                 statusBadgeClass: 'bg-warning-subtle text-warning-emphasis',
                 reasonLabel: 'Причина',
@@ -574,16 +583,17 @@ describe('track-modal render', () => {
                 closedAt: null,
                 reverseTrackNumber: null,
                 requiresAction: true,
-                exchangeRequested: true,
-                exchangeApproved: false,
-                canStartExchange: false,
-                canCreateExchangeParcel: false,
-                canCloseWithoutExchange: false,
-                canReopenAsReturn: false,
-                canCancelExchange: false,
                 returnReceiptConfirmed: false,
                 returnReceiptConfirmedAt: null,
-                canConfirmReceipt: false,
+                actionPermissions: {
+                    allowAccept: false,
+                    allowLaunchExchange: true,
+                    allowAcceptReverse: false,
+                    allowClose: false,
+                    allowConvertToReturn: true,
+                    allowConvertToExchange: false,
+                    allowUpdateReverseTrack: false
+                },
                 hint: 'Покупатель ожидает решение по обмену.',
                 warnings: [],
                 detailsUrl: null
@@ -605,7 +615,7 @@ describe('track-modal render', () => {
         expect(reopenButton?.classList.contains('d-none')).toBe(false);
         expect(reopenButton?.getAttribute('aria-hidden')).toBe('false');
         expect(reopenButton?.getAttribute('aria-label'))
-            .toBe('Перевести обращение из обмена обратно в возврат');
+            .toBe('Перевести обращение обратно в возврат');
     });
 
     test('shows reopen action for approved exchange without explicit flag', () => {
@@ -626,7 +636,8 @@ describe('track-modal render', () => {
             chain: [],
             returnRequest: {
                 id: 92,
-                status: 'Обмен согласован',
+                state: 'REGISTERED_EXCHANGE',
+                status: 'REGISTERED',
                 statusLabel: 'Обмен согласован',
                 statusBadgeClass: 'bg-warning-subtle text-warning-emphasis',
                 reasonLabel: 'Причина',
@@ -637,16 +648,17 @@ describe('track-modal render', () => {
                 closedAt: null,
                 reverseTrackNumber: null,
                 requiresAction: true,
-                exchangeRequested: false,
-                exchangeApproved: true,
-                canStartExchange: false,
-                canCreateExchangeParcel: false,
-                canCloseWithoutExchange: false,
-                canReopenAsReturn: false,
-                canCancelExchange: false,
                 returnReceiptConfirmed: false,
                 returnReceiptConfirmedAt: null,
-                canConfirmReceipt: false,
+                actionPermissions: {
+                    allowAccept: false,
+                    allowLaunchExchange: true,
+                    allowAcceptReverse: false,
+                    allowClose: false,
+                    allowConvertToReturn: true,
+                    allowConvertToExchange: false,
+                    allowUpdateReverseTrack: false
+                },
                 hint: 'Уточните у покупателя детали обмена.',
                 warnings: [],
                 detailsUrl: null
@@ -668,7 +680,7 @@ describe('track-modal render', () => {
         expect(reopenButton?.classList.contains('d-none')).toBe(false);
         expect(reopenButton?.getAttribute('aria-hidden')).toBe('false');
         expect(reopenButton?.getAttribute('aria-label'))
-            .toBe('Перевести обращение из обмена обратно в возврат');
+            .toBe('Перевести обращение обратно в возврат');
     });
 
     test('shows reopen action when permissions deny conversion but обменные признаки присутствуют', () => {
@@ -689,7 +701,8 @@ describe('track-modal render', () => {
             chain: [],
             returnRequest: {
                 id: 93,
-                status: 'Обмен запрошен',
+                state: 'REGISTERED_EXCHANGE',
+                status: 'REGISTERED',
                 statusLabel: 'Обмен запрошен',
                 statusBadgeClass: 'bg-warning-subtle text-warning-emphasis',
                 reasonLabel: 'Причина',
@@ -700,26 +713,19 @@ describe('track-modal render', () => {
                 closedAt: null,
                 reverseTrackNumber: null,
                 requiresAction: true,
-                exchangeRequested: true,
-                exchangeApproved: false,
-                canStartExchange: false,
-                canCreateExchangeParcel: false,
-                canCloseWithoutExchange: false,
-                canReopenAsReturn: false,
-                canCancelExchange: false,
                 returnReceiptConfirmed: false,
                 returnReceiptConfirmedAt: null,
-                canConfirmReceipt: false,
                 hint: 'Уточните у покупателя детали обмена.',
                 warnings: [],
                 detailsUrl: null,
                 actionPermissions: {
-                    allowConfirmReceipt: false,
+                    allowAccept: false,
+                    allowLaunchExchange: true,
+                    allowAcceptReverse: false,
+                    allowClose: false,
+                    allowConvertToReturn: false,
                     allowConvertToExchange: false,
-                    allowCloseRequest: false,
-                    allowCancelExchange: false,
-                    allowUpdateReverseTrack: false,
-                    allowConvertToReturn: false
+                    allowUpdateReverseTrack: false
                 }
             },
             canRegisterReturn: false,
@@ -736,10 +742,8 @@ describe('track-modal render', () => {
         const reopenButton = Array.from(actionCard?.querySelectorAll('button') || [])
             .find((btn) => btn.textContent?.trim() === 'Перевести в возврат');
         expect(reopenButton).toBeDefined();
-        expect(reopenButton?.classList.contains('d-none')).toBe(false);
-        expect(reopenButton?.getAttribute('aria-hidden')).toBe('false');
-        expect(reopenButton?.getAttribute('aria-label'))
-            .toBe('Перевести обращение из обмена обратно в возврат');
+        expect(reopenButton?.classList.contains('d-none')).toBe(true);
+        expect(reopenButton?.getAttribute('aria-hidden')).toBe('true');
     });
 
     test('hides receipt confirmation when closing without exchange is possible', () => {
@@ -760,7 +764,8 @@ describe('track-modal render', () => {
             chain: [],
             returnRequest: {
                 id: 82,
-                status: 'Обмен согласован',
+                state: 'EXCHANGE_LAUNCHED',
+                status: 'EXCHANGE_STARTED',
                 statusLabel: 'Обмен согласован',
                 statusBadgeClass: 'bg-info-subtle text-info-emphasis',
                 reasonLabel: 'Причина',
@@ -771,16 +776,17 @@ describe('track-modal render', () => {
                 closedAt: null,
                 reverseTrackNumber: null,
                 requiresAction: true,
-                exchangeApproved: true,
-                exchangeRequested: true,
-                canStartExchange: false,
-                canCreateExchangeParcel: false,
-                canCloseWithoutExchange: true,
-                canReopenAsReturn: false,
-                canCancelExchange: false,
                 returnReceiptConfirmed: false,
                 returnReceiptConfirmedAt: null,
-                canConfirmReceipt: true,
+                actionPermissions: {
+                    allowAccept: false,
+                    allowLaunchExchange: false,
+                    allowAcceptReverse: false,
+                    allowClose: true,
+                    allowConvertToReturn: false,
+                    allowConvertToExchange: false,
+                    allowUpdateReverseTrack: false
+                },
                 hint: 'Можно закрыть заявку без обмена, если товара нет.',
                 warnings: [],
                 detailsUrl: 'https://example.com/returns'
@@ -799,6 +805,8 @@ describe('track-modal render', () => {
         const confirmButton = Array.from(actionCard?.querySelectorAll('button') || [])
             .find((btn) => btn.getAttribute('aria-label') === 'Подтвердить получение обратной посылки');
         expect(confirmButton).toBeDefined();
+        expect(confirmButton?.classList.contains('d-none')).toBe(true);
+        expect(confirmButton?.getAttribute('aria-hidden')).toBe('true');
 
         const closeButton = Array.from(actionCard?.querySelectorAll('button') || [])
             .find((btn) => btn.textContent === 'Закрыть обращение');
@@ -875,7 +883,8 @@ describe('track-modal render', () => {
             chain: [],
             returnRequest: {
                 id: 5,
-                status: 'Зарегистрирована',
+                state: 'REGISTERED_RETURN',
+status: 'Зарегистрирована',
                 statusLabel: 'Зарегистрирована',
                 statusBadgeClass: 'bg-warning-subtle text-warning-emphasis',
                 reasonLabel: 'Причина',
@@ -920,7 +929,8 @@ describe('track-modal render', () => {
             chain: [],
             returnRequest: {
                 id: 5,
-                status: 'Зарегистрирована',
+                state: 'REGISTERED_RETURN',
+status: 'Зарегистрирована',
                 statusLabel: 'Зарегистрирована',
                 statusBadgeClass: 'bg-warning-subtle text-warning-emphasis',
                 reasonLabel: 'Причина',
@@ -1016,7 +1026,8 @@ describe('track-modal render', () => {
             chain: [],
             returnRequest: {
                 id: 6,
-                status: 'Зарегистрирована',
+                state: 'REGISTERED_RETURN',
+status: 'Зарегистрирована',
                 statusLabel: 'Зарегистрирована',
                 statusBadgeClass: 'bg-success-subtle text-success-emphasis',
                 reasonLabel: 'Причина',
@@ -1061,7 +1072,7 @@ describe('track-modal render', () => {
             returnReceiptConfirmedAt: '2024-03-01T09:00:00Z',
             canConfirmReceipt: false
         }));
-        expect(global.notifyUser).toHaveBeenCalledWith('Обработка возврата подтверждена', 'success');
+        expect(global.notifyUser).toHaveBeenCalledWith('Возврат подтверждён', 'success');
     });
 
     test('renders return without exchange as single current item', () => {
@@ -1180,7 +1191,8 @@ describe('track-modal render', () => {
             chain: [],
             returnRequest: {
                 id: 5,
-                status: 'Зарегистрирована',
+                state: 'REGISTERED_RETURN',
+                status: 'REGISTERED',
                 statusLabel: 'Зарегистрирована',
                 statusBadgeClass: 'bg-warning-subtle text-warning-emphasis',
                 reasonLabel: 'Причина',
@@ -1191,16 +1203,17 @@ describe('track-modal render', () => {
                 closedAt: null,
                 reverseTrackNumber: null,
                 requiresAction: true,
-                exchangeApproved: false,
-                exchangeRequested: false,
-                canStartExchange: true,
-                canCreateExchangeParcel: false,
-                canCloseWithoutExchange: true,
-                canReopenAsReturn: false,
-                canCancelExchange: false,
+                actionPermissions: {
+                    allowAccept: false,
+                    allowLaunchExchange: false,
+                    allowAcceptReverse: false,
+                    allowClose: false,
+                    allowConvertToReturn: false,
+                    allowConvertToExchange: true,
+                    allowUpdateReverseTrack: false
+                },
                 returnReceiptConfirmed: false,
                 returnReceiptConfirmedAt: null,
-                canConfirmReceipt: true,
                 hint: 'Переведите заявку, чтобы запустить обмен.',
                 warnings: [],
                 detailsUrl: 'https://example.com/returns'
@@ -1227,7 +1240,7 @@ describe('track-modal render', () => {
         await Promise.resolve();
 
         expect(global.fetch).toHaveBeenCalledWith(
-            '/api/v1/tracks/12/returns/5/exchange',
+            '/api/v1/tracks/12/returns/5/to-exchange',
             expect.objectContaining({ method: 'POST' })
         );
         expect(global.notifyUser).toHaveBeenCalledWith('Заявка переведена в обмен', 'info');
@@ -1237,9 +1250,9 @@ describe('track-modal render', () => {
         setupDom();
 
         const headers = { get: jest.fn(() => 'application/json') };
-        const responsePayload = { details: { returnRequest: { id: 6 } } };
+        const responsePayload = { details: { returnRequest: { id: 6, state: 'REGISTERED_EXCHANGE' } }, state: 'REGISTERED_EXCHANGE' };
         global.fetch.mockImplementation((url) => {
-            if (String(url).includes('/exchange')) {
+            if (String(url).includes('/exchange/launch')) {
                 return Promise.resolve({ ok: true, headers, json: () => Promise.resolve(responsePayload) });
             }
             if (String(url).includes('/details')) {
@@ -1263,7 +1276,8 @@ describe('track-modal render', () => {
             chain: [],
             returnRequest: {
                 id: 6,
-                status: 'Зарегистрирована',
+                state: 'REGISTERED_EXCHANGE',
+                status: 'REGISTERED',
                 statusLabel: 'Зарегистрирована',
                 statusBadgeClass: 'bg-info-subtle text-info-emphasis',
                 reasonLabel: 'Причина',
@@ -1274,16 +1288,17 @@ describe('track-modal render', () => {
                 closedAt: null,
                 reverseTrackNumber: null,
                 requiresAction: true,
-                exchangeApproved: false,
-                exchangeRequested: false,
-                canStartExchange: true,
-                canCreateExchangeParcel: false,
-                canCloseWithoutExchange: false,
-                canReopenAsReturn: true,
-                canCancelExchange: false,
+                actionPermissions: {
+                    allowAccept: false,
+                    allowLaunchExchange: true,
+                    allowAcceptReverse: false,
+                    allowClose: false,
+                    allowConvertToReturn: true,
+                    allowConvertToExchange: false,
+                    allowUpdateReverseTrack: false
+                },
                 returnReceiptConfirmed: true,
                 returnReceiptConfirmedAt: '2024-02-01T10:00:00Z',
-                canConfirmReceipt: false,
                 hint: 'Создайте обменную посылку, чтобы завершить процесс.',
                 warnings: [],
                 detailsUrl: 'https://example.com/returns'
@@ -1307,10 +1322,10 @@ describe('track-modal render', () => {
         await Promise.resolve();
 
         expect(global.fetch).toHaveBeenCalledWith(
-            '/api/v1/tracks/14/returns/6/exchange',
+            '/api/v1/tracks/14/returns/6/exchange/launch',
             expect.objectContaining({ method: 'POST' })
         );
-        expect(global.notifyUser).toHaveBeenCalledWith('Заявка переведена в обмен', 'info');
+        expect(global.notifyUser).toHaveBeenCalledWith('Обмен запущен', 'info');
     });
 
     test('shows exchange parcel widget with open CTA', () => {
@@ -1332,7 +1347,8 @@ describe('track-modal render', () => {
             exchangeParcel: { id: 77, number: 'EX777', statusLabel: 'В пути' },
             returnRequest: {
                 id: 9,
-                status: 'Обмен запускается',
+                state: 'REGISTERED_RETURN',
+status: 'Обмен запускается',
                 statusLabel: 'Обмен запускается',
                 statusBadgeClass: 'bg-info-subtle text-info-emphasis',
                 reasonLabel: 'Причина',
@@ -1396,7 +1412,8 @@ describe('track-modal render', () => {
             ],
             returnRequest: {
                 id: 11,
-                status: 'Возврат',
+                state: 'REGISTERED_EXCHANGE',
+                status: 'REGISTERED',
                 statusLabel: 'Возврат',
                 statusBadgeClass: 'bg-info-subtle text-info-emphasis',
                 reasonLabel: 'Причина',
@@ -1407,17 +1424,17 @@ describe('track-modal render', () => {
                 closedAt: null,
                 reverseTrackNumber: null,
                 requiresAction: true,
-                exchangeApproved: false,
-                exchangeRequested: true,
-                canStartExchange: false,
-                canCreateExchangeParcel: false,
-                canCloseWithoutExchange: false,
-                canReopenAsReturn: false,
-                canCancelExchange: false,
-                cancelExchangeUnavailableReason: null,
+                actionPermissions: {
+                    allowAccept: false,
+                    allowLaunchExchange: true,
+                    allowAcceptReverse: false,
+                    allowClose: false,
+                    allowConvertToReturn: false,
+                    allowConvertToExchange: false,
+                    allowUpdateReverseTrack: false
+                },
                 returnReceiptConfirmed: false,
                 returnReceiptConfirmedAt: null,
-                canConfirmReceipt: false,
                 hint: null,
                 warnings: []
             },
@@ -1432,7 +1449,7 @@ describe('track-modal render', () => {
             .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
         const badges = Array.from(returnCard?.querySelectorAll('.badge.rounded-pill') || []);
         expect(badges[0]?.textContent).toBe('Обмен');
-        expect(badges[1]?.textContent).toBe('Обмен');
+        expect(badges[1]?.textContent).toBe('Обмен зарегистрирован');
 
         const definitions = returnCard?.querySelector('dl');
         expect(definitions?.textContent).toContain('Тип обращения');
@@ -1458,7 +1475,8 @@ describe('track-modal render', () => {
             ],
             returnRequest: {
                 id: 3,
-                status: 'Зарегистрирована',
+                state: 'REGISTERED_RETURN',
+status: 'Зарегистрирована',
                 reason: 'Размер не подошёл',
                 comment: null,
                 requestedAt: '2024-02-01T10:00:00Z',
@@ -1514,7 +1532,8 @@ describe('track-modal render', () => {
             ],
             returnRequest: {
                 id: 4,
-                status: 'Закрыта',
+                state: 'REGISTERED_RETURN',
+status: 'Закрыта',
                 reason: 'Не подошло',
                 comment: 'Возврат завершён',
                 requestedAt: '2024-01-01T10:00:00Z',

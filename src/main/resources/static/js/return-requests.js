@@ -218,9 +218,9 @@
     function getActionExecutors() {
         return {
             toExchange(trackId, requestId, options = {}) {
-                const fn = window.trackModal?.approveReturnExchange;
+                const fn = window.trackModal?.convertReturnRequestToExchange;
                 if (typeof fn !== 'function') {
-                    return Promise.reject(new Error('Создание обменной посылки недоступно'));
+                    return Promise.reject(new Error('Перевод заявки в обмен недоступен'));
                 }
                 return fn(trackId, requestId, options);
             },

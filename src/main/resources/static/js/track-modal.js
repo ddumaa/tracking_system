@@ -1093,63 +1093,71 @@
     }
 
     /**
-     * Перечисление доступных контекстов обработки заявки на возврат.
-     * Константа помогает явно документировать допустимые значения и
-     * использовать их повторно при проверке условий (принцип OCP).
+     * Перечисление нормализованных состояний обращения, приходящих с сервера.
+     * Значения отражают жизненный цикл заявки и позволяют синхронизировать интерфейс
+     * без дополнительных эвристик (принцип SRP).
      */
-    const ReturnRequestActionMode = Object.freeze({
-        RETURN: 'return',
-        EXCHANGE: 'exchange'
+    const ReturnRequestState = Object.freeze({
+        REGISTERED_RETURN: 'REGISTERED_RETURN',
+        REGISTERED_EXCHANGE: 'REGISTERED_EXCHANGE',
+        EXCHANGE_LAUNCHED: 'EXCHANGE_LAUNCHED',
+        COMPLETED: 'COMPLETED',
+        CLOSED: 'CLOSED'
     });
 
     /**
-     * Создаёт хранилище режима действий обращения внутри модального окна.
-     * Метод реализует минималистичную модель подписок, чтобы соответствовать принципам SRP и OCP,
-     * предоставляя единое место управления выбором пользователя.
+     * Проверяет, относится ли значение к допустимым состояниям обращения.
+     * Метод концентрирует валидацию, чтобы любые изменения словаря состояний
+     * затрагивали одну точку и не нарушали принцип OCP.
+     * @param {string} state проверяемое значение
+     * @returns {boolean} {@code true}, если состояние поддерживается
+     */
+    function isKnownReturnRequestState(state) {
+        return Object.values(ReturnRequestState).includes(state);
+    }
+
+    /**
+     * Создаёт стор для хранения текущего состояния обращения в модальном окне.
+     * Хранилище реализует паттерн наблюдателя и тем самым отделяет источник данных
+     * от подписчиков, соблюдая принципы SRP и ISP.
      * @returns {{reset: (function(string): string), setValue: (function(string): string), getValue: (function(): string), subscribe: (function(Function): Function)}} интерфейс управления состоянием
      */
-    function createReturnActionModeStore() {
-        let value = ReturnRequestActionMode.RETURN;
+    function createReturnRequestStateStore() {
+        let value = ReturnRequestState.REGISTERED_RETURN;
         const subscribers = new Set();
-
-        /**
-         * Проверяет, относится ли переданное значение к разрешённым режимам.
-         * Вспомогательная функция защищает стор от некорректного состояния (принцип LSP).
-         * @param {string} mode потенциальное значение
-         * @returns {boolean} {@code true}, если значение допустимо
-         */
-        const isAllowedMode = (mode) => Object.values(ReturnRequestActionMode).includes(mode);
 
         return {
             /**
-             * Возвращает текущее сохранённое значение режима.
-             * Метод не раскрывает детали хранения, изолируя клиентов от внутренней реализации (ISP).
-             * @returns {string} актуальный режим действий
+             * Возвращает сохранённое состояние без раскрытия механизма хранения.
+             * @returns {string} актуальное состояние обращения
              */
             getValue() {
                 return value;
             },
 
             /**
-             * Сбрасывает состояние и очищает подписчиков для нового контекста модального окна.
-             * Метод вызывается при каждом полном рендере, чтобы избежать утечек ссылок на устаревшие DOM-узлы (SRP).
-             * @param {string} nextValue стартовое значение
-             * @returns {string} нормализованный режим
+             * Сбрасывает стор для нового обращения и уведомляет подписчиков о значении по умолчанию.
+             * @param {string} nextValue стартовое состояние, пришедшее с сервера
+             * @returns {string} нормализованное значение
              */
             reset(nextValue) {
                 subscribers.clear();
-                value = isAllowedMode(nextValue) ? nextValue : ReturnRequestActionMode.RETURN;
+                value = isKnownReturnRequestState(nextValue)
+                    ? nextValue
+                    : ReturnRequestState.REGISTERED_RETURN;
                 return value;
             },
 
             /**
-             * Обновляет значение и нотифицирует подписчиков об изменении.
-             * Метод реализует паттерн наблюдателя, не нарушая принципов SOLID благодаря узкой ответственности.
-             * @param {string} nextValue новый режим
+             * Применяет новое состояние и уведомляет подписчиков, если значение изменилось.
+             * Метод гарантирует, что обработчики вызываются только при реальном обновлении (LSP).
+             * @param {string} nextValue целевое состояние
              * @returns {string} применённое значение
              */
             setValue(nextValue) {
-                const normalized = isAllowedMode(nextValue) ? nextValue : ReturnRequestActionMode.RETURN;
+                const normalized = isKnownReturnRequestState(nextValue)
+                    ? nextValue
+                    : ReturnRequestState.REGISTERED_RETURN;
                 if (normalized === value) {
                     return value;
                 }
@@ -1158,17 +1166,17 @@
                     try {
                         callback(value);
                     } catch (error) {
-                        console.error('Не удалось применить обработчик режима обращения', error);
+                        console.error('Не удалось обновить состояние обращения', error);
                     }
                 });
                 return value;
             },
 
             /**
-             * Регистрирует обработчик изменения режима и возвращает функцию для отписки.
-             * Благодаря явному управлению подпиской соблюдается принцип ISP: внешнему коду не нужно знать о реализации стора.
-             * @param {Function} callback обработчик уведомлений
-             * @returns {Function} функция отписки от уведомлений
+             * Подписывает обработчик на изменение состояния и возвращает функцию отписки.
+             * Такой контракт поддерживает принцип DIP: клиенты работают только с абстракцией стора.
+             * @param {Function} callback обработчик изменения
+             * @returns {Function} функция отписки
              */
             subscribe(callback) {
                 if (typeof callback !== 'function') {
@@ -1183,265 +1191,463 @@
     }
 
     /**
-     * Экземпляр стора режима обращения для модального окна.
-     * Константа обеспечивает переиспользование состояния между повторными рендерами, сохраняя инкапсуляцию (SRP).
+     * Экземпляр стора состояния обращения, переиспользуемый между перерендерами.
+     * Выделение единой точки хранения защищает модуль от утечек DOM-ссылок и облегчает повторное использование (SRP).
      */
-    const returnActionModeStore = createReturnActionModeStore();
+    const returnRequestStateStore = createReturnRequestStateStore();
 
     /**
-     * Набор известных статус-кодов заявки и соответствующих им режимов действий.
-     * Словарь позволяет централизованно маппить код статуса на нужные кнопки,
-     * чтобы не размазывать знание по файлу и не нарушать SRP.
+     * Карта описаний для каждого известного состояния обращения.
+     * Данные используются при рендере бейджей и подсказок, исключая необходимость
+     * анализировать локализованные строки из ответа API.
      */
-    const RETURN_STATUS_CONTEXT = Object.freeze({
-        REGISTERED: ReturnRequestActionMode.RETURN,
-        EXCHANGE_APPROVED: ReturnRequestActionMode.EXCHANGE,
-        CLOSED_NO_EXCHANGE: ReturnRequestActionMode.RETURN
+    const RETURN_REQUEST_STATE_DESCRIPTORS = Object.freeze({
+        [ReturnRequestState.REGISTERED_RETURN]: Object.freeze({
+            statusLabel: 'Возврат зарегистрирован',
+            hint: 'Заявка оформлена как возврат. Примите возврат или переведите обращение в обмен.'
+        }),
+        [ReturnRequestState.REGISTERED_EXCHANGE]: Object.freeze({
+            statusLabel: 'Обмен зарегистрирован',
+            hint: 'Заявка оформлена как обмен. Запустите обмен после проверки возврата.'
+        }),
+        [ReturnRequestState.EXCHANGE_LAUNCHED]: Object.freeze({
+            statusLabel: 'Обмен запущен',
+            hint: 'Добавьте трек обратной посылки и подтвердите её отправку, когда всё будет готово.'
+        }),
+        [ReturnRequestState.COMPLETED]: Object.freeze({
+            statusLabel: 'Обращение завершено',
+            hint: 'Обращение завершено. Действия недоступны.'
+        }),
+        [ReturnRequestState.CLOSED]: Object.freeze({
+            statusLabel: 'Обращение закрыто',
+            hint: 'Обращение закрыто. Действия недоступны.'
+        })
     });
 
     /**
-     * Нормализует подпись статуса и определяет режим действий, если код недоступен.
-     * Метод анализирует текстовую метку, чтобы сохранить совместимость со старыми ответами API,
-     * где вместо кода передавалось локализованное имя статуса.
-     * @param {string} statusLabel локализованное название статуса
-     * @returns {string|null} строковое значение из {@link ReturnRequestActionMode} или {@code null}
+     * Вычисляет человеко-читаемое название типа обращения.
+     * Метод учитывает данные сервера и при их отсутствии опирается на состояние,
+     * чтобы не дублировать бизнес-правила в разных местах кода (SRP).
+     * @param {string} state нормализованное состояние
+     * @param {Object|null} returnRequest DTO обращения
+     * @returns {string} подпись "Возврат" либо "Обмен"
      */
-    function resolveModeByLabel(statusLabel) {
-        if (typeof statusLabel !== 'string' || statusLabel.trim().length === 0) {
-            return null;
+    function getReturnRequestTypeLabel(state, returnRequest) {
+        const explicitLabel = firstNonEmpty(returnRequest?.typeLabel);
+        if (explicitLabel) {
+            return explicitLabel;
         }
-        const normalized = statusLabel.trim().toLowerCase();
-        if (normalized.includes('обмен')) {
-            return ReturnRequestActionMode.EXCHANGE;
-        }
-        if (normalized.includes('возврат')) {
-            return ReturnRequestActionMode.RETURN;
-        }
-        return null;
+        const normalizedState = isKnownReturnRequestState(state)
+            ? state
+            : ReturnRequestState.REGISTERED_RETURN;
+        return normalizedState.includes('EXCHANGE') ? 'Обмен' : 'Возврат';
     }
 
     /**
-     * Определяет, переведена ли заявка в обменный режим по флагам DTO.
-     * Метод централизует анализ признаков обмена, чтобы бизнес-логика не дублировалась в разных местах (SRP).
-     * @param {Object} returnRequest DTO заявки на возврат
-     * @returns {boolean} {@code true}, если заявка рассматривается как обменная
-     */
-    function isExchangeRequest(returnRequest) {
-        if (!returnRequest || typeof returnRequest !== 'object') {
-            return false;
-        }
-        if (returnRequest.exchangeRequested || returnRequest.exchangeApproved) {
-            return true;
-        }
-        if (returnRequest.exchangeParcel && typeof returnRequest.exchangeParcel === 'object') {
-            return true;
-        }
-        if (returnRequest.exchange && typeof returnRequest.exchange === 'object') {
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Определяет, следует ли отображать кнопку возврата обращения из обмена.
-     * Метод инкапсулирует проверку флагов, чтобы единообразно реагировать на новые стадии обмена
-     * и не дублировать условия в разных частях рендера (принцип SRP).
-     * @param {Object} returnRequest DTO заявки
-     * @param {string} actionMode вычисленный режим обработки из {@link ReturnRequestActionMode}
-     * @returns {boolean} {@code true}, если кнопку нужно показать
-     */
-    function shouldShowReopenAsReturn(returnRequest, actionMode) {
-        if (!returnRequest || typeof returnRequest !== 'object') {
-            return false;
-        }
-        if (returnRequest.canReopenAsReturn) {
-            return true;
-        }
-        const normalizedMode = Object.values(ReturnRequestActionMode).includes(actionMode)
-            ? actionMode
-            : ReturnRequestActionMode.RETURN;
-        if (normalizedMode !== ReturnRequestActionMode.EXCHANGE) {
-            return false;
-        }
-        if (isExchangeRequest(returnRequest)) {
-            return true;
-        }
-        const hasExchangeLifecycleFlag = Object.keys(returnRequest)
-            .some((key) => key.toLowerCase().startsWith('exchange') && Boolean(returnRequest[key]));
-        return hasExchangeLifecycleFlag;
-    }
-
-    /**
-     * Определяет стартовый режим действий по данным заявки.
-     * Метод применяется только при инициализации стора, чтобы перенести из DTO исходный контекст,
-     * сохраняя совместимость с прежними ответами API.
-     * @param {Object} returnRequest DTO заявки
-     * @returns {string} одно из значений {@link ReturnRequestActionMode}
-     */
-    function deriveInitialReturnActionMode(returnRequest) {
-        if (!returnRequest || typeof returnRequest !== 'object') {
-            return ReturnRequestActionMode.RETURN;
-        }
-        if (isExchangeRequest(returnRequest)) {
-            return ReturnRequestActionMode.EXCHANGE;
-        }
-        const statusRaw = typeof returnRequest.status === 'string'
-            ? returnRequest.status.trim().toUpperCase()
-            : '';
-        if (statusRaw.length > 0 && RETURN_STATUS_CONTEXT[statusRaw]) {
-            return RETURN_STATUS_CONTEXT[statusRaw];
-        }
-        const modeFromLabel = resolveModeByLabel(returnRequest.statusLabel);
-        if (modeFromLabel) {
-            return modeFromLabel;
-        }
-        return ReturnRequestActionMode.RETURN;
-    }
-
-    /**
-     * Возвращает текст статуса обращения для отображения пользователю.
-     * Метод синхронизирует подпись с выбранным режимом, чтобы при переключении между возвратом и обменом
-     * бейдж отражал актуальный контекст.
-     * @param {Object} returnRequest DTO заявки
-     * @param {string} actionMode выбранный режим из {@link ReturnRequestActionMode}
+     * Возвращает статусную подпись для бейджа исходя из нормализованного состояния.
+     * Метод устраняет зависимость от локализованных строк, предоставленных сервером.
+     * @param {string} state код состояния
      * @returns {string} текст для бейджа статуса
      */
-    function getReturnRequestStatusLabel(returnRequest, actionMode) {
-        const rawLabel = firstNonEmpty(returnRequest?.statusLabel, returnRequest?.status, null);
-        if (actionMode === ReturnRequestActionMode.EXCHANGE) {
-            if (typeof rawLabel === 'string' && rawLabel.trim().length > 0) {
-                const normalized = rawLabel.trim().toLowerCase();
-                if (normalized.includes('обмен')) {
-                    return rawLabel;
-                }
-            }
-            return 'Обмен';
+    function getReturnRequestStatusLabel(state) {
+        if (!isKnownReturnRequestState(state)) {
+            return 'Статус не определён';
         }
-        return rawLabel || 'Статус не определён';
+        const descriptor = RETURN_REQUEST_STATE_DESCRIPTORS[state];
+        return descriptor?.statusLabel || 'Статус не определён';
     }
 
     /**
-     * Возвращает текст подсказки для блока действий с учётом выбранного режима.
-     * Метод агрегирует fallback-формулировки, чтобы интерфейс оставался понятным даже без специализированных подсказок.
-     * @param {Object|null} returnRequest DTO заявки
-     * @param {string} actionMode выбранный режим из {@link ReturnRequestActionMode}
-     * @returns {string|null} текст подсказки
+     * Возвращает текст подсказки для блока действий.
+     * Метод сначала использует текст из ответа API, затем — преднастроенный fallback.
+     * @param {Object|null} returnRequest DTO обращения
+     * @param {string} state нормализованное состояние
+     * @returns {string|null} пользовательская подсказка
      */
-    function getReturnRequestHint(returnRequest, actionMode) {
-        const normalizedMode = Object.values(ReturnRequestActionMode).includes(actionMode)
-            ? actionMode
-            : ReturnRequestActionMode.RETURN;
-        const fallback = normalizedMode === ReturnRequestActionMode.EXCHANGE
-            ? 'Заявка оформлена как обмен. Добавьте трек обратной посылки или подтвердите её получение.'
-            : 'Заявка оформлена как возврат. Можно принять возврат, перевести обращение в обмен или закрыть его.';
-        return firstNonEmpty(returnRequest?.hint, fallback);
+    function getReturnRequestHint(returnRequest, state) {
+        const apiHint = firstNonEmpty(returnRequest?.hint);
+        if (apiHint) {
+            return apiHint;
+        }
+        if (!isKnownReturnRequestState(state)) {
+            return null;
+        }
+        const descriptor = RETURN_REQUEST_STATE_DESCRIPTORS[state];
+        return descriptor?.hint || null;
     }
 
     /**
-     * Создаёт радиопереключатель режима обращения.
-     * Метод подготавливает доступный для экранных читалок компонент, который синхронизируется со стором состояния.
-     * @param {Object} options параметры инициализации
-     * @param {string} options.initialMode стартовое значение режима
-     * @param {Function} options.onModeChange обработчик изменения значения
-     * @returns {HTMLElement} контейнер с переключателем
-     */
-    function createReturnActionModeSelector({ initialMode, onModeChange }) {
-        const normalizedMode = Object.values(ReturnRequestActionMode).includes(initialMode)
-            ? initialMode
-            : ReturnRequestActionMode.RETURN;
-        const container = document.createElement('div');
-        container.className = 'd-flex flex-column gap-2 mb-3';
-        container.dataset.returnModeSelector = 'true';
-
-        const legend = document.createElement('div');
-        legend.className = 'fw-semibold';
-        legend.textContent = 'Режим обращения';
-        container.appendChild(legend);
-
-        const optionsRow = document.createElement('div');
-        optionsRow.className = 'd-flex flex-wrap gap-3 align-items-center';
-
-        const groupName = generateElementId('return-mode');
-        const options = [
-            { value: ReturnRequestActionMode.RETURN, label: 'Возврат' },
-            { value: ReturnRequestActionMode.EXCHANGE, label: 'Обмен' }
-        ];
-
-        options.forEach((option) => {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'form-check form-check-inline mb-0';
-
-            const input = document.createElement('input');
-            input.type = 'radio';
-            input.className = 'form-check-input';
-            input.name = groupName;
-            input.value = option.value;
-            input.id = generateElementId(`return-mode-${option.value}`);
-            input.checked = option.value === normalizedMode;
-
-            const label = document.createElement('label');
-            label.className = 'form-check-label';
-            label.setAttribute('for', input.id);
-            label.textContent = option.label;
-
-            input.addEventListener('change', () => {
-                if (input.checked && typeof onModeChange === 'function') {
-                    onModeChange(option.value);
-                }
-            });
-
-            wrapper.append(input, label);
-            optionsRow.appendChild(wrapper);
-        });
-
-        container.appendChild(optionsRow);
-        return container;
-    }
-
-    /**
-     * Применяет визуальное состояние выбранного режима к связке элементов интерфейса.
-     * Метод обновляет бейджи и вспомогательные подписи, чтобы карточка синхронизировалась с выбором пользователя (SRP).
-     * @param {string} actionMode выбранный режим из {@link ReturnRequestActionMode}
-     * @param {Object} bindings набор элементов для обновления
-     * @param {HTMLElement|null} bindings.typeBadge бейдж, обозначающий режим обращения
+     * Применяет визуальное состояние обращения к переданным элементам интерфейса.
+     * Метод централизует обновление бейджей и описательных списков, сохраняя единый стиль отображения.
+     * @param {string} state нормализованное состояние обращения
+     * @param {Object} bindings элементы, требующие синхронизации
+     * @param {HTMLElement|null} bindings.typeBadge бейдж с типом обращения
      * @param {HTMLElement|null} bindings.statusBadge бейдж статуса обращения
-     * @param {HTMLElement|null} bindings.typeValue элемент описательного списка с типом обращения
-     * @param {Object} context контекст данных заявки
-     * @param {Object|null} context.returnRequest DTO заявки
+     * @param {HTMLElement|null} bindings.typeValue элемент описательного списка с типом
+     * @param {Object} context дополнительный контекст
+     * @param {Object|null} context.returnRequest DTO обращения
      */
-    function applyReturnActionMode(actionMode, bindings, context = {}) {
-        const normalizedMode = Object.values(ReturnRequestActionMode).includes(actionMode)
-            ? actionMode
-            : ReturnRequestActionMode.RETURN;
-        const isExchange = normalizedMode === ReturnRequestActionMode.EXCHANGE;
+    function applyReturnRequestState(state, bindings, context = {}) {
+        const normalizedState = isKnownReturnRequestState(state)
+            ? state
+            : ReturnRequestState.REGISTERED_RETURN;
         const { returnRequest = null } = context;
+        const typeLabel = getReturnRequestTypeLabel(normalizedState, returnRequest);
+        const isExchange = typeLabel.toLowerCase().includes('обмен');
 
         if (bindings?.typeBadge) {
             bindings.typeBadge.className = isExchange
                 ? 'badge rounded-pill bg-warning-subtle text-warning-emphasis'
                 : 'badge rounded-pill bg-info-subtle text-info-emphasis';
-            const typeText = isExchange ? 'Обмен' : 'Возврат';
-            bindings.typeBadge.textContent = typeText;
-            bindings.typeBadge.setAttribute('aria-label', `Тип обращения: ${typeText}`);
+            bindings.typeBadge.textContent = typeLabel;
+            bindings.typeBadge.setAttribute('aria-label', `Тип обращения: ${typeLabel}`);
         }
 
         if (bindings?.statusBadge) {
-            const statusLabel = getReturnRequestStatusLabel(returnRequest, normalizedMode);
+            const statusLabel = getReturnRequestStatusLabel(normalizedState);
             bindings.statusBadge.textContent = statusLabel;
             bindings.statusBadge.setAttribute('aria-label', `Текущий статус обращения: ${statusLabel}`);
         }
 
         if (bindings?.typeValue) {
-            bindings.typeValue.textContent = isExchange ? 'Обмен' : 'Возврат';
+            bindings.typeValue.textContent = typeLabel;
         }
     }
 
     /**
-     * Перерисовывает блок действий обращения в соответствии с выбранным режимом.
-     * Метод аккумулирует создание кнопок и подсказок, чтобы обеспечить единый сценарий повторного рендера при смене режима.
+     * Маппинг устаревших кодов статусов на нормализованные состояния.
+     * Словарь обеспечивает обратную совместимость, не заставляя клиентов анализировать произвольные строки.
+     */
+    const LEGACY_STATUS_STATE = Object.freeze({
+        REGISTERED: ReturnRequestState.REGISTERED_RETURN,
+        REGISTERED_RETURN: ReturnRequestState.REGISTERED_RETURN,
+        REGISTERED_EXCHANGE: ReturnRequestState.REGISTERED_EXCHANGE,
+        EXCHANGE_APPROVED: ReturnRequestState.REGISTERED_EXCHANGE,
+        EXCHANGE_LAUNCHED: ReturnRequestState.EXCHANGE_LAUNCHED,
+        EXCHANGE_STARTED: ReturnRequestState.EXCHANGE_LAUNCHED,
+        COMPLETED: ReturnRequestState.COMPLETED,
+        CLOSED: ReturnRequestState.CLOSED,
+        CLOSED_NO_EXCHANGE: ReturnRequestState.CLOSED
+    });
+
+    /**
+     * Определяет нормализованное состояние обращения по данным сервера.
+     * Метод учитывает новое поле {@code state} и, при его отсутствии, использует маппинг старых кодов.
+     * @param {Object|null} returnRequest DTO обращения
+     * @returns {string} значение из {@link ReturnRequestState}
+     */
+    function deriveReturnRequestState(returnRequest) {
+        if (!returnRequest || typeof returnRequest !== 'object') {
+            return ReturnRequestState.REGISTERED_RETURN;
+        }
+        const stateValue = firstNonEmpty(returnRequest.state);
+        if (stateValue && isKnownReturnRequestState(stateValue)) {
+            return stateValue;
+        }
+        const statusRaw = typeof returnRequest.status === 'string'
+            ? returnRequest.status.trim().toUpperCase()
+            : '';
+        if (statusRaw && LEGACY_STATUS_STATE[statusRaw]) {
+            return LEGACY_STATUS_STATE[statusRaw];
+        }
+        return ReturnRequestState.REGISTERED_RETURN;
+    }
+
+    /**
+     * Перечисление идентификаторов действий, доступных в карточке обращения.
+     * Константа объединяет возможные кнопки, помогая избежать магических строк в логике рендера.
+     */
+    const ReturnRequestAction = Object.freeze({
+        ACCEPT: 'ACCEPT',
+        LAUNCH_EXCHANGE: 'LAUNCH_EXCHANGE',
+        ACCEPT_REVERSE: 'ACCEPT_REVERSE',
+        CLOSE: 'CLOSE',
+        TO_RETURN: 'TO_RETURN',
+        TO_EXCHANGE: 'TO_EXCHANGE',
+        UPDATE_REVERSE_TRACK: 'UPDATE_REVERSE_TRACK'
+    });
+
+    /**
+     * Предопределённые наборы кнопок для каждого состояния обращения.
+     * Структура избавляет интерфейс от условной логики и облегчает модификацию сценариев (OCP).
+     */
+    const RETURN_REQUEST_STATE_ACTIONS = Object.freeze({
+        [ReturnRequestState.REGISTERED_RETURN]: Object.freeze({
+            primary: [ReturnRequestAction.ACCEPT],
+            secondary: [ReturnRequestAction.TO_EXCHANGE, ReturnRequestAction.CLOSE]
+        }),
+        [ReturnRequestState.REGISTERED_EXCHANGE]: Object.freeze({
+            primary: [ReturnRequestAction.LAUNCH_EXCHANGE],
+            secondary: [ReturnRequestAction.TO_RETURN, ReturnRequestAction.UPDATE_REVERSE_TRACK, ReturnRequestAction.CLOSE]
+        }),
+        [ReturnRequestState.EXCHANGE_LAUNCHED]: Object.freeze({
+            primary: [ReturnRequestAction.ACCEPT_REVERSE],
+            secondary: [ReturnRequestAction.UPDATE_REVERSE_TRACK, ReturnRequestAction.TO_RETURN, ReturnRequestAction.CLOSE]
+        }),
+        [ReturnRequestState.COMPLETED]: Object.freeze({
+            primary: [],
+            secondary: []
+        }),
+        [ReturnRequestState.CLOSED]: Object.freeze({
+            primary: [],
+            secondary: []
+        })
+    });
+
+    /**
+     * Извлекает нормализованное состояние обращения из ответа сервера.
+     * Метод защищает интерфейс от отсутствующих полей в устаревших версиях API.
+     * @param {Object|string|null} result ответ обработчика
+     * @returns {string|null} значение из {@link ReturnRequestState} либо {@code null}
+     */
+    function extractNextState(result) {
+        if (typeof result === 'string') {
+            return isKnownReturnRequestState(result) ? result : null;
+        }
+        if (!result || typeof result !== 'object') {
+            return null;
+        }
+        const candidate = firstNonEmpty(
+            result.state,
+            result.details?.state,
+            result.details?.returnRequest?.state,
+            result.returnRequest?.state
+        );
+        return candidate && isKnownReturnRequestState(candidate) ? candidate : null;
+    }
+
+    /**
+     * Нормализует карту разрешений на действия с обращением.
+     * Метод ожидает структуру, предоставленную сервером, но также поддерживает устаревшие флаги.
+     * @param {Object|null} returnRequest DTO обращения
+     * @returns {Object} объект с булевыми признаками доступности действий
+     */
+    function resolveReturnRequestPermissions(returnRequest) {
+        const fallback = {
+            allowAccept: false,
+            allowLaunchExchange: false,
+            allowAcceptReverse: false,
+            allowClose: false,
+            allowConvertToReturn: false,
+            allowConvertToExchange: false,
+            allowUpdateReverseTrack: false
+        };
+        if (!returnRequest || typeof returnRequest !== 'object') {
+            return fallback;
+        }
+        const rawPermissions = returnRequest.actionPermissions;
+        if (rawPermissions && typeof rawPermissions === 'object' && !Array.isArray(rawPermissions)) {
+            return {
+                allowAccept: Boolean(rawPermissions.allowAccept),
+                allowLaunchExchange: Boolean(rawPermissions.allowLaunchExchange),
+                allowAcceptReverse: Boolean(rawPermissions.allowAcceptReverse),
+                allowClose: Boolean(rawPermissions.allowClose),
+                allowConvertToReturn: Boolean(rawPermissions.allowConvertToReturn),
+                allowConvertToExchange: Boolean(rawPermissions.allowConvertToExchange),
+                allowUpdateReverseTrack: Boolean(rawPermissions.allowUpdateReverseTrack)
+            };
+        }
+        return {
+            allowAccept: Boolean(returnRequest.canConfirmReceipt),
+            allowLaunchExchange: Boolean(returnRequest.canStartExchange),
+            allowAcceptReverse: Boolean(returnRequest.canAcceptReverse),
+            allowClose: Boolean(returnRequest.canCloseWithoutExchange),
+            allowConvertToReturn: Boolean(returnRequest.canReopenAsReturn),
+            allowConvertToExchange: Boolean(returnRequest.canStartExchange),
+            allowUpdateReverseTrack: Boolean(returnRequest.requiresAction && !returnRequest.closedAt)
+        };
+    }
+
+    /**
+     * Маппинг действий на соответствующие флаги разрешений.
+     * Позволяет переиспользовать единую функцию проверки доступности кнопок.
+     */
+    const ACTION_PERMISSION_KEYS = Object.freeze({
+        [ReturnRequestAction.ACCEPT]: 'allowAccept',
+        [ReturnRequestAction.LAUNCH_EXCHANGE]: 'allowLaunchExchange',
+        [ReturnRequestAction.ACCEPT_REVERSE]: 'allowAcceptReverse',
+        [ReturnRequestAction.CLOSE]: 'allowClose',
+        [ReturnRequestAction.TO_RETURN]: 'allowConvertToReturn',
+        [ReturnRequestAction.TO_EXCHANGE]: 'allowConvertToExchange',
+        [ReturnRequestAction.UPDATE_REVERSE_TRACK]: 'allowUpdateReverseTrack'
+    });
+
+    /**
+     * Создаёт кнопку действия обращения согласно идентификатору.
+     * Метод инкапсулирует обработчики кликов, чтобы в {@link renderReturnActionsSection}
+     * осталась только декларативная сборка интерфейса.
+     * @param {string} actionId идентификатор из {@link ReturnRequestAction}
+     * @param {Object} context контекст исполнения
+     * @param {number} context.trackId идентификатор трека
+     * @param {Object} context.returnRequest DTO обращения
+     * @param {Object} context.permissions карта разрешений
+     * @param {HTMLElement|null} context.reverseForm форма редактирования обратного трека
+     * @returns {HTMLButtonElement|null} созданная кнопка либо {@code null}
+     */
+    function buildReturnRequestAction(actionId, context) {
+        const { trackId, returnRequest, permissions, reverseForm } = context;
+        const requestId = returnRequest?.id;
+        const canOperate = trackId !== undefined && requestId !== undefined;
+
+        switch (actionId) {
+        case ReturnRequestAction.ACCEPT:
+            if (!canOperate) {
+                return null;
+            }
+            return createActionButton({
+                text: 'Принять возврат',
+                variant: 'success',
+                ariaLabel: 'Подтвердить получение возврата и завершить обращение',
+                onClick: (button) => runButtonAction(button, async () => {
+                    const result = await handleConfirmProcessingAction(trackId, requestId, {
+                        successMessage: 'Возврат подтверждён',
+                        notificationType: 'success'
+                    });
+                    const nextState = extractNextState(result);
+                    if (nextState) {
+                        returnRequestStateStore.setValue(nextState);
+                    }
+                    return result;
+                }),
+                fullWidth: true
+            });
+        case ReturnRequestAction.LAUNCH_EXCHANGE:
+            if (!canOperate) {
+                return null;
+            }
+            return createActionButton({
+                text: 'Запустить обмен',
+                variant: 'primary',
+                ariaLabel: 'Запустить обмен по обращению',
+                onClick: (button) => runButtonAction(button, async () => {
+                    const result = await handleApproveExchangeAction(trackId, requestId, {
+                        successMessage: 'Обмен запущен',
+                        notificationType: 'info'
+                    });
+                    const nextState = extractNextState(result);
+                    if (nextState) {
+                        returnRequestStateStore.setValue(nextState);
+                    }
+                    return result;
+                }),
+                fullWidth: true
+            });
+        case ReturnRequestAction.ACCEPT_REVERSE:
+            if (!canOperate) {
+                return null;
+            }
+            return createActionButton({
+                text: 'Принять обратную посылку',
+                variant: 'success',
+                ariaLabel: 'Подтвердить получение обратной посылки',
+                onClick: (button) => runButtonAction(button, async () => {
+                    const result = await handleAcceptReverseShipmentAction(trackId, requestId, {
+                        successMessage: 'Обратная посылка принята',
+                        notificationType: 'success'
+                    });
+                    const nextState = extractNextState(result);
+                    if (nextState) {
+                        returnRequestStateStore.setValue(nextState);
+                    }
+                    return result;
+                }),
+                fullWidth: true
+            });
+        case ReturnRequestAction.CLOSE:
+            if (!canOperate) {
+                return null;
+            }
+            return createActionButton({
+                text: 'Закрыть обращение',
+                variant: 'outline-secondary',
+                ariaLabel: 'Закрыть обращение без продолжения процесса',
+                onClick: (button) => runButtonAction(button, async () => {
+                    const result = await handleCloseReturnAction(trackId, requestId, {
+                        successMessage: 'Обращение закрыто',
+                        notificationType: 'warning'
+                    });
+                    const nextState = extractNextState(result);
+                    if (nextState) {
+                        returnRequestStateStore.setValue(nextState);
+                    }
+                    return result;
+                }),
+                fullWidth: true
+            });
+        case ReturnRequestAction.TO_RETURN:
+            if (!canOperate) {
+                return null;
+            }
+            return createActionButton({
+                text: 'Перевести в возврат',
+                variant: 'outline-warning',
+                ariaLabel: 'Перевести обращение обратно в возврат',
+                onClick: (button) => runButtonAction(button, async () => {
+                    const result = await handleReopenReturnAction(trackId, requestId, {
+                        successMessage: 'Заявка переведена в возврат',
+                        notificationType: 'info'
+                    });
+                    const nextState = extractNextState(result);
+                    if (nextState) {
+                        returnRequestStateStore.setValue(nextState);
+                    }
+                    return result;
+                }),
+                fullWidth: true
+            });
+        case ReturnRequestAction.TO_EXCHANGE:
+            if (!canOperate) {
+                return null;
+            }
+            return createActionButton({
+                text: 'Перевести в обмен',
+                variant: 'primary',
+                ariaLabel: 'Перевести обращение в обмен перед запуском процесса',
+                onClick: (button) => runButtonAction(button, async () => {
+                    const result = await handleConvertToExchangeAction(trackId, requestId, {
+                        successMessage: 'Заявка переведена в обмен',
+                        notificationType: 'info'
+                    });
+                    const nextState = extractNextState(result);
+                    if (nextState) {
+                        returnRequestStateStore.setValue(nextState);
+                    }
+                    return result;
+                }),
+                fullWidth: true
+            });
+        case ReturnRequestAction.UPDATE_REVERSE_TRACK:
+            if (!reverseForm) {
+                return null;
+            }
+            return createActionButton({
+                text: 'Добавить трек обратной посылки',
+                variant: 'outline-primary',
+                ariaLabel: 'Добавить или обновить трек обратной отправки',
+                onClick: () => {
+                    const willHide = !reverseForm.classList.contains('d-none');
+                    reverseForm.classList.toggle('d-none', willHide);
+                    reverseForm.setAttribute('aria-hidden', willHide ? 'true' : 'false');
+                    if (!willHide) {
+                        const reverseInput = reverseForm.querySelector('input[name="reverseTrackNumber"]');
+                        if (reverseInput instanceof HTMLElement) {
+                            reverseInput.focus();
+                        }
+                    }
+                },
+                fullWidth: true
+            });
+        default:
+            return null;
+        }
+    }
+
+    /**
+     * Перерисовывает блок действий обращения в соответствии с текущим состоянием.
+     * Метод аккумулирует создание кнопок и подсказок, чтобы обеспечить единый сценарий повторного рендера при смене состояния.
      * @param {HTMLElement} container корневой контейнер действий
      * @param {Object} params параметры построения
-     * @param {string} params.mode выбранный режим
+     * @param {string} params.state нормализованное состояние
      * @param {Object} params.returnRequest DTO заявки
      * @param {number} params.trackId идентификатор трека
      */
@@ -1450,59 +1656,15 @@
             return;
         }
         const {
-            mode,
+            state,
             returnRequest,
             trackId
         } = params || {};
 
-        const normalizedMode = Object.values(ReturnRequestActionMode).includes(mode)
-            ? mode
-            : ReturnRequestActionMode.RETURN;
-        const exchangeContext = normalizedMode === ReturnRequestActionMode.EXCHANGE;
-
-        const derivePermissions = (request) => {
-            if (!request || typeof request !== 'object') {
-                return {
-                    allowConfirmReceipt: false,
-                    allowConvertToExchange: false,
-                    allowCloseRequest: false,
-                    allowCancelExchange: false,
-                    allowUpdateReverseTrack: false,
-                    allowConvertToReturn: false
-                };
-            }
-            const exchangeByMode = normalizedMode === ReturnRequestActionMode.EXCHANGE
-                || isExchangeRequest(request);
-            const reverseMissing = !request.reverseTrackNumber;
-            const allowUpdateReverseTrack = exchangeByMode
-                && (reverseMissing || Boolean(request.requiresAction));
-            const allowCancelExchange = exchangeByMode
-                ? Boolean(request.canCancelExchange || request.canCloseWithoutExchange)
-                : false;
-            return {
-                allowConfirmReceipt: Boolean(request.canConfirmReceipt),
-                allowConvertToExchange: Boolean(request.canStartExchange),
-                allowCloseRequest: Boolean(request.canCloseWithoutExchange),
-                allowCancelExchange,
-                allowUpdateReverseTrack,
-                allowConvertToReturn: Boolean(request.canReopenAsReturn)
-            };
-        };
-
-        const rawPermissions = returnRequest?.actionPermissions;
-        const hasStructuredPermissions = rawPermissions
-            && typeof rawPermissions === 'object'
-            && !Array.isArray(rawPermissions);
-        const permissions = hasStructuredPermissions
-            ? rawPermissions
-            : derivePermissions(returnRequest);
-        const allowConfirmReceipt = Boolean(permissions?.allowConfirmReceipt);
-        const allowConvertToExchange = Boolean(permissions?.allowConvertToExchange);
-        const allowCloseRequest = Boolean(permissions?.allowCloseRequest);
-        const allowCancelExchange = Boolean(permissions?.allowCancelExchange);
-        const allowUpdateReverse = Boolean(permissions?.allowUpdateReverseTrack);
-        const allowConvertToReturn = Boolean(permissions?.allowConvertToReturn)
-            || shouldShowReopenAsReturn(returnRequest, normalizedMode);
+        const normalizedState = isKnownReturnRequestState(state)
+            ? state
+            : ReturnRequestState.REGISTERED_RETURN;
+        const permissions = resolveReturnRequestPermissions(returnRequest);
 
         container.replaceChildren();
 
@@ -1513,12 +1675,6 @@
         const secondaryStack = document.createElement('div');
         secondaryStack.className = 'd-flex flex-column gap-2';
         secondaryStack.dataset.returnSecondaryActions = 'true';
-
-        const appendAction = (stack, button) => {
-            if (button) {
-                stack.appendChild(button);
-            }
-        };
 
         const applyAvailability = (button, allowed) => {
             if (!button) {
@@ -1532,131 +1688,38 @@
         };
 
         let reverseForm = null;
-        if (exchangeContext && trackId !== undefined && returnRequest?.id !== undefined && allowUpdateReverse) {
+        const reverseAllowed = Boolean(permissions.allowUpdateReverseTrack)
+            && trackId !== undefined
+            && returnRequest?.id !== undefined;
+        if (reverseAllowed) {
             reverseForm = createReverseTrackForm(trackId, returnRequest);
             reverseForm.classList.add('border', 'border-light', 'rounded-3', 'p-3', 'bg-body-tertiary');
             reverseForm.classList.add('d-none');
             reverseForm.setAttribute('aria-hidden', 'true');
         }
 
-        const canOperate = trackId !== undefined && returnRequest?.id !== undefined;
+        const stateActions = RETURN_REQUEST_STATE_ACTIONS[normalizedState]
+            || { primary: [], secondary: [] };
+        const context = {
+            trackId,
+            returnRequest,
+            permissions,
+            reverseForm
+        };
 
-        if (!exchangeContext && canOperate) {
-            const acceptButton = createActionButton({
-                text: 'Принять возврат',
-                variant: 'success',
-                ariaLabel: 'Подтвердить получение возврата и завершить обращение',
-                onClick: (button) => runButtonAction(button,
-                    () => handleConfirmProcessingAction(trackId, returnRequest.id, {
-                        successMessage: 'Возврат подтверждён',
-                        notificationType: 'success'
-                    })),
-                fullWidth: true
-            });
-            applyAvailability(acceptButton, allowConfirmReceipt);
-            appendAction(primaryStack, acceptButton);
+        const appendAction = (stack, actionId) => {
+            const button = buildReturnRequestAction(actionId, context);
+            if (!button) {
+                return;
+            }
+            const permissionFlag = ACTION_PERMISSION_KEYS[actionId];
+            const allowed = permissionFlag ? permissions[permissionFlag] : true;
+            applyAvailability(button, allowed);
+            stack.appendChild(button);
+        };
 
-            const convertToExchangeButton = createActionButton({
-                text: 'Перевести в обмен',
-                variant: 'primary',
-                ariaLabel: 'Запустить обмен по обращению',
-                onClick: (button) => runButtonAction(button,
-                    async () => {
-                        await handleApproveExchangeAction(trackId, returnRequest.id, {
-                            successMessage: 'Заявка переведена в обмен',
-                            notificationType: 'info'
-                        });
-                        returnActionModeStore.setValue(ReturnRequestActionMode.EXCHANGE);
-                    }),
-                fullWidth: true
-            });
-            applyAvailability(convertToExchangeButton, allowConvertToExchange);
-            appendAction(primaryStack, convertToExchangeButton);
-
-            const closeButton = createActionButton({
-                text: 'Закрыть обращение',
-                variant: 'outline-secondary',
-                ariaLabel: 'Закрыть обращение без запуска обмена',
-                onClick: (button) => runButtonAction(button,
-                    () => handleCloseWithoutExchange(trackId, returnRequest.id, {
-                        successMessage: 'Заявка закрыта',
-                        notificationType: 'warning'
-                    })),
-                fullWidth: true
-            });
-            applyAvailability(closeButton, allowCloseRequest);
-            appendAction(secondaryStack, closeButton);
-        }
-
-        if (exchangeContext && canOperate) {
-            const reverseButton = createActionButton({
-                text: 'Добавить трек обратной посылки',
-                variant: 'primary',
-                ariaLabel: 'Добавить или обновить трек обратной отправки',
-                onClick: () => {
-                    if (!reverseForm) {
-                        return;
-                    }
-                    const willHide = !reverseForm.classList.contains('d-none');
-                    reverseForm.classList.toggle('d-none', willHide);
-                    reverseForm.setAttribute('aria-hidden', willHide ? 'true' : 'false');
-                    if (!willHide) {
-                        const reverseInput = reverseForm.querySelector('input[name="reverseTrackNumber"]');
-                        if (reverseInput instanceof HTMLElement) {
-                            reverseInput.focus();
-                        }
-                    }
-                },
-                fullWidth: true
-            });
-            applyAvailability(reverseButton, allowUpdateReverse);
-            appendAction(primaryStack, reverseButton);
-
-            const convertBackButton = createActionButton({
-                text: 'Перевести в возврат',
-                variant: 'outline-warning',
-                ariaLabel: 'Перевести обращение из обмена обратно в возврат',
-                onClick: (button) => runButtonAction(button,
-                    async () => {
-                        await handleReopenReturnAction(trackId, returnRequest.id, {
-                            successMessage: 'Заявка переведена в возврат',
-                            notificationType: 'info'
-                        });
-                        returnActionModeStore.setValue(ReturnRequestActionMode.RETURN);
-                    }),
-                fullWidth: true
-            });
-            applyAvailability(convertBackButton, allowConvertToReturn);
-            appendAction(primaryStack, convertBackButton);
-
-            const acceptReverseButton = createActionButton({
-                text: 'Принять обратную посылку',
-                variant: 'success',
-                ariaLabel: 'Подтвердить получение обратной посылки',
-                onClick: (button) => runButtonAction(button,
-                    () => handleConfirmProcessingAction(trackId, returnRequest.id, {
-                        successMessage: 'Получение обратной посылки подтверждено',
-                        notificationType: 'success'
-                    })),
-                fullWidth: true
-            });
-            applyAvailability(acceptReverseButton, allowConfirmReceipt);
-            appendAction(primaryStack, acceptReverseButton);
-
-            const closeButton = createActionButton({
-                text: 'Закрыть обращение',
-                variant: 'outline-secondary',
-                ariaLabel: 'Закрыть обращение без продолжения обмена',
-                onClick: (button) => runButtonAction(button,
-                    () => handleCancelExchangeAction(trackId, returnRequest.id, {
-                        successMessage: 'Заявка закрыта',
-                        notificationType: 'warning'
-                    })),
-                fullWidth: true
-            });
-            applyAvailability(closeButton, allowCancelExchange);
-            appendAction(secondaryStack, closeButton);
-        }
+        stateActions.primary.forEach((actionId) => appendAction(primaryStack, actionId));
+        stateActions.secondary.forEach((actionId) => appendAction(secondaryStack, actionId));
 
         if (primaryStack.childElementCount > 0) {
             container.appendChild(primaryStack);
@@ -1664,12 +1727,11 @@
         if (secondaryStack.childElementCount > 0) {
             container.appendChild(secondaryStack);
         }
-
         if (reverseForm) {
             container.appendChild(reverseForm);
         }
 
-        const hintText = getReturnRequestHint(returnRequest, normalizedMode);
+        const hintText = getReturnRequestHint(returnRequest, normalizedState);
         const detailsUrl = firstNonEmpty(returnRequest?.detailsUrl, returnRequest?.hintUrl, returnRequest?.helpUrl);
         if (hintText) {
             const hintParagraph = document.createElement('p');
@@ -1692,6 +1754,7 @@
         container.classList.toggle('d-none', isEmpty);
         container.setAttribute('aria-hidden', isEmpty ? 'true' : 'false');
     }
+
     /**
      * Подготавливает тело запроса регистрации возврата.
      * @param {Object} formValues значения полей формы
@@ -1877,7 +1940,7 @@
         if (!trackId || !requestId) {
             return null;
         }
-        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/exchange`);
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/exchange/launch`);
         const details = payload?.details ?? payload ?? null;
         invalidateLazyDataCache(trackId);
         renderTrackModal(details);
@@ -1888,13 +1951,16 @@
             window.returnRequests.removeRowByIds(trackId, requestId);
         }
         updateActionTabCounter();
-        const successMessage = options.successMessage || 'Запущен обмен по заявке';
-        const notificationType = options.notificationType || 'success';
+        const successMessage = options.successMessage || 'Обмен запущен';
+        const notificationType = options.notificationType || 'info';
         notifyUser(successMessage, notificationType);
-        return details;
+        return {
+            details,
+            state: extractNextState(payload)
+        };
     }
 
-    async function handleCloseWithoutExchange(trackId, requestId, options = {}) {
+    async function handleCloseReturnAction(trackId, requestId, options = {}) {
         if (!trackId || !requestId) {
             return null;
         }
@@ -1906,23 +1972,23 @@
             window.returnRequests.removeRowByIds(trackId, requestId);
         }
         updateActionTabCounter();
-        const message = options.successMessage || 'Заявка закрыта без обмена';
+        const message = options.successMessage || 'Обращение закрыто';
         const notificationType = options.notificationType || 'info';
         notifyUser(message, notificationType);
-        return payload;
+        return {
+            details: payload,
+            state: extractNextState(payload)
+        };
     }
 
     /**
-     * Отменяет обращение на обмен, переиспользуя общую логику закрытия заявки.
-     * Метод делегирует закрытие универсальному обработчику, чтобы поведение
-     * оставалось единым для любых типов обращений и соблюдался принцип DRY.
+     * Совместимый алиас для отмены обмена, использующий общее закрытие обращения.
      * @param {number} trackId идентификатор посылки
      * @param {number} requestId идентификатор заявки
-     * @param {Object} options параметры пользовательского уведомления
-     * @returns {Promise<Object|null>} результат закрытия обращения
+     * @param {Object} options параметры уведомления
      */
     async function handleCancelExchangeAction(trackId, requestId, options = {}) {
-        return handleCloseWithoutExchange(trackId, requestId, options);
+        return handleCloseReturnAction(trackId, requestId, options);
     }
 
     /**
@@ -1935,7 +2001,7 @@
         if (!trackId || !requestId) {
             return null;
         }
-        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/confirm-processing`);
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/accept`);
         invalidateLazyDataCache(trackId);
         renderTrackModal(payload);
         updateRowRequiresAction(payload);
@@ -1950,14 +2016,44 @@
             });
         }
         updateActionTabCounter();
-        const message = options.successMessage || 'Обработка возврата подтверждена';
+        const message = options.successMessage || 'Возврат подтверждён';
         const notificationType = options.notificationType || 'success';
         notifyUser(message, notificationType);
-        return payload;
+        return {
+            details: payload,
+            state: extractNextState(payload)
+        };
     }
 
     /**
-     * Переводит обменную заявку обратно в режим возврата.
+     * Подтверждает принятие обратной посылки и обновляет карточку обращения.
+     * @param {number} trackId идентификатор посылки
+     * @param {number} requestId идентификатор заявки
+     * @param {Object} options параметры уведомления
+     */
+    async function handleAcceptReverseShipmentAction(trackId, requestId, options = {}) {
+        if (!trackId || !requestId) {
+            return null;
+        }
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/reverse/accept`);
+        const details = payload?.details ?? payload ?? null;
+        invalidateLazyDataCache(trackId);
+        renderTrackModal(details);
+        if (details) {
+            updateRowRequiresAction(details);
+        }
+        updateActionTabCounter();
+        const message = options.successMessage || 'Обратная посылка принята';
+        const notificationType = options.notificationType || 'success';
+        notifyUser(message, notificationType);
+        return {
+            details,
+            state: extractNextState(payload)
+        };
+    }
+
+    /**
+     * Переводит обращение в режим возврата.
      * @param {number} trackId идентификатор посылки
      * @param {number} requestId идентификатор заявки
      * @param {Object} options параметры уведомления
@@ -1966,7 +2062,7 @@
         if (!trackId || !requestId) {
             return null;
         }
-        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/reopen`);
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/to-return`);
         const details = payload?.details ?? payload ?? null;
         invalidateLazyDataCache(trackId);
         renderTrackModal(details);
@@ -1981,7 +2077,37 @@
         const message = options.successMessage || 'Заявка переведена в возврат';
         const notificationType = options.notificationType || 'info';
         notifyUser(message, notificationType);
-        return details;
+        return {
+            details,
+            state: extractNextState(payload)
+        };
+    }
+
+    /**
+     * Переводит обращение в режим обмена без запуска процесса обмена.
+     * @param {number} trackId идентификатор посылки
+     * @param {number} requestId идентификатор заявки
+     * @param {Object} options параметры уведомления
+     */
+    async function handleConvertToExchangeAction(trackId, requestId, options = {}) {
+        if (!trackId || !requestId) {
+            return null;
+        }
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/to-exchange`);
+        const details = payload?.details ?? payload ?? null;
+        invalidateLazyDataCache(trackId);
+        renderTrackModal(details);
+        if (details) {
+            updateRowRequiresAction(details);
+        }
+        updateActionTabCounter();
+        const message = options.successMessage || 'Заявка переведена в обмен';
+        const notificationType = options.notificationType || 'info';
+        notifyUser(message, notificationType);
+        return {
+            details,
+            state: extractNextState(payload)
+        };
     }
 
     /**
@@ -2090,7 +2216,7 @@
      * @param {Object} data DTO с сервера
      * @param {Object} [options] дополнительные настройки от вызывающего кода
      * @param {Object|null} [options.exchangeItem] данные обменной посылки для отображения
-     * @param {string|null} [options.actionModeOverride] заранее выбранный режим обращения, если нужно сохранить контекст пользователя
+     * @param {string|null} [options.actionStateOverride] заранее выбранное состояние обращения, если нужно сохранить контекст пользователя
      */
     function renderTrackModal(data, options = {}) {
         clearRefreshTimer();
@@ -2158,11 +2284,11 @@
         const trackId = data?.id;
         const returnRequest = data?.returnRequest || null;
         const canRegisterReturn = Boolean(data?.canRegisterReturn);
-        const overrideMode = options?.actionModeOverride ?? null;
-        const initialMode = overrideMode
-            ? overrideMode
-            : deriveInitialReturnActionMode(returnRequest);
-        returnActionModeStore.reset(initialMode);
+        const overrideState = options?.actionStateOverride ?? null;
+        const initialState = overrideState && isKnownReturnRequestState(overrideState)
+            ? overrideState
+            : deriveReturnRequestState(returnRequest);
+        returnRequestStateStore.reset(initialState);
 
         trackTitleRow.append(trackTitleColumn, trackActions);
 
@@ -2254,7 +2380,7 @@
 
         const returnCard = createCard('Обращение', { headingId: generateElementId('track-return-title') });
         if (returnRequest) {
-            const currentMode = returnActionModeStore.getValue();
+            const currentState = returnRequestStateStore.getValue();
 
             const statusSection = document.createElement('div');
             statusSection.className = 'd-flex flex-column gap-2';
@@ -2268,18 +2394,12 @@
             badgeRow.className = 'd-flex flex-wrap align-items-center gap-2';
 
             const typeBadge = document.createElement('span');
-            typeBadge.className = currentMode === ReturnRequestActionMode.EXCHANGE
-                ? 'badge rounded-pill bg-warning-subtle text-warning-emphasis'
-                : 'badge rounded-pill bg-info-subtle text-info-emphasis';
-            typeBadge.textContent = currentMode === ReturnRequestActionMode.EXCHANGE ? 'Обмен' : 'Возврат';
-            typeBadge.setAttribute('aria-label', `Тип обращения: ${typeBadge.textContent}`);
+            typeBadge.className = 'badge rounded-pill';
             badgeRow.appendChild(typeBadge);
 
             const badgeClass = firstNonEmpty(returnRequest.statusBadgeClass);
             const statusBadge = document.createElement('span');
             statusBadge.className = `badge rounded-pill ${badgeClass || 'bg-secondary-subtle text-secondary-emphasis'}`;
-            statusBadge.textContent = getReturnRequestStatusLabel(returnRequest, currentMode);
-            statusBadge.setAttribute('aria-label', `Текущий статус обращения: ${statusBadge.textContent}`);
             badgeRow.appendChild(statusBadge);
 
             statusSection.appendChild(badgeRow);
@@ -2296,17 +2416,17 @@
                 typeValue: null
             };
 
-            const rerenderActions = (mode) => {
-                applyReturnActionMode(mode, bindings, { returnRequest });
+            const rerenderActions = (stateValue) => {
+                applyReturnRequestState(stateValue, bindings, { returnRequest });
                 renderReturnActionsSection(actionsContainer, {
-                    mode,
+                    state: stateValue,
                     returnRequest,
                     trackId
                 });
             };
 
-            rerenderActions(currentMode);
-            returnActionModeStore.subscribe(rerenderActions);
+            rerenderActions(currentState);
+            returnRequestStateStore.subscribe(rerenderActions);
 
             const warnings = [];
             if (Array.isArray(returnRequest.warnings)) {
@@ -2362,10 +2482,10 @@
             const infoList = document.createElement('dl');
             infoList.className = 'row g-2 mb-0 mt-3';
 
-            const typeDefinition = appendDefinitionItem(infoList, 'Тип обращения', currentMode === ReturnRequestActionMode.EXCHANGE ? 'Обмен' : 'Возврат');
+            const typeDefinition = appendDefinitionItem(infoList, 'Тип обращения', getReturnRequestTypeLabel(currentState, returnRequest));
             if (typeDefinition?.definition) {
                 bindings.typeValue = typeDefinition.definition;
-                applyReturnActionMode(returnActionModeStore.getValue(), bindings, { returnRequest });
+                applyReturnRequestState(returnRequestStateStore.getValue(), bindings, { returnRequest });
             }
             const reasonLabel = firstNonEmpty(returnRequest.reasonLabel, 'Причина');
             appendDefinitionItem(infoList, reasonLabel, firstNonEmpty(returnRequest.reason, '—'));
@@ -2753,8 +2873,9 @@
         render: renderTrackModal,
         invalidateLazySections: (trackId) => invalidateLazyDataCache(trackId),
         approveReturnExchange: (trackId, requestId, options) => handleApproveExchangeAction(trackId, requestId, options),
+        convertReturnRequestToExchange: (trackId, requestId, options) => handleConvertToExchangeAction(trackId, requestId, options),
         cancelReturnExchange: (trackId, requestId, options) => handleCancelExchangeAction(trackId, requestId, options),
-        closeReturnRequest: (trackId, requestId, options) => handleCloseWithoutExchange(trackId, requestId, options),
+        closeReturnRequest: (trackId, requestId, options) => handleCloseReturnAction(trackId, requestId, options),
         reopenReturnRequest: (trackId, requestId, options) => handleReopenReturnAction(trackId, requestId, options),
         confirmReturnProcessing: (trackId, requestId, options) => handleConfirmProcessingAction(trackId, requestId, options),
         updateReverseTrack: (trackId, requestId, reverseValue, comment) => handleReverseTrackUpdate(trackId, requestId, reverseValue, comment)
