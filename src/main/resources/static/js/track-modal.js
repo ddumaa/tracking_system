@@ -1916,7 +1916,6 @@
             }
 
             const allowReceiptConfirmationWithoutClosing = Boolean(returnRequest?.canConfirmReceipt)
-                && !exchangeContext
                 && !canCloseWithoutExchange
                 && trackId !== undefined
                 && returnRequest?.id !== undefined;
