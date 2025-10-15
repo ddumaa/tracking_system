@@ -351,6 +351,71 @@ describe('track-modal render', () => {
         expect(texts).toContain('Отменить обращение');
     });
 
+    test('does not render return details link without url', () => {
+        setupDom();
+
+        const expectedHint = 'Детали обращения доступны в личном кабинете.';
+        const data = {
+            id: 401,
+            number: 'BY2024005',
+            deliveryService: 'Belpost',
+            systemStatus: 'В обработке',
+            history: [],
+            refreshAllowed: true,
+            nextRefreshAt: null,
+            canEditTrack: false,
+            timeZone: 'UTC',
+            episodeNumber: null,
+            exchange: false,
+            returnShipment: false,
+            chain: [],
+            returnRequest: {
+                id: 901,
+                status: 'Зарегистрирована',
+                statusLabel: 'Зарегистрирована',
+                statusBadgeClass: 'bg-info-subtle text-info-emphasis',
+                reasonLabel: 'Причина',
+                reason: 'Покупатель сообщил о проблеме',
+                comment: null,
+                requestedAt: '2024-02-15T12:00:00Z',
+                decisionAt: null,
+                closedAt: null,
+                reverseTrackNumber: null,
+                requiresAction: false,
+                exchangeApproved: false,
+                exchangeRequested: false,
+                canStartExchange: false,
+                canCreateExchangeParcel: false,
+                canCloseWithoutExchange: false,
+                canReopenAsReturn: false,
+                canCancelExchange: false,
+                cancelExchangeUnavailableReason: null,
+                canConfirmReceipt: false,
+                returnReceiptConfirmed: false,
+                returnReceiptConfirmedAt: null,
+                hint: expectedHint,
+                warnings: [],
+                detailsUrl: '',
+                hintUrl: '',
+                helpUrl: ''
+            },
+            canRegisterReturn: false,
+            lifecycle: [],
+            requiresAction: false
+        };
+
+        global.window.trackModal.render(data);
+
+        const actionCard = Array.from(document.querySelectorAll('section.card'))
+            .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
+        expect(actionCard).toBeDefined();
+
+        const hintParagraph = actionCard?.querySelector('p.text-muted.small.mb-0');
+        expect(hintParagraph).toBeDefined();
+        expect(hintParagraph?.textContent?.trim()).toBe(expectedHint);
+        expect(hintParagraph?.querySelector('a')).toBeNull();
+    });
+
     test('shows reopen action for requested exchange without explicit flag', () => {
         setupDom();
 

@@ -2025,20 +2025,16 @@
                 const hintParagraph = document.createElement('p');
                 hintParagraph.className = 'text-muted small mb-0';
                 hintParagraph.textContent = hintText;
-                const moreLink = document.createElement('a');
-                moreLink.textContent = 'Подробнее';
-                moreLink.className = 'ms-1';
                 if (detailsUrl) {
+                    const moreLink = document.createElement('a');
+                    moreLink.textContent = 'Подробнее';
+                    moreLink.className = 'ms-1';
                     moreLink.href = detailsUrl;
                     moreLink.target = '_blank';
                     moreLink.rel = 'noreferrer noopener';
-                } else {
-                    moreLink.href = '#';
-                    moreLink.classList.add('disabled', 'pe-none');
-                    moreLink.setAttribute('aria-disabled', 'true');
+                    hintParagraph.append(' ');
+                    hintParagraph.appendChild(moreLink);
                 }
-                hintParagraph.append(' ');
-                hintParagraph.appendChild(moreLink);
                 actionsWrapper.appendChild(hintParagraph);
             }
 
