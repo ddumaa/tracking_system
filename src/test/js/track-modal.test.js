@@ -477,7 +477,7 @@ describe('track-modal render', () => {
             .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
         const rerenderButtons = Array.from(rerenderedCard?.querySelectorAll('button') || [])
             .map((btn) => btn.textContent?.trim());
-        expect(rerenderButtons).toContain('Перевести в обмен');
+        expect(rerenderButtons).not.toContain('Перевести в обмен');
     });
 
     test('does not render return details link without url', () => {
