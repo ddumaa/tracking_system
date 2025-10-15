@@ -1489,15 +1489,20 @@
             };
         };
 
-        const permissions = returnRequest?.actionPermissions
-            ? returnRequest.actionPermissions
+        const rawPermissions = returnRequest?.actionPermissions;
+        const hasStructuredPermissions = rawPermissions
+            && typeof rawPermissions === 'object'
+            && !Array.isArray(rawPermissions);
+        const permissions = hasStructuredPermissions
+            ? rawPermissions
             : derivePermissions(returnRequest);
         const allowConfirmReceipt = Boolean(permissions?.allowConfirmReceipt);
         const allowConvertToExchange = Boolean(permissions?.allowConvertToExchange);
         const allowCloseRequest = Boolean(permissions?.allowCloseRequest);
         const allowCancelExchange = Boolean(permissions?.allowCancelExchange);
         const allowUpdateReverse = Boolean(permissions?.allowUpdateReverseTrack);
-        const allowConvertToReturn = Boolean(permissions?.allowConvertToReturn);
+        const allowConvertToReturn = Boolean(permissions?.allowConvertToReturn)
+            || shouldShowReopenAsReturn(returnRequest, normalizedMode);
 
         container.replaceChildren();
 
