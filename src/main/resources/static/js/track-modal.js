@@ -1890,10 +1890,9 @@
     }
 
     /**
-     * Отменяет обменную заявку и возвращает интерфейс в режим возврата.
-     * Метод запрашивает отмену обмена, заново отрисовывает модальное окно,
-     * обновляет счётчики и при необходимости переключает стор режима действий на возврат,
-     * соблюдая принцип SRP.
+     * Отменяет обменную заявку и синхронизирует интерфейс с серверным состоянием.
+     * Метод запрашивает отмену обмена, заново отрисовывает модальное окно и обновляет счётчики,
+     * сохраняя ответственность в рамках одного шага и не изменяя пользовательский выбор режима вручную.
      * @param {number} trackId идентификатор посылки
      * @param {number} requestId идентификатор заявки
      * @param {Object} options параметры пользовательского уведомления
@@ -1903,10 +1902,11 @@
         if (!trackId || !requestId) {
             return null;
         }
+        const currentMode = returnActionModeStore.getValue();
         const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/cancel`);
         const details = payload?.details ?? payload ?? null;
         invalidateLazyDataCache(trackId);
-        renderTrackModal(details);
+        renderTrackModal(details, { actionModeOverride: currentMode });
         if (details) {
             updateRowRequiresAction(details);
         }
@@ -1918,11 +1918,6 @@
         const message = options.successMessage || 'Обмен отменён';
         const notificationType = options.notificationType || 'info';
         notifyUser(message, notificationType);
-
-        const updatedRequest = details?.returnRequest ?? null;
-        if (updatedRequest && !isExchangeRequest(updatedRequest)) {
-            returnActionModeStore.setValue(ReturnRequestActionMode.RETURN);
-        }
 
         return details;
     }
@@ -2110,6 +2105,7 @@
      * @param {Object} data DTO с сервера
      * @param {Object} [options] дополнительные настройки от вызывающего кода
      * @param {Object|null} [options.exchangeItem] данные обменной посылки для отображения
+     * @param {string|null} [options.actionModeOverride] заранее выбранный режим обращения, если нужно сохранить контекст пользователя
      */
     function renderTrackModal(data, options = {}) {
         clearRefreshTimer();
@@ -2177,7 +2173,11 @@
         const trackId = data?.id;
         const returnRequest = data?.returnRequest || null;
         const canRegisterReturn = Boolean(data?.canRegisterReturn);
-        returnActionModeStore.reset(deriveInitialReturnActionMode(returnRequest));
+        const overrideMode = options?.actionModeOverride ?? null;
+        const initialMode = overrideMode
+            ? overrideMode
+            : deriveInitialReturnActionMode(returnRequest);
+        returnActionModeStore.reset(initialMode);
 
         trackTitleRow.append(trackTitleColumn, trackActions);
 
