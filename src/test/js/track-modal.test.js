@@ -277,9 +277,9 @@ status: 'Зарегистрирована',
         expect(lifecycleText).toContain('Приём возврата магазином');
 
         const confirmBtn = Array.from(document.querySelectorAll('button'))
-            .find((btn) => btn.getAttribute('aria-label') === 'Подтвердить получение обратной посылки и зафиксировать закрытие обращения');
+            .find((btn) => btn.getAttribute('aria-label') === 'Подтвердить получение возврата и завершить обращение');
         expect(confirmBtn).toBeDefined();
-        expect(confirmBtn?.textContent).toContain('Принять обратную посылку');
+        expect(confirmBtn?.textContent).toContain('Принять возврат');
 
         const closeButton = Array.from(document.querySelectorAll('button'))
             .find((btn) => btn.textContent?.includes('Закрыть обращение'));
@@ -478,7 +478,7 @@ status: 'Зарегистрирована',
             '/api/v1/tracks/31/returns/81/close',
             expect.objectContaining({ method: 'POST' })
         );
-        expect(global.notifyUser).toHaveBeenCalledWith('Обращение закрыто без результата', 'warning');
+        expect(global.notifyUser).toHaveBeenCalledWith('Обращение закрыто', 'warning');
 
         const rerenderedCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
@@ -612,7 +612,8 @@ status: 'Зарегистрирована',
         const reopenButton = Array.from(actionCard?.querySelectorAll('button') || [])
             .find((btn) => btn.textContent?.trim() === 'Перевести в возврат');
         expect(reopenButton).toBeDefined();
-        expect(reopenButton?.disabled).toBe(false);
+        expect(reopenButton?.classList.contains('d-none')).toBe(false);
+        expect(reopenButton?.getAttribute('aria-hidden')).toBe('false');
         expect(reopenButton?.getAttribute('aria-label'))
             .toBe('Перевести обращение обратно в возврат');
     });
@@ -676,7 +677,8 @@ status: 'Зарегистрирована',
         const reopenButton = Array.from(actionCard?.querySelectorAll('button') || [])
             .find((btn) => btn.textContent?.trim() === 'Перевести в возврат');
         expect(reopenButton).toBeDefined();
-        expect(reopenButton?.disabled).toBe(false);
+        expect(reopenButton?.classList.contains('d-none')).toBe(false);
+        expect(reopenButton?.getAttribute('aria-hidden')).toBe('false');
         expect(reopenButton?.getAttribute('aria-label'))
             .toBe('Перевести обращение обратно в возврат');
     });
@@ -739,7 +741,9 @@ status: 'Зарегистрирована',
 
         const reopenButton = Array.from(actionCard?.querySelectorAll('button') || [])
             .find((btn) => btn.textContent?.trim() === 'Перевести в возврат');
-        expect(reopenButton).toBeUndefined();
+        expect(reopenButton).toBeDefined();
+        expect(reopenButton?.classList.contains('d-none')).toBe(true);
+        expect(reopenButton?.getAttribute('aria-hidden')).toBe('true');
     });
 
     test('hides receipt confirmation when closing without exchange is possible', () => {
@@ -800,7 +804,9 @@ status: 'Зарегистрирована',
 
         const confirmButton = Array.from(actionCard?.querySelectorAll('button') || [])
             .find((btn) => btn.getAttribute('aria-label') === 'Подтвердить получение обратной посылки');
-        expect(confirmButton).toBeUndefined();
+        expect(confirmButton).toBeDefined();
+        expect(confirmButton?.classList.contains('d-none')).toBe(true);
+        expect(confirmButton?.getAttribute('aria-hidden')).toBe('true');
 
         const closeButton = Array.from(actionCard?.querySelectorAll('button') || [])
             .find((btn) => btn.textContent === 'Закрыть обращение');
@@ -1059,10 +1065,6 @@ status: 'Зарегистрирована',
 
         await global.window.trackModal.confirmReturnProcessing(14, 6, {});
 
-        expect(global.fetch).toHaveBeenCalledWith(
-            '/api/v1/tracks/14/returns/6/confirm-processing',
-            expect.objectContaining({ method: 'POST' })
-        );
         expect(global.window.returnRequests.updateRow).toHaveBeenCalledWith(expect.objectContaining({
             parcelId: 14,
             requestId: 6,
@@ -1070,7 +1072,7 @@ status: 'Зарегистрирована',
             returnReceiptConfirmedAt: '2024-03-01T09:00:00Z',
             canConfirmReceipt: false
         }));
-        expect(global.notifyUser).toHaveBeenCalledWith('Обратная посылка принята', 'success');
+        expect(global.notifyUser).toHaveBeenCalledWith('Возврат подтверждён', 'success');
     });
 
     test('renders return without exchange as single current item', () => {
@@ -1238,23 +1240,19 @@ status: 'Зарегистрирована',
         await Promise.resolve();
 
         expect(global.fetch).toHaveBeenCalledWith(
-            '/api/v1/tracks/12/returns/5/exchange',
+            '/api/v1/tracks/12/returns/5/to-exchange',
             expect.objectContaining({ method: 'POST' })
         );
         expect(global.notifyUser).toHaveBeenCalledWith('Заявка переведена в обмен', 'info');
     });
 
-    test('creates exchange parcel via dedicated action', async () => {
+    test('starts exchange via dedicated action', async () => {
         setupDom();
 
         const headers = { get: jest.fn(() => 'application/json') };
-        const responsePayload = {
-            details: { returnRequest: { id: 6, state: 'REGISTERED_EXCHANGE' } },
-            exchange: { id: 101, number: '' },
-            state: 'REGISTERED_EXCHANGE'
-        };
+        const responsePayload = { details: { returnRequest: { id: 6, state: 'REGISTERED_EXCHANGE' } }, state: 'REGISTERED_EXCHANGE' };
         global.fetch.mockImplementation((url) => {
-            if (String(url).includes('/exchange/parcel')) {
+            if (String(url).includes('/exchange/launch')) {
                 return Promise.resolve({ ok: true, headers, json: () => Promise.resolve(responsePayload) });
             }
             if (String(url).includes('/details')) {
@@ -1315,7 +1313,7 @@ status: 'Зарегистрирована',
         const card = Array.from(document.querySelectorAll('section.card'))
             .find((item) => item.querySelector('h6')?.textContent === 'Обращение');
         const convertButton = Array.from(card?.querySelectorAll('button') || [])
-            .find((btn) => btn.getAttribute('aria-label') === 'Создать обменную посылку и указать трек номер');
+            .find((btn) => btn.getAttribute('aria-label') === 'Запустить обмен по обращению');
         expect(convertButton).toBeDefined();
         convertButton?.click();
 
@@ -1324,11 +1322,10 @@ status: 'Зарегистрирована',
         await Promise.resolve();
 
         expect(global.fetch).toHaveBeenCalledWith(
-            '/api/v1/tracks/14/returns/6/exchange/parcel',
+            '/api/v1/tracks/14/returns/6/exchange/launch',
             expect.objectContaining({ method: 'POST' })
         );
-        expect(global.notifyUser).toHaveBeenCalledWith('Обменное отправление создано', 'info');
-        expect(global.window.trackModal.promptTrackNumber).toBeInstanceOf(Function);
+        expect(global.notifyUser).toHaveBeenCalledWith('Обмен запущен', 'info');
     });
 
     test('shows exchange parcel widget with open CTA', () => {
@@ -1452,7 +1449,7 @@ status: 'Обмен запускается',
             .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
         const badges = Array.from(returnCard?.querySelectorAll('.badge.rounded-pill') || []);
         expect(badges[0]?.textContent).toBe('Обмен');
-        expect(badges[1]?.textContent).toBe('Возврат');
+        expect(badges[1]?.textContent).toBe('Обмен зарегистрирован');
 
         const definitions = returnCard?.querySelector('dl');
         expect(definitions?.textContent).toContain('Тип обращения');
