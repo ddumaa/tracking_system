@@ -23,6 +23,7 @@ package com.project.tracking_system.dto;
  * @param returnReceiptConfirmed   признак ручного подтверждения возврата магазином
  * @param returnReceiptConfirmedAt дата подтверждения возврата
  * @param canConfirmReceipt        доступность кнопки подтверждения возврата
+ * @param canAcceptReverse         доступность подтверждения обратной посылки при обмене
  */
 public record OrderReturnRequestDto(Long id,
                                     String status,
@@ -43,7 +44,8 @@ public record OrderReturnRequestDto(Long id,
                                     String cancelExchangeUnavailableReason,
                                     boolean returnReceiptConfirmed,
                                     String returnReceiptConfirmedAt,
-                                    boolean canConfirmReceipt) {
+                                    boolean canConfirmReceipt,
+                                    boolean canAcceptReverse) {
 
     /**
      * Совместимый с фронтендом аксессор, чтобы не ломать проверку {@code isExchangeRequest}.

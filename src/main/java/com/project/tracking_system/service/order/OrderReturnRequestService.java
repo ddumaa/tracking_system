@@ -194,26 +194,63 @@ public class OrderReturnRequestService {
     @Transactional
     public OrderReturnRequest approveExchange(Long requestId, Long parcelId, User user) {
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
+        return approveExchange(request, user);
+    }
 
-        if (request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
-            throw new IllegalStateException("Заявка уже обработана");
+    /**
+     * Запускает полный сценарий обмена: переводит заявку в статус обмена и создаёт обменную посылку.
+     * <p>
+     * Метод инкапсулирует оба шага, чтобы фронтенд мог вызвать единый эндпоинт и получить
+     * консистентное состояние модалки. При повторном вызове в статусе обмена создаётся новая
+     * посылка, если предыдущая отменена.
+     * </p>
+     *
+     * @param requestId идентификатор заявки на обмен
+     * @param parcelId  идентификатор исходной посылки
+     * @param user      сотрудник магазина, запускающий обмен
+     * @return обновлённая заявка после запуска обмена
+     */
+    @Transactional
+    public OrderReturnRequest launchExchange(Long requestId, Long parcelId, User user) {
+        OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
+        OrderReturnRequestStatus status = request.getStatus();
+        if (status == OrderReturnRequestStatus.REGISTERED) {
+            request = approveExchange(request, user);
+        } else if (status != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            throw new IllegalStateException("Заявка должна находиться в статусе обмена");
         }
-
-        Long episodeId = Optional.ofNullable(request.getEpisode())
-                .map(OrderEpisode::getId)
-                .orElse(null);
-        if (episodeId != null && returnRequestRepository.existsByEpisode_IdAndStatus(episodeId,
-                OrderReturnRequestStatus.EXCHANGE_APPROVED)) {
-            throw new IllegalStateException("В эпизоде уже запущен обмен");
+        if (!canCreateExchangeParcel(request)) {
+            throw new IllegalStateException("Обменная посылка уже создана или ожидает обработки");
         }
+        TrackParcel replacement = orderExchangeService.createExchangeParcel(request);
+        evictTrackDetailsCache(request);
+        log.info("Запущен обмен по заявке {}: создана посылка {}", request.getId(),
+                Optional.ofNullable(replacement).map(TrackParcel::getId).orElse(null));
+        return request;
+    }
 
-        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
-        request.setDecisionBy(user);
-        request.setDecisionAt(ZonedDateTime.now(ZoneOffset.UTC));
-
+    /**
+     * Подтверждает приём обратной посылки для обменной заявки.
+     * <p>
+     * Метод доступен только после запуска обмена и фиксирует момент подтверждения,
+     * чтобы исключить повторное принятие посылки.
+     * </p>
+     *
+     * @param requestId идентификатор заявки
+     * @param parcelId  идентификатор исходной посылки
+     * @param user      сотрудник магазина
+     * @return обновлённая заявка
+     */
+    @Transactional
+    public OrderReturnRequest acceptReverseShipment(Long requestId, Long parcelId, User user) {
+        OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
+        if (!canAcceptReverse(request)) {
+            throw new IllegalStateException("Принять обратную посылку можно только для обменной заявки без подтверждения");
+        }
+        markReturnProcessingConfirmed(request);
         OrderReturnRequest saved = returnRequestRepository.save(request);
         evictTrackDetailsCache(saved);
-        log.info("Одобрен обмен по заявке {} без автоматического создания обменной посылки", saved.getId());
+        log.info("Принята обратная посылка по заявке {}", saved.getId());
         return saved;
     }
 
@@ -529,6 +566,17 @@ public class OrderReturnRequestService {
     }
 
     /**
+     * Проверяет, может ли магазин подтвердить получение обратной посылки при обмене.
+     */
+    @Transactional(readOnly = true)
+    public boolean canAcceptReverse(OrderReturnRequest request) {
+        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            return false;
+        }
+        return !request.isReturnReceiptConfirmed();
+    }
+
+    /**
      * Проверяет, была ли отправлена обменная посылка по заявке.
      * <p>
      * Фиксирует факт отправки, если у посылки появился трек-номер либо она
@@ -635,6 +683,32 @@ public class OrderReturnRequestService {
      *
      * @param request заявка, для которой сохранены изменения
      */
+    /**
+     * Переводит заявку в статус обмена и фиксирует менеджера решения.
+     */
+    private OrderReturnRequest approveExchange(OrderReturnRequest request, User decisionMaker) {
+        if (request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
+            throw new IllegalStateException("Заявка уже обработана");
+        }
+
+        Long episodeId = Optional.ofNullable(request.getEpisode())
+                .map(OrderEpisode::getId)
+                .orElse(null);
+        if (episodeId != null && returnRequestRepository.existsByEpisode_IdAndStatus(episodeId,
+                OrderReturnRequestStatus.EXCHANGE_APPROVED)) {
+            throw new IllegalStateException("В эпизоде уже запущен обмен");
+        }
+
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setDecisionBy(decisionMaker);
+        request.setDecisionAt(ZonedDateTime.now(ZoneOffset.UTC));
+
+        OrderReturnRequest saved = returnRequestRepository.save(request);
+        evictTrackDetailsCache(saved);
+        log.info("Одобрен обмен по заявке {} без автоматического создания обменной посылки", saved.getId());
+        return saved;
+    }
+
     private void evictTrackDetailsCache(OrderReturnRequest request) {
         TrackParcel parcel = Optional.ofNullable(request)
                 .map(OrderReturnRequest::getParcel)

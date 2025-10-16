@@ -470,6 +470,7 @@ public class TrackViewService {
         boolean canReopenAsReturn = orderReturnRequestService.canReopenAsReturn(request);
         boolean canCancelExchange = orderReturnRequestService.canCancelExchange(request);
         boolean canConfirmReceipt = orderReturnRequestService.canConfirmReceipt(request);
+        boolean canAcceptReverse = orderReturnRequestService.canAcceptReverse(request);
         boolean canCreateExchangeParcel = orderReturnRequestService.canCreateExchangeParcel(request);
         String requestedAt = formatNullableTimestamp(request.getRequestedAt(), userZone);
         // Подставляем дату регистрации, если пользовательское обращение отсутствует, чтобы модалка не показывала дубль.
@@ -501,7 +502,8 @@ public class TrackViewService {
                 cancelExchangeReason,
                 request.isReturnReceiptConfirmed(),
                 formatNullableTimestamp(request.getReturnReceiptConfirmedAt(), userZone),
-                canConfirmReceipt
+                canConfirmReceipt,
+                canAcceptReverse
         );
     }
 

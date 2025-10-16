@@ -197,6 +197,7 @@ public class TrackController {
     /**
      * Одобряет запуск обмена по зарегистрированной заявке.
      */
+    @Deprecated
     @PostMapping("/{id}/returns/{requestId}/exchange")
     public TrackDetailsDto approveExchange(@PathVariable Long id,
                                            @PathVariable Long requestId,
@@ -219,6 +220,7 @@ public class TrackController {
     /**
      * Создаёт обменную посылку после одобрения обмена.
      */
+    @Deprecated
     @PostMapping("/{id}/returns/{requestId}/exchange/parcel")
     public ExchangeParcelCreationResponse createExchangeParcel(@PathVariable Long id,
                                                                @PathVariable Long requestId,
@@ -265,23 +267,12 @@ public class TrackController {
     /**
      * Подтверждает вручную обработку возврата без закрытия заявки.
      */
+    @Deprecated
     @PostMapping("/{id}/returns/{requestId}/confirm-processing")
     public TrackDetailsDto confirmReturnProcessing(@PathVariable Long id,
                                                    @PathVariable Long requestId,
                                                    @AuthenticationPrincipal User user) {
-        if (user == null) {
-            throw new AccessDeniedException("Пользователь не авторизован");
-        }
-        try {
-            orderReturnRequestService.confirmReturnProcessing(requestId, id, user);
-            return trackViewService.getTrackDetails(id, user.getId());
-        } catch (AccessDeniedException ex) {
-            throw ex;
-        } catch (IllegalArgumentException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
-        } catch (IllegalStateException ex) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
-        }
+        return acceptReturn(id, requestId, user);
     }
 
     /**
@@ -332,6 +323,7 @@ public class TrackController {
     /**
      * Переводит одобренный обмен обратно в статус возврата.
      */
+    @Deprecated
     @PostMapping("/{id}/returns/{requestId}/reopen")
     public ReturnRequestActionResponse reopenExchange(@PathVariable Long id,
                                                       @PathVariable Long requestId,
@@ -341,10 +333,7 @@ public class TrackController {
         }
         try {
             OrderReturnRequest updated = orderReturnRequestService.reopenAsReturn(requestId, id, user);
-            TrackDetailsDto details = trackViewService.getTrackDetails(id, user.getId());
-            ZoneId zone = resolveZone(details);
-            ActionRequiredReturnRequestDto action = returnRequestActionMapper.toDto(updated, zone);
-            return new ReturnRequestActionResponse(details, action);
+            return buildReturnRequestResponse(id, user, updated);
         } catch (AccessDeniedException ex) {
             throw ex;
         } catch (IllegalArgumentException ex) {
@@ -352,6 +341,130 @@ public class TrackController {
         } catch (IllegalStateException ex) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
         }
+    }
+
+    /**
+     * Переводит заявку из обмена обратно в возврат с актуализацией модалки.
+     */
+    @PostMapping("/{id}/returns/{requestId}/to-return")
+    public ReturnRequestActionResponse convertToReturn(@PathVariable Long id,
+                                                       @PathVariable Long requestId,
+                                                       @AuthenticationPrincipal User user) {
+        if (user == null) {
+            throw new AccessDeniedException("Пользователь не авторизован");
+        }
+        try {
+            OrderReturnRequest updated = orderReturnRequestService.reopenAsReturn(requestId, id, user);
+            return buildReturnRequestResponse(id, user, updated);
+        } catch (AccessDeniedException ex) {
+            throw ex;
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Переводит заявку возврата в режим обмена без запуска посылки.
+     */
+    @PostMapping("/{id}/returns/{requestId}/to-exchange")
+    public ReturnRequestActionResponse convertToExchange(@PathVariable Long id,
+                                                         @PathVariable Long requestId,
+                                                         @AuthenticationPrincipal User user) {
+        if (user == null) {
+            throw new AccessDeniedException("Пользователь не авторизован");
+        }
+        try {
+            OrderReturnRequest updated = orderReturnRequestService.approveExchange(requestId, id, user);
+            return buildReturnRequestResponse(id, user, updated);
+        } catch (AccessDeniedException ex) {
+            throw ex;
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Запускает обмен и создаёт обменную посылку.
+     */
+    @PostMapping("/{id}/returns/{requestId}/exchange/launch")
+    public ReturnRequestActionResponse launchExchange(@PathVariable Long id,
+                                                      @PathVariable Long requestId,
+                                                      @AuthenticationPrincipal User user) {
+        if (user == null) {
+            throw new AccessDeniedException("Пользователь не авторизован");
+        }
+        try {
+            OrderReturnRequest updated = orderReturnRequestService.launchExchange(requestId, id, user);
+            return buildReturnRequestResponse(id, user, updated);
+        } catch (AccessDeniedException ex) {
+            throw ex;
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Подтверждает получение обратной посылки при обмене.
+     */
+    @PostMapping("/{id}/returns/{requestId}/reverse/accept")
+    public ReturnRequestActionResponse acceptReverseShipment(@PathVariable Long id,
+                                                             @PathVariable Long requestId,
+                                                             @AuthenticationPrincipal User user) {
+        if (user == null) {
+            throw new AccessDeniedException("Пользователь не авторизован");
+        }
+        try {
+            OrderReturnRequest updated = orderReturnRequestService.acceptReverseShipment(requestId, id, user);
+            return buildReturnRequestResponse(id, user, updated);
+        } catch (AccessDeniedException ex) {
+            throw ex;
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Подтверждает получение возврата без запуска обмена.
+     */
+    @PostMapping("/{id}/returns/{requestId}/accept")
+    public TrackDetailsDto acceptReturn(@PathVariable Long id,
+                                        @PathVariable Long requestId,
+                                        @AuthenticationPrincipal User user) {
+        if (user == null) {
+            throw new AccessDeniedException("Пользователь не авторизован");
+        }
+        try {
+            orderReturnRequestService.confirmReturnProcessing(requestId, id, user);
+            return trackViewService.getTrackDetails(id, user.getId());
+        } catch (AccessDeniedException ex) {
+            throw ex;
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Формирует ответ для действий с заявкой на возврат.
+     */
+    private ReturnRequestActionResponse buildReturnRequestResponse(Long parcelId,
+                                                                   User user,
+                                                                   OrderReturnRequest request) {
+        TrackDetailsDto details = trackViewService.getTrackDetails(parcelId, user.getId());
+        ZoneId zone = resolveZone(details);
+        ActionRequiredReturnRequestDto action = request != null && request.requiresAction()
+                ? returnRequestActionMapper.toDto(request, zone)
+                : null;
+        return new ReturnRequestActionResponse(details, action);
     }
 
     /**
@@ -366,12 +479,7 @@ public class TrackController {
         }
         try {
             OrderReturnRequest updated = orderReturnRequestService.cancelExchange(requestId, id, user);
-            TrackDetailsDto details = trackViewService.getTrackDetails(id, user.getId());
-            ZoneId zone = resolveZone(details);
-            ActionRequiredReturnRequestDto action = updated.requiresAction()
-                    ? returnRequestActionMapper.toDto(updated, zone)
-                    : null;
-            return new ReturnRequestActionResponse(details, action);
+            return buildReturnRequestResponse(id, user, updated);
         } catch (AccessDeniedException ex) {
             throw ex;
         } catch (IllegalArgumentException ex) {
