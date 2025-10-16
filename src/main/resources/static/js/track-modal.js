@@ -2480,6 +2480,9 @@
             statusSection.appendChild(badgeRow);
             returnCard.body.appendChild(statusSection);
 
+            // Получаем разрешения, чтобы использовать единый источник прав при решении, нужна ли форма обновления трека.
+            const permissions = resolveReturnRequestPermissions(returnRequest);
+
             const actionsContainer = document.createElement('div');
             actionsContainer.className = 'd-flex flex-column gap-3 mt-3';
             actionsContainer.dataset.returnActionsContainer = 'true';
@@ -2487,12 +2490,13 @@
 
             let reverseFormController = null;
 
-            const canEditReverseTrack = Boolean(
+            // Форма должна существовать всегда, когда бэкенд разрешает редактирование обратного трека.
+            const canAttachReverseTrackForm = Boolean(
                 returnRequest?.id !== undefined
                 && data?.id !== undefined
-                && (!returnRequest?.reverseTrackNumber || returnRequest?.requiresAction)
+                && permissions.allowUpdateReverseTrack
             );
-            if (canEditReverseTrack) {
+            if (canAttachReverseTrackForm) {
                 const reverseFormElement = createReverseTrackForm(data.id, returnRequest);
                 reverseFormElement.classList.add('border', 'border-light', 'rounded-3', 'p-3', 'bg-body-tertiary');
                 reverseFormController = createReverseFormController(reverseFormElement);
