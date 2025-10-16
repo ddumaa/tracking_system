@@ -244,6 +244,10 @@
         if (ariaLabel) {
             button.setAttribute('aria-label', ariaLabel);
         }
+        button.dataset.defaultText = text || '';
+        if (ariaLabel !== undefined) {
+            button.dataset.defaultAriaLabel = ariaLabel || '';
+        }
         if (typeof onClick === 'function') {
             button.addEventListener('click', (event) => {
                 event.preventDefault();
@@ -251,6 +255,89 @@
             });
         }
         return button;
+    }
+
+    /**
+     * Возвращает элемент подсказки, связанный с кнопкой действия.
+     * Метод инкапсулирует поиск, чтобы разные обработчики не зависели от конкретной структуры DOM (SRP).
+     * @param {HTMLButtonElement} button кнопка действия
+     * @returns {HTMLElement|null} элемент подсказки или {@code null}
+     */
+    function findActionHintElement(button) {
+        if (!button || !(button instanceof HTMLElement)) {
+            return null;
+        }
+        const hintId = button.dataset.actionHintId;
+        if (hintId) {
+            return document.getElementById(hintId);
+        }
+        const sibling = button.nextElementSibling;
+        if (sibling && sibling.dataset && sibling.dataset.actionHint === 'true') {
+            return sibling;
+        }
+        return null;
+    }
+
+    /**
+     * Сбрасывает пользовательскую подсказку кнопки к значениям по умолчанию.
+     * Метод поддерживает принцип повторного использования: любые действия перед вызовом API восстанавливают стабильное состояние UI.
+     * @param {HTMLButtonElement} button кнопка действия
+     */
+    function resetActionButtonFeedback(button) {
+        if (!button || !(button instanceof HTMLElement)) {
+            return;
+        }
+        const defaultText = button.dataset.defaultText;
+        if (typeof defaultText === 'string') {
+            button.textContent = defaultText;
+        }
+        if (button.dataset.defaultAriaLabel !== undefined) {
+            const defaultAria = button.dataset.defaultAriaLabel;
+            if (defaultAria && defaultAria.length > 0) {
+                button.setAttribute('aria-label', defaultAria);
+            } else {
+                button.removeAttribute('aria-label');
+            }
+        }
+        button.removeAttribute('aria-describedby');
+        button.removeAttribute('title');
+        button.removeAttribute('data-bs-original-title');
+        button.removeAttribute('data-action-unavailable');
+
+        const hint = findActionHintElement(button);
+        if (hint) {
+            hint.textContent = '';
+            hint.classList.add('visually-hidden');
+            hint.setAttribute('aria-hidden', 'true');
+        }
+    }
+
+    /**
+     * Отображает сообщение о недоступности действия под кнопкой.
+     * Метод централизует формирование подсказок, чтобы при любой ошибке пользователь получал единообразный фидбек (LSP).
+     * @param {HTMLButtonElement} button кнопка действия
+     * @param {string} reason текст причины недоступности
+     */
+    function showActionButtonUnavailable(button, reason) {
+        if (!button || !(button instanceof HTMLElement)) {
+            return;
+        }
+        const normalizedReason = (typeof reason === 'string' && reason.trim().length > 0)
+            ? reason.trim()
+            : 'Действие недоступно';
+        const hint = findActionHintElement(button);
+        if (hint) {
+            const message = normalizedReason === 'Действие недоступно'
+                ? normalizedReason
+                : `Действие недоступно. ${normalizedReason}`;
+            hint.textContent = message;
+            hint.classList.remove('visually-hidden');
+            hint.setAttribute('aria-hidden', 'false');
+            button.setAttribute('aria-describedby', hint.id);
+        } else {
+            button.setAttribute('title', normalizedReason);
+        }
+        button.setAttribute('data-action-unavailable', 'true');
     }
 
     /**
@@ -833,6 +920,7 @@
             return;
         }
         if (button) {
+            resetActionButtonFeedback(button);
             button.disabled = true;
             button.setAttribute('aria-busy', 'true');
         }
@@ -840,6 +928,7 @@
             await action();
         } catch (error) {
             notifyUser(error?.message || 'Не удалось выполнить действие', 'danger');
+            showActionButtonUnavailable(button, error?.message);
         } finally {
             if (button && document.body.contains(button)) {
                 button.disabled = false;
@@ -1501,6 +1590,21 @@
     }
 
     /**
+     * Гарантирует наличие идентификаторов посылки и обращения перед выполнением действий.
+     * Метод устраняет дублирование проверок в обработчиках, соблюдая DRY и принцип единой ответственности.
+     * @param {number|string} trackId идентификатор посылки
+     * @param {number|string} requestId идентификатор обращения
+     */
+    function assertReturnActionContext(trackId, requestId) {
+        if (trackId === undefined || trackId === null || trackId === '') {
+            throw new Error('Действие недоступно: не указана посылка');
+        }
+        if (requestId === undefined || requestId === null || requestId === '') {
+            throw new Error('Действие недоступно: не указано обращение');
+        }
+    }
+
+    /**
      * Нормализует карту разрешений на действия с обращением.
      * Метод ожидает структуру, предоставленную сервером, но также поддерживает устаревшие флаги.
      * @param {Object|null} returnRequest DTO обращения
@@ -1543,20 +1647,6 @@
     }
 
     /**
-     * Маппинг действий на соответствующие флаги разрешений.
-     * Позволяет переиспользовать единую функцию проверки доступности кнопок.
-     */
-    const ACTION_PERMISSION_KEYS = Object.freeze({
-        [ReturnRequestAction.ACCEPT]: 'allowAccept',
-        [ReturnRequestAction.LAUNCH_EXCHANGE]: 'allowLaunchExchange',
-        [ReturnRequestAction.ACCEPT_REVERSE]: 'allowAcceptReverse',
-        [ReturnRequestAction.CLOSE]: 'allowClose',
-        [ReturnRequestAction.TO_RETURN]: 'allowConvertToReturn',
-        [ReturnRequestAction.TO_EXCHANGE]: 'allowConvertToExchange',
-        [ReturnRequestAction.UPDATE_REVERSE_TRACK]: 'allowUpdateReverseTrack'
-    });
-
-    /**
      * Создаёт кнопку действия обращения согласно идентификатору.
      * Метод инкапсулирует обработчики кликов, чтобы в {@link renderReturnActionsSection}
      * осталась только декларативная сборка интерфейса.
@@ -1564,12 +1654,11 @@
      * @param {Object} context контекст исполнения
      * @param {number} context.trackId идентификатор трека
      * @param {Object} context.returnRequest DTO обращения
-     * @param {Object} context.permissions карта разрешений
      * @param {Object|null} context.reverseFormController контроллер формы обратного трека
      * @returns {HTMLButtonElement|null} созданная кнопка либо {@code null}
      */
     function buildReturnRequestAction(actionId, context) {
-        const { trackId, returnRequest, permissions, reverseFormController } = context;
+        const { trackId, returnRequest, reverseFormController } = context;
         const requestId = returnRequest?.id;
         const canOperate = trackId !== undefined && requestId !== undefined;
 
@@ -1731,6 +1820,7 @@
      * @param {Object} params.returnRequest DTO заявки
      * @param {number} params.trackId идентификатор трека
      * @param {Object|null} params.reverseFormController контроллер формы обратного трека
+     * @param {boolean} [params.reverseActionAllowed] признак доступности обновления обратного трека
      */
     function renderReturnActionsSection(container, params) {
         if (!container) {
@@ -1740,13 +1830,13 @@
             state,
             returnRequest,
             trackId,
-            reverseFormController
+            reverseFormController,
+            reverseActionAllowed = false
         } = params || {};
 
         const normalizedState = isKnownReturnRequestState(state)
             ? state
             : ReturnRequestState.RETURN;
-        const permissions = resolveReturnRequestPermissions(returnRequest);
 
         container.replaceChildren();
 
@@ -1758,23 +1848,12 @@
         secondaryStack.className = 'd-flex flex-column gap-2';
         secondaryStack.dataset.returnSecondaryActions = 'true';
 
-        const applyAvailability = (button, allowed) => {
-            if (!button) {
-                return;
-            }
-            const canShow = Boolean(allowed);
-            button.classList.toggle('d-none', !canShow);
-            button.setAttribute('aria-hidden', canShow ? 'false' : 'true');
-            button.disabled = !canShow;
-            button.setAttribute('aria-disabled', canShow ? 'false' : 'true');
-        };
-
-        const reverseAllowed = Boolean(permissions.allowUpdateReverseTrack)
+        const reverseAllowed = Boolean(reverseFormController)
+            && reverseActionAllowed
             && trackId !== undefined
-            && returnRequest?.id !== undefined
-            && reverseFormController;
+            && returnRequest?.id !== undefined;
 
-        if (reverseFormController && !reverseAllowed) {
+        if (reverseFormController && !reverseAllowed && typeof reverseFormController.hide === 'function') {
             reverseFormController.hide();
         }
 
@@ -1783,7 +1862,6 @@
         const context = {
             trackId,
             returnRequest,
-            permissions,
             reverseFormController: reverseAllowed ? reverseFormController : null
         };
 
@@ -1792,10 +1870,22 @@
             if (!button) {
                 return;
             }
-            const permissionFlag = ACTION_PERMISSION_KEYS[actionId];
-            const allowed = permissionFlag ? permissions[permissionFlag] : true;
-            applyAvailability(button, allowed);
-            stack.appendChild(button);
+            const wrapper = document.createElement('div');
+            wrapper.className = 'd-flex flex-column gap-1';
+            wrapper.dataset.returnActionWrapper = String(actionId);
+
+            const hint = document.createElement('span');
+            hint.className = 'text-muted small visually-hidden';
+            hint.dataset.actionHint = 'true';
+            hint.setAttribute('aria-hidden', 'true');
+            hint.setAttribute('role', 'status');
+            hint.setAttribute('aria-live', 'polite');
+            const hintId = generateElementId('return-action-hint');
+            hint.id = hintId;
+            button.dataset.actionHintId = hintId;
+
+            wrapper.append(button, hint);
+            stack.appendChild(wrapper);
         };
 
         stateActions.primary.forEach((actionId) => appendAction(primaryStack, actionId));
@@ -2037,9 +2127,7 @@
     }
 
     async function handleCloseReturnAction(trackId, requestId, options = {}) {
-        if (!trackId || !requestId) {
-            return null;
-        }
+        assertReturnActionContext(trackId, requestId);
         const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/close`);
         invalidateLazyDataCache(trackId);
         renderTrackModal(payload);
@@ -2074,9 +2162,7 @@
      * @param {Object} options параметры уведомления
      */
     async function handleConfirmProcessingAction(trackId, requestId, options = {}) {
-        if (!trackId || !requestId) {
-            return null;
-        }
+        assertReturnActionContext(trackId, requestId);
         const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/accept`);
         invalidateLazyDataCache(trackId);
         renderTrackModal(payload);
@@ -2108,9 +2194,7 @@
      * @param {Object} options параметры уведомления
      */
     async function handleAcceptReverseShipmentAction(trackId, requestId, options = {}) {
-        if (!trackId || !requestId) {
-            return null;
-        }
+        assertReturnActionContext(trackId, requestId);
         const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/reverse/accept`);
         const details = payload?.details ?? payload ?? null;
         invalidateLazyDataCache(trackId);
@@ -2135,9 +2219,7 @@
      * @param {Object} options параметры уведомления
      */
     async function handleReopenReturnAction(trackId, requestId, options = {}) {
-        if (!trackId || !requestId) {
-            return null;
-        }
+        assertReturnActionContext(trackId, requestId);
         const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/to-return`);
         const details = payload?.details ?? payload ?? null;
         invalidateLazyDataCache(trackId);
@@ -2166,9 +2248,7 @@
      * @param {Object} options параметры уведомления
      */
     async function handleConvertToExchangeAction(trackId, requestId, options = {}) {
-        if (!trackId || !requestId) {
-            return null;
-        }
+        assertReturnActionContext(trackId, requestId);
         const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/to-exchange`);
         const details = payload?.details ?? payload ?? null;
         invalidateLazyDataCache(trackId);
@@ -2481,7 +2561,14 @@
             returnCard.body.appendChild(statusSection);
 
             // Получаем разрешения, чтобы использовать единый источник прав при решении, нужна ли форма обновления трека.
-            const permissions = resolveReturnRequestPermissions(returnRequest);
+            const computeReverseActionAllowed = () => {
+                const permissions = resolveReturnRequestPermissions(returnRequest);
+                return Boolean(
+                    returnRequest?.id !== undefined
+                    && data?.id !== undefined
+                    && permissions.allowUpdateReverseTrack
+                );
+            };
 
             const actionsContainer = document.createElement('div');
             actionsContainer.className = 'd-flex flex-column gap-3 mt-3';
@@ -2491,11 +2578,7 @@
             let reverseFormController = null;
 
             // Форма должна существовать всегда, когда бэкенд разрешает редактирование обратного трека.
-            const canAttachReverseTrackForm = Boolean(
-                returnRequest?.id !== undefined
-                && data?.id !== undefined
-                && permissions.allowUpdateReverseTrack
-            );
+            const canAttachReverseTrackForm = computeReverseActionAllowed();
             if (canAttachReverseTrackForm) {
                 const reverseFormElement = createReverseTrackForm(data.id, returnRequest);
                 reverseFormElement.classList.add('border', 'border-light', 'rounded-3', 'p-3', 'bg-body-tertiary');
@@ -2515,7 +2598,8 @@
                     state: stateValue,
                     returnRequest,
                     trackId,
-                    reverseFormController
+                    reverseFormController,
+                    reverseActionAllowed: computeReverseActionAllowed()
                 });
             };
 
