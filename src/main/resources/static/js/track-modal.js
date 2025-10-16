@@ -7,6 +7,14 @@
     /** Счётчик для генерации уникальных идентификаторов элементов формы. */
     let elementSequence = 0;
 
+    /** Перечень предустановленных причин возврата/обмена. */
+    const RETURN_REASON_OPTIONS = [
+        { value: 'Не подошло', label: 'Не подошло' },
+        { value: 'Брак', label: 'Брак' },
+        { value: 'Не понравилось', label: 'Не понравилось' },
+        { value: 'Другое', label: 'Другое' }
+    ];
+
     /**
      * Останавливает активный таймер обновления.
      * Метод вызывается при повторном рендере и закрытии модального окна,
@@ -221,6 +229,281 @@
         elementSequence += 1;
         const safePrefix = prefix || 'control';
         return `${safePrefix}-${elementSequence}`;
+    }
+
+    /**
+     * Формирует идемпотентный ключ для регистрации заявки.
+     * Метод использует доступный API браузера и гарантирует уникальность (SRP).
+     * @returns {string} уникальный идентификатор запроса
+     */
+    function generateIdempotencyKey() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return window.crypto.randomUUID();
+        }
+        if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+            const buffer = new Uint32Array(4);
+            window.crypto.getRandomValues(buffer);
+            return Array.from(buffer, (value) => value.toString(16).padStart(8, '0')).join('-');
+        }
+        const timestamp = Date.now().toString(16);
+        const random = Math.random().toString(16).slice(2, 10);
+        return `return-${timestamp}-${random}`;
+    }
+
+    /**
+     * Создаёт радио-контрол для выбора типа заявки.
+     * Метод изолирует генерацию элемента, чтобы облегчить поддержку (SRP/OCP).
+     * @param {string} name имя группы радио-кнопок
+     * @param {string} value значение радио-кнопки
+     * @param {string} labelText подпись элемента
+     * @param {boolean} checked выбран ли элемент по умолчанию
+     * @returns {HTMLElement} контейнер с радио-кнопкой и подписью
+     */
+    function buildRadioOption(name, value, labelText, checked) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'form-check form-check-inline';
+
+        const id = generateElementId(name);
+
+        const input = document.createElement('input');
+        input.type = 'radio';
+        input.className = 'form-check-input';
+        input.name = name;
+        input.id = id;
+        input.value = value;
+        if (checked) {
+            input.checked = true;
+        }
+
+        const label = document.createElement('label');
+        label.className = 'form-check-label';
+        label.htmlFor = id;
+        label.textContent = labelText;
+
+        wrapper.append(input, label);
+        return wrapper;
+    }
+
+    /**
+     * Подготавливает карточку для создания заявки на возврат/обмен.
+     * Метод возвращает готовую структуру карточки либо {@code null}, если оформление недоступно.
+     * @param {Object} details DTO с подробностями трека
+     * @returns {{card: HTMLElement, body: HTMLElement, heading: HTMLElement|null}|null} карточка или {@code null}
+     */
+    function createReturnRequestCard(details) {
+        if (!details || typeof details !== 'object') {
+            return null;
+        }
+        if (!details.canRegisterReturn || details.id === undefined) {
+            return null;
+        }
+
+        const { card, body } = createCard('Возврат или обмен');
+
+        const hint = document.createElement('p');
+        hint.className = 'text-muted small';
+        hint.textContent = 'Оформите заявку, чтобы зафиксировать обращение покупателя.';
+        body.appendChild(hint);
+
+        const form = document.createElement('form');
+        form.className = 'd-flex flex-column gap-3';
+        form.setAttribute('novalidate', 'novalidate');
+
+        const typeFieldset = document.createElement('fieldset');
+        typeFieldset.className = 'd-flex flex-column gap-2';
+        const typeLegend = document.createElement('legend');
+        typeLegend.className = 'form-label fw-semibold mb-0';
+        typeLegend.textContent = 'Тип заявки';
+        typeFieldset.appendChild(typeLegend);
+
+        const typeOptions = document.createElement('div');
+        typeOptions.className = 'd-flex flex-wrap gap-3';
+        typeOptions.append(
+            buildRadioOption('returnRequestType', 'return', 'Возврат', true),
+            buildRadioOption('returnRequestType', 'exchange', 'Обмен', false)
+        );
+        typeFieldset.appendChild(typeOptions);
+        form.appendChild(typeFieldset);
+
+        const reasonGroup = document.createElement('div');
+        reasonGroup.className = 'd-flex flex-column gap-2';
+        const reasonId = generateElementId('return-reason');
+        const reasonLabel = document.createElement('label');
+        reasonLabel.className = 'form-label fw-semibold mb-0';
+        reasonLabel.htmlFor = reasonId;
+        reasonLabel.textContent = 'Причина обращения';
+        const reasonSelect = document.createElement('select');
+        reasonSelect.className = 'form-select';
+        reasonSelect.id = reasonId;
+        reasonSelect.required = true;
+        reasonSelect.name = 'returnReason';
+        const placeholderOption = document.createElement('option');
+        placeholderOption.value = '';
+        placeholderOption.textContent = 'Выберите причину';
+        placeholderOption.disabled = true;
+        placeholderOption.selected = true;
+        reasonSelect.appendChild(placeholderOption);
+        RETURN_REASON_OPTIONS.forEach((option) => {
+            const opt = document.createElement('option');
+            opt.value = option.value;
+            opt.textContent = option.label;
+            reasonSelect.appendChild(opt);
+        });
+        const reasonFeedback = document.createElement('div');
+        reasonFeedback.className = 'invalid-feedback';
+        reasonFeedback.textContent = 'Пожалуйста, выберите причину обращения.';
+        reasonSelect.addEventListener('input', () => {
+            reasonSelect.classList.remove('is-invalid');
+        });
+        reasonGroup.append(reasonLabel, reasonSelect, reasonFeedback);
+        form.appendChild(reasonGroup);
+
+        const reverseGroup = document.createElement('div');
+        reverseGroup.className = 'd-flex flex-column gap-2';
+        const reverseId = generateElementId('return-reverse');
+        const reverseLabel = document.createElement('label');
+        reverseLabel.className = 'form-label fw-semibold mb-0';
+        reverseLabel.htmlFor = reverseId;
+        reverseLabel.textContent = 'Трек обратной посылки (необязательно)';
+        const reverseInput = document.createElement('input');
+        reverseInput.type = 'text';
+        reverseInput.className = 'form-control';
+        reverseInput.id = reverseId;
+        reverseInput.name = 'returnReverseTrack';
+        reverseInput.maxLength = 64;
+        reverseInput.placeholder = 'Например, BY1234567890';
+        reverseGroup.append(reverseLabel, reverseInput);
+        form.appendChild(reverseGroup);
+
+        const commentGroup = document.createElement('div');
+        commentGroup.className = 'd-flex flex-column gap-2';
+        const commentId = generateElementId('return-comment');
+        const commentLabel = document.createElement('label');
+        commentLabel.className = 'form-label fw-semibold mb-0';
+        commentLabel.htmlFor = commentId;
+        commentLabel.textContent = 'Комментарий (необязательно)';
+        const commentInput = document.createElement('textarea');
+        commentInput.className = 'form-control';
+        commentInput.id = commentId;
+        commentInput.name = 'returnComment';
+        commentInput.rows = 3;
+        commentInput.maxLength = 2000;
+        commentGroup.append(commentLabel, commentInput);
+        form.appendChild(commentGroup);
+
+        const submitButton = document.createElement('button');
+        submitButton.type = 'submit';
+        submitButton.className = 'btn btn-primary';
+        submitButton.textContent = 'Создать заявку';
+        submitButton.dataset.defaultText = submitButton.textContent;
+
+        form.appendChild(submitButton);
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            submitReturnRequest({
+                trackId: details.id,
+                form,
+                typeFieldName: 'returnRequestType',
+                reasonSelect,
+                reverseInput,
+                commentInput,
+                submitButton
+            });
+        });
+
+        body.appendChild(form);
+        return { card, body, heading: null };
+    }
+
+    /**
+     * Отправляет запрос на создание заявки и обрабатывает ответ.
+     * Метод разделяет этапы валидации, сетевого вызова и обработки UI (SRP).
+     * @param {Object} options набор параметров формы
+     */
+    function submitReturnRequest(options) {
+        const {
+            trackId,
+            form,
+            typeFieldName,
+            reasonSelect,
+            reverseInput,
+            commentInput,
+            submitButton
+        } = options || {};
+
+        if (!trackId || !form || !reasonSelect || !submitButton) {
+            return;
+        }
+
+        const reasonValue = (reasonSelect.value || '').trim();
+        if (!reasonValue) {
+            reasonSelect.classList.add('is-invalid');
+            notifyUser('Выберите причину обращения перед отправкой заявки', 'warning');
+            reasonSelect.focus();
+            return;
+        }
+
+        const typeValue = form.elements[typeFieldName]?.value || 'return';
+        const isExchange = typeValue === 'exchange';
+        const reverseValue = (reverseInput?.value || '').trim();
+        const commentValue = (commentInput?.value || '').trim();
+
+        const payload = {
+            idempotencyKey: generateIdempotencyKey(),
+            reason: reasonValue,
+            requestedAt: new Date().toISOString(),
+            comment: commentValue.length > 0 ? commentValue : null,
+            reverseTrackNumber: reverseValue.length > 0 ? reverseValue : null,
+            isExchange
+        };
+
+        const headers = {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            ...buildCsrfHeaders()
+        };
+
+        const originalText = submitButton.textContent;
+        submitButton.disabled = true;
+        submitButton.setAttribute('aria-disabled', 'true');
+        submitButton.textContent = 'Создаём…';
+
+        fetch(`/api/v1/tracks/${trackId}/returns`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload)
+        })
+            .then(async (response) => {
+                const contentType = response.headers.get('content-type') || '';
+                let bodyPayload = null;
+                if (contentType.includes('application/json')) {
+                    bodyPayload = await response.json();
+                }
+                if (!response.ok) {
+                    const message = bodyPayload?.message || 'Не удалось создать заявку';
+                    throw new Error(message);
+                }
+                return bodyPayload;
+            })
+            .then((details) => {
+                if (details) {
+                    renderTrackModal(details);
+                }
+                notifyUser(isExchange ? 'Заявка на обмен создана' : 'Заявка на возврат создана', 'success');
+                if (typeof window.returnRequests?.refreshEmptyState === 'function') {
+                    window.returnRequests.refreshEmptyState();
+                }
+            })
+            .catch((error) => {
+                const message = error?.message || 'Не удалось создать заявку';
+                notifyUser(`Ошибка: ${message}`, 'danger');
+            })
+            .finally(() => {
+                submitButton.disabled = false;
+                submitButton.setAttribute('aria-disabled', 'false');
+                submitButton.textContent = originalText;
+            });
     }
 
     /**
@@ -1088,7 +1371,8 @@
 
         container.appendChild(mainColumn);
 
-        const sideCards = [lifecycleCard]
+        const returnCard = createReturnRequestCard(data);
+        const sideCards = [lifecycleCard, returnCard]
             .filter((cardInfo) => Boolean(cardInfo));
 
         if (sideCards.length > 0) {
