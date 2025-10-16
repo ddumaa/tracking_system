@@ -1343,11 +1343,11 @@
     const RETURN_REQUEST_STATE_DESCRIPTORS = Object.freeze({
         [ReturnRequestState.RETURN]: Object.freeze({
             statusLabel: 'Возврат в обработке',
-            hint: 'Заявка оформлена как возврат. Примите возврат или переведите обращение в обмен.'
+            hint: 'Заявка оформлена как возврат. Примите обратную посылку или переведите обращение в обмен.'
         }),
         [ReturnRequestState.EXCHANGE]: Object.freeze({
             statusLabel: 'Обмен в обработке',
-            hint: 'Заявка оформлена как обмен. Создайте обменную посылку или переведите обращение в возврат.'
+            hint: 'Заявка оформлена как обмен. Создайте обменное отправление или переведите обращение в возврат.'
         })
     });
 
@@ -1667,12 +1667,12 @@
                 return null;
             }
             return createActionButton({
-                text: 'Принять возврат',
+                text: 'Принять обратную посылку',
                 variant: 'success',
-                ariaLabel: 'Подтвердить получение возврата и завершить обращение',
+                ariaLabel: 'Подтвердить получение обратной посылки и зафиксировать закрытие обращения',
                 onClick: (button) => runButtonAction(button, async () => {
                     const result = await handleConfirmProcessingAction(trackId, requestId, {
-                        successMessage: 'Возврат подтверждён',
+                        successMessage: 'Обратная посылка принята',
                         notificationType: 'success'
                     });
                     const nextState = extractNextState(result);
@@ -1688,12 +1688,12 @@
                 return null;
             }
             return createActionButton({
-                text: 'Создать обменную посылку',
+                text: 'Создать обменное отправление',
                 variant: 'primary',
-                ariaLabel: 'Создать обменную посылку по обращению',
+                ariaLabel: 'Создать обменную посылку и указать трек номер',
                 onClick: (button) => runButtonAction(button, async () => {
                     const result = await handleApproveExchangeAction(trackId, requestId, {
-                        successMessage: 'Обменная посылка создана',
+                        successMessage: 'Обменное отправление создано',
                         notificationType: 'info'
                     });
                     const nextState = extractNextState(result);
@@ -1735,7 +1735,7 @@
                 ariaLabel: 'Закрыть обращение без продолжения процесса',
                 onClick: (button) => runButtonAction(button, async () => {
                     const result = await handleCloseReturnAction(trackId, requestId, {
-                        successMessage: 'Обращение закрыто',
+                        successMessage: 'Обращение закрыто без результата',
                         notificationType: 'warning'
                     });
                     const nextState = extractNextState(result);
@@ -1748,6 +1748,9 @@
             });
         case ReturnRequestAction.TO_RETURN:
             if (!canOperate) {
+                return null;
+            }
+            if (returnRequest?.exchangeParcel && returnRequest.exchangeParcel.id !== undefined) {
                 return null;
             }
             return createActionButton({
@@ -1776,7 +1779,7 @@
                 variant: 'primary',
                 ariaLabel: 'Перевести обращение в обмен перед запуском процесса',
                 onClick: (button) => runButtonAction(button, async () => {
-                    const result = await handleConvertToExchangeAction(trackId, requestId, {
+                    const result = await handleApproveExchangeRequestAction(trackId, requestId, {
                         successMessage: 'Заявка переведена в обмен',
                         notificationType: 'info'
                     });
@@ -1856,8 +1859,33 @@
             reverseFormController.hide();
         }
 
+        const permissions = resolveReturnRequestPermissions(returnRequest);
+        const permissionByAction = {
+            [ReturnRequestAction.ACCEPT]: 'allowAccept',
+            [ReturnRequestAction.LAUNCH_EXCHANGE]: 'allowLaunchExchange',
+            [ReturnRequestAction.ACCEPT_REVERSE]: permissions.allowAcceptReverse
+                ? 'allowAcceptReverse'
+                : 'allowAccept',
+            [ReturnRequestAction.CLOSE]: 'allowClose',
+            [ReturnRequestAction.TO_RETURN]: 'allowConvertToReturn',
+            [ReturnRequestAction.TO_EXCHANGE]: 'allowConvertToExchange',
+            [ReturnRequestAction.UPDATE_REVERSE_TRACK]: 'allowUpdateReverseTrack'
+        };
+        const isActionAllowed = (actionId) => {
+            const permissionKey = permissionByAction[actionId];
+            if (!permissionKey) {
+                return true;
+            }
+            if (permissionKey === 'allowAcceptReverse' && !permissions.allowAcceptReverse) {
+                return false;
+            }
+            return Boolean(permissions[permissionKey]);
+        };
+
         const stateActions = RETURN_REQUEST_STATE_ACTIONS[normalizedState]
             || { primary: [], secondary: [] };
+        const primaryActions = stateActions.primary.filter(isActionAllowed);
+        const secondaryActions = stateActions.secondary.filter(isActionAllowed);
         const context = {
             trackId,
             returnRequest,
@@ -1887,8 +1915,8 @@
             stack.appendChild(wrapper);
         };
 
-        stateActions.primary.forEach((actionId) => appendAction(primaryStack, actionId));
-        stateActions.secondary.forEach((actionId) => appendAction(secondaryStack, actionId));
+        primaryActions.forEach((actionId) => appendAction(primaryStack, actionId));
+        secondaryActions.forEach((actionId) => appendAction(secondaryStack, actionId));
 
         if (primaryStack.childElementCount > 0) {
             container.appendChild(primaryStack);
@@ -2105,20 +2133,22 @@
         if (!trackId || !requestId) {
             return null;
         }
-        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/exchange/launch`);
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/exchange/parcel`);
         const details = payload?.details ?? payload ?? null;
+        const exchangeItem = payload?.exchange ?? null;
         invalidateLazyDataCache(trackId);
-        renderTrackModal(details);
+        renderTrackModal(details, { exchangeItem });
         if (details) {
             updateRowRequiresAction(details);
         }
-        if (typeof window.returnRequests?.removeRowByIds === 'function') {
-            window.returnRequests.removeRowByIds(trackId, requestId);
-        }
         updateActionTabCounter();
-        const successMessage = options.successMessage || 'Обмен запущен';
+        const successMessage = options.successMessage || 'Обменное отправление создано';
         const notificationType = options.notificationType || 'info';
         notifyUser(successMessage, notificationType);
+        if (exchangeItem && exchangeItem.id !== undefined && typeof promptTrackNumber === 'function') {
+            const trackNumber = exchangeItem.number || '';
+            promptTrackNumber(exchangeItem.id, trackNumber);
+        }
         return {
             details,
             state: extractNextState(payload)
@@ -2135,7 +2165,7 @@
             window.returnRequests.removeRowByIds(trackId, requestId);
         }
         updateActionTabCounter();
-        const message = options.successMessage || 'Обращение закрыто';
+        const message = options.successMessage || 'Обращение закрыто без результата';
         const notificationType = options.notificationType || 'info';
         notifyUser(message, notificationType);
         return {
@@ -2162,7 +2192,7 @@
      */
     async function handleConfirmProcessingAction(trackId, requestId, options = {}) {
         assertReturnActionContext(trackId, requestId);
-        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/accept`);
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/confirm-processing`);
         invalidateLazyDataCache(trackId);
         renderTrackModal(payload);
         updateRowRequiresAction(payload);
@@ -2177,7 +2207,7 @@
             });
         }
         updateActionTabCounter();
-        const message = options.successMessage || 'Возврат подтверждён';
+        const message = options.successMessage || 'Обратная посылка принята';
         const notificationType = options.notificationType || 'success';
         notifyUser(message, notificationType);
         return {
@@ -2193,22 +2223,7 @@
      * @param {Object} options параметры уведомления
      */
     async function handleAcceptReverseShipmentAction(trackId, requestId, options = {}) {
-        assertReturnActionContext(trackId, requestId);
-        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/reverse/accept`);
-        const details = payload?.details ?? payload ?? null;
-        invalidateLazyDataCache(trackId);
-        renderTrackModal(details);
-        if (details) {
-            updateRowRequiresAction(details);
-        }
-        updateActionTabCounter();
-        const message = options.successMessage || 'Обратная посылка принята';
-        const notificationType = options.notificationType || 'success';
-        notifyUser(message, notificationType);
-        return {
-            details,
-            state: extractNextState(payload)
-        };
+        return handleConfirmProcessingAction(trackId, requestId, options);
     }
 
     /**
@@ -2219,7 +2234,7 @@
      */
     async function handleReopenReturnAction(trackId, requestId, options = {}) {
         assertReturnActionContext(trackId, requestId);
-        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/to-return`);
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/reopen`);
         const details = payload?.details ?? payload ?? null;
         invalidateLazyDataCache(trackId);
         renderTrackModal(details);
@@ -2246,9 +2261,9 @@
      * @param {number} requestId идентификатор заявки
      * @param {Object} options параметры уведомления
      */
-    async function handleConvertToExchangeAction(trackId, requestId, options = {}) {
+    async function handleApproveExchangeRequestAction(trackId, requestId, options = {}) {
         assertReturnActionContext(trackId, requestId);
-        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/to-exchange`);
+        const payload = await sendReturnRequest(`/api/v1/tracks/${trackId}/returns/${requestId}/exchange`);
         const details = payload?.details ?? payload ?? null;
         invalidateLazyDataCache(trackId);
         renderTrackModal(details);
@@ -3076,7 +3091,7 @@
         render: renderTrackModal,
         invalidateLazySections: (trackId) => invalidateLazyDataCache(trackId),
         approveReturnExchange: (trackId, requestId, options) => handleApproveExchangeAction(trackId, requestId, options),
-        convertReturnRequestToExchange: (trackId, requestId, options) => handleConvertToExchangeAction(trackId, requestId, options),
+        convertReturnRequestToExchange: (trackId, requestId, options) => handleApproveExchangeRequestAction(trackId, requestId, options),
         cancelReturnExchange: (trackId, requestId, options) => handleCancelExchangeAction(trackId, requestId, options),
         closeReturnRequest: (trackId, requestId, options) => handleCloseReturnAction(trackId, requestId, options),
         reopenReturnRequest: (trackId, requestId, options) => handleReopenReturnAction(trackId, requestId, options),
