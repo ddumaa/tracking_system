@@ -1546,7 +1546,6 @@
             primary: [ReturnRequestAction.ACCEPT],
             secondary: [
                 ReturnRequestAction.TO_EXCHANGE,
-                ReturnRequestAction.UPDATE_REVERSE_TRACK,
                 ReturnRequestAction.CLOSE
             ]
         }),
@@ -2561,7 +2560,7 @@
             returnCard.body.appendChild(statusSection);
 
             // Получаем разрешения, чтобы использовать единый источник прав при решении, нужна ли форма обновления трека.
-            const computeReverseActionAllowed = () => {
+            const hasReverseFormPermission = () => {
                 const permissions = resolveReturnRequestPermissions(returnRequest);
                 return Boolean(
                     returnRequest?.id !== undefined
@@ -2570,15 +2569,47 @@
                 );
             };
 
+            let reverseFormController = null;
+
+            /**
+             * Определяет, доступна ли форма обратного трека для текущего состояния.
+             * Метод отделяет проверку разрешений от бизнес-логики показа формы,
+             * чтобы при смене состояния мы могли централизованно обновлять интерфейс.
+             * @param {string} stateValue нормализованное состояние обращения
+             * @returns {boolean} {@code true}, если форму можно показать
+             */
+            const shouldShowReverseForm = (stateValue) => {
+                if (!hasReverseFormPermission()) {
+                    return false;
+                }
+                const normalizedState = isKnownReturnRequestState(stateValue)
+                    ? stateValue
+                    : ReturnRequestState.RETURN;
+                return normalizedState === ReturnRequestState.EXCHANGE;
+            };
+
+            /**
+             * Синхронизирует видимость формы обратного трека с состоянием обращения.
+             * Метод гарантирует, что в режиме возврата форма скрывается,
+             * а в обменном сценарии остаётся под управлением пользователя.
+             * @param {string} stateValue нормализованное состояние обращения
+             */
+            const syncReverseFormVisibility = (stateValue) => {
+                if (!reverseFormController || typeof reverseFormController.hide !== 'function') {
+                    return;
+                }
+                if (!shouldShowReverseForm(stateValue)) {
+                    reverseFormController.hide();
+                }
+            };
+
             const actionsContainer = document.createElement('div');
             actionsContainer.className = 'd-flex flex-column gap-3 mt-3';
             actionsContainer.dataset.returnActionsContainer = 'true';
             returnCard.body.appendChild(actionsContainer);
 
-            let reverseFormController = null;
-
             // Форма должна существовать всегда, когда бэкенд разрешает редактирование обратного трека.
-            const canAttachReverseTrackForm = computeReverseActionAllowed();
+            const canAttachReverseTrackForm = hasReverseFormPermission();
             if (canAttachReverseTrackForm) {
                 const reverseFormElement = createReverseTrackForm(data.id, returnRequest);
                 reverseFormElement.classList.add('border', 'border-light', 'rounded-3', 'p-3', 'bg-body-tertiary');
@@ -2594,12 +2625,15 @@
 
             const rerenderActions = (stateValue) => {
                 applyReturnRequestState(stateValue, bindings, { returnRequest });
+                if (reverseFormController) {
+                    syncReverseFormVisibility(stateValue);
+                }
                 renderReturnActionsSection(actionsContainer, {
                     state: stateValue,
                     returnRequest,
                     trackId,
                     reverseFormController,
-                    reverseActionAllowed: computeReverseActionAllowed()
+                    reverseActionAllowed: shouldShowReverseForm(stateValue)
                 });
             };
 
