@@ -1093,6 +1093,59 @@
     }
 
     /**
+     * Создаёт контроллер отображения формы обратного трека.
+     * Метод централизует синхронизацию aria-атрибутов и класса `d-none`,
+     * чтобы любые ререндеры не рассогласовывали состояние (принцип SRP).
+     * @param {HTMLFormElement} form управляемая форма
+     * @returns {{element: HTMLFormElement, show: Function, hide: Function, toggle: Function, isVisible: Function}}
+     */
+    function createReverseFormController(form) {
+        if (!(form instanceof HTMLElement)) {
+            return null;
+        }
+
+        const HIDDEN_CLASS = 'd-none';
+
+        const focusReverseInput = () => {
+            const reverseInput = form.querySelector('input[name="reverseTrackNumber"]');
+            if (reverseInput instanceof HTMLElement) {
+                reverseInput.focus();
+            }
+        };
+
+        const setVisibility = (visible) => {
+            const isVisible = visible === true;
+            form.classList.toggle(HIDDEN_CLASS, !isVisible);
+            form.setAttribute('aria-hidden', isVisible ? 'false' : 'true');
+            form.dataset.reverseFormVisible = isVisible ? 'true' : 'false';
+        };
+
+        const controller = {
+            element: form,
+            show() {
+                setVisibility(true);
+                focusReverseInput();
+            },
+            hide() {
+                setVisibility(false);
+            },
+            toggle() {
+                if (this.isVisible()) {
+                    this.hide();
+                } else {
+                    this.show();
+                }
+            },
+            isVisible() {
+                return form.dataset.reverseFormVisible === 'true';
+            }
+        };
+
+        controller.hide();
+        return controller;
+    }
+
+    /**
      * Перечисление нормализованных состояний обращения, приходящих с сервера.
      * Значения отражают жизненный цикл заявки и позволяют синхронизировать интерфейс
      * без дополнительных эвристик (принцип SRP).
@@ -1512,11 +1565,11 @@
      * @param {number} context.trackId идентификатор трека
      * @param {Object} context.returnRequest DTO обращения
      * @param {Object} context.permissions карта разрешений
-     * @param {HTMLElement|null} context.reverseForm форма редактирования обратного трека
+     * @param {Object|null} context.reverseFormController контроллер формы обратного трека
      * @returns {HTMLButtonElement|null} созданная кнопка либо {@code null}
      */
     function buildReturnRequestAction(actionId, context) {
-        const { trackId, returnRequest, permissions, reverseForm } = context;
+        const { trackId, returnRequest, permissions, reverseFormController } = context;
         const requestId = returnRequest?.id;
         const canOperate = trackId !== undefined && requestId !== undefined;
 
@@ -1648,26 +1701,22 @@
                 fullWidth: true
             });
         case ReturnRequestAction.UPDATE_REVERSE_TRACK:
-            if (!reverseForm) {
+            if (!reverseFormController || !(reverseFormController.element instanceof HTMLElement)) {
                 return null;
             }
-            return createActionButton({
+            const button = createActionButton({
                 text: 'Добавить трек обратной посылки',
                 variant: 'outline-primary',
                 ariaLabel: 'Добавить или обновить трек обратной отправки',
-                onClick: () => {
-                    const willHide = !reverseForm.classList.contains('d-none');
-                    reverseForm.classList.toggle('d-none', willHide);
-                    reverseForm.setAttribute('aria-hidden', willHide ? 'true' : 'false');
-                    if (!willHide) {
-                        const reverseInput = reverseForm.querySelector('input[name="reverseTrackNumber"]');
-                        if (reverseInput instanceof HTMLElement) {
-                            reverseInput.focus();
-                        }
-                    }
+                onClick: (button) => {
+                    reverseFormController.toggle();
+                    const expanded = reverseFormController.isVisible();
+                    button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
                 },
                 fullWidth: true
             });
+            button.setAttribute('aria-expanded', reverseFormController.isVisible() ? 'true' : 'false');
+            return button;
         default:
             return null;
         }
@@ -1681,6 +1730,7 @@
      * @param {string} params.state нормализованное состояние
      * @param {Object} params.returnRequest DTO заявки
      * @param {number} params.trackId идентификатор трека
+     * @param {Object|null} params.reverseFormController контроллер формы обратного трека
      */
     function renderReturnActionsSection(container, params) {
         if (!container) {
@@ -1689,7 +1739,8 @@
         const {
             state,
             returnRequest,
-            trackId
+            trackId,
+            reverseFormController
         } = params || {};
 
         const normalizedState = isKnownReturnRequestState(state)
@@ -1718,15 +1769,13 @@
             button.setAttribute('aria-disabled', canShow ? 'false' : 'true');
         };
 
-        let reverseForm = null;
         const reverseAllowed = Boolean(permissions.allowUpdateReverseTrack)
             && trackId !== undefined
-            && returnRequest?.id !== undefined;
-        if (reverseAllowed) {
-            reverseForm = createReverseTrackForm(trackId, returnRequest);
-            reverseForm.classList.add('border', 'border-light', 'rounded-3', 'p-3', 'bg-body-tertiary');
-            reverseForm.classList.add('d-none');
-            reverseForm.setAttribute('aria-hidden', 'true');
+            && returnRequest?.id !== undefined
+            && reverseFormController;
+
+        if (reverseFormController && !reverseAllowed) {
+            reverseFormController.hide();
         }
 
         const stateActions = RETURN_REQUEST_STATE_ACTIONS[normalizedState]
@@ -1735,7 +1784,7 @@
             trackId,
             returnRequest,
             permissions,
-            reverseForm
+            reverseFormController: reverseAllowed ? reverseFormController : null
         };
 
         const appendAction = (stack, actionId) => {
@@ -1758,10 +1807,6 @@
         if (secondaryStack.childElementCount > 0) {
             container.appendChild(secondaryStack);
         }
-        if (reverseForm) {
-            container.appendChild(reverseForm);
-        }
-
         const hintText = getReturnRequestHint(returnRequest, normalizedState);
         const detailsUrl = firstNonEmpty(returnRequest?.detailsUrl, returnRequest?.hintUrl, returnRequest?.helpUrl);
         if (hintText) {
@@ -2440,6 +2485,20 @@
             actionsContainer.dataset.returnActionsContainer = 'true';
             returnCard.body.appendChild(actionsContainer);
 
+            let reverseFormController = null;
+
+            const canEditReverseTrack = Boolean(
+                returnRequest?.id !== undefined
+                && data?.id !== undefined
+                && (!returnRequest?.reverseTrackNumber || returnRequest?.requiresAction)
+            );
+            if (canEditReverseTrack) {
+                const reverseFormElement = createReverseTrackForm(data.id, returnRequest);
+                reverseFormElement.classList.add('border', 'border-light', 'rounded-3', 'p-3', 'bg-body-tertiary');
+                reverseFormController = createReverseFormController(reverseFormElement);
+                returnCard.body.appendChild(reverseFormElement);
+            }
+
             const bindings = {
                 typeBadge,
                 statusBadge,
@@ -2451,7 +2510,8 @@
                 renderReturnActionsSection(actionsContainer, {
                     state: stateValue,
                     returnRequest,
-                    trackId
+                    trackId,
+                    reverseFormController
                 });
             };
 
@@ -2538,15 +2598,6 @@
             appendDefinitionItem(shadowSummary, 'Трек обратной отправки', returnRequest.reverseTrackNumber || '—');
             returnCard.body.appendChild(shadowSummary);
 
-            const canEditReverseTrack = Boolean(
-                returnRequest?.id !== undefined
-                && data?.id !== undefined
-                && (!returnRequest?.reverseTrackNumber || returnRequest?.requiresAction)
-            );
-            if (canEditReverseTrack) {
-                const reverseForm = createReverseTrackForm(data.id, returnRequest);
-                returnCard.body.appendChild(reverseForm);
-            }
         } else if (canRegisterReturn && trackId !== undefined) {
             const intro = document.createElement('p');
             intro.className = 'text-muted small';
