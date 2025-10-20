@@ -294,7 +294,7 @@
         if (!details || typeof details !== 'object') {
             return null;
         }
-        if (!details.canRegisterReturn || details.id === undefined) {
+        if (!details.canRegisterReturn || details.id === undefined || details.returnRequest) {
             return null;
         }
 
@@ -319,8 +319,8 @@
         const typeOptions = document.createElement('div');
         typeOptions.className = 'd-flex flex-wrap gap-3';
         typeOptions.append(
-            buildRadioOption('returnRequestType', 'return', 'Возврат', true),
-            buildRadioOption('returnRequestType', 'exchange', 'Обмен', false)
+            buildRadioOption('return-type', 'return', 'Возврат', true),
+            buildRadioOption('return-type', 'exchange', 'Обмен', false)
         );
         typeFieldset.appendChild(typeOptions);
         form.appendChild(typeFieldset);
@@ -336,7 +336,7 @@
         reasonSelect.className = 'form-select';
         reasonSelect.id = reasonId;
         reasonSelect.required = true;
-        reasonSelect.name = 'returnReason';
+        reasonSelect.name = 'reason';
         const placeholderOption = document.createElement('option');
         placeholderOption.value = '';
         placeholderOption.textContent = 'Выберите причину';
@@ -369,7 +369,7 @@
         reverseInput.type = 'text';
         reverseInput.className = 'form-control';
         reverseInput.id = reverseId;
-        reverseInput.name = 'returnReverseTrack';
+        reverseInput.name = 'reverseTrackNumber';
         reverseInput.maxLength = 64;
         reverseInput.placeholder = 'Например, BY1234567890';
         reverseGroup.append(reverseLabel, reverseInput);
@@ -394,7 +394,7 @@
         const submitButton = document.createElement('button');
         submitButton.type = 'submit';
         submitButton.className = 'btn btn-primary';
-        submitButton.textContent = 'Создать заявку';
+        submitButton.textContent = 'Отправить заявку';
         submitButton.dataset.defaultText = submitButton.textContent;
 
         form.appendChild(submitButton);
@@ -404,7 +404,7 @@
             submitReturnRequest({
                 trackId: details.id,
                 form,
-                typeFieldName: 'returnRequestType',
+                typeFieldName: 'return-type',
                 reasonSelect,
                 reverseInput,
                 commentInput,
@@ -413,6 +413,831 @@
         });
 
         body.appendChild(form);
+        return { card, body, heading: null };
+    }
+
+    /**
+     * Определяет, в каком режиме находится обращение: возврат или обмен.
+     * Метод инкапсулирует проверку бизнес-флагов, чтобы UI не зависел от структуры DTO.
+     * @param {Object} request DTO активной заявки
+     * @returns {'return'|'exchange'} строковое представление режима
+     */
+    function resolveReturnRequestMode(request) {
+        if (!request || typeof request !== 'object') {
+            return 'return';
+        }
+        const permissions = request.actionPermissions || {};
+        const stateText = typeof request.state === 'string' ? request.state.toUpperCase() : '';
+        if (stateText.includes('EXCHANGE')) {
+            return 'exchange';
+        }
+        const exchangeIndicators = [
+            request.exchangeApproved,
+            request.exchangeRequested,
+            request.canCreateExchangeParcel,
+            request.canReopenAsReturn,
+            Boolean(permissions.allowConvertToReturn),
+            Boolean(permissions.allowAcceptReverse)
+        ];
+        if (exchangeIndicators.some(Boolean)) {
+            return 'exchange';
+        }
+        return 'return';
+    }
+
+    /**
+     * Выполняет синхронизацию таблицы заявок после изменения состояния обращения.
+     * Метод обновляет или удаляет строку, чтобы модалка и список "Требуют действия"
+     * оставались согласованными (SRP и принцип единственного источника правды).
+     * @param {Object} result ответ обработчика
+     * @param {Object} context дополнительные данные
+     * @param {number|string} context.trackId идентификатор посылки
+     * @param {number|string} context.requestId идентификатор заявки
+     */
+    function synchronizeReturnRequests(result, context = {}) {
+        const manager = window.returnRequests || null;
+        if (!manager || typeof manager !== 'object') {
+            return;
+        }
+
+        const { trackId, requestId } = context;
+        const updateRow = typeof manager.updateRow === 'function' ? manager.updateRow : null;
+        const removeRow = typeof manager.removeRowByIds === 'function' ? manager.removeRowByIds : null;
+        const refreshState = typeof manager.refreshEmptyState === 'function' ? manager.refreshEmptyState : null;
+
+        let hasActionSummary = false;
+        let actionSummary = null;
+        if (result && typeof result === 'object' && Object.prototype.hasOwnProperty.call(result, 'actionRequired')) {
+            hasActionSummary = true;
+            actionSummary = result.actionRequired;
+        }
+
+        if (hasActionSummary && actionSummary && updateRow) {
+            updateRow(actionSummary);
+        } else if (hasActionSummary && !actionSummary && removeRow) {
+            removeRow(trackId, requestId);
+        }
+
+        const normalizedDetails = result && typeof result === 'object' && 'details' in result
+            ? result.details
+            : (result && typeof result === 'object' && 'id' in result ? result : null);
+        if (!hasActionSummary && normalizedDetails && updateRow && normalizedDetails.returnRequest) {
+            const request = normalizedDetails.returnRequest;
+            const summary = {
+                parcelId: normalizedDetails.id,
+                requestId: request.id,
+                reverseTrackNumber: request.reverseTrackNumber || null,
+                comment: request.comment || null,
+                returnReceiptConfirmed: Boolean(request.returnReceiptConfirmed),
+                returnReceiptConfirmedAt: request.returnReceiptConfirmedAt || null,
+                canConfirmReceipt: Boolean(request.canConfirmReceipt),
+                actionPermissions: request.actionPermissions || undefined
+            };
+            updateRow(summary);
+        }
+
+        if (normalizedDetails && !normalizedDetails.returnRequest && removeRow) {
+            removeRow(trackId, requestId);
+        }
+
+        if (refreshState) {
+            refreshState();
+        }
+    }
+
+    /**
+     * Обрабатывает успешный результат выполнения действия по заявке.
+     * Метод перерисовывает модальное окно и синхронизирует список обращений.
+     * @param {Object} result ответ обработчика
+     * @param {Object} context дополнительные данные (см. {@link synchronizeReturnRequests})
+     */
+    function handleReturnRequestSuccess(result, context = {}) {
+        if (result === undefined || result === null) {
+            return;
+        }
+        const details = result && typeof result === 'object' && 'details' in result
+            ? result.details
+            : result;
+        if (details && typeof renderTrackModal === 'function') {
+            renderTrackModal(details);
+        }
+        synchronizeReturnRequests(result, context);
+    }
+
+    /**
+     * Нормализует набор разрешений для действий по обращению.
+     * Метод объединяет поля DTO и actionPermissions, обеспечивая единый интерфейс для UI.
+     * @param {Object} request данные заявки
+     * @returns {Object} карта разрешений
+     */
+    function resolveReturnRequestPermissions(request) {
+        const permissions = request?.actionPermissions || {};
+        return {
+            allowConfirmReceipt: Boolean(
+                permissions.allowAccept ?? request?.canConfirmReceipt
+            ),
+            allowConfirmReverse: Boolean(
+                permissions.allowAcceptReverse ?? request?.canConfirmReceipt
+            ),
+            allowConvertToExchange: Boolean(
+                permissions.allowConvertToExchange ?? request?.canStartExchange
+            ),
+            allowConvertToReturn: Boolean(
+                permissions.allowConvertToReturn ?? request?.canReopenAsReturn
+            ),
+            allowClose: Boolean(
+                permissions.allowClose ?? request?.canCloseWithoutExchange ?? request?.canCancelExchange
+            ),
+            allowUpdateReverseTrack: Boolean(
+                permissions.allowUpdateReverseTrack ?? (!request?.reverseTrackNumber)
+            ),
+            allowLaunchExchange: Boolean(
+                permissions.allowLaunchExchange ?? request?.canStartExchange
+            ),
+            allowCreateExchangeParcel: Boolean(request?.canCreateExchangeParcel),
+            allowCancelExchange: Boolean(request?.canCancelExchange)
+        };
+    }
+
+    /**
+     * Формирует форму обновления обратного трека и комментария обращения.
+     * Метод возвращает обёртку и ссылку на элементы, чтобы кнопки могли фокусировать форму.
+     * @param {Object} options параметры построения
+     * @param {Object} options.request DTO заявки
+     * @param {Object} options.context контекст с идентификаторами
+     * @returns {{container: HTMLElement, focus: Function}|null} контейнер формы и функция фокуса или {@code null}
+     */
+    function createReverseTrackForm({ request, context }) {
+        const permissions = resolveReturnRequestPermissions(request);
+        if (!permissions.allowUpdateReverseTrack && !request?.reverseTrackNumber) {
+            return null;
+        }
+
+        const form = document.createElement('form');
+        form.className = 'd-flex flex-column gap-2 mt-3';
+        form.dataset.reverseTrackForm = 'true';
+        form.setAttribute('data-reverse-track-form', 'true');
+
+        const reverseLabel = document.createElement('label');
+        reverseLabel.className = 'form-label fw-semibold mb-0';
+        reverseLabel.htmlFor = generateElementId('reverse-track-number');
+        reverseLabel.textContent = 'Трек обратной посылки';
+
+        const reverseInput = document.createElement('input');
+        reverseInput.type = 'text';
+        reverseInput.className = 'form-control';
+        reverseInput.name = 'reverseTrackNumber';
+        reverseInput.id = reverseLabel.htmlFor;
+        reverseInput.placeholder = 'RR123456789BY';
+        reverseInput.maxLength = 64;
+        reverseInput.value = request?.reverseTrackNumber || '';
+
+        const commentLabel = document.createElement('label');
+        commentLabel.className = 'form-label fw-semibold mb-0';
+        commentLabel.htmlFor = generateElementId('reverse-track-comment');
+        commentLabel.textContent = 'Комментарий к обращению';
+
+        const commentField = document.createElement('textarea');
+        commentField.className = 'form-control';
+        commentField.name = 'comment';
+        commentField.id = commentLabel.htmlFor;
+        commentField.rows = 3;
+        commentField.maxLength = 2000;
+        commentField.value = request?.comment || '';
+
+        const submitButton = document.createElement('button');
+        submitButton.type = 'submit';
+        submitButton.className = 'btn btn-primary btn-sm align-self-start';
+        submitButton.textContent = 'Сохранить данные';
+
+        form.append(reverseLabel, reverseInput, commentLabel, commentField, submitButton);
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const action = window.trackModal?.updateReverseTrack;
+            if (typeof action !== 'function') {
+                if (typeof window.notifyUser === 'function') {
+                    window.notifyUser('Обновление обратного трека временно недоступно', 'warning');
+                }
+                return;
+            }
+
+            const reverseValue = reverseInput.value.trim();
+            const commentValue = commentField.value.trim();
+            const normalizedReverse = reverseValue.length > 0 ? reverseValue.toUpperCase() : '';
+            if (normalizedReverse !== reverseInput.value) {
+                reverseInput.value = normalizedReverse;
+            }
+
+            submitButton.disabled = true;
+            submitButton.setAttribute('aria-busy', 'true');
+            try {
+                const result = await action(
+                    context.trackId,
+                    context.requestId,
+                    normalizedReverse,
+                    commentValue.length > 0 ? commentValue : null
+                );
+                handleReturnRequestSuccess(result, context);
+            } catch (error) {
+                const message = error?.message || 'Не удалось сохранить обратный трек';
+                if (typeof window.notifyUser === 'function') {
+                    window.notifyUser(`Ошибка: ${message}`, 'danger');
+                } else {
+                    console.error(error);
+                }
+            } finally {
+                if (document.body.contains(submitButton)) {
+                    submitButton.disabled = false;
+                    submitButton.setAttribute('aria-busy', 'false');
+                }
+            }
+        });
+
+        return {
+            container: form,
+            focus: () => {
+                reverseInput.focus();
+            }
+        };
+    }
+
+    /**
+     * Выполняет HTTP-запрос к API заявок и обрабатывает успешный ответ.
+     * Метод централизует логику уведомлений и повторного рендера.
+     * @param {Object} options параметры вызова
+     * @param {number|string} options.trackId идентификатор посылки
+     * @param {number|string} options.requestId идентификатор заявки
+     * @param {string} options.path относительный путь запроса
+     * @param {string} [options.method='POST'] HTTP-метод
+     * @param {Object|null} [options.body=null] тело запроса
+     * @param {string} [options.successMessage] сообщение об успехе
+     * @param {string} [options.notificationType='success'] тип уведомления
+     * @returns {Promise<void>}
+     */
+    async function executeReturnRequestAction(options) {
+        const {
+            trackId,
+            requestId,
+            path,
+            method = 'POST',
+            body = null,
+            successMessage,
+            notificationType = 'success'
+        } = options || {};
+
+        if (!trackId || !path) {
+            return;
+        }
+
+        const headers = {
+            Accept: 'application/json',
+            ...((method === 'POST' || method === 'PATCH' || method === 'PUT')
+                ? { 'Content-Type': 'application/json' }
+                : {}),
+            ...buildCsrfHeaders()
+        };
+
+        const response = await fetch(`/api/v1/tracks/${trackId}${path}`, {
+            method,
+            headers,
+            body: body ? JSON.stringify(body) : undefined
+        });
+
+        const contentType = response.headers?.get('content-type') || '';
+        let payload = null;
+        if (contentType.includes('application/json')) {
+            payload = await response.json();
+        }
+        if (!response.ok) {
+            const message = payload?.message || 'Не удалось выполнить действие';
+            throw new Error(message);
+        }
+
+        handleReturnRequestSuccess(payload, { trackId, requestId });
+
+        if (successMessage && typeof window.notifyUser === 'function') {
+            window.notifyUser(successMessage, notificationType);
+        }
+    }
+
+    /**
+     * Переводит заявку в статус обмена.
+     * @param {number|string} trackId идентификатор посылки
+     * @param {number|string} requestId идентификатор заявки
+     * @param {Object} [options] настройки уведомления
+     */
+    function convertReturnRequestToExchange(trackId, requestId, options = {}) {
+        return executeReturnRequestAction({
+            trackId,
+            requestId,
+            path: `/returns/${requestId}/to-exchange`,
+            method: 'POST',
+            successMessage: options.successMessage || 'Заявка переведена в обмен',
+            notificationType: options.notificationType || 'info'
+        });
+    }
+
+    /**
+     * Запускает обмен по одобренной заявке.
+     */
+    function launchExchange(trackId, requestId, options = {}) {
+        return executeReturnRequestAction({
+            trackId,
+            requestId,
+            path: `/returns/${requestId}/exchange/launch`,
+            method: 'POST',
+            successMessage: options.successMessage || 'Обмен запущен',
+            notificationType: options.notificationType || 'info'
+        });
+    }
+
+    /**
+     * Создаёт обменную посылку.
+     */
+    function createExchangeParcel(trackId, requestId, options = {}) {
+        return executeReturnRequestAction({
+            trackId,
+            requestId,
+            path: `/returns/${requestId}/exchange/parcel`,
+            method: 'POST',
+            successMessage: options.successMessage || 'Обменная посылка создана',
+            notificationType: options.notificationType || 'success'
+        });
+    }
+
+    /**
+     * Закрывает заявку без обмена.
+     */
+    function closeReturnRequest(trackId, requestId, options = {}) {
+        return executeReturnRequestAction({
+            trackId,
+            requestId,
+            path: `/returns/${requestId}/close`,
+            method: 'POST',
+            successMessage: options.successMessage || 'Обращение закрыто',
+            notificationType: options.notificationType || 'warning'
+        });
+    }
+
+    /**
+     * Отменяет обмен и закрывает обращение.
+     */
+    function cancelExchange(trackId, requestId, options = {}) {
+        return executeReturnRequestAction({
+            trackId,
+            requestId,
+            path: `/returns/${requestId}/cancel`,
+            method: 'POST',
+            successMessage: options.successMessage || 'Обмен отменён',
+            notificationType: options.notificationType || 'warning'
+        });
+    }
+
+    /**
+     * Переводит заявку обратно в возврат.
+     */
+    function reopenReturnRequest(trackId, requestId, options = {}) {
+        return executeReturnRequestAction({
+            trackId,
+            requestId,
+            path: `/returns/${requestId}/reopen`,
+            method: 'POST',
+            successMessage: options.successMessage || 'Заявка переведена в возврат',
+            notificationType: options.notificationType || 'info'
+        });
+    }
+
+    /**
+     * Подтверждает обработку возврата или обратной посылки.
+     */
+    function confirmReturnProcessing(trackId, requestId, options = {}) {
+        return executeReturnRequestAction({
+            trackId,
+            requestId,
+            path: `/returns/${requestId}/confirm-processing`,
+            method: 'POST',
+            successMessage: options.successMessage || 'Возврат подтверждён',
+            notificationType: options.notificationType || 'success'
+        });
+    }
+
+    /**
+     * Обновляет обратный трек и комментарий обращения.
+     */
+    function updateReverseTrack(trackId, requestId, reverseTrackNumber, comment = null) {
+        return executeReturnRequestAction({
+            trackId,
+            requestId,
+            path: `/returns/${requestId}/reverse-track`,
+            method: 'PATCH',
+            body: {
+                reverseTrackNumber: reverseTrackNumber && reverseTrackNumber.length > 0
+                    ? reverseTrackNumber
+                    : null,
+                comment: comment && comment.length > 0 ? comment : null
+            },
+            successMessage: 'Обратный трек сохранён',
+            notificationType: 'success'
+        });
+    }
+
+    /**
+     * Создаёт кнопку действия по заявке и назначает обработчик.
+     * Метод скрывает детали взаимодействия с API, оставляя создание UI декларативным.
+     * @param {Object} config параметры кнопки
+     * @param {string} config.label текст кнопки
+     * @param {string} config.className CSS-классы кнопки
+     * @param {string} config.method имя метода в {@code window.trackModal}
+     * @param {Array} [config.args] дополнительные аргументы помимо идентификаторов
+     * @param {Object} context данные о посылке и заявке
+     * @returns {HTMLButtonElement} созданная кнопка
+     */
+    function createReturnRequestActionButton(config, context) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = config.className || 'btn btn-outline-secondary btn-sm';
+        button.textContent = config.label || 'Действие';
+        if (config.ariaLabel) {
+            button.setAttribute('aria-label', config.ariaLabel);
+        }
+
+        const applyVisibility = (visible) => {
+            const shouldShow = Boolean(visible);
+            button.classList.toggle('d-none', !shouldShow);
+            button.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+            button.disabled = !shouldShow;
+        };
+        if (config.visible !== undefined) {
+            applyVisibility(config.visible);
+        } else {
+            applyVisibility(true);
+        }
+
+        if (typeof config.onExecute === 'function') {
+            button.addEventListener('click', (event) => {
+                config.onExecute(event, button, context, applyVisibility);
+            });
+            return button;
+        }
+
+        button.addEventListener('click', async () => {
+            const methodName = config.method;
+            const trackModalApi = window.trackModal || {};
+            const action = typeof trackModalApi[methodName] === 'function'
+                ? trackModalApi[methodName]
+                : null;
+            if (!action) {
+                if (typeof window.notifyUser === 'function') {
+                    window.notifyUser('Действие недоступно в текущей версии интерфейса', 'warning');
+                }
+                return;
+            }
+
+            const { trackId, requestId } = context;
+            const argsSource = typeof config.args === 'function'
+                ? config.args(context)
+                : (Array.isArray(config.args) ? config.args : []);
+            const callArgs = [trackId, requestId, ...argsSource];
+
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+            try {
+                const result = await action(...callArgs);
+                handleReturnRequestSuccess(result, context);
+            } catch (error) {
+                const message = error?.message || 'Не удалось выполнить действие';
+                if (typeof window.notifyUser === 'function') {
+                    window.notifyUser(`Ошибка: ${message}`, 'danger');
+                } else {
+                    console.error(error);
+                }
+            } finally {
+                if (document.body.contains(button)) {
+                    button.disabled = Boolean(button.classList.contains('d-none'));
+                    button.setAttribute('aria-busy', 'false');
+                }
+            }
+        });
+
+        return button;
+    }
+
+    /**
+     * Формирует карточку с деталями активной заявки на возврат или обмен.
+     * Метод отображает основные поля и доступные действия, чтобы пользователь
+     * мог управлять обращением, не покидая модального окна.
+     * @param {Object} details {@link TrackDetailsDto} с сервера
+     * @param {Function} [formatDate] функция форматирования дат
+     * @returns {{card: HTMLElement, body: HTMLElement, heading: HTMLElement|null}|null} карточка или {@code null}
+     */
+    function createReturnRequestDetailsCard(details, formatDate) {
+        if (!details || typeof details !== 'object' || !details.returnRequest) {
+            return null;
+        }
+
+        const request = details.returnRequest;
+        if (!request || typeof request !== 'object' || request.id === undefined) {
+            return null;
+        }
+
+        const formatValue = typeof formatDate === 'function'
+            ? (value) => formatDate(value)
+            : (value) => formatDateTime(value, details?.timeZone);
+
+        const { card, body } = createCard('Обращение');
+        const mode = resolveReturnRequestMode(request);
+        const stateText = typeof request.state === 'string' ? request.state.toUpperCase() : '';
+        const permissions = resolveReturnRequestPermissions(request);
+        const context = { trackId: details.id, requestId: request.id };
+
+        const header = document.createElement('div');
+        header.className = 'd-flex flex-column gap-3';
+
+        const statusRow = document.createElement('div');
+        statusRow.className = 'd-flex flex-wrap justify-content-between align-items-start gap-3';
+
+        const statusColumn = document.createElement('div');
+        statusColumn.className = 'd-flex flex-column gap-2 flex-grow-1';
+
+        const statusText = document.createElement('div');
+        statusText.className = 'fs-6 fw-semibold';
+        statusText.textContent = request.statusLabel || request.status || 'Статус обращения не определён';
+
+        const badgesWrapper = document.createElement('div');
+        badgesWrapper.className = 'd-flex flex-wrap gap-2';
+
+        const typeBadge = document.createElement('span');
+        typeBadge.className = mode === 'exchange'
+            ? 'badge rounded-pill bg-warning-subtle text-warning-emphasis'
+            : 'badge rounded-pill bg-info-subtle text-info-emphasis';
+        const typeLabel = mode === 'exchange' ? 'Обмен' : 'Возврат';
+        typeBadge.textContent = typeLabel;
+        typeBadge.setAttribute('aria-label', `Тип обращения: ${typeLabel}`);
+        badgesWrapper.appendChild(typeBadge);
+
+        let statusBadgeLabel = request.statusLabel || request.status || '';
+        if (mode === 'exchange') {
+            if (stateText.includes('REGISTERED_EXCHANGE')) {
+                statusBadgeLabel = 'Обмен зарегистрирован';
+            } else if (stateText.includes('EXCHANGE_LAUNCHED')) {
+                statusBadgeLabel = 'Обмен запущен';
+            } else if (stateText.includes('EXCHANGE_APPROVED')) {
+                statusBadgeLabel = 'Обмен согласован';
+            }
+        }
+
+        if (statusBadgeLabel) {
+            const statusBadge = document.createElement('span');
+            const badgeClass = request.statusBadgeClass || 'bg-secondary-subtle text-secondary-emphasis';
+            statusBadge.className = `badge rounded-pill ${badgeClass}`;
+            statusBadge.textContent = statusBadgeLabel;
+            statusBadge.setAttribute('aria-label', `Статус обращения: ${statusBadgeLabel}`);
+            badgesWrapper.appendChild(statusBadge);
+        }
+
+        if (request.returnReceiptConfirmed) {
+            const confirmedBadge = document.createElement('span');
+            confirmedBadge.className = 'badge rounded-pill bg-success-subtle text-success-emphasis';
+            confirmedBadge.textContent = 'Возврат подтверждён';
+            confirmedBadge.setAttribute('aria-label', 'Получение обратной посылки подтверждено');
+            badgesWrapper.appendChild(confirmedBadge);
+        }
+
+        const actionState = document.createElement('div');
+        actionState.className = request.requiresAction ? 'text-danger small' : 'text-muted small';
+        actionState.textContent = request.requiresAction
+            ? 'Требуются действия магазина'
+            : 'Действия магазина не требуются';
+
+        statusColumn.append(statusText, badgesWrapper, actionState);
+        statusRow.appendChild(statusColumn);
+
+        const actionsWrapper = document.createElement('div');
+        actionsWrapper.className = 'd-flex flex-wrap justify-content-end gap-2';
+        statusRow.appendChild(actionsWrapper);
+
+        header.appendChild(statusRow);
+
+        if (Array.isArray(request.warnings)) {
+            request.warnings
+                .filter((warning) => typeof warning === 'string' && warning.trim().length > 0)
+                .forEach((warning) => {
+                    const alert = document.createElement('div');
+                    alert.className = 'alert alert-warning mb-0';
+                    alert.textContent = warning;
+                    header.appendChild(alert);
+                });
+        }
+
+        if (details.exchangeParcel && typeof details.exchangeParcel === 'object') {
+            const parcel = details.exchangeParcel;
+            const parcelAlert = document.createElement('div');
+            parcelAlert.className = 'alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-3 mb-0';
+            const parcelText = document.createElement('div');
+            const parcelNumber = parcel.number || 'Без номера';
+            const parcelStatus = parcel.statusLabel || 'Статус не определён';
+            parcelText.textContent = `Обменная посылка ${parcelNumber} · ${parcelStatus}`;
+            parcelAlert.appendChild(parcelText);
+            if (parcel.id !== undefined) {
+                const openButton = document.createElement('button');
+                openButton.type = 'button';
+                openButton.className = 'btn btn-outline-primary btn-sm';
+                openButton.textContent = 'Открыть';
+                openButton.addEventListener('click', () => {
+                    if (window.trackModal && typeof window.trackModal.loadModal === 'function') {
+                        window.trackModal.loadModal(parcel.id);
+                    }
+                });
+                parcelAlert.appendChild(openButton);
+            }
+            header.appendChild(parcelAlert);
+        }
+
+        body.appendChild(header);
+
+        const infoList = document.createElement('dl');
+        infoList.className = 'row row-cols-1 gy-2 mt-3';
+
+        appendDefinitionItem(infoList, 'Тип обращения', typeLabel);
+
+        const reasonTerm = request.reasonLabel || 'Причина обращения';
+        const reasonValue = request.reason || 'Причина не указана';
+        const reasonItem = appendDefinitionItem(infoList, reasonTerm, reasonValue);
+        reasonItem?.definition.classList.add('text-break');
+
+        const commentValue = request.comment && request.comment.trim().length > 0
+            ? request.comment
+            : 'Комментарий отсутствует';
+        const commentItem = appendDefinitionItem(infoList, 'Комментарий', commentValue);
+        commentItem?.definition.classList.add('text-break');
+
+        appendDefinitionItem(infoList, 'Дата обращения', formatValue(request.requestedAt));
+        appendDefinitionItem(infoList, 'Решение об обмене', formatValue(request.decisionAt));
+        appendDefinitionItem(infoList, 'Закрытие обращения', formatValue(request.closedAt));
+
+        const confirmationText = request.returnReceiptConfirmed
+            ? `Подтверждено: ${formatValue(request.returnReceiptConfirmedAt)}`
+            : 'Ещё не подтверждено';
+        appendDefinitionItem(infoList, 'Подтверждение получения', confirmationText);
+
+        appendDefinitionItem(infoList, 'Обратный трек', request.reverseTrackNumber || '—');
+
+        body.appendChild(infoList);
+
+        if (request.cancelExchangeUnavailableReason) {
+            const restrictionNote = document.createElement('p');
+            restrictionNote.className = 'text-muted small mb-0';
+            restrictionNote.textContent = request.cancelExchangeUnavailableReason;
+            body.appendChild(restrictionNote);
+        }
+
+        if (request.hint) {
+            const hintParagraph = document.createElement('p');
+            hintParagraph.className = 'text-muted small mb-0';
+            hintParagraph.textContent = request.hint;
+            if (request.detailsUrl) {
+                const detailsLink = document.createElement('a');
+                detailsLink.href = request.detailsUrl;
+                detailsLink.target = '_blank';
+                detailsLink.rel = 'noopener noreferrer';
+                detailsLink.className = 'ms-2';
+                detailsLink.textContent = 'Подробнее';
+                hintParagraph.appendChild(detailsLink);
+            }
+            body.appendChild(hintParagraph);
+        }
+
+        const reverseForm = createReverseTrackForm({ request, context });
+        if (reverseForm) {
+            if (!request.reverseTrackNumber && permissions.allowUpdateReverseTrack) {
+                reverseForm.container.classList.add('d-none');
+            }
+            body.appendChild(reverseForm.container);
+        }
+
+        const actionButtons = [];
+
+        if (mode === 'return') {
+            actionButtons.push(createReturnRequestActionButton({
+                label: 'Принять возврат',
+                className: 'btn btn-primary btn-sm',
+                method: 'confirmReturnProcessing',
+                args: [{ successMessage: 'Возврат подтверждён', notificationType: 'success' }],
+                ariaLabel: 'Подтвердить получение возврата и завершить обращение',
+                visible: permissions.allowConfirmReceipt
+            }, context));
+
+            if (permissions.allowConvertToExchange && !permissions.allowClose) {
+                actionButtons.push(createReturnRequestActionButton({
+                    label: 'Перевести в обмен',
+                    className: 'btn btn-outline-primary btn-sm',
+                    method: 'convertReturnRequestToExchange',
+                    args: [{ successMessage: 'Заявка переведена в обмен', notificationType: 'info' }],
+                    ariaLabel: 'Перевести обращение в обмен',
+                    visible: true
+                }, context));
+            }
+
+            actionButtons.push(createReturnRequestActionButton({
+                label: 'Запустить обмен по обращению',
+                className: 'btn btn-outline-secondary btn-sm',
+                method: 'launchExchange',
+                args: [{ successMessage: 'Обмен запущен', notificationType: 'info' }],
+                ariaLabel: 'Запустить обмен по обращению',
+                visible: permissions.allowLaunchExchange
+            }, context));
+
+            actionButtons.push(createReturnRequestActionButton({
+                label: 'Закрыть обращение',
+                className: 'btn btn-outline-danger btn-sm',
+                method: 'closeReturnRequest',
+                args: [{ successMessage: 'Обращение закрыто', notificationType: 'warning' }],
+                ariaLabel: 'Закрыть обращение',
+                visible: permissions.allowClose
+            }, context));
+        } else {
+            actionButtons.push(createReturnRequestActionButton({
+                label: 'Подтвердить обратную посылку',
+                className: 'btn btn-outline-success btn-sm',
+                method: 'confirmReturnProcessing',
+                args: [{ successMessage: 'Получение обратной посылки подтверждено', notificationType: 'success' }],
+                ariaLabel: 'Подтвердить получение обратной посылки',
+                visible: permissions.allowConfirmReverse
+            }, context));
+
+            actionButtons.push(createReturnRequestActionButton({
+                label: 'Перевести в возврат',
+                className: 'btn btn-outline-primary btn-sm',
+                method: 'reopenReturnRequest',
+                args: [{ successMessage: 'Заявка переведена в возврат', notificationType: 'info' }],
+                ariaLabel: 'Перевести обращение обратно в возврат',
+                visible: permissions.allowConvertToReturn
+            }, context));
+
+            actionButtons.push(createReturnRequestActionButton({
+                label: 'Создать обменную посылку',
+                className: 'btn btn-primary btn-sm',
+                method: 'createExchangeParcel',
+                args: [{ successMessage: 'Обменная посылка создана', notificationType: 'success' }],
+                ariaLabel: 'Создать обменную посылку',
+                visible: permissions.allowCreateExchangeParcel
+            }, context));
+
+            actionButtons.push(createReturnRequestActionButton({
+                label: 'Запустить обмен по обращению',
+                className: 'btn btn-outline-secondary btn-sm',
+                method: 'launchExchange',
+                args: [{ successMessage: 'Обмен запущен', notificationType: 'info' }],
+                ariaLabel: 'Запустить обмен по обращению',
+                visible: permissions.allowLaunchExchange
+            }, context));
+
+            actionButtons.push(createReturnRequestActionButton({
+                label: 'Закрыть обращение',
+                className: 'btn btn-outline-danger btn-sm',
+                method: permissions.allowCancelExchange ? 'cancelExchange' : 'closeReturnRequest',
+                args: [{
+                    successMessage: permissions.allowCancelExchange ? 'Обмен отменён' : 'Обращение закрыто',
+                    notificationType: 'warning'
+                }],
+                ariaLabel: 'Закрыть обращение',
+                visible: permissions.allowClose || permissions.allowCancelExchange
+            }, context));
+        }
+
+        const reverseToggleButton = createReturnRequestActionButton({
+            label: 'Добавить трек обратной посылки',
+            className: 'btn btn-outline-secondary btn-sm',
+            ariaLabel: 'Указать трек обратной посылки',
+            visible: permissions.allowUpdateReverseTrack,
+            onExecute: (_, __, ___, applyVisibility) => {
+                if (reverseForm) {
+                    reverseForm.container.classList.remove('d-none');
+                    reverseForm.focus();
+                    applyVisibility(false);
+                }
+            }
+        }, context);
+        actionButtons.push(reverseToggleButton);
+
+        if (actionButtons.length === 0) {
+            const emptyHint = document.createElement('p');
+            emptyHint.className = 'text-muted small mb-0';
+            emptyHint.textContent = 'Доступные действия отсутствуют.';
+            actionsWrapper.appendChild(emptyHint);
+        } else {
+            actionButtons.forEach((button) => {
+                actionsWrapper.appendChild(button);
+            });
+            if (actionButtons.every((button) => button.classList.contains('d-none'))) {
+                const emptyHint = document.createElement('p');
+                emptyHint.className = 'text-muted small mb-0';
+                emptyHint.textContent = 'Доступные действия отсутствуют.';
+                actionsWrapper.appendChild(emptyHint);
+            }
+        }
+
         return { card, body, heading: null };
     }
 
@@ -1371,8 +2196,9 @@
 
         container.appendChild(mainColumn);
 
+        const returnDetailsCard = createReturnRequestDetailsCard(data, format);
         const returnCard = createReturnRequestCard(data);
-        const sideCards = [lifecycleCard, returnCard]
+        const sideCards = [returnDetailsCard, lifecycleCard, returnCard]
             .filter((cardInfo) => Boolean(cardInfo));
 
         if (sideCards.length > 0) {
@@ -1617,6 +2443,14 @@
         loadModal,
         promptTrackNumber,
         render: renderTrackModal,
-        invalidateLazySections: (trackId) => invalidateLazyDataCache(trackId)
+        invalidateLazySections: (trackId) => invalidateLazyDataCache(trackId),
+        convertReturnRequestToExchange,
+        launchExchange,
+        createExchangeParcel,
+        closeReturnRequest,
+        cancelExchange,
+        reopenReturnRequest,
+        confirmReturnProcessing,
+        updateReverseTrack
     };
 })();
