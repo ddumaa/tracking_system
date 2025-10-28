@@ -27,6 +27,7 @@ import org.springframework.security.access.AccessDeniedException;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -67,11 +68,13 @@ class OrderReturnRequestServiceTest {
     private OrderReturnRequestService service;
 
     private User user;
+    private ReturnRequestWorkflow workflow;
 
     @BeforeEach
     void setUp() {
+        workflow = new ReturnRequestWorkflow();
         service = new OrderReturnRequestService(repository, actionRequestRepository, trackParcelService,
-                episodeLifecycleService, orderExchangeService, trackViewCacheInvalidator);
+                episodeLifecycleService, orderExchangeService, trackViewCacheInvalidator, workflow);
         user = new User();
         user.setId(5L);
     }
@@ -753,6 +756,39 @@ class OrderReturnRequestServiceTest {
         verify(repository, never()).save(any());
         verify(orderExchangeService, never()).cancelExchangeParcel(any(), any());
         verify(episodeLifecycleService, never()).decrementExchangeCount(any());
+    }
+
+    @Test
+    void resolveAvailableActions_ReturnsCancelForRegisteredRequest() {
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        request.setStage(ReturnRequestStage.CUSTOMER_RETURN);
+        request.setMode(ReturnRequestMode.RETURN);
+
+        EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
+
+        assertThat(actions).contains(ReturnRequestAction.CANCEL_RETURN);
+        assertThat(actions).doesNotContain(ReturnRequestAction.CANCEL_EXCHANGE, ReturnRequestAction.CONVERT_TO_RETURN);
+    }
+
+    @Test
+    void resolveAvailableActions_ExcludesExchangeActionsWhenShipmentDispatched() {
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setStage(ReturnRequestStage.EXCHANGE_SHIPMENT);
+        request.setMode(ReturnRequestMode.EXCHANGE);
+
+        TrackParcel replacement = new TrackParcel();
+        replacement.setNumber("TRK123");
+        replacement.setStatus(GlobalStatus.IN_TRANSIT);
+
+        when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.of(replacement));
+        when(orderExchangeService.getLatestExchangeParcelOrThrowIfTracked(request))
+                .thenThrow(new IllegalStateException("Отмена недоступна"));
+
+        EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
+
+        assertThat(actions).doesNotContain(ReturnRequestAction.CANCEL_EXCHANGE, ReturnRequestAction.CONVERT_TO_RETURN);
     }
 
     private OrderReturnRequest buildExchangeRequest(Long id, TrackParcel parcel) {

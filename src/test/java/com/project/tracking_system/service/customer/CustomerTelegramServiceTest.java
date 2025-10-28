@@ -20,6 +20,7 @@ import com.project.tracking_system.service.order.OrderReturnRequestService;
 import com.project.tracking_system.service.telegram.FullNameValidator;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
 import org.springframework.security.access.AccessDeniedException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -31,6 +32,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Duration;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -69,6 +71,12 @@ class CustomerTelegramServiceTest {
 
     @InjectMocks
     private CustomerTelegramService customerTelegramService;
+
+    @BeforeEach
+    void initDefaultActions() {
+        when(orderReturnRequestService.resolveAvailableActions(any()))
+                .thenReturn(EnumSet.noneOf(ReturnRequestAction.class));
+    }
 
     /**
      * Убеждаемся, что при подтверждении существующего ФИО источник обновляется до USER_CONFIRMED.

@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.EnumSet;
 
 /**
  * Преобразует заявки на возврат в DTO для вкладки «Требуют действия».
@@ -52,13 +53,14 @@ public class ReturnRequestActionMapper {
         OrderReturnRequestStatus status = request.getStatus();
 
         boolean canStartExchange = orderReturnRequestService.canStartExchange(request);
-        boolean canCloseWithoutExchange = status == OrderReturnRequestStatus.REGISTERED;
+        EnumSet<ReturnRequestAction> actions = orderReturnRequestService.resolveAvailableActions(request);
+        boolean canCloseWithoutExchange = actions.contains(ReturnRequestAction.CANCEL_RETURN);
         String cancelExchangeReason = orderReturnRequestService
                 .getExchangeCancellationBlockReason(request)
                 .orElse(null);
         boolean exchangeShipmentDispatched = orderReturnRequestService.isExchangeShipmentDispatched(request);
-        boolean canReopenAsReturn = orderReturnRequestService.canReopenAsReturn(request);
-        boolean canCancelExchange = orderReturnRequestService.canCancelExchange(request);
+        boolean canReopenAsReturn = actions.contains(ReturnRequestAction.CONVERT_TO_RETURN);
+        boolean canCancelExchange = actions.contains(ReturnRequestAction.CANCEL_EXCHANGE);
         boolean canConfirmReceipt = orderReturnRequestService.canConfirmReceipt(request);
         ReturnRequestMode mode = request.getMode() != null ? request.getMode() : ReturnRequestMode.RETURN;
         ReturnRequestStage stage = request.getStage() != null ? request.getStage() : ReturnRequestStage.CUSTOMER_RETURN;
