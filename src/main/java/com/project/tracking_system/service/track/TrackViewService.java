@@ -14,6 +14,7 @@ import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderEpisode;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
+import com.project.tracking_system.entity.ReturnRequestAction;
 import com.project.tracking_system.entity.ReturnRequestMode;
 import com.project.tracking_system.entity.ReturnRequestStage;
 import com.project.tracking_system.entity.PostalServiceType;
@@ -36,6 +37,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -476,9 +478,10 @@ public class TrackViewService {
      */
     private OrderReturnRequestDto mapReturnRequest(OrderReturnRequest request, ZoneId userZone) {
         boolean canStartExchange = orderReturnRequestService.canStartExchange(request);
-        boolean canCloseWithoutExchange = request.getStatus() == OrderReturnRequestStatus.REGISTERED;
-        boolean canReopenAsReturn = orderReturnRequestService.canReopenAsReturn(request);
-        boolean canCancelExchange = orderReturnRequestService.canCancelExchange(request);
+        EnumSet<ReturnRequestAction> actions = orderReturnRequestService.resolveAvailableActions(request);
+        boolean canCloseWithoutExchange = actions.contains(ReturnRequestAction.CANCEL_RETURN);
+        boolean canReopenAsReturn = actions.contains(ReturnRequestAction.CONVERT_TO_RETURN);
+        boolean canCancelExchange = actions.contains(ReturnRequestAction.CANCEL_EXCHANGE);
         boolean canConfirmReceipt = orderReturnRequestService.canConfirmReceipt(request);
         boolean canCreateExchangeParcel = orderReturnRequestService.canCreateExchangeParcel(request);
         String requestedAt = formatNullableTimestamp(request.getRequestedAt(), userZone);

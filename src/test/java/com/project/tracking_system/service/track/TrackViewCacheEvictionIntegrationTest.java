@@ -13,6 +13,7 @@ import com.project.tracking_system.service.admin.ApplicationSettingsService;
 import com.project.tracking_system.service.order.OrderEpisodeLifecycleService;
 import com.project.tracking_system.service.order.OrderExchangeService;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
+import com.project.tracking_system.service.order.ReturnRequestWorkflow;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.track.TrackStatusEventService;
@@ -230,9 +231,15 @@ class TrackViewCacheEvictionIntegrationTest {
                                                             TrackParcelService trackParcelService,
                                                             OrderEpisodeLifecycleService episodeLifecycleService,
                                                             OrderExchangeService orderExchangeService,
-                                                            TrackViewCacheInvalidator trackViewCacheInvalidator) {
+                                                            TrackViewCacheInvalidator trackViewCacheInvalidator,
+                                                            ReturnRequestWorkflow returnRequestWorkflow) {
             return new OrderReturnRequestService(repository, actionRepository, trackParcelService,
-                    episodeLifecycleService, orderExchangeService, trackViewCacheInvalidator);
+                    episodeLifecycleService, orderExchangeService, trackViewCacheInvalidator, returnRequestWorkflow);
+        }
+
+        @Bean
+        ReturnRequestWorkflow returnRequestWorkflow() {
+            return new ReturnRequestWorkflow();
         }
 
         /**

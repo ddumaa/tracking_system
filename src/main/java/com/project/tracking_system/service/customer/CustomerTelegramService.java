@@ -22,6 +22,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -660,12 +661,11 @@ public class CustomerTelegramService {
         String trackNumber = parcel != null ? parcel.getNumber() : null;
         String storeName = parcel != null && parcel.getStore() != null ? parcel.getStore().getName() : null;
         GlobalStatus parcelStatus = parcel != null ? parcel.getStatus() : null;
-        OrderReturnRequestStatus status = request.getStatus();
-
         boolean canStartExchange = orderReturnRequestService.canStartExchange(request);
-        boolean canCloseWithoutExchange = status == OrderReturnRequestStatus.REGISTERED;
-        boolean canReopenAsReturn = orderReturnRequestService.canReopenAsReturn(request);
-        boolean canCancelExchange = orderReturnRequestService.canCancelExchange(request);
+        EnumSet<ReturnRequestAction> actions = orderReturnRequestService.resolveAvailableActions(request);
+        boolean canCloseWithoutExchange = actions.contains(ReturnRequestAction.CANCEL_RETURN);
+        boolean canReopenAsReturn = actions.contains(ReturnRequestAction.CONVERT_TO_RETURN);
+        boolean canCancelExchange = actions.contains(ReturnRequestAction.CANCEL_EXCHANGE);
         String cancelExchangeReason = orderReturnRequestService
                 .getExchangeCancellationBlockReason(request)
                 .orElse(null);

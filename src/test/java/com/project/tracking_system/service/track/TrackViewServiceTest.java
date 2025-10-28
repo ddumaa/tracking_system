@@ -10,6 +10,7 @@ import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderEpisode;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
+import com.project.tracking_system.entity.ReturnRequestAction;
 import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.TrackParcel;
@@ -30,6 +31,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -65,8 +67,8 @@ class TrackViewServiceTest {
         when(orderReturnRequestService.findCurrentForParcel(anyLong())).thenReturn(Optional.empty());
         when(orderExchangeService.findLatestExchangeParcel(any())).thenReturn(Optional.empty());
         when(orderReturnRequestService.getExchangeCancellationBlockReason(any())).thenReturn(Optional.empty());
-        when(orderReturnRequestService.canReopenAsReturn(any())).thenReturn(false);
-        when(orderReturnRequestService.canCancelExchange(any())).thenReturn(false);
+        when(orderReturnRequestService.resolveAvailableActions(any()))
+                .thenReturn(EnumSet.noneOf(ReturnRequestAction.class));
         when(orderReturnRequestService.canConfirmReceipt(any())).thenReturn(false);
     }
 
@@ -489,6 +491,8 @@ class TrackViewServiceTest {
         when(orderReturnRequestService.canStartExchange(request)).thenReturn(true);
         when(orderReturnRequestService.canConfirmReceipt(request)).thenReturn(true);
         when(orderReturnRequestService.canCreateExchangeParcel(request)).thenReturn(false);
+        when(orderReturnRequestService.resolveAvailableActions(request))
+                .thenReturn(EnumSet.of(ReturnRequestAction.CANCEL_RETURN));
         when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.empty());
 
         TrackDetailsDto details = service.getTrackDetails(81L, 15L);
