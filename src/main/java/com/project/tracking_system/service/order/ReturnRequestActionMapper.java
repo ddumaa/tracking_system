@@ -1,6 +1,9 @@
 package com.project.tracking_system.service.order;
 
 import com.project.tracking_system.dto.ActionRequiredReturnRequestDto;
+import com.project.tracking_system.dto.ReturnRequestAvailableActionsDto;
+import com.project.tracking_system.dto.ReturnRequestStateDto;
+import com.project.tracking_system.dto.ReturnRequestTimestampsDto;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
@@ -59,11 +62,39 @@ public class ReturnRequestActionMapper {
         boolean canConfirmReceipt = orderReturnRequestService.canConfirmReceipt(request);
         ReturnRequestMode mode = request.getMode() != null ? request.getMode() : ReturnRequestMode.RETURN;
         ReturnRequestStage stage = request.getStage() != null ? request.getStage() : ReturnRequestStage.CUSTOMER_RETURN;
-        String stageStartedAt = formatRequestMoment(request.getStageStartedAt(), userZone);
-        String stageUpdatedAt = formatRequestMoment(request.getStageUpdatedAt(), userZone);
-        String exchangeTrackAssignedAt = formatRequestMoment(request.getExchangeTrackAssignedAt(), userZone);
-        Long storeId = request.getStore() != null ? request.getStore().getId() : null;
-        Long responsibleId = request.getResponsibleManager() != null ? request.getResponsibleManager().getId() : null;
+
+        ReturnRequestStateDto state = new ReturnRequestStateDto(
+                mode,
+                stage,
+                request.isManualStageOverride(),
+                request.isManualTrackOverride(),
+                request.isExchangeRequested(),
+                request.isExchangeApproved(),
+                exchangeShipmentDispatched,
+                request.getExchangeTrackNumber(),
+                request.isReturnReceiptConfirmed()
+        );
+
+        ReturnRequestAvailableActionsDto availableActions = new ReturnRequestAvailableActionsDto(
+                canStartExchange,
+                orderReturnRequestService.canCreateExchangeParcel(request),
+                canCloseWithoutExchange,
+                canReopenAsReturn,
+                canCancelExchange,
+                canConfirmReceipt,
+                cancelExchangeReason
+        );
+
+        ReturnRequestTimestampsDto timestamps = new ReturnRequestTimestampsDto(
+                formatRequestMoment(request.getRequestedAt(), userZone),
+                formatRequestMoment(request.getCreatedAt(), userZone),
+                formatRequestMoment(request.getDecisionAt(), userZone),
+                formatRequestMoment(request.getClosedAt(), userZone),
+                formatRequestMoment(request.getStageStartedAt(), userZone),
+                formatRequestMoment(request.getStageUpdatedAt(), userZone),
+                formatRequestMoment(request.getExchangeTrackAssignedAt(), userZone),
+                formatRequestMoment(request.getReturnReceiptConfirmedAt(), userZone)
+        );
 
         return new ActionRequiredReturnRequestDto(
                 request.getId(),
@@ -73,31 +104,12 @@ public class ReturnRequestActionMapper {
                 parcelStatus != null ? parcelStatus.getDescription() : null,
                 status,
                 status != null ? status.getDisplayName() : null,
-                formatRequestMoment(request.getRequestedAt(), userZone),
-                formatRequestMoment(request.getCreatedAt(), userZone),
                 request.getReason(),
                 request.getComment(),
                 request.getReverseTrackNumber(),
-                request.isExchangeRequested(),
-                canStartExchange,
-                canCloseWithoutExchange,
-                canReopenAsReturn,
-                canCancelExchange,
-                exchangeShipmentDispatched,
-                cancelExchangeReason,
-                request.isReturnReceiptConfirmed(),
-                formatRequestMoment(request.getReturnReceiptConfirmedAt(), userZone),
-                canConfirmReceipt,
-                mode,
-                stage,
-                request.getExchangeTrackNumber(),
-                request.isManualStageOverride(),
-                request.isManualTrackOverride(),
-                stageStartedAt,
-                stageUpdatedAt,
-                exchangeTrackAssignedAt,
-                storeId,
-                responsibleId
+                state,
+                availableActions,
+                timestamps
         );
     }
 

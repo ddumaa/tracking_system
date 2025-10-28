@@ -39,6 +39,88 @@ describe('track-modal render', () => {
         };
     }
 
+    /**
+     * Преобразует тестовые данные старого формата в новую структуру, ожидаемую модулем.
+     * @param {Object} details исходные данные теста
+     * @returns {Object} нормализованный объект
+     */
+    function normalizeDetails(details) {
+        if (!details || typeof details !== 'object') {
+            return details;
+        }
+        const normalized = { ...details };
+        if ('returnRequest' in normalized) {
+            normalized.returnRequest = normalizeReturnRequest(normalized.returnRequest);
+        }
+        return normalized;
+    }
+
+    /**
+     * Обогащает заявку вложенными объектами (state/actions/timestamps) при отсутствии новых полей.
+     * @param {Object|null} request тестовая заявка
+     * @returns {Object|null} нормализованная заявка
+     */
+    function normalizeReturnRequest(request) {
+        if (!request || typeof request !== 'object') {
+            return request;
+        }
+        const stage = request.stage || request.state || 'CUSTOMER_RETURN';
+        const stageUpper = typeof stage === 'string' ? stage.toUpperCase() : '';
+        const mode = request.mode
+            || (stageUpper.includes('EXCHANGE')
+                ? 'EXCHANGE'
+                : (request.exchangeApproved || request.exchangeRequested ? 'EXCHANGE' : 'RETURN'));
+        const state = {
+            mode,
+            stage,
+            manualStageOverride: Boolean(request.manualStageOverride),
+            manualTrackOverride: Boolean(request.manualTrackOverride),
+            exchangeRequested: Boolean(request.exchangeRequested),
+            exchangeApproved: Boolean(request.exchangeApproved),
+            exchangeShipmentDispatched: Boolean(request.exchangeShipmentDispatched),
+            exchangeTrackNumber: request.exchangeTrackNumber || null,
+            returnReceiptConfirmed: Boolean(request.returnReceiptConfirmed),
+            ...request.state
+        };
+        const legacy = request.actionPermissions || {};
+        const mapLegacy = (key) => Boolean(legacy?.[key]);
+        const availableActions = {
+            startExchange: Boolean(request.canStartExchange ?? mapLegacy('allowConvertToExchange') ?? mapLegacy('allowLaunchExchange')),
+            createExchangeParcel: Boolean(request.canCreateExchangeParcel ?? mapLegacy('allowLaunchExchange')),
+            closeWithoutExchange: Boolean(request.canCloseWithoutExchange ?? mapLegacy('allowClose')),
+            reopenAsReturn: Boolean(request.canReopenAsReturn ?? mapLegacy('allowConvertToReturn')),
+            cancelExchange: Boolean(request.canCancelExchange ?? mapLegacy('allowClose')),
+            confirmReceipt: Boolean(request.canConfirmReceipt ?? mapLegacy('allowAcceptReverse') ?? mapLegacy('allowAccept')),
+            cancelExchangeUnavailableReason: request.cancelExchangeUnavailableReason || null,
+            ...request.availableActions
+        };
+        const timestamps = {
+            requestedAt: request.requestedAt || null,
+            createdAt: request.createdAt || null,
+            decisionAt: request.decisionAt || null,
+            closedAt: request.closedAt || null,
+            stageStartedAt: request.stageStartedAt || null,
+            stageUpdatedAt: request.stageUpdatedAt || null,
+            exchangeTrackAssignedAt: request.exchangeTrackAssignedAt || null,
+            returnReceiptConfirmedAt: request.returnReceiptConfirmedAt || null,
+            ...request.timestamps
+        };
+        return {
+            ...request,
+            state,
+            availableActions,
+            timestamps
+        };
+    }
+
+    /**
+     * Хелпер для рендеринга модалки с учётом нормализации данных.
+     * @param {Object} details исходные данные
+     */
+    function renderModal(details) {
+        global.window.trackModal.render(normalizeDetails(details));
+    }
+
     afterEach(() => {
         jest.clearAllMocks();
         document.body.innerHTML = '';
@@ -80,7 +162,7 @@ describe('track-modal render', () => {
             requiresAction: false
         };
 
-        global.window.trackModal.render(data);
+        renderModal(data);
 
         const content = global.document.getElementById('trackModalContent')
             || global.document.querySelector('.modal-body');
@@ -124,7 +206,7 @@ describe('track-modal render', () => {
             requiresAction: false
         };
 
-        global.window.trackModal.render(data);
+        renderModal(data);
 
         const lifecycleCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Жизненный цикл заказа');
@@ -241,7 +323,7 @@ status: 'Зарегистрирована',
             return Promise.resolve({ ok: true, headers, json: () => Promise.resolve({}) });
         });
 
-        global.window.trackModal.render(data);
+        renderModal(data);
 
         const buttons = document.querySelectorAll('button.track-chain__item');
         expect(buttons).toHaveLength(2);
@@ -336,7 +418,7 @@ status: 'Зарегистрирована',
             requiresAction: true
         };
 
-        global.window.trackModal.render(data);
+        renderModal(data);
 
         const actionCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
@@ -461,7 +543,7 @@ status: 'Зарегистрирована',
             requiresAction: true
         };
 
-        global.window.trackModal.render(initialData);
+        renderModal(initialData);
 
         const actionCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
@@ -541,7 +623,7 @@ status: 'Зарегистрирована',
             requiresAction: false
         };
 
-        global.window.trackModal.render(data);
+        renderModal(data);
 
         const actionCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
@@ -603,7 +685,7 @@ status: 'Зарегистрирована',
             requiresAction: true
         };
 
-        global.window.trackModal.render(data);
+        renderModal(data);
 
         const actionCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
@@ -668,7 +750,7 @@ status: 'Зарегистрирована',
             requiresAction: true
         };
 
-        global.window.trackModal.render(data);
+        renderModal(data);
 
         const actionCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
@@ -733,7 +815,7 @@ status: 'Зарегистрирована',
             requiresAction: true
         };
 
-        global.window.trackModal.render(data);
+        renderModal(data);
 
         const actionCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
@@ -796,7 +878,7 @@ status: 'Зарегистрирована',
             requiresAction: true
         };
 
-        global.window.trackModal.render(data);
+        renderModal(data);
 
         const actionCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
@@ -857,7 +939,7 @@ status: 'Зарегистрирована',
             requiresAction: false
         };
 
-        global.window.trackModal.render(data);
+        renderModal(data);
 
         const button = document.querySelector('button.track-chain__item');
         expect(button).not.toBeNull();
@@ -957,7 +1039,7 @@ status: 'Зарегистрирована',
             requiresAction: true
         };
 
-        global.window.trackModal.render(initialData);
+        renderModal(initialData);
 
         const headers = { get: jest.fn(() => 'application/json') };
         global.fetch.mockResolvedValueOnce({
@@ -1011,7 +1093,7 @@ status: 'Зарегистрирована',
     test('confirms return receipt via API and updates table row', async () => {
         setupDom();
 
-        const payload = {
+        const payload = normalizeDetails({
             id: 14,
             number: 'BY000',
             deliveryService: 'Belpost',
@@ -1055,7 +1137,7 @@ status: 'Зарегистрирована',
             canRegisterReturn: false,
             lifecycle: [],
             requiresAction: false
-        };
+        });
 
         global.fetch.mockResolvedValueOnce({
             ok: true,
@@ -1098,7 +1180,7 @@ status: 'Зарегистрирована',
             requiresAction: false
         };
 
-        global.window.trackModal.render(data);
+        renderModal(data);
 
         const buttons = document.querySelectorAll('button.track-chain__item');
         expect(buttons).toHaveLength(1);
@@ -1140,7 +1222,7 @@ status: 'Зарегистрирована',
             requiresAction: false
         };
 
-        global.window.trackModal.render(data);
+        renderModal(data);
 
         const lifecycleCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Жизненный цикл заказа');
@@ -1223,7 +1305,7 @@ status: 'Зарегистрирована',
             requiresAction: true
         };
 
-        global.window.trackModal.render(data);
+        renderModal(data);
 
         const actionCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
@@ -1240,7 +1322,7 @@ status: 'Зарегистрирована',
         await Promise.resolve();
 
         expect(global.fetch).toHaveBeenCalledWith(
-            '/api/v1/tracks/12/returns/5/to-exchange',
+            '/api/v1/tracks/12/returns/5/exchange',
             expect.objectContaining({ method: 'POST' })
         );
         expect(global.notifyUser).toHaveBeenCalledWith('Заявка переведена в обмен', 'info');
@@ -1308,7 +1390,17 @@ status: 'Зарегистрирована',
             requiresAction: true
         };
 
-        global.window.trackModal.render(data);
+        renderModal(data);
+
+        global.fetch.mockClear();
+        global.fetch.mockResolvedValueOnce({
+            ok: true,
+            headers: { get: () => 'application/json' },
+            json: () => Promise.resolve({
+                details: normalizeDetails(data),
+                actionRequired: null
+            })
+        });
 
         const card = Array.from(document.querySelectorAll('section.card'))
             .find((item) => item.querySelector('h6')?.textContent === 'Обращение');
@@ -1322,7 +1414,7 @@ status: 'Зарегистрирована',
         await Promise.resolve();
 
         expect(global.fetch).toHaveBeenCalledWith(
-            '/api/v1/tracks/14/returns/6/exchange/launch',
+            '/api/v1/tracks/14/returns/6/exchange/parcel',
             expect.objectContaining({ method: 'POST' })
         );
         expect(global.notifyUser).toHaveBeenCalledWith('Обмен запущен', 'info');
@@ -1379,7 +1471,7 @@ status: 'Обмен запускается',
             requiresAction: true
         };
 
-        global.window.trackModal.render(data);
+        renderModal(data);
 
         const card = Array.from(document.querySelectorAll('section.card'))
             .find((item) => item.querySelector('h6')?.textContent === 'Обращение');
@@ -1443,7 +1535,7 @@ status: 'Обмен запускается',
             requiresAction: true
         };
 
-        global.window.trackModal.render(data);
+        renderModal(data);
 
         const returnCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
@@ -1501,7 +1593,7 @@ status: 'Зарегистрирована',
             requiresAction: true
         };
 
-        global.window.trackModal.render(data);
+        renderModal(data);
 
         await Promise.resolve();
 
@@ -1558,7 +1650,7 @@ status: 'Закрыта',
             requiresAction: false
         };
 
-        global.window.trackModal.render(data);
+        renderModal(data);
 
         await Promise.resolve();
 
@@ -1636,7 +1728,7 @@ status: 'Закрыта',
             return Promise.resolve({ ok: true, headers, json: () => Promise.resolve({ history: [] }) });
         });
 
-        global.window.trackModal.render(data);
+        renderModal(data);
 
         const lifecycleHeading = Array.from(document.querySelectorAll('section.card h6'))
             .find((heading) => heading.textContent.includes('Жизненный цикл заказа'));

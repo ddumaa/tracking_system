@@ -5,6 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.project.tracking_system.dto.ActionRequiredReturnRequestDto;
+import com.project.tracking_system.dto.ReturnRequestAvailableActionsDto;
+import com.project.tracking_system.dto.ReturnRequestStateDto;
+import com.project.tracking_system.dto.ReturnRequestTimestampsDto;
 import com.project.tracking_system.dto.ReturnRequestUpdateResponse;
 import com.project.tracking_system.dto.TelegramParcelInfoDTO;
 import com.project.tracking_system.dto.TelegramParcelsOverviewDTO;
@@ -13,6 +16,8 @@ import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
+import com.project.tracking_system.entity.ReturnRequestMode;
+import com.project.tracking_system.entity.ReturnRequestStage;
 import com.project.tracking_system.entity.NameSource;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderReturnRequest;
@@ -569,7 +574,7 @@ class BuyerTelegramBotTest {
         customer.setTelegramChatId(chatId);
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
-        ActionRequiredReturnRequestDto requestDto = new ActionRequiredReturnRequestDto(
+        ActionRequiredReturnRequestDto requestDto = buildActionDto(
                 1L,
                 2L,
                 "TRK-001",
@@ -714,7 +719,7 @@ class BuyerTelegramBotTest {
         customer.setTelegramChatId(chatId);
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
-        ActionRequiredReturnRequestDto requestDto = new ActionRequiredReturnRequestDto(
+        ActionRequiredReturnRequestDto requestDto = buildActionDto(
                 11L,
                 22L,
                 "TRK-RESET",
@@ -803,7 +808,7 @@ class BuyerTelegramBotTest {
         customer.setTelegramChatId(chatId);
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
-        ActionRequiredReturnRequestDto exchangeRequest = new ActionRequiredReturnRequestDto(
+        ActionRequiredReturnRequestDto exchangeRequest = buildActionDto(
                 5L,
                 8L,
                 "EX-TRK",
@@ -853,7 +858,7 @@ class BuyerTelegramBotTest {
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
         String warning = "Отмена обмена недоступна: магазин уже указал трек обменной посылки.";
-        ActionRequiredReturnRequestDto exchangeRequest = new ActionRequiredReturnRequestDto(
+        ActionRequiredReturnRequestDto exchangeRequest = buildActionDto(
                 6L,
                 9L,
                 "EX-TRK-2",
@@ -914,7 +919,7 @@ class BuyerTelegramBotTest {
         customer.setTelegramChatId(chatId);
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
-        ActionRequiredReturnRequestDto exchangeRequest = new ActionRequiredReturnRequestDto(
+        ActionRequiredReturnRequestDto exchangeRequest = buildActionDto(
                 7L,
                 10L,
                 "EX-READY",
@@ -972,7 +977,7 @@ class BuyerTelegramBotTest {
         customer.setTelegramChatId(chatId);
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
-        ActionRequiredReturnRequestDto request = new ActionRequiredReturnRequestDto(
+        ActionRequiredReturnRequestDto request = buildActionDto(
                 100L,
                 200L,
                 "TRK-500",
@@ -1040,7 +1045,7 @@ class BuyerTelegramBotTest {
         customer.setId(200L);
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
-        ActionRequiredReturnRequestDto dispatchedExchange = new ActionRequiredReturnRequestDto(
+        ActionRequiredReturnRequestDto dispatchedExchange = buildActionDto(
                 300L,
                 400L,
                 "TRK-EX",
@@ -1099,7 +1104,7 @@ class BuyerTelegramBotTest {
         customer.setTelegramChatId(chatId);
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
-        ActionRequiredReturnRequestDto request = new ActionRequiredReturnRequestDto(
+        ActionRequiredReturnRequestDto request = buildActionDto(
                 101L,
                 201L,
                 "TRK-501",
@@ -1155,7 +1160,7 @@ class BuyerTelegramBotTest {
         customer.setTelegramChatId(chatId);
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
-        ActionRequiredReturnRequestDto request = new ActionRequiredReturnRequestDto(
+        ActionRequiredReturnRequestDto request = buildActionDto(
                 102L,
                 202L,
                 "TRK-502",
@@ -1211,7 +1216,7 @@ class BuyerTelegramBotTest {
         customer.setTelegramChatId(chatId);
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
-        ActionRequiredReturnRequestDto exchange = new ActionRequiredReturnRequestDto(
+        ActionRequiredReturnRequestDto exchange = buildActionDto(
                 103L,
                 203L,
                 "TRK-503",
@@ -1276,7 +1281,7 @@ class BuyerTelegramBotTest {
         customer.setTelegramChatId(chatId);
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
-        ActionRequiredReturnRequestDto requestDto = new ActionRequiredReturnRequestDto(
+        ActionRequiredReturnRequestDto requestDto = buildActionDto(
                 1L,
                 2L,
                 "TRK",
@@ -1329,7 +1334,7 @@ class BuyerTelegramBotTest {
         Customer customer = new Customer();
         customer.setTelegramChatId(chatId);
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
-        ActionRequiredReturnRequestDto requestDto = new ActionRequiredReturnRequestDto(
+        ActionRequiredReturnRequestDto requestDto = buildActionDto(
                 3L,
                 2L,
                 "P-1",
@@ -1415,7 +1420,7 @@ class BuyerTelegramBotTest {
         customer.setTelegramChatId(chatId);
         when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
 
-        ActionRequiredReturnRequestDto requestDto = new ActionRequiredReturnRequestDto(
+        ActionRequiredReturnRequestDto requestDto = buildActionDto(
                 7L,
                 9L,
                 "TRACK-ERR",
@@ -2386,6 +2391,84 @@ class BuyerTelegramBotTest {
                 .map(EditMessageText::getText)
                 .filter(Objects::nonNull)
                 .anyMatch(text -> text.contains(title));
+    }
+
+    /**
+     * Формирует DTO заявки с новым контрактом на основе параметров старого конструктора.
+     * Метод упрощает поддержку тестов после рефакторинга DTO, сводя маппинг к единой точке.
+     */
+    private ActionRequiredReturnRequestDto buildActionDto(Long requestId,
+                                                          Long parcelId,
+                                                          String trackNumber,
+                                                          String storeName,
+                                                          String parcelStatus,
+                                                          OrderReturnRequestStatus status,
+                                                          String statusLabel,
+                                                          String requestedAt,
+                                                          String createdAt,
+                                                          String reason,
+                                                          String comment,
+                                                          String reverseTrackNumber,
+                                                          boolean exchangeRequested,
+                                                          boolean canStartExchange,
+                                                          boolean canCloseWithoutExchange,
+                                                          boolean canReopenAsReturn,
+                                                          boolean canCancelExchange,
+                                                          boolean exchangeShipmentDispatched,
+                                                          String cancelExchangeUnavailableReason,
+                                                          boolean returnReceiptConfirmed,
+                                                          String returnReceiptConfirmedAt,
+                                                          boolean canConfirmReceipt) {
+        ReturnRequestMode mode = exchangeRequested || status == OrderReturnRequestStatus.EXCHANGE_APPROVED
+                ? ReturnRequestMode.EXCHANGE
+                : ReturnRequestMode.RETURN;
+        String decisionAt = status == OrderReturnRequestStatus.EXCHANGE_APPROVED ? requestedAt : null;
+        String closedAt = status == OrderReturnRequestStatus.CLOSED_NO_EXCHANGE ? requestedAt : null;
+        ReturnRequestStateDto state = new ReturnRequestStateDto(
+                mode,
+                ReturnRequestStage.CUSTOMER_RETURN,
+                false,
+                false,
+                exchangeRequested,
+                status == OrderReturnRequestStatus.EXCHANGE_APPROVED,
+                exchangeShipmentDispatched,
+                null,
+                returnReceiptConfirmed
+        );
+        ReturnRequestAvailableActionsDto actions = new ReturnRequestAvailableActionsDto(
+                canStartExchange,
+                false,
+                canCloseWithoutExchange,
+                canReopenAsReturn,
+                canCancelExchange,
+                canConfirmReceipt,
+                cancelExchangeUnavailableReason
+        );
+        ReturnRequestTimestampsDto timestamps = new ReturnRequestTimestampsDto(
+                requestedAt,
+                createdAt,
+                decisionAt,
+                closedAt,
+                null,
+                null,
+                null,
+                returnReceiptConfirmedAt
+        );
+        return buildActionDto(
+                requestId,
+                parcelId,
+                trackNumber,
+                storeName,
+                parcelStatus,
+                status,
+                statusLabel,
+                reason,
+                comment,
+                reverseTrackNumber,
+                state,
+                actions,
+                timestamps
+        );
     }
 
     /**

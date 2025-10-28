@@ -1,69 +1,38 @@
 package com.project.tracking_system.dto;
 
-import com.project.tracking_system.entity.ReturnRequestMode;
-import com.project.tracking_system.entity.ReturnRequestStage;
-
 /**
  * DTO заявки на возврат/обмен для модального окна трека.
  *
- * @param id                       идентификатор заявки
- * @param status                   человеко-читаемый статус
- * @param reason                   причина оформления возврата
- * @param comment                  дополнительный комментарий пользователя
- * @param requestedAt              дата, указанная пользователем при обращении (или дата регистрации при её отсутствии)
- * @param decisionAt               дата принятия решения об обмене
- * @param closedAt                 дата закрытия без обмена
- * @param reverseTrackNumber       трек обратной отправки, если указан
- * @param requiresAction           признак, что заявка ожидает действий
- * @param exchangeApproved         признак, что обмен уже запущен
- * @param exchangeRequested        признак, что обмен был запрошен при регистрации
- * @param canStartExchange         доступность кнопки запуска обмена
- * @param canCreateExchangeParcel  доступность создания обменной посылки
- * @param canCloseWithoutExchange  доступность закрытия без обмена
- * @param canReopenAsReturn        доступность перевода обмена обратно в возврат
- * @param canCancelExchange        доступность отмены обмена
- * @param cancelExchangeUnavailableReason сообщение для пользователя, если отмена обмена недоступна
- * @param returnReceiptConfirmed   признак ручного подтверждения возврата магазином
- * @param returnReceiptConfirmedAt дата подтверждения возврата
- * @param canConfirmReceipt        доступность кнопки подтверждения возврата
+ * @param id               идентификатор заявки
+ * @param status           человеко-читаемый статус
+ * @param reason           причина оформления возврата
+ * @param comment          дополнительный комментарий пользователя
+ * @param reverseTrackNumber трек обратной отправки, если указан
+ * @param requiresAction   признак, что заявка ожидает действий
+ * @param state            агрегированное состояние заявки (режим, этап, флаги)
+ * @param availableActions доступные действия для пользователя
+ * @param timestamps       набор временных меток жизненного цикла
+ * @param storeId          идентификатор магазина, обработавшего заявку
+ * @param responsibleId    идентификатор ответственного менеджера
  */
-
 public record OrderReturnRequestDto(Long id,
                                     String status,
                                     String reason,
                                     String comment,
-                                    String requestedAt,
-                                    String decisionAt,
-                                    String closedAt,
                                     String reverseTrackNumber,
                                     boolean requiresAction,
-                                    boolean exchangeApproved,
-                                    boolean exchangeRequested,
-                                    boolean canStartExchange,
-                                    boolean canCreateExchangeParcel,
-                                    boolean canCloseWithoutExchange,
-                                    boolean canReopenAsReturn,
-                                    boolean canCancelExchange,
-                                    String cancelExchangeUnavailableReason,
-                                    boolean returnReceiptConfirmed,
-                                    String returnReceiptConfirmedAt,
-                                    boolean canConfirmReceipt,
-                                    ReturnRequestMode mode,
-                                    ReturnRequestStage stage,
-                                    String exchangeTrackNumber,
-                                    boolean manualStageOverride,
-                                    boolean manualTrackOverride,
-                                    String stageStartedAt,
-                                    String stageUpdatedAt,
-                                    String exchangeTrackAssignedAt,
+                                    ReturnRequestStateDto state,
+                                    ReturnRequestAvailableActionsDto availableActions,
+                                    ReturnRequestTimestampsDto timestamps,
                                     Long storeId,
                                     Long responsibleId) {
 
     /**
      * Совместимый с фронтендом аксессор, чтобы не ломать проверку {@code isExchangeRequest}.
+     *
+     * @return {@code true}, если заявка оформлена как обмен
      */
     public boolean isExchangeRequest() {
-        return exchangeRequested;
+        return state != null && state.exchangeRequested();
     }
 }
-
