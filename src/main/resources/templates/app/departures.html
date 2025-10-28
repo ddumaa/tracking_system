@@ -288,9 +288,9 @@
                                                         <span class="fw-semibold" data-return-status-label
                                                               th:text="${request.statusLabel != null ? request.statusLabel : 'Статус не определён'}"></span>
                                                         <span class="text-muted small" data-return-requested
-                                                              th:text="${request.requestedAt != null ? 'Обращение: ' + request.requestedAt : 'Обращение: —'}"></span>
+                                                              th:text="${request.timestamps != null and request.timestamps.requestedAt != null ? 'Обращение: ' + request.timestamps.requestedAt : 'Обращение: —'}"></span>
                                                         <span class="text-muted small" data-return-created
-                                                              th:text="${request.createdAt != null ? 'Регистрация: ' + request.createdAt : 'Регистрация: —'}"></span>
+                                                              th:text="${request.timestamps != null and request.timestamps.createdAt != null ? 'Регистрация: ' + request.timestamps.createdAt : 'Регистрация: —'}"></span>
                                                     </div>
                                                 </td>
                                                 <td class="text-start">
@@ -302,18 +302,18 @@
                                                       <span class="text-muted small" data-return-reverse
                                                             th:text="${request.reverseTrackNumber != null ? 'Обратный трек: ' + request.reverseTrackNumber : 'Обратный трек: —'}"></span>
                                                       <span class="text-muted small" data-return-confirmation
-                                                            th:classappend="${request.returnReceiptConfirmed} ? ' text-success' : ''"
-                                                            th:text="${request.returnReceiptConfirmed ? 'Получение подтверждено: ' + (request.returnReceiptConfirmedAt != null ? request.returnReceiptConfirmedAt : '—') : 'Получение ещё не подтверждено'}"></span>
+                                                            th:classappend="${request.state != null and request.state.returnReceiptConfirmed} ? ' text-success' : ''"
+                                                            th:text="${request.state != null and request.state.returnReceiptConfirmed ? 'Получение подтверждено: ' + (request.timestamps != null && request.timestamps.returnReceiptConfirmedAt != null ? request.timestamps.returnReceiptConfirmedAt : '—') : 'Получение ещё не подтверждено'}"></span>
                                                     </div>
                                                 </td>
                                                 <td class="text-end">
                                                     <div class="d-flex flex-column flex-lg-row gap-2 justify-content-end"
                                                          th:with="isExchangeApproved=${request.status == T(com.project.tracking_system.entity.OrderReturnRequestStatus).EXCHANGE_APPROVED},
-                                                                  allowConfirm=${request.canConfirmReceipt},
-                                                                  allowConvertToExchange=${request.canStartExchange},
-                                                                  allowClose=${request.canCloseWithoutExchange},
+                                                                  allowConfirm=${request.availableActions != null and request.availableActions.confirmReceipt},
+                                                                  allowConvertToExchange=${request.availableActions != null and request.availableActions.startExchange},
+                                                                  allowClose=${request.availableActions != null and request.availableActions.closeWithoutExchange},
                                                                   hasReverse=${request.reverseTrackNumber != null and !#strings.isEmpty(request.reverseTrackNumber)},
-                                                                  allowConvertToReturn=${request.canReopenAsReturn},
+                                                                  allowConvertToReturn=${request.availableActions != null and request.availableActions.reopenAsReturn},
                                                                   allowUpdateReverse=${isExchangeApproved and !hasReverse}">
                                                         <button type="button"
                                                                 class="btn btn-success btn-sm js-return-request-confirm-return"
