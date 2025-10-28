@@ -6,10 +6,10 @@ import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderEpisode;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.OrderReturnRequestActionRequest;
-import com.project.tracking_system.entity.OrderReturnRequestActionType;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.entity.ReturnRequestAction;
 import com.project.tracking_system.repository.OrderReturnRequestActionRequestRepository;
 import com.project.tracking_system.repository.OrderReturnRequestRepository;
 import com.project.tracking_system.service.track.TrackParcelService;
@@ -376,10 +376,10 @@ public class OrderReturnRequestService {
      */
     @Transactional
     public OrderReturnRequestActionRequest requestMerchantAction(Long requestId,
-                                                                 Long parcelId,
-                                                                 User user,
-                                                                 Customer customer,
-                                                                 OrderReturnRequestActionType action) {
+                                                                Long parcelId,
+                                                                User user,
+                                                                Customer customer,
+                                                                ReturnRequestAction action) {
         if (action == null) {
             throw new IllegalArgumentException("Не указан тип запроса к магазину");
         }

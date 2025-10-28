@@ -2,6 +2,7 @@ package com.project.tracking_system.service.telegram;
 
 import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
+import com.project.tracking_system.entity.ReturnRequestMode;
 
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -27,7 +28,7 @@ public class ChatSession {
     private Integer announcementAnchorMessageId;
     private boolean announcementSeen;
     private ZonedDateTime announcementUpdatedAt;
-    private ReturnRequestType returnRequestType;
+    private ReturnRequestMode returnRequestMode;
     private String returnStoreName;
     private Long returnParcelId;
     private String returnParcelTrackNumber;
@@ -96,7 +97,7 @@ public class ChatSession {
         this.announcementAnchorMessageId = null;
         this.announcementSeen = false;
         this.announcementUpdatedAt = null;
-        this.returnRequestType = null;
+        this.returnRequestMode = null;
         this.returnStoreName = null;
         this.returnParcelId = null;
         this.returnParcelTrackNumber = null;
@@ -414,21 +415,21 @@ public class ChatSession {
     }
 
     /**
-     * Возвращает выбранный пользователем тип заявки.
+     * Возвращает выбранный пользователем режим заявки.
      *
-     * @return тип заявки или {@code null}, если выбор ещё не сделан
+     * @return режим заявки или {@code null}, если выбор ещё не сделан
      */
-    public ReturnRequestType getReturnRequestType() {
-        return returnRequestType;
+    public ReturnRequestMode getReturnRequestMode() {
+        return returnRequestMode;
     }
 
     /**
-     * Сохраняет тип заявки, выбранный пользователем.
+     * Сохраняет режим заявки, выбранный пользователем.
      *
-     * @param returnRequestType тип заявки (возврат или обмен)
+     * @param returnRequestMode режим заявки (возврат или обмен)
      */
-    public void setReturnRequestType(ReturnRequestType returnRequestType) {
-        this.returnRequestType = returnRequestType;
+    public void setReturnRequestMode(ReturnRequestMode returnRequestMode) {
+        this.returnRequestMode = returnRequestMode;
     }
 
     /**
@@ -600,7 +601,7 @@ public class ChatSession {
      * Очищает временные данные оформления возврата и обмена.
      */
     public void clearReturnRequestData() {
-        this.returnRequestType = null;
+        this.returnRequestMode = null;
         this.returnStoreName = null;
         this.returnParcelId = null;
         this.returnParcelTrackNumber = null;

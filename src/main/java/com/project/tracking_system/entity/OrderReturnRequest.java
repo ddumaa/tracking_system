@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 
+
 /**
  * Заявка на возврат или обмен по конкретной посылке.
  * <p>
@@ -320,6 +321,13 @@ public class OrderReturnRequest {
      */
     public boolean isExchangeApproved() {
         return status == OrderReturnRequestStatus.EXCHANGE_APPROVED;
+    }
+
+    /**
+     * Возвращает режим обработки заявки (возврат или обмен) на основе текущих флагов.
+     */
+    public ReturnRequestMode getMode() {
+        return ReturnRequestMode.from(this);
     }
 }
 

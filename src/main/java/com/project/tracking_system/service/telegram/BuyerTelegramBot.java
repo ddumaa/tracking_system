@@ -588,12 +588,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         boolean reasonNavigation = isReasonSelectionNavigation(data, session);
 
         if (CALLBACK_RETURNS_CREATE_TYPE_RETURN.equals(data)) {
-            handleReturnRequestTypeSelection(chatId, callbackQuery, ReturnRequestType.RETURN);
+            handleReturnRequestModeSelection(chatId, callbackQuery, ReturnRequestMode.RETURN);
             return;
         }
 
         if (CALLBACK_RETURNS_CREATE_TYPE_EXCHANGE.equals(data)) {
-            handleReturnRequestTypeSelection(chatId, callbackQuery, ReturnRequestType.EXCHANGE);
+            handleReturnRequestModeSelection(chatId, callbackQuery, ReturnRequestMode.EXCHANGE);
             return;
         }
 
@@ -818,11 +818,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             case PARCELS -> sendParcelsScreen(chatId);
             case RETURNS_MENU -> sendReturnsMenuScreen(chatId);
             case RETURNS_ACTIVE_REQUESTS -> sendActiveReturnRequestsScreen(chatId);
-            case RETURNS_CREATE_TYPE -> showReturnRequestTypeScreen(chatId);
+            case RETURNS_CREATE_TYPE -> showReturnRequestModeScreen(chatId);
             case RETURNS_CREATE_STORE -> {
                 ChatSession session = ensureChatSession(chatId);
-                ReturnRequestType type = Optional.ofNullable(session.getReturnRequestType())
-                        .orElse(ReturnRequestType.RETURN);
+                ReturnRequestMode type = Optional.ofNullable(session.getReturnRequestMode())
+                        .orElse(ReturnRequestMode.RETURN);
                 List<TelegramParcelInfoDTO> available = loadReturnableParcels(chatId);
                 showReturnRequestStoreScreen(chatId, type, available);
             }
@@ -830,15 +830,15 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 ChatSession session = ensureChatSession(chatId);
                 String storeName = session.getReturnStoreName();
                 if (storeName == null) {
-                    showReturnRequestTypeScreen(chatId);
+                    showReturnRequestModeScreen(chatId);
                     return;
                 }
                 List<TelegramParcelInfoDTO> available = loadReturnableParcels(chatId);
                 Map<String, List<TelegramParcelInfoDTO>> grouped = groupReturnableParcelsByStore(available);
                 List<TelegramParcelInfoDTO> storeParcels = grouped.getOrDefault(storeName, List.of());
                 if (storeParcels.isEmpty()) {
-                    ReturnRequestType type = Optional.ofNullable(session.getReturnRequestType())
-                            .orElse(ReturnRequestType.RETURN);
+                    ReturnRequestMode type = Optional.ofNullable(session.getReturnRequestMode())
+                            .orElse(ReturnRequestMode.RETURN);
                     showReturnRequestStoreScreen(chatId, type, available);
                     return;
                 }
@@ -1102,7 +1102,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         session.setState(BuyerChatState.AWAITING_REQUEST_TYPE);
         chatSessionRepository.save(session);
         transitionToState(chatId, BuyerChatState.AWAITING_REQUEST_TYPE);
-        showReturnRequestTypeScreen(chatId);
+        showReturnRequestModeScreen(chatId);
     }
 
     /**
@@ -1384,23 +1384,23 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      *
      * @param chatId идентификатор чата Telegram
      */
-    private void showReturnRequestTypeScreen(Long chatId) {
+    private void showReturnRequestModeScreen(Long chatId) {
         List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_CREATE_TYPE);
-        InlineKeyboardMarkup markup = buildReturnRequestTypeKeyboard(navigationPath);
-        String text = buildReturnRequestTypeText();
+        InlineKeyboardMarkup markup = buildReturnRequestModeKeyboard(navigationPath);
+        String text = buildReturnRequestModeText();
         sendInlineMessage(chatId, text, markup, BuyerBotScreen.RETURNS_CREATE_TYPE, navigationPath);
     }
 
     /**
      * Обрабатывает выбор типа заявки и переводит пользователя к выбору магазина.
      */
-    private void handleReturnRequestTypeSelection(Long chatId,
+    private void handleReturnRequestModeSelection(Long chatId,
                                                  CallbackQuery callbackQuery,
-                                                 ReturnRequestType type) {
+                                                 ReturnRequestMode type) {
         answerCallbackQuery(callbackQuery, RETURNS_CREATE_TYPE_ACK);
         ChatSession session = ensureChatSession(chatId);
         session.clearReturnRequestData();
-        session.setReturnRequestType(type);
+        session.setReturnRequestMode(type);
         List<TelegramParcelInfoDTO> availableParcels = loadReturnableParcels(chatId);
         if (availableParcels.isEmpty()) {
             session.setState(BuyerChatState.AWAITING_REQUEST_TYPE);
@@ -1422,7 +1422,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * Показывает список магазинов, где есть посылки без активных заявок.
      */
     private void showReturnRequestStoreScreen(Long chatId,
-                                              ReturnRequestType type,
+                                              ReturnRequestMode type,
                                               List<TelegramParcelInfoDTO> availableParcels) {
         Map<String, List<TelegramParcelInfoDTO>> grouped = groupReturnableParcelsByStore(availableParcels);
         List<BuyerBotScreen> navigationPath = computeNavigationPath(chatId, BuyerBotScreen.RETURNS_CREATE_STORE);
@@ -1456,9 +1456,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         ChatSession session = ensureChatSession(chatId);
-        ReturnRequestType type = session.getReturnRequestType();
+        ReturnRequestMode type = session.getReturnRequestMode();
         if (type == null) {
-            showReturnRequestTypeScreen(chatId);
+            showReturnRequestModeScreen(chatId);
             return;
         }
 
@@ -1504,9 +1504,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
 
         ChatSession session = ensureChatSession(chatId);
-        ReturnRequestType type = session.getReturnRequestType();
+        ReturnRequestMode type = session.getReturnRequestMode();
         if (type == null) {
-            showReturnRequestTypeScreen(chatId);
+            showReturnRequestModeScreen(chatId);
             return;
         }
 
@@ -1514,7 +1514,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         Optional<TelegramParcelInfoDTO> parcelOptional = findParcelById(chatId, parcelId);
         if (parcelOptional.isEmpty()) {
             answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
-            showReturnRequestTypeScreen(chatId);
+            showReturnRequestModeScreen(chatId);
             return;
         }
 
@@ -1522,12 +1522,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (parcel.hasActiveReturnRequest()) {
             answerCallbackQuery(callbackQuery, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
             notifyReturnAlreadyRegistered(chatId, parcel);
-            showReturnRequestTypeScreen(chatId);
+            showReturnRequestModeScreen(chatId);
             return;
         }
 
         answerCallbackQuery(callbackQuery, RETURNS_CREATE_PARCEL_ACK);
-        if (type == ReturnRequestType.RETURN) {
+        if (type == ReturnRequestMode.RETURN) {
             startReturnScenario(chatId, callbackQuery, parcel, session);
         } else {
             startExchangeScenario(chatId, callbackQuery, parcel, session);
@@ -1635,7 +1635,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     /**
      * Формирует клавиатуру выбора типа заявки.
      */
-    private InlineKeyboardMarkup buildReturnRequestTypeKeyboard(List<BuyerBotScreen> navigationPath) {
+    private InlineKeyboardMarkup buildReturnRequestModeKeyboard(List<BuyerBotScreen> navigationPath) {
         InlineKeyboardButton returnButton = InlineKeyboardButton.builder()
                 .text(RETURNS_CREATE_TYPE_RETURN_LABEL)
                 .callbackData(CALLBACK_RETURNS_CREATE_TYPE_RETURN)
@@ -1842,7 +1842,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     /**
      * Формирует текст этапа выбора типа заявки.
      */
-    private String buildReturnRequestTypeText() {
+    private String buildReturnRequestModeText() {
         return escapeMarkdown(RETURNS_CREATE_TITLE)
                 + "\n\n"
                 + escapeMarkdown(RETURNS_CREATE_TYPE_PROMPT);
@@ -1851,8 +1851,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     /**
      * Формирует текст подсказки для выбора магазина.
      */
-    private String buildReturnRequestStoreText(ReturnRequestType type) {
-        String typeLabel = type == ReturnRequestType.RETURN
+    private String buildReturnRequestStoreText(ReturnRequestMode type) {
+        String typeLabel = type == ReturnRequestMode.RETURN
                 ? RETURNS_CREATE_TYPE_RETURN_LABEL
                 : RETURNS_CREATE_TYPE_EXCHANGE_LABEL;
         return escapeMarkdown(RETURNS_CREATE_TITLE)
@@ -1999,7 +1999,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
         answerCallbackQuery(callbackQuery, "Требуется подтверждение");
         ChatSession session = ensureChatSession(chatId);
-        showActiveRequestConfirmation(chatId, session, detailsOptional.get(), context, ActiveRequestAction.CANCEL_RETURN);
+        showActiveRequestConfirmation(chatId, session, detailsOptional.get(), context, ReturnRequestAction.CANCEL_RETURN);
     }
 
     private void handleActiveRequestCancelExchange(Long chatId, CallbackQuery callbackQuery, String data) {
@@ -2018,7 +2018,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         ActiveRequestDetails details = detailsOptional.get();
         answerCallbackQuery(callbackQuery, "Требуется подтверждение");
         ChatSession session = ensureChatSession(chatId);
-        showActiveRequestConfirmation(chatId, session, details, context, ActiveRequestAction.CANCEL_EXCHANGE);
+        showActiveRequestConfirmation(chatId, session, details, context, ReturnRequestAction.CANCEL_EXCHANGE);
     }
 
     private void handleActiveRequestConvert(Long chatId, CallbackQuery callbackQuery, String data) {
@@ -2037,7 +2037,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         ActiveRequestDetails details = detailsOptional.get();
         answerCallbackQuery(callbackQuery, "Требуется подтверждение");
         ChatSession session = ensureChatSession(chatId);
-        showActiveRequestConfirmation(chatId, session, details, context, ActiveRequestAction.CONVERT_TO_RETURN);
+        showActiveRequestConfirmation(chatId, session, details, context, ReturnRequestAction.CONVERT_TO_RETURN);
     }
 
     private Optional<ActiveRequestDetails> loadActiveRequestDetails(Long chatId, RequestActionContext context) {
@@ -2083,7 +2083,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                                                ChatSession session,
                                                ActiveRequestDetails details,
                                                RequestActionContext context,
-                                               ActiveRequestAction action) {
+                                               ReturnRequestAction action) {
         if (chatId == null || session == null || details == null || context == null || action == null) {
             return;
         }
@@ -2104,7 +2104,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      */
     private String buildActionConfirmationMessage(List<ActionRequiredReturnRequestDto> requests,
                                                   ActionRequiredReturnRequestDto selected,
-                                                  ActiveRequestAction action) {
+                                                  ReturnRequestAction action) {
         String base = buildActiveReturnRequestsMessage(requests, selected);
         String question = buildConfirmationQuestion(selected, action);
         return new StringBuilder(base)
@@ -2119,7 +2119,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     /**
      * Возвращает текст вопроса подтверждения для выбранного действия.
      */
-    private String buildConfirmationQuestion(ActionRequiredReturnRequestDto request, ActiveRequestAction action) {
+    private String buildConfirmationQuestion(ActionRequiredReturnRequestDto request, ReturnRequestAction action) {
         if (request == null || action == null) {
             return RETURNS_ACTIVE_CONFIRMATION_PROMPT;
         }
@@ -2146,7 +2146,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
      * Формирует клавиатуру подтверждения с кнопками «Да» и «Нет» и строкой навигации.
      */
     private InlineKeyboardMarkup buildConfirmationKeyboard(RequestActionContext context,
-                                                           ActiveRequestAction action,
+                                                           ReturnRequestAction action,
                                                            List<BuyerBotScreen> navigationPath) {
         InlineKeyboardButton yesButton = InlineKeyboardButton.builder()
                 .text(BUTTON_CONFIRM_YES)
@@ -2164,7 +2164,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 .build();
     }
 
-    private String buildConfirmationCallback(ActiveRequestAction action,
+    private String buildConfirmationCallback(ReturnRequestAction action,
                                              boolean confirmed,
                                              RequestActionContext context) {
         if (action == null || context == null || context.requestId() == null || context.parcelId() == null) {
@@ -2172,7 +2172,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
         String decision = confirmed ? "yes" : "no";
         return CALLBACK_RETURNS_ACTIVE_CONFIRM_PREFIX
-                + action.code() + ':'
+                + action.getCode() + ':'
                 + decision + ':'
                 + context.requestId() + ':'
                 + context.parcelId();
@@ -2186,7 +2186,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (parts.length != 4) {
             return Optional.empty();
         }
-        ActiveRequestAction action = ActiveRequestAction.fromCode(parts[0]);
+        ReturnRequestAction action = ReturnRequestAction.fromCode(parts[0]);
         if (action == null) {
             return Optional.empty();
         }
@@ -2234,7 +2234,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
         RequestActionContext context = confirmation.context();
-        ActiveRequestAction action = confirmation.action();
+        ReturnRequestAction action = confirmation.action();
         ActionRequiredReturnRequestDto requestInfo = findRequestInfo(chatId, context.requestId());
         if (requestInfo == null) {
             finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
@@ -2495,46 +2495,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     /**
      * Контекст подтверждения действия с указанием типа операции и исходных идентификаторов.
      */
-    private record ActionConfirmationContext(ActiveRequestAction action,
+    private record ActionConfirmationContext(ReturnRequestAction action,
                                              boolean confirmed,
                                              RequestActionContext context) {
-    }
-
-    /**
-     * Возможные действия над активной заявкой, требующие подтверждения.
-     */
-    private enum ActiveRequestAction {
-        CANCEL_RETURN("cancel"),
-        CANCEL_EXCHANGE("cancel_exchange"),
-        CONVERT_TO_RETURN("convert");
-
-        private final String code;
-
-        ActiveRequestAction(String code) {
-            this.code = code;
-        }
-
-        /**
-         * Возвращает строковое представление действия для формирования callback-данных.
-         */
-        public String code() {
-            return code;
-        }
-
-        /**
-         * Восстанавливает действие из строкового кода.
-         */
-        public static ActiveRequestAction fromCode(String code) {
-            if (code == null) {
-                return null;
-            }
-            for (ActiveRequestAction action : values()) {
-                if (action.code.equals(code)) {
-                    return action;
-                }
-            }
-            return null;
-        }
     }
 
     /**
@@ -3116,7 +3079,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
         session = session != null ? session : ensureChatSession(chatId);
         session.clearReturnRequestData();
-        session.setReturnRequestType(ReturnRequestType.RETURN);
+        session.setReturnRequestMode(ReturnRequestMode.RETURN);
         session.setReturnParcelId(parcel.getParcelId());
         session.setReturnParcelTrackNumber(track);
         session.setReturnIdempotencyKey(UUID.randomUUID().toString());
@@ -3145,7 +3108,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
         session = session != null ? session : ensureChatSession(chatId);
         session.clearReturnRequestData();
-        session.setReturnRequestType(ReturnRequestType.EXCHANGE);
+        session.setReturnRequestMode(ReturnRequestMode.EXCHANGE);
         session.setReturnParcelId(parcel.getParcelId());
         session.setReturnParcelTrackNumber(track);
         session.setReturnIdempotencyKey(UUID.randomUUID().toString());

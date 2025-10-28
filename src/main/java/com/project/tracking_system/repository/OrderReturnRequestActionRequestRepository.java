@@ -1,7 +1,7 @@
 package com.project.tracking_system.repository;
 
 import com.project.tracking_system.entity.OrderReturnRequestActionRequest;
-import com.project.tracking_system.entity.OrderReturnRequestActionType;
+import com.project.tracking_system.entity.ReturnRequestAction;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
@@ -12,5 +12,5 @@ import java.util.Optional;
 public interface OrderReturnRequestActionRequestRepository extends JpaRepository<OrderReturnRequestActionRequest, Long> {
 
     Optional<OrderReturnRequestActionRequest> findFirstByReturnRequest_IdAndActionAndProcessedAtIsNull(Long requestId,
-                                                                                                     OrderReturnRequestActionType action);
+                                                                                                     ReturnRequestAction action);
 }

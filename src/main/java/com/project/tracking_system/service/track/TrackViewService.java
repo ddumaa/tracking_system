@@ -11,6 +11,8 @@ import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderEpisode;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
+import com.project.tracking_system.entity.ReturnRequestMode;
+import com.project.tracking_system.entity.ReturnRequestStage;
 import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.TrackStatusEvent;
@@ -207,26 +209,24 @@ public class TrackViewService {
                                              OrderReturnRequest request,
                                              ZoneId userZone,
                                              String outboundMoment) {
-        TrackLifecycleStageState customerReturnState = TrackLifecycleStageState.PLANNED;
-        String customerReturnMoment = null;
-        boolean reverseStarted = hasReverseShipmentStarted(parcel, request);
-        customerReturnState = reverseStarted
+        ReturnRequestStage customerStage = ReturnRequestStage.CUSTOMER_RETURN;
+        TrackLifecycleStageState customerReturnState = hasReverseShipmentStarted(parcel, request)
                 ? TrackLifecycleStageState.COMPLETED
                 : TrackLifecycleStageState.IN_PROGRESS;
-        customerReturnMoment = formatNullableTimestamp(request.getRequestedAt(), userZone);
+        String customerReturnMoment = formatNullableTimestamp(request.getRequestedAt(), userZone);
         String reverseTrackNumber = normalizeTrackNumber(request.getReverseTrackNumber());
-        String reverseTrackContext = "Обратный трек";
         stages.add(new TrackLifecycleStageDto(
-                "CUSTOMER_RETURN",
-                "Возврат от покупателя",
-                "Покупатель",
-                "Покупатель оформляет заявку и отправляет посылку обратно магазину.",
+                customerStage.getCode(),
+                customerStage.getTitle(),
+                customerStage.getActor(),
+                customerStage.getDescription(),
                 customerReturnState,
                 customerReturnMoment,
                 reverseTrackNumber,
-                reverseTrackContext
+                customerStage.getTrackContextLabel()
         ));
 
+        ReturnRequestStage merchantStage = ReturnRequestStage.MERCHANT_ACCEPT_RETURN;
         TrackLifecycleStageState merchantProcessingState = TrackLifecycleStageState.PLANNED;
         String merchantProcessingMoment = null;
         boolean processed = isReturnProcessed(request, parcel);
@@ -245,10 +245,10 @@ public class TrackViewService {
             merchantProcessingState = TrackLifecycleStageState.IN_PROGRESS;
         }
         stages.add(new TrackLifecycleStageDto(
-                "MERCHANT_ACCEPT_RETURN",
-                "Приём возврата магазином",
-                "Магазин",
-                "Менеджер проверяет возврат и принимает решение: закрыть заявку или запустить обмен.",
+                merchantStage.getCode(),
+                merchantStage.getTitle(),
+                merchantStage.getActor(),
+                merchantStage.getDescription(),
                 merchantProcessingState,
                 merchantProcessingMoment,
                 null,
@@ -257,6 +257,8 @@ public class TrackViewService {
 
         TrackParcel exchangeParcel = orderExchangeService.findLatestExchangeParcel(request).orElse(null);
         if (shouldShowExchangeStages(request, exchangeParcel)) {
+            ReturnRequestStage shipmentStage = ReturnRequestStage.EXCHANGE_SHIPMENT;
+            ReturnRequestStage deliveryStage = ReturnRequestStage.EXCHANGE_DELIVERY;
             boolean hasExchangeParcel = exchangeParcel != null;
             boolean hasExchangeTrack = hasExchangeParcel
                     && exchangeParcel.getNumber() != null
@@ -276,17 +278,19 @@ public class TrackViewService {
             String exchangeTrackNumber = hasExchangeTrack
                     ? normalizeTrackNumber(exchangeParcel.getNumber())
                     : null;
+            String shipmentContext = exchangeTrackNumber != null
+                    || exchangeCreationState != TrackLifecycleStageState.PLANNED
+                    ? shipmentStage.getTrackContextLabel()
+                    : null;
             stages.add(new TrackLifecycleStageDto(
-                    "EXCHANGE_SHIPMENT",
-                    "Отправление обмена",
-                    "Магазин",
-                    "После подтверждения возврата магазин создаёт обменную посылку.",
+                    shipmentStage.getCode(),
+                    shipmentStage.getTitle(),
+                    shipmentStage.getActor(),
+                    shipmentStage.getDescription(),
                     exchangeCreationState,
                     exchangeCreationMoment,
                     exchangeTrackNumber,
-                    exchangeTrackNumber != null || exchangeCreationState != TrackLifecycleStageState.PLANNED
-                            ? "Обменная посылка"
-                            : null
+                    shipmentContext
             ));
 
             TrackLifecycleStageState exchangeDeliveryState = TrackLifecycleStageState.PLANNED;
@@ -301,17 +305,19 @@ public class TrackViewService {
                 }
             }
 
+            String deliveryContext = exchangeTrackNumber != null
+                    || exchangeDeliveryState != TrackLifecycleStageState.PLANNED
+                    ? deliveryStage.getTrackContextLabel()
+                    : null;
             stages.add(new TrackLifecycleStageDto(
-                    "EXCHANGE_DELIVERY",
-                    "Получение обмена",
-                    "Покупатель",
-                    "Покупатель забирает новую посылку. Цикл завершается до следующей заявки.",
+                    deliveryStage.getCode(),
+                    deliveryStage.getTitle(),
+                    deliveryStage.getActor(),
+                    deliveryStage.getDescription(),
                     exchangeDeliveryState,
                     exchangeDeliveryMoment,
                     exchangeTrackNumber,
-                    exchangeTrackNumber != null || exchangeDeliveryState != TrackLifecycleStageState.PLANNED
-                            ? "Обменная посылка"
-                            : null
+                    deliveryContext
             ));
         }
     }
@@ -429,7 +435,8 @@ public class TrackViewService {
         if (exchangeParcel != null) {
             return true;
         }
-        return request.isExchangeRequested() || request.getStatus() == OrderReturnRequestStatus.EXCHANGE_APPROVED;
+        ReturnRequestMode mode = ReturnRequestMode.from(request);
+        return mode.isExchange();
     }
 
     /**
