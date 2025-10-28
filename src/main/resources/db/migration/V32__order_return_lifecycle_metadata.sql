@@ -16,6 +16,7 @@ SET mode = CASE
         ELSE 'RETURN'
     END,
     stage = CASE
+        WHEN r.return_receipt_confirmed THEN 'MERCHANT_ACCEPT_RETURN'
         WHEN r.status = 'EXCHANGE_APPROVED' THEN 'EXCHANGE_SHIPMENT'
         WHEN r.status = 'CLOSED_NO_EXCHANGE' THEN 'MERCHANT_ACCEPT_RETURN'
         ELSE 'CUSTOMER_RETURN'
