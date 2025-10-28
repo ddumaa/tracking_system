@@ -106,14 +106,16 @@
 
         const derivePermissions = (item) => {
             const statusValue = typeof item?.status === 'string' ? item.status.toUpperCase() : '';
-            const exchangeStatus = statusValue === 'EXCHANGE_APPROVED';
+            const state = item?.state || {};
+            const actions = item?.availableActions || {};
+            const exchangeStatus = statusValue === 'EXCHANGE_APPROVED' || Boolean(state.exchangeApproved);
             const reverseMissing = !item?.reverseTrackNumber;
             return {
-                allowConfirmReceipt: Boolean(item?.canConfirmReceipt),
-                allowConvertToExchange: Boolean(item?.canStartExchange),
-                allowCloseRequest: Boolean(item?.canCloseWithoutExchange),
+                allowConfirmReceipt: Boolean(actions.confirmReceipt),
+                allowConvertToExchange: Boolean(actions.startExchange),
+                allowCloseRequest: Boolean(actions.closeWithoutExchange),
                 allowUpdateReverseTrack: exchangeStatus && reverseMissing,
-                allowConvertToReturn: Boolean(item?.canReopenAsReturn)
+                allowConvertToReturn: Boolean(actions.reopenAsReturn)
             };
         };
 

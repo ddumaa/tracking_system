@@ -497,11 +497,11 @@ class TrackViewServiceTest {
         assertThat(details.requiresAction()).isTrue();
         assertThat(details.returnRequest()).isNotNull();
         assertThat(details.returnRequest().requiresAction()).isTrue();
-        assertThat(details.returnRequest().canStartExchange()).isTrue();
-        assertThat(details.returnRequest().canCreateExchangeParcel()).isFalse();
-        assertThat(details.returnRequest().canConfirmReceipt()).isTrue();
-        assertThat(details.returnRequest().returnReceiptConfirmed()).isFalse();
-        assertThat(details.returnRequest().returnReceiptConfirmedAt()).isNull();
+        assertThat(details.returnRequest().availableActions().startExchange()).isTrue();
+        assertThat(details.returnRequest().availableActions().createExchangeParcel()).isFalse();
+        assertThat(details.returnRequest().availableActions().confirmReceipt()).isTrue();
+        assertThat(details.returnRequest().state().returnReceiptConfirmed()).isFalse();
+        assertThat(details.returnRequest().timestamps().returnReceiptConfirmedAt()).isNull();
         assertThat(details.lifecycle())
                 .extracting(stage -> stage.code())
                 .contains("OUTBOUND", "CUSTOMER_RETURN", "MERCHANT_ACCEPT_RETURN");
@@ -617,7 +617,7 @@ class TrackViewServiceTest {
         TrackDetailsDto details = service.getTrackDetails(83L, 17L);
 
         assertThat(details.returnRequest()).isNotNull();
-        assertThat(details.returnRequest().canCreateExchangeParcel()).isTrue();
+        assertThat(details.returnRequest().availableActions().createExchangeParcel()).isTrue();
     }
 
     @Test

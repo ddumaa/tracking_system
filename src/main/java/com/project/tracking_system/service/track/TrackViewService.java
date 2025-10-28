@@ -1,6 +1,9 @@
 package com.project.tracking_system.service.track;
 
 import com.project.tracking_system.dto.OrderReturnRequestDto;
+import com.project.tracking_system.dto.ReturnRequestAvailableActionsDto;
+import com.project.tracking_system.dto.ReturnRequestStateDto;
+import com.project.tracking_system.dto.ReturnRequestTimestampsDto;
 import com.project.tracking_system.dto.TrackChainItemDto;
 import com.project.tracking_system.dto.TrackDetailsDto;
 import com.project.tracking_system.dto.TrackLifecycleStageDto;
@@ -489,9 +492,39 @@ public class TrackViewService {
                 .orElse(null);
         ReturnRequestMode mode = request.getMode() != null ? request.getMode() : ReturnRequestMode.RETURN;
         ReturnRequestStage stage = request.getStage() != null ? request.getStage() : ReturnRequestStage.CUSTOMER_RETURN;
-        String stageStartedAt = formatNullableTimestamp(request.getStageStartedAt(), userZone);
-        String stageUpdatedAt = formatNullableTimestamp(request.getStageUpdatedAt(), userZone);
-        String exchangeTrackAssignedAt = formatNullableTimestamp(request.getExchangeTrackAssignedAt(), userZone);
+        ReturnRequestStateDto state = new ReturnRequestStateDto(
+                mode,
+                stage,
+                request.isManualStageOverride(),
+                request.isManualTrackOverride(),
+                request.isExchangeRequested(),
+                request.isExchangeApproved(),
+                orderReturnRequestService.isExchangeShipmentDispatched(request),
+                request.getExchangeTrackNumber(),
+                request.isReturnReceiptConfirmed()
+        );
+
+        ReturnRequestAvailableActionsDto availableActions = new ReturnRequestAvailableActionsDto(
+                canStartExchange,
+                canCreateExchangeParcel,
+                canCloseWithoutExchange,
+                canReopenAsReturn,
+                canCancelExchange,
+                canConfirmReceipt,
+                cancelExchangeReason
+        );
+
+        ReturnRequestTimestampsDto timestamps = new ReturnRequestTimestampsDto(
+                requestedAt,
+                formatNullableTimestamp(request.getCreatedAt(), userZone),
+                formatNullableTimestamp(request.getDecisionAt(), userZone),
+                formatNullableTimestamp(request.getClosedAt(), userZone),
+                formatNullableTimestamp(request.getStageStartedAt(), userZone),
+                formatNullableTimestamp(request.getStageUpdatedAt(), userZone),
+                formatNullableTimestamp(request.getExchangeTrackAssignedAt(), userZone),
+                formatNullableTimestamp(request.getReturnReceiptConfirmedAt(), userZone)
+        );
+
         Long storeId = request.getStore() != null ? request.getStore().getId() : null;
         Long responsibleId = request.getResponsibleManager() != null ? request.getResponsibleManager().getId() : null;
 
@@ -500,30 +533,11 @@ public class TrackViewService {
                 request.getStatus().getDisplayName(),
                 request.getReason(),
                 request.getComment(),
-                requestedAt,
-                formatNullableTimestamp(request.getDecisionAt(), userZone),
-                formatNullableTimestamp(request.getClosedAt(), userZone),
                 request.getReverseTrackNumber(),
                 request.requiresAction(),
-                request.isExchangeApproved(),
-                request.isExchangeRequested(),
-                canStartExchange,
-                canCreateExchangeParcel,
-                canCloseWithoutExchange,
-                canReopenAsReturn,
-                canCancelExchange,
-                cancelExchangeReason,
-                request.isReturnReceiptConfirmed(),
-                formatNullableTimestamp(request.getReturnReceiptConfirmedAt(), userZone),
-                canConfirmReceipt,
-                mode,
-                stage,
-                request.getExchangeTrackNumber(),
-                request.isManualStageOverride(),
-                request.isManualTrackOverride(),
-                stageStartedAt,
-                stageUpdatedAt,
-                exchangeTrackAssignedAt,
+                state,
+                availableActions,
+                timestamps,
                 storeId,
                 responsibleId
         );

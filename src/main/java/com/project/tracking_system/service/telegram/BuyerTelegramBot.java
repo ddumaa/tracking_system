@@ -1214,7 +1214,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return "возврат";
         }
         if (request.status() == OrderReturnRequestStatus.EXCHANGE_APPROVED
-                || request.exchangeRequested()) {
+                || request.state().exchangeRequested()) {
             return "обмен";
         }
         return "возврат";
@@ -1224,7 +1224,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         String track = escapeMarkdown(formatTrackNumber(request.trackNumber()));
         String store = escapeMarkdown(resolveStoreLabel(request.storeName()));
         String status = escapeMarkdown(safeRequestStatus(request.statusLabel()));
-        String date = escapeMarkdown(safeOrDash(request.requestedAt()));
+        String date = escapeMarkdown(safeOrDash(request.timestamps().requestedAt()));
         String reason = escapeMarkdown(request.reason() == null ? PARCEL_RETURN_REASON_UNKNOWN : request.reason());
         String commentValue = request.comment();
         String comment = escapeMarkdown(commentValue == null || commentValue.isBlank()
@@ -1234,7 +1234,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 ? PARCEL_RETURN_NO_TRACK
                 : request.reverseTrackNumber());
         String details = String.format(RETURNS_ACTIVE_DETAILS_TEMPLATE, track, store, status, date, reason, comment, reverse);
-        String cancelReason = request.cancelExchangeUnavailableReason();
+        String cancelReason = request.availableActions().cancelExchangeUnavailableReason();
         if (cancelReason != null && !cancelReason.isBlank()
                 && request.status() == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
             details = details + System.lineSeparator()
@@ -1307,9 +1307,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 .callbackData(CALLBACK_RETURNS_ACTIVE_COMMENT_PREFIX + requestId + ':' + parcelId)
                 .build()));
         if (request.status() == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
-            boolean cancellationBlocked = request.cancelExchangeUnavailableReason() != null
-                    && !request.cancelExchangeUnavailableReason().isBlank();
-            boolean exchangeDispatched = request.exchangeShipmentDispatched();
+            boolean cancellationBlocked = request.availableActions().cancelExchangeUnavailableReason() != null
+                    && !request.availableActions().cancelExchangeUnavailableReason().isBlank();
+            boolean exchangeDispatched = request.state().exchangeShipmentDispatched();
             if (!cancellationBlocked) {
                 String cancelText = exchangeDispatched
                         ? BUTTON_RETURNS_ACTION_CANCEL_EXCHANGE_REQUEST
@@ -2125,10 +2125,10 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
         return switch (action) {
             case CANCEL_RETURN -> buildCancelReturnConfirmation(request);
-            case CANCEL_EXCHANGE -> request.exchangeShipmentDispatched()
+            case CANCEL_EXCHANGE -> request.state().exchangeShipmentDispatched()
                     ? RETURNS_ACTIVE_CANCEL_EXCHANGE_REQUEST_CONFIRMATION
                     : RETURNS_ACTIVE_CANCEL_EXCHANGE_CONFIRMATION;
-            case CONVERT_TO_RETURN -> request.exchangeShipmentDispatched()
+            case CONVERT_TO_RETURN -> request.state().exchangeShipmentDispatched()
                     ? RETURNS_ACTIVE_CONVERT_REQUEST_CONFIRMATION
                     : RETURNS_ACTIVE_CONVERT_CONFIRMATION;
         };

@@ -120,7 +120,7 @@ class TrackViewCacheEvictionIntegrationTest {
         assertThat(initialDetails.returnRequest()).isNotNull();
         assertThat(initialDetails.returnRequest().status())
                 .isEqualTo(OrderReturnRequestStatus.REGISTERED.getDisplayName());
-        assertThat(initialDetails.returnRequest().exchangeApproved()).isFalse();
+        assertThat(initialDetails.returnRequest().state().exchangeApproved()).isFalse();
 
         orderReturnRequestService.approveExchange(request.getId(), parcelId, owner);
 
@@ -129,7 +129,7 @@ class TrackViewCacheEvictionIntegrationTest {
         assertThat(refreshedDetails.returnRequest()).isNotNull();
         assertThat(refreshedDetails.returnRequest().status())
                 .isEqualTo(OrderReturnRequestStatus.EXCHANGE_APPROVED.getDisplayName());
-        assertThat(refreshedDetails.returnRequest().exchangeApproved()).isTrue();
+        assertThat(refreshedDetails.returnRequest().state().exchangeApproved()).isTrue();
 
         verify(orderReturnRequestRepository, times(2)).findFirstByParcel_IdAndStatusIn(eq(parcelId), anyCollection());
     }

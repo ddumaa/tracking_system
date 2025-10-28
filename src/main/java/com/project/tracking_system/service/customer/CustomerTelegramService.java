@@ -1,6 +1,9 @@
 package com.project.tracking_system.service.customer;
 
 import com.project.tracking_system.dto.ActionRequiredReturnRequestDto;
+import com.project.tracking_system.dto.ReturnRequestAvailableActionsDto;
+import com.project.tracking_system.dto.ReturnRequestStateDto;
+import com.project.tracking_system.dto.ReturnRequestTimestampsDto;
 import com.project.tracking_system.dto.TelegramParcelInfoDTO;
 import com.project.tracking_system.dto.TelegramParcelsOverviewDTO;
 import com.project.tracking_system.dto.TelegramReturnRequestInfoDTO;
@@ -669,6 +672,47 @@ public class CustomerTelegramService {
         boolean exchangeShipmentDispatched = orderReturnRequestService.isExchangeShipmentDispatched(request);
         boolean canConfirmReceipt = orderReturnRequestService.canConfirmReceipt(request);
 
+        ReturnRequestMode mode = request.getMode() != null ? request.getMode() : ReturnRequestMode.RETURN;
+        ReturnRequestStage stage = request.getStage() != null ? request.getStage() : ReturnRequestStage.CUSTOMER_RETURN;
+
+        ReturnRequestStateDto state = new ReturnRequestStateDto(
+                mode,
+                stage,
+                request.isManualStageOverride(),
+                request.isManualTrackOverride(),
+                request.isExchangeRequested(),
+                request.isExchangeApproved(),
+                exchangeShipmentDispatched,
+                request.getExchangeTrackNumber(),
+                request.isReturnReceiptConfirmed()
+        );
+
+        ReturnRequestAvailableActionsDto availableActions = new ReturnRequestAvailableActionsDto(
+                canStartExchange,
+                orderReturnRequestService.canCreateExchangeParcel(request),
+                canCloseWithoutExchange,
+                canReopenAsReturn,
+                canCancelExchange,
+                canConfirmReceipt,
+                cancelExchangeReason
+        );
+
+        String requestedAt = formatRequestMoment(request.getRequestedAt());
+        if (requestedAt == null) {
+            requestedAt = formatRequestMoment(request.getCreatedAt());
+        }
+
+        ReturnRequestTimestampsDto timestamps = new ReturnRequestTimestampsDto(
+                requestedAt,
+                formatRequestMoment(request.getCreatedAt()),
+                formatRequestMoment(request.getDecisionAt()),
+                formatRequestMoment(request.getClosedAt()),
+                formatRequestMoment(request.getStageStartedAt()),
+                formatRequestMoment(request.getStageUpdatedAt()),
+                formatRequestMoment(request.getExchangeTrackAssignedAt()),
+                formatRequestMoment(request.getReturnReceiptConfirmedAt())
+        );
+
         return new ActionRequiredReturnRequestDto(
                 request.getId(),
                 parcelId,
@@ -677,21 +721,12 @@ public class CustomerTelegramService {
                 parcelStatus != null ? parcelStatus.getDescription() : null,
                 status,
                 status != null ? status.getDisplayName() : null,
-                formatRequestMoment(request.getRequestedAt()),
-                formatRequestMoment(request.getCreatedAt()),
                 request.getReason(),
                 request.getComment(),
                 request.getReverseTrackNumber(),
-                request.isExchangeRequested(),
-                canStartExchange,
-                canCloseWithoutExchange,
-                canReopenAsReturn,
-                canCancelExchange,
-                exchangeShipmentDispatched,
-                cancelExchangeReason,
-                request.isReturnReceiptConfirmed(),
-                formatRequestMoment(request.getReturnReceiptConfirmedAt()),
-                canConfirmReceipt
+                state,
+                availableActions,
+                timestamps
         );
     }
 

@@ -44,7 +44,8 @@
             if (request.requiresAction) {
                 return true;
             }
-            if (!request.closedAt) {
+            const timestamps = request.timestamps || {};
+            if (!timestamps.closedAt) {
                 return true;
             }
         }
@@ -457,6 +458,9 @@
         constructor(details, options = {}) {
             this.details = details || null;
             this.request = details?.returnRequest || null;
+            this.state = this.request?.state || {};
+            this.timestamps = this.request?.timestamps || {};
+            this.availableActions = this.request?.availableActions || {};
             this.trackId = details?.id ?? null;
             this.exchangeParcel = details?.exchangeParcel || null;
             this._formatDateTime = typeof options.formatDateTime === 'function'
@@ -537,25 +541,26 @@
          */
         _resolvePermissions() {
             const legacy = this.request?.actionPermissions || {};
+            const actions = this.availableActions || {};
             const mapLegacy = (key) => Boolean(legacy?.[key]);
             const legacyUpdateReverse = mapLegacy('allowUpdateReverseTrack');
             const canUpdateReverseTrack = this.request?.canUpdateReverseTrack;
             return {
-                confirmReceipt: this.request?.canConfirmReceipt
+                confirmReceipt: actions.confirmReceipt
                     ?? mapLegacy('allowAcceptReverse')
                     ?? mapLegacy('allowAccept'),
-                convertToExchange: this.request?.canStartExchange
+                convertToExchange: actions.startExchange
                     ?? mapLegacy('allowConvertToExchange')
                     ?? mapLegacy('allowLaunchExchange'),
-                launchExchange: this.request?.canCreateExchangeParcel
+                launchExchange: actions.createExchangeParcel
                     ?? mapLegacy('allowLaunchExchange'),
-                close: this.request?.canCloseWithoutExchange ?? mapLegacy('allowClose'),
-                reopen: this.request?.canReopenAsReturn ?? mapLegacy('allowConvertToReturn'),
+                close: actions.closeWithoutExchange ?? mapLegacy('allowClose'),
+                reopen: actions.reopenAsReturn ?? mapLegacy('allowConvertToReturn'),
                 updateReverseTrack: legacyUpdateReverse
                     || (canUpdateReverseTrack === undefined
-                        ? !this.request?.closedAt
+                        ? !this.timestamps.closedAt
                         : Boolean(canUpdateReverseTrack)),
-                cancelExchange: this.request?.canCancelExchange ?? mapLegacy('allowClose')
+                cancelExchange: actions.cancelExchange ?? mapLegacy('allowClose')
             };
         }
 
@@ -564,10 +569,10 @@
          * @returns {string} режим карточки
          */
         _determineMode() {
-            const state = String(this.request?.state || '').toUpperCase();
-            if (this.request?.exchangeApproved
-                || this.request?.exchangeRequested
-                || state.includes('EXCHANGE')
+            const modeValue = String(this.state.mode || '').toUpperCase();
+            if (this.state.exchangeApproved
+                || this.state.exchangeRequested
+                || modeValue.includes('EXCHANGE')
                 || this._permissions.launchExchange) {
                 return RETURN_REQUEST_MODES.EXCHANGE;
             }
@@ -603,9 +608,9 @@
                 typeBadgeClass
             ));
 
-            const stateHint = String(this.request?.state || '').toUpperCase();
+            const stateHint = String(this.state.stage || '').toUpperCase();
             const showRegisteredBadge = this._mode === RETURN_REQUEST_MODES.EXCHANGE
-                && (!this.request?.exchangeApproved || stateHint.includes('REGISTERED'));
+                && (!this.state.exchangeApproved || stateHint.includes('REGISTERED'));
             if (showRegisteredBadge) {
                 badgeContainer.appendChild(this._createBadge(
                     'Обмен зарегистрирован',
@@ -693,16 +698,18 @@
 
             appendDefinitionItem(list, 'Тип обращения', this._mode === RETURN_REQUEST_MODES.EXCHANGE ? 'Обмен' : 'Возврат');
             appendDefinitionItem(list, 'Идентификатор обращения', String(this.request?.id ?? '—'));
-            appendDefinitionItem(list, 'Текущий статус', this.request?.statusLabel || this.request?.status || '—');
+            appendDefinitionItem(list, 'Текущий статус', this.request?.status || '—');
             appendDefinitionItem(list, 'Причина обращения', this.request?.reason || '—');
             appendDefinitionItem(list, 'Комментарий', this.request?.comment || '—');
-            appendDefinitionItem(list, 'Зарегистрировано', this._formatValue(this.request?.requestedAt));
-            appendDefinitionItem(list, 'Обновлено', this._formatValue(this.request?.updatedAt));
-            appendDefinitionItem(list, 'Закрыто', this._formatValue(this.request?.closedAt));
+            const registeredAt = this.timestamps.requestedAt || this.timestamps.createdAt || null;
+            appendDefinitionItem(list, 'Зарегистрировано', this._formatValue(registeredAt));
+            const updatedAt = this.timestamps.stageUpdatedAt || this.timestamps.exchangeTrackAssignedAt || null;
+            appendDefinitionItem(list, 'Обновлено', this._formatValue(updatedAt));
+            appendDefinitionItem(list, 'Закрыто', this._formatValue(this.timestamps.closedAt));
 
-            const receiptConfirmed = Boolean(this.request?.returnReceiptConfirmed);
-            const receiptDate = this.request?.returnReceiptConfirmedAt
-                ? this._formatValue(this.request.returnReceiptConfirmedAt)
+            const receiptConfirmed = Boolean(this.state.returnReceiptConfirmed);
+            const receiptDate = this.timestamps.returnReceiptConfirmedAt
+                ? this._formatValue(this.timestamps.returnReceiptConfirmedAt)
                 : null;
             const receiptValue = receiptConfirmed
                 ? (receiptDate ? `Подтверждено ${receiptDate}` : 'Подтверждено')
@@ -715,8 +722,11 @@
 
             const showExchangeFields = this._mode === RETURN_REQUEST_MODES.EXCHANGE;
             if (showExchangeFields) {
-                appendDefinitionItem(list, 'Статус обмена', this.request?.exchangeStatusLabel || this.request?.exchangeStatus || '—');
-                appendDefinitionItem(list, 'Дата согласования обмена', this._formatValue(this.request?.exchangeApprovedAt));
+                const exchangeStatus = this.state.exchangeApproved
+                    ? 'Обмен запущен'
+                    : (this.state.exchangeRequested ? 'Запрос на обмен' : 'Ожидает запуска');
+                appendDefinitionItem(list, 'Статус обмена', exchangeStatus);
+                appendDefinitionItem(list, 'Дата согласования обмена', this._formatValue(this.timestamps.decisionAt));
             }
 
             return list;
@@ -849,12 +859,12 @@
          * @returns {HTMLElement|null} блок уведомления или {@code null}
          */
         _buildNotice() {
-            if (!this.request?.cancelExchangeUnavailableReason) {
+            if (!this.availableActions.cancelExchangeUnavailableReason) {
                 return null;
             }
             const notice = document.createElement('div');
             notice.className = 'alert alert-warning mb-0';
-            notice.textContent = this.request.cancelExchangeUnavailableReason;
+            notice.textContent = this.availableActions.cancelExchangeUnavailableReason;
             notice.setAttribute('role', 'status');
             return notice;
         }
@@ -991,7 +1001,7 @@
                         successMessage: 'Обращение закрыто',
                         notificationType: 'warning'
                     },
-                    disabledReason: this.request?.cancelExchangeUnavailableReason || null
+                    disabledReason: this.availableActions.cancelExchangeUnavailableReason || null
                 }
             ];
         }
@@ -1251,6 +1261,9 @@
         if (request.id === undefined) {
             return null;
         }
+        const state = request.state || {};
+        const actions = request.availableActions || {};
+        const timestamps = request.timestamps || {};
         const summary = {
             parcelId: details.id,
             requestId: request.id,
@@ -1260,18 +1273,20 @@
             reason: request.reason || null,
             comment: request.comment || null,
             reverseTrackNumber: request.reverseTrackNumber || null,
-            exchangeRequested: Boolean(request.exchangeRequested),
-            canStartExchange: Boolean(request.canStartExchange),
-            canCloseWithoutExchange: Boolean(request.canCloseWithoutExchange),
-            canReopenAsReturn: Boolean(request.canReopenAsReturn),
-            canCancelExchange: Boolean(request.canCancelExchange),
-            cancelExchangeUnavailableReason: request.cancelExchangeUnavailableReason || null,
-            returnReceiptConfirmed: Boolean(request.returnReceiptConfirmed),
-            returnReceiptConfirmedAt: request.returnReceiptConfirmedAt || null,
-            canConfirmReceipt: Boolean(request.canConfirmReceipt)
+            exchangeRequested: Boolean(state.exchangeRequested),
+            canStartExchange: Boolean(actions.startExchange),
+            canCloseWithoutExchange: Boolean(actions.closeWithoutExchange),
+            canReopenAsReturn: Boolean(actions.reopenAsReturn),
+            canCancelExchange: Boolean(actions.cancelExchange),
+            cancelExchangeUnavailableReason: actions.cancelExchangeUnavailableReason || null,
+            returnReceiptConfirmed: Boolean(state.returnReceiptConfirmed),
+            returnReceiptConfirmedAt: timestamps.returnReceiptConfirmedAt || null,
+            canConfirmReceipt: Boolean(actions.confirmReceipt)
         };
-        if (request.requestedAt) {
-            summary.requestedAt = request.requestedAt;
+        if (timestamps.requestedAt) {
+            summary.requestedAt = timestamps.requestedAt;
+        } else if (timestamps.createdAt) {
+            summary.requestedAt = timestamps.createdAt;
         }
         return summary;
     }
