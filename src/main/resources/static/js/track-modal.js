@@ -1387,7 +1387,7 @@
         return performReturnRequestAction({
             trackId,
             requestId,
-            endpoint: '/to-exchange',
+            endpoint: '/exchange',
             successMessage: options.successMessage || 'Заявка переведена в обмен',
             notificationType: options.notificationType || 'info'
         });
@@ -1435,7 +1435,7 @@
         return performReturnRequestAction({
             trackId,
             requestId,
-            endpoint: '/exchange/launch',
+            endpoint: '/exchange/parcel',
             successMessage: options.successMessage || 'Обмен запущен',
             notificationType: options.notificationType || 'info',
             responseType: 'actionResponse'
