@@ -6,7 +6,7 @@ import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderEpisode;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.OrderReturnRequestActionRequest;
-import com.project.tracking_system.entity.OrderReturnRequestActionType;
+import com.project.tracking_system.entity.ReturnRequestAction;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
@@ -459,7 +459,7 @@ class OrderReturnRequestServiceTest {
 
         when(repository.findById(700L)).thenReturn(Optional.of(request));
         when(actionRequestRepository.findFirstByReturnRequest_IdAndActionAndProcessedAtIsNull(700L,
-                OrderReturnRequestActionType.CANCEL_EXCHANGE)).thenReturn(Optional.empty());
+                ReturnRequestAction.CANCEL_EXCHANGE)).thenReturn(Optional.empty());
         when(actionRequestRepository.save(any(OrderReturnRequestActionRequest.class))).thenAnswer(invocation -> {
             OrderReturnRequestActionRequest actionRequest = invocation.getArgument(0);
             actionRequest.setReturnRequest(request);
@@ -472,11 +472,11 @@ class OrderReturnRequestServiceTest {
                 30L,
                 user,
                 customer,
-                OrderReturnRequestActionType.CANCEL_EXCHANGE
+                ReturnRequestAction.CANCEL_EXCHANGE
         );
 
         assertThat(result).isNotNull();
-        assertThat(result.getAction()).isEqualTo(OrderReturnRequestActionType.CANCEL_EXCHANGE);
+        assertThat(result.getAction()).isEqualTo(ReturnRequestAction.CANCEL_EXCHANGE);
         assertThat(result.getCustomer()).isEqualTo(customer);
         assertThat(result.getReturnRequest()).isEqualTo(request);
         verify(actionRequestRepository).save(any(OrderReturnRequestActionRequest.class));
@@ -492,18 +492,18 @@ class OrderReturnRequestServiceTest {
         OrderReturnRequestActionRequest existing = new OrderReturnRequestActionRequest();
         existing.setReturnRequest(request);
         existing.setCustomer(customer);
-        existing.setAction(OrderReturnRequestActionType.CONVERT_TO_RETURN);
+        existing.setAction(ReturnRequestAction.CONVERT_TO_RETURN);
 
         when(repository.findById(701L)).thenReturn(Optional.of(request));
         when(actionRequestRepository.findFirstByReturnRequest_IdAndActionAndProcessedAtIsNull(701L,
-                OrderReturnRequestActionType.CONVERT_TO_RETURN)).thenReturn(Optional.of(existing));
+                ReturnRequestAction.CONVERT_TO_RETURN)).thenReturn(Optional.of(existing));
 
         OrderReturnRequestActionRequest result = service.requestMerchantAction(
                 701L,
                 31L,
                 user,
                 customer,
-                OrderReturnRequestActionType.CONVERT_TO_RETURN
+                ReturnRequestAction.CONVERT_TO_RETURN
         );
 
         assertThat(result).isSameAs(existing);

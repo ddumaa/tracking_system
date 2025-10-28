@@ -39,7 +39,7 @@ public class OrderReturnRequestActionRequest {
      */
     @Enumerated(EnumType.STRING)
     @Column(name = "action", nullable = false, length = 32)
-    private OrderReturnRequestActionType action;
+    private ReturnRequestAction action;
 
     /**
      * Время формирования запроса.
@@ -73,11 +73,11 @@ public class OrderReturnRequestActionRequest {
         this.customer = customer;
     }
 
-    public OrderReturnRequestActionType getAction() {
+    public ReturnRequestAction getAction() {
         return action;
     }
 
-    public void setAction(OrderReturnRequestActionType action) {
+    public void setAction(ReturnRequestAction action) {
         this.action = action;
     }
 

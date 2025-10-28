@@ -11,7 +11,7 @@ import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.dto.ReturnRequestUpdateResponse;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.OrderReturnRequestActionRequest;
-import com.project.tracking_system.entity.OrderReturnRequestActionType;
+import com.project.tracking_system.entity.ReturnRequestAction;
 import com.project.tracking_system.repository.CustomerNotificationLogRepository;
 import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
@@ -413,7 +413,7 @@ class CustomerTelegramServiceTest {
         when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
         when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
         when(orderReturnRequestService.requestMerchantAction(requestId, parcelId, owner, customer,
-                OrderReturnRequestActionType.CANCEL_EXCHANGE)).thenReturn(actionRequest);
+                ReturnRequestAction.CANCEL_EXCHANGE)).thenReturn(actionRequest);
 
         OrderReturnRequestActionRequest result = customerTelegramService.requestExchangeCancellationFromTelegram(
                 chatId,
@@ -423,7 +423,7 @@ class CustomerTelegramServiceTest {
 
         assertSame(actionRequest, result, "Сервис должен возвращать созданный запрос к магазину");
         verify(orderReturnRequestService).requestMerchantAction(requestId, parcelId, owner, customer,
-                OrderReturnRequestActionType.CANCEL_EXCHANGE);
+                ReturnRequestAction.CANCEL_EXCHANGE);
     }
 
     @Test
@@ -449,7 +449,7 @@ class CustomerTelegramServiceTest {
         when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
         when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
         when(orderReturnRequestService.requestMerchantAction(requestId, parcelId, owner, customer,
-                OrderReturnRequestActionType.CONVERT_TO_RETURN)).thenReturn(actionRequest);
+                ReturnRequestAction.CONVERT_TO_RETURN)).thenReturn(actionRequest);
 
         OrderReturnRequestActionRequest result = customerTelegramService.requestExchangeConversionFromTelegram(
                 chatId,
@@ -459,7 +459,7 @@ class CustomerTelegramServiceTest {
 
         assertSame(actionRequest, result, "Метод обязан возвращать запрос на перевод обмена");
         verify(orderReturnRequestService).requestMerchantAction(requestId, parcelId, owner, customer,
-                OrderReturnRequestActionType.CONVERT_TO_RETURN);
+                ReturnRequestAction.CONVERT_TO_RETURN);
     }
 
     private TrackParcel parcelWithStatus(String number, GlobalStatus status, ZonedDateTime lastUpdate) {

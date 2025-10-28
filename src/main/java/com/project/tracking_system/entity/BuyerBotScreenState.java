@@ -1,7 +1,6 @@
 package com.project.tracking_system.entity;
 
 import com.project.tracking_system.service.telegram.ReturnRequestEditMode;
-import com.project.tracking_system.service.telegram.ReturnRequestType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -74,11 +73,11 @@ public class BuyerBotScreenState {
     private String navigationPath;
 
     /**
-     * Тип заявки, выбранный пользователем (возврат или обмен).
+     * Режим заявки, выбранный пользователем (возврат или обмен).
      */
     @Enumerated(EnumType.STRING)
     @Column(name = "return_request_type")
-    private ReturnRequestType returnRequestType;
+    private ReturnRequestMode returnRequestMode;
 
     /**
      * Магазин, в котором пользователь получил посылку для возврата.

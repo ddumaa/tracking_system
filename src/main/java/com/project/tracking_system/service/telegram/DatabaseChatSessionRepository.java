@@ -67,7 +67,7 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
         entity.setKeyboardHidden(session.isPersistentKeyboardHidden());
         entity.setContactRequestSent(session.isContactRequestSent());
         entity.setNavigationPath(serializeNavigationPath(session.getNavigationPath()));
-        entity.setReturnRequestType(session.getReturnRequestType());
+        entity.setReturnRequestMode(session.getReturnRequestMode());
         entity.setReturnStoreName(session.getReturnStoreName());
         entity.setReturnParcelId(session.getReturnParcelId());
         entity.setReturnParcelTrack(session.getReturnParcelTrackNumber());
@@ -397,7 +397,7 @@ public class DatabaseChatSessionRepository implements ChatSessionRepository {
                 Boolean.TRUE.equals(entity.getContactRequestSent())
         );
         session.setNavigationPath(deserializeNavigationPath(entity.getNavigationPath()));
-        session.setReturnRequestType(entity.getReturnRequestType());
+        session.setReturnRequestMode(entity.getReturnRequestMode());
         session.setReturnStoreName(entity.getReturnStoreName());
         session.setReturnParcelId(entity.getReturnParcelId());
         session.setReturnParcelTrackNumber(entity.getReturnParcelTrack());
