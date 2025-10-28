@@ -1108,7 +1108,7 @@
         return {
             confirmReceipt: (options = {}) => confirmReturnProcessing(trackId, requestId, options),
             convertToExchange: (options = {}) => convertReturnRequestToExchange(trackId, requestId, options),
-            launchExchange: (options = {}) => launchExchangeForRequest(trackId, requestId, options),
+            launchExchange: (options = {}) => createExchangeParcel(trackId, requestId, options),
             close: (options = {}) => closeReturnRequest(trackId, requestId, options),
             reopen: (options = {}) => reopenReturnRequest(trackId, requestId, options),
             updateReverseTrack: (options = {}) => updateReverseTrack(
@@ -1318,7 +1318,7 @@
 
     /**
      * Выполняет REST-действие над заявкой и обновляет модальное окно.
-     * Метод реализует шаблон «Команда», изолируя сетевую логику и пост-обработку (SRP + OCP).
+     * Метод реализует шаблон «Команда», изолируя сетевую логику, обработку ошибок и пост-обработку (SRP + OCP).
      * @param {Object} params параметры вызова
      * @returns {Promise<Object|null>} ответ сервера
      */
@@ -1331,7 +1331,8 @@
             body = null,
             successMessage,
             notificationType = 'success',
-            responseType = 'details'
+            responseType = 'details',
+            errorMessage
         } = params || {};
 
         if (!trackId || !requestId || typeof endpoint !== 'string') {
@@ -1339,13 +1340,23 @@
         }
 
         const url = `/api/v1/tracks/${trackId}/returns/${requestId}${endpoint}`;
-        const options = { method };
+        const requestOptions = { method };
         if (body !== null && body !== undefined) {
-            options.headers = { 'Content-Type': 'application/json' };
-            options.body = JSON.stringify(body);
+            requestOptions.headers = { 'Content-Type': 'application/json' };
+            requestOptions.body = JSON.stringify(body);
         }
 
-        const payload = await sendTrackRequest(url, options);
+        let payload;
+        try {
+            payload = await sendTrackRequest(url, requestOptions);
+        } catch (error) {
+            const fallbackMessage = errorMessage || 'Не удалось выполнить действие над заявкой';
+            if (typeof window.notifyUser === 'function') {
+                const message = (error && error.message) ? error.message : fallbackMessage;
+                window.notifyUser(message, 'danger');
+            }
+            throw error;
+        }
 
         let details = null;
         if (responseType === 'details') {
@@ -1383,13 +1394,14 @@
      * @param {string|number} requestId идентификатор заявки
      * @param {Object} [options] дополнительные настройки уведомлений
      */
-    function convertReturnRequestToExchange(trackId, requestId, options = {}) {
-        return performReturnRequestAction({
+    async function convertReturnRequestToExchange(trackId, requestId, options = {}) {
+        return await performReturnRequestAction({
             trackId,
             requestId,
             endpoint: '/exchange',
             successMessage: options.successMessage || 'Заявка переведена в обмен',
-            notificationType: options.notificationType || 'info'
+            notificationType: options.notificationType || 'info',
+            errorMessage: options.errorMessage || 'Не удалось перевести заявку в обмен'
         });
     }
 
@@ -1399,13 +1411,14 @@
      * @param {string|number} requestId идентификатор заявки
      * @param {Object} [options] настройки уведомлений
      */
-    function closeReturnRequest(trackId, requestId, options = {}) {
-        return performReturnRequestAction({
+    async function closeReturnRequest(trackId, requestId, options = {}) {
+        return await performReturnRequestAction({
             trackId,
             requestId,
             endpoint: '/close',
             successMessage: options.successMessage || 'Обращение закрыто',
-            notificationType: options.notificationType || 'warning'
+            notificationType: options.notificationType || 'warning',
+            errorMessage: options.errorMessage || 'Не удалось закрыть обращение'
         });
     }
 
@@ -1415,13 +1428,14 @@
      * @param {string|number} requestId идентификатор заявки
      * @param {Object} [options] настройки уведомлений
      */
-    function confirmReturnProcessing(trackId, requestId, options = {}) {
-        return performReturnRequestAction({
+    async function confirmReturnProcessing(trackId, requestId, options = {}) {
+        return await performReturnRequestAction({
             trackId,
             requestId,
             endpoint: '/confirm-processing',
             successMessage: options.successMessage || 'Возврат подтверждён',
-            notificationType: options.notificationType || 'success'
+            notificationType: options.notificationType || 'success',
+            errorMessage: options.errorMessage || 'Не удалось подтвердить получение возврата'
         });
     }
 
@@ -1431,25 +1445,27 @@
      * @param {string|number} requestId идентификатор заявки
      * @param {Object} [options] настройки уведомлений
      */
-    function launchExchangeForRequest(trackId, requestId, options = {}) {
-        return performReturnRequestAction({
+    async function createExchangeParcel(trackId, requestId, options = {}) {
+        return await performReturnRequestAction({
             trackId,
             requestId,
             endpoint: '/exchange/parcel',
             successMessage: options.successMessage || 'Обмен запущен',
             notificationType: options.notificationType || 'info',
-            responseType: 'actionResponse'
+            responseType: 'actionResponse',
+            errorMessage: options.errorMessage || 'Не удалось создать обменную посылку'
         });
     }
 
-    function reopenReturnRequest(trackId, requestId, options = {}) {
-        return performReturnRequestAction({
+    async function reopenReturnRequest(trackId, requestId, options = {}) {
+        return await performReturnRequestAction({
             trackId,
             requestId,
             endpoint: '/reopen',
             successMessage: options.successMessage || 'Заявка переведена в возврат',
             notificationType: options.notificationType || 'info',
-            responseType: 'actionResponse'
+            responseType: 'actionResponse',
+            errorMessage: options.errorMessage || 'Не удалось перевести заявку в возврат'
         });
     }
 
@@ -1461,8 +1477,8 @@
      * @param {string|null} comment дополнительный комментарий
      * @param {Object} [options] настройки уведомлений
      */
-    function updateReverseTrack(trackId, requestId, reverseTrack, comment = null, options = {}) {
-        return performReturnRequestAction({
+    async function updateReverseTrack(trackId, requestId, reverseTrack, comment = null, options = {}) {
+        return await performReturnRequestAction({
             trackId,
             requestId,
             endpoint: '/reverse-track',
@@ -1472,7 +1488,8 @@
                 comment
             },
             successMessage: options.successMessage || 'Обратный трек сохранён',
-            notificationType: options.notificationType || 'success'
+            notificationType: options.notificationType || 'success',
+            errorMessage: options.errorMessage || 'Не удалось обновить обратный трек'
         });
     }
 
@@ -2593,7 +2610,8 @@
         closeReturnRequest,
         confirmReturnProcessing,
         reopenReturnRequest,
-        launchExchange: launchExchangeForRequest,
+        createExchangeParcel,
+        launchExchange: createExchangeParcel,
         updateReverseTrack
     };
 })();
