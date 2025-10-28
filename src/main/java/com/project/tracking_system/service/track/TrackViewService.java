@@ -487,6 +487,13 @@ public class TrackViewService {
         String cancelExchangeReason = orderReturnRequestService
                 .getExchangeCancellationBlockReason(request)
                 .orElse(null);
+        ReturnRequestMode mode = request.getMode() != null ? request.getMode() : ReturnRequestMode.RETURN;
+        ReturnRequestStage stage = request.getStage() != null ? request.getStage() : ReturnRequestStage.CUSTOMER_RETURN;
+        String stageStartedAt = formatNullableTimestamp(request.getStageStartedAt(), userZone);
+        String stageUpdatedAt = formatNullableTimestamp(request.getStageUpdatedAt(), userZone);
+        String exchangeTrackAssignedAt = formatNullableTimestamp(request.getExchangeTrackAssignedAt(), userZone);
+        Long storeId = request.getStore() != null ? request.getStore().getId() : null;
+        Long responsibleId = request.getResponsibleManager() != null ? request.getResponsibleManager().getId() : null;
 
         return new OrderReturnRequestDto(
                 request.getId(),
@@ -508,7 +515,17 @@ public class TrackViewService {
                 cancelExchangeReason,
                 request.isReturnReceiptConfirmed(),
                 formatNullableTimestamp(request.getReturnReceiptConfirmedAt(), userZone),
-                canConfirmReceipt
+                canConfirmReceipt,
+                mode,
+                stage,
+                request.getExchangeTrackNumber(),
+                request.isManualStageOverride(),
+                request.isManualTrackOverride(),
+                stageStartedAt,
+                stageUpdatedAt,
+                exchangeTrackAssignedAt,
+                storeId,
+                responsibleId
         );
     }
 

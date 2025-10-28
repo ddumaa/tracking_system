@@ -59,6 +59,10 @@ public enum ReturnRequestMode {
         if (request == null) {
             return RETURN;
         }
+        ReturnRequestMode stored = request.getMode();
+        if (stored != null) {
+            return stored;
+        }
         if (request.isExchangeApproved() || request.isExchangeRequested()) {
             return EXCHANGE;
         }
