@@ -4,13 +4,18 @@ import jakarta.persistence.*;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Заявка на возврат или обмен по конкретной посылке.
  * <p>
  * Сущность фиксирует идемпотентный ключ, автора и время создания,
  * а также результат рассмотрения: запуск обмена или закрытие без него.
+ * Дополнительно хранится режим обработки, текущий этап и история изменений,
+ * что позволяет отображать полный таймлайн действий магазина и покупателя.
  * </p>
  */
 @Entity
@@ -37,11 +42,25 @@ public class OrderReturnRequest {
     private TrackParcel parcel;
 
     /**
+     * Магазин, оформивший исходную посылку.
+     */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "store_id", nullable = false)
+    private Store store;
+
+    /**
      * Пользователь, зарегистрировавший заявку.
      */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by", nullable = false, updatable = false)
     private User createdBy;
+
+    /**
+     * Пользователь магазина, ответственный за текущий этап обработки.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "responsible_id")
+    private User responsibleManager;
 
     /**
      * Время регистрации заявки в UTC.
@@ -74,6 +93,63 @@ public class OrderReturnRequest {
     private String reverseTrackNumber;
 
     /**
+     * Трек обменной посылки, если он присвоен вручную или при создании обмена.
+     */
+    @Column(name = "exchange_track_number", length = 64)
+    private String exchangeTrackNumber;
+
+    /**
+     * Признак, что трек обратной отправки был задан вручную менеджером.
+     */
+    @Column(name = "manual_track_override", nullable = false)
+    private boolean manualTrackOverride = false;
+
+    /**
+     * Признак, что менеджер вручную перевёл заявку на нужный этап.
+     */
+    @Column(name = "manual_stage_override", nullable = false)
+    private boolean manualStageOverride = false;
+
+    /**
+     * Время, когда трек обменной посылки был установлен.
+     */
+    @Column(name = "exchange_track_assigned_at")
+    private ZonedDateTime exchangeTrackAssignedAt;
+
+    /**
+     * Текущее состояние заявки.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private OrderReturnRequestStatus status = OrderReturnRequestStatus.REGISTERED;
+
+    /**
+     * Режим обработки заявки (возврат или обмен).
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mode", nullable = false)
+    private ReturnRequestMode mode = ReturnRequestMode.RETURN;
+
+    /**
+     * Текущий этап жизненного цикла заявки.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "stage", nullable = false)
+    private ReturnRequestStage stage = ReturnRequestStage.CUSTOMER_RETURN;
+
+    /**
+     * Время начала текущего этапа обработки.
+     */
+    @Column(name = "stage_started_at", nullable = false)
+    private ZonedDateTime stageStartedAt = ZonedDateTime.now(ZoneOffset.UTC);
+
+    /**
+     * Время последнего обновления текущего этапа.
+     */
+    @Column(name = "stage_updated_at")
+    private ZonedDateTime stageUpdatedAt;
+
+    /**
      * Признак, что магазин подтвердил получение возврата вручную.
      * <p>
      * Флаг устанавливается сотрудником после проверки склада и исключает повторное подтверждение,
@@ -97,13 +173,6 @@ public class OrderReturnRequest {
      */
     @Column(name = "exchange_requested", nullable = false)
     private boolean exchangeRequested = false;
-
-    /**
-     * Текущее состояние заявки.
-     */
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
-    private OrderReturnRequestStatus status = OrderReturnRequestStatus.REGISTERED;
 
     /**
      * Пользователь, одобривший запуск обмена.
@@ -141,6 +210,13 @@ public class OrderReturnRequest {
     @Column(name = "version", nullable = false)
     private long version;
 
+    /**
+     * История изменений заявки по этапам и трекам.
+     */
+    @OneToMany(mappedBy = "returnRequest", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("changedAt ASC")
+    private List<OrderReturnRequestHistoryEntry> historyEntries = new ArrayList<>();
+
     public Long getId() {
         return id;
     }
@@ -161,12 +237,34 @@ public class OrderReturnRequest {
         this.parcel = parcel;
     }
 
+    /**
+     * Возвращает магазин, по которому оформлена заявка.
+     */
+    public Store getStore() {
+        return store;
+    }
+
+    public void setStore(Store store) {
+        this.store = store;
+    }
+
     public User getCreatedBy() {
         return createdBy;
     }
 
     public void setCreatedBy(User createdBy) {
         this.createdBy = createdBy;
+    }
+
+    /**
+     * Возвращает менеджера, ответственного за текущий этап обработки.
+     */
+    public User getResponsibleManager() {
+        return responsibleManager;
+    }
+
+    public void setResponsibleManager(User responsibleManager) {
+        this.responsibleManager = responsibleManager;
     }
 
     public ZonedDateTime getCreatedAt() {
@@ -207,6 +305,81 @@ public class OrderReturnRequest {
 
     public void setReverseTrackNumber(String reverseTrackNumber) {
         this.reverseTrackNumber = reverseTrackNumber;
+    }
+
+    /**
+     * Возвращает трек обменной посылки, если он уже известен.
+     */
+    public String getExchangeTrackNumber() {
+        return exchangeTrackNumber;
+    }
+
+    public void setExchangeTrackNumber(String exchangeTrackNumber) {
+        this.exchangeTrackNumber = exchangeTrackNumber;
+    }
+
+    public boolean isManualTrackOverride() {
+        return manualTrackOverride;
+    }
+
+    public void setManualTrackOverride(boolean manualTrackOverride) {
+        this.manualTrackOverride = manualTrackOverride;
+    }
+
+    public boolean isManualStageOverride() {
+        return manualStageOverride;
+    }
+
+    public void setManualStageOverride(boolean manualStageOverride) {
+        this.manualStageOverride = manualStageOverride;
+    }
+
+    public ZonedDateTime getExchangeTrackAssignedAt() {
+        return exchangeTrackAssignedAt;
+    }
+
+    public void setExchangeTrackAssignedAt(ZonedDateTime exchangeTrackAssignedAt) {
+        this.exchangeTrackAssignedAt = exchangeTrackAssignedAt;
+    }
+
+    public OrderReturnRequestStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(OrderReturnRequestStatus status) {
+        this.status = status;
+    }
+
+    public ReturnRequestMode getMode() {
+        return mode;
+    }
+
+    public void setMode(ReturnRequestMode mode) {
+        this.mode = Objects.requireNonNullElse(mode, ReturnRequestMode.RETURN);
+    }
+
+    public ReturnRequestStage getStage() {
+        return stage;
+    }
+
+    public void setStage(ReturnRequestStage stage) {
+        this.stage = Objects.requireNonNullElse(stage, ReturnRequestStage.CUSTOMER_RETURN);
+    }
+
+    public ZonedDateTime getStageStartedAt() {
+        return stageStartedAt;
+    }
+
+    public void setStageStartedAt(ZonedDateTime stageStartedAt) {
+        this.stageStartedAt = stageStartedAt;
+    }
+
+    public ZonedDateTime getStageUpdatedAt() {
+        return stageUpdatedAt;
+    }
+
+    public void setStageUpdatedAt(ZonedDateTime stageUpdatedAt) {
+        this.stageUpdatedAt = stageUpdatedAt;
     }
 
     /**
@@ -251,14 +424,6 @@ public class OrderReturnRequest {
 
     public void setExchangeRequested(boolean exchangeRequested) {
         this.exchangeRequested = exchangeRequested;
-    }
-
-    public OrderReturnRequestStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(OrderReturnRequestStatus status) {
-        this.status = status;
     }
 
     public User getDecisionBy() {
@@ -310,6 +475,13 @@ public class OrderReturnRequest {
     }
 
     /**
+     * Возвращает неизменяемую историю изменений заявки.
+     */
+    public List<OrderReturnRequestHistoryEntry> getHistoryEntries() {
+        return Collections.unmodifiableList(historyEntries);
+    }
+
+    /**
      * Проверяет, ожидает ли заявка решения.
      */
     public boolean requiresAction() {
@@ -326,8 +498,33 @@ public class OrderReturnRequest {
     /**
      * Возвращает режим обработки заявки (возврат или обмен) на основе текущих флагов.
      */
-    public ReturnRequestMode getMode() {
-        return ReturnRequestMode.from(this);
+    public ReturnRequestMode getDerivedMode() {
+        if (mode != null) {
+            return mode;
+        }
+        if (isExchangeApproved() || isExchangeRequested()) {
+            return ReturnRequestMode.EXCHANGE;
+        }
+        return ReturnRequestMode.RETURN;
+    }
+
+    /**
+     * Создаёт снимок текущего состояния заявки для истории изменений.
+     *
+     * @param manualTransition признак ручного действия менеджера
+     * @param actor             пользователь, инициировавший изменение
+     * @param moment            момент фиксации изменения
+     */
+    public void snapshotHistory(boolean manualTransition, User actor, ZonedDateTime moment) {
+        OrderReturnRequestHistoryEntry entry = OrderReturnRequestHistoryEntry.snapshotOf(this, manualTransition, actor, moment);
+        addHistoryEntry(entry);
+    }
+
+    private void addHistoryEntry(OrderReturnRequestHistoryEntry entry) {
+        if (entry == null) {
+            return;
+        }
+        entry.setReturnRequest(this);
+        historyEntries.add(entry);
     }
 }
-

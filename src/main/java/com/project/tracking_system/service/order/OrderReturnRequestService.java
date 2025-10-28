@@ -7,6 +7,8 @@ import com.project.tracking_system.entity.OrderEpisode;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.OrderReturnRequestActionRequest;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
+import com.project.tracking_system.entity.ReturnRequestMode;
+import com.project.tracking_system.entity.ReturnRequestStage;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.ReturnRequestAction;
@@ -78,6 +80,12 @@ public class OrderReturnRequestService {
         String normalizedComment = normalizeComment(comment);
         request.setReverseTrackNumber(normalizedTrack);
         request.setComment(normalizedComment);
+        boolean trackProvided = normalizedTrack != null && !normalizedTrack.isBlank();
+        request.setManualTrackOverride(request.isManualTrackOverride() || trackProvided);
+        request.setResponsibleManager(user);
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        request.setStageUpdatedAt(now);
+        request.snapshotHistory(true, user, now);
 
         OrderReturnRequest saved = returnRequestRepository.save(request);
         evictTrackDetailsCache(saved);
@@ -169,6 +177,18 @@ public class OrderReturnRequestService {
         request.setStatus(OrderReturnRequestStatus.REGISTERED);
         request.setIdempotencyKey(idempotencyKey);
         request.setExchangeRequested(exchangeRequested);
+        request.setStore(parcel.getStore());
+        request.setResponsibleManager(user);
+        request.setMode(exchangeRequested ? ReturnRequestMode.EXCHANGE : ReturnRequestMode.RETURN);
+        request.setManualTrackOverride(normalizedReverse != null && !normalizedReverse.isBlank());
+        request.setExchangeTrackNumber(null);
+        request.setExchangeTrackAssignedAt(null);
+        ZonedDateTime stageMoment = normalizedRequestedAt != null ? normalizedRequestedAt : request.getCreatedAt();
+        request.setStage(ReturnRequestStage.CUSTOMER_RETURN);
+        request.setStageStartedAt(stageMoment);
+        request.setStageUpdatedAt(stageMoment);
+        request.setManualStageOverride(false);
+        request.snapshotHistory(false, user, stageMoment);
 
         // Автоматический запуск обмена оставляем ручным, чтобы менеджер успел проверить данные перед созданием посылки.
 
@@ -207,9 +227,19 @@ public class OrderReturnRequestService {
             throw new IllegalStateException("В эпизоде уже запущен обмен");
         }
 
+        ZonedDateTime decisionMoment = ZonedDateTime.now(ZoneOffset.UTC);
         request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
         request.setDecisionBy(user);
-        request.setDecisionAt(ZonedDateTime.now(ZoneOffset.UTC));
+        request.setDecisionAt(decisionMoment);
+        request.setMode(ReturnRequestMode.EXCHANGE);
+        request.setResponsibleManager(user);
+        if (request.getStage() != ReturnRequestStage.EXCHANGE_SHIPMENT) {
+            request.setStage(ReturnRequestStage.EXCHANGE_SHIPMENT);
+            request.setStageStartedAt(decisionMoment);
+        }
+        request.setStageUpdatedAt(decisionMoment);
+        request.setManualStageOverride(true);
+        request.snapshotHistory(true, user, decisionMoment);
 
         OrderReturnRequest saved = returnRequestRepository.save(request);
         evictTrackDetailsCache(saved);
@@ -240,7 +270,25 @@ public class OrderReturnRequestService {
             throw new IllegalStateException("Обменная посылка уже создана или находится в работе");
         }
         TrackParcel replacement = orderExchangeService.createExchangeParcel(request);
-        log.info("Создана обменная посылка {} для заявки {}", replacement.getId(), request.getId());
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        ZonedDateTime assignedMoment = Optional.ofNullable(replacement)
+                .map(TrackParcel::getTimestamp)
+                .orElse(now);
+        request.setResponsibleManager(user);
+        request.setManualStageOverride(true);
+        request.setExchangeTrackNumber(Optional.ofNullable(replacement).map(TrackParcel::getNumber).orElse(null));
+        request.setExchangeTrackAssignedAt(assignedMoment);
+        if (request.getStage() != ReturnRequestStage.EXCHANGE_SHIPMENT) {
+            request.setStage(ReturnRequestStage.EXCHANGE_SHIPMENT);
+            request.setStageStartedAt(assignedMoment);
+        }
+        request.setStageUpdatedAt(assignedMoment);
+        request.snapshotHistory(true, user, assignedMoment);
+        OrderReturnRequest saved = returnRequestRepository.save(request);
+        evictTrackDetailsCache(saved);
+        log.info("Создана обменная посылка {} для заявки {}",
+                Optional.ofNullable(replacement).map(TrackParcel::getId).orElse(null),
+                saved.getId());
         return replacement;
     }
 
@@ -255,9 +303,19 @@ public class OrderReturnRequestService {
             throw new IllegalStateException("Заявка уже обработана");
         }
 
+        ZonedDateTime closeMoment = ZonedDateTime.now(ZoneOffset.UTC);
         request.setStatus(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
         request.setClosedBy(user);
-        request.setClosedAt(ZonedDateTime.now(ZoneOffset.UTC));
+        request.setClosedAt(closeMoment);
+        request.setMode(ReturnRequestMode.RETURN);
+        request.setResponsibleManager(user);
+        if (request.getStage() != ReturnRequestStage.MERCHANT_ACCEPT_RETURN) {
+            request.setStage(ReturnRequestStage.MERCHANT_ACCEPT_RETURN);
+            request.setStageStartedAt(closeMoment);
+        }
+        request.setStageUpdatedAt(closeMoment);
+        request.setManualStageOverride(true);
+        request.snapshotHistory(true, user, closeMoment);
 
         OrderReturnRequest saved = returnRequestRepository.save(request);
         evictTrackDetailsCache(saved);
@@ -292,7 +350,7 @@ public class OrderReturnRequestService {
         if (request.isReturnReceiptConfirmed()) {
             return request;
         }
-        markReturnProcessingConfirmed(request);
+        markReturnProcessingConfirmed(request, user);
         OrderReturnRequest saved = returnRequestRepository.save(request);
         evictTrackDetailsCache(saved);
         log.info("Получение возврата подтверждено вручную для заявки {}", saved.getId());
@@ -316,9 +374,21 @@ public class OrderReturnRequestService {
             log.warn("Нельзя отменить обмен по заявке {}: {}", request.getId(), ex.getMessage());
             throw ex;
         }
+        ZonedDateTime cancelMoment = ZonedDateTime.now(ZoneOffset.UTC);
         request.setStatus(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
         request.setClosedBy(user);
-        request.setClosedAt(ZonedDateTime.now(ZoneOffset.UTC));
+        request.setClosedAt(cancelMoment);
+        request.setMode(ReturnRequestMode.RETURN);
+        request.setResponsibleManager(user);
+        request.setExchangeTrackNumber(null);
+        request.setExchangeTrackAssignedAt(null);
+        if (request.getStage() != ReturnRequestStage.MERCHANT_ACCEPT_RETURN) {
+            request.setStage(ReturnRequestStage.MERCHANT_ACCEPT_RETURN);
+            request.setStageStartedAt(cancelMoment);
+        }
+        request.setStageUpdatedAt(cancelMoment);
+        request.setManualStageOverride(true);
+        request.snapshotHistory(true, user, cancelMoment);
         orderExchangeService.cancelExchangeParcel(request, replacement);
         episodeLifecycleService.decrementExchangeCount(request.getEpisode());
         OrderReturnRequest saved = returnRequestRepository.save(request);
@@ -344,12 +414,24 @@ public class OrderReturnRequestService {
             log.warn("Нельзя перевести обмен по заявке {} в возврат: {}", request.getId(), ex.getMessage());
             throw ex;
         }
+        ZonedDateTime reopenMoment = ZonedDateTime.now(ZoneOffset.UTC);
         request.setStatus(OrderReturnRequestStatus.REGISTERED);
         request.setDecisionBy(null);
         request.setDecisionAt(null);
         request.setClosedBy(null);
         request.setClosedAt(null);
         request.setExchangeRequested(false);
+        request.setMode(ReturnRequestMode.RETURN);
+        request.setResponsibleManager(user);
+        request.setExchangeTrackNumber(null);
+        request.setExchangeTrackAssignedAt(null);
+        if (request.getStage() != ReturnRequestStage.MERCHANT_ACCEPT_RETURN) {
+            request.setStage(ReturnRequestStage.MERCHANT_ACCEPT_RETURN);
+            request.setStageStartedAt(reopenMoment);
+        }
+        request.setStageUpdatedAt(reopenMoment);
+        request.setManualStageOverride(true);
+        request.snapshotHistory(true, user, reopenMoment);
         orderExchangeService.cancelExchangeParcel(request, replacement);
         episodeLifecycleService.decrementExchangeCount(request.getEpisode());
         OrderReturnRequest saved = returnRequestRepository.save(request);
@@ -658,12 +740,21 @@ public class OrderReturnRequestService {
      * что облегчает расширение бизнес-правил и соответствует принципу DRY.
      * </p>
      */
-    private void markReturnProcessingConfirmed(OrderReturnRequest request) {
+    private void markReturnProcessingConfirmed(OrderReturnRequest request, User actor) {
         if (request == null || request.isReturnReceiptConfirmed()) {
             return;
         }
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
         request.setReturnReceiptConfirmed(true);
-        request.setReturnReceiptConfirmedAt(ZonedDateTime.now(ZoneOffset.UTC));
+        request.setReturnReceiptConfirmedAt(now);
+        request.setResponsibleManager(actor);
+        request.setManualStageOverride(true);
+        if (request.getStage() != ReturnRequestStage.MERCHANT_ACCEPT_RETURN) {
+            request.setStage(ReturnRequestStage.MERCHANT_ACCEPT_RETURN);
+            request.setStageStartedAt(now);
+        }
+        request.setStageUpdatedAt(now);
+        request.snapshotHistory(true, actor, now);
     }
 
     /**

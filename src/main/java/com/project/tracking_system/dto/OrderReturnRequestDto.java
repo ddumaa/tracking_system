@@ -1,5 +1,8 @@
 package com.project.tracking_system.dto;
 
+import com.project.tracking_system.entity.ReturnRequestMode;
+import com.project.tracking_system.entity.ReturnRequestStage;
+
 /**
  * DTO заявки на возврат/обмен для модального окна трека.
  *
@@ -24,6 +27,7 @@ package com.project.tracking_system.dto;
  * @param returnReceiptConfirmedAt дата подтверждения возврата
  * @param canConfirmReceipt        доступность кнопки подтверждения возврата
  */
+
 public record OrderReturnRequestDto(Long id,
                                     String status,
                                     String reason,
@@ -43,7 +47,17 @@ public record OrderReturnRequestDto(Long id,
                                     String cancelExchangeUnavailableReason,
                                     boolean returnReceiptConfirmed,
                                     String returnReceiptConfirmedAt,
-                                    boolean canConfirmReceipt) {
+                                    boolean canConfirmReceipt,
+                                    ReturnRequestMode mode,
+                                    ReturnRequestStage stage,
+                                    String exchangeTrackNumber,
+                                    boolean manualStageOverride,
+                                    boolean manualTrackOverride,
+                                    String stageStartedAt,
+                                    String stageUpdatedAt,
+                                    String exchangeTrackAssignedAt,
+                                    Long storeId,
+                                    Long responsibleId) {
 
     /**
      * Совместимый с фронтендом аксессор, чтобы не ломать проверку {@code isExchangeRequest}.

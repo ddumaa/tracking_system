@@ -1,6 +1,8 @@
 package com.project.tracking_system.dto;
 
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
+import com.project.tracking_system.entity.ReturnRequestMode;
+import com.project.tracking_system.entity.ReturnRequestStage;
 
 /**
  * DTO для отображения заявок на возврат/обмен, требующих действий пользователя.
@@ -32,6 +34,7 @@ import com.project.tracking_system.entity.OrderReturnRequestStatus;
  * @param returnReceiptConfirmedAt дата подтверждения возврата
  * @param canConfirmReceipt доступность ручного подтверждения приёма
  */
+
 public record ActionRequiredReturnRequestDto(Long requestId,
                                              Long parcelId,
                                              String trackNumber,
@@ -53,5 +56,15 @@ public record ActionRequiredReturnRequestDto(Long requestId,
                                              String cancelExchangeUnavailableReason,
                                              boolean returnReceiptConfirmed,
                                              String returnReceiptConfirmedAt,
-                                             boolean canConfirmReceipt) {
+                                             boolean canConfirmReceipt,
+                                             ReturnRequestMode mode,
+                                             ReturnRequestStage stage,
+                                             String exchangeTrackNumber,
+                                             boolean manualStageOverride,
+                                             boolean manualTrackOverride,
+                                             String stageStartedAt,
+                                             String stageUpdatedAt,
+                                             String exchangeTrackAssignedAt,
+                                             Long storeId,
+                                             Long responsibleId) {
 }
