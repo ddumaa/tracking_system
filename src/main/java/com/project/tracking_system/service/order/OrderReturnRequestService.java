@@ -687,6 +687,10 @@ public class OrderReturnRequestService {
 
     /**
      * Возвращает заявку пользователя, гарантируя принадлежность посылки.
+     * <p>
+     * Загружает связанные сущности (посылку, магазин и ответственного), чтобы контроллер
+     * и мапперы могли использовать данные за пределами транзакции без ленивых подгрузок.
+     * </p>
      *
      * @param requestId идентификатор заявки
      * @param user      владелец заявки
@@ -700,7 +704,7 @@ public class OrderReturnRequestService {
         if (user == null || user.getId() == null) {
             throw new IllegalArgumentException("Не указан пользователь");
         }
-        OrderReturnRequest request = returnRequestRepository.findById(requestId)
+        OrderReturnRequest request = returnRequestRepository.findByIdWithDetails(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Заявка не найдена"));
         ensureOwnership(request, user.getId());
         return request;

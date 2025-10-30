@@ -84,5 +84,25 @@ public interface OrderReturnRequestRepository extends JpaRepository<OrderReturnR
      * @return количество удалённых записей
      */
     long deleteByParcel_IdIn(Collection<Long> parcelIds);
+
+    /**
+     * Возвращает заявку вместе с ключевыми связями для отображения в API.
+     * <p>
+     * Метод подгружает посылку, магазин и ответственного менеджера одним запросом,
+     * чтобы предотвратить LazyInitializationException при маппинге за пределами транзакции.
+     * </p>
+     *
+     * @param id идентификатор заявки
+     * @return заявка с инициализированными связями или {@link Optional#empty()}, если она не найдена
+     */
+    @Query("""
+            select r from OrderReturnRequest r
+            join fetch r.parcel p
+            join fetch p.user
+            join fetch r.store
+            left join fetch r.responsibleManager
+            where r.id = :id
+            """)
+    Optional<OrderReturnRequest> findByIdWithDetails(@Param("id") Long id);
 }
 
