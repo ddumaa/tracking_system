@@ -557,8 +557,11 @@ status: 'Зарегистрирована',
         await Promise.resolve();
 
         expect(global.fetch).toHaveBeenCalledWith(
-            '/api/v1/tracks/31/returns/81/close',
-            expect.objectContaining({ method: 'POST' })
+            '/api/v1/returns/81/commands',
+            expect.objectContaining({
+                method: 'POST',
+                body: JSON.stringify(expect.objectContaining({ command: 'close' }))
+            })
         );
         expect(global.notifyUser).toHaveBeenCalledWith('Обращение закрыто', 'warning');
 
@@ -1066,10 +1069,11 @@ status: 'Зарегистрирована',
         await new Promise((resolve) => setTimeout(resolve, 0));
 
         expect(global.fetch).toHaveBeenCalledWith(
-            '/api/v1/tracks/12/returns/5/reverse-track',
+            '/api/v1/returns/5/commands',
             expect.objectContaining({
-                method: 'PATCH',
+                method: 'POST',
                 body: JSON.stringify({
+                    command: 'update_details',
                     reverseTrackNumber: 'RR123456789BY',
                     comment: 'Обновлённый комментарий'
                 })
@@ -1322,8 +1326,11 @@ status: 'Зарегистрирована',
         await Promise.resolve();
 
         expect(global.fetch).toHaveBeenCalledWith(
-            '/api/v1/tracks/12/returns/5/exchange',
-            expect.objectContaining({ method: 'POST' })
+            '/api/v1/returns/5/commands',
+            expect.objectContaining({
+                method: 'POST',
+                body: JSON.stringify(expect.objectContaining({ command: 'start_exchange' }))
+            })
         );
         expect(global.notifyUser).toHaveBeenCalledWith('Заявка переведена в обмен', 'info');
     });
@@ -1332,15 +1339,15 @@ status: 'Зарегистрирована',
         setupDom();
 
         const headers = { get: jest.fn(() => 'application/json') };
-        const responsePayload = { details: { returnRequest: { id: 6, state: 'REGISTERED_EXCHANGE' } }, state: 'REGISTERED_EXCHANGE' };
+        const responsePayload = { id: 6, state: { stage: 'REGISTERED_EXCHANGE' } };
         global.fetch.mockImplementation((url) => {
-            if (String(url).includes('/exchange/launch')) {
+            if (String(url).includes('/api/v1/returns/6/commands')) {
                 return Promise.resolve({ ok: true, headers, json: () => Promise.resolve(responsePayload) });
             }
-            if (String(url).includes('/details')) {
-                return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+            if (String(url).includes('/api/v1/tracks/14')) {
+                return Promise.resolve({ ok: true, headers, json: () => Promise.resolve({ returnRequest: responsePayload }) });
             }
-            return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+            return Promise.resolve({ ok: true, headers, json: () => Promise.resolve({}) });
         });
 
         const data = {
@@ -1414,8 +1421,11 @@ status: 'Зарегистрирована',
         await Promise.resolve();
 
         expect(global.fetch).toHaveBeenCalledWith(
-            '/api/v1/tracks/14/returns/6/exchange/parcel',
-            expect.objectContaining({ method: 'POST' })
+            '/api/v1/returns/6/commands',
+            expect.objectContaining({
+                method: 'POST',
+                body: JSON.stringify(expect.objectContaining({ command: 'create_exchange_parcel' }))
+            })
         );
         expect(global.notifyUser).toHaveBeenCalledWith('Обмен запущен', 'info');
     });

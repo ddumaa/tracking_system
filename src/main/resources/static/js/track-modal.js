@@ -1162,7 +1162,7 @@
      * Метод разделяет этапы валидации, сетевого вызова и обработки UI (SRP).
      * @param {Object} options набор параметров формы
      */
-    function submitReturnRequest(options) {
+    async function submitReturnRequest(options) {
         const {
             trackId,
             form,
@@ -1190,7 +1190,11 @@
         const reverseValue = (reverseInput?.value || '').trim();
         const commentValue = (commentInput?.value || '').trim();
 
+        const parcelId = typeof trackId === 'number'
+            ? trackId
+            : Number.parseInt(String(trackId), 10);
         const payload = {
+            parcelId: Number.isFinite(parcelId) ? parcelId : null,
             idempotencyKey: generateIdempotencyKey(),
             reason: reasonValue,
             requestedAt: new Date().toISOString(),
@@ -1199,52 +1203,58 @@
             isExchange
         };
 
-        const headers = {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-            ...buildCsrfHeaders()
-        };
+        if (!Number.isFinite(payload.parcelId)) {
+            notifyUser('Не удалось определить идентификатор посылки для заявки', 'danger');
+            return;
+        }
 
         const originalText = submitButton.textContent;
         submitButton.disabled = true;
         submitButton.setAttribute('aria-disabled', 'true');
         submitButton.textContent = 'Создаём…';
-
-        fetch(`/api/v1/tracks/${trackId}/returns`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(payload)
-        })
-            .then(async (response) => {
-                const contentType = response.headers.get('content-type') || '';
-                let bodyPayload = null;
-                if (contentType.includes('application/json')) {
-                    bodyPayload = await response.json();
-                }
-                if (!response.ok) {
-                    const message = bodyPayload?.message || 'Не удалось создать заявку';
-                    throw new Error(message);
-                }
-                return bodyPayload;
-            })
-            .then((details) => {
-                if (details) {
-                    renderTrackModal(details);
-                }
-                notifyUser(isExchange ? 'Заявка на обмен создана' : 'Заявка на возврат создана', 'success');
-                if (typeof window.returnRequests?.refreshEmptyState === 'function') {
-                    window.returnRequests.refreshEmptyState();
-                }
-            })
-            .catch((error) => {
-                const message = error?.message || 'Не удалось создать заявку';
-                notifyUser(`Ошибка: ${message}`, 'danger');
-            })
-            .finally(() => {
-                submitButton.disabled = false;
-                submitButton.setAttribute('aria-disabled', 'false');
-                submitButton.textContent = originalText;
+        let requestPayload = null;
+        try {
+            requestPayload = await sendTrackRequest('/api/v1/returns', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
+        } catch (error) {
+            const message = error?.message || 'Не удалось создать заявку';
+            notifyUser(`Ошибка: ${message}`, 'danger');
+            submitButton.disabled = false;
+            submitButton.setAttribute('aria-disabled', 'false');
+            submitButton.textContent = originalText;
+            return;
+        }
+
+        let details = null;
+        try {
+            details = await sendTrackRequest(`/api/v1/tracks/${trackId}`, { method: 'GET' });
+        } catch (error) {
+            console.error('Не удалось обновить детали трека после создания заявки', error);
+        }
+
+        if (details) {
+            renderTrackModal(details);
+        }
+
+        synchronizeReturnRequestsState({
+            trackId,
+            requestId: requestPayload?.id,
+            details,
+            payload: requestPayload,
+            responseType: 'command'
+        });
+
+        notifyUser(isExchange ? 'Заявка на обмен создана' : 'Заявка на возврат создана', 'success');
+        if (typeof window.returnRequests?.refreshEmptyState === 'function') {
+            window.returnRequests.refreshEmptyState();
+        }
+
+        submitButton.disabled = false;
+        submitButton.setAttribute('aria-disabled', 'false');
+        submitButton.textContent = originalText;
     }
 
     /**
@@ -1270,6 +1280,44 @@
             trackNumber: details.number || null,
             parcelStatus: details.systemStatus || null,
             statusLabel: request.statusLabel || request.status || null,
+            reason: request.reason || null,
+            comment: request.comment || null,
+            reverseTrackNumber: request.reverseTrackNumber || null,
+            exchangeRequested: Boolean(state.exchangeRequested),
+            canStartExchange: Boolean(actions.startExchange),
+            canCloseWithoutExchange: Boolean(actions.closeWithoutExchange),
+            canReopenAsReturn: Boolean(actions.reopenAsReturn),
+            canCancelExchange: Boolean(actions.cancelExchange),
+            cancelExchangeUnavailableReason: actions.cancelExchangeUnavailableReason || null,
+            returnReceiptConfirmed: Boolean(state.returnReceiptConfirmed),
+            returnReceiptConfirmedAt: timestamps.returnReceiptConfirmedAt || null,
+            canConfirmReceipt: Boolean(actions.confirmReceipt)
+        };
+        if (timestamps.requestedAt) {
+            summary.requestedAt = timestamps.requestedAt;
+        } else if (timestamps.createdAt) {
+            summary.requestedAt = timestamps.createdAt;
+        }
+        return summary;
+    }
+
+    /**
+     * Преобразует DTO заявки без данных трека в формат строки таблицы.
+     * @param {number|string} trackId идентификатор посылки
+     * @param {Object} request DTO заявки
+     * @returns {Object|null} частичный DTO строки таблицы
+     */
+    function mapReturnDtoToTableSummary(trackId, request) {
+        if (!request || request.id === undefined) {
+            return null;
+        }
+        const state = request.state || {};
+        const actions = request.availableActions || {};
+        const timestamps = request.timestamps || {};
+        const summary = {
+            parcelId: trackId,
+            requestId: request.id,
+            statusLabel: request.status || null,
             reason: request.reason || null,
             comment: request.comment || null,
             reverseTrackNumber: request.reverseTrackNumber || null,
@@ -1318,6 +1366,22 @@
             return;
         }
 
+        if (responseType === 'command') {
+            let summary = null;
+            if (details && details.returnRequest) {
+                summary = mapReturnRequestToTableSummary(details);
+            } else if (payload) {
+                summary = mapReturnDtoToTableSummary(trackId, payload);
+            }
+            if (summary) {
+                updateRow?.(summary);
+            } else if (!details) {
+                removeRowByIds?.(trackId, requestId);
+            }
+            refreshEmptyState?.();
+            return;
+        }
+
         const request = details?.returnRequest || null;
         if (request) {
             const summary = mapReturnRequestToTableSummary(details);
@@ -1341,49 +1405,41 @@
         const {
             trackId,
             requestId,
-            endpoint,
-            method = 'POST',
-            body = null,
+            command,
+            payload: extraPayload = {},
             successMessage,
             notificationType = 'success',
-            responseType = 'details',
             errorMessage
         } = params || {};
 
-        if (!trackId || !requestId || typeof endpoint !== 'string') {
+        if (!trackId || !requestId || typeof command !== 'string' || command.length === 0) {
             throw new Error('Некорректные параметры действия');
-        }
-
-        const url = `/api/v1/tracks/${trackId}/returns/${requestId}${endpoint}`;
-        const requestOptions = { method };
-        if (body !== null && body !== undefined) {
-            requestOptions.headers = { 'Content-Type': 'application/json' };
-            requestOptions.body = JSON.stringify(body);
         }
 
         let payload;
         try {
-            payload = await sendTrackRequest(url, requestOptions);
+            payload = await sendTrackRequest(`/api/v1/returns/${requestId}/commands`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command, ...extraPayload })
+            });
         } catch (error) {
             const fallbackMessage = errorMessage || 'Не удалось выполнить действие над заявкой';
             if (typeof window.notifyUser === 'function') {
-                const message = (error && error.message) ? error.message : fallbackMessage;
+                const message = error?.message || fallbackMessage;
                 window.notifyUser(message, 'danger');
             }
             throw error;
         }
 
         let details = null;
-        if (responseType === 'details') {
-            details = payload;
-        } else if (responseType === 'exchange') {
-            details = payload?.details || null;
-        } else if (responseType === 'actionResponse') {
-            details = payload?.details || null;
+        try {
+            details = await sendTrackRequest(`/api/v1/tracks/${trackId}`, { method: 'GET' });
+        } catch (error) {
+            console.error('Не удалось обновить детали трека после команды возврата', error);
         }
 
-        const resolvedTrackId = details?.id ?? trackId;
-        invalidateLazyDataCache(resolvedTrackId);
+        invalidateLazyDataCache(trackId);
         if (details) {
             renderTrackModal(details);
         }
@@ -1393,7 +1449,7 @@
             requestId,
             details,
             payload,
-            responseType
+            responseType: 'command'
         });
 
         if (successMessage && typeof window.notifyUser === 'function') {
@@ -1413,7 +1469,7 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            endpoint: '/exchange',
+            command: 'start_exchange',
             successMessage: options.successMessage || 'Заявка переведена в обмен',
             notificationType: options.notificationType || 'info',
             errorMessage: options.errorMessage || 'Не удалось перевести заявку в обмен'
@@ -1430,7 +1486,7 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            endpoint: '/close',
+            command: 'close',
             successMessage: options.successMessage || 'Обращение закрыто',
             notificationType: options.notificationType || 'warning',
             errorMessage: options.errorMessage || 'Не удалось закрыть обращение'
@@ -1447,7 +1503,7 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            endpoint: '/confirm-processing',
+            command: 'confirm_receipt',
             successMessage: options.successMessage || 'Возврат подтверждён',
             notificationType: options.notificationType || 'success',
             errorMessage: options.errorMessage || 'Не удалось подтвердить получение возврата'
@@ -1464,10 +1520,9 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            endpoint: '/exchange/parcel',
+            command: 'create_exchange_parcel',
             successMessage: options.successMessage || 'Обмен запущен',
             notificationType: options.notificationType || 'info',
-            responseType: 'actionResponse',
             errorMessage: options.errorMessage || 'Не удалось создать обменную посылку'
         });
     }
@@ -1476,10 +1531,9 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            endpoint: '/reopen',
+            command: 'reopen',
             successMessage: options.successMessage || 'Заявка переведена в возврат',
             notificationType: options.notificationType || 'info',
-            responseType: 'actionResponse',
             errorMessage: options.errorMessage || 'Не удалось перевести заявку в возврат'
         });
     }
@@ -1496,9 +1550,8 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            endpoint: '/reverse-track',
-            method: 'PATCH',
-            body: {
+            command: 'update_details',
+            payload: {
                 reverseTrackNumber: reverseTrack,
                 comment
             },

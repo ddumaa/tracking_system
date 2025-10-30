@@ -11,6 +11,7 @@ import java.time.OffsetDateTime;
 /**
  * Запрос на регистрацию заявки возврата/обмена.
  *
+ * @param parcelId            идентификатор посылки, для которой создаётся заявка
  * @param idempotencyKey      идемпотентный ключ для защиты от повторов
  * @param reason              причина оформления возврата
  * @param requestedAt         момент запроса возврата пользователем
@@ -19,6 +20,7 @@ import java.time.OffsetDateTime;
  * @param exchange            признак, что пользователь сразу просит оформить обмен
  */
 public record ReturnRegistrationRequest(
+        @NotNull(message = "Не указан идентификатор посылки") Long parcelId,
         @NotBlank(message = "Идемпотентный ключ обязателен") String idempotencyKey,
         @NotBlank(message = "Причина возврата обязательна") @Size(max = 255, message = "Причина не должна превышать 255 символов") String reason,
         @NotNull(message = "Дата запроса обязательна") @PastOrPresent(message = "Дата запроса не может быть из будущего") OffsetDateTime requestedAt,
