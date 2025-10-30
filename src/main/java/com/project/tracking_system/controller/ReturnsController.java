@@ -5,9 +5,9 @@ import com.project.tracking_system.dto.ReturnRequestAvailableActionsDto;
 import com.project.tracking_system.dto.ReturnRequestCommandRequest;
 import com.project.tracking_system.dto.ReturnRequestDto;
 import com.project.tracking_system.entity.OrderReturnRequest;
-import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
+import com.project.tracking_system.service.order.ReturnRequestCommandService;
 import com.project.tracking_system.service.order.ReturnRequestMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +40,7 @@ public class ReturnsController {
 
     private final OrderReturnRequestService orderReturnRequestService;
     private final ReturnRequestMapper returnRequestMapper;
+    private final ReturnRequestCommandService returnRequestCommandService;
 
     /**
      * Возвращает карточку заявки на возврат.
@@ -117,35 +118,13 @@ public class ReturnsController {
                                            @RequestBody @Valid ReturnRequestCommandRequest command,
                                            @AuthenticationPrincipal User user) {
         ensureAuthenticated(user);
-        OrderReturnRequest request = loadOwnedRequest(id, user);
         ReturnRequestCommandType commandType = ReturnRequestCommandType.fromCode(command.command());
         if (commandType == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Неизвестная команда управления заявкой");
         }
-        Long parcelId = resolveParcelId(request);
         ZoneId userZone = resolveUserZone(user);
         try {
-            return switch (commandType) {
-                case START_EXCHANGE -> map(orderReturnRequestService.approveExchange(id, parcelId, user), userZone);
-                case CREATE_EXCHANGE_PARCEL -> {
-                    orderReturnRequestService.createExchangeParcel(id, parcelId, user);
-                    yield map(orderReturnRequestService.getOwnedRequest(id, user), userZone);
-                }
-                case CLOSE -> map(orderReturnRequestService.closeWithoutExchange(id, parcelId, user), userZone);
-                case CONFIRM_RECEIPT -> map(orderReturnRequestService.confirmReturnProcessing(id, parcelId, user), userZone);
-                case UPDATE_DETAILS -> {
-                    orderReturnRequestService.updateReverseTrackAndComment(
-                            id,
-                            parcelId,
-                            user,
-                            command.reverseTrackNumber(),
-                            command.comment()
-                    );
-                    yield map(orderReturnRequestService.getOwnedRequest(id, user), userZone);
-                }
-                case REOPEN -> map(orderReturnRequestService.reopenAsReturn(id, parcelId, user), userZone);
-                case CANCEL_EXCHANGE -> map(orderReturnRequestService.cancelExchange(id, parcelId, user), userZone);
-            };
+            return returnRequestCommandService.executeCommand(id, commandType, command, user, userZone);
         } catch (AccessDeniedException ex) {
             throw ex;
         } catch (IllegalArgumentException ex) {
@@ -184,17 +163,6 @@ public class ReturnsController {
      */
     private ReturnRequestDto map(OrderReturnRequest request, ZoneId userZone) {
         return returnRequestMapper.toDto(request, userZone);
-    }
-
-    /**
-     * Определяет идентификатор посылки, связанной с заявкой.
-     */
-    private Long resolveParcelId(OrderReturnRequest request) {
-        TrackParcel parcel = request.getParcel();
-        if (parcel == null || parcel.getId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Заявка не привязана к посылке");
-        }
-        return parcel.getId();
     }
 
     /**
