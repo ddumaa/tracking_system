@@ -6,6 +6,7 @@ import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
+import com.project.tracking_system.service.order.ReturnRequestCommandService;
 import com.project.tracking_system.service.order.ReturnRequestMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,6 +49,9 @@ class ReturnsControllerTest {
 
     @MockBean
     private ReturnRequestMapper returnRequestMapper;
+
+    @MockBean
+    private ReturnRequestCommandService returnRequestCommandService;
 
     @Test
     void registerReturn_returnsMappedDto() throws Exception {
@@ -114,31 +118,20 @@ class ReturnsControllerTest {
         User principal = buildUser();
         UsernamePasswordAuthenticationToken auth = authentication(principal);
 
-        TrackParcel parcel = new TrackParcel();
-        parcel.setId(9L);
-        OrderReturnRequest initial = new OrderReturnRequest();
-        initial.setId(21L);
-        initial.setParcel(parcel);
-
-        OrderReturnRequest updated = new OrderReturnRequest();
-        updated.setId(21L);
-        updated.setParcel(parcel);
-
-        when(orderReturnRequestService.getOwnedRequest(21L, principal))
-                .thenReturn(initial);
-        when(orderReturnRequestService.approveExchange(21L, 9L, principal)).thenReturn(updated);
-        when(returnRequestMapper.toDto(eq(updated), any()))
-                .thenReturn(new ReturnRequestDto(21L, "EXCHANGE", null, null, null, false, null, null, null, null, null));
+        ReturnRequestDto responseDto = new ReturnRequestDto(21L, "EXCHANGE", null, null, null, false, null, null, null, null, null);
+        when(returnRequestCommandService.executeCommand(eq(21L), any(), any(), eq(principal), any()))
+                .thenReturn(responseDto);
 
         mockMvc.perform(post("/api/v1/returns/21/commands")
                         .with(auth)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"command\":\"start_exchange\"}"))
+                        .content("{" +
+                                "\"idempotencyKey\":\"cmd-1\"," +
+                                "\"command\":\"start_exchange\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id", equalTo(21)))
                 .andExpect(jsonPath("$.status", equalTo("EXCHANGE")));
-
-        verify(orderReturnRequestService).approveExchange(21L, 9L, principal);
+        verify(returnRequestCommandService).executeCommand(eq(21L), any(), any(), eq(principal), any());
     }
 
     @Test
@@ -146,29 +139,21 @@ class ReturnsControllerTest {
         User principal = buildUser();
         UsernamePasswordAuthenticationToken auth = authentication(principal);
 
-        TrackParcel parcel = new TrackParcel();
-        parcel.setId(11L);
-        OrderReturnRequest initial = new OrderReturnRequest();
-        initial.setId(30L);
-        initial.setParcel(parcel);
-
-        when(orderReturnRequestService.getOwnedRequest(30L, principal))
-                .thenReturn(initial)
-                .thenReturn(initial);
-        when(returnRequestMapper.toDto(eq(initial), any()))
-                .thenReturn(new ReturnRequestDto(30L, "REGISTERED", null, "Комментарий", "BY000", false, null, null, null, null, null));
+        ReturnRequestDto responseDto = new ReturnRequestDto(30L, "REGISTERED", null, "Комментарий", "BY000", false, null, null, null, null, null);
+        when(returnRequestCommandService.executeCommand(eq(30L), any(), any(), eq(principal), any()))
+                .thenReturn(responseDto);
 
         mockMvc.perform(post("/api/v1/returns/30/commands")
                         .with(auth)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{" +
+                                "\"idempotencyKey\":\"cmd-2\"," +
                                 "\"command\":\"update_details\"," +
                                 "\"reverseTrackNumber\":\"BY000\"," +
                                 "\"comment\":\"Комментарий\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.reverseTrackNumber", equalTo("BY000")));
-
-        verify(orderReturnRequestService).updateReverseTrackAndComment(30L, 11L, principal, "BY000", "Комментарий");
+        verify(returnRequestCommandService).executeCommand(eq(30L), any(), any(), eq(principal), any());
     }
 
     @Test
