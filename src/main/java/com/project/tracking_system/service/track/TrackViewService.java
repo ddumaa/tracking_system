@@ -1,9 +1,6 @@
 package com.project.tracking_system.service.track;
 
-import com.project.tracking_system.dto.OrderReturnRequestDto;
-import com.project.tracking_system.dto.ReturnRequestAvailableActionsDto;
-import com.project.tracking_system.dto.ReturnRequestStateDto;
-import com.project.tracking_system.dto.ReturnRequestTimestampsDto;
+import com.project.tracking_system.dto.ReturnRequestDto;
 import com.project.tracking_system.dto.TrackChainItemDto;
 import com.project.tracking_system.dto.TrackDetailsDto;
 import com.project.tracking_system.dto.TrackLifecycleStageDto;
@@ -14,7 +11,6 @@ import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderEpisode;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
-import com.project.tracking_system.entity.ReturnRequestAction;
 import com.project.tracking_system.entity.ReturnRequestMode;
 import com.project.tracking_system.entity.ReturnRequestStage;
 import com.project.tracking_system.entity.PostalServiceType;
@@ -22,6 +18,7 @@ import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.TrackStatusEvent;
 import com.project.tracking_system.service.order.OrderExchangeService;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
+import com.project.tracking_system.service.order.ReturnRequestMapper;
 import com.project.tracking_system.service.admin.ApplicationSettingsService;
 import com.project.tracking_system.service.user.UserService;
 import jakarta.persistence.EntityNotFoundException;
@@ -37,7 +34,6 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -61,6 +57,7 @@ public class TrackViewService {
     private final UserService userService;
     private final ApplicationSettingsService applicationSettingsService;
     private final OrderReturnRequestService orderReturnRequestService;
+    private final ReturnRequestMapper returnRequestMapper;
     private final OrderExchangeService orderExchangeService;
 
     /**
@@ -106,7 +103,7 @@ public class TrackViewService {
 
         Optional<OrderReturnRequest> currentRequest = orderReturnRequestService
                 .findCurrentForParcel(parcel.getId());
-        OrderReturnRequestDto requestDto = currentRequest
+        ReturnRequestDto requestDto = currentRequest
                 .map(request -> mapReturnRequest(request, userZone))
                 .orElse(null);
         boolean requiresAction = currentRequest.map(OrderReturnRequest::requiresAction).orElse(false);
@@ -476,74 +473,8 @@ public class TrackViewService {
     /**
      * Строит DTO для заявки на возврат/обмен.
      */
-    private OrderReturnRequestDto mapReturnRequest(OrderReturnRequest request, ZoneId userZone) {
-        boolean canStartExchange = orderReturnRequestService.canStartExchange(request);
-        EnumSet<ReturnRequestAction> actions = orderReturnRequestService.resolveAvailableActions(request);
-        boolean canCloseWithoutExchange = actions.contains(ReturnRequestAction.CANCEL_RETURN);
-        boolean canReopenAsReturn = actions.contains(ReturnRequestAction.CONVERT_TO_RETURN);
-        boolean canCancelExchange = actions.contains(ReturnRequestAction.CANCEL_EXCHANGE);
-        boolean canConfirmReceipt = orderReturnRequestService.canConfirmReceipt(request);
-        boolean canCreateExchangeParcel = orderReturnRequestService.canCreateExchangeParcel(request);
-        String requestedAt = formatNullableTimestamp(request.getRequestedAt(), userZone);
-        // Подставляем дату регистрации, если пользовательское обращение отсутствует, чтобы модалка не показывала дубль.
-        if (requestedAt == null) {
-            requestedAt = formatNullableTimestamp(request.getCreatedAt(), userZone);
-        }
-
-        String cancelExchangeReason = orderReturnRequestService
-                .getExchangeCancellationBlockReason(request)
-                .orElse(null);
-        ReturnRequestMode mode = request.getMode() != null ? request.getMode() : ReturnRequestMode.RETURN;
-        ReturnRequestStage stage = request.getStage() != null ? request.getStage() : ReturnRequestStage.CUSTOMER_RETURN;
-        ReturnRequestStateDto state = new ReturnRequestStateDto(
-                mode,
-                stage,
-                request.isManualStageOverride(),
-                request.isManualTrackOverride(),
-                request.isExchangeRequested(),
-                request.isExchangeApproved(),
-                orderReturnRequestService.isExchangeShipmentDispatched(request),
-                request.getExchangeTrackNumber(),
-                request.isReturnReceiptConfirmed()
-        );
-
-        ReturnRequestAvailableActionsDto availableActions = new ReturnRequestAvailableActionsDto(
-                canStartExchange,
-                canCreateExchangeParcel,
-                canCloseWithoutExchange,
-                canReopenAsReturn,
-                canCancelExchange,
-                canConfirmReceipt,
-                cancelExchangeReason
-        );
-
-        ReturnRequestTimestampsDto timestamps = new ReturnRequestTimestampsDto(
-                requestedAt,
-                formatNullableTimestamp(request.getCreatedAt(), userZone),
-                formatNullableTimestamp(request.getDecisionAt(), userZone),
-                formatNullableTimestamp(request.getClosedAt(), userZone),
-                formatNullableTimestamp(request.getStageStartedAt(), userZone),
-                formatNullableTimestamp(request.getStageUpdatedAt(), userZone),
-                formatNullableTimestamp(request.getExchangeTrackAssignedAt(), userZone),
-                formatNullableTimestamp(request.getReturnReceiptConfirmedAt(), userZone)
-        );
-
-        Long storeId = request.getStore() != null ? request.getStore().getId() : null;
-        Long responsibleId = request.getResponsibleManager() != null ? request.getResponsibleManager().getId() : null;
-
-        return new OrderReturnRequestDto(
-                request.getId(),
-                request.getStatus().getDisplayName(),
-                request.getReason(),
-                request.getComment(),
-                request.getReverseTrackNumber(),
-                request.requiresAction(),
-                state,
-                availableActions,
-                timestamps,
-                storeId,
-                responsibleId
-        );
+    private ReturnRequestDto mapReturnRequest(OrderReturnRequest request, ZoneId userZone) {
+        return returnRequestMapper.toDto(request, userZone);
     }
 
     /**

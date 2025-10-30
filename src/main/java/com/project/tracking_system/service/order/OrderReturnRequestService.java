@@ -686,6 +686,27 @@ public class OrderReturnRequestService {
     }
 
     /**
+     * Возвращает заявку пользователя, гарантируя принадлежность посылки.
+     *
+     * @param requestId идентификатор заявки
+     * @param user      владелец заявки
+     * @return найденная заявка
+     */
+    @Transactional(readOnly = true)
+    public OrderReturnRequest getOwnedRequest(Long requestId, User user) {
+        if (requestId == null) {
+            throw new IllegalArgumentException("Не указан идентификатор заявки");
+        }
+        if (user == null || user.getId() == null) {
+            throw new IllegalArgumentException("Не указан пользователь");
+        }
+        OrderReturnRequest request = returnRequestRepository.findById(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("Заявка не найдена"));
+        ensureOwnership(request, user.getId());
+        return request;
+    }
+
+    /**
      * Загружает заявку и проверяет, что пользователь владеет посылкой.
      */
     private OrderReturnRequest loadOwnedRequest(Long requestId, Long parcelId, User user) {
