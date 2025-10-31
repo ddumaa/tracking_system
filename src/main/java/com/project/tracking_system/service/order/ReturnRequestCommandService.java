@@ -12,6 +12,7 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.repository.ReturnCommandLogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -67,19 +68,14 @@ public class ReturnRequestCommandService {
         String normalizedKey = command.idempotencyKey().trim();
         String payloadHash = computePayloadHash(commandType, command);
 
-        Optional<ReturnCommandLog> existingLog = returnCommandLogRepository
-                .findFirstByRequestIdAndIdempotencyKey(requestId, normalizedKey);
-        if (existingLog.isPresent()) {
-            ReturnCommandLog logEntry = existingLog.get();
-            if (!payloadHash.equals(logEntry.getPayloadHash())) {
-                throw new IllegalStateException("Команда с таким ключом уже выполнена с другими данными");
-            }
+        ReturnCommandLog logEntry = reserveLogEntry(requestId, normalizedKey, commandType, payloadHash);
+        if (logEntry.getResponseSnapshot() != null) {
             return restoreResponse(logEntry);
         }
 
         OrderReturnRequest updated = performCommand(commandType, command, user, requestId, parcelId);
         ReturnRequestDto response = returnRequestMapper.toDto(updated, userZone);
-        persistLogEntry(requestId, normalizedKey, commandType, payloadHash, response);
+        completeLogEntry(logEntry, response);
         return response;
     }
 
@@ -152,21 +148,56 @@ public class ReturnRequestCommandService {
     }
 
     /**
-     * Создаёт и сохраняет запись журнала о выполненной команде.
+     * Завершает запись журнала, добавляя снимок ответа после успешного выполнения команды.
      */
-    private void persistLogEntry(Long requestId,
-                                 String idempotencyKey,
-                                 ReturnRequestCommandType type,
-                                 String payloadHash,
-                                 ReturnRequestDto response) {
+    private void completeLogEntry(ReturnCommandLog logEntry, ReturnRequestDto response) {
+        logEntry.setResponseSnapshot(serializeResponse(response));
+        returnCommandLogRepository.saveAndFlush(logEntry);
+        log.info("Зафиксировано выполнение команды {} по заявке {}", logEntry.getAction(), logEntry.getRequestId());
+    }
+
+    /**
+     * Резервирует запись журнала под выполняемую команду или возвращает существующий результат.
+     */
+    private ReturnCommandLog reserveLogEntry(Long requestId,
+                                             String idempotencyKey,
+                                             ReturnRequestCommandType type,
+                                             String payloadHash) {
+        Optional<ReturnCommandLog> existingLog = returnCommandLogRepository
+                .findFirstByRequestIdAndIdempotencyKey(requestId, idempotencyKey);
+        if (existingLog.isPresent()) {
+            ReturnCommandLog logEntry = existingLog.get();
+            validatePayloadMatches(payloadHash, logEntry);
+            return logEntry;
+        }
+
         ReturnCommandLog logEntry = new ReturnCommandLog();
         logEntry.setRequestId(requestId);
         logEntry.setIdempotencyKey(idempotencyKey);
         logEntry.setAction(type.name());
         logEntry.setPayloadHash(payloadHash);
-        logEntry.setResponseSnapshot(serializeResponse(response));
-        returnCommandLogRepository.save(logEntry);
-        log.info("Зафиксировано выполнение команды {} по заявке {}", type, requestId);
+
+        try {
+            return returnCommandLogRepository.saveAndFlush(logEntry);
+        } catch (DataIntegrityViolationException ex) {
+            ReturnCommandLog concurrentLog = returnCommandLogRepository
+                    .findFirstByRequestIdAndIdempotencyKey(requestId, idempotencyKey)
+                    .orElseThrow(() -> ex);
+            validatePayloadMatches(payloadHash, concurrentLog);
+            if (concurrentLog.getResponseSnapshot() == null) {
+                throw new IllegalStateException("Команда с таким ключом уже выполняется, повторите позже", ex);
+            }
+            return concurrentLog;
+        }
+    }
+
+    /**
+     * Проверяет соответствие хеша полезной нагрузки ранее выполненной команде.
+     */
+    private void validatePayloadMatches(String payloadHash, ReturnCommandLog logEntry) {
+        if (!payloadHash.equals(logEntry.getPayloadHash())) {
+            throw new IllegalStateException("Команда с таким ключом уже выполнена с другими данными");
+        }
     }
 
     /**

@@ -57,9 +57,12 @@ public class ReturnCommandLog {
 
     /**
      * Снимок ответа клиенту после выполнения команды.
+     * <p>
+     * Поле остаётся пустым, пока команда выполняется, и заполняется после успешного завершения.
+     * </p>
      */
     @Lob
-    @Column(name = "response_snapshot", nullable = false, columnDefinition = "TEXT")
+    @Column(name = "response_snapshot", columnDefinition = "TEXT")
     private String responseSnapshot;
 
     /**
