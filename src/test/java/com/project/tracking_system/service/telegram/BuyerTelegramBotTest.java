@@ -2439,37 +2439,23 @@ class BuyerTelegramBotTest {
                 null,
                 returnReceiptConfirmed
         );
-        List<AvailableActionsDto> actions = new ArrayList<>();
-        actions.add(new AvailableActionsDto(
-                ReturnRequestAction.SET_MODE_EXCHANGE.getCode(),
-                ReturnRequestAction.SET_MODE_EXCHANGE.getDisplayName(),
-                canStartExchange,
-                null
-        ));
-        actions.add(new AvailableActionsDto(
-                ReturnRequestAction.CLOSE_REQUEST.getCode(),
-                ReturnRequestAction.CLOSE_REQUEST.getDisplayName(),
-                canCloseWithoutExchange,
-                null
-        ));
-        actions.add(new AvailableActionsDto(
-                ReturnRequestAction.SET_MODE_RETURN.getCode(),
-                ReturnRequestAction.SET_MODE_RETURN.getDisplayName(),
-                canReopenAsReturn,
-                null
-        ));
-        actions.add(new AvailableActionsDto(
-                ReturnRequestAction.CANCEL_EXCHANGE.getCode(),
-                ReturnRequestAction.CANCEL_EXCHANGE.getDisplayName(),
-                canCancelExchange,
-                cancelExchangeUnavailableReason
-        ));
-        actions.add(new AvailableActionsDto(
-                ReturnRequestAction.CONFIRM_RECEIPT.getCode(),
-                ReturnRequestAction.CONFIRM_RECEIPT.getDisplayName(),
-                canConfirmReceipt,
-                null
-        ));
+        List<String> actionCodes = new ArrayList<>();
+        if (canStartExchange) {
+            actionCodes.add(ReturnRequestAction.SET_MODE_EXCHANGE.getCode());
+        }
+        if (canCloseWithoutExchange) {
+            actionCodes.add(ReturnRequestAction.CLOSE_REQUEST.getCode());
+        }
+        if (canReopenAsReturn) {
+            actionCodes.add(ReturnRequestAction.SET_MODE_RETURN.getCode());
+        }
+        if (canCancelExchange) {
+            actionCodes.add(ReturnRequestAction.CANCEL_EXCHANGE.getCode());
+        }
+        if (canConfirmReceipt) {
+            actionCodes.add(ReturnRequestAction.CONFIRM_RECEIPT.getCode());
+        }
+        AvailableActionsDto actions = new AvailableActionsDto(actionCodes);
         ReturnRequestTimestampsDto timestamps = new ReturnRequestTimestampsDto(
                 requestedAt,
                 createdAt,

@@ -38,24 +38,22 @@ public record ActionRequiredReturnRequestDto(Long requestId,
                                              String comment,
                                              String reverseTrack,
                                              ReturnRequestStateDto state,
-                                             List<AvailableActionsDto> actions,
+                                             AvailableActionsDto actions,
                                              ReturnRequestTimestampsDto timestamps) {
 
     public ActionRequiredReturnRequestDto {
-        actions = actions == null ? List.of() : List.copyOf(actions);
+        actions = actions == null ? new AvailableActionsDto(List.of()) : actions;
         timestamps = Objects.requireNonNullElseGet(timestamps, () -> new ReturnRequestTimestampsDto(null, null, null, null, null, null, null, null));
     }
 
     /**
-     * Возвращает описание действия по его коду.
+     * Проверяет наличие доступного действия по его коду.
      */
-    public AvailableActionsDto actionByCode(ReturnRequestAction action) {
+    public boolean hasAction(ReturnRequestAction action) {
         if (action == null) {
-            return null;
+            return false;
         }
-        return actions.stream()
-                .filter(item -> action.getCode().equals(item.code()))
-                .findFirst()
-                .orElse(null);
+        List<String> codes = actions != null ? actions.getActions() : List.of();
+        return codes.contains(action.getCode());
     }
 }

@@ -21,7 +21,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
-
 import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -162,16 +161,13 @@ class ReturnsControllerTest {
         OrderReturnRequest request = new OrderReturnRequest();
         when(orderReturnRequestService.getOwnedRequest(52L, principal)).thenReturn(request);
         when(returnRequestMapper.toAvailableActions(request))
-                .thenReturn(List.of(
-                        new AvailableActionsDto("set_mode_exchange", "Перевести в обмен", true, null),
-                        new AvailableActionsDto("close_request", "Закрыть", true, null)
-                ));
+                .thenReturn(new AvailableActionsDto(List.of("set_mode_exchange", "close_request")));
 
         mockMvc.perform(get("/api/v1/returns/52/available-actions")
                         .with(auth))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].code", equalTo("set_mode_exchange")))
-                .andExpect(jsonPath("$[1].enabled", equalTo(true)));
+                .andExpect(jsonPath("$.actions[0]", equalTo("set_mode_exchange")))
+                .andExpect(jsonPath("$.actions[1]", equalTo("close_request")));
     }
 
     private UsernamePasswordAuthenticationToken authentication(User user) {

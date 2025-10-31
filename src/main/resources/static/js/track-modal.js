@@ -460,7 +460,16 @@
             this.request = details?.returnRequest || null;
             this.state = this.request?.state || {};
             this.timestamps = this.request?.timestamps || {};
-            this.availableActions = this.request?.availableActions || {};
+            const rawActions = this.request?.availableActions || {};
+            const normalizedActionCodes = Array.isArray(rawActions?.actions)
+                ? rawActions.actions
+                : Array.isArray(rawActions?.actionCodes)
+                    ? rawActions.actionCodes
+                    : [];
+            this.availableActions = {
+                ...(rawActions && typeof rawActions === 'object' ? rawActions : {}),
+                actionCodes: Array.isArray(normalizedActionCodes) ? normalizedActionCodes : []
+            };
             this.trackId = details?.id ?? null;
             this.exchangeParcel = details?.exchangeParcel || null;
             this._formatDateTime = typeof options.formatDateTime === 'function'
@@ -542,10 +551,10 @@
         _resolvePermissions() {
             const legacy = this.request?.actionPermissions || {};
             const actions = this.availableActions || {};
+            const hasModernActions = extractActionCodes(actions).length > 0;
             const mapLegacy = (key) => Boolean(legacy?.[key]);
             const legacyUpdateReverse = mapLegacy('allowUpdateReverseTrack');
             const canUpdateReverseTrack = this.request?.canUpdateReverseTrack;
-            const hasModernActions = Array.isArray(actions?.actionCodes);
             const confirmReceiptFlag = hasActionCode(actions, 'confirm_receipt', { allowLegacyFallback: false });
             const convertToExchangeFlag = hasActionCode(actions, 'set_mode_exchange', { allowLegacyFallback: false });
             const launchExchangeFlag = hasActionCode(actions, 'create_exchange_parcel', { allowLegacyFallback: false });
@@ -1012,8 +1021,7 @@
                     options: {
                         successMessage: 'Обращение закрыто',
                         notificationType: 'warning'
-                    },
-                    disabledReason: this.availableActions.cancelExchangeUnavailableReason || null
+                    }
                 }
             ];
         }
@@ -1315,7 +1323,11 @@
         if (!actions || typeof actions !== 'object') {
             return [];
         }
-        const rawCodes = Array.isArray(actions.actionCodes) ? actions.actionCodes : [];
+        const rawCodes = Array.isArray(actions.actions)
+            ? actions.actions
+            : Array.isArray(actions.actionCodes)
+                ? actions.actionCodes
+                : [];
         return rawCodes
             .map((code) => (typeof code === 'string' ? code.trim().toLowerCase() : ''))
             .filter((code) => code.length > 0);
@@ -1331,7 +1343,7 @@
         if (codes.includes(normalized)) {
             return true;
         }
-        if (!allowLegacyFallback && Array.isArray(actions?.actionCodes)) {
+        if (!allowLegacyFallback && codes.length > 0) {
             return false;
         }
         const aliases = ACTION_CODE_ALIASES[normalized] || [];
@@ -1367,6 +1379,21 @@
         if (stageLabel) {
             summary.statusLabel = stageLabel;
         }
+        if (request.reverseTrackNumber !== undefined) {
+            summary.reverseTrackNumber = request.reverseTrackNumber;
+        }
+        if (request.comment !== undefined) {
+            summary.comment = request.comment;
+        }
+        if (request.returnReceiptConfirmed !== undefined) {
+            summary.returnReceiptConfirmed = request.returnReceiptConfirmed;
+        }
+        if (request.returnReceiptConfirmedAt !== undefined) {
+            summary.returnReceiptConfirmedAt = request.returnReceiptConfirmedAt;
+        }
+        if (request.canConfirmReceipt !== undefined) {
+            summary.canConfirmReceipt = request.canConfirmReceipt;
+        }
         return summary;
     }
 
@@ -1394,6 +1421,21 @@
         };
         if (stageLabel) {
             summary.statusLabel = stageLabel;
+        }
+        if (request.reverseTrackNumber !== undefined) {
+            summary.reverseTrackNumber = request.reverseTrackNumber;
+        }
+        if (request.comment !== undefined) {
+            summary.comment = request.comment;
+        }
+        if (request.returnReceiptConfirmed !== undefined) {
+            summary.returnReceiptConfirmed = request.returnReceiptConfirmed;
+        }
+        if (request.returnReceiptConfirmedAt !== undefined) {
+            summary.returnReceiptConfirmedAt = request.returnReceiptConfirmedAt;
+        }
+        if (request.canConfirmReceipt !== undefined) {
+            summary.canConfirmReceipt = request.canConfirmReceipt;
         }
         return summary;
     }

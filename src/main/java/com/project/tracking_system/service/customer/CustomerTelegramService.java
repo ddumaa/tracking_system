@@ -681,7 +681,7 @@ public class CustomerTelegramService {
                 request.isReturnReceiptConfirmed()
         );
 
-        List<AvailableActionsDto> actions = returnRequestMapper.toAvailableActions(request);
+        AvailableActionsDto actions = returnRequestMapper.toAvailableActions(request);
 
         ReturnRequestTimestampsDto timestamps = new ReturnRequestTimestampsDto(
                 formatRequestMoment(request.getRequestedAt()),

@@ -10,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
@@ -74,41 +73,19 @@ public class ReturnRequestMapper {
     }
 
     /**
-     * Рассчитывает доступные действия по заявке и возвращает их DTO.
+     * Рассчитывает доступные действия по заявке и возвращает их коды в DTO.
      *
      * @param request заявка на возврат/обмен
-     * @return список доступных действий
+     * @return DTO со списком кодов доступных действий
      */
-    public List<AvailableActionsDto> toAvailableActions(OrderReturnRequest request) {
+    public AvailableActionsDto toAvailableActions(OrderReturnRequest request) {
         if (request == null) {
-            return List.of();
+            return new AvailableActionsDto(List.of());
         }
         EnumSet<ReturnRequestAction> actions = orderReturnRequestService.resolveAvailableActions(request);
-        return buildAvailableActions(request, actions);
-    }
-
-    /**
-     * Собирает DTO доступных действий с учётом ограничений.
-     */
-    private List<AvailableActionsDto> buildAvailableActions(OrderReturnRequest request,
-                                                            EnumSet<ReturnRequestAction> active) {
-        List<AvailableActionsDto> result = new ArrayList<>();
-        String cancelReason = orderReturnRequestService
-                .getExchangeCancellationBlockReason(request)
-                .orElse(null);
-        for (ReturnRequestAction action : ReturnRequestAction.values()) {
-            boolean enabled = active.contains(action);
-            String reason = null;
-            if (!enabled && action == ReturnRequestAction.CANCEL_EXCHANGE) {
-                reason = cancelReason;
-            }
-            result.add(new AvailableActionsDto(
-                    action.getCode(),
-                    action.getDisplayName(),
-                    enabled,
-                    reason
-            ));
-        }
-        return result;
+        List<String> actionCodes = actions.stream()
+                .map(ReturnRequestAction::getCode)
+                .toList();
+        return new AvailableActionsDto(actionCodes);
     }
 }
