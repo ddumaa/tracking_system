@@ -16,6 +16,7 @@ import com.project.tracking_system.entity.BuyerBotScreen;
 import com.project.tracking_system.entity.BuyerChatState;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
+import com.project.tracking_system.entity.ReturnRequestAction;
 import com.project.tracking_system.entity.ReturnRequestMode;
 import com.project.tracking_system.entity.ReturnRequestStage;
 import com.project.tracking_system.entity.NameSource;
@@ -59,9 +60,11 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.time.ZonedDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
@@ -2435,6 +2438,22 @@ class BuyerTelegramBotTest {
                 null,
                 returnReceiptConfirmed
         );
+        Set<String> actionCodes = new LinkedHashSet<>();
+        if (canStartExchange) {
+            actionCodes.add(ReturnRequestAction.SET_MODE_EXCHANGE.getCode());
+        }
+        if (canCloseWithoutExchange) {
+            actionCodes.add(ReturnRequestAction.CLOSE_REQUEST.getCode());
+        }
+        if (canReopenAsReturn) {
+            actionCodes.add(ReturnRequestAction.SET_MODE_RETURN.getCode());
+        }
+        if (canCancelExchange) {
+            actionCodes.add(ReturnRequestAction.CANCEL_EXCHANGE.getCode());
+        }
+        if (canConfirmReceipt) {
+            actionCodes.add(ReturnRequestAction.CONFIRM_RECEIPT.getCode());
+        }
         ReturnRequestAvailableActionsDto actions = new ReturnRequestAvailableActionsDto(
                 canStartExchange,
                 false,
@@ -2442,7 +2461,8 @@ class BuyerTelegramBotTest {
                 canReopenAsReturn,
                 canCancelExchange,
                 canConfirmReceipt,
-                cancelExchangeUnavailableReason
+                cancelExchangeUnavailableReason,
+                actionCodes
         );
         ReturnRequestTimestampsDto timestamps = new ReturnRequestTimestampsDto(
                 requestedAt,

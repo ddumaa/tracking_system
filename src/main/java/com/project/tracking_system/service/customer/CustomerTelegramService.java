@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -538,7 +539,7 @@ public class CustomerTelegramService {
                 parcelId,
                 owner,
                 customer,
-                ReturnRequestAction.CONVERT_TO_RETURN
+                ReturnRequestAction.SET_MODE_RETURN
         );
     }
 
@@ -661,16 +662,19 @@ public class CustomerTelegramService {
         String trackNumber = parcel != null ? parcel.getNumber() : null;
         String storeName = parcel != null && parcel.getStore() != null ? parcel.getStore().getName() : null;
         GlobalStatus parcelStatus = parcel != null ? parcel.getStatus() : null;
-        boolean canStartExchange = orderReturnRequestService.canStartExchange(request);
         EnumSet<ReturnRequestAction> actions = orderReturnRequestService.resolveAvailableActions(request);
-        boolean canCloseWithoutExchange = actions.contains(ReturnRequestAction.CANCEL_RETURN);
-        boolean canReopenAsReturn = actions.contains(ReturnRequestAction.CONVERT_TO_RETURN);
+        Set<String> actionCodes = actions.stream()
+                .map(ReturnRequestAction::getCode)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        boolean canStartExchange = actions.contains(ReturnRequestAction.SET_MODE_EXCHANGE);
+        boolean canCloseWithoutExchange = actions.contains(ReturnRequestAction.CLOSE_REQUEST);
+        boolean canReopenAsReturn = actions.contains(ReturnRequestAction.SET_MODE_RETURN);
         boolean canCancelExchange = actions.contains(ReturnRequestAction.CANCEL_EXCHANGE);
         String cancelExchangeReason = orderReturnRequestService
                 .getExchangeCancellationBlockReason(request)
                 .orElse(null);
         boolean exchangeShipmentDispatched = orderReturnRequestService.isExchangeShipmentDispatched(request);
-        boolean canConfirmReceipt = orderReturnRequestService.canConfirmReceipt(request);
+        boolean canConfirmReceipt = actions.contains(ReturnRequestAction.CONFIRM_RECEIPT);
 
         ReturnRequestMode mode = request.getMode() != null ? request.getMode() : ReturnRequestMode.RETURN;
         ReturnRequestStage stage = request.getStage() != null ? request.getStage() : ReturnRequestStage.NEW;
@@ -689,12 +693,13 @@ public class CustomerTelegramService {
 
         ReturnRequestAvailableActionsDto availableActions = new ReturnRequestAvailableActionsDto(
                 canStartExchange,
-                orderReturnRequestService.canCreateExchangeParcel(request),
+                actions.contains(ReturnRequestAction.CREATE_EXCHANGE_PARCEL),
                 canCloseWithoutExchange,
                 canReopenAsReturn,
                 canCancelExchange,
                 canConfirmReceipt,
-                cancelExchangeReason
+                cancelExchangeReason,
+                actionCodes
         );
 
         String requestedAt = formatRequestMoment(request.getRequestedAt());

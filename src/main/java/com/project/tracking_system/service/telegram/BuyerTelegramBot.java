@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.tracking_system.dto.ActionRequiredReturnRequestDto;
 import com.project.tracking_system.dto.CustomerStatisticsDTO;
+import com.project.tracking_system.dto.ReturnRequestAvailableActionsDto;
 import com.project.tracking_system.dto.ReturnRequestUpdateResponse;
 import com.project.tracking_system.dto.TelegramParcelInfoDTO;
 import com.project.tracking_system.dto.TelegramParcelsOverviewDTO;
@@ -49,6 +50,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.Map;
 import java.util.UUID;
@@ -1298,6 +1300,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (requestId == null || parcelId == null) {
             return rows;
         }
+        Set<String> actionCodes = Optional.ofNullable(request.availableActions())
+                .map(ReturnRequestAvailableActionsDto::actionCodes)
+                .orElse(Set.of());
         rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
                 .text(BUTTON_RETURNS_ACTION_TRACK)
                 .callbackData(CALLBACK_RETURNS_ACTIVE_TRACK_PREFIX + requestId + ':' + parcelId)
@@ -1329,13 +1334,15 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         } else {
             boolean reverseTrackProvided = request.reverseTrackNumber() != null
                     && !request.reverseTrackNumber().isBlank();
-            String cancelText = reverseTrackProvided
-                    ? BUTTON_RETURNS_ACTION_CANCEL_RETURN_CONFIRM
-                    : BUTTON_RETURNS_ACTION_CANCEL_RETURN;
-            rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
-                    .text(cancelText)
-                    .callbackData(CALLBACK_RETURNS_ACTIVE_CANCEL_PREFIX + requestId + ':' + parcelId)
-                    .build()));
+            if (actionCodes.contains(ReturnRequestAction.CLOSE_REQUEST.getCode())) {
+                String cancelText = reverseTrackProvided
+                        ? BUTTON_RETURNS_ACTION_CANCEL_RETURN_CONFIRM
+                        : BUTTON_RETURNS_ACTION_CANCEL_RETURN;
+                rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
+                        .text(cancelText)
+                        .callbackData(CALLBACK_RETURNS_ACTIVE_CANCEL_PREFIX + requestId + ':' + parcelId)
+                        .build()));
+            }
         }
         return rows;
     }
@@ -1999,7 +2006,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
         answerCallbackQuery(callbackQuery, "Требуется подтверждение");
         ChatSession session = ensureChatSession(chatId);
-        showActiveRequestConfirmation(chatId, session, detailsOptional.get(), context, ReturnRequestAction.CANCEL_RETURN);
+        showActiveRequestConfirmation(chatId, session, detailsOptional.get(), context, ReturnRequestAction.CLOSE_REQUEST);
     }
 
     private void handleActiveRequestCancelExchange(Long chatId, CallbackQuery callbackQuery, String data) {
@@ -2037,7 +2044,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         ActiveRequestDetails details = detailsOptional.get();
         answerCallbackQuery(callbackQuery, "Требуется подтверждение");
         ChatSession session = ensureChatSession(chatId);
-        showActiveRequestConfirmation(chatId, session, details, context, ReturnRequestAction.CONVERT_TO_RETURN);
+        showActiveRequestConfirmation(chatId, session, details, context, ReturnRequestAction.SET_MODE_RETURN);
     }
 
     private Optional<ActiveRequestDetails> loadActiveRequestDetails(Long chatId, RequestActionContext context) {
@@ -2124,11 +2131,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return RETURNS_ACTIVE_CONFIRMATION_PROMPT;
         }
         return switch (action) {
-            case CANCEL_RETURN -> buildCancelReturnConfirmation(request);
+            case CLOSE_REQUEST -> buildCancelReturnConfirmation(request);
             case CANCEL_EXCHANGE -> request.state().exchangeShipmentDispatched()
                     ? RETURNS_ACTIVE_CANCEL_EXCHANGE_REQUEST_CONFIRMATION
                     : RETURNS_ACTIVE_CANCEL_EXCHANGE_CONFIRMATION;
-            case CONVERT_TO_RETURN -> request.state().exchangeShipmentDispatched()
+            case SET_MODE_RETURN -> request.state().exchangeShipmentDispatched()
                     ? RETURNS_ACTIVE_CONVERT_REQUEST_CONFIRMATION
                     : RETURNS_ACTIVE_CONVERT_CONFIRMATION;
         };
@@ -2241,9 +2248,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
         switch (action) {
-            case CANCEL_RETURN -> executeCancelReturn(chatId, session, context);
+            case CLOSE_REQUEST -> executeCancelReturn(chatId, session, context);
             case CANCEL_EXCHANGE -> executeCancelExchange(chatId, session, context, requestInfo);
-            case CONVERT_TO_RETURN -> executeConvertToReturn(chatId, session, context, requestInfo);
+            case SET_MODE_RETURN -> executeConvertToReturn(chatId, session, context, requestInfo);
             default -> finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
         }
     }

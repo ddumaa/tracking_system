@@ -7,6 +7,7 @@ import com.project.tracking_system.dto.ReturnRequestTimestampsDto;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
+import com.project.tracking_system.entity.ReturnRequestAction;
 import com.project.tracking_system.entity.ReturnRequestMode;
 import com.project.tracking_system.entity.ReturnRequestStage;
 import com.project.tracking_system.entity.TrackParcel;
@@ -17,6 +18,9 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.EnumSet;
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Преобразует заявки на возврат в DTO для вкладки «Требуют действия».
@@ -52,16 +56,20 @@ public class ReturnRequestActionMapper {
         GlobalStatus parcelStatus = parcel != null ? parcel.getStatus() : null;
         OrderReturnRequestStatus status = request.getStatus();
 
-        boolean canStartExchange = orderReturnRequestService.canStartExchange(request);
         EnumSet<ReturnRequestAction> actions = orderReturnRequestService.resolveAvailableActions(request);
-        boolean canCloseWithoutExchange = actions.contains(ReturnRequestAction.CANCEL_RETURN);
+        Set<String> actionCodes = actions.stream()
+                .map(ReturnRequestAction::getCode)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        boolean canStartExchange = actions.contains(ReturnRequestAction.SET_MODE_EXCHANGE);
+        boolean canCloseWithoutExchange = actions.contains(ReturnRequestAction.CLOSE_REQUEST);
         String cancelExchangeReason = orderReturnRequestService
                 .getExchangeCancellationBlockReason(request)
                 .orElse(null);
         boolean exchangeShipmentDispatched = orderReturnRequestService.isExchangeShipmentDispatched(request);
-        boolean canReopenAsReturn = actions.contains(ReturnRequestAction.CONVERT_TO_RETURN);
+        boolean canReopenAsReturn = actions.contains(ReturnRequestAction.SET_MODE_RETURN);
         boolean canCancelExchange = actions.contains(ReturnRequestAction.CANCEL_EXCHANGE);
-        boolean canConfirmReceipt = orderReturnRequestService.canConfirmReceipt(request);
+        boolean canConfirmReceipt = actions.contains(ReturnRequestAction.CONFIRM_RECEIPT);
+        boolean canCreateExchangeParcel = actions.contains(ReturnRequestAction.CREATE_EXCHANGE_PARCEL);
         ReturnRequestMode mode = request.getMode() != null ? request.getMode() : ReturnRequestMode.RETURN;
         ReturnRequestStage stage = request.getStage() != null ? request.getStage() : ReturnRequestStage.NEW;
 
@@ -79,12 +87,13 @@ public class ReturnRequestActionMapper {
 
         ReturnRequestAvailableActionsDto availableActions = new ReturnRequestAvailableActionsDto(
                 canStartExchange,
-                orderReturnRequestService.canCreateExchangeParcel(request),
+                canCreateExchangeParcel,
                 canCloseWithoutExchange,
                 canReopenAsReturn,
                 canCancelExchange,
                 canConfirmReceipt,
-                cancelExchangeReason
+                cancelExchangeReason,
+                actionCodes
         );
 
         ReturnRequestTimestampsDto timestamps = new ReturnRequestTimestampsDto(

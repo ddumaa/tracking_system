@@ -17,7 +17,10 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Маппер доменной заявки на возврат в DTO для API.
@@ -116,21 +119,22 @@ public class ReturnRequestMapper {
             return null;
         }
         EnumSet<ReturnRequestAction> actions = orderReturnRequestService.resolveAvailableActions(request);
-        boolean canStartExchange = orderReturnRequestService.canStartExchange(request);
-        boolean canCreateExchangeParcel = orderReturnRequestService.canCreateExchangeParcel(request);
-        boolean canConfirmReceipt = orderReturnRequestService.canConfirmReceipt(request);
+        Set<String> actionCodes = actions.stream()
+                .map(ReturnRequestAction::getCode)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
         String cancelExchangeReason = orderReturnRequestService
                 .getExchangeCancellationBlockReason(request)
                 .orElse(null);
 
         return new ReturnRequestAvailableActionsDto(
-                canStartExchange,
-                canCreateExchangeParcel,
-                actions.contains(ReturnRequestAction.CANCEL_RETURN),
-                actions.contains(ReturnRequestAction.CONVERT_TO_RETURN),
+                actions.contains(ReturnRequestAction.SET_MODE_EXCHANGE),
+                actions.contains(ReturnRequestAction.CREATE_EXCHANGE_PARCEL),
+                actions.contains(ReturnRequestAction.CLOSE_REQUEST),
+                actions.contains(ReturnRequestAction.SET_MODE_RETURN),
                 actions.contains(ReturnRequestAction.CANCEL_EXCHANGE),
-                canConfirmReceipt,
-                cancelExchangeReason
+                actions.contains(ReturnRequestAction.CONFIRM_RECEIPT),
+                cancelExchangeReason,
+                actionCodes
         );
     }
 

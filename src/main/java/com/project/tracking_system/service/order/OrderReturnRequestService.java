@@ -650,10 +650,24 @@ public class OrderReturnRequestService {
             return false;
         }
         return switch (action) {
-            case CANCEL_RETURN -> request.getStatus() == OrderReturnRequestStatus.REGISTERED;
+            case SET_MODE_EXCHANGE -> canStartExchange(request);
+            case SET_MODE_RETURN -> canReopenAsReturn(request);
+            case CREATE_EXCHANGE_PARCEL -> canCreateExchangeParcel(request);
+            case CLOSE_REQUEST -> request.getStatus() == OrderReturnRequestStatus.REGISTERED;
             case CANCEL_EXCHANGE -> canCancelExchange(request);
-            case CONVERT_TO_RETURN -> canReopenAsReturn(request);
+            case CONFIRM_RECEIPT -> canConfirmReceipt(request);
+            case UPDATE_DETAILS -> canUpdateDetails(request);
         };
+    }
+
+    /**
+     * Проверяет, можно ли редактировать детали обратной отправки для заявки.
+     */
+    private boolean canUpdateDetails(OrderReturnRequest request) {
+        if (request == null) {
+            return false;
+        }
+        return ACTIVE_STATUSES.contains(request.getStatus());
     }
 
     /**
