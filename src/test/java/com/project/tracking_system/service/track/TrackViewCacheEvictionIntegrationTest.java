@@ -5,6 +5,8 @@ import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderEpisode;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
+import com.project.tracking_system.entity.ReturnRequestMode;
+import com.project.tracking_system.entity.ReturnRequestStage;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.repository.OrderReturnRequestActionRequestRepository;
@@ -119,18 +121,18 @@ class TrackViewCacheEvictionIntegrationTest {
         TrackDetailsDto initialDetails = trackViewService.getTrackDetails(parcelId, userId);
 
         assertThat(initialDetails.returnRequest()).isNotNull();
-        assertThat(initialDetails.returnRequest().status())
-                .isEqualTo(OrderReturnRequestStatus.REGISTERED.getDisplayName());
-        assertThat(initialDetails.returnRequest().state().exchangeApproved()).isFalse();
+        assertThat(initialDetails.returnRequest().stage())
+                .isEqualTo(ReturnRequestStage.NEW.getCode());
+        assertThat(initialDetails.returnRequest().mode())
+                .isEqualTo(ReturnRequestMode.RETURN.name());
 
         orderReturnRequestService.approveExchange(request.getId(), parcelId, owner);
 
         TrackDetailsDto refreshedDetails = trackViewService.getTrackDetails(parcelId, userId);
 
         assertThat(refreshedDetails.returnRequest()).isNotNull();
-        assertThat(refreshedDetails.returnRequest().status())
-                .isEqualTo(OrderReturnRequestStatus.EXCHANGE_APPROVED.getDisplayName());
-        assertThat(refreshedDetails.returnRequest().state().exchangeApproved()).isTrue();
+        assertThat(refreshedDetails.returnRequest().mode())
+                .isEqualTo(ReturnRequestMode.EXCHANGE.name());
 
         verify(orderReturnRequestRepository, times(2)).findFirstByParcel_IdAndStatusIn(eq(parcelId), anyCollection());
     }
