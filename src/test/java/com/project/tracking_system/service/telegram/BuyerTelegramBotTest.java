@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.project.tracking_system.dto.ActionRequiredReturnRequestDto;
-import com.project.tracking_system.dto.ReturnRequestAvailableActionsDto;
+import com.project.tracking_system.dto.AvailableActionsDto;
 import com.project.tracking_system.dto.ReturnRequestStateDto;
 import com.project.tracking_system.dto.ReturnRequestTimestampsDto;
 import com.project.tracking_system.dto.ReturnRequestUpdateResponse;
@@ -26,6 +26,7 @@ import com.project.tracking_system.entity.OrderReturnRequestActionRequest;
 import com.project.tracking_system.service.admin.AdminNotificationService;
 import com.project.tracking_system.service.customer.CustomerTelegramService;
 import com.project.tracking_system.utils.PhoneUtils;
+import java.util.ArrayList;
 import com.project.tracking_system.service.telegram.ChatSession;
 import com.project.tracking_system.service.telegram.support.InMemoryChatSessionRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -2411,7 +2412,7 @@ class BuyerTelegramBotTest {
                                                           String createdAt,
                                                           String reason,
                                                           String comment,
-                                                          String reverseTrackNumber,
+                                                          String reverseTrack,
                                                           boolean exchangeRequested,
                                                           boolean canStartExchange,
                                                           boolean canCloseWithoutExchange,
@@ -2438,32 +2439,37 @@ class BuyerTelegramBotTest {
                 null,
                 returnReceiptConfirmed
         );
-        Set<String> actionCodes = new LinkedHashSet<>();
-        if (canStartExchange) {
-            actionCodes.add(ReturnRequestAction.SET_MODE_EXCHANGE.getCode());
-        }
-        if (canCloseWithoutExchange) {
-            actionCodes.add(ReturnRequestAction.CLOSE_REQUEST.getCode());
-        }
-        if (canReopenAsReturn) {
-            actionCodes.add(ReturnRequestAction.SET_MODE_RETURN.getCode());
-        }
-        if (canCancelExchange) {
-            actionCodes.add(ReturnRequestAction.CANCEL_EXCHANGE.getCode());
-        }
-        if (canConfirmReceipt) {
-            actionCodes.add(ReturnRequestAction.CONFIRM_RECEIPT.getCode());
-        }
-        ReturnRequestAvailableActionsDto actions = new ReturnRequestAvailableActionsDto(
+        List<AvailableActionsDto> actions = new ArrayList<>();
+        actions.add(new AvailableActionsDto(
+                ReturnRequestAction.SET_MODE_EXCHANGE.getCode(),
+                ReturnRequestAction.SET_MODE_EXCHANGE.getDisplayName(),
                 canStartExchange,
-                false,
+                null
+        ));
+        actions.add(new AvailableActionsDto(
+                ReturnRequestAction.CLOSE_REQUEST.getCode(),
+                ReturnRequestAction.CLOSE_REQUEST.getDisplayName(),
                 canCloseWithoutExchange,
+                null
+        ));
+        actions.add(new AvailableActionsDto(
+                ReturnRequestAction.SET_MODE_RETURN.getCode(),
+                ReturnRequestAction.SET_MODE_RETURN.getDisplayName(),
                 canReopenAsReturn,
+                null
+        ));
+        actions.add(new AvailableActionsDto(
+                ReturnRequestAction.CANCEL_EXCHANGE.getCode(),
+                ReturnRequestAction.CANCEL_EXCHANGE.getDisplayName(),
                 canCancelExchange,
+                cancelExchangeUnavailableReason
+        ));
+        actions.add(new AvailableActionsDto(
+                ReturnRequestAction.CONFIRM_RECEIPT.getCode(),
+                ReturnRequestAction.CONFIRM_RECEIPT.getDisplayName(),
                 canConfirmReceipt,
-                cancelExchangeUnavailableReason,
-                actionCodes
-        );
+                null
+        ));
         ReturnRequestTimestampsDto timestamps = new ReturnRequestTimestampsDto(
                 requestedAt,
                 createdAt,
@@ -2484,7 +2490,7 @@ class BuyerTelegramBotTest {
                 statusLabel,
                 reason,
                 comment,
-                reverseTrackNumber,
+                reverseTrack,
                 state,
                 actions,
                 timestamps

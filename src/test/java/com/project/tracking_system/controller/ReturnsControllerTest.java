@@ -1,9 +1,9 @@
 package com.project.tracking_system.controller;
 
-import com.project.tracking_system.dto.ReturnRequestAvailableActionsDto;
-import com.project.tracking_system.dto.ReturnRequestDto;
+import com.project.tracking_system.dto.AvailableActionsDto;
+import com.project.tracking_system.dto.RequestDto;
+import com.project.tracking_system.dto.ReturnRequestTimestampsDto;
 import com.project.tracking_system.entity.OrderReturnRequest;
-import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
 import com.project.tracking_system.service.order.ReturnRequestCommandService;
@@ -21,7 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.Set;
+import java.util.List;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.ArgumentMatchers.any;
@@ -71,18 +71,13 @@ class ReturnsControllerTest {
                 eq(false)
         )).thenReturn(request);
 
-        ReturnRequestDto responseDto = new ReturnRequestDto(
+        RequestDto responseDto = buildRequestDto(
                 15L,
+                "REGISTERED",
                 "Регистрация",
                 "Размер не подошёл",
                 "Комментарий",
-                "BY123",
-                false,
-                null,
-                null,
-                null,
-                null,
-                null
+                "BY123"
         );
         when(returnRequestMapper.toDto(eq(request), any())).thenReturn(responseDto);
 
@@ -119,16 +114,14 @@ class ReturnsControllerTest {
         User principal = buildUser();
         UsernamePasswordAuthenticationToken auth = authentication(principal);
 
-        ReturnRequestDto responseDto = new ReturnRequestDto(21L, "EXCHANGE", null, null, null, false, null, null, null, null, null);
+        RequestDto responseDto = buildRequestDto(21L, "EXCHANGE", "Обмен", null, null, null);
         when(returnRequestCommandService.executeCommand(eq(21L), any(), any(), eq(principal), any()))
                 .thenReturn(responseDto);
 
         mockMvc.perform(post("/api/v1/returns/21/commands")
                         .with(auth)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{" +
-                                "\"idempotencyKey\":\"cmd-1\"," +
-                                "\"command\":\"start_exchange\"}"))
+                        .content("{\"idempotencyKey\":\"cmd-1\",\"action\":\"start_exchange\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id", equalTo(21)))
                 .andExpect(jsonPath("$.status", equalTo("EXCHANGE")));
@@ -140,20 +133,16 @@ class ReturnsControllerTest {
         User principal = buildUser();
         UsernamePasswordAuthenticationToken auth = authentication(principal);
 
-        ReturnRequestDto responseDto = new ReturnRequestDto(30L, "REGISTERED", null, "Комментарий", "BY000", false, null, null, null, null, null);
+        RequestDto responseDto = buildRequestDto(30L, "REGISTERED", "Зарегистрирована", null, "Комментарий", "BY000");
         when(returnRequestCommandService.executeCommand(eq(30L), any(), any(), eq(principal), any()))
                 .thenReturn(responseDto);
 
         mockMvc.perform(post("/api/v1/returns/30/commands")
                         .with(auth)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{" +
-                                "\"idempotencyKey\":\"cmd-2\"," +
-                                "\"command\":\"update_details\"," +
-                                "\"reverseTrackNumber\":\"BY000\"," +
-                                "\"comment\":\"Комментарий\"}"))
+                        .content("{\"idempotencyKey\":\"cmd-2\",\"action\":\"update_details\",\"payload\":{\"reverseTrack\":\"BY000\",\"comment\":\"Комментарий\"}}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.reverseTrackNumber", equalTo("BY000")));
+                .andExpect(jsonPath("$.reverseTrack", equalTo("BY000")));
         verify(returnRequestCommandService).executeCommand(eq(30L), any(), any(), eq(principal), any());
     }
 
@@ -165,7 +154,7 @@ class ReturnsControllerTest {
         OrderReturnRequest request = new OrderReturnRequest();
         when(orderReturnRequestService.getOwnedRequest(51L, principal)).thenReturn(request);
         when(returnRequestMapper.toDto(eq(request), any()))
-                .thenReturn(new ReturnRequestDto(51L, "REGISTERED", null, null, null, false, null, null, null, null, null));
+                .thenReturn(buildRequestDto(51L, "REGISTERED", "Зарегистрирована", null, null, null));
 
         mockMvc.perform(get("/api/v1/returns/51")
                         .with(auth))
@@ -181,26 +170,57 @@ class ReturnsControllerTest {
         OrderReturnRequest request = new OrderReturnRequest();
         when(orderReturnRequestService.getOwnedRequest(52L, principal)).thenReturn(request);
         when(returnRequestMapper.toAvailableActions(request))
-                .thenReturn(new ReturnRequestAvailableActionsDto(true, false, true, false, false, false, null, Set.of()));
+                .thenReturn(List.of(
+                        new AvailableActionsDto("set_mode_exchange", "Перевести в обмен", true, null),
+                        new AvailableActionsDto("close_request", "Закрыть", true, null)
+                ));
 
         mockMvc.perform(get("/api/v1/returns/52/available-actions")
                         .with(auth))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.startExchange", equalTo(true)))
-                .andExpect(jsonPath("$.closeWithoutExchange", equalTo(true)));
+                .andExpect(jsonPath("$[0].code", equalTo("set_mode_exchange")))
+                .andExpect(jsonPath("$[1].enabled", equalTo(true)));
     }
 
     private UsernamePasswordAuthenticationToken authentication(User user) {
         return new UsernamePasswordAuthenticationToken(user, user.getPassword(), user.getAuthorities());
     }
 
+    private RequestDto buildRequestDto(Long id,
+                                       String status,
+                                       String statusLabel,
+                                       String reason,
+                                       String comment,
+                                       String reverseTrack) {
+        return new RequestDto(
+                id,
+                status,
+                statusLabel,
+                reason,
+                comment,
+                "RETURN",
+                "NEW",
+                false,
+                reverseTrack,
+                null,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                List.of(),
+                new ReturnRequestTimestampsDto(null, null, null, null, null, null, null, null),
+                null,
+                null
+        );
+    }
+
     private User buildUser() {
         User user = new User();
         user.setId(1L);
         user.setEmail("user@example.com");
-        user.setPassword("password");
-        user.setRole(com.project.tracking_system.entity.Role.ROLE_USER);
-        user.setTimeZone("UTC");
+        user.setPassword("pwd");
         return user;
     }
 }

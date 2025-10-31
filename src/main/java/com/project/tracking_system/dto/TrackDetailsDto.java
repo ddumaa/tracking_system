@@ -38,7 +38,7 @@ public record TrackDetailsDto(Long id,
                               Long episodeNumber,
                               boolean exchange,
                               List<TrackChainItemDto> chain,
-                              ReturnRequestDto returnRequest,
+                              RequestDto returnRequest,
                               boolean canRegisterReturn,
                               List<TrackLifecycleStageDto> lifecycle,
                               boolean requiresAction) {

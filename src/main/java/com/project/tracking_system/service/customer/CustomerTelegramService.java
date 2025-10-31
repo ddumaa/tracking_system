@@ -1,7 +1,7 @@
 package com.project.tracking_system.service.customer;
 
 import com.project.tracking_system.dto.ActionRequiredReturnRequestDto;
-import com.project.tracking_system.dto.ReturnRequestAvailableActionsDto;
+import com.project.tracking_system.dto.AvailableActionsDto;
 import com.project.tracking_system.dto.ReturnRequestStateDto;
 import com.project.tracking_system.dto.ReturnRequestTimestampsDto;
 import com.project.tracking_system.dto.TelegramParcelInfoDTO;
@@ -15,6 +15,7 @@ import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.OrderReturnRequestRepository;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
+import com.project.tracking_system.service.order.ReturnRequestMapper;
 import com.project.tracking_system.service.telegram.FullNameValidator;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
 import org.springframework.security.access.AccessDeniedException;
@@ -22,12 +23,10 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -56,6 +55,7 @@ public class CustomerTelegramService {
     private final FullNameValidator fullNameValidator;
     private final OrderReturnRequestRepository returnRequestRepository;
     private final OrderReturnRequestService orderReturnRequestService;
+    private final ReturnRequestMapper returnRequestMapper;
 
     /**
      * Формат для отображения дат заявок пользователю в Telegram.
@@ -662,19 +662,9 @@ public class CustomerTelegramService {
         String trackNumber = parcel != null ? parcel.getNumber() : null;
         String storeName = parcel != null && parcel.getStore() != null ? parcel.getStore().getName() : null;
         GlobalStatus parcelStatus = parcel != null ? parcel.getStatus() : null;
-        EnumSet<ReturnRequestAction> actions = orderReturnRequestService.resolveAvailableActions(request);
-        Set<String> actionCodes = actions.stream()
-                .map(ReturnRequestAction::getCode)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        boolean canStartExchange = actions.contains(ReturnRequestAction.SET_MODE_EXCHANGE);
-        boolean canCloseWithoutExchange = actions.contains(ReturnRequestAction.CLOSE_REQUEST);
-        boolean canReopenAsReturn = actions.contains(ReturnRequestAction.SET_MODE_RETURN);
-        boolean canCancelExchange = actions.contains(ReturnRequestAction.CANCEL_EXCHANGE);
-        String cancelExchangeReason = orderReturnRequestService
-                .getExchangeCancellationBlockReason(request)
-                .orElse(null);
+        OrderReturnRequestStatus status = request.getStatus();
+
         boolean exchangeShipmentDispatched = orderReturnRequestService.isExchangeShipmentDispatched(request);
-        boolean canConfirmReceipt = actions.contains(ReturnRequestAction.CONFIRM_RECEIPT);
 
         ReturnRequestMode mode = request.getMode() != null ? request.getMode() : ReturnRequestMode.RETURN;
         ReturnRequestStage stage = request.getStage() != null ? request.getStage() : ReturnRequestStage.NEW;
@@ -691,24 +681,10 @@ public class CustomerTelegramService {
                 request.isReturnReceiptConfirmed()
         );
 
-        ReturnRequestAvailableActionsDto availableActions = new ReturnRequestAvailableActionsDto(
-                canStartExchange,
-                actions.contains(ReturnRequestAction.CREATE_EXCHANGE_PARCEL),
-                canCloseWithoutExchange,
-                canReopenAsReturn,
-                canCancelExchange,
-                canConfirmReceipt,
-                cancelExchangeReason,
-                actionCodes
-        );
-
-        String requestedAt = formatRequestMoment(request.getRequestedAt());
-        if (requestedAt == null) {
-            requestedAt = formatRequestMoment(request.getCreatedAt());
-        }
+        List<AvailableActionsDto> actions = returnRequestMapper.toAvailableActions(request);
 
         ReturnRequestTimestampsDto timestamps = new ReturnRequestTimestampsDto(
-                requestedAt,
+                formatRequestMoment(request.getRequestedAt()),
                 formatRequestMoment(request.getCreatedAt()),
                 formatRequestMoment(request.getDecisionAt()),
                 formatRequestMoment(request.getClosedAt()),
@@ -730,7 +706,7 @@ public class CustomerTelegramService {
                 request.getComment(),
                 request.getReverseTrackNumber(),
                 state,
-                availableActions,
+                actions,
                 timestamps
         );
     }

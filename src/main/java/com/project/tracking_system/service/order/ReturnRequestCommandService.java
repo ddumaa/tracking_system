@@ -3,8 +3,8 @@ package com.project.tracking_system.service.order;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.tracking_system.controller.ReturnRequestCommandType;
-import com.project.tracking_system.dto.ReturnRequestCommandRequest;
-import com.project.tracking_system.dto.ReturnRequestDto;
+import com.project.tracking_system.dto.CommandDto;
+import com.project.tracking_system.dto.RequestDto;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.ReturnCommandLog;
 import com.project.tracking_system.entity.TrackParcel;
@@ -55,11 +55,11 @@ public class ReturnRequestCommandService {
      * @return DTO заявки после выполнения команды или сохранённый ранее результат
      */
     @Transactional
-    public ReturnRequestDto executeCommand(Long requestId,
-                                           ReturnRequestCommandType commandType,
-                                           ReturnRequestCommandRequest command,
-                                           User user,
-                                           ZoneId userZone) {
+    public RequestDto executeCommand(Long requestId,
+                                     ReturnRequestCommandType commandType,
+                                     CommandDto command,
+                                     User user,
+                                     ZoneId userZone) {
         validateArguments(requestId, commandType, command, user);
 
         OrderReturnRequest context = orderReturnRequestService.getOwnedRequest(requestId, user);
@@ -74,7 +74,7 @@ public class ReturnRequestCommandService {
         }
 
         OrderReturnRequest updated = performCommand(commandType, command, user, requestId, parcelId);
-        ReturnRequestDto response = returnRequestMapper.toDto(updated, userZone);
+        RequestDto response = returnRequestMapper.toDto(updated, userZone);
         completeLogEntry(logEntry, response);
         return response;
     }
@@ -84,7 +84,7 @@ public class ReturnRequestCommandService {
      */
     private void validateArguments(Long requestId,
                                    ReturnRequestCommandType commandType,
-                                   ReturnRequestCommandRequest command,
+                                   CommandDto command,
                                    User user) {
         if (requestId == null) {
             throw new IllegalArgumentException("Не указан идентификатор заявки");
@@ -98,6 +98,9 @@ public class ReturnRequestCommandService {
         if (!StringUtils.hasText(command.idempotencyKey())) {
             throw new IllegalArgumentException("Не указан идемпотентный ключ команды");
         }
+        if (!StringUtils.hasText(command.action())) {
+            throw new IllegalArgumentException("Не указан код действия команды");
+        }
         if (user == null) {
             throw new IllegalArgumentException("Не указан пользователь");
         }
@@ -106,12 +109,15 @@ public class ReturnRequestCommandService {
     /**
      * Вычисляет хеш полезной нагрузки команды.
      */
-    private String computePayloadHash(ReturnRequestCommandType type, ReturnRequestCommandRequest command) {
+    private String computePayloadHash(ReturnRequestCommandType type, CommandDto command) {
         MessageDigest digest = getDigest();
         digest.update(type.name().getBytes(StandardCharsets.UTF_8));
-        digest.update(nullSafeBytes(command.command()));
-        digest.update(nullSafeBytes(command.reverseTrackNumber()));
-        digest.update(nullSafeBytes(command.comment()));
+        digest.update(nullSafeBytes(command.action()));
+        CommandDto.Payload payload = command.payload();
+        if (payload != null) {
+            digest.update(nullSafeBytes(payload.reverseTrack()));
+            digest.update(nullSafeBytes(payload.comment()));
+        }
         byte[] hash = digest.digest();
         return HexFormat.of().formatHex(hash);
     }
@@ -120,7 +126,7 @@ public class ReturnRequestCommandService {
      * Выполняет бизнес-логику команды через соответствующий сервис.
      */
     private OrderReturnRequest performCommand(ReturnRequestCommandType type,
-                                              ReturnRequestCommandRequest command,
+                                              CommandDto command,
                                               User user,
                                               Long requestId,
                                               Long parcelId) {
@@ -133,12 +139,13 @@ public class ReturnRequestCommandService {
             case CLOSE -> orderReturnRequestService.closeWithoutExchange(requestId, parcelId, user);
             case CONFIRM_RECEIPT -> orderReturnRequestService.confirmReturnProcessing(requestId, parcelId, user);
             case UPDATE_DETAILS -> {
+                CommandDto.Payload payload = Optional.ofNullable(command.payload()).orElse(new CommandDto.Payload(null, null));
                 orderReturnRequestService.updateReverseTrackAndComment(
                         requestId,
                         parcelId,
                         user,
-                        command.reverseTrackNumber(),
-                        command.comment()
+                        payload.reverseTrack(),
+                        payload.comment()
                 );
                 yield orderReturnRequestService.getOwnedRequest(requestId, user);
             }
@@ -150,7 +157,7 @@ public class ReturnRequestCommandService {
     /**
      * Завершает запись журнала, добавляя снимок ответа после успешного выполнения команды.
      */
-    private void completeLogEntry(ReturnCommandLog logEntry, ReturnRequestDto response) {
+    private void completeLogEntry(ReturnCommandLog logEntry, RequestDto response) {
         logEntry.setResponseSnapshot(serializeResponse(response));
         returnCommandLogRepository.saveAndFlush(logEntry);
         log.info("Зафиксировано выполнение команды {} по заявке {}", logEntry.getAction(), logEntry.getRequestId());
@@ -203,9 +210,9 @@ public class ReturnRequestCommandService {
     /**
      * Восстанавливает DTO ответа из сохранённого снимка.
      */
-    private ReturnRequestDto restoreResponse(ReturnCommandLog logEntry) {
+    private RequestDto restoreResponse(ReturnCommandLog logEntry) {
         try {
-            return objectMapper.readValue(logEntry.getResponseSnapshot(), ReturnRequestDto.class);
+            return objectMapper.readValue(logEntry.getResponseSnapshot(), RequestDto.class);
         } catch (JsonProcessingException ex) {
             throw new IllegalStateException("Не удалось восстановить ответ из журнала команд", ex);
         }
@@ -214,7 +221,7 @@ public class ReturnRequestCommandService {
     /**
      * Сериализует DTO ответа в JSON для хранения в журнале.
      */
-    private String serializeResponse(ReturnRequestDto response) {
+    private String serializeResponse(RequestDto response) {
         try {
             return objectMapper.writeValueAsString(response);
         } catch (JsonProcessingException ex) {
