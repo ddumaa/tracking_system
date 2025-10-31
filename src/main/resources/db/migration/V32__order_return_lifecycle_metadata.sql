@@ -16,10 +16,10 @@ SET mode = CASE
         ELSE 'RETURN'
     END,
     stage = CASE
-        WHEN r.return_receipt_confirmed THEN 'MERCHANT_ACCEPT_RETURN'
-        WHEN r.status = 'EXCHANGE_APPROVED' THEN 'EXCHANGE_SHIPMENT'
-        WHEN r.status = 'CLOSED_NO_EXCHANGE' THEN 'MERCHANT_ACCEPT_RETURN'
-        ELSE 'CUSTOMER_RETURN'
+        WHEN r.return_receipt_confirmed THEN 'INBOUND_PICKED_UP'
+        WHEN r.status = 'EXCHANGE_APPROVED' THEN 'EXCHANGE_REGISTERED'
+        WHEN r.status = 'CLOSED_NO_EXCHANGE' THEN 'INBOUND_PICKED_UP'
+        ELSE 'NEW'
     END,
     store_id = p.store_id,
     responsible_id = r.created_by,

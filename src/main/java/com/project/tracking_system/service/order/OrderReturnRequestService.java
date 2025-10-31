@@ -237,7 +237,7 @@ public class OrderReturnRequestService {
         request.setDecisionAt(decisionMoment);
         request.setMode(ReturnRequestMode.EXCHANGE);
         request.setResponsibleManager(user);
-        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.EXCHANGE_SHIPMENT, true, user, decisionMoment);
+        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.EXCHANGE_REGISTERED, true, user, decisionMoment);
 
         OrderReturnRequest saved = returnRequestRepository.save(request);
         evictTrackDetailsCache(saved);
@@ -275,7 +275,7 @@ public class OrderReturnRequestService {
         request.setResponsibleManager(user);
         request.setExchangeTrackNumber(Optional.ofNullable(replacement).map(TrackParcel::getNumber).orElse(null));
         request.setExchangeTrackAssignedAt(assignedMoment);
-        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.EXCHANGE_SHIPMENT, true, user, assignedMoment);
+        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.EXCHANGE_SENT, true, user, assignedMoment);
         OrderReturnRequest saved = returnRequestRepository.save(request);
         evictTrackDetailsCache(saved);
         log.info("Создана обменная посылка {} для заявки {}",
@@ -301,7 +301,7 @@ public class OrderReturnRequestService {
         request.setClosedAt(closeMoment);
         request.setMode(ReturnRequestMode.RETURN);
         request.setResponsibleManager(user);
-        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.MERCHANT_ACCEPT_RETURN, true, user, closeMoment);
+        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.INBOUND_PICKED_UP, true, user, closeMoment);
 
         OrderReturnRequest saved = returnRequestRepository.save(request);
         evictTrackDetailsCache(saved);
@@ -368,7 +368,7 @@ public class OrderReturnRequestService {
         request.setResponsibleManager(user);
         request.setExchangeTrackNumber(null);
         request.setExchangeTrackAssignedAt(null);
-        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.MERCHANT_ACCEPT_RETURN, true, user, cancelMoment);
+        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.INBOUND_PICKED_UP, true, user, cancelMoment);
         orderExchangeService.cancelExchangeParcel(request, replacement);
         episodeLifecycleService.decrementExchangeCount(request.getEpisode());
         OrderReturnRequest saved = returnRequestRepository.save(request);
@@ -405,7 +405,7 @@ public class OrderReturnRequestService {
         request.setResponsibleManager(user);
         request.setExchangeTrackNumber(null);
         request.setExchangeTrackAssignedAt(null);
-        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.MERCHANT_ACCEPT_RETURN, true, user, reopenMoment);
+        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.INBOUND_PICKED_UP, true, user, reopenMoment);
         orderExchangeService.cancelExchangeParcel(request, replacement);
         episodeLifecycleService.decrementExchangeCount(request.getEpisode());
         OrderReturnRequest saved = returnRequestRepository.save(request);
@@ -485,10 +485,10 @@ public class OrderReturnRequestService {
         Long episodeId = episode != null ? episode.getId() : null;
         ReturnRequestStage currentStage = request.getStage() != null
                 ? request.getStage()
-                : ReturnRequestStage.CUSTOMER_RETURN;
+                : ReturnRequestStage.NEW;
         ReturnRequestStage normalizedStage = returnRequestWorkflow
                 .adjustStageForMode(ReturnRequestMode.EXCHANGE, currentStage);
-        if (!returnRequestWorkflow.canTransition(ReturnRequestMode.EXCHANGE, normalizedStage, ReturnRequestStage.EXCHANGE_SHIPMENT)) {
+        if (!returnRequestWorkflow.canTransition(ReturnRequestMode.EXCHANGE, normalizedStage, ReturnRequestStage.EXCHANGE_REGISTERED)) {
             return false;
         }
         if (episodeId == null) {
@@ -782,7 +782,7 @@ public class OrderReturnRequestService {
         request.setReturnReceiptConfirmed(true);
         request.setReturnReceiptConfirmedAt(now);
         request.setResponsibleManager(actor);
-        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.MERCHANT_ACCEPT_RETURN, true, actor, now);
+        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.INBOUND_PICKED_UP, true, actor, now);
     }
 
     /**

@@ -108,10 +108,7 @@ public class ReturnRequestWorkflow {
      * Возвращает начальную стадию для режима.
      */
     public ReturnRequestStage initialStage(ReturnRequestMode mode) {
-        if (mode == ReturnRequestMode.EXCHANGE) {
-            return ReturnRequestStage.CUSTOMER_RETURN;
-        }
-        return ReturnRequestStage.CUSTOMER_RETURN;
+        return ReturnRequestStage.NEW;
     }
 
     /**
@@ -127,9 +124,9 @@ public class ReturnRequestWorkflow {
             return safeStage;
         }
         if (mode == ReturnRequestMode.RETURN) {
-            return ReturnRequestStage.MERCHANT_ACCEPT_RETURN;
+            return ReturnRequestStage.INBOUND_PICKED_UP;
         }
-        return ReturnRequestStage.CUSTOMER_RETURN;
+        return ReturnRequestStage.EXCHANGE_REGISTERED;
     }
 
     /**
@@ -149,7 +146,7 @@ public class ReturnRequestWorkflow {
             actions.add(ReturnRequestAction.CANCEL_RETURN);
         }
         if (status == OrderReturnRequestStatus.EXCHANGE_APPROVED
-                && stage != ReturnRequestStage.EXCHANGE_DELIVERY) {
+                && stage != ReturnRequestStage.EXCHANGE_DELIVERED) {
             actions.add(ReturnRequestAction.CANCEL_EXCHANGE);
             actions.add(ReturnRequestAction.CONVERT_TO_RETURN);
         }
@@ -160,21 +157,42 @@ public class ReturnRequestWorkflow {
         Map<ReturnRequestMode, Map<ReturnRequestStage, Set<ReturnRequestStage>>> table = new EnumMap<>(ReturnRequestMode.class);
 
         Map<ReturnRequestStage, Set<ReturnRequestStage>> returnTransitions = new EnumMap<>(ReturnRequestStage.class);
-        returnTransitions.put(ReturnRequestStage.CUSTOMER_RETURN, EnumSet.of(ReturnRequestStage.MERCHANT_ACCEPT_RETURN));
-        returnTransitions.put(ReturnRequestStage.MERCHANT_ACCEPT_RETURN, EnumSet.of(ReturnRequestStage.MERCHANT_ACCEPT_RETURN));
+        returnTransitions.put(ReturnRequestStage.NEW, EnumSet.of(
+                ReturnRequestStage.OUTBOUND_SENT,
+                ReturnRequestStage.INBOUND_ARRIVED,
+                ReturnRequestStage.INBOUND_PICKED_UP
+        ));
+        returnTransitions.put(ReturnRequestStage.OUTBOUND_SENT, EnumSet.of(
+                ReturnRequestStage.INBOUND_ARRIVED,
+                ReturnRequestStage.INBOUND_PICKED_UP
+        ));
+        returnTransitions.put(ReturnRequestStage.INBOUND_ARRIVED, EnumSet.of(ReturnRequestStage.INBOUND_PICKED_UP));
+        returnTransitions.put(ReturnRequestStage.INBOUND_PICKED_UP, EnumSet.of(ReturnRequestStage.INBOUND_PICKED_UP));
         table.put(ReturnRequestMode.RETURN, returnTransitions);
 
         Map<ReturnRequestStage, Set<ReturnRequestStage>> exchangeTransitions = new EnumMap<>(ReturnRequestStage.class);
-        exchangeTransitions.put(ReturnRequestStage.CUSTOMER_RETURN, EnumSet.of(
-                ReturnRequestStage.MERCHANT_ACCEPT_RETURN,
-                ReturnRequestStage.EXCHANGE_SHIPMENT
+        exchangeTransitions.put(ReturnRequestStage.NEW, EnumSet.of(
+                ReturnRequestStage.OUTBOUND_SENT,
+                ReturnRequestStage.INBOUND_ARRIVED,
+                ReturnRequestStage.INBOUND_PICKED_UP,
+                ReturnRequestStage.EXCHANGE_REGISTERED
         ));
-        exchangeTransitions.put(ReturnRequestStage.MERCHANT_ACCEPT_RETURN, EnumSet.of(ReturnRequestStage.EXCHANGE_SHIPMENT));
-        exchangeTransitions.put(ReturnRequestStage.EXCHANGE_SHIPMENT, EnumSet.of(
-                ReturnRequestStage.EXCHANGE_DELIVERY,
-                ReturnRequestStage.MERCHANT_ACCEPT_RETURN
+        exchangeTransitions.put(ReturnRequestStage.OUTBOUND_SENT, EnumSet.of(
+                ReturnRequestStage.INBOUND_ARRIVED,
+                ReturnRequestStage.INBOUND_PICKED_UP,
+                ReturnRequestStage.EXCHANGE_REGISTERED
         ));
-        exchangeTransitions.put(ReturnRequestStage.EXCHANGE_DELIVERY, EnumSet.of(ReturnRequestStage.EXCHANGE_DELIVERY));
+        exchangeTransitions.put(ReturnRequestStage.INBOUND_ARRIVED, EnumSet.of(
+                ReturnRequestStage.INBOUND_PICKED_UP,
+                ReturnRequestStage.EXCHANGE_REGISTERED
+        ));
+        exchangeTransitions.put(ReturnRequestStage.INBOUND_PICKED_UP, EnumSet.of(ReturnRequestStage.EXCHANGE_REGISTERED));
+        exchangeTransitions.put(ReturnRequestStage.EXCHANGE_REGISTERED, EnumSet.of(
+                ReturnRequestStage.EXCHANGE_SENT,
+                ReturnRequestStage.EXCHANGE_DELIVERED
+        ));
+        exchangeTransitions.put(ReturnRequestStage.EXCHANGE_SENT, EnumSet.of(ReturnRequestStage.EXCHANGE_DELIVERED));
+        exchangeTransitions.put(ReturnRequestStage.EXCHANGE_DELIVERED, EnumSet.of(ReturnRequestStage.EXCHANGE_DELIVERED));
         table.put(ReturnRequestMode.EXCHANGE, exchangeTransitions);
 
         return table;
@@ -195,6 +213,6 @@ public class ReturnRequestWorkflow {
     }
 
     private ReturnRequestStage safeStage(ReturnRequestStage stage) {
-        return stage != null ? stage : ReturnRequestStage.CUSTOMER_RETURN;
+        return stage != null ? stage : ReturnRequestStage.NEW;
     }
 }

@@ -290,8 +290,8 @@ class TrackViewServiceTest {
         TrackDetailsDto details = service.getTrackDetails(82L, 16L);
 
         assertThat(details.lifecycle())
-                .extracting(stage -> stage.code())
-                .contains("EXCHANGE_SHIPMENT", "EXCHANGE_DELIVERY");
+                .extracting(TrackLifecycleStageDto::code)
+                .contains("EXCHANGE_REGISTERED", "EXCHANGE_SENT", "EXCHANGE_DELIVERY");
     }
 
     @Test
@@ -315,7 +315,7 @@ class TrackViewServiceTest {
         TrackDetailsDto details = service.getTrackDetails(83L, 20L);
 
         TrackLifecycleStageDto shipmentStage = details.lifecycle().stream()
-                .filter(stage -> stage.code().equals("EXCHANGE_SHIPMENT"))
+                .filter(stage -> stage.code().equals("EXCHANGE_SENT"))
                 .findFirst()
                 .orElseThrow();
         TrackLifecycleStageDto deliveryStage = details.lifecycle().stream()
@@ -354,7 +354,7 @@ class TrackViewServiceTest {
         TrackDetailsDto details = service.getTrackDetails(84L, 19L);
 
         TrackLifecycleStageDto shipmentStage = details.lifecycle().stream()
-                .filter(stage -> stage.code().equals("EXCHANGE_SHIPMENT"))
+                .filter(stage -> stage.code().equals("EXCHANGE_SENT"))
                 .findFirst()
                 .orElseThrow();
         TrackLifecycleStageDto deliveryStage = details.lifecycle().stream()
@@ -406,7 +406,7 @@ class TrackViewServiceTest {
         assertThat(outbound.trackNumber()).isEqualTo("SHOP-TRACK");
 
         TrackLifecycleStageDto customerReturn = lifecycle.stream()
-                .filter(stage -> "CUSTOMER_RETURN".equals(stage.code()))
+                .filter(stage -> "OUTBOUND_SENT".equals(stage.code()))
                 .findFirst()
                 .orElseThrow();
         assertThat(customerReturn.trackContext()).isEqualTo("Обратный трек");
@@ -419,7 +419,7 @@ class TrackViewServiceTest {
         assertThat(exchangeDelivery.trackContext()).isEqualTo("Обменная посылка");
         assertThat(exchangeDelivery.trackNumber()).isEqualTo("EX-999");
         TrackLifecycleStageDto exchangeShipment = lifecycle.stream()
-                .filter(stage -> "EXCHANGE_SHIPMENT".equals(stage.code()))
+                .filter(stage -> "EXCHANGE_SENT".equals(stage.code()))
                 .findFirst()
                 .orElseThrow();
         assertThat(exchangeShipment.state()).isEqualTo(TrackLifecycleStageState.IN_PROGRESS);
@@ -507,8 +507,8 @@ class TrackViewServiceTest {
         assertThat(details.returnRequest().state().returnReceiptConfirmed()).isFalse();
         assertThat(details.returnRequest().timestamps().returnReceiptConfirmedAt()).isNull();
         assertThat(details.lifecycle())
-                .extracting(stage -> stage.code())
-                .contains("OUTBOUND", "CUSTOMER_RETURN", "MERCHANT_ACCEPT_RETURN");
+                .extracting(TrackLifecycleStageDto::code)
+                .contains("OUTBOUND", "NEW", "OUTBOUND_SENT", "INBOUND_PICKED_UP");
     }
 
     @Test
@@ -532,7 +532,7 @@ class TrackViewServiceTest {
         TrackDetailsDto details = service.getTrackDetails(82L, 16L);
 
         TrackLifecycleStageDto processingStage = details.lifecycle().stream()
-                .filter(stage -> stage.code().equals("MERCHANT_ACCEPT_RETURN"))
+                .filter(stage -> stage.code().equals("INBOUND_PICKED_UP"))
                 .findFirst()
                 .orElseThrow();
         assertThat(processingStage.state()).isEqualTo(TrackLifecycleStageState.COMPLETED);
@@ -563,7 +563,7 @@ class TrackViewServiceTest {
         TrackDetailsDto details = service.getTrackDetails(84L, 18L);
 
         TrackLifecycleStageDto processingStage = details.lifecycle().stream()
-                .filter(stage -> stage.code().equals("MERCHANT_ACCEPT_RETURN"))
+                .filter(stage -> stage.code().equals("INBOUND_PICKED_UP"))
                 .findFirst()
                 .orElseThrow();
         assertThat(processingStage.state()).isEqualTo(TrackLifecycleStageState.IN_PROGRESS);
@@ -592,7 +592,7 @@ class TrackViewServiceTest {
         TrackDetailsDto details = service.getTrackDetails(186L, 19L);
 
         TrackLifecycleStageDto processingStage = details.lifecycle().stream()
-                .filter(stage -> stage.code().equals("MERCHANT_ACCEPT_RETURN"))
+                .filter(stage -> stage.code().equals("INBOUND_PICKED_UP"))
                 .findFirst()
                 .orElseThrow();
         assertThat(processingStage.state()).isEqualTo(TrackLifecycleStageState.COMPLETED);
@@ -643,7 +643,7 @@ class TrackViewServiceTest {
         TrackDetailsDto details = service.getTrackDetails(83L, 17L);
 
         TrackLifecycleStageDto processingStage = details.lifecycle().stream()
-                .filter(stage -> stage.code().equals("MERCHANT_ACCEPT_RETURN"))
+                .filter(stage -> stage.code().equals("INBOUND_PICKED_UP"))
                 .findFirst()
                 .orElseThrow();
         assertThat(processingStage.state()).isEqualTo(TrackLifecycleStageState.COMPLETED);

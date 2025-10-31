@@ -110,7 +110,7 @@ class OrderReturnRequestServiceTest {
         assertThat(saved.getCreatedAt()).isNotNull();
         assertThat(saved.isExchangeRequested()).isFalse();
         assertThat(saved.getMode()).isEqualTo(ReturnRequestMode.RETURN);
-        assertThat(saved.getStage()).isEqualTo(ReturnRequestStage.CUSTOMER_RETURN);
+        assertThat(saved.getStage()).isEqualTo(ReturnRequestStage.NEW);
         assertThat(saved.getStore()).isEqualTo(parcel.getStore());
         assertThat(saved.getResponsibleManager()).isEqualTo(user);
         assertThat(saved.isManualTrackOverride()).isTrue();
@@ -160,7 +160,7 @@ class OrderReturnRequestServiceTest {
         assertThat(saved.isExchangeRequested()).isTrue();
         assertThat(saved.getStatus()).isEqualTo(OrderReturnRequestStatus.REGISTERED);
         assertThat(saved.getMode()).isEqualTo(ReturnRequestMode.EXCHANGE);
-        assertThat(saved.getStage()).isEqualTo(ReturnRequestStage.CUSTOMER_RETURN);
+        assertThat(saved.getStage()).isEqualTo(ReturnRequestStage.NEW);
         assertThat(saved.getStore()).isEqualTo(parcel.getStore());
         assertThat(saved.getHistoryEntries()).hasSize(1);
         verify(repository).save(any(OrderReturnRequest.class));
@@ -257,7 +257,7 @@ class OrderReturnRequestServiceTest {
         assertThat(result.getDecisionBy()).isEqualTo(user);
         assertThat(result.getDecisionAt()).isNotNull();
         assertThat(result.getMode()).isEqualTo(ReturnRequestMode.EXCHANGE);
-        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.EXCHANGE_SHIPMENT);
+        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.EXCHANGE_REGISTERED);
         assertThat(result.getResponsibleManager()).isEqualTo(user);
         assertThat(result.isManualStageOverride()).isTrue();
         verify(orderExchangeService, never()).createExchangeParcel(any());
@@ -286,6 +286,7 @@ class OrderReturnRequestServiceTest {
         assertThat(created).isEqualTo(exchange);
         assertThat(request.getResponsibleManager()).isEqualTo(user);
         assertThat(request.isManualStageOverride()).isTrue();
+        assertThat(request.getStage()).isEqualTo(ReturnRequestStage.EXCHANGE_SENT);
         assertThat(request.getHistoryEntries()).isNotEmpty();
         verify(orderExchangeService).createExchangeParcel(request);
         verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
@@ -330,7 +331,7 @@ class OrderReturnRequestServiceTest {
         assertThat(result.getClosedBy()).isEqualTo(user);
         assertThat(result.getClosedAt()).isNotNull();
         assertThat(result.getMode()).isEqualTo(ReturnRequestMode.RETURN);
-        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.MERCHANT_ACCEPT_RETURN);
+        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.INBOUND_PICKED_UP);
         assertThat(result.getResponsibleManager()).isEqualTo(user);
         assertThat(result.isManualStageOverride()).isTrue();
         assertThat(result.getHistoryEntries()).isNotEmpty();
@@ -355,7 +356,7 @@ class OrderReturnRequestServiceTest {
         assertThat(result.isReturnReceiptConfirmed()).isTrue();
         assertThat(result.getReturnReceiptConfirmedAt()).isNotNull();
         assertThat(result.getStatus()).isEqualTo(OrderReturnRequestStatus.REGISTERED);
-        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.MERCHANT_ACCEPT_RETURN);
+        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.INBOUND_PICKED_UP);
         assertThat(result.getResponsibleManager()).isEqualTo(user);
         assertThat(result.isManualStageOverride()).isTrue();
         assertThat(result.getHistoryEntries()).isNotEmpty();
@@ -417,7 +418,7 @@ class OrderReturnRequestServiceTest {
         assertThat(result.isReturnReceiptConfirmed()).isTrue();
         assertThat(result.getReturnReceiptConfirmedAt()).isNotNull();
         assertThat(result.getStatus()).isEqualTo(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
-        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.MERCHANT_ACCEPT_RETURN);
+        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.INBOUND_PICKED_UP);
         verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
     }
 
@@ -444,7 +445,7 @@ class OrderReturnRequestServiceTest {
         assertThat(result.getClosedBy()).isEqualTo(user);
         assertThat(result.getClosedAt()).isNotNull();
         assertThat(result.getMode()).isEqualTo(ReturnRequestMode.RETURN);
-        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.MERCHANT_ACCEPT_RETURN);
+        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.INBOUND_PICKED_UP);
         assertThat(result.getHistoryEntries()).isNotEmpty();
         verify(orderExchangeService).cancelExchangeParcel(request, replacement);
         verify(episodeLifecycleService).decrementExchangeCount(parcel.getEpisode());
@@ -730,7 +731,7 @@ class OrderReturnRequestServiceTest {
         assertThat(result.getClosedAt()).isNull();
         assertThat(result.isExchangeRequested()).isFalse();
         assertThat(result.getMode()).isEqualTo(ReturnRequestMode.RETURN);
-        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.MERCHANT_ACCEPT_RETURN);
+        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.INBOUND_PICKED_UP);
         assertThat(result.getHistoryEntries()).isNotEmpty();
         verify(orderExchangeService).cancelExchangeParcel(request, replacement);
         verify(episodeLifecycleService).decrementExchangeCount(parcel.getEpisode());
@@ -762,7 +763,7 @@ class OrderReturnRequestServiceTest {
     void resolveAvailableActions_ReturnsCancelForRegisteredRequest() {
         OrderReturnRequest request = new OrderReturnRequest();
         request.setStatus(OrderReturnRequestStatus.REGISTERED);
-        request.setStage(ReturnRequestStage.CUSTOMER_RETURN);
+        request.setStage(ReturnRequestStage.NEW);
         request.setMode(ReturnRequestMode.RETURN);
 
         EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
@@ -775,7 +776,7 @@ class OrderReturnRequestServiceTest {
     void resolveAvailableActions_ExcludesExchangeActionsWhenShipmentDispatched() {
         OrderReturnRequest request = new OrderReturnRequest();
         request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
-        request.setStage(ReturnRequestStage.EXCHANGE_SHIPMENT);
+        request.setStage(ReturnRequestStage.EXCHANGE_SENT);
         request.setMode(ReturnRequestMode.EXCHANGE);
 
         TrackParcel replacement = new TrackParcel();

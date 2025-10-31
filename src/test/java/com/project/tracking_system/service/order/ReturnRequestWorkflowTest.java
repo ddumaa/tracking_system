@@ -20,17 +20,17 @@ class ReturnRequestWorkflowTest {
     private final ReturnRequestWorkflow workflow = new ReturnRequestWorkflow();
 
     @Test
-    void transitionToStage_AllowsExchangeShipmentFromMerchantStage() {
+    void transitionToStage_AllowsExchangeRegistrationFromInboundStage() {
         OrderReturnRequest request = new OrderReturnRequest();
         request.setMode(ReturnRequestMode.EXCHANGE);
-        request.setStage(ReturnRequestStage.MERCHANT_ACCEPT_RETURN);
+        request.setStage(ReturnRequestStage.INBOUND_PICKED_UP);
         User manager = new User();
         manager.setId(42L);
         ZonedDateTime moment = ZonedDateTime.now(ZoneOffset.UTC);
 
-        workflow.transitionToStage(request, ReturnRequestStage.EXCHANGE_SHIPMENT, true, manager, moment);
+        workflow.transitionToStage(request, ReturnRequestStage.EXCHANGE_REGISTERED, true, manager, moment);
 
-        assertThat(request.getStage()).isEqualTo(ReturnRequestStage.EXCHANGE_SHIPMENT);
+        assertThat(request.getStage()).isEqualTo(ReturnRequestStage.EXCHANGE_REGISTERED);
         assertThat(request.getStageStartedAt()).isEqualTo(moment);
         assertThat(request.getStageUpdatedAt()).isEqualTo(moment);
         assertThat(request.isManualStageOverride()).isTrue();
@@ -38,15 +38,15 @@ class ReturnRequestWorkflowTest {
     }
 
     @Test
-    void transitionToStage_AllowsDirectExchangeLaunchFromCustomerStage() {
+    void transitionToStage_AllowsDirectExchangeLaunchFromNewStage() {
         OrderReturnRequest request = new OrderReturnRequest();
         request.setMode(ReturnRequestMode.EXCHANGE);
-        request.setStage(ReturnRequestStage.CUSTOMER_RETURN);
+        request.setStage(ReturnRequestStage.NEW);
         ZonedDateTime moment = ZonedDateTime.now(ZoneOffset.UTC);
 
-        workflow.transitionToStage(request, ReturnRequestStage.EXCHANGE_SHIPMENT, true, null, moment);
+        workflow.transitionToStage(request, ReturnRequestStage.EXCHANGE_REGISTERED, true, null, moment);
 
-        assertThat(request.getStage()).isEqualTo(ReturnRequestStage.EXCHANGE_SHIPMENT);
+        assertThat(request.getStage()).isEqualTo(ReturnRequestStage.EXCHANGE_REGISTERED);
         assertThat(request.getHistoryEntries()).hasSize(1);
     }
 
@@ -54,7 +54,7 @@ class ReturnRequestWorkflowTest {
     void transitionToStage_ThrowsWhenTargetNotAllowedForMode() {
         OrderReturnRequest request = new OrderReturnRequest();
         request.setMode(ReturnRequestMode.RETURN);
-        request.setStage(ReturnRequestStage.CUSTOMER_RETURN);
+        request.setStage(ReturnRequestStage.OUTBOUND_SENT);
 
         assertThatThrownBy(() -> workflow.transitionToStage(
                 request,

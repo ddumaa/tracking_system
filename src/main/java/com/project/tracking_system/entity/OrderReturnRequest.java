@@ -135,7 +135,7 @@ public class OrderReturnRequest {
      */
     @Enumerated(EnumType.STRING)
     @Column(name = "stage", nullable = false)
-    private ReturnRequestStage stage = ReturnRequestStage.CUSTOMER_RETURN;
+    private ReturnRequestStage stage = ReturnRequestStage.NEW;
 
     /**
      * Время начала текущего этапа обработки.
@@ -363,7 +363,7 @@ public class OrderReturnRequest {
     }
 
     public void setStage(ReturnRequestStage stage) {
-        this.stage = Objects.requireNonNullElse(stage, ReturnRequestStage.CUSTOMER_RETURN);
+        this.stage = Objects.requireNonNullElse(stage, ReturnRequestStage.NEW);
     }
 
     public ZonedDateTime getStageStartedAt() {

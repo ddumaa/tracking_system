@@ -64,7 +64,7 @@ describe('track-modal render', () => {
         if (!request || typeof request !== 'object') {
             return request;
         }
-        const stage = request.stage || request.state || 'CUSTOMER_RETURN';
+        const stage = request.stage || request.state || 'NEW';
         const stageUpper = typeof stage === 'string' ? stage.toUpperCase() : '';
         const mode = request.mode
             || (stageUpper.includes('EXCHANGE')
@@ -281,8 +281,18 @@ status: 'Зарегистрирована',
                     trackContext: 'Исходная посылка'
                 },
                 {
-                    code: 'CUSTOMER_RETURN',
-                    title: 'Возврат от покупателя',
+                    code: 'NEW',
+                    title: 'Заявка зарегистрирована',
+                    actor: 'Покупатель',
+                    description: '...',
+                    state: 'COMPLETED',
+                    occurredAt: '2024-01-05T11:30:00Z',
+                    trackNumber: null,
+                    trackContext: null
+                },
+                {
+                    code: 'OUTBOUND_SENT',
+                    title: 'Возврат отправлен',
                     actor: 'Покупатель',
                     description: '...',
                     state: 'IN_PROGRESS',
@@ -291,8 +301,18 @@ status: 'Зарегистрирована',
                     trackContext: 'Обратный трек'
                 },
                 {
-                    code: 'MERCHANT_ACCEPT_RETURN',
-                    title: 'Приём возврата магазином',
+                    code: 'INBOUND_ARRIVED',
+                    title: 'Возврат прибыл',
+                    actor: 'Логистика',
+                    description: '...',
+                    state: 'PLANNED',
+                    occurredAt: null,
+                    trackNumber: null,
+                    trackContext: null
+                },
+                {
+                    code: 'INBOUND_PICKED_UP',
+                    title: 'Возврат обработан',
                     actor: 'Магазин',
                     description: '...',
                     state: 'PLANNED',
@@ -929,8 +949,8 @@ status: 'Зарегистрирована',
                     trackContext: 'Исходная посылка'
                 },
                 {
-                    code: 'CUSTOMER_RETURN',
-                    title: 'Возврат от покупателя',
+                    code: 'OUTBOUND_SENT',
+                    title: 'Возврат отправлен',
                     actor: 'Покупатель',
                     description: '...',
                     state: 'COMPLETED',
@@ -1703,8 +1723,8 @@ status: 'Закрыта',
                     trackContext: 'Исходная посылка'
                 },
                 {
-                    code: 'CUSTOMER_RETURN',
-                    title: 'Возврат от покупателя',
+                    code: 'NEW',
+                    title: 'Заявка зарегистрирована',
                     actor: 'Покупатель',
                     description: '...',
                     state: 'PLANNED',
@@ -1713,8 +1733,28 @@ status: 'Закрыта',
                     trackContext: null
                 },
                 {
-                    code: 'MERCHANT_ACCEPT_RETURN',
-                    title: 'Приём возврата магазином',
+                    code: 'OUTBOUND_SENT',
+                    title: 'Возврат отправлен',
+                    actor: 'Покупатель',
+                    description: '...',
+                    state: 'PLANNED',
+                    occurredAt: null,
+                    trackNumber: null,
+                    trackContext: null
+                },
+                {
+                    code: 'INBOUND_ARRIVED',
+                    title: 'Возврат прибыл',
+                    actor: 'Логистика',
+                    description: '...',
+                    state: 'PLANNED',
+                    occurredAt: null,
+                    trackNumber: null,
+                    trackContext: null
+                },
+                {
+                    code: 'INBOUND_PICKED_UP',
+                    title: 'Возврат обработан',
                     actor: 'Магазин',
                     description: '...',
                     state: 'PLANNED',

@@ -673,7 +673,7 @@ public class CustomerTelegramService {
         boolean canConfirmReceipt = orderReturnRequestService.canConfirmReceipt(request);
 
         ReturnRequestMode mode = request.getMode() != null ? request.getMode() : ReturnRequestMode.RETURN;
-        ReturnRequestStage stage = request.getStage() != null ? request.getStage() : ReturnRequestStage.CUSTOMER_RETURN;
+        ReturnRequestStage stage = request.getStage() != null ? request.getStage() : ReturnRequestStage.NEW;
 
         ReturnRequestStateDto state = new ReturnRequestStateDto(
                 mode,

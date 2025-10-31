@@ -67,7 +67,7 @@ public class ReturnRequestMapper {
         );
 
         ReturnRequestMode mode = Optional.ofNullable(request.getMode()).orElse(ReturnRequestMode.RETURN);
-        ReturnRequestStage stage = Optional.ofNullable(request.getStage()).orElse(ReturnRequestStage.CUSTOMER_RETURN);
+        ReturnRequestStage stage = Optional.ofNullable(request.getStage()).orElse(ReturnRequestStage.NEW);
 
         ReturnRequestStateDto state = new ReturnRequestStateDto(
                 mode,
