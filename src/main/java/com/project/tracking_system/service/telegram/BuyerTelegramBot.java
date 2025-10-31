@@ -3,8 +3,8 @@ package com.project.tracking_system.service.telegram;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.tracking_system.dto.ActionRequiredReturnRequestDto;
+import com.project.tracking_system.dto.AvailableActionsDto;
 import com.project.tracking_system.dto.CustomerStatisticsDTO;
-import com.project.tracking_system.dto.ReturnRequestAvailableActionsDto;
 import com.project.tracking_system.dto.ReturnRequestUpdateResponse;
 import com.project.tracking_system.dto.TelegramParcelInfoDTO;
 import com.project.tracking_system.dto.TelegramParcelsOverviewDTO;
@@ -1232,11 +1232,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         String comment = escapeMarkdown(commentValue == null || commentValue.isBlank()
                 ? PARCEL_RETURN_NO_COMMENT
                 : commentValue);
-        String reverse = escapeMarkdown(request.reverseTrackNumber() == null || request.reverseTrackNumber().isBlank()
+        String reverse = escapeMarkdown(request.reverseTrack() == null || request.reverseTrack().isBlank()
                 ? PARCEL_RETURN_NO_TRACK
-                : request.reverseTrackNumber());
+                : request.reverseTrack());
         String details = String.format(RETURNS_ACTIVE_DETAILS_TEMPLATE, track, store, status, date, reason, comment, reverse);
-        String cancelReason = request.availableActions().cancelExchangeUnavailableReason();
+        AvailableActionsDto cancelAction = request.actionByCode(ReturnRequestAction.CANCEL_EXCHANGE);
+        String cancelReason = cancelAction != null && !cancelAction.enabled() ? cancelAction.disabledReason() : null;
         if (cancelReason != null && !cancelReason.isBlank()
                 && request.status() == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
             details = details + System.lineSeparator()
@@ -1300,9 +1301,12 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         if (requestId == null || parcelId == null) {
             return rows;
         }
-        Set<String> actionCodes = Optional.ofNullable(request.availableActions())
-                .map(ReturnRequestAvailableActionsDto::actionCodes)
-                .orElse(Set.of());
+        List<AvailableActionsDto> actions = Optional.ofNullable(request.actions()).orElse(List.of());
+        Set<String> actionCodes = actions.stream()
+                .filter(AvailableActionsDto::enabled)
+                .map(AvailableActionsDto::code)
+                .collect(Collectors.toSet());
+        AvailableActionsDto cancelAction = request.actionByCode(ReturnRequestAction.CANCEL_EXCHANGE);
         rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
                 .text(BUTTON_RETURNS_ACTION_TRACK)
                 .callbackData(CALLBACK_RETURNS_ACTIVE_TRACK_PREFIX + requestId + ':' + parcelId)
@@ -1312,10 +1316,11 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 .callbackData(CALLBACK_RETURNS_ACTIVE_COMMENT_PREFIX + requestId + ':' + parcelId)
                 .build()));
         if (request.status() == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
-            boolean cancellationBlocked = request.availableActions().cancelExchangeUnavailableReason() != null
-                    && !request.availableActions().cancelExchangeUnavailableReason().isBlank();
             boolean exchangeDispatched = request.state().exchangeShipmentDispatched();
-            if (!cancellationBlocked) {
+            String cancelReason = cancelAction != null ? cancelAction.disabledReason() : null;
+            boolean cancelEnabled = cancelAction != null && cancelAction.enabled();
+            boolean cancellationBlocked = cancelReason != null && !cancelReason.isBlank();
+            if (cancelEnabled && !cancellationBlocked) {
                 String cancelText = exchangeDispatched
                         ? BUTTON_RETURNS_ACTION_CANCEL_EXCHANGE_REQUEST
                         : BUTTON_RETURNS_ACTION_CANCEL_EXCHANGE;
@@ -1332,8 +1337,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                     .callbackData(CALLBACK_RETURNS_ACTIVE_CONVERT_PREFIX + requestId + ':' + parcelId)
                     .build()));
         } else {
-            boolean reverseTrackProvided = request.reverseTrackNumber() != null
-                    && !request.reverseTrackNumber().isBlank();
+            boolean reverseTrackProvided = request.reverseTrack() != null
+                    && !request.reverseTrack().isBlank();
             if (actionCodes.contains(ReturnRequestAction.CLOSE_REQUEST.getCode())) {
                 String cancelText = reverseTrackProvided
                         ? BUTTON_RETURNS_ACTION_CANCEL_RETURN_CONFIRM
@@ -2142,7 +2147,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     }
 
     private String buildCancelReturnConfirmation(ActionRequiredReturnRequestDto request) {
-        String reverse = request.reverseTrackNumber();
+        String reverse = request.reverseTrack();
         if (reverse != null && !reverse.isBlank()) {
             return String.format(RETURNS_ACTIVE_CANCEL_RETURN_CONFIRMATION_WITH_TRACK, reverse);
         }
@@ -2400,7 +2405,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
         String newComment = isSkipWord(normalized) ? null : normalized;
-        String reverseTrack = requestInfo.reverseTrackNumber();
+        String reverseTrack = requestInfo.reverseTrack();
         try {
             telegramService.updateReturnRequestDetailsFromTelegram(chatId, parcelId, requestId, reverseTrack, newComment);
             finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_COMMENT_SAVED);

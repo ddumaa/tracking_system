@@ -1,9 +1,9 @@
 package com.project.tracking_system.controller;
 
+import com.project.tracking_system.dto.AvailableActionsDto;
+import com.project.tracking_system.dto.CommandDto;
+import com.project.tracking_system.dto.RequestDto;
 import com.project.tracking_system.dto.ReturnRegistrationRequest;
-import com.project.tracking_system.dto.ReturnRequestAvailableActionsDto;
-import com.project.tracking_system.dto.ReturnRequestCommandRequest;
-import com.project.tracking_system.dto.ReturnRequestDto;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
@@ -25,6 +25,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.List;
 
 /**
  * REST-контроллер управления заявками на возврат и обмен.
@@ -50,8 +51,8 @@ public class ReturnsController {
      * @return DTO заявки
      */
     @GetMapping("/{id}")
-    public ReturnRequestDto getReturnRequest(@PathVariable Long id,
-                                             @AuthenticationPrincipal User user) {
+    public RequestDto getReturnRequest(@PathVariable Long id,
+                                        @AuthenticationPrincipal User user) {
         ensureAuthenticated(user);
         OrderReturnRequest request = loadOwnedRequest(id, user);
         return returnRequestMapper.toDto(request, resolveUserZone(user));
@@ -62,11 +63,11 @@ public class ReturnsController {
      *
      * @param id   идентификатор заявки
      * @param user текущий пользователь
-     * @return DTO с флагами доступных действий
+     * @return список доступных действий
      */
     @GetMapping("/{id}/available-actions")
-    public ReturnRequestAvailableActionsDto getAvailableActions(@PathVariable Long id,
-                                                                @AuthenticationPrincipal User user) {
+    public List<AvailableActionsDto> getAvailableActions(@PathVariable Long id,
+                                                         @AuthenticationPrincipal User user) {
         ensureAuthenticated(user);
         OrderReturnRequest request = loadOwnedRequest(id, user);
         return returnRequestMapper.toAvailableActions(request);
@@ -80,8 +81,8 @@ public class ReturnsController {
      * @return DTO созданной или ранее существующей заявки
      */
     @PostMapping
-    public ReturnRequestDto registerReturn(@RequestBody @Valid ReturnRegistrationRequest request,
-                                           @AuthenticationPrincipal User user) {
+    public RequestDto registerReturn(@RequestBody @Valid ReturnRegistrationRequest request,
+                                      @AuthenticationPrincipal User user) {
         ensureAuthenticated(user);
         try {
             ZonedDateTime requestedAtUtc = request.requestedAt().atZoneSameInstant(ZoneOffset.UTC);
@@ -114,11 +115,11 @@ public class ReturnsController {
      * @return обновлённый DTO заявки
      */
     @PostMapping("/{id}/commands")
-    public ReturnRequestDto executeCommand(@PathVariable Long id,
-                                           @RequestBody @Valid ReturnRequestCommandRequest command,
-                                           @AuthenticationPrincipal User user) {
+    public RequestDto executeCommand(@PathVariable Long id,
+                                      @RequestBody @Valid CommandDto command,
+                                      @AuthenticationPrincipal User user) {
         ensureAuthenticated(user);
-        ReturnRequestCommandType commandType = ReturnRequestCommandType.fromCode(command.command());
+        ReturnRequestCommandType commandType = ReturnRequestCommandType.fromCode(command.action());
         if (commandType == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Неизвестная команда управления заявкой");
         }
@@ -156,13 +157,6 @@ public class ReturnsController {
             }
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message, ex);
         }
-    }
-
-    /**
-     * Преобразует сущность заявки в DTO.
-     */
-    private ReturnRequestDto map(OrderReturnRequest request, ZoneId userZone) {
-        return returnRequestMapper.toDto(request, userZone);
     }
 
     /**

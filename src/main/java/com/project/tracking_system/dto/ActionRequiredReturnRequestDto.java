@@ -1,27 +1,31 @@
 package com.project.tracking_system.dto;
 
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
+import com.project.tracking_system.entity.ReturnRequestAction;
+
+import java.util.List;
+import java.util.Objects;
 
 /**
  * DTO для отображения заявок на возврат/обмен, требующих действий пользователя.
  * <p>
- * Запись содержит сведения о посылке, статусе заявки и агрегированные данные о состоянии,
- * чтобы шаблон "Отправления" мог отрисовать таблицу вкладки «Требуют действия».
+ * Запись содержит сведения о посылке, статусе заявки и доступных действиях, чтобы
+ * веб-интерфейс и Telegram могли отрисовать кнопки без дополнительной бизнес-логики.
  * </p>
  *
- * @param requestId       идентификатор заявки на возврат
- * @param parcelId        идентификатор посылки, к которой относится заявка
- * @param trackNumber     трек-номер посылки или {@code null}, если он отсутствует
- * @param storeName       название магазина, оформившего отправление
- * @param parcelStatus    человеко-читаемый статус посылки
- * @param status          статус самой заявки
- * @param statusLabel     локализованное имя статуса
- * @param reason          причина оформления возврата
- * @param comment         дополнительный комментарий пользователя
- * @param reverseTrackNumber трек обратной отправки, если указан
- * @param state           агрегированное состояние заявки
- * @param availableActions набор доступных действий
- * @param timestamps      временные метки, необходимые интерфейсу
+ * @param requestId    идентификатор заявки на возврат
+ * @param parcelId     идентификатор посылки
+ * @param trackNumber  трек-номер посылки
+ * @param storeName    название магазина
+ * @param parcelStatus человеко-читаемый статус посылки
+ * @param status       статус заявки
+ * @param statusLabel  локализованное название статуса
+ * @param reason       причина оформления возврата
+ * @param comment      комментарий покупателя
+ * @param reverseTrack обратный трек
+ * @param state        агрегированное состояние заявки
+ * @param actions      доступные действия
+ * @param timestamps   временные метки жизненного цикла
  */
 public record ActionRequiredReturnRequestDto(Long requestId,
                                              Long parcelId,
@@ -32,8 +36,26 @@ public record ActionRequiredReturnRequestDto(Long requestId,
                                              String statusLabel,
                                              String reason,
                                              String comment,
-                                             String reverseTrackNumber,
+                                             String reverseTrack,
                                              ReturnRequestStateDto state,
-                                             ReturnRequestAvailableActionsDto availableActions,
+                                             List<AvailableActionsDto> actions,
                                              ReturnRequestTimestampsDto timestamps) {
+
+    public ActionRequiredReturnRequestDto {
+        actions = actions == null ? List.of() : List.copyOf(actions);
+        timestamps = Objects.requireNonNullElseGet(timestamps, () -> new ReturnRequestTimestampsDto(null, null, null, null, null, null, null, null));
+    }
+
+    /**
+     * Возвращает описание действия по его коду.
+     */
+    public AvailableActionsDto actionByCode(ReturnRequestAction action) {
+        if (action == null) {
+            return null;
+        }
+        return actions.stream()
+                .filter(item -> action.getCode().equals(item.code()))
+                .findFirst()
+                .orElse(null);
+    }
 }

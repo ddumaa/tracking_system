@@ -2,13 +2,14 @@ package com.project.tracking_system.service.order;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.tracking_system.controller.ReturnRequestCommandType;
-import com.project.tracking_system.dto.ReturnRequestCommandRequest;
-import com.project.tracking_system.dto.ReturnRequestDto;
+import com.project.tracking_system.dto.CommandDto;
+import com.project.tracking_system.dto.RequestDto;
+import com.project.tracking_system.dto.ReturnRequestTimestampsDto;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.ReturnCommandLog;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
-import com.project.tracking_system.mapper.ReturnRequestMapper;
+import com.project.tracking_system.service.order.ReturnRequestMapper;
 import com.project.tracking_system.repository.ReturnCommandLogRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.ZoneOffset;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -66,8 +68,8 @@ class ReturnRequestCommandServiceTest {
         User user = buildUser();
         OrderReturnRequest request = buildRequest(21L, 9L);
         OrderReturnRequest updated = buildRequest(21L, 9L);
-        ReturnRequestDto dto = new ReturnRequestDto(21L, "EXCHANGE", null, null, null, false, null, null, null, null, null);
-        ReturnRequestCommandRequest command = new ReturnRequestCommandRequest("dup-1", "start_exchange", null, null);
+        RequestDto dto = buildRequestDto(21L, "EXCHANGE");
+        CommandDto command = new CommandDto("dup-1", "start_exchange", null);
 
         when(orderReturnRequestService.getOwnedRequest(21L, user)).thenReturn(request);
         when(orderReturnRequestService.approveExchange(21L, 9L, user)).thenReturn(updated);
@@ -84,12 +86,12 @@ class ReturnRequestCommandServiceTest {
                     return logEntry;
                 });
 
-        ReturnRequestDto first = commandService.executeCommand(21L,
+        RequestDto first = commandService.executeCommand(21L,
                 ReturnRequestCommandType.START_EXCHANGE,
                 command,
                 user,
                 ZoneOffset.UTC);
-        ReturnRequestDto second = commandService.executeCommand(21L,
+        RequestDto second = commandService.executeCommand(21L,
                 ReturnRequestCommandType.START_EXCHANGE,
                 command,
                 user,
@@ -117,7 +119,7 @@ class ReturnRequestCommandServiceTest {
         when(returnCommandLogRepository.findFirstByRequestIdAndIdempotencyKey(21L, "dup-2"))
                 .thenReturn(Optional.of(existing));
 
-        ReturnRequestCommandRequest command = new ReturnRequestCommandRequest("dup-2", "start_exchange", null, null);
+        CommandDto command = new CommandDto("dup-2", "start_exchange", null);
 
         assertThatThrownBy(() -> commandService.executeCommand(21L,
                 ReturnRequestCommandType.START_EXCHANGE,
@@ -136,9 +138,9 @@ class ReturnRequestCommandServiceTest {
     void executeCommand_whenConcurrentReservation_returnsStoredSnapshot() {
         User user = buildUser();
         OrderReturnRequest request = buildRequest(22L, 10L);
-        ReturnRequestCommandRequest command = new ReturnRequestCommandRequest("dup-3", "start_exchange", null, null);
+        CommandDto command = new CommandDto("dup-3", "start_exchange", null);
 
-        ReturnRequestDto storedDto = new ReturnRequestDto(22L, "EXCHANGE", null, null, null, false, null, null, null, null, null);
+        RequestDto storedDto = buildRequestDto(22L, "EXCHANGE");
         String snapshot;
         try {
             snapshot = new ObjectMapper().writeValueAsString(storedDto);
@@ -159,7 +161,7 @@ class ReturnRequestCommandServiceTest {
         when(returnCommandLogRepository.saveAndFlush(any(ReturnCommandLog.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
 
-        ReturnRequestDto result = commandService.executeCommand(22L,
+        RequestDto result = commandService.executeCommand(22L,
                 ReturnRequestCommandType.START_EXCHANGE,
                 command,
                 user,
@@ -170,13 +172,16 @@ class ReturnRequestCommandServiceTest {
         verify(returnRequestMapper, never()).toDto(any(), any());
     }
 
-    private String computePayloadHash(ReturnRequestCommandType type, ReturnRequestCommandRequest command) {
+    private String computePayloadHash(ReturnRequestCommandType type, CommandDto command) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             digest.update(type.name().getBytes(StandardCharsets.UTF_8));
-            digest.update(nullSafeBytes(command.command()));
-            digest.update(nullSafeBytes(command.reverseTrackNumber()));
-            digest.update(nullSafeBytes(command.comment()));
+            digest.update(nullSafeBytes(command.action()));
+            CommandDto.Payload payload = command.payload();
+            if (payload != null) {
+                digest.update(nullSafeBytes(payload.reverseTrack()));
+                digest.update(nullSafeBytes(payload.comment()));
+            }
             return HexFormat.of().formatHex(digest.digest());
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException(ex);
@@ -200,5 +205,30 @@ class ReturnRequestCommandServiceTest {
         parcel.setId(parcelId);
         request.setParcel(parcel);
         return request;
+    }
+
+    private RequestDto buildRequestDto(Long id, String status) {
+        return new RequestDto(
+                id,
+                status,
+                status,
+                null,
+                null,
+                "RETURN",
+                "NEW",
+                false,
+                null,
+                null,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                List.of(),
+                new ReturnRequestTimestampsDto(null, null, null, null, null, null, null, null),
+                null,
+                null
+        );
     }
 }

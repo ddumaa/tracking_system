@@ -1,6 +1,6 @@
 package com.project.tracking_system.service.track;
 
-import com.project.tracking_system.dto.ReturnRequestDto;
+import com.project.tracking_system.dto.RequestDto;
 import com.project.tracking_system.dto.TrackChainItemDto;
 import com.project.tracking_system.dto.TrackDetailsDto;
 import com.project.tracking_system.dto.TrackLifecycleStageDto;
@@ -103,7 +103,7 @@ public class TrackViewService {
 
         Optional<OrderReturnRequest> currentRequest = orderReturnRequestService
                 .findCurrentForParcel(parcel.getId());
-        ReturnRequestDto requestDto = currentRequest
+        RequestDto requestDto = currentRequest
                 .map(request -> mapReturnRequest(request, userZone))
                 .orElse(null);
         boolean requiresAction = currentRequest.map(OrderReturnRequest::requiresAction).orElse(false);
@@ -546,7 +546,7 @@ public class TrackViewService {
     /**
      * Строит DTO для заявки на возврат/обмен.
      */
-    private ReturnRequestDto mapReturnRequest(OrderReturnRequest request, ZoneId userZone) {
+    private RequestDto mapReturnRequest(OrderReturnRequest request, ZoneId userZone) {
         return returnRequestMapper.toDto(request, userZone);
     }
 

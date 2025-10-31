@@ -1,8 +1,7 @@
 package com.project.tracking_system.service.order;
 
-import com.project.tracking_system.dto.ReturnRequestAvailableActionsDto;
-import com.project.tracking_system.dto.ReturnRequestDto;
-import com.project.tracking_system.dto.ReturnRequestStateDto;
+import com.project.tracking_system.dto.AvailableActionsDto;
+import com.project.tracking_system.dto.RequestDto;
 import com.project.tracking_system.dto.ReturnRequestTimestampsDto;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
@@ -16,11 +15,10 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.EnumSet;
-import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Маппер доменной заявки на возврат в DTO для API.
@@ -45,13 +43,14 @@ public class ReturnRequestMapper {
      * @param userZone предпочитаемый часовой пояс пользователя
      * @return заполненный DTO или {@code null}, если заявка отсутствует
      */
-    public ReturnRequestDto toDto(OrderReturnRequest request, ZoneId userZone) {
+    public RequestDto toDto(OrderReturnRequest request, ZoneId userZone) {
         if (request == null) {
             return null;
         }
         ZoneId zone = Optional.ofNullable(userZone).orElse(ZoneOffset.UTC);
 
-        ReturnRequestAvailableActionsDto availableActions = toAvailableActions(request);
+        EnumSet<ReturnRequestAction> activeActions = orderReturnRequestService.resolveAvailableActions(request);
+        List<AvailableActionsDto> actions = buildAvailableActions(request, activeActions);
 
         String requestedAt = formatNullable(request.getRequestedAt(), zone);
         if (requestedAt == null) {
@@ -72,18 +71,6 @@ public class ReturnRequestMapper {
         ReturnRequestMode mode = Optional.ofNullable(request.getMode()).orElse(ReturnRequestMode.RETURN);
         ReturnRequestStage stage = Optional.ofNullable(request.getStage()).orElse(ReturnRequestStage.NEW);
 
-        ReturnRequestStateDto state = new ReturnRequestStateDto(
-                mode,
-                stage,
-                request.isManualStageOverride(),
-                request.isManualTrackOverride(),
-                request.isExchangeRequested(),
-                request.isExchangeApproved(),
-                orderReturnRequestService.isExchangeShipmentDispatched(request),
-                request.getExchangeTrackNumber(),
-                request.isReturnReceiptConfirmed()
-        );
-
         OrderReturnRequestStatus status = request.getStatus();
 
         Long storeId = Optional.ofNullable(request.getStore())
@@ -93,15 +80,28 @@ public class ReturnRequestMapper {
                 .map(manager -> manager.getId())
                 .orElse(null);
 
-        return new ReturnRequestDto(
+        boolean manualInboundPick = request.isManualStageOverride() && stage == ReturnRequestStage.INBOUND_PICKED_UP;
+        boolean manualReverseTrack = request.isManualTrackOverride();
+        boolean exchangeShipmentDispatched = orderReturnRequestService.isExchangeShipmentDispatched(request);
+
+        return new RequestDto(
                 request.getId(),
+                status != null ? status.name() : null,
                 status != null ? status.getDisplayName() : null,
                 request.getReason(),
                 request.getComment(),
-                request.getReverseTrackNumber(),
+                mode.name(),
+                stage.getCode(),
                 request.requiresAction(),
-                state,
-                availableActions,
+                request.getReverseTrackNumber(),
+                request.getExchangeTrackNumber(),
+                manualInboundPick,
+                manualReverseTrack,
+                request.isExchangeRequested(),
+                request.isExchangeApproved(),
+                exchangeShipmentDispatched,
+                request.isReturnReceiptConfirmed(),
+                actions,
                 timestamps,
                 storeId,
                 responsibleId
@@ -112,30 +112,14 @@ public class ReturnRequestMapper {
      * Рассчитывает доступные действия по заявке и возвращает их DTO.
      *
      * @param request заявка на возврат/обмен
-     * @return DTO доступных действий или {@code null}, если заявка отсутствует
+     * @return список доступных действий
      */
-    public ReturnRequestAvailableActionsDto toAvailableActions(OrderReturnRequest request) {
+    public List<AvailableActionsDto> toAvailableActions(OrderReturnRequest request) {
         if (request == null) {
-            return null;
+            return List.of();
         }
         EnumSet<ReturnRequestAction> actions = orderReturnRequestService.resolveAvailableActions(request);
-        Set<String> actionCodes = actions.stream()
-                .map(ReturnRequestAction::getCode)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        String cancelExchangeReason = orderReturnRequestService
-                .getExchangeCancellationBlockReason(request)
-                .orElse(null);
-
-        return new ReturnRequestAvailableActionsDto(
-                actions.contains(ReturnRequestAction.SET_MODE_EXCHANGE),
-                actions.contains(ReturnRequestAction.CREATE_EXCHANGE_PARCEL),
-                actions.contains(ReturnRequestAction.CLOSE_REQUEST),
-                actions.contains(ReturnRequestAction.SET_MODE_RETURN),
-                actions.contains(ReturnRequestAction.CANCEL_EXCHANGE),
-                actions.contains(ReturnRequestAction.CONFIRM_RECEIPT),
-                cancelExchangeReason,
-                actionCodes
-        );
+        return buildAvailableActions(request, actions);
     }
 
     /**
@@ -146,5 +130,30 @@ public class ReturnRequestMapper {
             return null;
         }
         return ISO_FORMATTER.format(moment.withZoneSameInstant(zone));
+    }
+
+    /**
+     * Собирает DTO доступных действий с учётом ограничений.
+     */
+    private List<AvailableActionsDto> buildAvailableActions(OrderReturnRequest request,
+                                                            EnumSet<ReturnRequestAction> active) {
+        List<AvailableActionsDto> result = new ArrayList<>();
+        String cancelReason = orderReturnRequestService
+                .getExchangeCancellationBlockReason(request)
+                .orElse(null);
+        for (ReturnRequestAction action : ReturnRequestAction.values()) {
+            boolean enabled = active.contains(action);
+            String reason = null;
+            if (!enabled && action == ReturnRequestAction.CANCEL_EXCHANGE) {
+                reason = cancelReason;
+            }
+            result.add(new AvailableActionsDto(
+                    action.getCode(),
+                    action.getDisplayName(),
+                    enabled,
+                    reason
+            ));
+        }
+        return result;
     }
 }
