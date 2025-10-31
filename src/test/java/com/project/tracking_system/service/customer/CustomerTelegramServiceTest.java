@@ -457,7 +457,7 @@ class CustomerTelegramServiceTest {
         when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
         when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
         when(orderReturnRequestService.requestMerchantAction(requestId, parcelId, owner, customer,
-                ReturnRequestAction.CONVERT_TO_RETURN)).thenReturn(actionRequest);
+                ReturnRequestAction.SET_MODE_RETURN)).thenReturn(actionRequest);
 
         OrderReturnRequestActionRequest result = customerTelegramService.requestExchangeConversionFromTelegram(
                 chatId,
@@ -467,7 +467,7 @@ class CustomerTelegramServiceTest {
 
         assertSame(actionRequest, result, "Метод обязан возвращать запрос на перевод обмена");
         verify(orderReturnRequestService).requestMerchantAction(requestId, parcelId, owner, customer,
-                ReturnRequestAction.CONVERT_TO_RETURN);
+                ReturnRequestAction.SET_MODE_RETURN);
     }
 
     private TrackParcel parcelWithStatus(String number, GlobalStatus status, ZonedDateTime lastUpdate) {

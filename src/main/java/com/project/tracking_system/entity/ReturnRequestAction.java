@@ -12,19 +12,39 @@ import java.util.Objects;
 public enum ReturnRequestAction {
 
     /**
-     * Отмена активной заявки на возврат без запуска обмена.
+     * Переводит заявку в режим возврата (отмена обмена с сохранением обращения).
      */
-    CANCEL_RETURN("cancel", "Отменить возврат", false),
+    SET_MODE_RETURN("set_mode_return", "Перевести в возврат", true),
 
     /**
-     * Отмена одобренного обмена до отправки обменной посылки.
+     * Запускает сценарий обмена для активной заявки возврата.
+     */
+    SET_MODE_EXCHANGE("set_mode_exchange", "Перевести в обмен", false),
+
+    /**
+     * Создаёт новую обменную посылку для обменной заявки.
+     */
+    CREATE_EXCHANGE_PARCEL("create_exchange_parcel", "Создать обменную посылку", true),
+
+    /**
+     * Закрывает заявку без запуска обмена.
+     */
+    CLOSE_REQUEST("close_request", "Закрыть обращение", false),
+
+    /**
+     * Отменяет одобренный обмен.
      */
     CANCEL_EXCHANGE("cancel_exchange", "Отменить обмен", true),
 
     /**
-     * Перевод одобренного обмена обратно в возврат.
+     * Подтверждает получение возврата магазином вручную.
      */
-    CONVERT_TO_RETURN("convert", "Перевести в возврат", true);
+    CONFIRM_RECEIPT("confirm_receipt", "Подтвердить получение возврата", false),
+
+    /**
+     * Обновляет обратный трек и комментарий заявки.
+     */
+    UPDATE_DETAILS("update_details", "Обновить данные обратной отправки", false);
 
     private final String code;
     private final String displayName;

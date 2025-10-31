@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Set;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.ArgumentMatchers.any;
@@ -180,7 +181,7 @@ class ReturnsControllerTest {
         OrderReturnRequest request = new OrderReturnRequest();
         when(orderReturnRequestService.getOwnedRequest(52L, principal)).thenReturn(request);
         when(returnRequestMapper.toAvailableActions(request))
-                .thenReturn(new ReturnRequestAvailableActionsDto(true, false, true, false, false, false, null));
+                .thenReturn(new ReturnRequestAvailableActionsDto(true, false, true, false, false, false, null, Set.of()));
 
         mockMvc.perform(get("/api/v1/returns/52/available-actions")
                         .with(auth))

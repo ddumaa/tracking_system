@@ -84,15 +84,21 @@ describe('track-modal render', () => {
         };
         const legacy = request.actionPermissions || {};
         const mapLegacy = (key) => Boolean(legacy?.[key]);
+        const rawActions = request.availableActions || {};
+        const normalizedCodes = Array.isArray(rawActions.actionCodes)
+            ? rawActions.actionCodes
+            : (Array.isArray(request.actionCodes) ? request.actionCodes : []);
         const availableActions = {
-            startExchange: Boolean(request.canStartExchange ?? mapLegacy('allowConvertToExchange') ?? mapLegacy('allowLaunchExchange')),
-            createExchangeParcel: Boolean(request.canCreateExchangeParcel ?? mapLegacy('allowLaunchExchange')),
-            closeWithoutExchange: Boolean(request.canCloseWithoutExchange ?? mapLegacy('allowClose')),
-            reopenAsReturn: Boolean(request.canReopenAsReturn ?? mapLegacy('allowConvertToReturn')),
-            cancelExchange: Boolean(request.canCancelExchange ?? mapLegacy('allowClose')),
-            confirmReceipt: Boolean(request.canConfirmReceipt ?? mapLegacy('allowAcceptReverse') ?? mapLegacy('allowAccept')),
-            cancelExchangeUnavailableReason: request.cancelExchangeUnavailableReason || null,
-            ...request.availableActions
+            ...rawActions,
+            startExchange: Boolean(request.canStartExchange ?? rawActions.startExchange ?? mapLegacy('allowConvertToExchange') ?? mapLegacy('allowLaunchExchange')),
+            createExchangeParcel: Boolean(request.canCreateExchangeParcel ?? rawActions.createExchangeParcel ?? mapLegacy('allowLaunchExchange')),
+            closeWithoutExchange: Boolean(request.canCloseWithoutExchange ?? rawActions.closeWithoutExchange ?? mapLegacy('allowClose')),
+            reopenAsReturn: Boolean(request.canReopenAsReturn ?? rawActions.reopenAsReturn ?? mapLegacy('allowConvertToReturn')),
+            cancelExchange: Boolean(request.canCancelExchange ?? rawActions.cancelExchange ?? mapLegacy('allowClose')),
+            confirmReceipt: Boolean(request.canConfirmReceipt ?? rawActions.confirmReceipt ?? mapLegacy('allowAcceptReverse') ?? mapLegacy('allowAccept')),
+            cancelExchangeUnavailableReason: (rawActions.cancelExchangeUnavailableReason
+                ?? request.cancelExchangeUnavailableReason) || null,
+            actionCodes: normalizedCodes
         };
         const timestamps = {
             requestedAt: request.requestedAt || null,

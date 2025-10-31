@@ -545,22 +545,32 @@
             const mapLegacy = (key) => Boolean(legacy?.[key]);
             const legacyUpdateReverse = mapLegacy('allowUpdateReverseTrack');
             const canUpdateReverseTrack = this.request?.canUpdateReverseTrack;
+            const hasModernActions = Array.isArray(actions?.actionCodes);
+            const confirmReceiptFlag = hasActionCode(actions, 'confirm_receipt', { allowLegacyFallback: false });
+            const convertToExchangeFlag = hasActionCode(actions, 'set_mode_exchange', { allowLegacyFallback: false });
+            const launchExchangeFlag = hasActionCode(actions, 'create_exchange_parcel', { allowLegacyFallback: false });
+            const closeFlag = hasActionCode(actions, 'close_request', { allowLegacyFallback: false });
+            const reopenFlag = hasActionCode(actions, 'set_mode_return', { allowLegacyFallback: false });
+            const cancelExchangeFlag = hasActionCode(actions, 'cancel_exchange', { allowLegacyFallback: false });
+            const updateDetailsFlag = hasActionCode(actions, 'update_details', { allowLegacyFallback: false });
             return {
-                confirmReceipt: actions.confirmReceipt
-                    ?? mapLegacy('allowAcceptReverse')
-                    ?? mapLegacy('allowAccept'),
-                convertToExchange: actions.startExchange
-                    ?? mapLegacy('allowConvertToExchange')
-                    ?? mapLegacy('allowLaunchExchange'),
-                launchExchange: actions.createExchangeParcel
-                    ?? mapLegacy('allowLaunchExchange'),
-                close: actions.closeWithoutExchange ?? mapLegacy('allowClose'),
-                reopen: actions.reopenAsReturn ?? mapLegacy('allowConvertToReturn'),
-                updateReverseTrack: legacyUpdateReverse
+                confirmReceipt: confirmReceiptFlag
+                    || (!hasModernActions && (mapLegacy('allowAcceptReverse') || mapLegacy('allowAccept'))),
+                convertToExchange: convertToExchangeFlag
+                    || (!hasModernActions && (mapLegacy('allowConvertToExchange') || mapLegacy('allowLaunchExchange'))),
+                launchExchange: launchExchangeFlag
+                    || (!hasModernActions && mapLegacy('allowLaunchExchange')),
+                close: closeFlag
+                    || (!hasModernActions && mapLegacy('allowClose')),
+                reopen: reopenFlag
+                    || (!hasModernActions && mapLegacy('allowConvertToReturn')),
+                updateReverseTrack: updateDetailsFlag
+                    || legacyUpdateReverse
                     || (canUpdateReverseTrack === undefined
                         ? !this.timestamps.closedAt
                         : Boolean(canUpdateReverseTrack)),
-                cancelExchange: actions.cancelExchange ?? mapLegacy('allowClose')
+                cancelExchange: cancelExchangeFlag
+                    || (!hasModernActions && mapLegacy('allowClose'))
             };
         }
 
@@ -1263,6 +1273,46 @@
      * @param {Object} details DTO деталей трека
      * @returns {Object|null} частичный DTO строки таблицы или {@code null}
      */
+    const ACTION_CODE_ALIASES = {
+        'set_mode_exchange': ['startExchange'],
+        'create_exchange_parcel': ['createExchangeParcel'],
+        'close_request': ['closeWithoutExchange'],
+        'set_mode_return': ['reopenAsReturn'],
+        'cancel_exchange': ['cancelExchange'],
+        'confirm_receipt': ['confirmReceipt'],
+        'update_details': ['updateDetails']
+    };
+
+    function extractActionCodes(actions) {
+        if (!actions || typeof actions !== 'object') {
+            return [];
+        }
+        const rawCodes = Array.isArray(actions.actionCodes) ? actions.actionCodes : [];
+        return rawCodes
+            .map((code) => (typeof code === 'string' ? code.trim().toLowerCase() : ''))
+            .filter((code) => code.length > 0);
+    }
+
+    function hasActionCode(actions, code, options = {}) {
+        if (!code) {
+            return false;
+        }
+        const { allowLegacyFallback = true } = options;
+        const normalized = String(code).trim().toLowerCase();
+        const codes = extractActionCodes(actions);
+        if (codes.includes(normalized)) {
+            return true;
+        }
+        if (!allowLegacyFallback && Array.isArray(actions?.actionCodes)) {
+            return false;
+        }
+        const aliases = ACTION_CODE_ALIASES[normalized] || [];
+        if (!allowLegacyFallback) {
+            return false;
+        }
+        return aliases.some((alias) => Boolean(actions && typeof actions === 'object' && actions[alias]));
+    }
+
     function mapReturnRequestToTableSummary(details) {
         if (!details || typeof details !== 'object' || !details.returnRequest) {
             return null;
@@ -1284,14 +1334,14 @@
             comment: request.comment || null,
             reverseTrackNumber: request.reverseTrackNumber || null,
             exchangeRequested: Boolean(state.exchangeRequested),
-            canStartExchange: Boolean(actions.startExchange),
-            canCloseWithoutExchange: Boolean(actions.closeWithoutExchange),
-            canReopenAsReturn: Boolean(actions.reopenAsReturn),
-            canCancelExchange: Boolean(actions.cancelExchange),
+            canStartExchange: hasActionCode(actions, 'set_mode_exchange'),
+            canCloseWithoutExchange: hasActionCode(actions, 'close_request'),
+            canReopenAsReturn: hasActionCode(actions, 'set_mode_return'),
+            canCancelExchange: hasActionCode(actions, 'cancel_exchange'),
             cancelExchangeUnavailableReason: actions.cancelExchangeUnavailableReason || null,
             returnReceiptConfirmed: Boolean(state.returnReceiptConfirmed),
             returnReceiptConfirmedAt: timestamps.returnReceiptConfirmedAt || null,
-            canConfirmReceipt: Boolean(actions.confirmReceipt)
+            canConfirmReceipt: hasActionCode(actions, 'confirm_receipt')
         };
         if (timestamps.requestedAt) {
             summary.requestedAt = timestamps.requestedAt;
@@ -1322,14 +1372,14 @@
             comment: request.comment || null,
             reverseTrackNumber: request.reverseTrackNumber || null,
             exchangeRequested: Boolean(state.exchangeRequested),
-            canStartExchange: Boolean(actions.startExchange),
-            canCloseWithoutExchange: Boolean(actions.closeWithoutExchange),
-            canReopenAsReturn: Boolean(actions.reopenAsReturn),
-            canCancelExchange: Boolean(actions.cancelExchange),
+            canStartExchange: hasActionCode(actions, 'set_mode_exchange'),
+            canCloseWithoutExchange: hasActionCode(actions, 'close_request'),
+            canReopenAsReturn: hasActionCode(actions, 'set_mode_return'),
+            canCancelExchange: hasActionCode(actions, 'cancel_exchange'),
             cancelExchangeUnavailableReason: actions.cancelExchangeUnavailableReason || null,
             returnReceiptConfirmed: Boolean(state.returnReceiptConfirmed),
             returnReceiptConfirmedAt: timestamps.returnReceiptConfirmedAt || null,
-            canConfirmReceipt: Boolean(actions.confirmReceipt)
+            canConfirmReceipt: hasActionCode(actions, 'confirm_receipt')
         };
         if (timestamps.requestedAt) {
             summary.requestedAt = timestamps.requestedAt;
