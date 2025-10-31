@@ -85,19 +85,20 @@ describe('track-modal render', () => {
         const legacy = request.actionPermissions || {};
         const mapLegacy = (key) => Boolean(legacy?.[key]);
         const rawActions = request.availableActions || {};
-        const normalizedCodes = Array.isArray(rawActions.actionCodes)
-            ? rawActions.actionCodes
-            : (Array.isArray(request.actionCodes) ? request.actionCodes : []);
+        const normalizedCodes = Array.isArray(rawActions.actions)
+            ? rawActions.actions
+            : Array.isArray(rawActions.actionCodes)
+                ? rawActions.actionCodes
+                : (Array.isArray(request.actionCodes) ? request.actionCodes : []);
         const availableActions = {
             ...rawActions,
-            startExchange: Boolean(request.canStartExchange ?? rawActions.startExchange ?? mapLegacy('allowConvertToExchange') ?? mapLegacy('allowLaunchExchange')),
+            startExchange: Boolean(request.canStartExchange ?? rawActions.startExchange ?? (mapLegacy('allowConvertToExchange') && mapLegacy('allowLaunchExchange'))),
             createExchangeParcel: Boolean(request.canCreateExchangeParcel ?? rawActions.createExchangeParcel ?? mapLegacy('allowLaunchExchange')),
             closeWithoutExchange: Boolean(request.canCloseWithoutExchange ?? rawActions.closeWithoutExchange ?? mapLegacy('allowClose')),
             reopenAsReturn: Boolean(request.canReopenAsReturn ?? rawActions.reopenAsReturn ?? mapLegacy('allowConvertToReturn')),
             cancelExchange: Boolean(request.canCancelExchange ?? rawActions.cancelExchange ?? mapLegacy('allowClose')),
             confirmReceipt: Boolean(request.canConfirmReceipt ?? rawActions.confirmReceipt ?? mapLegacy('allowAcceptReverse') ?? mapLegacy('allowAccept')),
-            cancelExchangeUnavailableReason: (rawActions.cancelExchangeUnavailableReason
-                ?? request.cancelExchangeUnavailableReason) || null,
+            actions: normalizedCodes,
             actionCodes: normalizedCodes
         };
         const timestamps = {
@@ -118,6 +119,7 @@ describe('track-modal render', () => {
             timestamps
         };
     }
+
 
     /**
      * Хелпер для рендеринга модалки с учётом нормализации данных.
@@ -265,9 +267,7 @@ status: 'Зарегистрирована',
                 canCreateExchangeParcel: false,
                 canCloseWithoutExchange: true,
                 canReopenAsReturn: false,
-                canCancelExchange: true,
-                cancelExchangeUnavailableReason: null,
-                canConfirmReceipt: true,
+                canCancelExchange: true,                canConfirmReceipt: true,
                 returnReceiptConfirmed: false,
                 returnReceiptConfirmedAt: null,
                 hint: 'Подтвердите возврат, чтобы оформить обмен.',
@@ -381,8 +381,8 @@ status: 'Зарегистрирована',
         const lifecycleText = lifecycleItems.map((item) => item.textContent?.trim() || '').join(' ');
         expect(lifecycleItems.length).toBeGreaterThanOrEqual(2);
         expect(lifecycleText).toContain('Отправление магазина');
-        expect(lifecycleText).toContain('Возврат от покупателя');
-        expect(lifecycleText).toContain('Приём возврата магазином');
+        expect(lifecycleText).toContain('Возврат отправлен');
+        expect(lifecycleText).toContain('Возврат обработан');
 
         const confirmBtn = Array.from(document.querySelectorAll('button'))
             .find((btn) => btn.getAttribute('aria-label') === 'Подтвердить получение возврата и завершить обращение');
@@ -581,12 +581,13 @@ status: 'Зарегистрирована',
         await Promise.resolve();
         await Promise.resolve();
         await Promise.resolve();
+        await new Promise((resolve) => setTimeout(resolve, 0));
 
         expect(global.fetch).toHaveBeenCalledWith(
             '/api/v1/returns/81/commands',
             expect.objectContaining({
                 method: 'POST',
-                body: JSON.stringify(expect.objectContaining({ command: 'close' }))
+                body: JSON.stringify({ command: 'close' })
             })
         );
         expect(global.notifyUser).toHaveBeenCalledWith('Обращение закрыто', 'warning');
@@ -636,9 +637,7 @@ status: 'Зарегистрирована',
                 canCreateExchangeParcel: false,
                 canCloseWithoutExchange: false,
                 canReopenAsReturn: false,
-                canCancelExchange: false,
-                cancelExchangeUnavailableReason: null,
-                canConfirmReceipt: false,
+                canCancelExchange: false,                canConfirmReceipt: false,
                 returnReceiptConfirmed: false,
                 returnReceiptConfirmedAt: null,
                 hint: expectedHint,
@@ -1071,11 +1070,17 @@ status: 'Зарегистрирована',
         renderModal(initialData);
 
         const headers = { get: jest.fn(() => 'application/json') };
-        global.fetch.mockResolvedValueOnce({
-            ok: true,
-            headers,
-            json: () => Promise.resolve(updatedDetails)
-        });
+        global.fetch
+            .mockResolvedValueOnce({
+                ok: true,
+                headers,
+                json: () => Promise.resolve({ details: updatedDetails })
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                headers,
+                json: () => Promise.resolve(updatedDetails)
+            });
 
         const form = document.querySelector('form[data-reverse-track-form]');
         expect(form).not.toBeNull();
@@ -1155,9 +1160,7 @@ status: 'Зарегистрирована',
                 canStartExchange: false,
                 canCloseWithoutExchange: true,
                 canReopenAsReturn: false,
-                canCancelExchange: false,
-                cancelExchangeUnavailableReason: null,
-                returnReceiptConfirmed: true,
+                canCancelExchange: false,                returnReceiptConfirmed: true,
                 returnReceiptConfirmedAt: '2024-03-01T09:00:00Z',
                 canConfirmReceipt: false,
                 hint: 'Покупатель уже подтвердил возврат.',
@@ -1169,11 +1172,17 @@ status: 'Зарегистрирована',
             requiresAction: false
         });
 
-        global.fetch.mockResolvedValueOnce({
-            ok: true,
-            headers: { get: () => 'application/json' },
-            json: () => Promise.resolve(payload)
-        });
+        global.fetch
+            .mockResolvedValueOnce({
+                ok: true,
+                headers: { get: () => 'application/json' },
+                json: () => Promise.resolve(payload)
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                headers: { get: () => 'application/json' },
+                json: () => Promise.resolve(payload)
+            });
 
         await global.window.trackModal.confirmReturnProcessing(14, 6, {});
 
@@ -1350,12 +1359,13 @@ status: 'Зарегистрирована',
         await Promise.resolve();
         await Promise.resolve();
         await Promise.resolve();
+        await new Promise((resolve) => setTimeout(resolve, 0));
 
         expect(global.fetch).toHaveBeenCalledWith(
             '/api/v1/returns/5/commands',
             expect.objectContaining({
                 method: 'POST',
-                body: JSON.stringify(expect.objectContaining({ command: 'start_exchange' }))
+                body: JSON.stringify({ command: 'start_exchange' })
             })
         );
         expect(global.notifyUser).toHaveBeenCalledWith('Заявка переведена в обмен', 'info');
@@ -1445,12 +1455,13 @@ status: 'Зарегистрирована',
         await Promise.resolve();
         await Promise.resolve();
         await Promise.resolve();
+        await new Promise((resolve) => setTimeout(resolve, 0));
 
         expect(global.fetch).toHaveBeenCalledWith(
             '/api/v1/returns/6/commands',
             expect.objectContaining({
                 method: 'POST',
-                body: JSON.stringify(expect.objectContaining({ command: 'create_exchange_parcel' }))
+                body: JSON.stringify({ command: 'create_exchange_parcel' })
             })
         );
         expect(global.notifyUser).toHaveBeenCalledWith('Обмен запущен', 'info');
@@ -1499,8 +1510,7 @@ status: 'Обмен запускается',
                 canConfirmReceipt: false,
                 hint: 'Обменная посылка готова к отправке.',
                 warnings: ['Проверьте состав вложения.'],
-                detailsUrl: 'https://example.com/returns',
-                cancelExchangeUnavailableReason: null
+                detailsUrl: 'https://example.com/returns'
             },
             canRegisterReturn: false,
             lifecycle: [],
@@ -1618,9 +1628,7 @@ status: 'Зарегистрирована',
                 canCreateExchangeParcel: false,
                 canCloseWithoutExchange: true,
                 canReopenAsReturn: false,
-                canCancelExchange: false,
-                cancelExchangeUnavailableReason: null,
-                returnReceiptConfirmed: false,
+                canCancelExchange: false,                returnReceiptConfirmed: false,
                 returnReceiptConfirmedAt: null,
                 canConfirmReceipt: true
             },
@@ -1675,9 +1683,7 @@ status: 'Закрыта',
                 canCreateExchangeParcel: false,
                 canCloseWithoutExchange: false,
                 canReopenAsReturn: false,
-                canCancelExchange: false,
-                cancelExchangeUnavailableReason: null,
-                returnReceiptConfirmed: true,
+                canCancelExchange: false,                returnReceiptConfirmed: true,
                 returnReceiptConfirmedAt: '2024-01-06T11:00:00Z',
                 canConfirmReceipt: false
             },

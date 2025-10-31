@@ -1,24 +1,29 @@
 package com.project.tracking_system.dto;
 
-import java.util.Objects;
+import java.util.List;
 
 /**
- * Описание доступного действия с заявкой на возврат/обмен.
- *
- * @param code            машинный код действия
- * @param label           человеко-читаемое название
- * @param enabled         признак доступности для выполнения
- * @param disabledReason  причина недоступности (может быть {@code null})
+ * Обёртка над списком кодов доступных действий с заявкой на возврат/обмен.
  */
-public record AvailableActionsDto(String code,
-                                  String label,
-                                  boolean enabled,
-                                  String disabledReason) {
+public final class AvailableActionsDto {
 
-    public AvailableActionsDto {
-        if (code == null || code.isBlank()) {
-            throw new IllegalArgumentException("Код действия не может быть пустым");
-        }
-        label = Objects.requireNonNullElse(label, code);
+    private final List<String> actions;
+
+    /**
+     * Создаёт DTO доступных действий, гарантируя неизменяемость списка.
+     *
+     * @param actions коды доступных действий; {@code null} заменяется на пустой список
+     */
+    public AvailableActionsDto(List<String> actions) {
+        this.actions = actions == null ? List.of() : List.copyOf(actions);
+    }
+
+    /**
+     * Возвращает список кодов доступных действий.
+     *
+     * @return неизменяемый список кодов действий
+     */
+    public List<String> getActions() {
+        return actions;
     }
 }

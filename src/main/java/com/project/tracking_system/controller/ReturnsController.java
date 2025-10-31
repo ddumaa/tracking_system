@@ -25,8 +25,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.List;
-
 /**
  * REST-контроллер управления заявками на возврат и обмен.
  * <p>
@@ -63,11 +61,11 @@ public class ReturnsController {
      *
      * @param id   идентификатор заявки
      * @param user текущий пользователь
-     * @return список доступных действий
+     * @return DTO с кодами доступных действий
      */
     @GetMapping("/{id}/available-actions")
-    public List<AvailableActionsDto> getAvailableActions(@PathVariable Long id,
-                                                         @AuthenticationPrincipal User user) {
+    public AvailableActionsDto getAvailableActions(@PathVariable Long id,
+                                                   @AuthenticationPrincipal User user) {
         ensureAuthenticated(user);
         OrderReturnRequest request = loadOwnedRequest(id, user);
         return returnRequestMapper.toAvailableActions(request);
