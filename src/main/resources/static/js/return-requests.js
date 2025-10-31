@@ -104,20 +104,13 @@
             confirmationSpan.classList.toggle('text-muted', !confirmed);
         }
 
-        const derivePermissions = (item) => {
-            const statusValue = typeof item?.status === 'string' ? item.status.toUpperCase() : '';
-            const state = item?.state || {};
-            const actions = item?.availableActions || {};
-            const exchangeStatus = statusValue === 'EXCHANGE_APPROVED' || Boolean(state.exchangeApproved);
-            const reverseMissing = !item?.reverseTrackNumber;
-            return {
-                allowConfirmReceipt: Boolean(actions.confirmReceipt),
-                allowConvertToExchange: Boolean(actions.startExchange),
-                allowCloseRequest: Boolean(actions.closeWithoutExchange),
-                allowUpdateReverseTrack: exchangeStatus && reverseMissing,
-                allowConvertToReturn: Boolean(actions.reopenAsReturn)
-            };
-        };
+        const derivePermissions = () => ({
+            allowConfirmReceipt: false,
+            allowConvertToExchange: false,
+            allowCloseRequest: false,
+            allowUpdateReverseTrack: false,
+            allowConvertToReturn: false
+        });
 
         const permissions = summary.actionPermissions
             ? summary.actionPermissions
@@ -127,8 +120,8 @@
         const allowCloseRequest = Boolean(permissions.allowCloseRequest);
         const allowUpdateReverseTrack = Boolean(permissions.allowUpdateReverseTrack);
         const allowConvertToReturn = Boolean(permissions.allowConvertToReturn);
-        const statusRaw = typeof summary.status === 'string' ? summary.status.toUpperCase() : '';
-        const isExchangeStatus = statusRaw === 'EXCHANGE_APPROVED';
+        const statusRaw = typeof summary.stage === 'string' ? summary.stage.toUpperCase() : '';
+        const isExchangeStatus = statusRaw.includes('EXCHANGE');
 
         const syncButton = (button, visible, label) => {
             if (!button) {

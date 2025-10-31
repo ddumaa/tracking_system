@@ -2,7 +2,6 @@ package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.AvailableActionsDto;
 import com.project.tracking_system.dto.RequestDto;
-import com.project.tracking_system.dto.ReturnRequestTimestampsDto;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
@@ -71,14 +70,7 @@ class ReturnsControllerTest {
                 eq(false)
         )).thenReturn(request);
 
-        RequestDto responseDto = buildRequestDto(
-                15L,
-                "REGISTERED",
-                "Регистрация",
-                "Размер не подошёл",
-                "Комментарий",
-                "BY123"
-        );
+        RequestDto responseDto = buildRequestDto(15L, "RETURN", "NEW", 17L, 7L);
         when(returnRequestMapper.toDto(eq(request), any())).thenReturn(responseDto);
 
         mockMvc.perform(post("/api/v1/returns")
@@ -95,7 +87,7 @@ class ReturnsControllerTest {
                                 "}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id", equalTo(15)))
-                .andExpect(jsonPath("$.reason", equalTo("Размер не подошёл")));
+                .andExpect(jsonPath("$.mode", equalTo("RETURN")));
 
         verify(orderReturnRequestService).registerReturn(
                 eq(7L),
@@ -114,7 +106,7 @@ class ReturnsControllerTest {
         User principal = buildUser();
         UsernamePasswordAuthenticationToken auth = authentication(principal);
 
-        RequestDto responseDto = buildRequestDto(21L, "EXCHANGE", "Обмен", null, null, null);
+        RequestDto responseDto = buildRequestDto(21L, "EXCHANGE", "EXCHANGE_REGISTERED", 17L, 11L);
         when(returnRequestCommandService.executeCommand(eq(21L), any(), any(), eq(principal), any()))
                 .thenReturn(responseDto);
 
@@ -124,7 +116,7 @@ class ReturnsControllerTest {
                         .content("{\"idempotencyKey\":\"cmd-1\",\"action\":\"start_exchange\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id", equalTo(21)))
-                .andExpect(jsonPath("$.status", equalTo("EXCHANGE")));
+                .andExpect(jsonPath("$.mode", equalTo("EXCHANGE")));
         verify(returnRequestCommandService).executeCommand(eq(21L), any(), any(), eq(principal), any());
     }
 
@@ -133,7 +125,7 @@ class ReturnsControllerTest {
         User principal = buildUser();
         UsernamePasswordAuthenticationToken auth = authentication(principal);
 
-        RequestDto responseDto = buildRequestDto(30L, "REGISTERED", "Зарегистрирована", null, "Комментарий", "BY000");
+        RequestDto responseDto = buildRequestDto(30L, "RETURN", "INBOUND_PICKED_UP", 17L, 30L);
         when(returnRequestCommandService.executeCommand(eq(30L), any(), any(), eq(principal), any()))
                 .thenReturn(responseDto);
 
@@ -142,7 +134,7 @@ class ReturnsControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"idempotencyKey\":\"cmd-2\",\"action\":\"update_details\",\"payload\":{\"reverseTrack\":\"BY000\",\"comment\":\"Комментарий\"}}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.reverseTrack", equalTo("BY000")));
+                .andExpect(jsonPath("$.stage", equalTo("INBOUND_PICKED_UP")));
         verify(returnRequestCommandService).executeCommand(eq(30L), any(), any(), eq(principal), any());
     }
 
@@ -154,7 +146,7 @@ class ReturnsControllerTest {
         OrderReturnRequest request = new OrderReturnRequest();
         when(orderReturnRequestService.getOwnedRequest(51L, principal)).thenReturn(request);
         when(returnRequestMapper.toDto(eq(request), any()))
-                .thenReturn(buildRequestDto(51L, "REGISTERED", "Зарегистрирована", null, null, null));
+                .thenReturn(buildRequestDto(51L, "RETURN", "NEW", 17L, 51L));
 
         mockMvc.perform(get("/api/v1/returns/51")
                         .with(auth))
@@ -187,32 +179,19 @@ class ReturnsControllerTest {
     }
 
     private RequestDto buildRequestDto(Long id,
-                                       String status,
-                                       String statusLabel,
-                                       String reason,
-                                       String comment,
-                                       String reverseTrack) {
+                                       String mode,
+                                       String stage,
+                                       Long storeId,
+                                       Long parcelId) {
         return new RequestDto(
                 id,
-                status,
-                statusLabel,
-                reason,
-                comment,
-                "RETURN",
-                "NEW",
-                false,
-                reverseTrack,
-                null,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                List.of(),
-                new ReturnRequestTimestampsDto(null, null, null, null, null, null, null, null),
-                null,
-                null
+                mode,
+                stage,
+                storeId,
+                99L,
+                parcelId,
+                5L,
+                7L
         );
     }
 

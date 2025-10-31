@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.tracking_system.controller.ReturnRequestCommandType;
 import com.project.tracking_system.dto.CommandDto;
 import com.project.tracking_system.dto.RequestDto;
-import com.project.tracking_system.dto.ReturnRequestTimestampsDto;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.ReturnCommandLog;
 import com.project.tracking_system.entity.TrackParcel;
@@ -23,7 +22,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.ZoneOffset;
 import java.util.HexFormat;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -207,28 +205,16 @@ class ReturnRequestCommandServiceTest {
         return request;
     }
 
-    private RequestDto buildRequestDto(Long id, String status) {
+    private RequestDto buildRequestDto(Long id, String mode) {
         return new RequestDto(
                 id,
-                status,
-                status,
-                null,
-                null,
-                "RETURN",
+                mode,
                 "NEW",
-                false,
-                null,
-                null,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                List.of(),
-                new ReturnRequestTimestampsDto(null, null, null, null, null, null, null, null),
-                null,
-                null
+                10L,
+                20L,
+                30L,
+                40L,
+                50L
         );
     }
 }

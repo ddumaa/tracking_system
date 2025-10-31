@@ -602,7 +602,9 @@
 
             const statusValue = document.createElement('div');
             statusValue.className = 'fs-6 fw-semibold';
-            statusValue.textContent = this.request?.status
+            const stageLabel = resolveStageLabel(this.request?.stage);
+            statusValue.textContent = stageLabel
+                || this.request?.status
                 || this.request?.statusLabel
                 || 'Статус не определён';
             statusRow.appendChild(statusValue);
@@ -1283,6 +1285,32 @@
         'update_details': ['updateDetails']
     };
 
+    const STAGE_LABELS = {
+        NEW: 'Заявка зарегистрирована',
+        OUTBOUND_SENT: 'Возврат отправлен',
+        INBOUND_ARRIVED: 'Возврат прибыл',
+        INBOUND_PICKED_UP: 'Возврат обработан',
+        EXCHANGE_REGISTERED: 'Обмен зарегистрирован',
+        EXCHANGE_SENT: 'Обмен отправлен',
+        EXCHANGE_DELIVERED: 'Обмен доставлен'
+    };
+
+    /**
+     * Возвращает человеко-читаемый ярлык этапа.
+     * @param {string|null|undefined} stage код этапа из DTO
+     * @returns {string|null} локализованный ярлык или {@code null}
+     */
+    function resolveStageLabel(stage) {
+        if (!stage) {
+            return null;
+        }
+        const normalized = String(stage).trim().toUpperCase();
+        if (!normalized) {
+            return null;
+        }
+        return STAGE_LABELS[normalized] || normalized;
+    }
+
     function extractActionCodes(actions) {
         if (!actions || typeof actions !== 'object') {
             return [];
@@ -1321,32 +1349,23 @@
         if (request.id === undefined) {
             return null;
         }
-        const state = request.state || {};
-        const actions = request.availableActions || {};
-        const timestamps = request.timestamps || {};
+        const stageLabel = resolveStageLabel(request.stage);
         const summary = {
-            parcelId: details.id,
+            parcelId: details.id ?? request.parcelId ?? null,
             requestId: request.id,
-            trackNumber: details.number || null,
-            parcelStatus: details.systemStatus || null,
-            statusLabel: request.statusLabel || request.status || null,
-            reason: request.reason || null,
-            comment: request.comment || null,
-            reverseTrackNumber: request.reverseTrackNumber || null,
-            exchangeRequested: Boolean(state.exchangeRequested),
-            canStartExchange: hasActionCode(actions, 'set_mode_exchange'),
-            canCloseWithoutExchange: hasActionCode(actions, 'close_request'),
-            canReopenAsReturn: hasActionCode(actions, 'set_mode_return'),
-            canCancelExchange: hasActionCode(actions, 'cancel_exchange'),
-            cancelExchangeUnavailableReason: actions.cancelExchangeUnavailableReason || null,
-            returnReceiptConfirmed: Boolean(state.returnReceiptConfirmed),
-            returnReceiptConfirmedAt: timestamps.returnReceiptConfirmedAt || null,
-            canConfirmReceipt: hasActionCode(actions, 'confirm_receipt')
+            mode: request.mode || null,
+            stage: request.stage || null,
+            storeId: request.storeId ?? null,
+            orderId: request.orderId ?? null,
+            userId: request.userId ?? null,
+            responsibleId: request.responsibleId ?? null,
+            stageLabel
         };
-        if (timestamps.requestedAt) {
-            summary.requestedAt = timestamps.requestedAt;
-        } else if (timestamps.createdAt) {
-            summary.requestedAt = timestamps.createdAt;
+        if (summary.parcelId === null && request.parcelId !== undefined) {
+            summary.parcelId = request.parcelId;
+        }
+        if (stageLabel) {
+            summary.statusLabel = stageLabel;
         }
         return summary;
     }
@@ -1361,30 +1380,20 @@
         if (!request || request.id === undefined) {
             return null;
         }
-        const state = request.state || {};
-        const actions = request.availableActions || {};
-        const timestamps = request.timestamps || {};
+        const stageLabel = resolveStageLabel(request.stage);
         const summary = {
             parcelId: trackId,
             requestId: request.id,
-            statusLabel: request.status || null,
-            reason: request.reason || null,
-            comment: request.comment || null,
-            reverseTrackNumber: request.reverseTrackNumber || null,
-            exchangeRequested: Boolean(state.exchangeRequested),
-            canStartExchange: hasActionCode(actions, 'set_mode_exchange'),
-            canCloseWithoutExchange: hasActionCode(actions, 'close_request'),
-            canReopenAsReturn: hasActionCode(actions, 'set_mode_return'),
-            canCancelExchange: hasActionCode(actions, 'cancel_exchange'),
-            cancelExchangeUnavailableReason: actions.cancelExchangeUnavailableReason || null,
-            returnReceiptConfirmed: Boolean(state.returnReceiptConfirmed),
-            returnReceiptConfirmedAt: timestamps.returnReceiptConfirmedAt || null,
-            canConfirmReceipt: hasActionCode(actions, 'confirm_receipt')
+            mode: request.mode || null,
+            stage: request.stage || null,
+            storeId: request.storeId ?? null,
+            orderId: request.orderId ?? null,
+            userId: request.userId ?? null,
+            responsibleId: request.responsibleId ?? null,
+            stageLabel
         };
-        if (timestamps.requestedAt) {
-            summary.requestedAt = timestamps.requestedAt;
-        } else if (timestamps.createdAt) {
-            summary.requestedAt = timestamps.createdAt;
+        if (stageLabel) {
+            summary.statusLabel = stageLabel;
         }
         return summary;
     }
