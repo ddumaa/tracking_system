@@ -211,77 +211,149 @@ public class TrackViewService {
                                              OrderReturnRequest request,
                                              ZoneId userZone,
                                              String outboundMoment) {
-        ReturnRequestStage customerStage = ReturnRequestStage.CUSTOMER_RETURN;
-        TrackLifecycleStageState customerReturnState = hasReverseShipmentStarted(parcel, request)
-                ? TrackLifecycleStageState.COMPLETED
-                : TrackLifecycleStageState.IN_PROGRESS;
-        String customerReturnMoment = formatNullableTimestamp(request.getRequestedAt(), userZone);
-        String reverseTrackNumber = normalizeTrackNumber(request.getReverseTrackNumber());
+        ReturnRequestStage registrationStage = ReturnRequestStage.NEW;
+        TrackLifecycleStageState registrationState = TrackLifecycleStageState.COMPLETED;
+        String registrationMoment = formatNullableTimestamp(coalesceReturnRequestMoment(request), userZone);
         stages.add(new TrackLifecycleStageDto(
-                customerStage.getCode(),
-                customerStage.getTitle(),
-                customerStage.getActor(),
-                customerStage.getDescription(),
-                customerReturnState,
-                customerReturnMoment,
-                reverseTrackNumber,
-                customerStage.getTrackContextLabel()
-        ));
-
-        ReturnRequestStage merchantStage = ReturnRequestStage.MERCHANT_ACCEPT_RETURN;
-        TrackLifecycleStageState merchantProcessingState = TrackLifecycleStageState.PLANNED;
-        String merchantProcessingMoment = null;
-        boolean processed = isReturnProcessed(request, parcel);
-        if (processed) {
-            merchantProcessingState = TrackLifecycleStageState.COMPLETED;
-            merchantProcessingMoment = firstNonNull(
-                    formatNullableTimestamp(request.getReturnReceiptConfirmedAt(), userZone),
-                    formatNullableTimestamp(request.getDecisionAt(), userZone),
-                    formatNullableTimestamp(request.getClosedAt(), userZone),
-                    outboundMoment
-            );
-            if (merchantProcessingMoment == null) {
-                merchantProcessingMoment = formatNullableTimestamp(resolveStatusMoment(parcel), userZone);
-            }
-        } else if (hasReverseShipmentStarted(parcel, request)) {
-            merchantProcessingState = TrackLifecycleStageState.IN_PROGRESS;
-        }
-        stages.add(new TrackLifecycleStageDto(
-                merchantStage.getCode(),
-                merchantStage.getTitle(),
-                merchantStage.getActor(),
-                merchantStage.getDescription(),
-                merchantProcessingState,
-                merchantProcessingMoment,
+                registrationStage.getCode(),
+                registrationStage.getTitle(),
+                registrationStage.getActor(),
+                registrationStage.getDescription(),
+                registrationState,
+                registrationMoment,
                 null,
                 null
         ));
 
+        ReturnRequestStage outboundStage = ReturnRequestStage.OUTBOUND_SENT;
+        boolean reverseStarted = hasReverseShipmentStarted(parcel, request);
+        TrackLifecycleStageState outboundState = reverseStarted
+                ? TrackLifecycleStageState.COMPLETED
+                : TrackLifecycleStageState.IN_PROGRESS;
+        String reverseTrackNumber = normalizeTrackNumber(request.getReverseTrackNumber());
+        String outboundContext = reverseTrackNumber != null || outboundState != TrackLifecycleStageState.PLANNED
+                ? outboundStage.getTrackContextLabel()
+                : null;
+        stages.add(new TrackLifecycleStageDto(
+                outboundStage.getCode(),
+                outboundStage.getTitle(),
+                outboundStage.getActor(),
+                outboundStage.getDescription(),
+                outboundState,
+                outboundMoment,
+                reverseTrackNumber,
+                outboundContext
+        ));
+
+        ReturnRequestStage inboundArrivalStage = ReturnRequestStage.INBOUND_ARRIVED;
+        boolean processed = isReturnProcessed(request, parcel);
+        TrackLifecycleStageState inboundArrivalState;
+        if (!reverseStarted) {
+            inboundArrivalState = TrackLifecycleStageState.PLANNED;
+        } else if (processed) {
+            inboundArrivalState = TrackLifecycleStageState.COMPLETED;
+        } else {
+            inboundArrivalState = TrackLifecycleStageState.IN_PROGRESS;
+        }
+        String inboundArrivalMoment = formatNullableTimestamp(resolveStatusMoment(parcel), userZone);
+        if (inboundArrivalMoment == null && reverseStarted) {
+            inboundArrivalMoment = outboundMoment;
+        }
+        String inboundArrivalContext = reverseTrackNumber != null
+                || inboundArrivalState != TrackLifecycleStageState.PLANNED
+                ? inboundArrivalStage.getTrackContextLabel()
+                : null;
+        stages.add(new TrackLifecycleStageDto(
+                inboundArrivalStage.getCode(),
+                inboundArrivalStage.getTitle(),
+                inboundArrivalStage.getActor(),
+                inboundArrivalStage.getDescription(),
+                inboundArrivalState,
+                inboundArrivalMoment,
+                reverseTrackNumber,
+                inboundArrivalContext
+        ));
+
+        ReturnRequestStage pickupStage = ReturnRequestStage.INBOUND_PICKED_UP;
+        TrackLifecycleStageState pickupState;
+        if (processed) {
+            pickupState = TrackLifecycleStageState.COMPLETED;
+        } else if (reverseStarted) {
+            pickupState = TrackLifecycleStageState.IN_PROGRESS;
+        } else {
+            pickupState = TrackLifecycleStageState.PLANNED;
+        }
+        String pickupMoment = firstNonNull(
+                formatNullableTimestamp(request.getReturnReceiptConfirmedAt(), userZone),
+                formatNullableTimestamp(request.getDecisionAt(), userZone),
+                formatNullableTimestamp(request.getClosedAt(), userZone),
+                inboundArrivalMoment,
+                outboundMoment
+        );
+        if (pickupMoment == null) {
+            pickupMoment = formatNullableTimestamp(resolveStatusMoment(parcel), userZone);
+        }
+        String pickupContext = reverseTrackNumber != null
+                || pickupState != TrackLifecycleStageState.PLANNED
+                ? pickupStage.getTrackContextLabel()
+                : null;
+        stages.add(new TrackLifecycleStageDto(
+                pickupStage.getCode(),
+                pickupStage.getTitle(),
+                pickupStage.getActor(),
+                pickupStage.getDescription(),
+                pickupState,
+                pickupMoment,
+                reverseTrackNumber,
+                pickupContext
+        ));
+
         TrackParcel exchangeParcel = orderExchangeService.findLatestExchangeParcel(request).orElse(null);
         if (shouldShowExchangeStages(request, exchangeParcel)) {
-            ReturnRequestStage shipmentStage = ReturnRequestStage.EXCHANGE_SHIPMENT;
-            ReturnRequestStage deliveryStage = ReturnRequestStage.EXCHANGE_DELIVERY;
             boolean hasExchangeParcel = exchangeParcel != null;
             boolean hasExchangeTrack = hasExchangeParcel
                     && exchangeParcel.getNumber() != null
                     && !exchangeParcel.getNumber().isBlank();
             GlobalStatus exchangeStatus = hasExchangeParcel ? exchangeParcel.getStatus() : null;
             boolean exchangeFinalStatus = exchangeStatus != null && exchangeStatus.isFinal();
+            boolean exchangeApproved = request.getStatus() == OrderReturnRequestStatus.EXCHANGE_APPROVED;
 
-            TrackLifecycleStageState exchangeCreationState = TrackLifecycleStageState.PLANNED;
-            String exchangeCreationMoment = null;
-            if (hasExchangeParcel && (hasExchangeTrack || exchangeFinalStatus)) {
-                exchangeCreationState = exchangeFinalStatus
+            ReturnRequestStage registeredStage = ReturnRequestStage.EXCHANGE_REGISTERED;
+            TrackLifecycleStageState registeredState = (exchangeApproved || hasExchangeParcel)
+                    ? TrackLifecycleStageState.COMPLETED
+                    : TrackLifecycleStageState.PLANNED;
+            String registeredMoment = firstNonNull(
+                    formatNullableTimestamp(request.getDecisionAt(), userZone),
+                    hasExchangeParcel ? formatNullableTimestamp(exchangeParcel.getTimestamp(), userZone) : null
+            );
+            String registeredContext = registeredState != TrackLifecycleStageState.PLANNED
+                    ? registeredStage.getTrackContextLabel()
+                    : null;
+            stages.add(new TrackLifecycleStageDto(
+                    registeredStage.getCode(),
+                    registeredStage.getTitle(),
+                    registeredStage.getActor(),
+                    registeredStage.getDescription(),
+                    registeredState,
+                    registeredMoment,
+                    null,
+                    registeredContext
+            ));
+
+            ReturnRequestStage shipmentStage = ReturnRequestStage.EXCHANGE_SENT;
+            TrackLifecycleStageState exchangeShipmentState = TrackLifecycleStageState.PLANNED;
+            String exchangeShipmentMoment = null;
+            if (hasExchangeParcel) {
+                exchangeShipmentState = exchangeFinalStatus
                         ? TrackLifecycleStageState.COMPLETED
                         : TrackLifecycleStageState.IN_PROGRESS;
-                exchangeCreationMoment = formatNullableTimestamp(exchangeParcel.getTimestamp(), userZone);
+                exchangeShipmentMoment = formatNullableTimestamp(exchangeParcel.getTimestamp(), userZone);
             }
-
             String exchangeTrackNumber = hasExchangeTrack
                     ? normalizeTrackNumber(exchangeParcel.getNumber())
                     : null;
             String shipmentContext = exchangeTrackNumber != null
-                    || exchangeCreationState != TrackLifecycleStageState.PLANNED
+                    || exchangeShipmentState != TrackLifecycleStageState.PLANNED
                     ? shipmentStage.getTrackContextLabel()
                     : null;
             stages.add(new TrackLifecycleStageDto(
@@ -289,19 +361,20 @@ public class TrackViewService {
                     shipmentStage.getTitle(),
                     shipmentStage.getActor(),
                     shipmentStage.getDescription(),
-                    exchangeCreationState,
-                    exchangeCreationMoment,
+                    exchangeShipmentState,
+                    exchangeShipmentMoment,
                     exchangeTrackNumber,
                     shipmentContext
             ));
 
+            ReturnRequestStage deliveryStage = ReturnRequestStage.EXCHANGE_DELIVERED;
             TrackLifecycleStageState exchangeDeliveryState = TrackLifecycleStageState.PLANNED;
             String exchangeDeliveryMoment = null;
-            if (hasExchangeParcel && (hasExchangeTrack || exchangeFinalStatus)) {
+            if (hasExchangeParcel) {
                 if (exchangeFinalStatus) {
                     exchangeDeliveryState = TrackLifecycleStageState.COMPLETED;
                     exchangeDeliveryMoment = formatNullableTimestamp(resolveStatusMoment(exchangeParcel), userZone);
-                } else {
+                } else if (hasExchangeTrack) {
                     exchangeDeliveryState = TrackLifecycleStageState.IN_PROGRESS;
                     exchangeDeliveryMoment = formatNullableTimestamp(exchangeParcel.getLastUpdate(), userZone);
                 }

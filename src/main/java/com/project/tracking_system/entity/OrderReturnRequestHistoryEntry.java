@@ -40,7 +40,7 @@ public class OrderReturnRequestHistoryEntry {
      */
     @Enumerated(EnumType.STRING)
     @Column(name = "stage", nullable = false)
-    private ReturnRequestStage stage = ReturnRequestStage.CUSTOMER_RETURN;
+    private ReturnRequestStage stage = ReturnRequestStage.NEW;
 
     /**
      * Трек обратной отправки на момент фиксации события.
@@ -98,7 +98,7 @@ public class OrderReturnRequestHistoryEntry {
     }
 
     public void setStage(ReturnRequestStage stage) {
-        this.stage = Objects.requireNonNullElse(stage, ReturnRequestStage.CUSTOMER_RETURN);
+        this.stage = Objects.requireNonNullElse(stage, ReturnRequestStage.NEW);
     }
 
     public String getReverseTrackNumber() {
@@ -157,7 +157,7 @@ public class OrderReturnRequestHistoryEntry {
         OrderReturnRequestHistoryEntry entry = new OrderReturnRequestHistoryEntry();
         entry.setReturnRequest(request);
         entry.setMode(request != null ? request.getMode() : ReturnRequestMode.RETURN);
-        entry.setStage(request != null ? request.getStage() : ReturnRequestStage.CUSTOMER_RETURN);
+        entry.setStage(request != null ? request.getStage() : ReturnRequestStage.NEW);
         entry.setReverseTrackNumber(request != null ? request.getReverseTrackNumber() : null);
         entry.setExchangeTrackNumber(request != null ? request.getExchangeTrackNumber() : null);
         entry.setManualTransition(manualTransition);

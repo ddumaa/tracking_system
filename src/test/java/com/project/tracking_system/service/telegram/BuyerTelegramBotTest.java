@@ -2426,7 +2426,7 @@ class BuyerTelegramBotTest {
         String closedAt = status == OrderReturnRequestStatus.CLOSED_NO_EXCHANGE ? requestedAt : null;
         ReturnRequestStateDto state = new ReturnRequestStateDto(
                 mode,
-                ReturnRequestStage.CUSTOMER_RETURN,
+                ReturnRequestStage.NEW,
                 false,
                 false,
                 exchangeRequested,

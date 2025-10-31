@@ -15,51 +15,101 @@ import java.util.Set;
 public enum ReturnRequestStage {
 
     /**
-     * Покупатель отправляет товар обратно магазину.
+     * Заявка зарегистрирована и ожидает действий покупателя.
      */
-    CUSTOMER_RETURN(
-            "CUSTOMER_RETURN",
-            "Возврат от покупателя",
+    NEW(
+            "NEW",
+            "Заявка зарегистрирована",
             "Покупатель",
-            "Покупатель оформляет заявку и отправляет посылку обратно магазину.",
+            "Заявка создана и ожидает, когда покупатель отправит товар обратно.",
             EnumSet.of(ReturnRequestMode.RETURN, ReturnRequestMode.EXCHANGE),
-            "Обратный трек"
+            null,
+            false,
+            false
     ),
 
     /**
-     * Менеджер магазина проверяет возврат и принимает решение.
+     * Покупатель передал возврат в службу доставки.
      */
-    MERCHANT_ACCEPT_RETURN(
-            "MERCHANT_ACCEPT_RETURN",
-            "Приём возврата магазином",
-            "Магазин",
-            "Менеджер проверяет возврат и принимает решение: закрыть заявку или запустить обмен.",
-            EnumSet.of(ReturnRequestMode.RETURN, ReturnRequestMode.EXCHANGE),
-            null
-    ),
-
-    /**
-     * Магазин формирует и отправляет обменную посылку.
-     */
-    EXCHANGE_SHIPMENT(
-            "EXCHANGE_SHIPMENT",
-            "Отправление обмена",
-            "Магазин",
-            "После подтверждения возврата магазин создаёт обменную посылку.",
-            EnumSet.of(ReturnRequestMode.EXCHANGE),
-            "Обменная посылка"
-    ),
-
-    /**
-     * Покупатель получает обменную посылку и цикл завершается.
-     */
-    EXCHANGE_DELIVERY(
-            "EXCHANGE_DELIVERY",
-            "Получение обмена",
+    OUTBOUND_SENT(
+            "OUTBOUND_SENT",
+            "Возврат отправлен",
             "Покупатель",
-            "Покупатель забирает новую посылку. Цикл завершается до следующей заявки.",
+            "Покупатель передал посылку оператору доставки и предоставил обратный трек.",
+            EnumSet.of(ReturnRequestMode.RETURN, ReturnRequestMode.EXCHANGE),
+            "Обратный трек",
+            false,
+            false
+    ),
+
+    /**
+     * Обратная посылка прибыла в пункт назначения магазина.
+     */
+    INBOUND_ARRIVED(
+            "INBOUND_ARRIVED",
+            "Возврат прибыл",
+            "Логистика",
+            "Обратная посылка прибыла в пункт назначения и ожидает проверки магазином.",
+            EnumSet.of(ReturnRequestMode.RETURN, ReturnRequestMode.EXCHANGE),
+            "Обратный трек",
+            false,
+            false
+    ),
+
+    /**
+     * Магазин забрал посылку и подтвердил обработку возврата.
+     */
+    INBOUND_PICKED_UP(
+            "INBOUND_PICKED_UP",
+            "Возврат обработан",
+            "Магазин",
+            "Сотрудник магазина забрал посылку и подтвердил факт возврата товара.",
+            EnumSet.of(ReturnRequestMode.RETURN, ReturnRequestMode.EXCHANGE),
+            "Обратный трек",
+            true,
+            false
+    ),
+
+    /**
+     * Магазин зарегистрировал обмен и готовит новое отправление.
+     */
+    EXCHANGE_REGISTERED(
+            "EXCHANGE_REGISTERED",
+            "Обмен зарегистрирован",
+            "Магазин",
+            "Менеджер одобрил обмен и приступил к подготовке новой посылки.",
             EnumSet.of(ReturnRequestMode.EXCHANGE),
-            "Обменная посылка"
+            "Обменная посылка",
+            false,
+            false
+    ),
+
+    /**
+     * Магазин передал обменную посылку в службу доставки.
+     */
+    EXCHANGE_SENT(
+            "EXCHANGE_SENT",
+            "Обмен отправлен",
+            "Магазин",
+            "Обменная посылка передана в доставку и движется к покупателю.",
+            EnumSet.of(ReturnRequestMode.EXCHANGE),
+            "Обменная посылка",
+            false,
+            false
+    ),
+
+    /**
+     * Покупатель получил обменную посылку.
+     */
+    EXCHANGE_DELIVERED(
+            "EXCHANGE_DELIVERED",
+            "Обмен доставлен",
+            "Покупатель",
+            "Покупатель получил обменную посылку. Цикл заявки завершён.",
+            EnumSet.of(ReturnRequestMode.EXCHANGE),
+            "Обменная посылка",
+            false,
+            true
     );
 
     private final String code;
@@ -68,19 +118,25 @@ public enum ReturnRequestStage {
     private final String description;
     private final EnumSet<ReturnRequestMode> applicableModes;
     private final String trackContextLabel;
+    private final boolean finalForReturn;
+    private final boolean finalForExchange;
 
     ReturnRequestStage(String code,
                        String title,
                        String actor,
                        String description,
                        EnumSet<ReturnRequestMode> applicableModes,
-                       String trackContextLabel) {
+                       String trackContextLabel,
+                       boolean finalForReturn,
+                       boolean finalForExchange) {
         this.code = code;
         this.title = title;
         this.actor = actor;
         this.description = description;
         this.applicableModes = EnumSet.copyOf(applicableModes);
         this.trackContextLabel = trackContextLabel;
+        this.finalForReturn = finalForReturn;
+        this.finalForExchange = finalForExchange;
     }
 
     /**
@@ -140,5 +196,32 @@ public enum ReturnRequestStage {
      */
     public String getTrackContextLabel() {
         return trackContextLabel;
+    }
+
+    /**
+     * Определяет, является ли стадия финальной для режима возврата.
+     */
+    public boolean isFinalForReturn() {
+        return finalForReturn;
+    }
+
+    /**
+     * Определяет, является ли стадия финальной для режима обмена.
+     */
+    public boolean isFinalForExchange() {
+        return finalForExchange;
+    }
+
+    /**
+     * Проверяет, финальна ли стадия для указанного режима обработки.
+     */
+    public boolean isFinalForMode(ReturnRequestMode mode) {
+        if (mode == null) {
+            return false;
+        }
+        return switch (mode) {
+            case RETURN -> finalForReturn;
+            case EXCHANGE -> finalForExchange;
+        };
     }
 }
