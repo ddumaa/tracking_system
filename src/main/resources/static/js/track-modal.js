@@ -555,13 +555,13 @@
             const mapLegacy = (key) => Boolean(legacy?.[key]);
             const legacyUpdateReverse = mapLegacy('allowUpdateReverseTrack');
             const canUpdateReverseTrack = this.request?.canUpdateReverseTrack;
-            const confirmReceiptFlag = hasActionCode(actions, 'confirm_receipt', { allowLegacyFallback: false });
-            const convertToExchangeFlag = hasActionCode(actions, 'start_exchange', { allowLegacyFallback: false });
-            const launchExchangeFlag = hasActionCode(actions, 'create_exchange_parcel', { allowLegacyFallback: false });
-            const closeFlag = hasActionCode(actions, 'close', { allowLegacyFallback: false });
-            const reopenFlag = hasActionCode(actions, 'reopen_return', { allowLegacyFallback: false });
-            const cancelExchangeFlag = hasActionCode(actions, 'cancel_exchange', { allowLegacyFallback: false });
-            const updateDetailsFlag = hasActionCode(actions, 'update_details', { allowLegacyFallback: false });
+            const confirmReceiptFlag = hasActionCode(actions, 'mark_inbound_picked_up');
+            const convertToExchangeFlag = hasActionCode(actions, 'start_exchange');
+            const launchExchangeFlag = hasActionCode(actions, 'create_exchange_parcel');
+            const closeFlag = hasActionCode(actions, 'close');
+            const reopenFlag = hasActionCode(actions, 'reopen_return');
+            const cancelExchangeFlag = hasActionCode(actions, 'cancel_exchange');
+            const updateDetailsFlag = hasActionCode(actions, 'update_reverse_track');
             return {
                 confirmReceipt: confirmReceiptFlag
                     || (!hasModernActions && (mapLegacy('allowAcceptReverse') || mapLegacy('allowAccept'))),
@@ -1278,19 +1278,17 @@
     }
 
     /**
-     * Преобразует DTO модального окна в формат, ожидаемый таблицей возвратов.
-     * Метод формирует только доступные поля, не нарушая инкапсуляцию ActionRequiredReturnRequestDto (ISP).
-     * @param {Object} details DTO деталей трека
-     * @returns {Object|null} частичный DTO строки таблицы или {@code null}
+     * Синонимы action-code для обратной совместимости.
+     * Карта помогает сопоставить устаревшие и новые коды действий,
+     * чтобы проверка доступности кнопок оставалась единообразной.
      */
     const ACTION_CODE_ALIASES = {
-        'start_exchange': ['startExchange'],
-        'create_exchange_parcel': ['createExchangeParcel'],
-        'close': ['closeWithoutExchange'],
-        'reopen_return': ['reopenAsReturn'],
-        'cancel_exchange': ['cancelExchange'],
-        'confirm_receipt': ['confirmReceipt'],
-        'update_details': ['updateDetails']
+        'confirm_receipt': ['mark_inbound_picked_up'],
+        'mark_inbound_picked_up': ['confirm_receipt'],
+        'create_exchange_parcel': ['register_exchange_parcel'],
+        'register_exchange_parcel': ['create_exchange_parcel'],
+        'update_details': ['update_reverse_track'],
+        'update_reverse_track': ['update_details']
     };
 
     const STAGE_LABELS = {
@@ -1333,26 +1331,44 @@
             .filter((code) => code.length > 0);
     }
 
+    /**
+     * Проверяет, присутствует ли указанный action-code в списке доступных действий.
+     * Метод поддерживает синонимы, чтобы плавно перейти на новый контракт API.
+     * @param {Object|Array<string>} actions объект или массив с кодами действий
+     * @param {string} code проверяемый код действия
+     * @param {Object} [options] дополнительные настройки проверки
+     * @param {boolean} [options.matchSynonyms=true] учитывать ли синонимы
+     * @returns {boolean} {@code true}, если действие доступно
+     */
     function hasActionCode(actions, code, options = {}) {
         if (!code) {
             return false;
         }
-        const { allowLegacyFallback = true } = options;
+        const { matchSynonyms = true } = options;
         const normalized = String(code).trim().toLowerCase();
         const codes = extractActionCodes(actions);
         if (codes.includes(normalized)) {
             return true;
         }
-        if (!allowLegacyFallback && codes.length > 0) {
+        if (!matchSynonyms) {
             return false;
         }
         const aliases = ACTION_CODE_ALIASES[normalized] || [];
-        if (!allowLegacyFallback) {
+        if (aliases.length === 0) {
             return false;
         }
-        return aliases.some((alias) => Boolean(actions && typeof actions === 'object' && actions[alias]));
+        return aliases
+            .map((alias) => String(alias || '').trim().toLowerCase())
+            .filter((alias) => alias.length > 0)
+            .some((alias) => codes.includes(alias));
     }
 
+    /**
+     * Преобразует DTO модального окна в формат, ожидаемый таблицей возвратов.
+     * Метод формирует только доступные поля, не нарушая инкапсуляцию ActionRequiredReturnRequestDto (ISP).
+     * @param {Object} details DTO деталей трека
+     * @returns {Object|null} частичный DTO строки таблицы или {@code null}
+     */
     function mapReturnRequestToTableSummary(details) {
         if (!details || typeof details !== 'object' || !details.returnRequest) {
             return null;
@@ -1393,6 +1409,13 @@
         }
         if (request.canConfirmReceipt !== undefined) {
             summary.canConfirmReceipt = request.canConfirmReceipt;
+        }
+        if (request.canUpdateReverseTrack !== undefined) {
+            summary.canUpdateReverseTrack = request.canUpdateReverseTrack;
+        }
+        const actionCodes = extractActionCodes(request.availableActions);
+        if (actionCodes.length > 0) {
+            summary.actionCodes = actionCodes;
         }
         return summary;
     }
@@ -1436,6 +1459,13 @@
         }
         if (request.canConfirmReceipt !== undefined) {
             summary.canConfirmReceipt = request.canConfirmReceipt;
+        }
+        if (request.canUpdateReverseTrack !== undefined) {
+            summary.canUpdateReverseTrack = request.canUpdateReverseTrack;
+        }
+        const actionCodes = extractActionCodes(request.availableActions);
+        if (actionCodes.length > 0) {
+            summary.actionCodes = actionCodes;
         }
         return summary;
     }
