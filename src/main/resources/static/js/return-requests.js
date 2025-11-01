@@ -2,6 +2,88 @@
     'use strict';
 
     /**
+     * Синонимы action-code для поддержки переходного периода API.
+     * Используем карту, чтобы распознавать новые и устаревшие коды действий как эквивалентные.
+     */
+    const ACTION_CODE_SYNONYMS = {
+        'mark_inbound_picked_up': ['confirm_receipt'],
+        'confirm_receipt': ['mark_inbound_picked_up'],
+        'create_exchange_parcel': ['register_exchange_parcel'],
+        'register_exchange_parcel': ['create_exchange_parcel'],
+        'update_reverse_track': ['update_details'],
+        'update_details': ['update_reverse_track']
+    };
+
+    /**
+     * Нормализует action-code к нижнему регистру и убирает пробелы.
+     * @param {string} value исходный код
+     * @returns {string} нормализованное значение или пустая строка
+     */
+    function normalizeActionCode(value) {
+        if (typeof value !== 'string') {
+            return '';
+        }
+        return value.trim().toLowerCase();
+    }
+
+    /**
+     * Формирует множество доступных action-code из возможных источников summary.
+     * Метод инкапсулирует детали структуры DTO, соблюдая принцип SRP.
+     * @param {Object} summary агрегированная информация о заявке
+     * @returns {Set<string>} множество нормализованных кодов
+     */
+    function collectActionCodes(summary) {
+        if (!summary || typeof summary !== 'object') {
+            return new Set();
+        }
+        const sources = [];
+        if (Array.isArray(summary.actionCodes)) {
+            sources.push(summary.actionCodes);
+        }
+        if (Array.isArray(summary.actions)) {
+            sources.push(summary.actions);
+        }
+        const available = summary.availableActions;
+        if (available && typeof available === 'object') {
+            if (Array.isArray(available.actions)) {
+                sources.push(available.actions);
+            }
+            if (Array.isArray(available.actionCodes)) {
+                sources.push(available.actionCodes);
+            }
+        }
+        const flattened = sources.flatMap((list) => Array.isArray(list) ? list : []);
+        const codes = flattened
+            .map((value) => normalizeActionCode(value))
+            .filter((value) => value.length > 0);
+        return new Set(codes);
+    }
+
+    /**
+     * Проверяет, содержится ли указанный action-code или его синонимы в множестве.
+     * @param {Set<string>} codeSet множество доступных действий
+     * @param {string} code искомое действие
+     * @returns {boolean} {@code true}, если действие доступно
+     */
+    function hasActionFromSet(codeSet, code) {
+        if (!(codeSet instanceof Set) || codeSet.size === 0) {
+            return false;
+        }
+        const normalized = normalizeActionCode(code);
+        if (!normalized) {
+            return false;
+        }
+        if (codeSet.has(normalized)) {
+            return true;
+        }
+        const synonyms = ACTION_CODE_SYNONYMS[normalized] || [];
+        return synonyms
+            .map((item) => normalizeActionCode(item))
+            .filter((item) => item.length > 0)
+            .some((item) => codeSet.has(item));
+    }
+
+    /**
      * Удаляет строку заявки из таблицы по идентификаторам посылки и заявки.
      * @param {string|number} trackId идентификатор посылки
      * @param {string|number} requestId идентификатор заявки
@@ -115,11 +197,32 @@
         const permissions = summary.actionPermissions
             ? summary.actionPermissions
             : derivePermissions(summary);
-        const allowConfirmReceipt = Boolean(permissions.allowConfirmReceipt);
-        const allowConvertToExchange = Boolean(permissions.allowConvertToExchange);
-        const allowCloseRequest = Boolean(permissions.allowCloseRequest);
-        const allowUpdateReverseTrack = Boolean(permissions.allowUpdateReverseTrack);
-        const allowConvertToReturn = Boolean(permissions.allowConvertToReturn);
+        const actionCodeSet = collectActionCodes(summary);
+        const hasModernActions = actionCodeSet.size > 0;
+
+        const fallbackAllowConfirmReceipt = Boolean(permissions.allowConfirmReceipt)
+            || (summary.canConfirmReceipt !== undefined ? Boolean(summary.canConfirmReceipt) : false);
+        const fallbackAllowConvertToExchange = Boolean(permissions.allowConvertToExchange);
+        const fallbackAllowCloseRequest = Boolean(permissions.allowCloseRequest);
+        const fallbackAllowUpdateReverseTrack = Boolean(permissions.allowUpdateReverseTrack)
+            || (summary.canUpdateReverseTrack !== undefined ? Boolean(summary.canUpdateReverseTrack) : false);
+        const fallbackAllowConvertToReturn = Boolean(permissions.allowConvertToReturn);
+
+        const allowConfirmReceipt = hasModernActions
+            ? hasActionFromSet(actionCodeSet, 'mark_inbound_picked_up')
+            : fallbackAllowConfirmReceipt;
+        const allowConvertToExchange = hasModernActions
+            ? hasActionFromSet(actionCodeSet, 'start_exchange')
+            : fallbackAllowConvertToExchange;
+        const allowCloseRequest = hasModernActions
+            ? hasActionFromSet(actionCodeSet, 'close') || hasActionFromSet(actionCodeSet, 'cancel_exchange')
+            : fallbackAllowCloseRequest;
+        const allowUpdateReverseTrack = hasModernActions
+            ? hasActionFromSet(actionCodeSet, 'update_reverse_track')
+            : fallbackAllowUpdateReverseTrack;
+        const allowConvertToReturn = hasModernActions
+            ? hasActionFromSet(actionCodeSet, 'reopen_return')
+            : fallbackAllowConvertToReturn;
         const statusRaw = typeof summary.stage === 'string' ? summary.stage.toUpperCase() : '';
         const isExchangeStatus = statusRaw.includes('EXCHANGE');
 
