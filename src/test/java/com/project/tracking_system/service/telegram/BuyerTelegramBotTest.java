@@ -2441,13 +2441,13 @@ class BuyerTelegramBotTest {
         );
         List<String> actionCodes = new ArrayList<>();
         if (canStartExchange) {
-            actionCodes.add(ReturnRequestAction.SET_MODE_EXCHANGE.getCode());
+            actionCodes.add(ReturnRequestAction.START_EXCHANGE.getCode());
         }
         if (canCloseWithoutExchange) {
-            actionCodes.add(ReturnRequestAction.CLOSE_REQUEST.getCode());
+            actionCodes.add(ReturnRequestAction.CLOSE.getCode());
         }
         if (canReopenAsReturn) {
-            actionCodes.add(ReturnRequestAction.SET_MODE_RETURN.getCode());
+            actionCodes.add(ReturnRequestAction.REOPEN_RETURN.getCode());
         }
         if (canCancelExchange) {
             actionCodes.add(ReturnRequestAction.CANCEL_EXCHANGE.getCode());

@@ -650,10 +650,10 @@ public class OrderReturnRequestService {
             return false;
         }
         return switch (action) {
-            case SET_MODE_EXCHANGE -> canStartExchange(request);
-            case SET_MODE_RETURN -> canReopenAsReturn(request);
+            case START_EXCHANGE -> canStartExchange(request);
+            case REOPEN_RETURN -> canReopenAsReturn(request);
             case CREATE_EXCHANGE_PARCEL -> canCreateExchangeParcel(request);
-            case CLOSE_REQUEST -> request.getStatus() == OrderReturnRequestStatus.REGISTERED;
+            case CLOSE -> request.getStatus() == OrderReturnRequestStatus.REGISTERED;
             case CANCEL_EXCHANGE -> canCancelExchange(request);
             case CONFIRM_RECEIPT -> canConfirmReceipt(request);
             case UPDATE_DETAILS -> canUpdateDetails(request);

@@ -539,7 +539,7 @@ public class CustomerTelegramService {
                 parcelId,
                 owner,
                 customer,
-                ReturnRequestAction.SET_MODE_RETURN
+                ReturnRequestAction.REOPEN_RETURN
         );
     }
 

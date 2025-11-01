@@ -149,7 +149,7 @@ public class ReturnRequestCommandService {
                 );
                 yield orderReturnRequestService.getOwnedRequest(requestId, user);
             }
-            case REOPEN -> orderReturnRequestService.reopenAsReturn(requestId, parcelId, user);
+            case REOPEN_RETURN -> orderReturnRequestService.reopenAsReturn(requestId, parcelId, user);
             case CANCEL_EXCHANGE -> orderReturnRequestService.cancelExchange(requestId, parcelId, user);
         };
     }

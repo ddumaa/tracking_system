@@ -492,7 +492,7 @@ class TrackViewServiceTest {
         when(orderReturnRequestService.canConfirmReceipt(request)).thenReturn(true);
         when(orderReturnRequestService.canCreateExchangeParcel(request)).thenReturn(false);
         when(orderReturnRequestService.resolveAvailableActions(request))
-                .thenReturn(EnumSet.of(ReturnRequestAction.CLOSE_REQUEST));
+                .thenReturn(EnumSet.of(ReturnRequestAction.CLOSE));
         when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.empty());
 
         TrackDetailsDto details = service.getTrackDetails(81L, 15L);
