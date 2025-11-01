@@ -12,39 +12,54 @@ import java.util.Objects;
 public enum ReturnRequestAction {
 
     /**
-     * Переводит заявку в режим возврата (отмена обмена с сохранением обращения).
+     * Переводит текущую заявку в классический возврат, если ранее был выбран обмен.
      */
     SET_MODE_RETURN("set_mode_return", "Перевести в возврат", true),
 
     /**
-     * Запускает сценарий обмена для активной заявки возврата.
+     * Переводит заявку в режим обмена, инициируя встречную отправку магазина.
      */
     SET_MODE_EXCHANGE("set_mode_exchange", "Перевести в обмен", false),
 
     /**
-     * Создаёт новую обменную посылку для обменной заявки.
+     * Помечает, что покупатель отправил исходную посылку обратно в магазин.
      */
-    CREATE_EXCHANGE_PARCEL("create_exchange_parcel", "Создать обменную посылку", true),
+    MARK_OUTBOUND_SENT("mark_outbound_sent", "Отметить исходящую отправку", false),
 
     /**
-     * Закрывает заявку без запуска обмена.
+     * Фиксирует прибытие исходящей посылки в точку приёма магазина.
      */
-    CLOSE_REQUEST("close_request", "Закрыть обращение", false),
+    MARK_INBOUND_ARRIVED("mark_inbound_arrived", "Отметить прибытие возврата", false),
 
     /**
-     * Отменяет одобренный обмен.
+     * Подтверждает, что возврат был выдан сотруднику склада магазина.
      */
-    CANCEL_EXCHANGE("cancel_exchange", "Отменить обмен", true),
+    MARK_INBOUND_PICKED_UP("mark_inbound_picked_up", "Подтвердить выдачу возврата", false),
 
     /**
-     * Подтверждает получение возврата магазином вручную.
+     * Регистрирует данные обменной посылки, которую магазин подготовил покупателю.
      */
-    CONFIRM_RECEIPT("confirm_receipt", "Подтвердить получение возврата", false),
+    REGISTER_EXCHANGE_PARCEL("register_exchange_parcel", "Зарегистрировать обменную посылку", true),
 
     /**
-     * Обновляет обратный трек и комментарий заявки.
+     * Помечает отправку обменной посылки покупателю.
      */
-    UPDATE_DETAILS("update_details", "Обновить данные обратной отправки", false);
+    MARK_EXCHANGE_SENT("mark_exchange_sent", "Отправить обменную посылку", true),
+
+    /**
+     * Отмечает успешную доставку обменной посылки покупателю.
+     */
+    MARK_EXCHANGE_DELIVERED("mark_exchange_delivered", "Подтвердить доставку обмена", true),
+
+    /**
+     * Обновляет данные обратного трека и комментарий по заявке.
+     */
+    UPDATE_REVERSE_TRACK("update_reverse_track", "Обновить обратный трек", false),
+
+    /**
+     * Закрывает заявку после завершения обработки обращения.
+     */
+    CLOSE_REQUEST("close_request", "Закрыть обращение", false);
 
     private final String code;
     private final String displayName;
