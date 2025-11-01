@@ -29,12 +29,14 @@ import org.springframework.stereotype.Component;
 public class ReturnRequestWorkflow {
 
     private final Map<ReturnRequestMode, Map<ReturnRequestStage, Set<ReturnRequestStage>>> transitionTable;
+    private final Map<ReturnRequestMode, Map<ReturnRequestStage, EnumSet<ReturnRequestAction>>> actionMatrix;
 
     /**
      * Создаёт workflow с таблицей допустимых переходов.
      */
     public ReturnRequestWorkflow() {
         this.transitionTable = buildTransitionTable();
+        this.actionMatrix = buildActionMatrix();
     }
 
     /**
@@ -140,23 +142,30 @@ public class ReturnRequestWorkflow {
             return EnumSet.noneOf(ReturnRequestAction.class);
         }
         OrderReturnRequestStatus status = request.getStatus();
+        ReturnRequestMode mode = safeMode(request.getMode());
         ReturnRequestStage stage = safeStage(request.getStage());
+
         EnumSet<ReturnRequestAction> actions = EnumSet.noneOf(ReturnRequestAction.class);
+        Map<ReturnRequestStage, EnumSet<ReturnRequestAction>> modeActions = actionMatrix.get(mode);
+        if (modeActions != null) {
+            EnumSet<ReturnRequestAction> stageActions = modeActions.get(stage);
+            if (stageActions != null) {
+                actions.addAll(stageActions);
+            }
+        }
+
         if (status == OrderReturnRequestStatus.REGISTERED) {
             actions.add(ReturnRequestAction.START_EXCHANGE);
             actions.add(ReturnRequestAction.CLOSE);
             actions.add(ReturnRequestAction.CONFIRM_RECEIPT);
             actions.add(ReturnRequestAction.UPDATE_DETAILS);
-        }
-        if (status == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+        } else if (status == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
             actions.add(ReturnRequestAction.CREATE_EXCHANGE_PARCEL);
             actions.add(ReturnRequestAction.UPDATE_DETAILS);
-            if (stage != ReturnRequestStage.EXCHANGE_DELIVERED) {
-                actions.add(ReturnRequestAction.REOPEN_RETURN);
-                actions.add(ReturnRequestAction.CANCEL_EXCHANGE);
-            }
-        }
-        if (status == OrderReturnRequestStatus.CLOSED_NO_EXCHANGE) {
+            actions.add(ReturnRequestAction.REOPEN_RETURN);
+            actions.add(ReturnRequestAction.CANCEL_EXCHANGE);
+            actions.add(ReturnRequestAction.CONFIRM_RECEIPT);
+        } else if (status == OrderReturnRequestStatus.CLOSED_NO_EXCHANGE) {
             actions.add(ReturnRequestAction.CONFIRM_RECEIPT);
         }
         return actions;
@@ -205,6 +214,54 @@ public class ReturnRequestWorkflow {
         table.put(ReturnRequestMode.EXCHANGE, exchangeTransitions);
 
         return table;
+    }
+
+    private Map<ReturnRequestMode, Map<ReturnRequestStage, EnumSet<ReturnRequestAction>>> buildActionMatrix() {
+        Map<ReturnRequestMode, Map<ReturnRequestStage, EnumSet<ReturnRequestAction>>> matrix = new EnumMap<>(ReturnRequestMode.class);
+        for (ReturnRequestMode mode : ReturnRequestMode.values()) {
+            Map<ReturnRequestStage, EnumSet<ReturnRequestAction>> stageActions = new EnumMap<>(ReturnRequestStage.class);
+            Map<ReturnRequestStage, Set<ReturnRequestStage>> modeTransitions = transitionTable.get(mode);
+            if (modeTransitions != null) {
+                for (ReturnRequestStage stage : ReturnRequestStage.values()) {
+                    if (!stage.supportsMode(mode)) {
+                        continue;
+                    }
+                    Set<ReturnRequestStage> targets = modeTransitions.getOrDefault(stage, Collections.emptySet());
+                    EnumSet<ReturnRequestAction> actions = EnumSet.noneOf(ReturnRequestAction.class);
+                    for (ReturnRequestStage target : targets) {
+                        if (stage == target) {
+                            continue;
+                        }
+                        ReturnRequestAction action = mapTransitionToAction(target);
+                        if (action != null) {
+                            actions.add(action);
+                        }
+                    }
+                    if (!actions.isEmpty()) {
+                        stageActions.put(stage, actions);
+                    }
+                }
+            }
+            if (mode == ReturnRequestMode.EXCHANGE) {
+                stageActions.computeIfAbsent(ReturnRequestStage.EXCHANGE_REGISTERED,
+                        ignored -> EnumSet.noneOf(ReturnRequestAction.class))
+                        .add(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL);
+            }
+            matrix.put(mode, stageActions);
+        }
+        return matrix;
+    }
+
+    private ReturnRequestAction mapTransitionToAction(ReturnRequestStage target) {
+        return switch (target) {
+            case OUTBOUND_SENT -> ReturnRequestAction.MARK_OUTBOUND_SENT;
+            case INBOUND_ARRIVED -> ReturnRequestAction.MARK_INBOUND_ARRIVED;
+            case INBOUND_PICKED_UP -> ReturnRequestAction.MARK_INBOUND_PICKED_UP;
+            case EXCHANGE_REGISTERED -> ReturnRequestAction.MARK_EXCHANGE_REGISTERED;
+            case EXCHANGE_SENT -> ReturnRequestAction.MARK_EXCHANGE_SENT;
+            case EXCHANGE_DELIVERED -> ReturnRequestAction.MARK_EXCHANGE_DELIVERED;
+            default -> null;
+        };
     }
 
     private Set<ReturnRequestStage> allowedStages(ReturnRequestMode mode) {

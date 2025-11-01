@@ -643,6 +643,17 @@ public class OrderReturnRequestService {
     }
 
     /**
+     * Проверяет, достигла ли обменная посылка финального статуса доставки.
+     */
+    private boolean isParcelDelivered(TrackParcel parcel) {
+        if (parcel == null) {
+            return false;
+        }
+        GlobalStatus status = parcel.getStatus();
+        return status == GlobalStatus.DELIVERED || status == GlobalStatus.RETURNED;
+    }
+
+    /**
      * Проверяет, разрешено ли действие для конкретной заявки с учётом всех ограничений.
      */
     private boolean isActionAllowed(ReturnRequestAction action, OrderReturnRequest request) {
@@ -657,7 +668,132 @@ public class OrderReturnRequestService {
             case CANCEL_EXCHANGE -> canCancelExchange(request);
             case CONFIRM_RECEIPT -> canConfirmReceipt(request);
             case UPDATE_DETAILS -> canUpdateDetails(request);
+            case MARK_OUTBOUND_SENT -> canMarkOutboundSent(request);
+            case MARK_INBOUND_ARRIVED -> canMarkInboundArrived(request);
+            case MARK_INBOUND_PICKED_UP -> canMarkInboundPickedUp(request);
+            case MARK_EXCHANGE_REGISTERED -> canMarkExchangeRegistered(request);
+            case REGISTER_EXCHANGE_PARCEL -> canRegisterExchangeParcel(request);
+            case MARK_EXCHANGE_SENT -> canMarkExchangeSent(request);
+            case MARK_EXCHANGE_DELIVERED -> canMarkExchangeDelivered(request);
         };
+    }
+
+    /**
+     * Проверяет, достаточно ли данных для фиксации отправки возврата пользователем.
+     */
+    private boolean canMarkOutboundSent(OrderReturnRequest request) {
+        if (request == null || request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
+            return false;
+        }
+        if (!hasReverseTrack(request)) {
+            return false;
+        }
+        return canTransitionToStage(request, ReturnRequestStage.OUTBOUND_SENT);
+    }
+
+    /**
+     * Проверяет, можно ли отметить прибытие возврата в пункт назначения.
+     */
+    private boolean canMarkInboundArrived(OrderReturnRequest request) {
+        if (request == null || request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
+            return false;
+        }
+        if (!hasReverseTrack(request)) {
+            return false;
+        }
+        return canTransitionToStage(request, ReturnRequestStage.INBOUND_ARRIVED);
+    }
+
+    /**
+     * Проверяет, можно ли подтвердить получение возврата магазином.
+     */
+    private boolean canMarkInboundPickedUp(OrderReturnRequest request) {
+        if (request == null) {
+            return false;
+        }
+        OrderReturnRequestStatus status = request.getStatus();
+        if (status != OrderReturnRequestStatus.REGISTERED && status != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            return false;
+        }
+        if (!hasReverseTrack(request)) {
+            return false;
+        }
+        return canTransitionToStage(request, ReturnRequestStage.INBOUND_PICKED_UP);
+    }
+
+    /**
+     * Проверяет, можно ли вручную отметить регистрацию обмена.
+     */
+    private boolean canMarkExchangeRegistered(OrderReturnRequest request) {
+        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            return false;
+        }
+        return canTransitionToStage(request, ReturnRequestStage.EXCHANGE_REGISTERED);
+    }
+
+    /**
+     * Проверяет, можно ли зарегистрировать обменную посылку вручную.
+     */
+    private boolean canRegisterExchangeParcel(OrderReturnRequest request) {
+        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            return false;
+        }
+        ReturnRequestStage stage = request.getStage() != null ? request.getStage() : ReturnRequestStage.NEW;
+        if (stage != ReturnRequestStage.EXCHANGE_REGISTERED) {
+            return false;
+        }
+        return canCreateExchangeParcel(request);
+    }
+
+    /**
+     * Проверяет, можно ли отметить отправку обменной посылки.
+     */
+    private boolean canMarkExchangeSent(OrderReturnRequest request) {
+        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            return false;
+        }
+        if (!canTransitionToStage(request, ReturnRequestStage.EXCHANGE_SENT)) {
+            return false;
+        }
+        return orderExchangeService.findLatestExchangeParcel(request)
+                .map(this::isParcelDispatched)
+                .orElse(false);
+    }
+
+    /**
+     * Проверяет, можно ли отметить доставку обменной посылки.
+     */
+    private boolean canMarkExchangeDelivered(OrderReturnRequest request) {
+        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            return false;
+        }
+        if (!canTransitionToStage(request, ReturnRequestStage.EXCHANGE_DELIVERED)) {
+            return false;
+        }
+        return orderExchangeService.findLatestExchangeParcel(request)
+                .map(this::isParcelDelivered)
+                .orElse(false);
+    }
+
+    /**
+     * Проверяет, есть ли у заявки валидный обратный трек.
+     */
+    private boolean hasReverseTrack(OrderReturnRequest request) {
+        String track = request.getReverseTrackNumber();
+        return track != null && !track.isBlank();
+    }
+
+    /**
+     * Проверяет, разрешён ли переход на указанную стадию.
+     */
+    private boolean canTransitionToStage(OrderReturnRequest request, ReturnRequestStage targetStage) {
+        ReturnRequestMode mode = Optional.ofNullable(request.getMode()).orElse(ReturnRequestMode.RETURN);
+        ReturnRequestStage currentStage = Optional.ofNullable(request.getStage()).orElse(ReturnRequestStage.NEW);
+        ReturnRequestStage normalized = returnRequestWorkflow.adjustStageForMode(mode, currentStage);
+        if (normalized == targetStage) {
+            return false;
+        }
+        return returnRequestWorkflow.canTransition(mode, normalized, targetStage);
     }
 
     /**

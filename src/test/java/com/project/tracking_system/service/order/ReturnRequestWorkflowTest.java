@@ -58,7 +58,7 @@ class ReturnRequestWorkflowTest {
 
         assertThatThrownBy(() -> workflow.transitionToStage(
                 request,
-                ReturnRequestStage.EXCHANGE_DELIVERY,
+                ReturnRequestStage.EXCHANGE_DELIVERED,
                 true,
                 null,
                 ZonedDateTime.now(ZoneOffset.UTC)

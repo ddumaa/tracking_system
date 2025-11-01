@@ -17,9 +17,29 @@ public enum ReturnRequestAction {
     START_EXCHANGE("start_exchange", "Запустить обмен", false),
 
     /**
+     * Фиксирует передачу возврата в доставку клиентом.
+     */
+    MARK_OUTBOUND_SENT("mark_outbound_sent", "Отметить отправку возврата", false),
+
+    /**
+     * Фиксирует прибытие возврата в пункт назначения магазина.
+     */
+    MARK_INBOUND_ARRIVED("mark_inbound_arrived", "Отметить прибытие возврата", false),
+
+    /**
+     * Фиксирует факт получения возврата магазином.
+     */
+    MARK_INBOUND_PICKED_UP("mark_inbound_picked_up", "Отметить приём возврата", false),
+
+    /**
      * Создаёт обменную посылку и фиксирует её привязку к заявке.
      */
     CREATE_EXCHANGE_PARCEL("create_exchange_parcel", "Создать обменную посылку", true),
+
+    /**
+     * Регистрирует обменную посылку без автоматического создания в системе.
+     */
+    REGISTER_EXCHANGE_PARCEL("register_exchange_parcel", "Зарегистрировать обменную посылку", true),
 
     /**
      * Отменяет обмен, возвращая заявку к обработке как классического возврата.
@@ -30,6 +50,21 @@ public enum ReturnRequestAction {
      * Переводит обмен обратно в возврат без закрытия заявки.
      */
     REOPEN_RETURN("reopen_return", "Перевести в возврат", true),
+
+    /**
+     * Отмечает, что обмен зарегистрирован и обрабатывается магазином.
+     */
+    MARK_EXCHANGE_REGISTERED("mark_exchange_registered", "Отметить регистрацию обмена", true),
+
+    /**
+     * Фиксирует отправку обменной посылки из магазина.
+     */
+    MARK_EXCHANGE_SENT("mark_exchange_sent", "Отметить отправку обмена", true),
+
+    /**
+     * Фиксирует доставку обменной посылки покупателю.
+     */
+    MARK_EXCHANGE_DELIVERED("mark_exchange_delivered", "Отметить доставку обмена", true),
 
     /**
      * Подтверждает приём возврата магазином в ручном режиме.
