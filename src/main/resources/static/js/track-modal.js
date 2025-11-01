@@ -556,10 +556,10 @@
             const legacyUpdateReverse = mapLegacy('allowUpdateReverseTrack');
             const canUpdateReverseTrack = this.request?.canUpdateReverseTrack;
             const confirmReceiptFlag = hasActionCode(actions, 'confirm_receipt', { allowLegacyFallback: false });
-            const convertToExchangeFlag = hasActionCode(actions, 'set_mode_exchange', { allowLegacyFallback: false });
+            const convertToExchangeFlag = hasActionCode(actions, 'start_exchange', { allowLegacyFallback: false });
             const launchExchangeFlag = hasActionCode(actions, 'create_exchange_parcel', { allowLegacyFallback: false });
-            const closeFlag = hasActionCode(actions, 'close_request', { allowLegacyFallback: false });
-            const reopenFlag = hasActionCode(actions, 'set_mode_return', { allowLegacyFallback: false });
+            const closeFlag = hasActionCode(actions, 'close', { allowLegacyFallback: false });
+            const reopenFlag = hasActionCode(actions, 'reopen_return', { allowLegacyFallback: false });
             const cancelExchangeFlag = hasActionCode(actions, 'cancel_exchange', { allowLegacyFallback: false });
             const updateDetailsFlag = hasActionCode(actions, 'update_details', { allowLegacyFallback: false });
             return {
@@ -1284,10 +1284,10 @@
      * @returns {Object|null} частичный DTO строки таблицы или {@code null}
      */
     const ACTION_CODE_ALIASES = {
-        'set_mode_exchange': ['startExchange'],
+        'start_exchange': ['startExchange'],
         'create_exchange_parcel': ['createExchangeParcel'],
-        'close_request': ['closeWithoutExchange'],
-        'set_mode_return': ['reopenAsReturn'],
+        'close': ['closeWithoutExchange'],
+        'reopen_return': ['reopenAsReturn'],
         'cancel_exchange': ['cancelExchange'],
         'confirm_receipt': ['confirmReceipt'],
         'update_details': ['updateDetails']

@@ -536,18 +536,18 @@ class OrderReturnRequestServiceTest {
         OrderReturnRequestActionRequest existing = new OrderReturnRequestActionRequest();
         existing.setReturnRequest(request);
         existing.setCustomer(customer);
-        existing.setAction(ReturnRequestAction.SET_MODE_RETURN);
+        existing.setAction(ReturnRequestAction.REOPEN_RETURN);
 
         when(repository.findById(701L)).thenReturn(Optional.of(request));
         when(actionRequestRepository.findFirstByReturnRequest_IdAndActionAndProcessedAtIsNull(701L,
-                ReturnRequestAction.SET_MODE_RETURN)).thenReturn(Optional.of(existing));
+                ReturnRequestAction.REOPEN_RETURN)).thenReturn(Optional.of(existing));
 
         OrderReturnRequestActionRequest result = service.requestMerchantAction(
                 701L,
                 31L,
                 user,
                 customer,
-                ReturnRequestAction.SET_MODE_RETURN
+                ReturnRequestAction.REOPEN_RETURN
         );
 
         assertThat(result).isSameAs(existing);
@@ -768,8 +768,8 @@ class OrderReturnRequestServiceTest {
 
         EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
 
-        assertThat(actions).contains(ReturnRequestAction.CLOSE_REQUEST, ReturnRequestAction.SET_MODE_EXCHANGE);
-        assertThat(actions).doesNotContain(ReturnRequestAction.CANCEL_EXCHANGE, ReturnRequestAction.SET_MODE_RETURN);
+        assertThat(actions).contains(ReturnRequestAction.CLOSE, ReturnRequestAction.START_EXCHANGE);
+        assertThat(actions).doesNotContain(ReturnRequestAction.CANCEL_EXCHANGE, ReturnRequestAction.REOPEN_RETURN);
     }
 
     @Test
@@ -789,7 +789,7 @@ class OrderReturnRequestServiceTest {
 
         EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
 
-        assertThat(actions).doesNotContain(ReturnRequestAction.CANCEL_EXCHANGE, ReturnRequestAction.SET_MODE_RETURN);
+        assertThat(actions).doesNotContain(ReturnRequestAction.CANCEL_EXCHANGE, ReturnRequestAction.REOPEN_RETURN);
     }
 
     private OrderReturnRequest buildExchangeRequest(Long id, TrackParcel parcel) {

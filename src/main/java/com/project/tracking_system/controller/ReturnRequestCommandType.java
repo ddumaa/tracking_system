@@ -7,35 +7,26 @@ import java.util.Arrays;
  */
 enum ReturnRequestCommandType {
 
-    /** Перевести заявку из обмена обратно в возврат. */
-    SET_MODE_RETURN("set_mode_return"),
+    /** Запустить обмен по заявке возврата. */
+    START_EXCHANGE("start_exchange"),
 
-    /** Перевести заявку в режим обмена. */
-    SET_MODE_EXCHANGE("set_mode_exchange"),
+    /** Создать обменную посылку для одобренного обмена. */
+    CREATE_EXCHANGE_PARCEL("create_exchange_parcel"),
 
-    /** Отметить исходящую отправку покупателя. */
-    MARK_OUTBOUND_SENT("mark_outbound_sent"),
+    /** Отменить запущенный обмен. */
+    CANCEL_EXCHANGE("cancel_exchange"),
 
-    /** Зафиксировать прибытие возврата в магазин. */
-    MARK_INBOUND_ARRIVED("mark_inbound_arrived"),
+    /** Перевести обмен обратно в возврат. */
+    REOPEN_RETURN("reopen_return"),
 
-    /** Подтвердить выдачу возврата сотруднику склада. */
-    MARK_INBOUND_PICKED_UP("mark_inbound_picked_up"),
+    /** Подтвердить приём возврата магазином. */
+    CONFIRM_RECEIPT("confirm_receipt"),
 
-    /** Зарегистрировать обменную посылку магазина. */
-    REGISTER_EXCHANGE_PARCEL("register_exchange_parcel"),
+    /** Обновить данные заявки (треки и комментарии). */
+    UPDATE_DETAILS("update_details"),
 
-    /** Отметить отправку обменной посылки покупателю. */
-    MARK_EXCHANGE_SENT("mark_exchange_sent"),
-
-    /** Подтвердить доставку обменной посылки. */
-    MARK_EXCHANGE_DELIVERED("mark_exchange_delivered"),
-
-    /** Обновить данные обратного трека и комментарий. */
-    UPDATE_REVERSE_TRACK("update_reverse_track"),
-
-    /** Закрыть обращение после завершения обработки. */
-    CLOSE_REQUEST("close_request");
+    /** Закрыть заявку без запуска обмена. */
+    CLOSE("close");
 
     private final String code;
 

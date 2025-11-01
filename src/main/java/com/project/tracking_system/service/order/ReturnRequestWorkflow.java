@@ -143,8 +143,8 @@ public class ReturnRequestWorkflow {
         ReturnRequestStage stage = safeStage(request.getStage());
         EnumSet<ReturnRequestAction> actions = EnumSet.noneOf(ReturnRequestAction.class);
         if (status == OrderReturnRequestStatus.REGISTERED) {
-            actions.add(ReturnRequestAction.SET_MODE_EXCHANGE);
-            actions.add(ReturnRequestAction.CLOSE_REQUEST);
+            actions.add(ReturnRequestAction.START_EXCHANGE);
+            actions.add(ReturnRequestAction.CLOSE);
             actions.add(ReturnRequestAction.CONFIRM_RECEIPT);
             actions.add(ReturnRequestAction.UPDATE_DETAILS);
         }
@@ -152,7 +152,7 @@ public class ReturnRequestWorkflow {
             actions.add(ReturnRequestAction.CREATE_EXCHANGE_PARCEL);
             actions.add(ReturnRequestAction.UPDATE_DETAILS);
             if (stage != ReturnRequestStage.EXCHANGE_DELIVERED) {
-                actions.add(ReturnRequestAction.SET_MODE_RETURN);
+                actions.add(ReturnRequestAction.REOPEN_RETURN);
                 actions.add(ReturnRequestAction.CANCEL_EXCHANGE);
             }
         }
