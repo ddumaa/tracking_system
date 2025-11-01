@@ -67,7 +67,7 @@ class ReturnRequestCommandServiceTest {
         OrderReturnRequest request = buildRequest(21L, 9L);
         OrderReturnRequest updated = buildRequest(21L, 9L);
         RequestDto dto = buildRequestDto(21L, "EXCHANGE");
-        CommandDto command = new CommandDto("dup-1", "start_exchange", null);
+        CommandDto command = new CommandDto("dup-1", "START_EXCHANGE", null);
 
         when(orderReturnRequestService.getOwnedRequest(21L, user)).thenReturn(request);
         when(orderReturnRequestService.approveExchange(21L, 9L, user)).thenReturn(updated);
@@ -117,7 +117,7 @@ class ReturnRequestCommandServiceTest {
         when(returnCommandLogRepository.findFirstByRequestIdAndIdempotencyKey(21L, "dup-2"))
                 .thenReturn(Optional.of(existing));
 
-        CommandDto command = new CommandDto("dup-2", "start_exchange", null);
+        CommandDto command = new CommandDto("dup-2", "START_EXCHANGE", null);
 
         assertThatThrownBy(() -> commandService.executeCommand(21L,
                 ReturnRequestCommandType.START_EXCHANGE,
@@ -136,7 +136,7 @@ class ReturnRequestCommandServiceTest {
     void executeCommand_whenConcurrentReservation_returnsStoredSnapshot() {
         User user = buildUser();
         OrderReturnRequest request = buildRequest(22L, 10L);
-        CommandDto command = new CommandDto("dup-3", "start_exchange", null);
+        CommandDto command = new CommandDto("dup-3", "START_EXCHANGE", null);
 
         RequestDto storedDto = buildRequestDto(22L, "EXCHANGE");
         String snapshot;

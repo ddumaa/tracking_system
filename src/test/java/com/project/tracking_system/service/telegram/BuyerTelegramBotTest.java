@@ -1015,7 +1015,7 @@ class BuyerTelegramBotTest {
         bot.consume(mockCallbackUpdate(chatId, "returns:active:select:100:200"));
         clearInvocations(telegramClient);
 
-        bot.consume(mockCallbackUpdate(chatId, "returns:active:cancel:100:200"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:CLOSE:100:200"));
 
         ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
         verify(telegramClient).execute(editCaptor.capture());
@@ -1083,13 +1083,13 @@ class BuyerTelegramBotTest {
         bot.consume(mockCallbackUpdate(chatId, "returns:active:select:300:400"));
         clearInvocations(telegramClient);
 
-        bot.consume(mockCallbackUpdate(chatId, "returns:active:cancel_exchange:300:400"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:CANCEL_EXCHANGE:300:400"));
         clearInvocations(telegramClient);
 
         OrderReturnRequestActionRequest actionRequest = new OrderReturnRequestActionRequest();
         when(telegramService.requestExchangeCancellationFromTelegram(chatId, 400L, 300L)).thenReturn(actionRequest);
 
-        bot.consume(mockCallbackUpdate(chatId, "returns:active:confirm:cancel_exchange:yes:300:400"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:confirm:CANCEL_EXCHANGE:yes:300:400"));
 
         verify(telegramService).requestExchangeCancellationFromTelegram(chatId, 400L, 300L);
         verify(telegramService, never()).cancelExchangeFromTelegram(anyLong(), anyLong(), anyLong());
@@ -1140,10 +1140,10 @@ class BuyerTelegramBotTest {
         bot.consume(mockCallbackUpdate(chatId, "returns:active:select:101:201"));
         clearInvocations(telegramClient);
 
-        bot.consume(mockCallbackUpdate(chatId, "returns:active:cancel:101:201"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:CLOSE:101:201"));
         clearInvocations(telegramClient);
 
-        bot.consume(mockCallbackUpdate(chatId, "returns:active:confirm:cancel:yes:101:201"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:confirm:CLOSE:yes:101:201"));
 
         verify(telegramService).closeReturnRequestFromTelegram(chatId, 201L, 101L);
 
@@ -1196,10 +1196,10 @@ class BuyerTelegramBotTest {
         bot.consume(mockCallbackUpdate(chatId, "returns:active:select:102:202"));
         clearInvocations(telegramClient);
 
-        bot.consume(mockCallbackUpdate(chatId, "returns:active:cancel:102:202"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:CLOSE:102:202"));
         clearInvocations(telegramClient);
 
-        bot.consume(mockCallbackUpdate(chatId, "returns:active:confirm:cancel:no:102:202"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:confirm:CLOSE:no:102:202"));
 
         verify(telegramService, never()).closeReturnRequestFromTelegram(anyLong(), anyLong(), anyLong());
 
