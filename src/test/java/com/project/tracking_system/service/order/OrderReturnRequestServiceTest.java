@@ -770,6 +770,7 @@ class OrderReturnRequestServiceTest {
 
         assertThat(actions).contains(ReturnRequestAction.CLOSE, ReturnRequestAction.START_EXCHANGE);
         assertThat(actions).doesNotContain(ReturnRequestAction.CANCEL_EXCHANGE, ReturnRequestAction.REOPEN_RETURN);
+        assertThat(actions).doesNotContain(ReturnRequestAction.MARK_OUTBOUND_SENT);
     }
 
     @Test
@@ -790,6 +791,88 @@ class OrderReturnRequestServiceTest {
         EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
 
         assertThat(actions).doesNotContain(ReturnRequestAction.CANCEL_EXCHANGE, ReturnRequestAction.REOPEN_RETURN);
+        assertThat(actions).doesNotContain(ReturnRequestAction.MARK_EXCHANGE_DELIVERED);
+    }
+
+    @Test
+    void resolveAvailableActions_IncludesReturnStageMarksWhenTrackProvided() {
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        request.setStage(ReturnRequestStage.NEW);
+        request.setMode(ReturnRequestMode.RETURN);
+        request.setReverseTrackNumber("BY123");
+
+        EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
+
+        assertThat(actions).contains(
+                ReturnRequestAction.MARK_OUTBOUND_SENT,
+                ReturnRequestAction.MARK_INBOUND_ARRIVED,
+                ReturnRequestAction.MARK_INBOUND_PICKED_UP
+        );
+    }
+
+    @Test
+    void resolveAvailableActions_AllowsExchangeRegistrationMark() {
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setStage(ReturnRequestStage.INBOUND_PICKED_UP);
+        request.setMode(ReturnRequestMode.EXCHANGE);
+
+        EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
+
+        assertThat(actions).contains(ReturnRequestAction.MARK_EXCHANGE_REGISTERED);
+    }
+
+    @Test
+    void resolveAvailableActions_RegistersExchangeParcelWhenAllowed() {
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setStage(ReturnRequestStage.EXCHANGE_REGISTERED);
+        request.setMode(ReturnRequestMode.EXCHANGE);
+
+        when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.empty());
+
+        EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
+
+        assertThat(actions).contains(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL);
+        assertThat(actions).doesNotContain(ReturnRequestAction.MARK_EXCHANGE_SENT);
+    }
+
+    @Test
+    void resolveAvailableActions_ProvidesExchangeShipmentMarksWhenParcelTracked() {
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setStage(ReturnRequestStage.EXCHANGE_REGISTERED);
+        request.setMode(ReturnRequestMode.EXCHANGE);
+
+        TrackParcel parcel = new TrackParcel();
+        parcel.setNumber("EXCH-1");
+        parcel.setStatus(GlobalStatus.IN_TRANSIT);
+
+        when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.of(parcel));
+
+        EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
+
+        assertThat(actions).contains(ReturnRequestAction.MARK_EXCHANGE_SENT);
+        assertThat(actions).doesNotContain(ReturnRequestAction.MARK_EXCHANGE_DELIVERED);
+    }
+
+    @Test
+    void resolveAvailableActions_AllowsExchangeDeliveryMarkWhenParcelDelivered() {
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setStage(ReturnRequestStage.EXCHANGE_SENT);
+        request.setMode(ReturnRequestMode.EXCHANGE);
+
+        TrackParcel parcel = new TrackParcel();
+        parcel.setNumber("EXCH-2");
+        parcel.setStatus(GlobalStatus.DELIVERED);
+
+        when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.of(parcel));
+
+        EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
+
+        assertThat(actions).contains(ReturnRequestAction.MARK_EXCHANGE_DELIVERED);
     }
 
     private OrderReturnRequest buildExchangeRequest(Long id, TrackParcel parcel) {

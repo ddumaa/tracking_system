@@ -2133,6 +2133,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             case REOPEN_RETURN -> request.state().exchangeShipmentDispatched()
                     ? RETURNS_ACTIVE_CONVERT_REQUEST_CONFIRMATION
                     : RETURNS_ACTIVE_CONVERT_CONFIRMATION;
+            default -> RETURNS_ACTIVE_CONFIRMATION_PROMPT;
         };
     }
 
