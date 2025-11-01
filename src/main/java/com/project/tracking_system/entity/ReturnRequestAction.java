@@ -14,72 +14,72 @@ public enum ReturnRequestAction {
     /**
      * Запускает процесс обмена для заявки, находящейся в статусе возврата.
      */
-    START_EXCHANGE("start_exchange", "Запустить обмен", false),
+    START_EXCHANGE("START_EXCHANGE", "Запустить обмен", false),
 
     /**
      * Фиксирует передачу возврата в доставку клиентом.
      */
-    MARK_OUTBOUND_SENT("mark_outbound_sent", "Отметить отправку возврата", false),
+    MARK_OUTBOUND_SENT("MARK_OUTBOUND_SENT", "Отметить отправку возврата", false),
 
     /**
      * Фиксирует прибытие возврата в пункт назначения магазина.
      */
-    MARK_INBOUND_ARRIVED("mark_inbound_arrived", "Отметить прибытие возврата", false),
+    MARK_INBOUND_ARRIVED("MARK_INBOUND_ARRIVED", "Отметить прибытие возврата", false),
 
     /**
      * Фиксирует факт получения возврата магазином.
      */
-    MARK_INBOUND_PICKED_UP("mark_inbound_picked_up", "Отметить приём возврата", false),
+    MARK_INBOUND_PICKED_UP("MARK_INBOUND_PICKED_UP", "Отметить приём возврата", false),
 
     /**
      * Создаёт обменную посылку и фиксирует её привязку к заявке.
      */
-    CREATE_EXCHANGE_PARCEL("create_exchange_parcel", "Создать обменную посылку", true),
+    CREATE_EXCHANGE_PARCEL("CREATE_EXCHANGE_PARCEL", "Создать обменную посылку", true),
 
     /**
      * Регистрирует обменную посылку без автоматического создания в системе.
      */
-    REGISTER_EXCHANGE_PARCEL("register_exchange_parcel", "Зарегистрировать обменную посылку", true),
+    REGISTER_EXCHANGE_PARCEL("REGISTER_EXCHANGE_PARCEL", "Зарегистрировать обменную посылку", true),
 
     /**
      * Отменяет обмен, возвращая заявку к обработке как классического возврата.
      */
-    CANCEL_EXCHANGE("cancel_exchange", "Отменить обмен", true),
+    CANCEL_EXCHANGE("CANCEL_EXCHANGE", "Отменить обмен", true),
 
     /**
      * Переводит обмен обратно в возврат без закрытия заявки.
      */
-    REOPEN_RETURN("reopen_return", "Перевести в возврат", true),
+    REOPEN_RETURN("REOPEN_RETURN", "Перевести в возврат", true),
 
     /**
      * Отмечает, что обмен зарегистрирован и обрабатывается магазином.
      */
-    MARK_EXCHANGE_REGISTERED("mark_exchange_registered", "Отметить регистрацию обмена", true),
+    MARK_EXCHANGE_REGISTERED("MARK_EXCHANGE_REGISTERED", "Отметить регистрацию обмена", true),
 
     /**
      * Фиксирует отправку обменной посылки из магазина.
      */
-    MARK_EXCHANGE_SENT("mark_exchange_sent", "Отметить отправку обмена", true),
+    MARK_EXCHANGE_SENT("MARK_EXCHANGE_SENT", "Отметить отправку обмена", true),
 
     /**
      * Фиксирует доставку обменной посылки покупателю.
      */
-    MARK_EXCHANGE_DELIVERED("mark_exchange_delivered", "Отметить доставку обмена", true),
+    MARK_EXCHANGE_DELIVERED("MARK_EXCHANGE_DELIVERED", "Отметить доставку обмена", true),
 
     /**
      * Подтверждает приём возврата магазином в ручном режиме.
      */
-    CONFIRM_RECEIPT("confirm_receipt", "Подтвердить приём возврата", false),
+    CONFIRM_RECEIPT("CONFIRM_RECEIPT", "Подтвердить приём возврата", false),
 
     /**
      * Обновляет данные обратного трека и комментарий по заявке.
      */
-    UPDATE_DETAILS("update_details", "Обновить данные заявки", false),
+    UPDATE_DETAILS("UPDATE_DETAILS", "Обновить данные заявки", false),
 
     /**
      * Закрывает заявку без запуска обмена.
      */
-    CLOSE("close", "Закрыть обращение", false);
+    CLOSE("CLOSE", "Закрыть обращение", false);
 
     private final String code;
     private final String displayName;
@@ -123,7 +123,7 @@ public enum ReturnRequestAction {
             return null;
         }
         for (ReturnRequestAction action : values()) {
-            if (Objects.equals(action.code, code)) {
+            if (Objects.equals(action.code, code) || action.code.equalsIgnoreCase(code)) {
                 return action;
             }
         }

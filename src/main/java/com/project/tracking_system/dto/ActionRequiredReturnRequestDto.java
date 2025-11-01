@@ -54,6 +54,9 @@ public record ActionRequiredReturnRequestDto(Long requestId,
             return false;
         }
         List<String> codes = actions != null ? actions.getActions() : List.of();
-        return codes.contains(action.getCode());
+        String targetCode = action.getCode();
+        return codes.stream()
+                .filter(Objects::nonNull)
+                .anyMatch(code -> code.equals(targetCode) || code.equalsIgnoreCase(targetCode));
     }
 }

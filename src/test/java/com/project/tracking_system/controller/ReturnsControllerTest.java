@@ -161,13 +161,13 @@ class ReturnsControllerTest {
         OrderReturnRequest request = new OrderReturnRequest();
         when(orderReturnRequestService.getOwnedRequest(52L, principal)).thenReturn(request);
         when(returnRequestMapper.toAvailableActions(request))
-                .thenReturn(new AvailableActionsDto(List.of("start_exchange", "close")));
+                .thenReturn(new AvailableActionsDto(List.of("START_EXCHANGE", "CLOSE")));
 
         mockMvc.perform(get("/api/v1/returns/52/available-actions")
                         .with(auth))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.actions[0]", equalTo("start_exchange")))
-                .andExpect(jsonPath("$.actions[1]", equalTo("close")));
+                .andExpect(jsonPath("$.actions[0]", equalTo("START_EXCHANGE")))
+                .andExpect(jsonPath("$.actions[1]", equalTo("CLOSE")));
     }
 
     private UsernamePasswordAuthenticationToken authentication(User user) {

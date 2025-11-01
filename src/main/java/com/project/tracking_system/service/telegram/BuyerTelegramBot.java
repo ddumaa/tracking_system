@@ -104,9 +104,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
     private static final String CALLBACK_RETURNS_ACTIVE_SELECT_PREFIX = "returns:active:select:";
     private static final String CALLBACK_RETURNS_ACTIVE_TRACK_PREFIX = "returns:active:track:";
     private static final String CALLBACK_RETURNS_ACTIVE_COMMENT_PREFIX = "returns:active:comment:";
-    private static final String CALLBACK_RETURNS_ACTIVE_CANCEL_PREFIX = "returns:active:cancel:";
-    private static final String CALLBACK_RETURNS_ACTIVE_CANCEL_EXCHANGE_PREFIX = "returns:active:cancel_exchange:";
-    private static final String CALLBACK_RETURNS_ACTIVE_CONVERT_PREFIX = "returns:active:convert:";
+    private static final String CALLBACK_RETURNS_ACTIVE_CANCEL_PREFIX = "returns:active:CLOSE:";
+    private static final String CALLBACK_RETURNS_ACTIVE_CANCEL_EXCHANGE_PREFIX = "returns:active:CANCEL_EXCHANGE:";
+    private static final String CALLBACK_RETURNS_ACTIVE_CONVERT_PREFIX = "returns:active:REOPEN_RETURN:";
     private static final String CALLBACK_RETURNS_ACTIVE_CONFIRM_PREFIX = "returns:active:confirm:";
     private static final String CALLBACK_RETURNS_DONE = "returns:done";
     private static final String CALLBACK_SETTINGS_TOGGLE_NOTIFICATIONS = "settings:toggle_notifications";
@@ -1298,7 +1298,10 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         List<String> actionCodes = Optional.ofNullable(request.actions())
                 .map(AvailableActionsDto::getActions)
                 .orElse(List.of());
-        Set<String> actionCodeSet = new HashSet<>(actionCodes);
+        Set<String> actionCodeSet = actionCodes.stream()
+                .filter(Objects::nonNull)
+                .map(String::toUpperCase)
+                .collect(Collectors.toCollection(HashSet::new));
         rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
                 .text(BUTTON_RETURNS_ACTION_TRACK)
                 .callbackData(CALLBACK_RETURNS_ACTIVE_TRACK_PREFIX + requestId + ':' + parcelId)

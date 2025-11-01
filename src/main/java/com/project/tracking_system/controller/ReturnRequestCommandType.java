@@ -8,25 +8,25 @@ import java.util.Arrays;
 enum ReturnRequestCommandType {
 
     /** Запустить обмен по заявке возврата. */
-    START_EXCHANGE("start_exchange"),
+    START_EXCHANGE("START_EXCHANGE"),
 
     /** Создать обменную посылку для одобренного обмена. */
-    CREATE_EXCHANGE_PARCEL("create_exchange_parcel"),
+    CREATE_EXCHANGE_PARCEL("CREATE_EXCHANGE_PARCEL"),
 
     /** Отменить запущенный обмен. */
-    CANCEL_EXCHANGE("cancel_exchange"),
+    CANCEL_EXCHANGE("CANCEL_EXCHANGE"),
 
     /** Перевести обмен обратно в возврат. */
-    REOPEN_RETURN("reopen_return"),
+    REOPEN_RETURN("REOPEN_RETURN"),
 
     /** Подтвердить приём возврата магазином. */
-    CONFIRM_RECEIPT("confirm_receipt"),
+    CONFIRM_RECEIPT("CONFIRM_RECEIPT"),
 
     /** Обновить данные заявки (треки и комментарии). */
-    UPDATE_DETAILS("update_details"),
+    UPDATE_DETAILS("UPDATE_DETAILS"),
 
     /** Закрыть заявку без запуска обмена. */
-    CLOSE("close");
+    CLOSE("CLOSE");
 
     private final String code;
 
