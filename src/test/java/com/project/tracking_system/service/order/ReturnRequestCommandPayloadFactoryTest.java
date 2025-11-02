@@ -25,14 +25,14 @@ class ReturnRequestCommandPayloadFactoryTest {
 
     @Test
     void create_whenCommandWithoutPayload_acceptsNullNode() {
-        ReturnRequestCommandPayload payload = factory.create(ReturnRequestCommandType.START_EXCHANGE, null);
+        ReturnRequestCommandPayload payload = factory.create(ReturnRequestCommandType.SET_MODE_EXCHANGE, null);
 
         assertThat(payload).isNotNull();
     }
 
     @Test
     void create_whenUpdateDetailsWithoutFields_throwsException() {
-        assertThatThrownBy(() -> factory.create(ReturnRequestCommandType.UPDATE_DETAILS,
+        assertThatThrownBy(() -> factory.create(ReturnRequestCommandType.UPDATE_REVERSE_TRACK,
                 JsonNodeFactory.instance.objectNode()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("reverseTrack");
@@ -44,7 +44,7 @@ class ReturnRequestCommandPayloadFactoryTest {
                 .put("reverseTrack", "  ab123 ")
                 .put("comment", "  Test comment  ");
 
-        UpdateDetailsPayload payload = (UpdateDetailsPayload) factory.create(ReturnRequestCommandType.UPDATE_DETAILS, node);
+        UpdateDetailsPayload payload = (UpdateDetailsPayload) factory.create(ReturnRequestCommandType.UPDATE_REVERSE_TRACK, node);
 
         assertThat(payload.reverseTrack()).isEqualTo("AB123");
         assertThat(payload.comment()).isEqualTo("Test comment");
@@ -56,7 +56,7 @@ class ReturnRequestCommandPayloadFactoryTest {
         var node = JsonNodeFactory.instance.objectNode()
                 .put("reverseTrack", longTrack);
 
-        assertThatThrownBy(() -> factory.create(ReturnRequestCommandType.UPDATE_DETAILS, node))
+        assertThatThrownBy(() -> factory.create(ReturnRequestCommandType.UPDATE_REVERSE_TRACK, node))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("не должен превышать 64");
     }
@@ -67,7 +67,7 @@ class ReturnRequestCommandPayloadFactoryTest {
                 .putNull("reverseTrack")
                 .put("comment", " ");
 
-        UpdateDetailsPayload payload = (UpdateDetailsPayload) factory.create(ReturnRequestCommandType.UPDATE_DETAILS, node);
+        UpdateDetailsPayload payload = (UpdateDetailsPayload) factory.create(ReturnRequestCommandType.UPDATE_REVERSE_TRACK, node);
 
         assertThat(payload.reverseTrack()).isNull();
         assertThat(payload.comment()).isNull();

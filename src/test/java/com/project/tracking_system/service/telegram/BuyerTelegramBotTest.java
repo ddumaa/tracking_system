@@ -2441,19 +2441,19 @@ class BuyerTelegramBotTest {
         );
         List<String> actionCodes = new ArrayList<>();
         if (canStartExchange) {
-            actionCodes.add(ReturnRequestAction.START_EXCHANGE.getCode());
+            actionCodes.add(ReturnRequestAction.SET_MODE_EXCHANGE.getCode());
         }
         if (canCloseWithoutExchange) {
-            actionCodes.add(ReturnRequestAction.CLOSE.getCode());
+            actionCodes.add(ReturnRequestAction.CLOSE_REQUEST.getCode());
         }
         if (canReopenAsReturn) {
-            actionCodes.add(ReturnRequestAction.REOPEN_RETURN.getCode());
+            actionCodes.add(ReturnRequestAction.SET_MODE_RETURN.getCode());
         }
         if (canCancelExchange) {
-            actionCodes.add(ReturnRequestAction.CANCEL_EXCHANGE.getCode());
+            actionCodes.add(ReturnRequestAction.CLOSE_REQUEST.getCode());
         }
         if (canConfirmReceipt) {
-            actionCodes.add(ReturnRequestAction.CONFIRM_RECEIPT.getCode());
+            actionCodes.add(ReturnRequestAction.MARK_INBOUND_PICKED_UP.getCode());
         }
         AvailableActionsDto actions = new AvailableActionsDto(actionCodes);
         ReturnRequestTimestampsDto timestamps = new ReturnRequestTimestampsDto(

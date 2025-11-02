@@ -155,18 +155,18 @@ public class ReturnRequestWorkflow {
         }
 
         if (status == OrderReturnRequestStatus.REGISTERED) {
-            actions.add(ReturnRequestAction.START_EXCHANGE);
-            actions.add(ReturnRequestAction.CLOSE);
-            actions.add(ReturnRequestAction.CONFIRM_RECEIPT);
-            actions.add(ReturnRequestAction.UPDATE_DETAILS);
+            actions.add(ReturnRequestAction.SET_MODE_EXCHANGE);
+            actions.add(ReturnRequestAction.CLOSE_REQUEST);
+            actions.add(ReturnRequestAction.MARK_INBOUND_PICKED_UP);
+            actions.add(ReturnRequestAction.UPDATE_REVERSE_TRACK);
         } else if (status == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
-            actions.add(ReturnRequestAction.CREATE_EXCHANGE_PARCEL);
-            actions.add(ReturnRequestAction.UPDATE_DETAILS);
-            actions.add(ReturnRequestAction.REOPEN_RETURN);
-            actions.add(ReturnRequestAction.CANCEL_EXCHANGE);
-            actions.add(ReturnRequestAction.CONFIRM_RECEIPT);
+            actions.add(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL);
+            actions.add(ReturnRequestAction.UPDATE_REVERSE_TRACK);
+            actions.add(ReturnRequestAction.SET_MODE_RETURN);
+            actions.add(ReturnRequestAction.CLOSE_REQUEST);
+            actions.add(ReturnRequestAction.MARK_INBOUND_PICKED_UP);
         } else if (status == OrderReturnRequestStatus.CLOSED_NO_EXCHANGE) {
-            actions.add(ReturnRequestAction.CONFIRM_RECEIPT);
+            actions.add(ReturnRequestAction.MARK_INBOUND_PICKED_UP);
         }
         return actions;
     }
@@ -257,7 +257,7 @@ public class ReturnRequestWorkflow {
             case OUTBOUND_SENT -> ReturnRequestAction.MARK_OUTBOUND_SENT;
             case INBOUND_ARRIVED -> ReturnRequestAction.MARK_INBOUND_ARRIVED;
             case INBOUND_PICKED_UP -> ReturnRequestAction.MARK_INBOUND_PICKED_UP;
-            case EXCHANGE_REGISTERED -> ReturnRequestAction.MARK_EXCHANGE_REGISTERED;
+            case EXCHANGE_REGISTERED -> ReturnRequestAction.SET_MODE_EXCHANGE;
             case EXCHANGE_SENT -> ReturnRequestAction.MARK_EXCHANGE_SENT;
             case EXCHANGE_DELIVERED -> ReturnRequestAction.MARK_EXCHANGE_DELIVERED;
             default -> null;

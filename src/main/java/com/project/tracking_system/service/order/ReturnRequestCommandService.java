@@ -136,7 +136,7 @@ public class ReturnRequestCommandService {
                                               Long requestId,
                                               Long parcelId) {
         return switch (type) {
-            case START_EXCHANGE -> orderReturnRequestService.approveExchange(requestId, parcelId, user);
+            case SET_MODE_EXCHANGE -> orderReturnRequestService.approveExchange(requestId, parcelId, user);
             case CREATE_EXCHANGE_PARCEL -> {
                 orderReturnRequestService.createExchangeParcel(requestId, parcelId, user);
                 yield orderReturnRequestService.getOwnedRequest(requestId, user);
@@ -170,9 +170,15 @@ public class ReturnRequestCommandService {
                         stagePayload.stageMoment()
                 );
             }
-            case CLOSE -> orderReturnRequestService.closeWithoutExchange(requestId, parcelId, user);
-            case CONFIRM_RECEIPT -> orderReturnRequestService.confirmReturnProcessing(requestId, parcelId, user);
-            case UPDATE_DETAILS -> {
+            case CLOSE_REQUEST -> {
+                OrderReturnRequest request = orderReturnRequestService.getOwnedRequest(requestId, user);
+                return switch (request.getStatus()) {
+                    case REGISTERED -> orderReturnRequestService.closeWithoutExchange(requestId, parcelId, user);
+                    case EXCHANGE_APPROVED -> orderReturnRequestService.cancelExchange(requestId, parcelId, user);
+                    case CLOSED_NO_EXCHANGE -> throw new IllegalStateException("Заявка уже закрыта");
+                };
+            }
+            case UPDATE_REVERSE_TRACK -> {
                 UpdateDetailsPayload updatePayload = (UpdateDetailsPayload) payload;
                 orderReturnRequestService.updateReverseTrackAndComment(
                         requestId,
@@ -210,8 +216,7 @@ public class ReturnRequestCommandService {
                         stagePayload.stageMoment()
                 );
             }
-            case REOPEN_RETURN -> orderReturnRequestService.reopenAsReturn(requestId, parcelId, user);
-            case CANCEL_EXCHANGE -> orderReturnRequestService.cancelExchange(requestId, parcelId, user);
+            case SET_MODE_RETURN -> orderReturnRequestService.reopenAsReturn(requestId, parcelId, user);
         };
     }
 

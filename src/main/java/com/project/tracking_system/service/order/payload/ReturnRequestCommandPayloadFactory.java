@@ -30,12 +30,11 @@ public class ReturnRequestCommandPayloadFactory {
      */
     public ReturnRequestCommandPayload create(ReturnRequestCommandType type, JsonNode payloadNode) {
         return switch (type) {
-            case UPDATE_DETAILS -> parseUpdateDetails(payloadNode);
+            case UPDATE_REVERSE_TRACK -> parseUpdateDetails(payloadNode);
             case MARK_OUTBOUND_SENT, MARK_INBOUND_ARRIVED, MARK_INBOUND_PICKED_UP,
                     MARK_EXCHANGE_DELIVERED -> parseStageMarkPayload(type, payloadNode);
             case REGISTER_EXCHANGE_PARCEL, MARK_EXCHANGE_SENT -> parseExchangeShipmentPayload(type, payloadNode);
-            case START_EXCHANGE, CREATE_EXCHANGE_PARCEL, CLOSE, CONFIRM_RECEIPT,
-                    REOPEN_RETURN, CANCEL_EXCHANGE -> ensureEmptyPayload(type, payloadNode);
+            case SET_MODE_EXCHANGE, SET_MODE_RETURN, CLOSE_REQUEST -> ensureEmptyPayload(type, payloadNode);
         };
     }
 
@@ -58,16 +57,16 @@ public class ReturnRequestCommandPayloadFactory {
      */
     private ReturnRequestCommandPayload parseUpdateDetails(JsonNode payloadNode) {
         if (payloadNode == null || payloadNode.isNull()) {
-            throw new IllegalArgumentException("Команда UPDATE_DETAILS требует объект payload с параметрами");
+            throw new IllegalArgumentException("Команда UPDATE_REVERSE_TRACK требует объект payload с параметрами");
         }
         if (!payloadNode.isObject()) {
-            throw new IllegalArgumentException("Полезная нагрузка UPDATE_DETAILS должна быть объектом JSON");
+            throw new IllegalArgumentException("Полезная нагрузка UPDATE_REVERSE_TRACK должна быть объектом JSON");
         }
 
         boolean hasReverseTrack = payloadNode.has("reverseTrack");
         boolean hasComment = payloadNode.has("comment");
         if (!hasReverseTrack && !hasComment) {
-            throw new IllegalArgumentException("Не переданы поля reverseTrack или comment для UPDATE_DETAILS");
+            throw new IllegalArgumentException("Не переданы поля reverseTrack или comment для UPDATE_REVERSE_TRACK");
         }
 
         String reverseTrack = null;

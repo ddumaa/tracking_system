@@ -77,7 +77,7 @@ class ReturnRequestCommandServiceTest {
         OrderReturnRequest request = buildRequest(21L, 9L);
         OrderReturnRequest updated = buildRequest(21L, 9L);
         RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000021", 21L, "EXCHANGE");
-        CommandDto command = new CommandDto("dup-1", "START_EXCHANGE", null);
+        CommandDto command = new CommandDto("dup-1", "SET_MODE_EXCHANGE", null);
 
         when(orderReturnRequestService.getOwnedRequest(21L, user)).thenReturn(request);
         when(orderReturnRequestService.approveExchange(21L, 9L, user)).thenReturn(updated);
@@ -95,12 +95,12 @@ class ReturnRequestCommandServiceTest {
                 });
 
         RequestDto first = commandService.executeCommand(21L,
-                ReturnRequestCommandType.START_EXCHANGE,
+                ReturnRequestCommandType.SET_MODE_EXCHANGE,
                 command,
                 user,
                 ZoneOffset.UTC);
         RequestDto second = commandService.executeCommand(21L,
-                ReturnRequestCommandType.START_EXCHANGE,
+                ReturnRequestCommandType.SET_MODE_EXCHANGE,
                 command,
                 user,
                 ZoneOffset.UTC);
@@ -127,10 +127,10 @@ class ReturnRequestCommandServiceTest {
         when(returnCommandLogRepository.findFirstByRequestIdAndIdempotencyKey(21L, "dup-2"))
                 .thenReturn(Optional.of(existing));
 
-        CommandDto command = new CommandDto("dup-2", "START_EXCHANGE", null);
+        CommandDto command = new CommandDto("dup-2", "SET_MODE_EXCHANGE", null);
 
         assertThatThrownBy(() -> commandService.executeCommand(21L,
-                ReturnRequestCommandType.START_EXCHANGE,
+                ReturnRequestCommandType.SET_MODE_EXCHANGE,
                 command,
                 user,
                 ZoneOffset.UTC))
@@ -146,7 +146,7 @@ class ReturnRequestCommandServiceTest {
     void executeCommand_whenConcurrentReservation_returnsStoredSnapshot() {
         User user = buildUser();
         OrderReturnRequest request = buildRequest(22L, 10L);
-        CommandDto command = new CommandDto("dup-3", "START_EXCHANGE", null);
+        CommandDto command = new CommandDto("dup-3", "SET_MODE_EXCHANGE", null);
 
         RequestDto storedDto = buildRequestDto("00000000-0000-0000-0000-000000000022", 22L, "EXCHANGE");
         String snapshot;
@@ -160,7 +160,7 @@ class ReturnRequestCommandServiceTest {
         ReturnCommandLog completed = new ReturnCommandLog();
         completed.setRequestId(22L);
         completed.setIdempotencyKey("dup-3");
-        completed.setPayloadHash(computePayloadHash(ReturnRequestCommandType.START_EXCHANGE, command));
+        completed.setPayloadHash(computePayloadHash(ReturnRequestCommandType.SET_MODE_EXCHANGE, command));
         completed.setResponseSnapshot(snapshot);
 
         when(returnCommandLogRepository.findFirstByRequestIdAndIdempotencyKey(22L, "dup-3"))
@@ -170,7 +170,7 @@ class ReturnRequestCommandServiceTest {
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
 
         RequestDto result = commandService.executeCommand(22L,
-                ReturnRequestCommandType.START_EXCHANGE,
+                ReturnRequestCommandType.SET_MODE_EXCHANGE,
                 command,
                 user,
                 ZoneOffset.UTC);
@@ -184,12 +184,12 @@ class ReturnRequestCommandServiceTest {
     void executeCommand_whenUpdateDetailsWithoutPayload_throwsBadRequest() {
         User user = buildUser();
         OrderReturnRequest request = buildRequest(23L, 11L);
-        CommandDto command = new CommandDto("dup-4", "UPDATE_DETAILS", JsonNodeFactory.instance.objectNode());
+        CommandDto command = new CommandDto("dup-4", "UPDATE_REVERSE_TRACK", JsonNodeFactory.instance.objectNode());
 
         when(orderReturnRequestService.getOwnedRequest(23L, user)).thenReturn(request);
 
         assertThatThrownBy(() -> commandService.executeCommand(23L,
-                ReturnRequestCommandType.UPDATE_DETAILS,
+                ReturnRequestCommandType.UPDATE_REVERSE_TRACK,
                 command,
                 user,
                 ZoneOffset.UTC))
