@@ -423,6 +423,124 @@ class OrderReturnRequestServiceTest {
     }
 
     @Test
+    void markOutboundSent_TransitionsStageAndSetsManager() {
+        TrackParcel parcel = buildParcel(41L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(1001L);
+        request.setParcel(parcel);
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        request.setStage(ReturnRequestStage.NEW);
+        request.setReverseTrackNumber("BY123");
+
+        when(repository.findById(1001L)).thenReturn(Optional.of(request));
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ZonedDateTime stageMoment = ZonedDateTime.of(2023, 10, 1, 10, 15, 30, 0, ZoneOffset.ofHours(3));
+
+        OrderReturnRequest result = service.markOutboundSent(1001L, 41L, user, stageMoment);
+
+        ZonedDateTime expectedUtc = stageMoment.withZoneSameInstant(ZoneOffset.UTC);
+        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.OUTBOUND_SENT);
+        assertThat(result.getStageStartedAt()).isEqualTo(expectedUtc);
+        assertThat(result.getStageUpdatedAt()).isEqualTo(expectedUtc);
+        assertThat(result.getResponsibleManager()).isEqualTo(user);
+        assertThat(result.getHistoryEntries()).isNotEmpty();
+        verify(repository).save(request);
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
+    }
+
+    @Test
+    void markInboundPickedUp_ConfirmsReceiptAndUpdatesStage() {
+        TrackParcel parcel = buildParcel(42L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(1002L);
+        request.setParcel(parcel);
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        request.setStage(ReturnRequestStage.INBOUND_ARRIVED);
+        request.setReverseTrackNumber("BY321");
+
+        when(repository.findById(1002L)).thenReturn(Optional.of(request));
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ZonedDateTime stageMoment = ZonedDateTime.of(2023, 11, 5, 9, 0, 0, 0, ZoneOffset.UTC);
+
+        OrderReturnRequest result = service.markInboundPickedUp(1002L, 42L, user, stageMoment);
+
+        assertThat(result.isReturnReceiptConfirmed()).isTrue();
+        assertThat(result.getReturnReceiptConfirmedAt()).isEqualTo(stageMoment);
+        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.INBOUND_PICKED_UP);
+        assertThat(result.getResponsibleManager()).isEqualTo(user);
+        verify(repository).save(request);
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
+    }
+
+    @Test
+    void registerExchangeParcel_AssignsTrackAndKeepsStage() {
+        TrackParcel parcel = buildParcel(43L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = buildExchangeRequest(1003L, parcel);
+        request.setStage(ReturnRequestStage.EXCHANGE_REGISTERED);
+
+        when(repository.findById(1003L)).thenReturn(Optional.of(request));
+        when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.empty());
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ZonedDateTime stageMoment = ZonedDateTime.of(2024, 1, 15, 12, 0, 0, 0, ZoneOffset.ofHours(2));
+
+        OrderReturnRequest result = service.registerExchangeParcel(1003L, 43L, user, " ex555 ", stageMoment);
+
+        ZonedDateTime expectedMoment = stageMoment.withZoneSameInstant(ZoneOffset.UTC);
+        assertThat(result.getExchangeTrackNumber()).isEqualTo("EX555");
+        assertThat(result.getExchangeTrackAssignedAt()).isEqualTo(expectedMoment);
+        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.EXCHANGE_REGISTERED);
+        assertThat(result.isManualStageOverride()).isTrue();
+        verify(repository).save(request);
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
+    }
+
+    @Test
+    void markExchangeSent_AssignsTrackAndTransitionsStage() {
+        TrackParcel parcel = buildParcel(44L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = buildExchangeRequest(1004L, parcel);
+        request.setStage(ReturnRequestStage.EXCHANGE_REGISTERED);
+
+        when(repository.findById(1004L)).thenReturn(Optional.of(request));
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ZonedDateTime stageMoment = ZonedDateTime.of(2024, 2, 10, 15, 30, 0, 0, ZoneOffset.UTC);
+
+        OrderReturnRequest result = service.markExchangeSent(1004L, 44L, user, "ex999", stageMoment);
+
+        assertThat(result.getExchangeTrackNumber()).isEqualTo("EX999");
+        assertThat(result.getExchangeTrackAssignedAt()).isEqualTo(stageMoment);
+        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.EXCHANGE_SENT);
+        assertThat(result.isManualStageOverride()).isTrue();
+        verify(repository).save(request);
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
+    }
+
+    @Test
+    void markExchangeDelivered_TransitionsStageWhenTrackPresent() {
+        TrackParcel parcel = buildParcel(45L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = buildExchangeRequest(1005L, parcel);
+        request.setStage(ReturnRequestStage.EXCHANGE_SENT);
+        request.setExchangeTrackNumber("EX777");
+
+        when(repository.findById(1005L)).thenReturn(Optional.of(request));
+        when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.empty());
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ZonedDateTime stageMoment = ZonedDateTime.of(2024, 3, 1, 8, 45, 0, 0, ZoneOffset.UTC);
+
+        OrderReturnRequest result = service.markExchangeDelivered(1005L, 45L, user, stageMoment);
+
+        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.EXCHANGE_DELIVERED);
+        assertThat(result.getStageUpdatedAt()).isEqualTo(stageMoment);
+        assertThat(result.getResponsibleManager()).isEqualTo(user);
+        verify(repository).save(request);
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
+    }
+
+    @Test
     void cancelExchange_ClosesRequestWhenReplacementHasNoTrack() {
         TrackParcel parcel = buildParcel(19L, GlobalStatus.DELIVERED);
         TrackParcel replacement = new TrackParcel();
