@@ -336,10 +336,145 @@ public class OrderReturnRequestService {
         if (request.isReturnReceiptConfirmed()) {
             return request;
         }
-        markReturnProcessingConfirmed(request, user);
+        markReturnProcessingConfirmed(request, user, null);
         OrderReturnRequest saved = returnRequestRepository.save(request);
         evictTrackDetailsCache(saved);
         log.info("Получение возврата подтверждено вручную для заявки {}", saved.getId());
+        return saved;
+    }
+
+    /**
+     * Фиксирует вручную отправку возврата покупателем.
+     */
+    @Transactional
+    public OrderReturnRequest markOutboundSent(Long requestId,
+                                               Long parcelId,
+                                               User user,
+                                               ZonedDateTime stageMoment) {
+        OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
+        if (!canMarkOutboundSent(request)) {
+            throw new IllegalStateException("Стадия отправки возврата недоступна для текущего состояния заявки");
+        }
+        ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
+        request.setResponsibleManager(user);
+        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.OUTBOUND_SENT, true, user, normalizedMoment);
+        OrderReturnRequest saved = returnRequestRepository.save(request);
+        evictTrackDetailsCache(saved);
+        log.info("Стадия OUTBOUND_SENT зафиксирована вручную для заявки {}", saved.getId());
+        return saved;
+    }
+
+    /**
+     * Фиксирует вручную прибытие возврата в пункт назначения магазина.
+     */
+    @Transactional
+    public OrderReturnRequest markInboundArrived(Long requestId,
+                                                 Long parcelId,
+                                                 User user,
+                                                 ZonedDateTime stageMoment) {
+        OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
+        if (!canMarkInboundArrived(request)) {
+            throw new IllegalStateException("Стадия прибытия возврата недоступна для текущего состояния заявки");
+        }
+        ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
+        request.setResponsibleManager(user);
+        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.INBOUND_ARRIVED, true, user, normalizedMoment);
+        OrderReturnRequest saved = returnRequestRepository.save(request);
+        evictTrackDetailsCache(saved);
+        log.info("Стадия INBOUND_ARRIVED зафиксирована вручную для заявки {}", saved.getId());
+        return saved;
+    }
+
+    /**
+     * Фиксирует вручную получение возврата магазином и завершает этап обработки.
+     */
+    @Transactional
+    public OrderReturnRequest markInboundPickedUp(Long requestId,
+                                                  Long parcelId,
+                                                  User user,
+                                                  ZonedDateTime stageMoment) {
+        OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
+        if (!canMarkInboundPickedUp(request)) {
+            throw new IllegalStateException("Стадия приёма возврата недоступна для текущего состояния заявки");
+        }
+        ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
+        markReturnProcessingConfirmed(request, user, normalizedMoment);
+        OrderReturnRequest saved = returnRequestRepository.save(request);
+        evictTrackDetailsCache(saved);
+        log.info("Стадия INBOUND_PICKED_UP зафиксирована вручную для заявки {}", saved.getId());
+        return saved;
+    }
+
+    /**
+     * Регистрирует обменную посылку без автоматического создания в системе.
+     */
+    @Transactional
+    public OrderReturnRequest registerExchangeParcel(Long requestId,
+                                                     Long parcelId,
+                                                     User user,
+                                                     String exchangeTrack,
+                                                     ZonedDateTime stageMoment) {
+        OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
+        if (request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            throw new IllegalStateException("Ручная регистрация доступна только для одобренного обмена");
+        }
+        if (!canRegisterExchangeParcel(request)) {
+            throw new IllegalStateException("Обменная посылка уже зарегистрирована или ожидает обработки");
+        }
+        String normalizedTrack = normalizeExchangeTrackNumber(exchangeTrack);
+        ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
+        assignExchangeTrack(request, normalizedTrack, normalizedMoment, user);
+        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.EXCHANGE_REGISTERED, true, user, normalizedMoment);
+        OrderReturnRequest saved = returnRequestRepository.save(request);
+        evictTrackDetailsCache(saved);
+        log.info("Обменная посылка зарегистрирована вручную для заявки {}", saved.getId());
+        return saved;
+    }
+
+    /**
+     * Фиксирует отправку обменной посылки, обновляя её трек-номер.
+     */
+    @Transactional
+    public OrderReturnRequest markExchangeSent(Long requestId,
+                                               Long parcelId,
+                                               User user,
+                                               String exchangeTrack,
+                                               ZonedDateTime stageMoment) {
+        OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
+        if (request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            throw new IllegalStateException("Стадия отправки обмена недоступна для текущего состояния заявки");
+        }
+        if (!canTransitionToStage(request, ReturnRequestStage.EXCHANGE_SENT)) {
+            throw new IllegalStateException("Переход на стадию отправки обмена запрещён текущими правилами");
+        }
+        String normalizedTrack = normalizeExchangeTrackNumber(exchangeTrack);
+        ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
+        assignExchangeTrack(request, normalizedTrack, normalizedMoment, user);
+        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.EXCHANGE_SENT, true, user, normalizedMoment);
+        OrderReturnRequest saved = returnRequestRepository.save(request);
+        evictTrackDetailsCache(saved);
+        log.info("Стадия EXCHANGE_SENT зафиксирована вручную для заявки {}", saved.getId());
+        return saved;
+    }
+
+    /**
+     * Фиксирует вручную доставку обменной посылки.
+     */
+    @Transactional
+    public OrderReturnRequest markExchangeDelivered(Long requestId,
+                                                    Long parcelId,
+                                                    User user,
+                                                    ZonedDateTime stageMoment) {
+        OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
+        if (!canMarkExchangeDelivered(request)) {
+            throw new IllegalStateException("Стадия доставки обмена недоступна для текущего состояния заявки");
+        }
+        ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
+        request.setResponsibleManager(user);
+        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.EXCHANGE_DELIVERED, true, user, normalizedMoment);
+        OrderReturnRequest saved = returnRequestRepository.save(request);
+        evictTrackDetailsCache(saved);
+        log.info("Стадия EXCHANGE_DELIVERED зафиксирована вручную для заявки {}", saved.getId());
         return saved;
     }
 
@@ -610,7 +745,7 @@ public class OrderReturnRequestService {
         }
         return orderExchangeService.findLatestExchangeParcel(request)
                 .map(this::isParcelDispatched)
-                .orElse(false);
+                .orElseGet(() -> hasExchangeTrack(request));
     }
 
     /**
@@ -757,7 +892,7 @@ public class OrderReturnRequestService {
         }
         return orderExchangeService.findLatestExchangeParcel(request)
                 .map(this::isParcelDispatched)
-                .orElse(false);
+                .orElseGet(() -> hasExchangeTrack(request));
     }
 
     /**
@@ -772,7 +907,7 @@ public class OrderReturnRequestService {
         }
         return orderExchangeService.findLatestExchangeParcel(request)
                 .map(this::isParcelDelivered)
-                .orElse(false);
+                .orElseGet(() -> hasExchangeTrack(request));
     }
 
     /**
@@ -780,6 +915,14 @@ public class OrderReturnRequestService {
      */
     private boolean hasReverseTrack(OrderReturnRequest request) {
         String track = request.getReverseTrackNumber();
+        return track != null && !track.isBlank();
+    }
+
+    /**
+     * Проверяет, указан ли трек обменной посылки.
+     */
+    private boolean hasExchangeTrack(OrderReturnRequest request) {
+        String track = request != null ? request.getExchangeTrackNumber() : null;
         return track != null && !track.isBlank();
     }
 
@@ -924,15 +1067,17 @@ public class OrderReturnRequestService {
      * что облегчает расширение бизнес-правил и соответствует принципу DRY.
      * </p>
      */
-    private void markReturnProcessingConfirmed(OrderReturnRequest request, User actor) {
+    private void markReturnProcessingConfirmed(OrderReturnRequest request,
+                                               User actor,
+                                               ZonedDateTime stageMoment) {
         if (request == null || request.isReturnReceiptConfirmed()) {
             return;
         }
-        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
         request.setReturnReceiptConfirmed(true);
-        request.setReturnReceiptConfirmedAt(now);
+        request.setReturnReceiptConfirmedAt(normalizedMoment);
         request.setResponsibleManager(actor);
-        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.INBOUND_PICKED_UP, true, actor, now);
+        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.INBOUND_PICKED_UP, true, actor, normalizedMoment);
     }
 
     /**
@@ -998,6 +1143,53 @@ public class OrderReturnRequestService {
             throw new IllegalArgumentException("Трек обратной отправки не должен превышать 64 символа");
         }
         return normalized.toUpperCase();
+    }
+
+    /**
+     * Присваивает заявки трек обменной посылки и отмечает ответственного менеджера.
+     */
+    private void assignExchangeTrack(OrderReturnRequest request,
+                                     String exchangeTrack,
+                                     ZonedDateTime assignedAt,
+                                     User actor) {
+        if (request == null) {
+            return;
+        }
+        request.setExchangeTrackNumber(exchangeTrack);
+        request.setExchangeTrackAssignedAt(assignedAt);
+        request.setResponsibleManager(actor);
+    }
+
+    /**
+     * Валидирует и нормализует трек обменной посылки.
+     */
+    private String normalizeExchangeTrackNumber(String exchangeTrackNumber) {
+        if (exchangeTrackNumber == null) {
+            throw new IllegalArgumentException("Не указан трек обменной посылки");
+        }
+        String normalized = exchangeTrackNumber.trim();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException("Не указан трек обменной посылки");
+        }
+        if (normalized.length() > 64) {
+            throw new IllegalArgumentException("Трек обменной посылки не должен превышать 64 символа");
+        }
+        return normalized.toUpperCase();
+    }
+
+    /**
+     * Нормализует момент фиксации стадии и ограничивает значения будущим временем.
+     */
+    private ZonedDateTime normalizeStageMoment(ZonedDateTime stageMoment) {
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        if (stageMoment == null) {
+            return now;
+        }
+        ZonedDateTime utc = stageMoment.withZoneSameInstant(ZoneOffset.UTC);
+        if (utc.isAfter(now.plusMinutes(1))) {
+            throw new IllegalArgumentException("Момент фиксации стадии не может быть в будущем");
+        }
+        return utc;
     }
 }
 

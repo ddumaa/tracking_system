@@ -10,8 +10,10 @@ import com.project.tracking_system.entity.ReturnCommandLog;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.repository.ReturnCommandLogRepository;
+import com.project.tracking_system.service.order.payload.ExchangeShipmentPayload;
 import com.project.tracking_system.service.order.payload.ReturnRequestCommandPayload;
 import com.project.tracking_system.service.order.payload.ReturnRequestCommandPayloadFactory;
+import com.project.tracking_system.service.order.payload.StageMarkPayload;
 import com.project.tracking_system.service.order.payload.UpdateDetailsPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -120,7 +122,7 @@ public class ReturnRequestCommandService {
         MessageDigest digest = getDigest();
         digest.update(type.name().getBytes(StandardCharsets.UTF_8));
         digest.update(nullSafeBytes(command.action()));
-        payload.contributeTo(digest);
+        payload.updateDigest(digest, objectMapper);
         byte[] hash = digest.digest();
         return HexFormat.of().formatHex(hash);
     }
@@ -139,6 +141,35 @@ public class ReturnRequestCommandService {
                 orderReturnRequestService.createExchangeParcel(requestId, parcelId, user);
                 yield orderReturnRequestService.getOwnedRequest(requestId, user);
             }
+            case REGISTER_EXCHANGE_PARCEL -> {
+                ExchangeShipmentPayload exchangePayload = (ExchangeShipmentPayload) payload;
+                yield orderReturnRequestService.registerExchangeParcel(
+                        requestId,
+                        parcelId,
+                        user,
+                        exchangePayload.exchangeTrack(),
+                        exchangePayload.stageMoment()
+                );
+            }
+            case MARK_EXCHANGE_SENT -> {
+                ExchangeShipmentPayload exchangePayload = (ExchangeShipmentPayload) payload;
+                yield orderReturnRequestService.markExchangeSent(
+                        requestId,
+                        parcelId,
+                        user,
+                        exchangePayload.exchangeTrack(),
+                        exchangePayload.stageMoment()
+                );
+            }
+            case MARK_EXCHANGE_DELIVERED -> {
+                StageMarkPayload stagePayload = (StageMarkPayload) payload;
+                yield orderReturnRequestService.markExchangeDelivered(
+                        requestId,
+                        parcelId,
+                        user,
+                        stagePayload.stageMoment()
+                );
+            }
             case CLOSE -> orderReturnRequestService.closeWithoutExchange(requestId, parcelId, user);
             case CONFIRM_RECEIPT -> orderReturnRequestService.confirmReturnProcessing(requestId, parcelId, user);
             case UPDATE_DETAILS -> {
@@ -151,6 +182,33 @@ public class ReturnRequestCommandService {
                         updatePayload.comment()
                 );
                 yield orderReturnRequestService.getOwnedRequest(requestId, user);
+            }
+            case MARK_OUTBOUND_SENT -> {
+                StageMarkPayload stagePayload = (StageMarkPayload) payload;
+                yield orderReturnRequestService.markOutboundSent(
+                        requestId,
+                        parcelId,
+                        user,
+                        stagePayload.stageMoment()
+                );
+            }
+            case MARK_INBOUND_ARRIVED -> {
+                StageMarkPayload stagePayload = (StageMarkPayload) payload;
+                yield orderReturnRequestService.markInboundArrived(
+                        requestId,
+                        parcelId,
+                        user,
+                        stagePayload.stageMoment()
+                );
+            }
+            case MARK_INBOUND_PICKED_UP -> {
+                StageMarkPayload stagePayload = (StageMarkPayload) payload;
+                yield orderReturnRequestService.markInboundPickedUp(
+                        requestId,
+                        parcelId,
+                        user,
+                        stagePayload.stageMoment()
+                );
             }
             case REOPEN_RETURN -> orderReturnRequestService.reopenAsReturn(requestId, parcelId, user);
             case CANCEL_EXCHANGE -> orderReturnRequestService.cancelExchange(requestId, parcelId, user);
