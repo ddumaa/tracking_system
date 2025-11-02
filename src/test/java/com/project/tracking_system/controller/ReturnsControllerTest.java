@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.List;
 import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.ArgumentMatchers.any;
@@ -69,7 +70,7 @@ class ReturnsControllerTest {
                 eq(false)
         )).thenReturn(request);
 
-        RequestDto responseDto = buildRequestDto(15L, "RETURN", "NEW", 17L, 7L);
+        RequestDto responseDto = buildRequestDto("00000000-0000-0000-0000-000000000015", 15L, "RETURN", "NEW", 17L, 7L);
         when(returnRequestMapper.toDto(eq(request), any())).thenReturn(responseDto);
 
         mockMvc.perform(post("/api/v1/returns")
@@ -85,7 +86,9 @@ class ReturnsControllerTest {
                                 "\"isExchange\":false" +
                                 "}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id", equalTo(15)))
+                .andExpect(jsonPath("$.id", equalTo("00000000-0000-0000-0000-000000000015")))
+                .andExpect(jsonPath("$.legacyId", equalTo(15)))
+                .andExpect(jsonPath("$.reverseTrackNumber", equalTo("BY123")))
                 .andExpect(jsonPath("$.mode", equalTo("RETURN")));
 
         verify(orderReturnRequestService).registerReturn(
@@ -105,7 +108,7 @@ class ReturnsControllerTest {
         User principal = buildUser();
         UsernamePasswordAuthenticationToken auth = authentication(principal);
 
-        RequestDto responseDto = buildRequestDto(21L, "EXCHANGE", "EXCHANGE_REGISTERED", 17L, 11L);
+        RequestDto responseDto = buildRequestDto("00000000-0000-0000-0000-000000000021", 21L, "EXCHANGE", "EXCHANGE_REGISTERED", 17L, 11L);
         when(returnRequestCommandService.executeCommand(eq(21L), any(), any(), eq(principal), any()))
                 .thenReturn(responseDto);
 
@@ -114,7 +117,8 @@ class ReturnsControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"idempotencyKey\":\"cmd-1\",\"action\":\"start_exchange\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id", equalTo(21)))
+                .andExpect(jsonPath("$.id", equalTo("00000000-0000-0000-0000-000000000021")))
+                .andExpect(jsonPath("$.legacyId", equalTo(21)))
                 .andExpect(jsonPath("$.mode", equalTo("EXCHANGE")));
         verify(returnRequestCommandService).executeCommand(eq(21L), any(), any(), eq(principal), any());
     }
@@ -124,7 +128,7 @@ class ReturnsControllerTest {
         User principal = buildUser();
         UsernamePasswordAuthenticationToken auth = authentication(principal);
 
-        RequestDto responseDto = buildRequestDto(30L, "RETURN", "INBOUND_PICKED_UP", 17L, 30L);
+        RequestDto responseDto = buildRequestDto("00000000-0000-0000-0000-000000000030", 30L, "RETURN", "INBOUND_PICKED_UP", 17L, 30L);
         when(returnRequestCommandService.executeCommand(eq(30L), any(), any(), eq(principal), any()))
                 .thenReturn(responseDto);
 
@@ -145,12 +149,12 @@ class ReturnsControllerTest {
         OrderReturnRequest request = new OrderReturnRequest();
         when(orderReturnRequestService.getOwnedRequest(51L, principal)).thenReturn(request);
         when(returnRequestMapper.toDto(eq(request), any()))
-                .thenReturn(buildRequestDto(51L, "RETURN", "NEW", 17L, 51L));
+                .thenReturn(buildRequestDto("00000000-0000-0000-0000-000000000051", 51L, "RETURN", "NEW", 17L, 51L));
 
         mockMvc.perform(get("/api/v1/returns/51")
                         .with(auth))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id", equalTo(51)));
+                .andExpect(jsonPath("$.legacyId", equalTo(51)));
     }
 
     @Test
@@ -174,20 +178,35 @@ class ReturnsControllerTest {
         return new UsernamePasswordAuthenticationToken(user, user.getPassword(), user.getAuthorities());
     }
 
-    private RequestDto buildRequestDto(Long id,
+    private RequestDto buildRequestDto(String uuid,
+                                       Long legacyId,
                                        String mode,
                                        String stage,
                                        Long storeId,
                                        Long parcelId) {
+        ZonedDateTime timestamp = ZonedDateTime.parse("2024-01-01T10:15:30Z");
         return new RequestDto(
-                id,
+                uuid,
+                legacyId,
                 mode,
                 stage,
                 storeId,
                 99L,
                 parcelId,
                 5L,
-                7L
+                7L,
+                "Причина",
+                timestamp,
+                "Комментарий",
+                "BY123",
+                "EX123",
+                false,
+                false,
+                false,
+                true,
+                timestamp,
+                timestamp,
+                timestamp
         );
     }
 

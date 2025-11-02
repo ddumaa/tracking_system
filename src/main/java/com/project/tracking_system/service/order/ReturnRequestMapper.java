@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
@@ -28,10 +29,10 @@ public class ReturnRequestMapper {
     private final OrderReturnRequestService orderReturnRequestService;
 
     /**
-     * Преобразует заявку в минималистичный DTO карточки возврата.
-     * Метод возвращает только идентификаторы и текущие технические поля,
-     * необходимые клиентам для дальнейших запросов (SRP: форматирование витринных
-     * данных вынесено в другие компоненты).
+     * Преобразует заявку в DTO карточки возврата согласно JSON Schema.
+     * Метод дополняет идентификаторы сведениями о причинах, комментариях и треках,
+     * сохраняя ответственность маппера за конвертацию доменной модели в формат API
+     * (принцип единой ответственности).
      *
      * @param request исходная заявка
      * @param userZone временная зона пользователя (не используется, сохранена для обратной совместимости вызовов)
@@ -60,7 +61,13 @@ public class ReturnRequestMapper {
                 .map(manager -> manager.getId())
                 .orElse(null);
 
+        String publicId = resolvePublicId(request);
+        boolean manualInboundPick = resolveManualInboundPickFlag(request, stage);
+        ZonedDateTime createdAt = request.getCreatedAt();
+        ZonedDateTime updatedAt = resolveUpdatedAt(request, createdAt);
+
         return new RequestDto(
+                publicId,
                 request.getId(),
                 mode.name(),
                 stage.getCode(),
@@ -68,8 +75,55 @@ public class ReturnRequestMapper {
                 orderId,
                 parcelId,
                 userId,
-                responsibleId
+                responsibleId,
+                request.getReason(),
+                request.getRequestedAt(),
+                request.getComment(),
+                request.getReverseTrackNumber(),
+                request.getExchangeTrackNumber(),
+                request.isManualTrackOverride(),
+                request.isManualStageOverride(),
+                manualInboundPick,
+                request.isReturnReceiptConfirmed(),
+                request.getExchangeTrackAssignedAt(),
+                createdAt,
+                updatedAt
         );
+    }
+
+    /**
+     * Возвращает публичный идентификатор заявки.
+     * <p>
+     * Если идемпотентный ключ отсутствует (старые записи), используется
+     * числовой идентификатор, чтобы не терять совместимость.
+     * </p>
+     */
+    private String resolvePublicId(OrderReturnRequest request) {
+        return Optional.ofNullable(request.getIdempotencyKey())
+                .filter(key -> !key.isBlank())
+                .orElseGet(() -> Optional.ofNullable(request.getId())
+                        .map(String::valueOf)
+                        .orElse(null));
+    }
+
+    /**
+     * Определяет флаг ручного подтверждения получения возврата.
+     * <p>
+     * Флаг активен только для стадии INBOUND_PICKED_UP и когда переход выполнен вручную,
+     * что позволяет фронтенду отличить автоматические обновления от действий оператора.
+     * </p>
+     */
+    private boolean resolveManualInboundPickFlag(OrderReturnRequest request, ReturnRequestStage stage) {
+        return request.isManualStageOverride() && stage == ReturnRequestStage.INBOUND_PICKED_UP;
+    }
+
+    /**
+     * Рассчитывает момент последнего изменения заявки с безопасным запасом.
+     */
+    private ZonedDateTime resolveUpdatedAt(OrderReturnRequest request, ZonedDateTime createdAt) {
+        return Optional.ofNullable(request.getStageUpdatedAt())
+                .orElseGet(() -> Optional.ofNullable(request.getStageStartedAt())
+                        .orElse(createdAt));
     }
 
     /**

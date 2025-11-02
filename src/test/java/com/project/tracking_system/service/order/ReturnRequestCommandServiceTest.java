@@ -76,7 +76,7 @@ class ReturnRequestCommandServiceTest {
         User user = buildUser();
         OrderReturnRequest request = buildRequest(21L, 9L);
         OrderReturnRequest updated = buildRequest(21L, 9L);
-        RequestDto dto = buildRequestDto(21L, "EXCHANGE");
+        RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000021", 21L, "EXCHANGE");
         CommandDto command = new CommandDto("dup-1", "START_EXCHANGE", null);
 
         when(orderReturnRequestService.getOwnedRequest(21L, user)).thenReturn(request);
@@ -148,7 +148,7 @@ class ReturnRequestCommandServiceTest {
         OrderReturnRequest request = buildRequest(22L, 10L);
         CommandDto command = new CommandDto("dup-3", "START_EXCHANGE", null);
 
-        RequestDto storedDto = buildRequestDto(22L, "EXCHANGE");
+        RequestDto storedDto = buildRequestDto("00000000-0000-0000-0000-000000000022", 22L, "EXCHANGE");
         String snapshot;
         try {
             snapshot = new ObjectMapper().writeValueAsString(storedDto);
@@ -175,7 +175,7 @@ class ReturnRequestCommandServiceTest {
                 user,
                 ZoneOffset.UTC);
 
-        assertThat(result.id()).isEqualTo(22L);
+        assertThat(result.legacyId()).isEqualTo(22L);
         verify(orderReturnRequestService, never()).approveExchange(any(), any(), any());
         verify(returnRequestMapper, never()).toDto(any(), any());
     }
@@ -204,7 +204,7 @@ class ReturnRequestCommandServiceTest {
         User user = buildUser();
         OrderReturnRequest request = buildRequest(31L, 15L);
         OrderReturnRequest updated = buildRequest(31L, 15L);
-        RequestDto dto = buildRequestDto(31L, "RETURN");
+        RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000031", 31L, "RETURN");
 
         JsonNodeFactory factory = JsonNodeFactory.instance;
         CommandDto command = new CommandDto(
@@ -245,7 +245,7 @@ class ReturnRequestCommandServiceTest {
         User user = buildUser();
         OrderReturnRequest request = buildRequest(32L, 16L);
         OrderReturnRequest updated = buildRequest(32L, 16L);
-        RequestDto dto = buildRequestDto(32L, "EXCHANGE");
+        RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000032", 32L, "EXCHANGE");
 
         JsonNodeFactory factory = JsonNodeFactory.instance;
         CommandDto command = new CommandDto(
@@ -317,16 +317,30 @@ class ReturnRequestCommandServiceTest {
         return request;
     }
 
-    private RequestDto buildRequestDto(Long id, String mode) {
+    private RequestDto buildRequestDto(String uuid, Long legacyId, String mode) {
+        ZonedDateTime timestamp = ZonedDateTime.parse("2024-01-01T10:15:30Z");
         return new RequestDto(
-                id,
+                uuid,
+                legacyId,
                 mode,
                 "NEW",
                 10L,
                 20L,
                 30L,
                 40L,
-                50L
+                50L,
+                "Причина",
+                timestamp,
+                "Комментарий",
+                "BY123",
+                "EX123",
+                false,
+                false,
+                false,
+                true,
+                timestamp,
+                timestamp,
+                timestamp
         );
     }
 }
