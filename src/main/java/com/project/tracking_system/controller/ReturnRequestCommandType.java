@@ -13,15 +13,6 @@ enum ReturnRequestCommandType {
     /** Создать обменную посылку для одобренного обмена. */
     CREATE_EXCHANGE_PARCEL("CREATE_EXCHANGE_PARCEL"),
 
-    /** Зарегистрировать вручную обменную посылку. */
-    REGISTER_EXCHANGE_PARCEL("REGISTER_EXCHANGE_PARCEL"),
-
-    /** Отметить отправку обменной посылки. */
-    MARK_EXCHANGE_SENT("MARK_EXCHANGE_SENT"),
-
-    /** Отметить доставку обменной посылки покупателю. */
-    MARK_EXCHANGE_DELIVERED("MARK_EXCHANGE_DELIVERED"),
-
     /** Отменить запущенный обмен. */
     CANCEL_EXCHANGE("CANCEL_EXCHANGE"),
 
@@ -33,15 +24,6 @@ enum ReturnRequestCommandType {
 
     /** Обновить данные заявки (треки и комментарии). */
     UPDATE_DETAILS("UPDATE_DETAILS"),
-
-    /** Отметить отправку возврата покупателем. */
-    MARK_OUTBOUND_SENT("MARK_OUTBOUND_SENT"),
-
-    /** Отметить прибытие возврата в пункт назначения. */
-    MARK_INBOUND_ARRIVED("MARK_INBOUND_ARRIVED"),
-
-    /** Отметить приём возврата магазином. */
-    MARK_INBOUND_PICKED_UP("MARK_INBOUND_PICKED_UP"),
 
     /** Закрыть заявку без запуска обмена. */
     CLOSE("CLOSE");

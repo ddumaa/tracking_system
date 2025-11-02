@@ -9,14 +9,13 @@ import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.ReturnCommandLog;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
-import com.project.tracking_system.repository.ReturnCommandLogRepository;
 import com.project.tracking_system.service.order.payload.ReturnRequestCommandPayload;
 import com.project.tracking_system.service.order.payload.ReturnRequestCommandPayloadFactory;
 import com.project.tracking_system.service.order.ReturnRequestMapper;
+import com.project.tracking_system.repository.ReturnCommandLogRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -25,7 +24,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.HexFormat;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -56,17 +54,15 @@ class ReturnRequestCommandServiceTest {
 
     private ReturnRequestCommandService commandService;
     private ReturnRequestCommandPayloadFactory payloadFactory;
-    private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
         payloadFactory = new ReturnRequestCommandPayloadFactory();
-        objectMapper = new ObjectMapper();
         commandService = new ReturnRequestCommandService(
                 orderReturnRequestService,
                 returnRequestMapper,
                 returnCommandLogRepository,
-                objectMapper,
+                new ObjectMapper(),
                 payloadFactory
         );
     }
@@ -199,99 +195,13 @@ class ReturnRequestCommandServiceTest {
         verify(orderReturnRequestService, never()).updateReverseTrackAndComment(any(), any(), any(), any(), any());
     }
 
-    @Test
-    void executeCommand_whenMarkOutboundSent_usesNormalizedStageMoment() {
-        User user = buildUser();
-        OrderReturnRequest request = buildRequest(31L, 15L);
-        OrderReturnRequest updated = buildRequest(31L, 15L);
-        RequestDto dto = buildRequestDto(31L, "RETURN");
-
-        JsonNodeFactory factory = JsonNodeFactory.instance;
-        CommandDto command = new CommandDto(
-                "stage-1",
-                "MARK_OUTBOUND_SENT",
-                factory.objectNode().put("stageMoment", "2023-10-01T10:15:30+03:00")
-        );
-
-        when(orderReturnRequestService.getOwnedRequest(31L, user)).thenReturn(request);
-        when(orderReturnRequestService.markOutboundSent(eq(31L), eq(15L), eq(user), any()))
-                .thenReturn(updated);
-        when(returnRequestMapper.toDto(eq(updated), any())).thenReturn(dto);
-
-        AtomicReference<ReturnCommandLog> savedLog = new AtomicReference<>();
-        when(returnCommandLogRepository.findFirstByRequestIdAndIdempotencyKey(31L, "stage-1"))
-                .thenAnswer(invocation -> Optional.ofNullable(savedLog.get()));
-        when(returnCommandLogRepository.saveAndFlush(any(ReturnCommandLog.class)))
-                .thenAnswer(invocation -> {
-                    ReturnCommandLog logEntry = invocation.getArgument(0);
-                    savedLog.set(logEntry);
-                    return logEntry;
-                });
-
-        RequestDto result = commandService.executeCommand(31L,
-                ReturnRequestCommandType.MARK_OUTBOUND_SENT,
-                command,
-                user,
-                ZoneOffset.UTC);
-
-        assertThat(result).isEqualTo(dto);
-        ArgumentCaptor<ZonedDateTime> momentCaptor = ArgumentCaptor.forClass(ZonedDateTime.class);
-        verify(orderReturnRequestService).markOutboundSent(eq(31L), eq(15L), eq(user), momentCaptor.capture());
-        assertThat(momentCaptor.getValue()).isEqualTo(ZonedDateTime.parse("2023-10-01T07:15:30Z"));
-    }
-
-    @Test
-    void executeCommand_whenRegisterExchangeParcel_normalizesTrackAndStageMoment() {
-        User user = buildUser();
-        OrderReturnRequest request = buildRequest(32L, 16L);
-        OrderReturnRequest updated = buildRequest(32L, 16L);
-        RequestDto dto = buildRequestDto(32L, "EXCHANGE");
-
-        JsonNodeFactory factory = JsonNodeFactory.instance;
-        CommandDto command = new CommandDto(
-                "stage-2",
-                "REGISTER_EXCHANGE_PARCEL",
-                factory.objectNode()
-                        .put("exchangeTrack", "  ex123  ")
-                        .put("stageMoment", "2024-01-15T12:00:00+02:00")
-        );
-
-        when(orderReturnRequestService.getOwnedRequest(32L, user)).thenReturn(request);
-        when(orderReturnRequestService.registerExchangeParcel(eq(32L), eq(16L), eq(user), any(), any()))
-                .thenReturn(updated);
-        when(returnRequestMapper.toDto(eq(updated), any())).thenReturn(dto);
-
-        AtomicReference<ReturnCommandLog> savedLog = new AtomicReference<>();
-        when(returnCommandLogRepository.findFirstByRequestIdAndIdempotencyKey(32L, "stage-2"))
-                .thenAnswer(invocation -> Optional.ofNullable(savedLog.get()));
-        when(returnCommandLogRepository.saveAndFlush(any(ReturnCommandLog.class)))
-                .thenAnswer(invocation -> {
-                    ReturnCommandLog logEntry = invocation.getArgument(0);
-                    savedLog.set(logEntry);
-                    return logEntry;
-                });
-
-        RequestDto result = commandService.executeCommand(32L,
-                ReturnRequestCommandType.REGISTER_EXCHANGE_PARCEL,
-                command,
-                user,
-                ZoneOffset.UTC);
-
-        assertThat(result).isEqualTo(dto);
-        ArgumentCaptor<String> trackCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<ZonedDateTime> momentCaptor = ArgumentCaptor.forClass(ZonedDateTime.class);
-        verify(orderReturnRequestService).registerExchangeParcel(eq(32L), eq(16L), eq(user), trackCaptor.capture(), momentCaptor.capture());
-        assertThat(trackCaptor.getValue()).isEqualTo("EX123");
-        assertThat(momentCaptor.getValue()).isEqualTo(ZonedDateTime.parse("2024-01-15T10:00:00Z"));
-    }
-
     private String computePayloadHash(ReturnRequestCommandType type, CommandDto command) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             digest.update(type.name().getBytes(StandardCharsets.UTF_8));
             digest.update(nullSafeBytes(command.action()));
             ReturnRequestCommandPayload payload = payloadFactory.create(type, command.payload());
-            payload.updateDigest(digest, objectMapper);
+            payload.contributeTo(digest);
             return HexFormat.of().formatHex(digest.digest());
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException(ex);
