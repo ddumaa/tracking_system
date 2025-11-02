@@ -10,6 +10,9 @@ import com.project.tracking_system.entity.ReturnCommandLog;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.repository.ReturnCommandLogRepository;
+import com.project.tracking_system.service.order.payload.ReturnRequestCommandPayload;
+import com.project.tracking_system.service.order.payload.ReturnRequestCommandPayloadFactory;
+import com.project.tracking_system.service.order.payload.UpdateDetailsPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -43,6 +46,7 @@ public class ReturnRequestCommandService {
     private final ReturnRequestMapper returnRequestMapper;
     private final ReturnCommandLogRepository returnCommandLogRepository;
     private final ObjectMapper objectMapper;
+    private final ReturnRequestCommandPayloadFactory payloadFactory;
 
     /**
      * Выполняет команду с учётом идемпотентности и возвращает DTO заявки.
@@ -66,14 +70,15 @@ public class ReturnRequestCommandService {
         Long parcelId = resolveParcelId(context);
 
         String normalizedKey = command.idempotencyKey().trim();
-        String payloadHash = computePayloadHash(commandType, command);
+        ReturnRequestCommandPayload payload = payloadFactory.create(commandType, command.payload());
+        String payloadHash = computePayloadHash(commandType, command, payload);
 
         ReturnCommandLog logEntry = reserveLogEntry(requestId, normalizedKey, commandType, payloadHash);
         if (logEntry.getResponseSnapshot() != null) {
             return restoreResponse(logEntry);
         }
 
-        OrderReturnRequest updated = performCommand(commandType, command, user, requestId, parcelId);
+        OrderReturnRequest updated = performCommand(commandType, payload, user, requestId, parcelId);
         RequestDto response = returnRequestMapper.toDto(updated, userZone);
         completeLogEntry(logEntry, response);
         return response;
@@ -109,15 +114,13 @@ public class ReturnRequestCommandService {
     /**
      * Вычисляет хеш полезной нагрузки команды.
      */
-    private String computePayloadHash(ReturnRequestCommandType type, CommandDto command) {
+    private String computePayloadHash(ReturnRequestCommandType type,
+                                      CommandDto command,
+                                      ReturnRequestCommandPayload payload) {
         MessageDigest digest = getDigest();
         digest.update(type.name().getBytes(StandardCharsets.UTF_8));
         digest.update(nullSafeBytes(command.action()));
-        CommandDto.Payload payload = command.payload();
-        if (payload != null) {
-            digest.update(nullSafeBytes(payload.reverseTrack()));
-            digest.update(nullSafeBytes(payload.comment()));
-        }
+        payload.contributeTo(digest);
         byte[] hash = digest.digest();
         return HexFormat.of().formatHex(hash);
     }
@@ -126,7 +129,7 @@ public class ReturnRequestCommandService {
      * Выполняет бизнес-логику команды через соответствующий сервис.
      */
     private OrderReturnRequest performCommand(ReturnRequestCommandType type,
-                                              CommandDto command,
+                                              ReturnRequestCommandPayload payload,
                                               User user,
                                               Long requestId,
                                               Long parcelId) {
@@ -139,13 +142,13 @@ public class ReturnRequestCommandService {
             case CLOSE -> orderReturnRequestService.closeWithoutExchange(requestId, parcelId, user);
             case CONFIRM_RECEIPT -> orderReturnRequestService.confirmReturnProcessing(requestId, parcelId, user);
             case UPDATE_DETAILS -> {
-                CommandDto.Payload payload = Optional.ofNullable(command.payload()).orElse(new CommandDto.Payload(null, null));
+                UpdateDetailsPayload updatePayload = (UpdateDetailsPayload) payload;
                 orderReturnRequestService.updateReverseTrackAndComment(
                         requestId,
                         parcelId,
                         user,
-                        payload.reverseTrack(),
-                        payload.comment()
+                        updatePayload.reverseTrack(),
+                        updatePayload.comment()
                 );
                 yield orderReturnRequestService.getOwnedRequest(requestId, user);
             }

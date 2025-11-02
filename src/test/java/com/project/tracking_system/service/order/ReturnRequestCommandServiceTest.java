@@ -1,6 +1,7 @@
 package com.project.tracking_system.service.order;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.project.tracking_system.controller.ReturnRequestCommandType;
 import com.project.tracking_system.dto.CommandDto;
 import com.project.tracking_system.dto.RequestDto;
@@ -8,6 +9,8 @@ import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.ReturnCommandLog;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.service.order.payload.ReturnRequestCommandPayload;
+import com.project.tracking_system.service.order.payload.ReturnRequestCommandPayloadFactory;
 import com.project.tracking_system.service.order.ReturnRequestMapper;
 import com.project.tracking_system.repository.ReturnCommandLogRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,14 +53,17 @@ class ReturnRequestCommandServiceTest {
     private ReturnCommandLogRepository returnCommandLogRepository;
 
     private ReturnRequestCommandService commandService;
+    private ReturnRequestCommandPayloadFactory payloadFactory;
 
     @BeforeEach
     void setUp() {
+        payloadFactory = new ReturnRequestCommandPayloadFactory();
         commandService = new ReturnRequestCommandService(
                 orderReturnRequestService,
                 returnRequestMapper,
                 returnCommandLogRepository,
-                new ObjectMapper()
+                new ObjectMapper(),
+                payloadFactory
         );
     }
 
@@ -170,16 +176,32 @@ class ReturnRequestCommandServiceTest {
         verify(returnRequestMapper, never()).toDto(any(), any());
     }
 
+    @Test
+    void executeCommand_whenUpdateDetailsWithoutPayload_throwsBadRequest() {
+        User user = buildUser();
+        OrderReturnRequest request = buildRequest(23L, 11L);
+        CommandDto command = new CommandDto("dup-4", "UPDATE_DETAILS", JsonNodeFactory.instance.objectNode());
+
+        when(orderReturnRequestService.getOwnedRequest(23L, user)).thenReturn(request);
+
+        assertThatThrownBy(() -> commandService.executeCommand(23L,
+                ReturnRequestCommandType.UPDATE_DETAILS,
+                command,
+                user,
+                ZoneOffset.UTC))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("reverseTrack");
+
+        verify(orderReturnRequestService, never()).updateReverseTrackAndComment(any(), any(), any(), any(), any());
+    }
+
     private String computePayloadHash(ReturnRequestCommandType type, CommandDto command) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             digest.update(type.name().getBytes(StandardCharsets.UTF_8));
             digest.update(nullSafeBytes(command.action()));
-            CommandDto.Payload payload = command.payload();
-            if (payload != null) {
-                digest.update(nullSafeBytes(payload.reverseTrack()));
-                digest.update(nullSafeBytes(payload.comment()));
-            }
+            ReturnRequestCommandPayload payload = payloadFactory.create(type, command.payload());
+            payload.contributeTo(digest);
             return HexFormat.of().formatHex(digest.digest());
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException(ex);
