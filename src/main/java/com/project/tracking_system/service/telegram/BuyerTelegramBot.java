@@ -1312,7 +1312,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 .build()));
         if (request.status() == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
             boolean exchangeDispatched = request.state().exchangeShipmentDispatched();
-            boolean cancelEnabled = request.hasAction(ReturnRequestAction.CANCEL_EXCHANGE);
+            boolean cancelEnabled = request.hasAction(ReturnRequestAction.CLOSE_REQUEST);
             if (cancelEnabled) {
                 String cancelText = exchangeDispatched
                         ? BUTTON_RETURNS_ACTION_CANCEL_EXCHANGE_REQUEST
@@ -1332,7 +1332,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         } else {
             boolean reverseTrackProvided = request.reverseTrack() != null
                     && !request.reverseTrack().isBlank();
-            if (actionCodeSet.contains(ReturnRequestAction.CLOSE.getCode())) {
+            if (actionCodeSet.contains(ReturnRequestAction.CLOSE_REQUEST.getCode())) {
                 String cancelText = reverseTrackProvided
                         ? BUTTON_RETURNS_ACTION_CANCEL_RETURN_CONFIRM
                         : BUTTON_RETURNS_ACTION_CANCEL_RETURN;
@@ -2004,7 +2004,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         }
         answerCallbackQuery(callbackQuery, "Требуется подтверждение");
         ChatSession session = ensureChatSession(chatId);
-        showActiveRequestConfirmation(chatId, session, detailsOptional.get(), context, ReturnRequestAction.CLOSE);
+        showActiveRequestConfirmation(chatId, session, detailsOptional.get(), context, ReturnRequestAction.CLOSE_REQUEST);
     }
 
     private void handleActiveRequestCancelExchange(Long chatId, CallbackQuery callbackQuery, String data) {
@@ -2023,7 +2023,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         ActiveRequestDetails details = detailsOptional.get();
         answerCallbackQuery(callbackQuery, "Требуется подтверждение");
         ChatSession session = ensureChatSession(chatId);
-        showActiveRequestConfirmation(chatId, session, details, context, ReturnRequestAction.CANCEL_EXCHANGE);
+        showActiveRequestConfirmation(chatId, session, details, context, ReturnRequestAction.CLOSE_REQUEST);
     }
 
     private void handleActiveRequestConvert(Long chatId, CallbackQuery callbackQuery, String data) {
@@ -2042,7 +2042,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
         ActiveRequestDetails details = detailsOptional.get();
         answerCallbackQuery(callbackQuery, "Требуется подтверждение");
         ChatSession session = ensureChatSession(chatId);
-        showActiveRequestConfirmation(chatId, session, details, context, ReturnRequestAction.REOPEN_RETURN);
+        showActiveRequestConfirmation(chatId, session, details, context, ReturnRequestAction.SET_MODE_RETURN);
     }
 
     private Optional<ActiveRequestDetails> loadActiveRequestDetails(Long chatId, RequestActionContext context) {
@@ -2129,15 +2129,28 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return RETURNS_ACTIVE_CONFIRMATION_PROMPT;
         }
         return switch (action) {
-            case CLOSE -> buildCancelReturnConfirmation(request);
-            case CANCEL_EXCHANGE -> request.state().exchangeShipmentDispatched()
-                    ? RETURNS_ACTIVE_CANCEL_EXCHANGE_REQUEST_CONFIRMATION
-                    : RETURNS_ACTIVE_CANCEL_EXCHANGE_CONFIRMATION;
-            case REOPEN_RETURN -> request.state().exchangeShipmentDispatched()
+            case CLOSE_REQUEST -> buildCloseRequestConfirmation(request);
+            case SET_MODE_RETURN -> request.state().exchangeShipmentDispatched()
                     ? RETURNS_ACTIVE_CONVERT_REQUEST_CONFIRMATION
                     : RETURNS_ACTIVE_CONVERT_CONFIRMATION;
             default -> RETURNS_ACTIVE_CONFIRMATION_PROMPT;
         };
+    }
+
+    /**
+     * Формирует текст подтверждения закрытия заявки с учётом её текущего режима.
+     */
+    private String buildCloseRequestConfirmation(ActionRequiredReturnRequestDto request) {
+        if (request == null) {
+            return RETURNS_ACTIVE_CONFIRMATION_PROMPT;
+        }
+        ReturnRequestMode mode = request.state() != null ? request.state().mode() : ReturnRequestMode.RETURN;
+        if (mode == ReturnRequestMode.EXCHANGE) {
+            return request.state().exchangeShipmentDispatched()
+                    ? RETURNS_ACTIVE_CANCEL_EXCHANGE_REQUEST_CONFIRMATION
+                    : RETURNS_ACTIVE_CANCEL_EXCHANGE_CONFIRMATION;
+        }
+        return buildCancelReturnConfirmation(request);
     }
 
     private String buildCancelReturnConfirmation(ActionRequiredReturnRequestDto request) {
@@ -2247,9 +2260,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             return;
         }
         switch (action) {
-            case CLOSE -> executeCancelReturn(chatId, session, context);
-            case CANCEL_EXCHANGE -> executeCancelExchange(chatId, session, context, requestInfo);
-            case REOPEN_RETURN -> executeConvertToReturn(chatId, session, context, requestInfo);
+            case CLOSE_REQUEST -> executeCancelReturn(chatId, session, context);
+            case CLOSE_REQUEST -> executeCancelExchange(chatId, session, context, requestInfo);
+            case SET_MODE_RETURN -> executeConvertToReturn(chatId, session, context, requestInfo);
             default -> finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_NOT_AVAILABLE);
         }
     }

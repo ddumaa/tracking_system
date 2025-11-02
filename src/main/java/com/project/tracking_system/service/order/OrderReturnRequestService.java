@@ -796,21 +796,34 @@ public class OrderReturnRequestService {
             return false;
         }
         return switch (action) {
-            case START_EXCHANGE -> canStartExchange(request);
-            case REOPEN_RETURN -> canReopenAsReturn(request);
-            case CREATE_EXCHANGE_PARCEL -> canCreateExchangeParcel(request);
-            case CLOSE -> request.getStatus() == OrderReturnRequestStatus.REGISTERED;
-            case CANCEL_EXCHANGE -> canCancelExchange(request);
-            case CONFIRM_RECEIPT -> canConfirmReceipt(request);
-            case UPDATE_DETAILS -> canUpdateDetails(request);
+            case SET_MODE_EXCHANGE -> canStartExchange(request);
+            case SET_MODE_RETURN -> canReopenAsReturn(request);
+            case REGISTER_EXCHANGE_PARCEL -> canRegisterExchangeParcel(request);
+            case CLOSE_REQUEST -> canCloseRequest(request);
+            case UPDATE_REVERSE_TRACK -> canUpdateDetails(request);
             case MARK_OUTBOUND_SENT -> canMarkOutboundSent(request);
             case MARK_INBOUND_ARRIVED -> canMarkInboundArrived(request);
             case MARK_INBOUND_PICKED_UP -> canMarkInboundPickedUp(request);
-            case MARK_EXCHANGE_REGISTERED -> canMarkExchangeRegistered(request);
-            case REGISTER_EXCHANGE_PARCEL -> canRegisterExchangeParcel(request);
             case MARK_EXCHANGE_SENT -> canMarkExchangeSent(request);
             case MARK_EXCHANGE_DELIVERED -> canMarkExchangeDelivered(request);
         };
+    }
+
+    /**
+     * Проверяет, можно ли закрыть заявку на текущем этапе.
+     */
+    private boolean canCloseRequest(OrderReturnRequest request) {
+        if (request == null) {
+            return false;
+        }
+        OrderReturnRequestStatus status = request.getStatus();
+        if (status == OrderReturnRequestStatus.REGISTERED) {
+            return true;
+        }
+        if (status == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            return canCancelExchange(request);
+        }
+        return false;
     }
 
     /**
@@ -854,16 +867,6 @@ public class OrderReturnRequestService {
             return false;
         }
         return canTransitionToStage(request, ReturnRequestStage.INBOUND_PICKED_UP);
-    }
-
-    /**
-     * Проверяет, можно ли вручную отметить регистрацию обмена.
-     */
-    private boolean canMarkExchangeRegistered(OrderReturnRequest request) {
-        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
-            return false;
-        }
-        return canTransitionToStage(request, ReturnRequestStage.EXCHANGE_REGISTERED);
     }
 
     /**

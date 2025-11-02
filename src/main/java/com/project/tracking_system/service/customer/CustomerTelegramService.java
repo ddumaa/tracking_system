@@ -515,7 +515,7 @@ public class CustomerTelegramService {
                 parcelId,
                 owner,
                 customer,
-                ReturnRequestAction.CANCEL_EXCHANGE
+                ReturnRequestAction.CLOSE_REQUEST
         );
     }
 
@@ -539,7 +539,7 @@ public class CustomerTelegramService {
                 parcelId,
                 owner,
                 customer,
-                ReturnRequestAction.REOPEN_RETURN
+                ReturnRequestAction.SET_MODE_RETURN
         );
     }
 

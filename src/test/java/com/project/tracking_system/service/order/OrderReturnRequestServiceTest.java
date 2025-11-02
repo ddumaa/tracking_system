@@ -621,7 +621,7 @@ class OrderReturnRequestServiceTest {
 
         when(repository.findById(700L)).thenReturn(Optional.of(request));
         when(actionRequestRepository.findFirstByReturnRequest_IdAndActionAndProcessedAtIsNull(700L,
-                ReturnRequestAction.CANCEL_EXCHANGE)).thenReturn(Optional.empty());
+                ReturnRequestAction.CLOSE_REQUEST)).thenReturn(Optional.empty());
         when(actionRequestRepository.save(any(OrderReturnRequestActionRequest.class))).thenAnswer(invocation -> {
             OrderReturnRequestActionRequest actionRequest = invocation.getArgument(0);
             actionRequest.setReturnRequest(request);
@@ -634,11 +634,11 @@ class OrderReturnRequestServiceTest {
                 30L,
                 user,
                 customer,
-                ReturnRequestAction.CANCEL_EXCHANGE
+                ReturnRequestAction.CLOSE_REQUEST
         );
 
         assertThat(result).isNotNull();
-        assertThat(result.getAction()).isEqualTo(ReturnRequestAction.CANCEL_EXCHANGE);
+        assertThat(result.getAction()).isEqualTo(ReturnRequestAction.CLOSE_REQUEST);
         assertThat(result.getCustomer()).isEqualTo(customer);
         assertThat(result.getReturnRequest()).isEqualTo(request);
         verify(actionRequestRepository).save(any(OrderReturnRequestActionRequest.class));
@@ -654,18 +654,18 @@ class OrderReturnRequestServiceTest {
         OrderReturnRequestActionRequest existing = new OrderReturnRequestActionRequest();
         existing.setReturnRequest(request);
         existing.setCustomer(customer);
-        existing.setAction(ReturnRequestAction.REOPEN_RETURN);
+        existing.setAction(ReturnRequestAction.SET_MODE_RETURN);
 
         when(repository.findById(701L)).thenReturn(Optional.of(request));
         when(actionRequestRepository.findFirstByReturnRequest_IdAndActionAndProcessedAtIsNull(701L,
-                ReturnRequestAction.REOPEN_RETURN)).thenReturn(Optional.of(existing));
+                ReturnRequestAction.SET_MODE_RETURN)).thenReturn(Optional.of(existing));
 
         OrderReturnRequestActionRequest result = service.requestMerchantAction(
                 701L,
                 31L,
                 user,
                 customer,
-                ReturnRequestAction.REOPEN_RETURN
+                ReturnRequestAction.SET_MODE_RETURN
         );
 
         assertThat(result).isSameAs(existing);
@@ -886,8 +886,8 @@ class OrderReturnRequestServiceTest {
 
         EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
 
-        assertThat(actions).contains(ReturnRequestAction.CLOSE, ReturnRequestAction.START_EXCHANGE);
-        assertThat(actions).doesNotContain(ReturnRequestAction.CANCEL_EXCHANGE, ReturnRequestAction.REOPEN_RETURN);
+        assertThat(actions).contains(ReturnRequestAction.CLOSE_REQUEST, ReturnRequestAction.SET_MODE_EXCHANGE);
+        assertThat(actions).doesNotContain(ReturnRequestAction.SET_MODE_RETURN);
         assertThat(actions).doesNotContain(ReturnRequestAction.MARK_OUTBOUND_SENT);
     }
 
@@ -908,7 +908,7 @@ class OrderReturnRequestServiceTest {
 
         EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
 
-        assertThat(actions).doesNotContain(ReturnRequestAction.CANCEL_EXCHANGE, ReturnRequestAction.REOPEN_RETURN);
+        assertThat(actions).doesNotContain(ReturnRequestAction.CLOSE_REQUEST, ReturnRequestAction.SET_MODE_RETURN);
         assertThat(actions).doesNotContain(ReturnRequestAction.MARK_EXCHANGE_DELIVERED);
     }
 
@@ -938,7 +938,7 @@ class OrderReturnRequestServiceTest {
 
         EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
 
-        assertThat(actions).contains(ReturnRequestAction.MARK_EXCHANGE_REGISTERED);
+        assertThat(actions).contains(ReturnRequestAction.SET_MODE_EXCHANGE);
     }
 
     @Test

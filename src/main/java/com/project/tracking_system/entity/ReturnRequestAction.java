@@ -1,85 +1,71 @@
 package com.project.tracking_system.entity;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 /**
  * Доступные действия с активной заявкой на возврат или обмен.
  * <p>
- * Используются в Telegram-боте и веб-интерфейсе для построения доступных кнопок,
- * а также для сохранения запросов покупателя магазину.
+ * Перечисление используется в боте и административном интерфейсе для
+ * отображения актуальных кнопок, а также при сериализации команд, которые
+ * инициируют переходы между этапами жизненного цикла заявки.
  * </p>
  */
 public enum ReturnRequestAction {
 
     /**
-     * Запускает процесс обмена для заявки, находящейся в статусе возврата.
+     * Переводит заявку в режим классического возврата без запуска обмена.
      */
-    START_EXCHANGE("START_EXCHANGE", "Запустить обмен", false),
+    SET_MODE_RETURN("SET_MODE_RETURN", "Перевести в возврат", true),
 
     /**
-     * Фиксирует передачу возврата в доставку клиентом.
+     * Запускает обработку обмена и переводит заявку в соответствующий режим.
+     */
+    SET_MODE_EXCHANGE("SET_MODE_EXCHANGE", "Перевести в обмен", false),
+
+    /**
+     * Фиксирует передачу возвратной посылки в доставку покупателем.
      */
     MARK_OUTBOUND_SENT("MARK_OUTBOUND_SENT", "Отметить отправку возврата", false),
 
     /**
-     * Фиксирует прибытие возврата в пункт назначения магазина.
+     * Фиксирует прибытие возвратной посылки в пункт назначения магазина.
      */
     MARK_INBOUND_ARRIVED("MARK_INBOUND_ARRIVED", "Отметить прибытие возврата", false),
 
     /**
-     * Фиксирует факт получения возврата магазином.
+     * Фиксирует ручное подтверждение приёма возврата магазином.
      */
     MARK_INBOUND_PICKED_UP("MARK_INBOUND_PICKED_UP", "Отметить приём возврата", false),
 
     /**
-     * Создаёт обменную посылку и фиксирует её привязку к заявке.
-     */
-    CREATE_EXCHANGE_PARCEL("CREATE_EXCHANGE_PARCEL", "Создать обменную посылку", true),
-
-    /**
-     * Регистрирует обменную посылку без автоматического создания в системе.
+     * Регистрирует или привязывает обменную посылку к заявке.
      */
     REGISTER_EXCHANGE_PARCEL("REGISTER_EXCHANGE_PARCEL", "Зарегистрировать обменную посылку", true),
 
     /**
-     * Отменяет обмен, возвращая заявку к обработке как классического возврата.
-     */
-    CANCEL_EXCHANGE("CANCEL_EXCHANGE", "Отменить обмен", true),
-
-    /**
-     * Переводит обмен обратно в возврат без закрытия заявки.
-     */
-    REOPEN_RETURN("REOPEN_RETURN", "Перевести в возврат", true),
-
-    /**
-     * Отмечает, что обмен зарегистрирован и обрабатывается магазином.
-     */
-    MARK_EXCHANGE_REGISTERED("MARK_EXCHANGE_REGISTERED", "Отметить регистрацию обмена", true),
-
-    /**
-     * Фиксирует отправку обменной посылки из магазина.
+     * Отмечает отправку обменной посылки со склада магазина.
      */
     MARK_EXCHANGE_SENT("MARK_EXCHANGE_SENT", "Отметить отправку обмена", true),
 
     /**
-     * Фиксирует доставку обменной посылки покупателю.
+     * Отмечает доставку обменной посылки покупателю.
      */
     MARK_EXCHANGE_DELIVERED("MARK_EXCHANGE_DELIVERED", "Отметить доставку обмена", true),
 
     /**
-     * Подтверждает приём возврата магазином в ручном режиме.
+     * Обновляет обратный трек и комментарий в карточке заявки.
      */
-    CONFIRM_RECEIPT("CONFIRM_RECEIPT", "Подтвердить приём возврата", false),
+    UPDATE_REVERSE_TRACK("UPDATE_REVERSE_TRACK", "Обновить обратный трек", false),
 
     /**
-     * Обновляет данные обратного трека и комментарий по заявке.
+     * Закрывает заявку после завершения обработки.
      */
-    UPDATE_DETAILS("UPDATE_DETAILS", "Обновить данные заявки", false),
+    CLOSE_REQUEST("CLOSE_REQUEST", "Закрыть обращение", false);
 
-    /**
-     * Закрывает заявку без запуска обмена.
-     */
-    CLOSE("CLOSE", "Закрыть обращение", false);
+    private static final Map<String, ReturnRequestAction> LEGACY_CODE_MAP;
 
     private final String code;
     private final String displayName;
@@ -89,6 +75,19 @@ public enum ReturnRequestAction {
         this.code = code;
         this.displayName = displayName;
         this.exchangeOnly = exchangeOnly;
+    }
+
+    static {
+        Map<String, ReturnRequestAction> legacyMap = new HashMap<>();
+        legacyMap.put("START_EXCHANGE", SET_MODE_EXCHANGE);
+        legacyMap.put("CREATE_EXCHANGE_PARCEL", REGISTER_EXCHANGE_PARCEL);
+        legacyMap.put("MARK_EXCHANGE_REGISTERED", SET_MODE_EXCHANGE);
+        legacyMap.put("CANCEL_EXCHANGE", CLOSE_REQUEST);
+        legacyMap.put("REOPEN_RETURN", SET_MODE_RETURN);
+        legacyMap.put("CONFIRM_RECEIPT", MARK_INBOUND_PICKED_UP);
+        legacyMap.put("UPDATE_DETAILS", UPDATE_REVERSE_TRACK);
+        legacyMap.put("CLOSE", CLOSE_REQUEST);
+        LEGACY_CODE_MAP = Collections.unmodifiableMap(legacyMap);
     }
 
     /**
@@ -127,6 +126,11 @@ public enum ReturnRequestAction {
                 return action;
             }
         }
-        return null;
+        ReturnRequestAction legacy = LEGACY_CODE_MAP.get(code);
+        if (legacy != null) {
+            return legacy;
+        }
+        String normalized = code.toUpperCase();
+        return LEGACY_CODE_MAP.get(normalized);
     }
 }
