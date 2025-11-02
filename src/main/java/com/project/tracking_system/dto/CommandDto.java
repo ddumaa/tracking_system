@@ -1,6 +1,6 @@
 package com.project.tracking_system.dto;
 
-import jakarta.validation.Valid;
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.validation.constraints.NotBlank;
 
 /**
@@ -8,19 +8,9 @@ import jakarta.validation.constraints.NotBlank;
  *
  * @param idempotencyKey уникальный ключ команды
  * @param action         код действия
- * @param payload        полезная нагрузка с параметрами
+ * @param payload        полезная нагрузка с параметрами в свободном формате
  */
 public record CommandDto(@NotBlank String idempotencyKey,
                          @NotBlank String action,
-                         @Valid Payload payload) {
-
-    /**
-     * Полезная нагрузка команды, содержащая дополнительные параметры.
-     *
-     * @param reverseTrack обратный трек
-     * @param comment      комментарий пользователя
-     */
-    public record Payload(String reverseTrack,
-                          String comment) {
-    }
+                         JsonNode payload) {
 }
