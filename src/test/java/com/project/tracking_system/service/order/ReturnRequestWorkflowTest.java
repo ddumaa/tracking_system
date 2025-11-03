@@ -1,6 +1,8 @@
 package com.project.tracking_system.service.order;
 
 import com.project.tracking_system.entity.OrderReturnRequest;
+import com.project.tracking_system.entity.OrderReturnRequestStatus;
+import com.project.tracking_system.entity.ReturnRequestAction;
 import com.project.tracking_system.entity.ReturnRequestMode;
 import com.project.tracking_system.entity.ReturnRequestStage;
 import com.project.tracking_system.entity.User;
@@ -8,6 +10,8 @@ import org.junit.jupiter.api.Test;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+
+import java.util.EnumSet;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -63,5 +67,37 @@ class ReturnRequestWorkflowTest {
                 null,
                 ZonedDateTime.now(ZoneOffset.UTC)
         )).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void resolveBaseActions_ReturnRegisteredIncludesManagementActions() {
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setMode(ReturnRequestMode.RETURN);
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        request.setStage(ReturnRequestStage.NEW);
+
+        EnumSet<ReturnRequestAction> actions = workflow.resolveBaseActions(request);
+
+        assertThat(actions)
+                .contains(ReturnRequestAction.SET_MODE_EXCHANGE,
+                        ReturnRequestAction.UPDATE_REVERSE_TRACK,
+                        ReturnRequestAction.CLOSE_REQUEST);
+    }
+
+    @Test
+    void resolveBaseActions_ExchangeApprovedIncludesParcelActions() {
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setMode(ReturnRequestMode.EXCHANGE);
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setStage(ReturnRequestStage.EXCHANGE_REGISTERED);
+
+        EnumSet<ReturnRequestAction> actions = workflow.resolveBaseActions(request);
+
+        assertThat(actions)
+                .contains(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL,
+                        ReturnRequestAction.MARK_EXCHANGE_SENT,
+                        ReturnRequestAction.SET_MODE_RETURN,
+                        ReturnRequestAction.CLOSE_REQUEST,
+                        ReturnRequestAction.UPDATE_REVERSE_TRACK);
     }
 }
