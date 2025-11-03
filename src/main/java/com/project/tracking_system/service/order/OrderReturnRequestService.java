@@ -54,6 +54,22 @@ public class OrderReturnRequestService {
     private final ReturnRequestWorkflow returnRequestWorkflow;
 
     /**
+     * Типовые причины переключения режима заявки.
+     * <p>
+     * Значения помогают фиксировать контекст действия в логах и поддерживать единый интерфейс
+     * при работе из разных каналов (админ-панель, Telegram, автоматические сценарии).
+     * </p>
+     */
+    public enum ModeSwitchTrigger {
+        /** Ручное решение менеджера из административного интерфейса. */
+        MANUAL_DECISION,
+        /** Отмена обмена с последующим закрытием обращения. */
+        EXCHANGE_CANCELLATION,
+        /** Инициатива покупателя из Telegram или другого внешнего канала. */
+        CUSTOMER_REQUEST
+    }
+
+    /**
      * Обновляет трек обратной отправки и комментарий активной заявки.
      * <p>
      * Метод убеждается, что заявка принадлежит пользователю и находится в активном статусе,
@@ -217,32 +233,54 @@ public class OrderReturnRequestService {
      */
     @Transactional
     public OrderReturnRequest approveExchange(Long requestId, Long parcelId, User user) {
+        return switchMode(requestId, parcelId, user, ReturnRequestMode.EXCHANGE, ModeSwitchTrigger.MANUAL_DECISION);
+    }
+
+    /**
+     * Переключает режим обработки заявки на возврат или обмен.
+     * <p>
+     * Метод реализует единый шаблон перехода между режимами: проверяет допустимость операции
+     * согласно матрице состояний, нормализует стадию через {@link ReturnRequestWorkflow}
+     * и выполняет побочные действия с обменными посылками через профильные сервисы.
+     * </p>
+     *
+     * @param requestId   идентификатор заявки
+     * @param parcelId    идентификатор посылки
+     * @param user        менеджер, инициировавший действие
+     * @param targetMode  целевой режим обработки
+     * @param trigger     причина переключения (используется в логировании)
+     * @return обновлённая заявка после сохранения
+     */
+    @Transactional
+    public OrderReturnRequest switchMode(Long requestId,
+                                         Long parcelId,
+                                         User user,
+                                         ReturnRequestMode targetMode,
+                                         ModeSwitchTrigger trigger) {
+        if (targetMode == null) {
+            throw new IllegalArgumentException("Не указан целевой режим заявки");
+        }
+        ModeSwitchTrigger effectiveTrigger = trigger != null ? trigger : ModeSwitchTrigger.MANUAL_DECISION;
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
-
-        if (request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
-            throw new IllegalStateException("Заявка уже обработана");
-        }
-
-        Long episodeId = Optional.ofNullable(request.getEpisode())
-                .map(OrderEpisode::getId)
-                .orElse(null);
-        if (episodeId != null && returnRequestRepository.existsByEpisode_IdAndStatus(episodeId,
-                OrderReturnRequestStatus.EXCHANGE_APPROVED)) {
-            throw new IllegalStateException("В эпизоде уже запущен обмен");
-        }
-
-        ZonedDateTime decisionMoment = ZonedDateTime.now(ZoneOffset.UTC);
-        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
-        request.setDecisionBy(user);
-        request.setDecisionAt(decisionMoment);
-        request.setMode(ReturnRequestMode.EXCHANGE);
-        request.setResponsibleManager(user);
-        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.EXCHANGE_REGISTERED, true, user, decisionMoment);
-
-        OrderReturnRequest saved = returnRequestRepository.save(request);
+        OrderReturnRequest updated = switch (targetMode) {
+            case EXCHANGE -> applyExchangeMode(request, user);
+            case RETURN -> applyReturnMode(request, user, effectiveTrigger);
+        };
+        OrderReturnRequest saved = returnRequestRepository.save(updated);
         evictTrackDetailsCache(saved);
-        log.info("Одобрен обмен по заявке {} без автоматического создания обменной посылки", saved.getId());
+        log.info("Заявка {} переведена в режим {} по причине {}", saved.getId(), targetMode, effectiveTrigger);
         return saved;
+    }
+
+    /**
+     * Перегрузка переключения режима без указания причины (используется для совместимости вызовов).
+     */
+    @Transactional
+    public OrderReturnRequest switchMode(Long requestId,
+                                         Long parcelId,
+                                         User user,
+                                         ReturnRequestMode targetMode) {
+        return switchMode(requestId, parcelId, user, targetMode, ModeSwitchTrigger.MANUAL_DECISION);
     }
 
     /**
@@ -482,73 +520,6 @@ public class OrderReturnRequestService {
      * Отменяет обмен по активной заявке пользователя.
      */
     @Transactional
-    public OrderReturnRequest cancelExchange(Long requestId, Long parcelId, User user) {
-        OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
-        if (request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
-            throw new IllegalStateException("Обмен ещё не запущен или заявка уже закрыта");
-        }
-        TrackParcel replacement;
-        try {
-            replacement = orderExchangeService.getLatestExchangeParcelOrThrowIfTracked(request)
-                    .orElse(null);
-        } catch (IllegalStateException ex) {
-            log.warn("Нельзя отменить обмен по заявке {}: {}", request.getId(), ex.getMessage());
-            throw ex;
-        }
-        ZonedDateTime cancelMoment = ZonedDateTime.now(ZoneOffset.UTC);
-        request.setStatus(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
-        request.setClosedBy(user);
-        request.setClosedAt(cancelMoment);
-        request.setMode(ReturnRequestMode.RETURN);
-        request.setResponsibleManager(user);
-        request.setExchangeTrackNumber(null);
-        request.setExchangeTrackAssignedAt(null);
-        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.INBOUND_PICKED_UP, true, user, cancelMoment);
-        orderExchangeService.cancelExchangeParcel(request, replacement);
-        episodeLifecycleService.decrementExchangeCount(request.getEpisode());
-        OrderReturnRequest saved = returnRequestRepository.save(request);
-        evictTrackDetailsCache(saved);
-        log.info("Обмен по заявке {} отменён пользователем", saved.getId());
-        return saved;
-    }
-
-    /**
-     * Переводит одобренный обмен обратно в статус возврата без удаления заявки.
-     */
-    @Transactional
-    public OrderReturnRequest reopenAsReturn(Long requestId, Long parcelId, User user) {
-        OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
-        if (request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
-            throw new IllegalStateException("Заявка не находится в статусе обмена");
-        }
-        TrackParcel replacement;
-        try {
-            replacement = orderExchangeService.getLatestExchangeParcelOrThrowIfTracked(request)
-                    .orElse(null);
-        } catch (IllegalStateException ex) {
-            log.warn("Нельзя перевести обмен по заявке {} в возврат: {}", request.getId(), ex.getMessage());
-            throw ex;
-        }
-        ZonedDateTime reopenMoment = ZonedDateTime.now(ZoneOffset.UTC);
-        request.setStatus(OrderReturnRequestStatus.REGISTERED);
-        request.setDecisionBy(null);
-        request.setDecisionAt(null);
-        request.setClosedBy(null);
-        request.setClosedAt(null);
-        request.setExchangeRequested(false);
-        request.setMode(ReturnRequestMode.RETURN);
-        request.setResponsibleManager(user);
-        request.setExchangeTrackNumber(null);
-        request.setExchangeTrackAssignedAt(null);
-        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.INBOUND_PICKED_UP, true, user, reopenMoment);
-        orderExchangeService.cancelExchangeParcel(request, replacement);
-        episodeLifecycleService.decrementExchangeCount(request.getEpisode());
-        OrderReturnRequest saved = returnRequestRepository.save(request);
-        evictTrackDetailsCache(saved);
-        log.info("Заявка {} переведена из обмена в возврат", saved.getId());
-        return saved;
-    }
-
     /**
      * Регистрирует запрос покупателя магазину по активной заявке обмена.
      * <p>
@@ -631,6 +602,26 @@ public class OrderReturnRequestService {
         }
         return !returnRequestRepository.existsByEpisode_IdAndStatus(episodeId,
                 OrderReturnRequestStatus.EXCHANGE_APPROVED);
+    }
+
+    /**
+     * Проверяет, можно ли вернуть обменную заявку в режим возврата без закрытия обращения.
+     */
+    private boolean canSwitchToReturnMode(OrderReturnRequest request) {
+        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            return false;
+        }
+        if (isExchangeShipmentDispatched(request)) {
+            return false;
+        }
+        return getExchangeCancellationBlockReason(request).isEmpty();
+    }
+
+    /**
+     * Проверяет, доступна ли отмена обмена с последующим закрытием заявки.
+     */
+    private boolean canCancelExchangeAction(OrderReturnRequest request) {
+        return canSwitchToReturnMode(request);
     }
 
     /**
@@ -762,6 +753,114 @@ public class OrderReturnRequestService {
     }
 
     /**
+     * Применяет правила перевода заявки в режим обмена.
+     */
+    private OrderReturnRequest applyExchangeMode(OrderReturnRequest request, User actor) {
+        if (request == null) {
+            throw new IllegalArgumentException("Не найдена заявка для переключения режима");
+        }
+        if (request.getStatus() == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            request.setMode(ReturnRequestMode.EXCHANGE);
+            return request;
+        }
+        if (request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
+            throw new IllegalStateException("Перевод в обмен доступен только для активной заявки");
+        }
+        Long episodeId = Optional.ofNullable(request.getEpisode())
+                .map(OrderEpisode::getId)
+                .orElse(null);
+        if (episodeId != null && returnRequestRepository.existsByEpisode_IdAndStatus(episodeId,
+                OrderReturnRequestStatus.EXCHANGE_APPROVED)) {
+            throw new IllegalStateException("В эпизоде уже запущен обмен");
+        }
+        ZonedDateTime decisionMoment = ZonedDateTime.now(ZoneOffset.UTC);
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setDecisionBy(actor);
+        request.setDecisionAt(decisionMoment);
+        request.setClosedBy(null);
+        request.setClosedAt(null);
+        request.setMode(ReturnRequestMode.EXCHANGE);
+        request.setResponsibleManager(actor);
+        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.EXCHANGE_REGISTERED, true, actor, decisionMoment);
+        return request;
+    }
+
+    /**
+     * Применяет правила перевода заявки в режим возврата.
+     */
+    private OrderReturnRequest applyReturnMode(OrderReturnRequest request,
+                                               User actor,
+                                               ModeSwitchTrigger trigger) {
+        if (request == null) {
+            throw new IllegalArgumentException("Не найдена заявка для переключения режима");
+        }
+        OrderReturnRequestStatus status = request.getStatus();
+        if (status == OrderReturnRequestStatus.CLOSED_NO_EXCHANGE) {
+            request.setMode(ReturnRequestMode.RETURN);
+            return request;
+        }
+        if (status == OrderReturnRequestStatus.REGISTERED) {
+            request.setMode(ReturnRequestMode.RETURN);
+            request.setResponsibleManager(actor);
+            ZonedDateTime moment = ZonedDateTime.now(ZoneOffset.UTC);
+            ReturnRequestStage normalized = returnRequestWorkflow.adjustStageForMode(
+                    ReturnRequestMode.RETURN,
+                    Optional.ofNullable(request.getStage()).orElse(ReturnRequestStage.NEW)
+            );
+            returnRequestWorkflow.transitionToStage(request, normalized, true, actor, moment);
+            return request;
+        }
+        if (status != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            throw new IllegalStateException("Заявка не находится в режиме обмена");
+        }
+        ensureExchangeCancellationPossible(request, trigger);
+        TrackParcel replacement;
+        try {
+            replacement = orderExchangeService.getLatestExchangeParcelOrThrowIfTracked(request)
+                    .orElse(null);
+        } catch (IllegalStateException ex) {
+            log.warn("Нельзя перевести обмен по заявке {} в возврат: {}", request.getId(), ex.getMessage());
+            throw ex;
+        }
+        ZonedDateTime reopenMoment = ZonedDateTime.now(ZoneOffset.UTC);
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        request.setDecisionBy(null);
+        request.setDecisionAt(null);
+        request.setClosedBy(null);
+        request.setClosedAt(null);
+        request.setExchangeRequested(false);
+        request.setMode(ReturnRequestMode.RETURN);
+        request.setResponsibleManager(actor);
+        request.setExchangeTrackNumber(null);
+        request.setExchangeTrackAssignedAt(null);
+        ReturnRequestStage normalized = returnRequestWorkflow.adjustStageForMode(
+                ReturnRequestMode.RETURN,
+                Optional.ofNullable(request.getStage()).orElse(ReturnRequestStage.NEW)
+        );
+        returnRequestWorkflow.transitionToStage(request, normalized, true, actor, reopenMoment);
+        orderExchangeService.cancelExchangeParcel(request, replacement);
+        episodeLifecycleService.decrementExchangeCount(request.getEpisode());
+        return request;
+    }
+
+    /**
+     * Убеждается, что отмена обмена разрешена матрицей переходов и состоянием посылок.
+     */
+    private void ensureExchangeCancellationPossible(OrderReturnRequest request, ModeSwitchTrigger trigger) {
+        if (request == null) {
+            return;
+        }
+        log.debug("Проверка возможности отмены обмена по заявке {} (триггер {})",
+                request.getId(), trigger);
+        if (isExchangeShipmentDispatched(request)) {
+            throw new IllegalStateException("Отмена обмена недоступна: обменная посылка уже отправлена или доставлена");
+        }
+        getExchangeCancellationBlockReason(request).ifPresent(reason -> {
+            throw new IllegalStateException(reason);
+        });
+    }
+
+    /**
      * Определяет, считается ли обменная посылка отправленной.
      *
      * @param parcel обменная посылка
@@ -797,7 +896,8 @@ public class OrderReturnRequestService {
         }
         return switch (action) {
             case SET_MODE_EXCHANGE -> canStartExchange(request);
-            case SET_MODE_RETURN -> canReopenAsReturn(request);
+            case SET_MODE_RETURN -> canSwitchToReturnMode(request);
+            case CANCEL_EXCHANGE -> canCancelExchangeAction(request);
             case REGISTER_EXCHANGE_PARCEL -> canRegisterExchangeParcel(request);
             case CLOSE_REQUEST -> canCloseRequest(request);
             case UPDATE_REVERSE_TRACK -> canUpdateDetails(request);
@@ -817,13 +917,7 @@ public class OrderReturnRequestService {
             return false;
         }
         OrderReturnRequestStatus status = request.getStatus();
-        if (status == OrderReturnRequestStatus.REGISTERED) {
-            return true;
-        }
-        if (status == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
-            return canCancelExchange(request);
-        }
-        return false;
+        return status == OrderReturnRequestStatus.REGISTERED;
     }
 
     /**

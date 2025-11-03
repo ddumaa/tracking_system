@@ -475,7 +475,12 @@ public class CustomerTelegramService {
         Customer customer = requireCustomerByChat(chatId);
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
-        return orderReturnRequestService.cancelExchange(requestId, parcelId, owner);
+        orderReturnRequestService.switchMode(requestId,
+                parcelId,
+                owner,
+                ReturnRequestMode.RETURN,
+                OrderReturnRequestService.ModeSwitchTrigger.CUSTOMER_REQUEST);
+        return orderReturnRequestService.closeWithoutExchange(requestId, parcelId, owner);
     }
 
     /**
@@ -488,7 +493,11 @@ public class CustomerTelegramService {
         Customer customer = requireCustomerByChat(chatId);
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
-        return orderReturnRequestService.reopenAsReturn(requestId, parcelId, owner);
+        return orderReturnRequestService.switchMode(requestId,
+                parcelId,
+                owner,
+                ReturnRequestMode.RETURN,
+                OrderReturnRequestService.ModeSwitchTrigger.CUSTOMER_REQUEST);
     }
 
     /**

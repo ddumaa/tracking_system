@@ -161,8 +161,8 @@ public class ReturnRequestWorkflow {
             actions.add(ReturnRequestAction.MARK_INBOUND_PICKED_UP);
         } else if (status == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
             actions.add(ReturnRequestAction.SET_MODE_RETURN);
+            actions.add(ReturnRequestAction.CANCEL_EXCHANGE);
             actions.add(ReturnRequestAction.UPDATE_REVERSE_TRACK);
-            actions.add(ReturnRequestAction.CLOSE_REQUEST);
             actions.add(ReturnRequestAction.MARK_INBOUND_PICKED_UP);
         } else if (status == OrderReturnRequestStatus.CLOSED_NO_EXCHANGE) {
             actions.add(ReturnRequestAction.MARK_INBOUND_PICKED_UP);
