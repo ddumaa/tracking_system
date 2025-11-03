@@ -6,6 +6,7 @@ import com.project.tracking_system.controller.ReturnRequestCommandType;
 import com.project.tracking_system.dto.CommandDto;
 import com.project.tracking_system.dto.RequestDto;
 import com.project.tracking_system.entity.OrderReturnRequest;
+import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.entity.ReturnCommandLog;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
@@ -15,7 +16,6 @@ import com.project.tracking_system.service.order.payload.ReturnRequestCommandPay
 import com.project.tracking_system.service.order.payload.ReturnRequestCommandPayloadFactory;
 import com.project.tracking_system.service.order.payload.StageMarkPayload;
 import com.project.tracking_system.service.order.payload.UpdateDetailsPayload;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -26,7 +26,10 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.EnumMap;
 import java.util.HexFormat;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -39,7 +42,6 @@ import java.util.Optional;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ReturnRequestCommandService {
 
     private static final String HASH_ALGORITHM = "SHA-256";
@@ -49,6 +51,23 @@ public class ReturnRequestCommandService {
     private final ReturnCommandLogRepository returnCommandLogRepository;
     private final ObjectMapper objectMapper;
     private final ReturnRequestCommandPayloadFactory payloadFactory;
+    private final Map<ReturnRequestCommandType, ReturnRequestCommandHandler> commandHandlers;
+
+    /**
+     * Конструирует сервис и регистрирует обработчики доступных команд.
+     */
+    public ReturnRequestCommandService(OrderReturnRequestService orderReturnRequestService,
+                                       ReturnRequestMapper returnRequestMapper,
+                                       ReturnCommandLogRepository returnCommandLogRepository,
+                                       ObjectMapper objectMapper,
+                                       ReturnRequestCommandPayloadFactory payloadFactory) {
+        this.orderReturnRequestService = orderReturnRequestService;
+        this.returnRequestMapper = returnRequestMapper;
+        this.returnCommandLogRepository = returnCommandLogRepository;
+        this.objectMapper = objectMapper;
+        this.payloadFactory = payloadFactory;
+        this.commandHandlers = createHandlers(orderReturnRequestService);
+    }
 
     /**
      * Выполняет команду с учётом идемпотентности и возвращает DTO заявки.
@@ -80,7 +99,8 @@ public class ReturnRequestCommandService {
             return restoreResponse(logEntry);
         }
 
-        OrderReturnRequest updated = performCommand(commandType, payload, user, requestId, parcelId);
+        CommandContext commandContext = new CommandContext(requestId, parcelId, user);
+        OrderReturnRequest updated = performCommand(commandType, payload, commandContext);
         RequestDto response = returnRequestMapper.toDto(updated, userZone);
         completeLogEntry(logEntry, response);
         return response;
@@ -132,92 +152,12 @@ public class ReturnRequestCommandService {
      */
     private OrderReturnRequest performCommand(ReturnRequestCommandType type,
                                               ReturnRequestCommandPayload payload,
-                                              User user,
-                                              Long requestId,
-                                              Long parcelId) {
-        return switch (type) {
-            case SET_MODE_EXCHANGE -> orderReturnRequestService.approveExchange(requestId, parcelId, user);
-            case CREATE_EXCHANGE_PARCEL -> {
-                orderReturnRequestService.createExchangeParcel(requestId, parcelId, user);
-                yield orderReturnRequestService.getOwnedRequest(requestId, user);
-            }
-            case REGISTER_EXCHANGE_PARCEL -> {
-                ExchangeShipmentPayload exchangePayload = (ExchangeShipmentPayload) payload;
-                yield orderReturnRequestService.registerExchangeParcel(
-                        requestId,
-                        parcelId,
-                        user,
-                        exchangePayload.exchangeTrack(),
-                        exchangePayload.stageMoment()
-                );
-            }
-            case MARK_EXCHANGE_SENT -> {
-                ExchangeShipmentPayload exchangePayload = (ExchangeShipmentPayload) payload;
-                yield orderReturnRequestService.markExchangeSent(
-                        requestId,
-                        parcelId,
-                        user,
-                        exchangePayload.exchangeTrack(),
-                        exchangePayload.stageMoment()
-                );
-            }
-            case MARK_EXCHANGE_DELIVERED -> {
-                StageMarkPayload stagePayload = (StageMarkPayload) payload;
-                yield orderReturnRequestService.markExchangeDelivered(
-                        requestId,
-                        parcelId,
-                        user,
-                        stagePayload.stageMoment()
-                );
-            }
-            case CLOSE_REQUEST -> {
-                OrderReturnRequest request = orderReturnRequestService.getOwnedRequest(requestId, user);
-                return switch (request.getStatus()) {
-                    case REGISTERED -> orderReturnRequestService.closeWithoutExchange(requestId, parcelId, user);
-                    case EXCHANGE_APPROVED -> orderReturnRequestService.cancelExchange(requestId, parcelId, user);
-                    case CLOSED_NO_EXCHANGE -> throw new IllegalStateException("Заявка уже закрыта");
-                };
-            }
-            case UPDATE_REVERSE_TRACK -> {
-                UpdateDetailsPayload updatePayload = (UpdateDetailsPayload) payload;
-                orderReturnRequestService.updateReverseTrackAndComment(
-                        requestId,
-                        parcelId,
-                        user,
-                        updatePayload.reverseTrack(),
-                        updatePayload.comment()
-                );
-                yield orderReturnRequestService.getOwnedRequest(requestId, user);
-            }
-            case MARK_OUTBOUND_SENT -> {
-                StageMarkPayload stagePayload = (StageMarkPayload) payload;
-                yield orderReturnRequestService.markOutboundSent(
-                        requestId,
-                        parcelId,
-                        user,
-                        stagePayload.stageMoment()
-                );
-            }
-            case MARK_INBOUND_ARRIVED -> {
-                StageMarkPayload stagePayload = (StageMarkPayload) payload;
-                yield orderReturnRequestService.markInboundArrived(
-                        requestId,
-                        parcelId,
-                        user,
-                        stagePayload.stageMoment()
-                );
-            }
-            case MARK_INBOUND_PICKED_UP -> {
-                StageMarkPayload stagePayload = (StageMarkPayload) payload;
-                yield orderReturnRequestService.markInboundPickedUp(
-                        requestId,
-                        parcelId,
-                        user,
-                        stagePayload.stageMoment()
-                );
-            }
-            case SET_MODE_RETURN -> orderReturnRequestService.reopenAsReturn(requestId, parcelId, user);
-        };
+                                              CommandContext context) {
+        ReturnRequestCommandHandler handler = commandHandlers.get(type);
+        if (handler == null) {
+            throw new IllegalArgumentException("Команда " + type.name() + " не поддерживается системой");
+        }
+        return handler.handle(context, payload);
     }
 
     /**
@@ -324,5 +264,155 @@ public class ReturnRequestCommandService {
             throw new IllegalArgumentException("Заявка не привязана к посылке");
         }
         return parcel.getId();
+    }
+
+    /**
+     * Формирует реестр обработчиков команд на основании сервисных методов доменного слоя.
+     */
+    private Map<ReturnRequestCommandType, ReturnRequestCommandHandler> createHandlers(OrderReturnRequestService service) {
+        EnumMap<ReturnRequestCommandType, ReturnRequestCommandHandler> handlers = new EnumMap<>(ReturnRequestCommandType.class);
+        handlers.put(ReturnRequestCommandType.SET_MODE_EXCHANGE, simpleHandler(service::approveExchange));
+        handlers.put(ReturnRequestCommandType.SET_MODE_RETURN, simpleHandler(service::reopenAsReturn));
+        handlers.put(ReturnRequestCommandType.CLOSE_REQUEST, this::handleCloseRequest);
+        handlers.put(ReturnRequestCommandType.REGISTER_EXCHANGE_PARCEL,
+                exchangeHandler(ReturnRequestCommandType.REGISTER_EXCHANGE_PARCEL, service::registerExchangeParcel));
+        handlers.put(ReturnRequestCommandType.MARK_EXCHANGE_SENT,
+                exchangeHandler(ReturnRequestCommandType.MARK_EXCHANGE_SENT, service::markExchangeSent));
+        handlers.put(ReturnRequestCommandType.MARK_EXCHANGE_DELIVERED,
+                stageHandler(ReturnRequestCommandType.MARK_EXCHANGE_DELIVERED, service::markExchangeDelivered));
+        handlers.put(ReturnRequestCommandType.MARK_OUTBOUND_SENT,
+                stageHandler(ReturnRequestCommandType.MARK_OUTBOUND_SENT, service::markOutboundSent));
+        handlers.put(ReturnRequestCommandType.MARK_INBOUND_ARRIVED,
+                stageHandler(ReturnRequestCommandType.MARK_INBOUND_ARRIVED, service::markInboundArrived));
+        handlers.put(ReturnRequestCommandType.MARK_INBOUND_PICKED_UP,
+                stageHandler(ReturnRequestCommandType.MARK_INBOUND_PICKED_UP, service::markInboundPickedUp));
+        handlers.put(ReturnRequestCommandType.UPDATE_REVERSE_TRACK,
+                this::handleUpdateReverseTrack);
+        return Map.copyOf(handlers);
+    }
+
+    /**
+     * Обрабатывает команду обновления обратного трека и возвращает актуальную заявку.
+     */
+    private OrderReturnRequest handleUpdateReverseTrack(CommandContext context, ReturnRequestCommandPayload payload) {
+        UpdateDetailsPayload updatePayload = requirePayload(payload, UpdateDetailsPayload.class,
+                ReturnRequestCommandType.UPDATE_REVERSE_TRACK);
+        orderReturnRequestService.updateReverseTrackAndComment(
+                context.requestId(),
+                context.parcelId(),
+                context.user(),
+                updatePayload.reverseTrack(),
+                updatePayload.comment()
+        );
+        return orderReturnRequestService.getOwnedRequest(context.requestId(), context.user());
+    }
+
+    /**
+     * Выполняет закрытие заявки, учитывая её текущий статус.
+     */
+    private OrderReturnRequest handleCloseRequest(CommandContext context, ReturnRequestCommandPayload payload) {
+        OrderReturnRequest request = orderReturnRequestService.getOwnedRequest(context.requestId(), context.user());
+        return switch (request.getStatus()) {
+            case REGISTERED -> orderReturnRequestService.closeWithoutExchange(context.requestId(),
+                    context.parcelId(),
+                    context.user());
+            case EXCHANGE_APPROVED -> orderReturnRequestService.cancelExchange(context.requestId(),
+                    context.parcelId(),
+                    context.user());
+            case CLOSED_NO_EXCHANGE -> throw new IllegalStateException("Заявка уже закрыта");
+        };
+    }
+
+    /**
+     * Формирует обработчик команд без полезной нагрузки.
+     */
+    private ReturnRequestCommandHandler simpleHandler(SimpleCommandExecutor executor) {
+        return (context, payload) -> executor.execute(context.requestId(), context.parcelId(), context.user());
+    }
+
+    /**
+     * Формирует обработчик стадийных команд, требующих отметки времени.
+     */
+    private ReturnRequestCommandHandler stageHandler(ReturnRequestCommandType type,
+                                                    StageCommandExecutor executor) {
+        return (context, payload) -> {
+            StageMarkPayload stagePayload = requirePayload(payload, StageMarkPayload.class, type);
+            return executor.execute(context.requestId(),
+                    context.parcelId(),
+                    context.user(),
+                    stagePayload.stageMoment());
+        };
+    }
+
+    /**
+     * Формирует обработчик команд, работающих с обменными отправлениями.
+     */
+    private ReturnRequestCommandHandler exchangeHandler(ReturnRequestCommandType type,
+                                                        ExchangeShipmentExecutor executor) {
+        return (context, payload) -> {
+            ExchangeShipmentPayload exchangePayload = requirePayload(payload, ExchangeShipmentPayload.class, type);
+            return executor.execute(context.requestId(),
+                    context.parcelId(),
+                    context.user(),
+                    exchangePayload.exchangeTrack(),
+                    exchangePayload.stageMoment());
+        };
+    }
+
+    /**
+     * Приводит payload к ожидаемому типу или выбрасывает исключение с понятным описанием.
+     */
+    private <T extends ReturnRequestCommandPayload> T requirePayload(ReturnRequestCommandPayload payload,
+                                                                     Class<T> payloadType,
+                                                                     ReturnRequestCommandType type) {
+        if (!payloadType.isInstance(payload)) {
+            throw new IllegalArgumentException("Команда " + type.name()
+                    + " передана с неподдерживаемой структурой данных");
+        }
+        return payloadType.cast(payload);
+    }
+
+    /**
+     * Контекст выполняемой команды, содержащий ключевые параметры запроса.
+     */
+    private record CommandContext(Long requestId,
+                                  Long parcelId,
+                                  User user) {
+    }
+
+    /**
+     * Интерфейс обработчика конкретной команды.
+     */
+    @FunctionalInterface
+    private interface ReturnRequestCommandHandler {
+        OrderReturnRequest handle(CommandContext context, ReturnRequestCommandPayload payload);
+    }
+
+    /**
+     * Стратегия команд без дополнительных параметров.
+     */
+    @FunctionalInterface
+    private interface SimpleCommandExecutor {
+        OrderReturnRequest execute(Long requestId, Long parcelId, User user);
+    }
+
+    /**
+     * Стратегия стадийных команд с отметкой времени.
+     */
+    @FunctionalInterface
+    private interface StageCommandExecutor {
+        OrderReturnRequest execute(Long requestId, Long parcelId, User user, ZonedDateTime stageMoment);
+    }
+
+    /**
+     * Стратегия команд, работающих с обменной отправкой.
+     */
+    @FunctionalInterface
+    private interface ExchangeShipmentExecutor {
+        OrderReturnRequest execute(Long requestId,
+                                   Long parcelId,
+                                   User user,
+                                   String exchangeTrack,
+                                   ZonedDateTime stageMoment);
     }
 }
