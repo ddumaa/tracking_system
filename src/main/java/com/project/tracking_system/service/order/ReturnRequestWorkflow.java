@@ -156,13 +156,12 @@ public class ReturnRequestWorkflow {
 
         if (status == OrderReturnRequestStatus.REGISTERED) {
             actions.add(ReturnRequestAction.SET_MODE_EXCHANGE);
+            actions.add(ReturnRequestAction.UPDATE_REVERSE_TRACK);
             actions.add(ReturnRequestAction.CLOSE_REQUEST);
             actions.add(ReturnRequestAction.MARK_INBOUND_PICKED_UP);
-            actions.add(ReturnRequestAction.UPDATE_REVERSE_TRACK);
         } else if (status == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
-            actions.add(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL);
-            actions.add(ReturnRequestAction.UPDATE_REVERSE_TRACK);
             actions.add(ReturnRequestAction.SET_MODE_RETURN);
+            actions.add(ReturnRequestAction.UPDATE_REVERSE_TRACK);
             actions.add(ReturnRequestAction.CLOSE_REQUEST);
             actions.add(ReturnRequestAction.MARK_INBOUND_PICKED_UP);
         } else if (status == OrderReturnRequestStatus.CLOSED_NO_EXCHANGE) {
@@ -232,9 +231,9 @@ public class ReturnRequestWorkflow {
                         if (stage == target) {
                             continue;
                         }
-                        ReturnRequestAction action = mapTransitionToAction(target);
-                        if (action != null) {
-                            actions.add(action);
+                        EnumSet<ReturnRequestAction> mapped = mapTransitionToActions(mode, stage, target);
+                        if (!mapped.isEmpty()) {
+                            actions.addAll(mapped);
                         }
                     }
                     if (!actions.isEmpty()) {
@@ -252,15 +251,39 @@ public class ReturnRequestWorkflow {
         return matrix;
     }
 
-    private ReturnRequestAction mapTransitionToAction(ReturnRequestStage target) {
+    /**
+     * Подбирает действия, приводящие к целевой стадии, исходя из текущего контекста.
+     *
+     * @param mode   режим заявки, задающий доступные команды
+     * @param from   исходная стадия
+     * @param target целевая стадия перехода
+     * @return набор команд, инициирующих переход, может быть пустым
+     */
+    private EnumSet<ReturnRequestAction> mapTransitionToActions(ReturnRequestMode mode,
+                                                                ReturnRequestStage from,
+                                                                ReturnRequestStage target) {
+        if (target == null) {
+            return EnumSet.noneOf(ReturnRequestAction.class);
+        }
         return switch (target) {
-            case OUTBOUND_SENT -> ReturnRequestAction.MARK_OUTBOUND_SENT;
-            case INBOUND_ARRIVED -> ReturnRequestAction.MARK_INBOUND_ARRIVED;
-            case INBOUND_PICKED_UP -> ReturnRequestAction.MARK_INBOUND_PICKED_UP;
-            case EXCHANGE_REGISTERED -> ReturnRequestAction.SET_MODE_EXCHANGE;
-            case EXCHANGE_SENT -> ReturnRequestAction.MARK_EXCHANGE_SENT;
-            case EXCHANGE_DELIVERED -> ReturnRequestAction.MARK_EXCHANGE_DELIVERED;
-            default -> null;
+            case OUTBOUND_SENT -> EnumSet.of(ReturnRequestAction.MARK_OUTBOUND_SENT);
+            case INBOUND_ARRIVED -> EnumSet.of(ReturnRequestAction.MARK_INBOUND_ARRIVED);
+            case INBOUND_PICKED_UP -> EnumSet.of(ReturnRequestAction.MARK_INBOUND_PICKED_UP);
+            case EXCHANGE_REGISTERED -> mode == ReturnRequestMode.EXCHANGE
+                    ? EnumSet.of(ReturnRequestAction.SET_MODE_EXCHANGE)
+                    : EnumSet.noneOf(ReturnRequestAction.class);
+            case EXCHANGE_SENT -> {
+                if (mode != ReturnRequestMode.EXCHANGE) {
+                    yield EnumSet.noneOf(ReturnRequestAction.class);
+                }
+                EnumSet<ReturnRequestAction> exchangeActions = EnumSet.of(ReturnRequestAction.MARK_EXCHANGE_SENT);
+                if (from == ReturnRequestStage.EXCHANGE_REGISTERED) {
+                    exchangeActions.add(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL);
+                }
+                yield exchangeActions;
+            }
+            case EXCHANGE_DELIVERED -> EnumSet.of(ReturnRequestAction.MARK_EXCHANGE_DELIVERED);
+            default -> EnumSet.noneOf(ReturnRequestAction.class);
         };
     }
 
