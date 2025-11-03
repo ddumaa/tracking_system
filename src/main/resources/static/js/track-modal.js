@@ -1013,13 +1013,13 @@
                     }
                 },
                 {
-                    key: 'close',
-                    label: 'Закрыть обращение',
-                    ariaLabel: 'Закрыть обращение без обмена',
+                    key: 'cancelExchange',
+                    label: 'Отменить обмен',
+                    ariaLabel: 'Отменить обмен и закрыть обращение',
                     className: 'btn btn-outline-danger btn-sm',
                     enabled: Boolean(this._permissions.cancelExchange || this._permissions.close),
                     options: {
-                        successMessage: 'Обращение закрыто',
+                        successMessage: 'Обмен отменён',
                         notificationType: 'warning'
                     }
                 }
@@ -1140,6 +1140,7 @@
             convertToExchange: (options = {}) => convertReturnRequestToExchange(trackId, requestId, options),
             launchExchange: (options = {}) => createExchangeParcel(trackId, requestId, options),
             close: (options = {}) => closeReturnRequest(trackId, requestId, options),
+            cancelExchange: (options = {}) => cancelExchange(trackId, requestId, options),
             reopen: (options = {}) => reopenReturnRequest(trackId, requestId, options),
             updateReverseTrack: (options = {}) => updateReverseTrack(
                 trackId,
@@ -1288,7 +1289,9 @@
         'create_exchange_parcel': ['register_exchange_parcel'],
         'register_exchange_parcel': ['create_exchange_parcel'],
         'update_details': ['update_reverse_track'],
-        'update_reverse_track': ['update_details']
+        'update_reverse_track': ['update_details'],
+        'cancel_exchange': ['close'],
+        'close': ['cancel_exchange']
     };
 
     const STAGE_LABELS = {
@@ -1621,6 +1624,17 @@
             successMessage: options.successMessage || 'Обращение закрыто',
             notificationType: options.notificationType || 'warning',
             errorMessage: options.errorMessage || 'Не удалось закрыть обращение'
+        });
+    }
+
+    async function cancelExchange(trackId, requestId, options = {}) {
+        return await performReturnRequestAction({
+            trackId,
+            requestId,
+            command: 'cancel_exchange',
+            successMessage: options.successMessage || 'Обмен отменён',
+            notificationType: options.notificationType || 'warning',
+            errorMessage: options.errorMessage || 'Не удалось отменить обмен'
         });
     }
 
@@ -2806,6 +2820,7 @@
         render: renderTrackModal,
         invalidateLazySections: (trackId) => invalidateLazyDataCache(trackId),
         convertReturnRequestToExchange,
+        cancelExchange,
         closeReturnRequest,
         confirmReturnProcessing,
         reopenReturnRequest,

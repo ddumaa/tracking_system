@@ -32,6 +32,7 @@ public class ReturnRequestCommandPayloadFactory {
         EnumMap<ReturnRequestCommandType, PayloadParser> registry = new EnumMap<>(ReturnRequestCommandType.class);
         registry.put(ReturnRequestCommandType.SET_MODE_EXCHANGE, emptyParser(ReturnRequestCommandType.SET_MODE_EXCHANGE));
         registry.put(ReturnRequestCommandType.SET_MODE_RETURN, emptyParser(ReturnRequestCommandType.SET_MODE_RETURN));
+        registry.put(ReturnRequestCommandType.CANCEL_EXCHANGE, emptyParser(ReturnRequestCommandType.CANCEL_EXCHANGE));
         registry.put(ReturnRequestCommandType.CLOSE_REQUEST, emptyParser(ReturnRequestCommandType.CLOSE_REQUEST));
         registry.put(ReturnRequestCommandType.REGISTER_EXCHANGE_PARCEL,
                 exchangeParser(ReturnRequestCommandType.REGISTER_EXCHANGE_PARCEL));

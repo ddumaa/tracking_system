@@ -6,7 +6,9 @@ import com.project.tracking_system.controller.ReturnRequestCommandType;
 import com.project.tracking_system.dto.CommandDto;
 import com.project.tracking_system.dto.RequestDto;
 import com.project.tracking_system.entity.OrderReturnRequest;
+import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.entity.ReturnCommandLog;
+import com.project.tracking_system.entity.ReturnRequestMode;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.repository.ReturnCommandLogRepository;
@@ -80,7 +82,11 @@ class ReturnRequestCommandServiceTest {
         CommandDto command = new CommandDto("dup-1", "SET_MODE_EXCHANGE", null);
 
         when(orderReturnRequestService.getOwnedRequest(21L, user)).thenReturn(request);
-        when(orderReturnRequestService.approveExchange(21L, 9L, user)).thenReturn(updated);
+        when(orderReturnRequestService.switchMode(21L,
+                9L,
+                user,
+                ReturnRequestMode.EXCHANGE,
+                OrderReturnRequestService.ModeSwitchTrigger.MANUAL_DECISION)).thenReturn(updated);
         when(returnRequestMapper.toDto(eq(updated), any())).thenReturn(dto);
 
         AtomicReference<ReturnCommandLog> savedLog = new AtomicReference<>();
@@ -107,7 +113,11 @@ class ReturnRequestCommandServiceTest {
 
         assertThat(first).isEqualTo(dto);
         assertThat(second).isEqualTo(dto);
-        verify(orderReturnRequestService).approveExchange(21L, 9L, user);
+        verify(orderReturnRequestService).switchMode(21L,
+                9L,
+                user,
+                ReturnRequestMode.EXCHANGE,
+                OrderReturnRequestService.ModeSwitchTrigger.MANUAL_DECISION);
         verify(returnRequestMapper).toDto(eq(updated), any());
         verify(returnCommandLogRepository, atLeast(2)).saveAndFlush(any(ReturnCommandLog.class));
     }
@@ -137,7 +147,7 @@ class ReturnRequestCommandServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("уже выполнена");
 
-        verify(orderReturnRequestService, never()).approveExchange(21L, 9L, user);
+        verify(orderReturnRequestService, never()).switchMode(any(), any(), any(), any(), any());
         verify(returnRequestMapper, never()).toDto(any(), any());
         verify(returnCommandLogRepository, never()).saveAndFlush(any(ReturnCommandLog.class));
     }
@@ -176,8 +186,54 @@ class ReturnRequestCommandServiceTest {
                 ZoneOffset.UTC);
 
         assertThat(result.legacyId()).isEqualTo(22L);
-        verify(orderReturnRequestService, never()).approveExchange(any(), any(), any());
+        verify(orderReturnRequestService, never()).switchMode(any(), any(), any(), any(), any());
         verify(returnRequestMapper, never()).toDto(any(), any());
+    }
+
+    @Test
+    void executeCommand_whenCancelExchange_invokesSwitchAndClose() {
+        User user = buildUser();
+        OrderReturnRequest request = buildRequest(40L, 18L);
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        OrderReturnRequest switched = buildRequest(40L, 18L);
+        switched.setStatus(OrderReturnRequestStatus.REGISTERED);
+        OrderReturnRequest closed = buildRequest(40L, 18L);
+        closed.setStatus(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
+        RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000040", 40L, "RETURN");
+        CommandDto command = new CommandDto("cancel-1", "CANCEL_EXCHANGE", null);
+
+        when(orderReturnRequestService.getOwnedRequest(40L, user)).thenReturn(request);
+        when(orderReturnRequestService.switchMode(40L,
+                18L,
+                user,
+                ReturnRequestMode.RETURN,
+                OrderReturnRequestService.ModeSwitchTrigger.EXCHANGE_CANCELLATION)).thenReturn(switched);
+        when(orderReturnRequestService.closeWithoutExchange(40L, 18L, user)).thenReturn(closed);
+        when(returnRequestMapper.toDto(eq(closed), any())).thenReturn(dto);
+
+        AtomicReference<ReturnCommandLog> savedLog = new AtomicReference<>();
+        when(returnCommandLogRepository.findFirstByRequestIdAndIdempotencyKey(40L, "cancel-1"))
+                .thenAnswer(invocation -> Optional.ofNullable(savedLog.get()));
+        when(returnCommandLogRepository.saveAndFlush(any(ReturnCommandLog.class)))
+                .thenAnswer(invocation -> {
+                    ReturnCommandLog logEntry = invocation.getArgument(0);
+                    savedLog.set(logEntry);
+                    return logEntry;
+                });
+
+        RequestDto result = commandService.executeCommand(40L,
+                ReturnRequestCommandType.CANCEL_EXCHANGE,
+                command,
+                user,
+                ZoneOffset.UTC);
+
+        assertThat(result).isEqualTo(dto);
+        verify(orderReturnRequestService).switchMode(40L,
+                18L,
+                user,
+                ReturnRequestMode.RETURN,
+                OrderReturnRequestService.ModeSwitchTrigger.EXCHANGE_CANCELLATION);
+        verify(orderReturnRequestService).closeWithoutExchange(40L, 18L, user);
     }
 
     @Test

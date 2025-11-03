@@ -8,6 +8,7 @@ import com.project.tracking_system.dto.RequestDto;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.entity.ReturnCommandLog;
+import com.project.tracking_system.entity.ReturnRequestMode;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.repository.ReturnCommandLogRepository;
@@ -271,8 +272,11 @@ public class ReturnRequestCommandService {
      */
     private Map<ReturnRequestCommandType, ReturnRequestCommandHandler> createHandlers(OrderReturnRequestService service) {
         EnumMap<ReturnRequestCommandType, ReturnRequestCommandHandler> handlers = new EnumMap<>(ReturnRequestCommandType.class);
-        handlers.put(ReturnRequestCommandType.SET_MODE_EXCHANGE, simpleHandler(service::approveExchange));
-        handlers.put(ReturnRequestCommandType.SET_MODE_RETURN, simpleHandler(service::reopenAsReturn));
+        handlers.put(ReturnRequestCommandType.SET_MODE_EXCHANGE,
+                modeSwitchHandler(ReturnRequestMode.EXCHANGE, OrderReturnRequestService.ModeSwitchTrigger.MANUAL_DECISION));
+        handlers.put(ReturnRequestCommandType.SET_MODE_RETURN,
+                modeSwitchHandler(ReturnRequestMode.RETURN, OrderReturnRequestService.ModeSwitchTrigger.MANUAL_DECISION));
+        handlers.put(ReturnRequestCommandType.CANCEL_EXCHANGE, this::handleCancelExchange);
         handlers.put(ReturnRequestCommandType.CLOSE_REQUEST, this::handleCloseRequest);
         handlers.put(ReturnRequestCommandType.REGISTER_EXCHANGE_PARCEL,
                 exchangeHandler(ReturnRequestCommandType.REGISTER_EXCHANGE_PARCEL, service::registerExchangeParcel));
@@ -316,11 +320,27 @@ public class ReturnRequestCommandService {
             case REGISTERED -> orderReturnRequestService.closeWithoutExchange(context.requestId(),
                     context.parcelId(),
                     context.user());
-            case EXCHANGE_APPROVED -> orderReturnRequestService.cancelExchange(context.requestId(),
-                    context.parcelId(),
-                    context.user());
+            case EXCHANGE_APPROVED -> throw new IllegalStateException("Для обменных заявок используйте отмену обмена");
             case CLOSED_NO_EXCHANGE -> throw new IllegalStateException("Заявка уже закрыта");
         };
+    }
+
+    /**
+     * Обрабатывает отмену обмена с последующим закрытием заявки.
+     */
+    private OrderReturnRequest handleCancelExchange(CommandContext context, ReturnRequestCommandPayload payload) {
+        orderReturnRequestService.switchMode(
+                context.requestId(),
+                context.parcelId(),
+                context.user(),
+                ReturnRequestMode.RETURN,
+                OrderReturnRequestService.ModeSwitchTrigger.EXCHANGE_CANCELLATION
+        );
+        return orderReturnRequestService.closeWithoutExchange(
+                context.requestId(),
+                context.parcelId(),
+                context.user()
+        );
     }
 
     /**
@@ -370,6 +390,20 @@ public class ReturnRequestCommandService {
                     + " передана с неподдерживаемой структурой данных");
         }
         return payloadType.cast(payload);
+    }
+
+    /**
+     * Формирует обработчик переключения режима заявки.
+     */
+    private ReturnRequestCommandHandler modeSwitchHandler(ReturnRequestMode targetMode,
+                                                         OrderReturnRequestService.ModeSwitchTrigger trigger) {
+        return (context, payload) -> orderReturnRequestService.switchMode(
+                context.requestId(),
+                context.parcelId(),
+                context.user(),
+                targetMode,
+                trigger
+        );
     }
 
     /**

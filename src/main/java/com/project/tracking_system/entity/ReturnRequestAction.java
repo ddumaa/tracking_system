@@ -46,6 +46,11 @@ public enum ReturnRequestAction {
     REGISTER_EXCHANGE_PARCEL("REGISTER_EXCHANGE_PARCEL", "Зарегистрировать обменную посылку", true),
 
     /**
+     * Отменяет запущенный обмен без удаления заявки.
+     */
+    CANCEL_EXCHANGE("CANCEL_EXCHANGE", "Отменить обмен", true),
+
+    /**
      * Отмечает отправку обменной посылки со склада магазина.
      */
     MARK_EXCHANGE_SENT("MARK_EXCHANGE_SENT", "Отметить отправку обмена", true),
@@ -82,7 +87,7 @@ public enum ReturnRequestAction {
         legacyMap.put("START_EXCHANGE", SET_MODE_EXCHANGE);
         legacyMap.put("CREATE_EXCHANGE_PARCEL", REGISTER_EXCHANGE_PARCEL);
         legacyMap.put("MARK_EXCHANGE_REGISTERED", SET_MODE_EXCHANGE);
-        legacyMap.put("CANCEL_EXCHANGE", CLOSE_REQUEST);
+        legacyMap.put("CANCEL_EXCHANGE", CANCEL_EXCHANGE);
         legacyMap.put("REOPEN_RETURN", SET_MODE_RETURN);
         legacyMap.put("CONFIRM_RECEIPT", MARK_INBOUND_PICKED_UP);
         legacyMap.put("UPDATE_DETAILS", UPDATE_REVERSE_TRACK);

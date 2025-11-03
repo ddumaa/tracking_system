@@ -390,7 +390,10 @@ status: 'Зарегистрирована',
         expect(confirmBtn?.textContent).toContain('Принять возврат');
 
         const closeButton = Array.from(document.querySelectorAll('button'))
-            .find((btn) => btn.textContent?.includes('Закрыть обращение'));
+            .find((btn) => {
+                const text = btn.textContent || '';
+                return text.includes('Отменить обмен') || text.includes('Закрыть обращение');
+            });
         expect(closeButton).toBeDefined();
     });
 
@@ -459,7 +462,8 @@ status: 'Зарегистрирована',
 
         expect(texts).toContain('Перевести в возврат');
         expect(texts).toContain('Добавить трек обратной посылки');
-        expect(texts).toContain('Закрыть обращение');
+        const hasCancelAction = texts.some((label) => label === 'Отменить обмен' || label === 'Закрыть обращение');
+        expect(hasCancelAction).toBe(true);
     });
 
     test('sends close request for exchange when cancel action triggered', async () => {
@@ -574,7 +578,10 @@ status: 'Зарегистрирована',
         const actionCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
         const closeButton = Array.from(actionCard?.querySelectorAll('button') || [])
-            .find((btn) => btn.textContent === 'Закрыть обращение');
+            .find((btn) => {
+                const text = btn.textContent || '';
+                return text === 'Отменить обмен' || text === 'Закрыть обращение';
+            });
         expect(closeButton).toBeDefined();
         closeButton?.click();
 
@@ -587,10 +594,10 @@ status: 'Зарегистрирована',
             '/api/v1/returns/81/commands',
             expect.objectContaining({
                 method: 'POST',
-                body: JSON.stringify({ command: 'close' })
+                body: JSON.stringify({ command: 'cancel_exchange' })
             })
         );
-        expect(global.notifyUser).toHaveBeenCalledWith('Обращение закрыто', 'warning');
+        expect(global.notifyUser).toHaveBeenCalledWith('Обмен отменён', 'warning');
 
         const rerenderedCard = Array.from(document.querySelectorAll('section.card'))
             .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
@@ -919,7 +926,10 @@ status: 'Зарегистрирована',
         expect(confirmButton?.getAttribute('aria-hidden')).toBe('true');
 
         const closeButton = Array.from(actionCard?.querySelectorAll('button') || [])
-            .find((btn) => btn.textContent === 'Закрыть обращение');
+            .find((btn) => {
+                const text = btn.textContent || '';
+                return text === 'Отменить обмен' || text === 'Закрыть обращение';
+            });
         expect(closeButton).toBeDefined();
     });
 

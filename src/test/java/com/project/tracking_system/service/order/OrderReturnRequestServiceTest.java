@@ -541,7 +541,7 @@ class OrderReturnRequestServiceTest {
     }
 
     @Test
-    void cancelExchange_ClosesRequestWhenReplacementHasNoTrack() {
+    void switchMode_whenReturnFromExchange_resetsExchangeData() {
         TrackParcel parcel = buildParcel(19L, GlobalStatus.DELIVERED);
         TrackParcel replacement = new TrackParcel();
         replacement.setId(77L);
@@ -557,11 +557,15 @@ class OrderReturnRequestServiceTest {
                 .thenReturn(Optional.of(replacement));
         when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        OrderReturnRequest result = service.cancelExchange(610L, 19L, user);
+        OrderReturnRequest result = service.switchMode(610L,
+                19L,
+                user,
+                ReturnRequestMode.RETURN,
+                OrderReturnRequestService.ModeSwitchTrigger.EXCHANGE_CANCELLATION);
 
-        assertThat(result.getStatus()).isEqualTo(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
-        assertThat(result.getClosedBy()).isEqualTo(user);
-        assertThat(result.getClosedAt()).isNotNull();
+        assertThat(result.getStatus()).isEqualTo(OrderReturnRequestStatus.REGISTERED);
+        assertThat(result.getDecisionBy()).isNull();
+        assertThat(result.getClosedAt()).isNull();
         assertThat(result.getMode()).isEqualTo(ReturnRequestMode.RETURN);
         assertThat(result.getStage()).isEqualTo(ReturnRequestStage.INBOUND_PICKED_UP);
         assertThat(result.getHistoryEntries()).isNotEmpty();
@@ -571,7 +575,7 @@ class OrderReturnRequestServiceTest {
     }
 
     @Test
-    void cancelExchange_ThrowsWhenTrackAlreadyAssigned() {
+    void switchMode_whenReturnFromExchangeBlocked_throwsException() {
         TrackParcel parcel = buildParcel(21L, GlobalStatus.DELIVERED);
         OrderReturnRequest request = new OrderReturnRequest();
         request.setId(611L);
@@ -583,7 +587,11 @@ class OrderReturnRequestServiceTest {
         when(orderExchangeService.getLatestExchangeParcelOrThrowIfTracked(request))
                 .thenThrow(new IllegalStateException("Отмена недоступна"));
 
-        assertThatThrownBy(() -> service.cancelExchange(611L, 21L, user))
+        assertThatThrownBy(() -> service.switchMode(611L,
+                21L,
+                user,
+                ReturnRequestMode.RETURN,
+                OrderReturnRequestService.ModeSwitchTrigger.EXCHANGE_CANCELLATION))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Отмена недоступна");
         verify(repository, never()).save(any());
@@ -820,7 +828,7 @@ class OrderReturnRequestServiceTest {
     }
 
     @Test
-    void reopenAsReturn_ResetsExchangeAndSavesRequest() {
+    void switchMode_whenCustomerRequestsReturn_resetsExchange() {
         TrackParcel parcel = buildParcel(23L, GlobalStatus.DELIVERED);
         OrderReturnRequest request = new OrderReturnRequest();
         request.setId(950L);
@@ -840,7 +848,11 @@ class OrderReturnRequestServiceTest {
                 .thenReturn(Optional.of(replacement));
         when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        OrderReturnRequest result = service.reopenAsReturn(950L, 23L, user);
+        OrderReturnRequest result = service.switchMode(950L,
+                23L,
+                user,
+                ReturnRequestMode.RETURN,
+                OrderReturnRequestService.ModeSwitchTrigger.CUSTOMER_REQUEST);
 
         assertThat(result.getStatus()).isEqualTo(OrderReturnRequestStatus.REGISTERED);
         assertThat(result.getDecisionBy()).isNull();
@@ -857,7 +869,7 @@ class OrderReturnRequestServiceTest {
     }
 
     @Test
-    void reopenAsReturn_ThrowsWhenTrackAlreadyAssigned() {
+    void switchMode_whenReturnBlockedByTrack_throwsException() {
         TrackParcel parcel = buildParcel(24L, GlobalStatus.DELIVERED);
         OrderReturnRequest request = new OrderReturnRequest();
         request.setId(960L);
@@ -869,7 +881,11 @@ class OrderReturnRequestServiceTest {
         when(orderExchangeService.getLatestExchangeParcelOrThrowIfTracked(request))
                 .thenThrow(new IllegalStateException("Магазин уже указал трек"));
 
-        assertThatThrownBy(() -> service.reopenAsReturn(960L, 24L, user))
+        assertThatThrownBy(() -> service.switchMode(960L,
+                24L,
+                user,
+                ReturnRequestMode.RETURN,
+                OrderReturnRequestService.ModeSwitchTrigger.CUSTOMER_REQUEST))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Магазин уже указал трек");
         verify(repository, never()).save(any());
@@ -889,6 +905,19 @@ class OrderReturnRequestServiceTest {
         assertThat(actions).contains(ReturnRequestAction.CLOSE_REQUEST, ReturnRequestAction.SET_MODE_EXCHANGE);
         assertThat(actions).doesNotContain(ReturnRequestAction.SET_MODE_RETURN);
         assertThat(actions).doesNotContain(ReturnRequestAction.MARK_OUTBOUND_SENT);
+    }
+
+    @Test
+    void resolveAvailableActions_ReturnsCancelForExchangeRequest() {
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setStage(ReturnRequestStage.EXCHANGE_REGISTERED);
+        request.setMode(ReturnRequestMode.EXCHANGE);
+
+        EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
+
+        assertThat(actions).contains(ReturnRequestAction.CANCEL_EXCHANGE, ReturnRequestAction.SET_MODE_RETURN);
+        assertThat(actions).doesNotContain(ReturnRequestAction.CLOSE_REQUEST);
     }
 
     @Test
