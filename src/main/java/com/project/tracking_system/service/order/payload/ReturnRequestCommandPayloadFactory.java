@@ -7,6 +7,8 @@ import org.springframework.stereotype.Component;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.EnumMap;
+import java.util.Map;
 
 /**
  * Фабрика валидации полезной нагрузки команд управления заявками.
@@ -21,6 +23,32 @@ public class ReturnRequestCommandPayloadFactory {
     private static final int MAX_TRACK_LENGTH = 64;
     private static final int MAX_COMMENT_LENGTH = 2000;
 
+    private final Map<ReturnRequestCommandType, PayloadParser> parsers;
+
+    /**
+     * Регистрирует обработчики полезной нагрузки для всех поддерживаемых команд.
+     */
+    public ReturnRequestCommandPayloadFactory() {
+        EnumMap<ReturnRequestCommandType, PayloadParser> registry = new EnumMap<>(ReturnRequestCommandType.class);
+        registry.put(ReturnRequestCommandType.SET_MODE_EXCHANGE, emptyParser(ReturnRequestCommandType.SET_MODE_EXCHANGE));
+        registry.put(ReturnRequestCommandType.SET_MODE_RETURN, emptyParser(ReturnRequestCommandType.SET_MODE_RETURN));
+        registry.put(ReturnRequestCommandType.CLOSE_REQUEST, emptyParser(ReturnRequestCommandType.CLOSE_REQUEST));
+        registry.put(ReturnRequestCommandType.REGISTER_EXCHANGE_PARCEL,
+                exchangeParser(ReturnRequestCommandType.REGISTER_EXCHANGE_PARCEL));
+        registry.put(ReturnRequestCommandType.MARK_EXCHANGE_SENT,
+                exchangeParser(ReturnRequestCommandType.MARK_EXCHANGE_SENT));
+        registry.put(ReturnRequestCommandType.MARK_EXCHANGE_DELIVERED,
+                stageParser(ReturnRequestCommandType.MARK_EXCHANGE_DELIVERED));
+        registry.put(ReturnRequestCommandType.MARK_OUTBOUND_SENT,
+                stageParser(ReturnRequestCommandType.MARK_OUTBOUND_SENT));
+        registry.put(ReturnRequestCommandType.MARK_INBOUND_ARRIVED,
+                stageParser(ReturnRequestCommandType.MARK_INBOUND_ARRIVED));
+        registry.put(ReturnRequestCommandType.MARK_INBOUND_PICKED_UP,
+                stageParser(ReturnRequestCommandType.MARK_INBOUND_PICKED_UP));
+        registry.put(ReturnRequestCommandType.UPDATE_REVERSE_TRACK, this::parseUpdateDetails);
+        this.parsers = Map.copyOf(registry);
+    }
+
     /**
      * Валидирует и создаёт полезную нагрузку для переданной команды.
      *
@@ -29,13 +57,11 @@ public class ReturnRequestCommandPayloadFactory {
      * @return нормализованная полезная нагрузка
      */
     public ReturnRequestCommandPayload create(ReturnRequestCommandType type, JsonNode payloadNode) {
-        return switch (type) {
-            case UPDATE_REVERSE_TRACK -> parseUpdateDetails(payloadNode);
-            case MARK_OUTBOUND_SENT, MARK_INBOUND_ARRIVED, MARK_INBOUND_PICKED_UP,
-                    MARK_EXCHANGE_DELIVERED -> parseStageMarkPayload(type, payloadNode);
-            case REGISTER_EXCHANGE_PARCEL, MARK_EXCHANGE_SENT -> parseExchangeShipmentPayload(type, payloadNode);
-            case SET_MODE_EXCHANGE, SET_MODE_RETURN, CLOSE_REQUEST -> ensureEmptyPayload(type, payloadNode);
-        };
+        PayloadParser parser = parsers.get(type);
+        if (parser == null) {
+            throw new IllegalArgumentException("Команда " + type.name() + " не поддерживается системой");
+        }
+        return parser.parse(payloadNode);
     }
 
     /**
@@ -181,5 +207,34 @@ public class ReturnRequestCommandPayloadFactory {
         } catch (DateTimeParseException ex) {
             throw new IllegalArgumentException("Поле stageMoment команды " + type.name() + " имеет неверный формат", ex);
         }
+    }
+
+    /**
+     * Возвращает обработчик для команд без параметров.
+     */
+    private PayloadParser emptyParser(ReturnRequestCommandType type) {
+        return payloadNode -> ensureEmptyPayload(type, payloadNode);
+    }
+
+    /**
+     * Возвращает обработчик стадийных команд.
+     */
+    private PayloadParser stageParser(ReturnRequestCommandType type) {
+        return payloadNode -> parseStageMarkPayload(type, payloadNode);
+    }
+
+    /**
+     * Возвращает обработчик команд, работающих с обменной отправкой.
+     */
+    private PayloadParser exchangeParser(ReturnRequestCommandType type) {
+        return payloadNode -> parseExchangeShipmentPayload(type, payloadNode);
+    }
+
+    /**
+     * Функциональный интерфейс обработчика конкретного типа payload.
+     */
+    @FunctionalInterface
+    private interface PayloadParser {
+        ReturnRequestCommandPayload parse(JsonNode payloadNode);
     }
 }
