@@ -1015,7 +1015,7 @@ class BuyerTelegramBotTest {
         bot.consume(mockCallbackUpdate(chatId, "returns:active:select:100:200"));
         clearInvocations(telegramClient);
 
-        bot.consume(mockCallbackUpdate(chatId, "returns:active:CLOSE:100:200"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:CLOSE_REQUEST:100:200"));
 
         ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
         verify(telegramClient).execute(editCaptor.capture());
@@ -1140,10 +1140,10 @@ class BuyerTelegramBotTest {
         bot.consume(mockCallbackUpdate(chatId, "returns:active:select:101:201"));
         clearInvocations(telegramClient);
 
-        bot.consume(mockCallbackUpdate(chatId, "returns:active:CLOSE:101:201"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:CLOSE_REQUEST:101:201"));
         clearInvocations(telegramClient);
 
-        bot.consume(mockCallbackUpdate(chatId, "returns:active:confirm:CLOSE:yes:101:201"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:confirm:CLOSE_REQUEST:yes:101:201"));
 
         verify(telegramService).closeReturnRequestFromTelegram(chatId, 201L, 101L);
 
@@ -1196,10 +1196,10 @@ class BuyerTelegramBotTest {
         bot.consume(mockCallbackUpdate(chatId, "returns:active:select:102:202"));
         clearInvocations(telegramClient);
 
-        bot.consume(mockCallbackUpdate(chatId, "returns:active:CLOSE:102:202"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:CLOSE_REQUEST:102:202"));
         clearInvocations(telegramClient);
 
-        bot.consume(mockCallbackUpdate(chatId, "returns:active:confirm:CLOSE:no:102:202"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:confirm:CLOSE_REQUEST:no:102:202"));
 
         verify(telegramService, never()).closeReturnRequestFromTelegram(anyLong(), anyLong(), anyLong());
 
@@ -2453,7 +2453,7 @@ class BuyerTelegramBotTest {
             actionCodes.add(ReturnRequestAction.SET_MODE_RETURN.getCode());
         }
         if (canCancelExchange) {
-            actionCodes.add(ReturnRequestAction.CLOSE_REQUEST.getCode());
+            actionCodes.add(ReturnRequestAction.CANCEL_EXCHANGE.getCode());
         }
         if (canConfirmReceipt) {
             actionCodes.add(ReturnRequestAction.MARK_INBOUND_PICKED_UP.getCode());
