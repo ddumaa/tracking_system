@@ -2426,11 +2426,14 @@ class BuyerTelegramBotTest {
         ReturnRequestMode mode = exchangeRequested || status == OrderReturnRequestStatus.EXCHANGE_APPROVED
                 ? ReturnRequestMode.EXCHANGE
                 : ReturnRequestMode.RETURN;
+        ReturnRequestStage stage = mode == ReturnRequestMode.EXCHANGE
+                ? (exchangeShipmentDispatched ? ReturnRequestStage.EXCHANGE_SENT : ReturnRequestStage.EXCHANGE_REGISTERED)
+                : (canConfirmReceipt ? ReturnRequestStage.INBOUND_ARRIVED : ReturnRequestStage.NEW);
         String decisionAt = status == OrderReturnRequestStatus.EXCHANGE_APPROVED ? requestedAt : null;
         String closedAt = status == OrderReturnRequestStatus.CLOSED_NO_EXCHANGE ? requestedAt : null;
         ReturnRequestStateDto state = new ReturnRequestStateDto(
                 mode,
-                ReturnRequestStage.NEW,
+                stage,
                 false,
                 false,
                 exchangeRequested,

@@ -588,16 +588,18 @@ public class OrderReturnRequestService {
         if (request == null || request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
             return false;
         }
-        OrderEpisode episode = request.getEpisode();
-        Long episodeId = episode != null ? episode.getId() : null;
-        ReturnRequestStage currentStage = request.getStage() != null
-                ? request.getStage()
-                : ReturnRequestStage.NEW;
-        ReturnRequestStage normalizedStage = returnRequestWorkflow
-                .adjustStageForMode(ReturnRequestMode.EXCHANGE, currentStage);
-        if (!returnRequestWorkflow.canTransition(ReturnRequestMode.EXCHANGE, normalizedStage, ReturnRequestStage.EXCHANGE_REGISTERED)) {
+        ReturnRequestMode mode = resolveMode(request);
+        if (mode != ReturnRequestMode.RETURN) {
             return false;
         }
+        ReturnRequestStage normalizedStage = returnRequestWorkflow
+                .adjustStageForMode(ReturnRequestMode.EXCHANGE, resolveStage(request));
+        if (!returnRequestWorkflow.canTransition(ReturnRequestMode.EXCHANGE, normalizedStage,
+                ReturnRequestStage.EXCHANGE_REGISTERED)) {
+            return false;
+        }
+        OrderEpisode episode = request.getEpisode();
+        Long episodeId = episode != null ? episode.getId() : null;
         if (episodeId == null) {
             return true;
         }
@@ -609,7 +611,11 @@ public class OrderReturnRequestService {
      * Проверяет, можно ли вернуть обменную заявку в режим возврата без закрытия обращения.
      */
     private boolean canSwitchToReturnMode(OrderReturnRequest request) {
-        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+        if (request == null) {
+            return false;
+        }
+        ReturnRequestMode mode = resolveMode(request);
+        if (mode != ReturnRequestMode.EXCHANGE) {
             return false;
         }
         if (isExchangeShipmentDispatched(request)) {
@@ -633,7 +639,10 @@ public class OrderReturnRequestService {
      */
     @Transactional(readOnly = true)
     public Optional<String> getExchangeCancellationBlockReason(OrderReturnRequest request) {
-        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+        if (request == null) {
+            return Optional.empty();
+        }
+        if (resolveMode(request) != ReturnRequestMode.EXCHANGE) {
             return Optional.empty();
         }
         try {
@@ -652,7 +661,11 @@ public class OrderReturnRequestService {
      */
     @Transactional(readOnly = true)
     public boolean canReopenAsReturn(OrderReturnRequest request) {
-        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+        if (request == null) {
+            return false;
+        }
+        ReturnRequestMode mode = resolveMode(request);
+        if (mode != ReturnRequestMode.EXCHANGE) {
             return false;
         }
         if (isExchangeShipmentDispatched(request)) {
@@ -669,7 +682,11 @@ public class OrderReturnRequestService {
      */
     @Transactional(readOnly = true)
     public boolean canCancelExchange(OrderReturnRequest request) {
-        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+        if (request == null) {
+            return false;
+        }
+        ReturnRequestMode mode = resolveMode(request);
+        if (mode != ReturnRequestMode.EXCHANGE) {
             return false;
         }
         if (isExchangeShipmentDispatched(request)) {
@@ -690,7 +707,11 @@ public class OrderReturnRequestService {
      */
     @Transactional(readOnly = true)
     public boolean canCreateExchangeParcel(OrderReturnRequest request) {
-        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+        if (request == null) {
+            return false;
+        }
+        ReturnRequestMode mode = resolveMode(request);
+        if (mode != ReturnRequestMode.EXCHANGE) {
             return false;
         }
         Optional<TrackParcel> latest = orderExchangeService.findLatestExchangeParcel(request);
@@ -710,13 +731,23 @@ public class OrderReturnRequestService {
      */
     @Transactional(readOnly = true)
     public boolean canConfirmReceipt(OrderReturnRequest request) {
-        if (request == null) {
+        if (request == null || request.isReturnReceiptConfirmed()) {
             return false;
         }
         OrderReturnRequestStatus status = request.getStatus();
-        return (status == OrderReturnRequestStatus.REGISTERED
-                || status == OrderReturnRequestStatus.CLOSED_NO_EXCHANGE)
-                && !request.isReturnReceiptConfirmed();
+        if (status != OrderReturnRequestStatus.REGISTERED
+                && status != OrderReturnRequestStatus.CLOSED_NO_EXCHANGE) {
+            return false;
+        }
+        ReturnRequestMode mode = resolveMode(request);
+        if (mode != ReturnRequestMode.RETURN) {
+            return false;
+        }
+        ReturnRequestStage normalizedStage = returnRequestWorkflow
+                .adjustStageForMode(mode, resolveStage(request));
+        return normalizedStage == ReturnRequestStage.OUTBOUND_SENT
+                || normalizedStage == ReturnRequestStage.INBOUND_ARRIVED
+                || normalizedStage == ReturnRequestStage.INBOUND_PICKED_UP;
     }
 
     /**
@@ -732,7 +763,11 @@ public class OrderReturnRequestService {
      */
     @Transactional(readOnly = true)
     public boolean isExchangeShipmentDispatched(OrderReturnRequest request) {
-        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+        if (request == null) {
+            return false;
+        }
+        ReturnRequestMode mode = resolveMode(request);
+        if (mode != ReturnRequestMode.EXCHANGE) {
             return false;
         }
         return orderExchangeService.findLatestExchangeParcel(request)
@@ -762,9 +797,8 @@ public class OrderReturnRequestService {
      * @return заполненный контекст действий
      */
     private ReturnRequestActionContext buildActionContext(OrderReturnRequest request) {
-        ReturnRequestMode mode = Optional.ofNullable(request.getMode()).orElse(ReturnRequestMode.RETURN);
-        ReturnRequestStage stage = Optional.ofNullable(request.getStage()).orElse(ReturnRequestStage.NEW);
-        ReturnRequestStage normalizedStage = returnRequestWorkflow.adjustStageForMode(mode, stage);
+        ReturnRequestMode mode = resolveMode(request);
+        ReturnRequestStage normalizedStage = returnRequestWorkflow.adjustStageForMode(mode, resolveStage(request));
         ReturnRequestActionContext.Builder builder = ReturnRequestActionContext.builder(request)
                 .withMode(mode)
                 .withStage(normalizedStage)
@@ -775,7 +809,7 @@ public class OrderReturnRequestService {
         builder.allow(ReturnRequestAction.CANCEL_EXCHANGE, canCancelExchangeAction(request));
         builder.allow(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL, canRegisterExchangeParcel(request));
         builder.allow(ReturnRequestAction.CLOSE_REQUEST, canCloseRequest(request));
-        builder.allow(ReturnRequestAction.UPDATE_REVERSE_TRACK, canUpdateDetails(request));
+        builder.allow(ReturnRequestAction.UPDATE_REVERSE_TRACK, canUpdateReverseTrack(request));
         builder.allow(ReturnRequestAction.MARK_OUTBOUND_SENT, canMarkOutboundSent(request));
         builder.allow(ReturnRequestAction.MARK_INBOUND_ARRIVED, canMarkInboundArrived(request));
         builder.allow(ReturnRequestAction.MARK_INBOUND_PICKED_UP, canMarkInboundPickedUp(request));
@@ -938,7 +972,10 @@ public class OrderReturnRequestService {
      * Проверяет, достаточно ли данных для фиксации отправки возврата пользователем.
      */
     private boolean canMarkOutboundSent(OrderReturnRequest request) {
-        if (request == null || request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
+        if (request == null) {
+            return false;
+        }
+        if (request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
             return false;
         }
         if (!hasReverseTrack(request)) {
@@ -951,7 +988,10 @@ public class OrderReturnRequestService {
      * Проверяет, можно ли отметить прибытие возврата в пункт назначения.
      */
     private boolean canMarkInboundArrived(OrderReturnRequest request) {
-        if (request == null || request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
+        if (request == null) {
+            return false;
+        }
+        if (request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
             return false;
         }
         if (!hasReverseTrack(request)) {
@@ -968,7 +1008,7 @@ public class OrderReturnRequestService {
             return false;
         }
         OrderReturnRequestStatus status = request.getStatus();
-        if (status != OrderReturnRequestStatus.REGISTERED && status != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+        if (!ACTIVE_STATUSES.contains(status)) {
             return false;
         }
         if (!hasReverseTrack(request)) {
@@ -981,11 +1021,15 @@ public class OrderReturnRequestService {
      * Проверяет, можно ли зарегистрировать обменную посылку вручную.
      */
     private boolean canRegisterExchangeParcel(OrderReturnRequest request) {
-        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+        if (request == null) {
             return false;
         }
-        ReturnRequestStage stage = request.getStage() != null ? request.getStage() : ReturnRequestStage.NEW;
-        if (stage != ReturnRequestStage.EXCHANGE_REGISTERED) {
+        if (resolveMode(request) != ReturnRequestMode.EXCHANGE) {
+            return false;
+        }
+        ReturnRequestStage stage = resolveStage(request);
+        if (returnRequestWorkflow.adjustStageForMode(ReturnRequestMode.EXCHANGE, stage)
+                != ReturnRequestStage.EXCHANGE_REGISTERED) {
             return false;
         }
         return canCreateExchangeParcel(request);
@@ -995,7 +1039,10 @@ public class OrderReturnRequestService {
      * Проверяет, можно ли отметить отправку обменной посылки.
      */
     private boolean canMarkExchangeSent(OrderReturnRequest request) {
-        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+        if (request == null) {
+            return false;
+        }
+        if (resolveMode(request) != ReturnRequestMode.EXCHANGE) {
             return false;
         }
         if (!canTransitionToStage(request, ReturnRequestStage.EXCHANGE_SENT)) {
@@ -1010,7 +1057,10 @@ public class OrderReturnRequestService {
      * Проверяет, можно ли отметить доставку обменной посылки.
      */
     private boolean canMarkExchangeDelivered(OrderReturnRequest request) {
-        if (request == null || request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+        if (request == null) {
+            return false;
+        }
+        if (resolveMode(request) != ReturnRequestMode.EXCHANGE) {
             return false;
         }
         if (!canTransitionToStage(request, ReturnRequestStage.EXCHANGE_DELIVERED)) {
@@ -1041,9 +1091,8 @@ public class OrderReturnRequestService {
      * Проверяет, разрешён ли переход на указанную стадию.
      */
     private boolean canTransitionToStage(OrderReturnRequest request, ReturnRequestStage targetStage) {
-        ReturnRequestMode mode = Optional.ofNullable(request.getMode()).orElse(ReturnRequestMode.RETURN);
-        ReturnRequestStage currentStage = Optional.ofNullable(request.getStage()).orElse(ReturnRequestStage.NEW);
-        ReturnRequestStage normalized = returnRequestWorkflow.adjustStageForMode(mode, currentStage);
+        ReturnRequestMode mode = resolveMode(request);
+        ReturnRequestStage normalized = returnRequestWorkflow.adjustStageForMode(mode, resolveStage(request));
         if (normalized == targetStage) {
             return false;
         }
@@ -1051,13 +1100,38 @@ public class OrderReturnRequestService {
     }
 
     /**
-     * Проверяет, можно ли редактировать детали обратной отправки для заявки.
+     * Проверяет, можно ли редактировать обратный трек заявки согласно матрице переходов.
      */
-    private boolean canUpdateDetails(OrderReturnRequest request) {
+    private boolean canUpdateReverseTrack(OrderReturnRequest request) {
         if (request == null) {
             return false;
         }
-        return ACTIVE_STATUSES.contains(request.getStatus());
+        if (!ACTIVE_STATUSES.contains(request.getStatus())) {
+            return false;
+        }
+        ReturnRequestMode mode = resolveMode(request);
+        ReturnRequestStage normalized = returnRequestWorkflow.adjustStageForMode(mode, resolveStage(request));
+        if (mode == ReturnRequestMode.RETURN) {
+            return normalized != ReturnRequestStage.INBOUND_PICKED_UP;
+        }
+        if (mode == ReturnRequestMode.EXCHANGE) {
+            return normalized != ReturnRequestStage.EXCHANGE_DELIVERED;
+        }
+        return false;
+    }
+
+    /**
+     * Возвращает режим заявки, подставляя возврат по умолчанию.
+     */
+    private ReturnRequestMode resolveMode(OrderReturnRequest request) {
+        return Optional.ofNullable(request.getMode()).orElse(ReturnRequestMode.RETURN);
+    }
+
+    /**
+     * Возвращает актуальную стадию с безопасным значением по умолчанию.
+     */
+    private ReturnRequestStage resolveStage(OrderReturnRequest request) {
+        return Optional.ofNullable(request.getStage()).orElse(ReturnRequestStage.NEW);
     }
 
     /**

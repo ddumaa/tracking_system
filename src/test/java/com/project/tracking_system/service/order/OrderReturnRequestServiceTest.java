@@ -603,6 +603,8 @@ class OrderReturnRequestServiceTest {
     void canConfirmReceipt_ReturnsTrueForActiveOrClosedWithoutConfirmation() {
         OrderReturnRequest request = new OrderReturnRequest();
         request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        request.setMode(ReturnRequestMode.RETURN);
+        request.setStage(ReturnRequestStage.OUTBOUND_SENT);
         assertThat(service.canConfirmReceipt(request)).isTrue();
 
         request.setReturnReceiptConfirmed(true);
@@ -610,6 +612,7 @@ class OrderReturnRequestServiceTest {
 
         request.setReturnReceiptConfirmed(false);
         request.setStatus(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
+        request.setStage(ReturnRequestStage.INBOUND_PICKED_UP);
         assertThat(service.canConfirmReceipt(request)).isTrue();
 
         request.setReturnReceiptConfirmed(true);
@@ -617,7 +620,32 @@ class OrderReturnRequestServiceTest {
 
         request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
         request.setReturnReceiptConfirmed(false);
+        request.setMode(ReturnRequestMode.EXCHANGE);
+        request.setStage(ReturnRequestStage.EXCHANGE_REGISTERED);
         assertThat(service.canConfirmReceipt(request)).isFalse();
+    }
+
+    @Test
+    void canStartExchange_RequiresReturnModeStageAndUniqueEpisode() {
+        OrderEpisode episode = new OrderEpisode();
+        episode.setId(800L);
+
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        request.setMode(ReturnRequestMode.RETURN);
+        request.setStage(ReturnRequestStage.OUTBOUND_SENT);
+        request.setEpisode(episode);
+
+        when(repository.existsByEpisode_IdAndStatus(800L, OrderReturnRequestStatus.EXCHANGE_APPROVED))
+                .thenReturn(false, true);
+
+        assertThat(service.canStartExchange(request)).isTrue();
+
+        request.setMode(ReturnRequestMode.EXCHANGE);
+        assertThat(service.canStartExchange(request)).isFalse();
+
+        request.setMode(ReturnRequestMode.RETURN);
+        assertThat(service.canStartExchange(request)).isFalse();
     }
 
     @Test
@@ -1029,6 +1057,8 @@ class OrderReturnRequestServiceTest {
         request.setEpisode(parcel.getEpisode());
         request.setStore(parcel.getStore());
         request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setMode(ReturnRequestMode.EXCHANGE);
+        request.setStage(ReturnRequestStage.EXCHANGE_REGISTERED);
         return request;
     }
 
