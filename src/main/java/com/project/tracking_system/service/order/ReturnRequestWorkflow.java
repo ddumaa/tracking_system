@@ -6,6 +6,7 @@ import com.project.tracking_system.entity.ReturnRequestAction;
 import com.project.tracking_system.entity.ReturnRequestMode;
 import com.project.tracking_system.entity.ReturnRequestStage;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.service.order.context.ReturnRequestActionContext;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -30,6 +31,7 @@ public class ReturnRequestWorkflow {
 
     private final Map<ReturnRequestMode, Map<ReturnRequestStage, Set<ReturnRequestStage>>> transitionTable;
     private final Map<ReturnRequestMode, Map<ReturnRequestStage, EnumSet<ReturnRequestAction>>> actionMatrix;
+    private final Map<OrderReturnRequestStatus, EnumSet<ReturnRequestAction>> statusActionMatrix;
 
     /**
      * Создаёт workflow с таблицей допустимых переходов.
@@ -37,6 +39,7 @@ public class ReturnRequestWorkflow {
     public ReturnRequestWorkflow() {
         this.transitionTable = buildTransitionTable();
         this.actionMatrix = buildActionMatrix();
+        this.statusActionMatrix = buildStatusActionMatrix();
     }
 
     /**
@@ -132,42 +135,45 @@ public class ReturnRequestWorkflow {
     }
 
     /**
-     * Вычисляет базовый набор действий, доступных по текущему состоянию заявки.
+     * Вычисляет итоговый набор действий, доступных для заявки с учётом матрицы и контекста.
+     * <p>
+     * Метод не ограничивается стадией: он объединяет базовые переходы из {@link #actionMatrix}
+     * и статусные команды из {@link #statusActionMatrix}, фильтруя их через политику доступности
+     * {@link ReturnRequestActionContext}. Благодаря этому сервисы получают уже согласованный
+     * перечень кнопок без повторной фильтрации (SRP).
+     * </p>
      *
-     * @param request заявка на возврат/обмен
-     * @return множество потенциально доступных действий
+     * @param context контекст заявки и предрасчитанные ограничения
+     * @return итоговое множество доступных действий
      */
-    public EnumSet<ReturnRequestAction> resolveBaseActions(OrderReturnRequest request) {
-        if (request == null) {
+    public EnumSet<ReturnRequestAction> resolveBaseActions(ReturnRequestActionContext context) {
+        if (context == null) {
             return EnumSet.noneOf(ReturnRequestAction.class);
         }
-        OrderReturnRequestStatus status = request.getStatus();
-        ReturnRequestMode mode = safeMode(request.getMode());
-        ReturnRequestStage stage = safeStage(request.getStage());
+        ReturnRequestMode mode = safeMode(context.mode());
+        ReturnRequestStage stage = adjustStageForMode(mode, safeStage(context.stage()));
+        OrderReturnRequestStatus status = context.status();
 
-        EnumSet<ReturnRequestAction> actions = EnumSet.noneOf(ReturnRequestAction.class);
+        EnumSet<ReturnRequestAction> resolved = EnumSet.noneOf(ReturnRequestAction.class);
+
         Map<ReturnRequestStage, EnumSet<ReturnRequestAction>> modeActions = actionMatrix.get(mode);
         if (modeActions != null) {
             EnumSet<ReturnRequestAction> stageActions = modeActions.get(stage);
             if (stageActions != null) {
-                actions.addAll(stageActions);
+                stageActions.stream()
+                        .filter(context::allows)
+                        .forEach(resolved::add);
             }
         }
 
-        if (status == OrderReturnRequestStatus.REGISTERED) {
-            actions.add(ReturnRequestAction.SET_MODE_EXCHANGE);
-            actions.add(ReturnRequestAction.UPDATE_REVERSE_TRACK);
-            actions.add(ReturnRequestAction.CLOSE_REQUEST);
-            actions.add(ReturnRequestAction.MARK_INBOUND_PICKED_UP);
-        } else if (status == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
-            actions.add(ReturnRequestAction.SET_MODE_RETURN);
-            actions.add(ReturnRequestAction.CANCEL_EXCHANGE);
-            actions.add(ReturnRequestAction.UPDATE_REVERSE_TRACK);
-            actions.add(ReturnRequestAction.MARK_INBOUND_PICKED_UP);
-        } else if (status == OrderReturnRequestStatus.CLOSED_NO_EXCHANGE) {
-            actions.add(ReturnRequestAction.MARK_INBOUND_PICKED_UP);
+        EnumSet<ReturnRequestAction> statusActions = statusActionMatrix.get(status);
+        if (statusActions != null) {
+            statusActions.stream()
+                    .filter(context::allows)
+                    .forEach(resolved::add);
         }
-        return actions;
+
+        return resolved;
     }
 
     private Map<ReturnRequestMode, Map<ReturnRequestStage, Set<ReturnRequestStage>>> buildTransitionTable() {
@@ -248,6 +254,21 @@ public class ReturnRequestWorkflow {
             }
             matrix.put(mode, stageActions);
         }
+        return matrix;
+    }
+
+    private Map<OrderReturnRequestStatus, EnumSet<ReturnRequestAction>> buildStatusActionMatrix() {
+        EnumMap<OrderReturnRequestStatus, EnumSet<ReturnRequestAction>> matrix = new EnumMap<>(OrderReturnRequestStatus.class);
+        matrix.put(OrderReturnRequestStatus.REGISTERED, EnumSet.of(
+                ReturnRequestAction.SET_MODE_EXCHANGE,
+                ReturnRequestAction.UPDATE_REVERSE_TRACK,
+                ReturnRequestAction.CLOSE_REQUEST
+        ));
+        matrix.put(OrderReturnRequestStatus.EXCHANGE_APPROVED, EnumSet.of(
+                ReturnRequestAction.SET_MODE_RETURN,
+                ReturnRequestAction.CANCEL_EXCHANGE,
+                ReturnRequestAction.UPDATE_REVERSE_TRACK
+        ));
         return matrix;
     }
 
