@@ -582,14 +582,16 @@ public class OrderReturnRequestService {
 
     /**
      * Проверяет, можно ли запускать обмен по заявке.
+     * <p>
+     * Метод полагается на статус и стадию обработки, чтобы не блокировать заявки,
+     * зарегистрированные с флагом обмена, но ещё не одобренные менеджером.
+     * Благодаря этому заявки с режимом {@link ReturnRequestMode#EXCHANGE},
+     * созданные покупателем, остаются доступны для перехода в стадию обмена.
+     * </p>
      */
     @Transactional(readOnly = true)
     public boolean canStartExchange(OrderReturnRequest request) {
         if (request == null || request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
-            return false;
-        }
-        ReturnRequestMode mode = resolveMode(request);
-        if (mode != ReturnRequestMode.RETURN) {
             return false;
         }
         ReturnRequestStage normalizedStage = returnRequestWorkflow
