@@ -14,6 +14,7 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.ReturnRequestAction;
 import com.project.tracking_system.repository.OrderReturnRequestActionRequestRepository;
 import com.project.tracking_system.repository.OrderReturnRequestRepository;
+import com.project.tracking_system.service.order.context.ReturnRequestActionContext;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.track.TrackViewCacheInvalidator;
 import lombok.RequiredArgsConstructor;
@@ -747,9 +748,41 @@ public class OrderReturnRequestService {
      */
     @Transactional(readOnly = true)
     public EnumSet<ReturnRequestAction> resolveAvailableActions(OrderReturnRequest request) {
-        EnumSet<ReturnRequestAction> actions = returnRequestWorkflow.resolveBaseActions(request);
-        actions.removeIf(action -> !isActionAllowed(action, request));
-        return actions;
+        if (request == null) {
+            return EnumSet.noneOf(ReturnRequestAction.class);
+        }
+        ReturnRequestActionContext context = buildActionContext(request);
+        return returnRequestWorkflow.resolveBaseActions(context);
+    }
+
+    /**
+     * Формирует контекст доступности действий для workflow на основании бизнес-ограничений.
+     *
+     * @param request заявка на возврат/обмен
+     * @return заполненный контекст действий
+     */
+    private ReturnRequestActionContext buildActionContext(OrderReturnRequest request) {
+        ReturnRequestMode mode = Optional.ofNullable(request.getMode()).orElse(ReturnRequestMode.RETURN);
+        ReturnRequestStage stage = Optional.ofNullable(request.getStage()).orElse(ReturnRequestStage.NEW);
+        ReturnRequestStage normalizedStage = returnRequestWorkflow.adjustStageForMode(mode, stage);
+        ReturnRequestActionContext.Builder builder = ReturnRequestActionContext.builder(request)
+                .withMode(mode)
+                .withStage(normalizedStage)
+                .withStatus(request.getStatus());
+
+        builder.allow(ReturnRequestAction.SET_MODE_EXCHANGE, canStartExchange(request));
+        builder.allow(ReturnRequestAction.SET_MODE_RETURN, canSwitchToReturnMode(request));
+        builder.allow(ReturnRequestAction.CANCEL_EXCHANGE, canCancelExchangeAction(request));
+        builder.allow(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL, canRegisterExchangeParcel(request));
+        builder.allow(ReturnRequestAction.CLOSE_REQUEST, canCloseRequest(request));
+        builder.allow(ReturnRequestAction.UPDATE_REVERSE_TRACK, canUpdateDetails(request));
+        builder.allow(ReturnRequestAction.MARK_OUTBOUND_SENT, canMarkOutboundSent(request));
+        builder.allow(ReturnRequestAction.MARK_INBOUND_ARRIVED, canMarkInboundArrived(request));
+        builder.allow(ReturnRequestAction.MARK_INBOUND_PICKED_UP, canMarkInboundPickedUp(request));
+        builder.allow(ReturnRequestAction.MARK_EXCHANGE_SENT, canMarkExchangeSent(request));
+        builder.allow(ReturnRequestAction.MARK_EXCHANGE_DELIVERED, canMarkExchangeDelivered(request));
+
+        return builder.build();
     }
 
     /**
@@ -890,25 +923,6 @@ public class OrderReturnRequestService {
     /**
      * Проверяет, разрешено ли действие для конкретной заявки с учётом всех ограничений.
      */
-    private boolean isActionAllowed(ReturnRequestAction action, OrderReturnRequest request) {
-        if (action == null || request == null) {
-            return false;
-        }
-        return switch (action) {
-            case SET_MODE_EXCHANGE -> canStartExchange(request);
-            case SET_MODE_RETURN -> canSwitchToReturnMode(request);
-            case CANCEL_EXCHANGE -> canCancelExchangeAction(request);
-            case REGISTER_EXCHANGE_PARCEL -> canRegisterExchangeParcel(request);
-            case CLOSE_REQUEST -> canCloseRequest(request);
-            case UPDATE_REVERSE_TRACK -> canUpdateDetails(request);
-            case MARK_OUTBOUND_SENT -> canMarkOutboundSent(request);
-            case MARK_INBOUND_ARRIVED -> canMarkInboundArrived(request);
-            case MARK_INBOUND_PICKED_UP -> canMarkInboundPickedUp(request);
-            case MARK_EXCHANGE_SENT -> canMarkExchangeSent(request);
-            case MARK_EXCHANGE_DELIVERED -> canMarkExchangeDelivered(request);
-        };
-    }
-
     /**
      * Проверяет, можно ли закрыть заявку на текущем этапе.
      */

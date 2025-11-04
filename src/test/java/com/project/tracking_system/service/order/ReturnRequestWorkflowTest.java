@@ -6,6 +6,7 @@ import com.project.tracking_system.entity.ReturnRequestAction;
 import com.project.tracking_system.entity.ReturnRequestMode;
 import com.project.tracking_system.entity.ReturnRequestStage;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.service.order.context.ReturnRequestActionContext;
 import org.junit.jupiter.api.Test;
 
 import java.time.ZoneOffset;
@@ -76,7 +77,19 @@ class ReturnRequestWorkflowTest {
         request.setStatus(OrderReturnRequestStatus.REGISTERED);
         request.setStage(ReturnRequestStage.NEW);
 
-        EnumSet<ReturnRequestAction> actions = workflow.resolveBaseActions(request);
+        ReturnRequestActionContext context = ReturnRequestActionContext.builder(request)
+                .withMode(ReturnRequestMode.RETURN)
+                .withStage(ReturnRequestStage.NEW)
+                .withStatus(OrderReturnRequestStatus.REGISTERED)
+                .allow(ReturnRequestAction.SET_MODE_EXCHANGE, true)
+                .allow(ReturnRequestAction.UPDATE_REVERSE_TRACK, true)
+                .allow(ReturnRequestAction.CLOSE_REQUEST, true)
+                .allow(ReturnRequestAction.MARK_OUTBOUND_SENT, true)
+                .allow(ReturnRequestAction.MARK_INBOUND_ARRIVED, true)
+                .allow(ReturnRequestAction.MARK_INBOUND_PICKED_UP, true)
+                .build();
+
+        EnumSet<ReturnRequestAction> actions = workflow.resolveBaseActions(context);
 
         assertThat(actions)
                 .contains(ReturnRequestAction.SET_MODE_EXCHANGE,
@@ -91,7 +104,18 @@ class ReturnRequestWorkflowTest {
         request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
         request.setStage(ReturnRequestStage.EXCHANGE_REGISTERED);
 
-        EnumSet<ReturnRequestAction> actions = workflow.resolveBaseActions(request);
+        ReturnRequestActionContext context = ReturnRequestActionContext.builder(request)
+                .withMode(ReturnRequestMode.EXCHANGE)
+                .withStage(ReturnRequestStage.EXCHANGE_REGISTERED)
+                .withStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED)
+                .allow(ReturnRequestAction.SET_MODE_RETURN, true)
+                .allow(ReturnRequestAction.CANCEL_EXCHANGE, true)
+                .allow(ReturnRequestAction.UPDATE_REVERSE_TRACK, true)
+                .allow(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL, true)
+                .allow(ReturnRequestAction.MARK_EXCHANGE_SENT, true)
+                .build();
+
+        EnumSet<ReturnRequestAction> actions = workflow.resolveBaseActions(context);
 
         assertThat(actions)
                 .contains(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL,

@@ -959,7 +959,7 @@ class OrderReturnRequestServiceTest {
     }
 
     @Test
-    void resolveAvailableActions_AllowsExchangeRegistrationMark() {
+    void resolveAvailableActions_OmitsExchangeSwitchWhenAlreadyApproved() {
         OrderReturnRequest request = new OrderReturnRequest();
         request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
         request.setStage(ReturnRequestStage.INBOUND_PICKED_UP);
@@ -967,7 +967,7 @@ class OrderReturnRequestServiceTest {
 
         EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
 
-        assertThat(actions).contains(ReturnRequestAction.SET_MODE_EXCHANGE);
+        assertThat(actions).doesNotContain(ReturnRequestAction.SET_MODE_EXCHANGE);
     }
 
     @Test
