@@ -626,7 +626,7 @@ class OrderReturnRequestServiceTest {
     }
 
     @Test
-    void canStartExchange_RequiresReturnModeStageAndUniqueEpisode() {
+    void canStartExchange_ReliesOnStageStatusAndEpisodeUniqueness() {
         OrderEpisode episode = new OrderEpisode();
         episode.setId(800L);
 
@@ -637,14 +637,19 @@ class OrderReturnRequestServiceTest {
         request.setEpisode(episode);
 
         when(repository.existsByEpisode_IdAndStatus(800L, OrderReturnRequestStatus.EXCHANGE_APPROVED))
-                .thenReturn(false, true);
+                .thenReturn(false, false, true);
 
         assertThat(service.canStartExchange(request)).isTrue();
 
         request.setMode(ReturnRequestMode.EXCHANGE);
+        request.setStage(ReturnRequestStage.NEW);
+        assertThat(service.canStartExchange(request)).isTrue();
+
+        request.setStage(ReturnRequestStage.EXCHANGE_DELIVERED);
         assertThat(service.canStartExchange(request)).isFalse();
 
         request.setMode(ReturnRequestMode.RETURN);
+        request.setStage(ReturnRequestStage.OUTBOUND_SENT);
         assertThat(service.canStartExchange(request)).isFalse();
     }
 
