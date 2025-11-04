@@ -427,7 +427,7 @@ class CustomerTelegramServiceTest {
         when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
         when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
         when(orderReturnRequestService.requestMerchantAction(requestId, parcelId, owner, customer,
-                ReturnRequestAction.CLOSE_REQUEST)).thenReturn(actionRequest);
+                ReturnRequestAction.CANCEL_EXCHANGE)).thenReturn(actionRequest);
 
         OrderReturnRequestActionRequest result = customerTelegramService.requestExchangeCancellationFromTelegram(
                 chatId,
@@ -437,7 +437,7 @@ class CustomerTelegramServiceTest {
 
         assertSame(actionRequest, result, "Сервис должен возвращать созданный запрос к магазину");
         verify(orderReturnRequestService).requestMerchantAction(requestId, parcelId, owner, customer,
-                ReturnRequestAction.CLOSE_REQUEST);
+                ReturnRequestAction.CANCEL_EXCHANGE);
     }
 
     @Test

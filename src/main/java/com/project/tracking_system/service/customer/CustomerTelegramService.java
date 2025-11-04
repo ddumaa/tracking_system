@@ -525,7 +525,7 @@ public class CustomerTelegramService {
                 parcelId,
                 owner,
                 customer,
-                ReturnRequestAction.CLOSE_REQUEST
+                ReturnRequestAction.CANCEL_EXCHANGE
         );
     }
 
