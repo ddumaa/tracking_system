@@ -8,6 +8,8 @@ import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
+import com.project.tracking_system.entity.ReturnRequestMode;
+import com.project.tracking_system.entity.ReturnRequestStage;
 import com.project.tracking_system.dto.ReturnRequestUpdateResponse;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.entity.OrderReturnRequestActionRequest;
@@ -244,6 +246,8 @@ class CustomerTelegramServiceTest {
         OrderReturnRequest request = new OrderReturnRequest();
         request.setId(88L);
         request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        request.setMode(ReturnRequestMode.RETURN);
+        request.setStage(ReturnRequestStage.NEW);
 
         when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
         when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
@@ -320,6 +324,8 @@ class CustomerTelegramServiceTest {
         parcel.setUser(owner);
 
         OrderReturnRequest approvalResult = new OrderReturnRequest();
+        approvalResult.setMode(ReturnRequestMode.EXCHANGE);
+        approvalResult.setStage(ReturnRequestStage.EXCHANGE_REGISTERED);
 
         when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
         when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));

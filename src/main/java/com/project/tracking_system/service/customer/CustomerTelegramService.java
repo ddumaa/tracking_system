@@ -15,6 +15,7 @@ import com.project.tracking_system.repository.CustomerRepository;
 import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.OrderReturnRequestRepository;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
+import com.project.tracking_system.service.order.ReturnRequestWorkflow;
 import com.project.tracking_system.service.order.ReturnRequestMapper;
 import com.project.tracking_system.service.telegram.FullNameValidator;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
@@ -556,7 +557,8 @@ public class CustomerTelegramService {
      * Обновляет обратный трек и комментарий активной заявки от имени покупателя.
      * <p>
      * Метод проверяет, что чат принадлежит покупателю, выбранная посылка закреплена за ним,
-     * а затем делегирует обновление сервису заявок, который выполняет бизнес-проверки.
+     * а затем делегирует обновление сервису заявок, который выполняет бизнес-проверки
+     * доступности через {@link ReturnRequestWorkflow}.
      * </p>
      *
      * @param chatId       идентификатор Telegram-чата
