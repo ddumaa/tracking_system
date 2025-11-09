@@ -6,7 +6,6 @@ import com.project.tracking_system.controller.ReturnRequestCommandType;
 import com.project.tracking_system.dto.CommandDto;
 import com.project.tracking_system.dto.RequestDto;
 import com.project.tracking_system.entity.OrderReturnRequest;
-import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.entity.ReturnCommandLog;
 import com.project.tracking_system.entity.ReturnRequestMode;
 import com.project.tracking_system.entity.TrackParcel;
@@ -191,56 +190,10 @@ class ReturnRequestCommandServiceTest {
     }
 
     @Test
-    void executeCommand_whenCancelExchange_invokesSwitchAndClose() {
-        User user = buildUser();
-        OrderReturnRequest request = buildRequest(40L, 18L);
-        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
-        OrderReturnRequest switched = buildRequest(40L, 18L);
-        switched.setStatus(OrderReturnRequestStatus.REGISTERED);
-        OrderReturnRequest closed = buildRequest(40L, 18L);
-        closed.setStatus(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
-        RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000040", 40L, "RETURN");
-        CommandDto command = new CommandDto("cancel-1", ReturnRequestCommandType.CANCEL_EXCHANGE.name(), null);
-
-        when(orderReturnRequestService.getOwnedRequest(40L, user)).thenReturn(request);
-        when(orderReturnRequestService.switchMode(40L,
-                18L,
-                user,
-                ReturnRequestMode.RETURN,
-                OrderReturnRequestService.ModeSwitchTrigger.EXCHANGE_CANCELLATION)).thenReturn(switched);
-        when(orderReturnRequestService.closeWithoutExchange(40L, 18L, user)).thenReturn(closed);
-        when(returnRequestMapper.toDto(eq(closed), any())).thenReturn(dto);
-
-        AtomicReference<ReturnCommandLog> savedLog = new AtomicReference<>();
-        when(returnCommandLogRepository.findFirstByRequestIdAndIdempotencyKey(40L, "cancel-1"))
-                .thenAnswer(invocation -> Optional.ofNullable(savedLog.get()));
-        when(returnCommandLogRepository.saveAndFlush(any(ReturnCommandLog.class)))
-                .thenAnswer(invocation -> {
-                    ReturnCommandLog logEntry = invocation.getArgument(0);
-                    savedLog.set(logEntry);
-                    return logEntry;
-                });
-
-        RequestDto result = commandService.executeCommand(40L,
-                ReturnRequestCommandType.CANCEL_EXCHANGE,
-                command,
-                user,
-                ZoneOffset.UTC);
-
-        assertThat(result).isEqualTo(dto);
-        verify(orderReturnRequestService).switchMode(40L,
-                18L,
-                user,
-                ReturnRequestMode.RETURN,
-                OrderReturnRequestService.ModeSwitchTrigger.EXCHANGE_CANCELLATION);
-        verify(orderReturnRequestService).closeWithoutExchange(40L, 18L, user);
-    }
-
-    @Test
-    void executeCommand_whenUpdateDetailsWithoutPayload_throwsBadRequest() {
+    void executeCommand_whenUpdateReverseTrackWithoutPayload_throwsBadRequest() {
         User user = buildUser();
         OrderReturnRequest request = buildRequest(23L, 11L);
-        CommandDto command = new CommandDto("dup-4", ReturnRequestCommandType.UPDATE_REVERSE_TRACK.name(), JsonNodeFactory.instance.objectNode());
+        CommandDto command = new CommandDto("dup-4", ReturnRequestCommandType.UPDATE_REVERSE_TRACK.name(), null);
 
         when(orderReturnRequestService.getOwnedRequest(23L, user)).thenReturn(request);
 
@@ -250,9 +203,28 @@ class ReturnRequestCommandServiceTest {
                 user,
                 ZoneOffset.UTC))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("reverseTrack");
+                .hasMessageContaining("требует объект payload");
 
         verify(orderReturnRequestService, never()).updateReverseTrackAndComment(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void executeCommand_whenExchangeCommandWithoutPayload_throwsBadRequest() {
+        User user = buildUser();
+        OrderReturnRequest request = buildRequest(24L, 12L);
+        CommandDto command = new CommandDto("dup-5", ReturnRequestCommandType.MARK_EXCHANGE_SENT.name(), null);
+
+        when(orderReturnRequestService.getOwnedRequest(24L, user)).thenReturn(request);
+
+        assertThatThrownBy(() -> commandService.executeCommand(24L,
+                ReturnRequestCommandType.MARK_EXCHANGE_SENT,
+                command,
+                user,
+                ZoneOffset.UTC))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("требует объект payload");
+
+        verify(orderReturnRequestService, never()).markExchangeSent(any(), any(), any(), any(), any());
     }
 
     @Test

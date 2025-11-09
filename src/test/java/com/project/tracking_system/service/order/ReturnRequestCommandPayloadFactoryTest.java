@@ -4,7 +4,8 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.project.tracking_system.controller.ReturnRequestCommandType;
 import com.project.tracking_system.service.order.payload.ReturnRequestCommandPayload;
 import com.project.tracking_system.service.order.payload.ReturnRequestCommandPayloadFactory;
-import com.project.tracking_system.service.order.payload.UpdateDetailsPayload;
+import com.project.tracking_system.service.order.payload.ExchangeShipmentPayload;
+import com.project.tracking_system.service.order.payload.UpdateReverseTrackPayload;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -31,27 +32,19 @@ class ReturnRequestCommandPayloadFactoryTest {
     }
 
     @Test
-    void create_whenUpdateDetailsWithoutFields_throwsException() {
-        assertThatThrownBy(() -> factory.create(ReturnRequestCommandType.UPDATE_REVERSE_TRACK,
-                JsonNodeFactory.instance.objectNode()))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("reverseTrack");
-    }
-
-    @Test
-    void create_whenUpdateDetailsHasValues_returnsNormalizedPayload() {
+    void create_whenUpdateReverseTrackHasValues_returnsNormalizedPayload() {
         var node = JsonNodeFactory.instance.objectNode()
                 .put("reverseTrack", "  ab123 ")
                 .put("comment", "  Test comment  ");
 
-        UpdateDetailsPayload payload = (UpdateDetailsPayload) factory.create(ReturnRequestCommandType.UPDATE_REVERSE_TRACK, node);
+        UpdateReverseTrackPayload payload = (UpdateReverseTrackPayload) factory.create(ReturnRequestCommandType.UPDATE_REVERSE_TRACK, node);
 
         assertThat(payload.reverseTrack()).isEqualTo("AB123");
         assertThat(payload.comment()).isEqualTo("Test comment");
     }
 
     @Test
-    void create_whenUpdateDetailsHasLongTrack_throwsException() {
+    void create_whenUpdateReverseTrackHasLongTrack_throwsException() {
         String longTrack = "A".repeat(70);
         var node = JsonNodeFactory.instance.objectNode()
                 .put("reverseTrack", longTrack);
@@ -62,14 +55,46 @@ class ReturnRequestCommandPayloadFactoryTest {
     }
 
     @Test
-    void create_whenUpdateDetailsClearsValues_isAccepted() {
+    void create_whenUpdateReverseTrackWithoutTrack_throwsException() {
         var node = JsonNodeFactory.instance.objectNode()
                 .putNull("reverseTrack")
-                .put("comment", " ");
+                .put("comment", "Комментарий");
 
-        UpdateDetailsPayload payload = (UpdateDetailsPayload) factory.create(ReturnRequestCommandType.UPDATE_REVERSE_TRACK, node);
+        assertThatThrownBy(() -> factory.create(ReturnRequestCommandType.UPDATE_REVERSE_TRACK, node))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("reverseTrack");
+    }
 
-        assertThat(payload.reverseTrack()).isNull();
+    @Test
+    void create_whenUpdateReverseTrackWithoutComment_returnsPayloadWithNullComment() {
+        var node = JsonNodeFactory.instance.objectNode()
+                .put("reverseTrack", "rr123");
+
+        UpdateReverseTrackPayload payload = (UpdateReverseTrackPayload) factory
+                .create(ReturnRequestCommandType.UPDATE_REVERSE_TRACK, node);
+
+        assertThat(payload.reverseTrack()).isEqualTo("RR123");
         assertThat(payload.comment()).isNull();
+    }
+
+    @Test
+    void create_whenExchangeCommandWithoutTrack_throwsException() {
+        var node = JsonNodeFactory.instance.objectNode();
+
+        assertThatThrownBy(() -> factory.create(ReturnRequestCommandType.REGISTER_EXCHANGE_PARCEL, node))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("exchangeTrack");
+    }
+
+    @Test
+    void create_whenExchangeCommandHasTrack_returnsNormalizedPayload() {
+        var node = JsonNodeFactory.instance.objectNode()
+                .put("exchangeTrack", " xx777 ");
+
+        ExchangeShipmentPayload payload = (ExchangeShipmentPayload) factory
+                .create(ReturnRequestCommandType.REGISTER_EXCHANGE_PARCEL, node);
+
+        assertThat(payload.exchangeTrack()).isEqualTo("XX777");
+        assertThat(payload.stageMoment()).isNull();
     }
 }
