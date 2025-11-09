@@ -972,6 +972,214 @@ class BuyerTelegramBotTest {
                 "При отправке обменной посылки должна отображаться кнопка запроса отмены");
         assertTrue(buttonLabels.contains("📝 Запросить возврат вместо обмена"),
                 "Пользователь должен видеть кнопку запроса перевода обмена в возврат");
+
+        InlineKeyboardButton convertButton = markup.getKeyboard().stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .filter(button -> "📝 Запросить возврат вместо обмена".equals(button.getText()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Клавиатура должна содержать кнопку запроса перевода обмена"));
+        assertEquals("returns:active:SET_MODE_RETURN:7:10", convertButton.getCallbackData(),
+                "Callback перевода обмена обязан использовать новый код действия SET_MODE_RETURN");
+    }
+
+    /**
+     * Проверяет, что при ожидающем обмене кнопка перевода в возврат использует новый callback с кодом действия.
+     */
+    @Test
+    void shouldRenderConvertButtonWithSetModeReturnCallback() throws Exception {
+        Long chatId = 6801L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        ActionRequiredReturnRequestDto exchangeRequest = buildActionDto(
+                11L,
+                22L,
+                "EX-PEND",
+                "Store",
+                "Готовится",
+                OrderReturnRequestStatus.EXCHANGE_APPROVED,
+                OrderReturnRequestStatus.EXCHANGE_APPROVED.getDisplayName(),
+                "13.11.2024",
+                "12.11.2024",
+                "Обмен",
+                "Комментарий",
+                null,
+                true,
+                false,
+                true,
+                true,
+                true,
+                false,
+                null,
+                false,
+                null,
+                false
+        );
+
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenReturn(List.of(exchangeRequest))
+                .thenReturn(List.of(exchangeRequest));
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:select:11:22"));
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(editCaptor.capture());
+
+        InlineKeyboardMarkup markup = editCaptor.getValue().getReplyMarkup();
+        assertNotNull(markup, "После выбора обменной заявки клавиатура должна быть доступна");
+
+        InlineKeyboardButton convertButton = markup.getKeyboard().stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .filter(button -> "↩️ Перевести в возврат".equals(button.getText()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Должна отображаться кнопка перевода обмена в возврат"));
+        assertEquals("returns:active:SET_MODE_RETURN:11:22", convertButton.getCallbackData(),
+                "Callback перевода обязан содержать код SET_MODE_RETURN");
+    }
+
+    /**
+     * Проверяет, что подтверждение перевода обмена без отправки создаёт немедленное обновление заявки.
+     */
+    @Test
+    void shouldConvertExchangeToReturnWhenConfirmed() throws Exception {
+        Long chatId = 6802L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        ActionRequiredReturnRequestDto exchangeRequest = buildActionDto(
+                12L,
+                23L,
+                "EX-CONV",
+                "Store",
+                "Готовится",
+                OrderReturnRequestStatus.EXCHANGE_APPROVED,
+                OrderReturnRequestStatus.EXCHANGE_APPROVED.getDisplayName(),
+                "14.11.2024",
+                "12.11.2024",
+                "Обмен",
+                "Комментарий",
+                null,
+                true,
+                false,
+                true,
+                true,
+                true,
+                false,
+                null,
+                false,
+                null,
+                false
+        );
+
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenAnswer(invocation -> List.of(exchangeRequest));
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:select:12:23"));
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:SET_MODE_RETURN:12:23"));
+
+        ArgumentCaptor<EditMessageText> confirmCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(confirmCaptor.capture());
+        String confirmText = confirmCaptor.getValue().getText().replace("\\", "");
+        assertTrue(confirmText.contains("Перевести обмен обратно в возврат?"),
+                "Сообщение подтверждения обязано содержать новый текст вопроса");
+        assertEquals(BuyerChatState.AWAITING_ACTIVE_ACTION_CONFIRMATION, chatSessionRepository.getState(chatId),
+                "После выбора действия бот должен ожидать подтверждение");
+
+        clearInvocations(telegramClient);
+        OrderReturnRequest updated = new OrderReturnRequest();
+        when(telegramService.convertExchangeToReturnFromTelegram(chatId, 23L, 12L)).thenReturn(updated);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:confirm:SET_MODE_RETURN:yes:12:23"));
+
+        verify(telegramService).convertExchangeToReturnFromTelegram(chatId, 23L, 12L);
+
+        ArgumentCaptor<EditMessageText> resultCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(resultCaptor.capture());
+        String resultText = resultCaptor.getValue().getText();
+        assertTrue(resultText.contains("Заявка переведена в возврат"),
+                "После успешного перевода бот обязан подтвердить изменение");
+        assertEquals(BuyerChatState.IDLE, chatSessionRepository.getState(chatId),
+                "После выполнения действия бот возвращается в состояние ожидания");
+    }
+
+    /**
+     * Проверяет, что при отправленной обменной посылке бот формирует запрос магазину на перевод обращения.
+     */
+    @Test
+    void shouldRequestExchangeConversionWhenReplacementDispatched() throws Exception {
+        Long chatId = 6803L;
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        ActionRequiredReturnRequestDto exchangeRequest = buildActionDto(
+                13L,
+                24L,
+                "EX-CONV-REQ",
+                "Store",
+                "В пути",
+                OrderReturnRequestStatus.EXCHANGE_APPROVED,
+                OrderReturnRequestStatus.EXCHANGE_APPROVED.getDisplayName(),
+                "14.11.2024",
+                "12.11.2024",
+                "Обмен",
+                "Комментарий",
+                null,
+                true,
+                false,
+                true,
+                true,
+                true,
+                true,
+                null,
+                false,
+                null,
+                false
+        );
+
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenAnswer(invocation -> List.of(exchangeRequest));
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:select:13:24"));
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:SET_MODE_RETURN:13:24"));
+
+        ArgumentCaptor<EditMessageText> confirmCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(confirmCaptor.capture());
+        String confirmText = confirmCaptor.getValue().getText().replace("\\", "");
+        assertTrue(confirmText.contains("Отправить запрос магазину на перевод обмена в возврат?"),
+                "При отправке обменной посылки вопрос подтверждения должен отражать запрос магазину");
+
+        clearInvocations(telegramClient);
+        OrderReturnRequestActionRequest actionRequest = new OrderReturnRequestActionRequest();
+        when(telegramService.requestExchangeConversionFromTelegram(chatId, 24L, 13L)).thenReturn(actionRequest);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:confirm:SET_MODE_RETURN:yes:13:24"));
+
+        verify(telegramService).requestExchangeConversionFromTelegram(chatId, 24L, 13L);
+        verify(telegramService, never()).convertExchangeToReturnFromTelegram(anyLong(), anyLong(), anyLong());
+
+        ArgumentCaptor<EditMessageText> resultCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(resultCaptor.capture());
+        String resultText = resultCaptor.getValue().getText().replace("\\", "");
+        assertTrue(resultText.contains("Мы передали запрос магазину на перевод обмена в возврат"),
+                "Результат операции обязан сообщать о переданном запросе магазину");
+        assertEquals(BuyerChatState.IDLE, chatSessionRepository.getState(chatId),
+                "После формирования запроса бот должен вернуться в состояние ожидания");
     }
 
     @Test

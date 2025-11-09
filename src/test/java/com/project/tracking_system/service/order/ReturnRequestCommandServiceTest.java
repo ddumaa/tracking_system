@@ -79,7 +79,7 @@ class ReturnRequestCommandServiceTest {
         OrderReturnRequest request = buildRequest(21L, 9L);
         OrderReturnRequest updated = buildRequest(21L, 9L);
         RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000021", 21L, "EXCHANGE");
-        CommandDto command = new CommandDto("dup-1", "SET_MODE_EXCHANGE", null);
+        CommandDto command = new CommandDto("dup-1", ReturnRequestCommandType.SET_MODE_EXCHANGE.name(), null);
 
         when(orderReturnRequestService.getOwnedRequest(21L, user)).thenReturn(request);
         when(orderReturnRequestService.switchMode(21L,
@@ -137,7 +137,7 @@ class ReturnRequestCommandServiceTest {
         when(returnCommandLogRepository.findFirstByRequestIdAndIdempotencyKey(21L, "dup-2"))
                 .thenReturn(Optional.of(existing));
 
-        CommandDto command = new CommandDto("dup-2", "SET_MODE_EXCHANGE", null);
+        CommandDto command = new CommandDto("dup-2", ReturnRequestCommandType.SET_MODE_EXCHANGE.name(), null);
 
         assertThatThrownBy(() -> commandService.executeCommand(21L,
                 ReturnRequestCommandType.SET_MODE_EXCHANGE,
@@ -156,7 +156,7 @@ class ReturnRequestCommandServiceTest {
     void executeCommand_whenConcurrentReservation_returnsStoredSnapshot() {
         User user = buildUser();
         OrderReturnRequest request = buildRequest(22L, 10L);
-        CommandDto command = new CommandDto("dup-3", "SET_MODE_EXCHANGE", null);
+        CommandDto command = new CommandDto("dup-3", ReturnRequestCommandType.SET_MODE_EXCHANGE.name(), null);
 
         RequestDto storedDto = buildRequestDto("00000000-0000-0000-0000-000000000022", 22L, "EXCHANGE");
         String snapshot;
@@ -200,7 +200,7 @@ class ReturnRequestCommandServiceTest {
         OrderReturnRequest closed = buildRequest(40L, 18L);
         closed.setStatus(OrderReturnRequestStatus.CLOSED_NO_EXCHANGE);
         RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000040", 40L, "RETURN");
-        CommandDto command = new CommandDto("cancel-1", "CANCEL_EXCHANGE", null);
+        CommandDto command = new CommandDto("cancel-1", ReturnRequestCommandType.CANCEL_EXCHANGE.name(), null);
 
         when(orderReturnRequestService.getOwnedRequest(40L, user)).thenReturn(request);
         when(orderReturnRequestService.switchMode(40L,
@@ -240,7 +240,7 @@ class ReturnRequestCommandServiceTest {
     void executeCommand_whenUpdateDetailsWithoutPayload_throwsBadRequest() {
         User user = buildUser();
         OrderReturnRequest request = buildRequest(23L, 11L);
-        CommandDto command = new CommandDto("dup-4", "UPDATE_REVERSE_TRACK", JsonNodeFactory.instance.objectNode());
+        CommandDto command = new CommandDto("dup-4", ReturnRequestCommandType.UPDATE_REVERSE_TRACK.name(), JsonNodeFactory.instance.objectNode());
 
         when(orderReturnRequestService.getOwnedRequest(23L, user)).thenReturn(request);
 
