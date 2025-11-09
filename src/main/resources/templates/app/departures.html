@@ -307,14 +307,50 @@
                                                     </div>
                                                 </td>
                                                 <td class="text-end">
-                                                    <div class="d-flex flex-column flex-lg-row gap-2 justify-content-end"
-                                                           th:with="isExchangeApproved=${request.status == T(com.project.tracking_system.entity.OrderReturnRequestStatus).EXCHANGE_APPROVED},
-                                                                   allowConfirm=${request.availableActions != null and request.availableActions.markInboundPickedUp},
-                                                                   allowConvertToExchange=${request.availableActions != null and request.availableActions.setModeExchange},
-                                                                   allowClose=${request.availableActions != null and request.availableActions.closeRequest},
-                                                                   hasReverse=${request.reverseTrackNumber != null and !#strings.isEmpty(request.reverseTrackNumber)},
-                                                                   allowConvertToReturn=${request.availableActions != null and request.availableActions.setModeReturn},
-                                                                   allowUpdateReverse=${request.availableActions != null and request.availableActions.updateReverseTrack}">
+                                                      <div class="d-flex flex-column flex-lg-row gap-2 justify-content-end"
+                                                           th:with="actions=${request.availableActions},
+                                                                   actionCodes=${actions != null and actions.actionCodes != null ? actions.actionCodes : null},
+                                                                   isExchangeApproved=${request.status == T(com.project.tracking_system.entity.OrderReturnRequestStatus).EXCHANGE_APPROVED},
+                                                                   allowConfirm=${actions != null and (actions.markInboundPickedUp or (actionCodes != null and #lists.contains(actionCodes, 'mark_inbound_picked_up')))},
+                                                                   allowConvertToExchange=${actions != null and (actions.setModeExchange or (actionCodes != null and #lists.contains(actionCodes, 'set_mode_exchange')))},
+                                                                   allowClose=${actions != null and (actions.closeRequest or (actionCodes != null and #lists.contains(actionCodes, 'close_request')))},
+                                                                   allowConvertToReturn=${actions != null and (actions.setModeReturn or (actionCodes != null and #lists.contains(actionCodes, 'set_mode_return')))},
+                                                                   allowUpdateReverse=${actions != null and (actions.updateReverseTrack or (actionCodes != null and #lists.contains(actionCodes, 'update_reverse_track')))},
+                                                                   allowMarkOutboundSent=${actions != null and (actions.markOutboundSent or (actionCodes != null and #lists.contains(actionCodes, 'mark_outbound_sent')))},
+                                                                   allowMarkInboundArrived=${actions != null and (actions.markInboundArrived or (actionCodes != null and #lists.contains(actionCodes, 'mark_inbound_arrived')))},
+                                                                   allowRegisterExchange=${actions != null and (actions.registerExchangeParcel or (actionCodes != null and #lists.contains(actionCodes, 'register_exchange_parcel')))},
+                                                                   allowMarkExchangeSent=${actions != null and (actions.markExchangeSent or (actionCodes != null and #lists.contains(actionCodes, 'mark_exchange_sent')))},
+                                                                   allowMarkExchangeDelivered=${actions != null and (actions.markExchangeDelivered or (actionCodes != null and #lists.contains(actionCodes, 'mark_exchange_delivered')))},
+                                                                   markOutboundSentLabel=${actions != null and !#strings.isEmpty(actions.markOutboundSentLabel) ? actions.markOutboundSentLabel : 'Отправка возврата'},
+                                                                   markOutboundSentAria=${actions != null and !#strings.isEmpty(actions.markOutboundSentAriaLabel) ? actions.markOutboundSentAriaLabel : 'Отметить отправку возвратной посылки магазином'},
+                                                                   markInboundArrivedLabel=${actions != null and !#strings.isEmpty(actions.markInboundArrivedLabel) ? actions.markInboundArrivedLabel : 'Возврат на складе'},
+                                                                   markInboundArrivedAria=${actions != null and !#strings.isEmpty(actions.markInboundArrivedAriaLabel) ? actions.markInboundArrivedAriaLabel : 'Отметить прибытие возвратной посылки на склад'},
+                                                                   registerExchangeLabel=${actions != null and !#strings.isEmpty(actions.registerExchangeParcelLabel) ? actions.registerExchangeParcelLabel : 'Запустить обмен'},
+                                                                   registerExchangeAria=${actions != null and !#strings.isEmpty(actions.registerExchangeParcelAriaLabel) ? actions.registerExchangeParcelAriaLabel : 'Запустить обмен по обращению'},
+                                                                   markExchangeSentLabel=${actions != null and !#strings.isEmpty(actions.markExchangeSentLabel) ? actions.markExchangeSentLabel : 'Отправка обмена'},
+                                                                   markExchangeSentAria=${actions != null and !#strings.isEmpty(actions.markExchangeSentAriaLabel) ? actions.markExchangeSentAriaLabel : 'Отметить отправку обменной посылки'},
+                                                                   markExchangeDeliveredLabel=${actions != null and !#strings.isEmpty(actions.markExchangeDeliveredLabel) ? actions.markExchangeDeliveredLabel : 'Доставка обмена'},
+                                                                   markExchangeDeliveredAria=${actions != null and !#strings.isEmpty(actions.markExchangeDeliveredAriaLabel) ? actions.markExchangeDeliveredAriaLabel : 'Отметить доставку обменной посылки клиенту'}">
+                                                        <button type="button"
+                                                                class="btn btn-outline-primary btn-sm js-return-request-mark-outbound"
+                                                                th:classappend="${allowMarkOutboundSent} ? '' : ' d-none'"
+                                                                data-action-label="Отправка возврата"
+                                                                th:data-action-label="${markOutboundSentLabel}"
+                                                                th:text="${markOutboundSentLabel}"
+                                                                th:attr="aria-hidden=${allowMarkOutboundSent ? false : true},aria-label=${markOutboundSentAria}"
+                                                                th:disabled="${!allowMarkOutboundSent}">
+                                                            Отправка возврата
+                                                        </button>
+                                                        <button type="button"
+                                                                class="btn btn-outline-secondary btn-sm js-return-request-mark-inbound"
+                                                                th:classappend="${allowMarkInboundArrived} ? '' : ' d-none'"
+                                                                data-action-label="Возврат на складе"
+                                                                th:data-action-label="${markInboundArrivedLabel}"
+                                                                th:text="${markInboundArrivedLabel}"
+                                                                th:attr="aria-hidden=${allowMarkInboundArrived ? false : true},aria-label=${markInboundArrivedAria}"
+                                                                th:disabled="${!allowMarkInboundArrived}">
+                                                            Возврат на складе
+                                                        </button>
                                                         <button type="button"
                                                                 class="btn btn-success btn-sm js-return-request-confirm-return"
                                                                 th:classappend="${allowConfirm and !isExchangeApproved} ? '' : ' d-none'"
@@ -330,6 +366,16 @@
                                                                 th:attr="aria-hidden=${allowConvertToExchange ? false : true}"
                                                                 th:disabled="${!allowConvertToExchange}">
                                                             Перевести в обмен
+                                                        </button>
+                                                        <button type="button"
+                                                                class="btn btn-primary btn-sm js-return-request-register-exchange"
+                                                                th:classappend="${allowRegisterExchange} ? '' : ' d-none'"
+                                                                data-action-label="Запустить обмен"
+                                                                th:data-action-label="${registerExchangeLabel}"
+                                                                th:text="${registerExchangeLabel}"
+                                                                th:attr="aria-hidden=${allowRegisterExchange ? false : true},aria-label=${registerExchangeAria}"
+                                                                th:disabled="${!allowRegisterExchange}">
+                                                            Запустить обмен
                                                         </button>
                                                         <button type="button"
                                                                 class="btn btn-outline-secondary btn-sm js-return-request-close"
@@ -356,8 +402,28 @@
                                                             Перевести в возврат
                                                         </button>
                                                         <button type="button"
+                                                                class="btn btn-outline-primary btn-sm js-return-request-mark-exchange-sent"
+                                                                th:classappend="${allowMarkExchangeSent} ? '' : ' d-none'"
+                                                                data-action-label="Отправка обмена"
+                                                                th:data-action-label="${markExchangeSentLabel}"
+                                                                th:text="${markExchangeSentLabel}"
+                                                                th:attr="aria-hidden=${allowMarkExchangeSent ? false : true},aria-label=${markExchangeSentAria}"
+                                                                th:disabled="${!allowMarkExchangeSent}">
+                                                            Отправка обмена
+                                                        </button>
+                                                        <button type="button"
+                                                                class="btn btn-outline-success btn-sm js-return-request-mark-exchange-delivered"
+                                                                th:classappend="${allowMarkExchangeDelivered} ? '' : ' d-none'"
+                                                                data-action-label="Доставка обмена"
+                                                                th:data-action-label="${markExchangeDeliveredLabel}"
+                                                                th:text="${markExchangeDeliveredLabel}"
+                                                                th:attr="aria-hidden=${allowMarkExchangeDelivered ? false : true},aria-label=${markExchangeDeliveredAria}"
+                                                                th:disabled="${!allowMarkExchangeDelivered}">
+                                                            Доставка обмена
+                                                        </button>
+                                                        <button type="button"
                                                                 class="btn btn-success btn-sm js-return-request-confirm-reverse"
-                                                                th:classappend="${allowConfirm and isExchangeApproved} ? '' : ' d-none'"
+                                                                th:classappend="${allowConfirm and isExchangeApproved} ? '' : 'd-none'"
                                                                 data-action-label="Принять обратную посылку"
                                                                 th:attr="aria-hidden=${allowConfirm and isExchangeApproved ? false : true}"
                                                                 th:disabled="${!(allowConfirm and isExchangeApproved)}">

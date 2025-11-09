@@ -13,6 +13,19 @@
         return value.trim().toLowerCase();
     }
 
+    const ACTION_FLAG_ALIASES = Object.freeze({
+        markOutboundSent: 'mark_outbound_sent',
+        markInboundArrived: 'mark_inbound_arrived',
+        registerExchangeParcel: 'register_exchange_parcel',
+        markExchangeSent: 'mark_exchange_sent',
+        markExchangeDelivered: 'mark_exchange_delivered',
+        markInboundPickedUp: 'mark_inbound_picked_up',
+        setModeExchange: 'set_mode_exchange',
+        closeRequest: 'close_request',
+        setModeReturn: 'set_mode_return',
+        updateReverseTrack: 'update_reverse_track'
+    });
+
     /**
      * Формирует множество доступных action-code из возможных источников summary.
      * Метод инкапсулирует детали структуры DTO, соблюдая принцип SRP.
@@ -38,6 +51,12 @@
             if (Array.isArray(available.actionCodes)) {
                 sources.push(available.actionCodes);
             }
+            const derivedCodes = Object.entries(ACTION_FLAG_ALIASES)
+                .filter(([property]) => Boolean(available?.[property]))
+                .map(([, code]) => code);
+            if (derivedCodes.length > 0) {
+                sources.push(derivedCodes);
+            }
         }
         const flattened = sources.flatMap((list) => Array.isArray(list) ? list : []);
         const seen = new Set();
@@ -58,18 +77,61 @@
      * Проверяет, содержится ли указанный action-code в множестве доступных действий.
      * Метод учитывает только актуальные идентификаторы, так как устаревшие коды удалены.
      * @param {Set<string>} codeSet множество доступных действий
-     * @param {string} code искомое действие
+     * @param {string|Array<string>} code искомое действие или набор кодов
      * @returns {boolean} {@code true}, если действие доступно
      */
     function hasActionFromSet(codeSet, code) {
         if (!(codeSet instanceof Set) || codeSet.size === 0) {
             return false;
         }
-        const normalized = normalizeActionCode(code);
-        if (!normalized) {
-            return false;
+        const candidates = Array.isArray(code) ? code : [code];
+        return candidates.some((candidate) => {
+            const normalized = normalizeActionCode(candidate);
+            return normalized ? codeSet.has(normalized) : false;
+        });
+    }
+
+    /**
+     * Извлекает пользовательскую подпись для действия из DTO доступных операций.
+     * Метод применяет принцип OCP, позволяя расширять список действий без изменения
+     * вызывающего кода.
+     * @param {Object|null} availableActions объект доступных действий
+     * @param {string} propertyName базовое имя свойства
+     * @param {string} fallback запасной текст
+     * @returns {string} локализованная подпись кнопки
+     */
+    function resolveActionLabel(availableActions, propertyName, fallback) {
+        if (!availableActions || typeof availableActions !== 'object') {
+            return fallback;
         }
-        return codeSet.has(normalized);
+        const key = `${propertyName}Label`;
+        const raw = availableActions[key];
+        if (typeof raw !== 'string') {
+            return fallback;
+        }
+        const trimmed = raw.trim();
+        return trimmed.length > 0 ? trimmed : fallback;
+    }
+
+    /**
+     * Извлекает aria-label для действия, позволяя бэкенду управлять доступностью
+     * без изменения фронтенда.
+     * @param {Object|null} availableActions объект доступных действий
+     * @param {string} propertyName базовое имя свойства
+     * @param {string} fallback запасной текст aria-атрибута
+     * @returns {string} локализованный aria-label
+     */
+    function resolveActionAriaLabel(availableActions, propertyName, fallback) {
+        if (!availableActions || typeof availableActions !== 'object') {
+            return fallback;
+        }
+        const key = `${propertyName}AriaLabel`;
+        const raw = availableActions[key];
+        if (typeof raw !== 'string') {
+            return fallback;
+        }
+        const trimmed = raw.trim();
+        return trimmed.length > 0 ? trimmed : fallback;
     }
 
     /**
@@ -215,36 +277,136 @@
         const statusRaw = typeof summary.stage === 'string' ? summary.stage.toUpperCase() : '';
         const isExchangeStatus = statusRaw.includes('EXCHANGE');
 
-        const syncButton = (button, visible, label) => {
+        const availableActions = summary.availableActions && typeof summary.availableActions === 'object'
+            ? summary.availableActions
+            : null;
+
+        const syncButton = (button, { visible, label, ariaLabel }) => {
             if (!button) {
                 return;
             }
-            button.classList.toggle('d-none', !visible);
-            button.setAttribute('aria-hidden', visible ? 'false' : 'true');
-            button.disabled = !visible;
-            if (visible && label) {
+            const isVisible = Boolean(visible);
+            button.classList.toggle('d-none', !isVisible);
+            button.setAttribute('aria-hidden', isVisible ? 'false' : 'true');
+            button.disabled = !isVisible;
+            button.setAttribute('aria-disabled', isVisible ? 'false' : 'true');
+            if (isVisible && label) {
                 button.textContent = label;
                 button.dataset.actionLabel = label;
+            }
+            if (isVisible && ariaLabel) {
+                button.setAttribute('aria-label', ariaLabel);
+            } else if (!isVisible) {
+                button.removeAttribute('aria-label');
             }
         };
 
         const confirmReturnButton = row.querySelector('.js-return-request-confirm-return');
-        syncButton(confirmReturnButton, allowConfirmReceipt && !isExchangeStatus, 'Принять возврат');
+        syncButton(confirmReturnButton, {
+            visible: allowConfirmReceipt && !isExchangeStatus,
+            label: 'Принять возврат'
+        });
 
         const toExchangeButton = row.querySelector('.js-return-request-to-exchange');
-        syncButton(toExchangeButton, allowConvertToExchange, 'Перевести в обмен');
+        syncButton(toExchangeButton, {
+            visible: allowConvertToExchange,
+            label: 'Перевести в обмен'
+        });
 
         const closeButton = row.querySelector('.js-return-request-close');
-        syncButton(closeButton, allowCloseRequest, 'Закрыть обращение');
+        syncButton(closeButton, {
+            visible: allowCloseRequest,
+            label: 'Закрыть обращение'
+        });
 
         const addReverseButton = row.querySelector('.js-return-request-add-reverse');
-        syncButton(addReverseButton, allowUpdateReverseTrack, 'Добавить трек обратной посылки');
+        syncButton(addReverseButton, {
+            visible: allowUpdateReverseTrack,
+            label: 'Добавить трек обратной посылки'
+        });
 
         const toReturnButton = row.querySelector('.js-return-request-to-return');
-        syncButton(toReturnButton, allowConvertToReturn, 'Перевести в возврат');
+        syncButton(toReturnButton, {
+            visible: allowConvertToReturn,
+            label: 'Перевести в возврат'
+        });
 
         const confirmReverseButton = row.querySelector('.js-return-request-confirm-reverse');
-        syncButton(confirmReverseButton, allowConfirmReceipt && isExchangeStatus, 'Принять обратную посылку');
+        syncButton(confirmReverseButton, {
+            visible: allowConfirmReceipt && isExchangeStatus,
+            label: 'Принять обратную посылку'
+        });
+
+        const allowMarkOutboundSent = hasModernActions
+            ? hasActionFromSet(actionCodeSet, 'mark_outbound_sent')
+            : Boolean(availableActions?.markOutboundSent);
+        const allowMarkInboundArrived = hasModernActions
+            ? hasActionFromSet(actionCodeSet, 'mark_inbound_arrived')
+            : Boolean(availableActions?.markInboundArrived);
+        const allowRegisterExchange = hasModernActions
+            ? hasActionFromSet(actionCodeSet, 'register_exchange_parcel')
+            : Boolean(availableActions?.registerExchangeParcel);
+        const allowMarkExchangeSent = hasModernActions
+            ? hasActionFromSet(actionCodeSet, 'mark_exchange_sent')
+            : Boolean(availableActions?.markExchangeSent);
+        const allowMarkExchangeDelivered = hasModernActions
+            ? hasActionFromSet(actionCodeSet, 'mark_exchange_delivered')
+            : Boolean(availableActions?.markExchangeDelivered);
+
+        const outboundButton = row.querySelector('.js-return-request-mark-outbound');
+        syncButton(outboundButton, {
+            visible: allowMarkOutboundSent,
+            label: resolveActionLabel(availableActions, 'markOutboundSent', 'Отправка возврата'),
+            ariaLabel: resolveActionAriaLabel(
+                availableActions,
+                'markOutboundSent',
+                'Отметить отправку возвратной посылки магазином'
+            )
+        });
+
+        const inboundButton = row.querySelector('.js-return-request-mark-inbound');
+        syncButton(inboundButton, {
+            visible: allowMarkInboundArrived,
+            label: resolveActionLabel(availableActions, 'markInboundArrived', 'Возврат на складе'),
+            ariaLabel: resolveActionAriaLabel(
+                availableActions,
+                'markInboundArrived',
+                'Отметить прибытие возвратной посылки на склад'
+            )
+        });
+
+        const registerExchangeButton = row.querySelector('.js-return-request-register-exchange');
+        syncButton(registerExchangeButton, {
+            visible: allowRegisterExchange,
+            label: resolveActionLabel(availableActions, 'registerExchangeParcel', 'Запустить обмен'),
+            ariaLabel: resolveActionAriaLabel(
+                availableActions,
+                'registerExchangeParcel',
+                'Запустить обмен по обращению'
+            )
+        });
+
+        const exchangeSentButton = row.querySelector('.js-return-request-mark-exchange-sent');
+        syncButton(exchangeSentButton, {
+            visible: allowMarkExchangeSent,
+            label: resolveActionLabel(availableActions, 'markExchangeSent', 'Отправка обмена'),
+            ariaLabel: resolveActionAriaLabel(
+                availableActions,
+                'markExchangeSent',
+                'Отметить отправку обменной посылки'
+            )
+        });
+
+        const exchangeDeliveredButton = row.querySelector('.js-return-request-mark-exchange-delivered');
+        syncButton(exchangeDeliveredButton, {
+            visible: allowMarkExchangeDelivered,
+            label: resolveActionLabel(availableActions, 'markExchangeDelivered', 'Доставка обмена'),
+            ariaLabel: resolveActionAriaLabel(
+                availableActions,
+                'markExchangeDelivered',
+                'Отметить доставку обменной посылки клиенту'
+            )
+        });
 
         refreshEmptyState();
     }
@@ -304,10 +466,32 @@
      */
     function getActionExecutors() {
         return {
+            markOutboundSent(trackId, requestId, options = {}) {
+                const fn = window.trackModal?.markReturnOutboundSent;
+                if (typeof fn !== 'function') {
+                    return Promise.reject(new Error('Отметка отправки возврата недоступна'));
+                }
+                return fn(trackId, requestId, options);
+            },
+            markInboundArrived(trackId, requestId, options = {}) {
+                const fn = window.trackModal?.markReturnInboundArrived;
+                if (typeof fn !== 'function') {
+                    return Promise.reject(new Error('Отметка прибытия возврата недоступна'));
+                }
+                return fn(trackId, requestId, options);
+            },
             toExchange(trackId, requestId, options = {}) {
                 const fn = window.trackModal?.convertReturnRequestToExchange;
                 if (typeof fn !== 'function') {
                     return Promise.reject(new Error('Перевод заявки в обмен недоступен'));
+                }
+                return fn(trackId, requestId, options);
+            },
+            registerExchangeParcel(trackId, requestId, options = {}) {
+                const fn = window.trackModal?.createExchangeParcel
+                    || window.trackModal?.launchExchange;
+                if (typeof fn !== 'function') {
+                    return Promise.reject(new Error('Запуск обмена недоступен'));
                 }
                 return fn(trackId, requestId, options);
             },
@@ -332,6 +516,20 @@
                 }
                 return fn(trackId, requestId, options);
             },
+            markExchangeSent(trackId, requestId, options = {}) {
+                const fn = window.trackModal?.markExchangeShipmentSent;
+                if (typeof fn !== 'function') {
+                    return Promise.reject(new Error('Отметка отправки обмена недоступна'));
+                }
+                return fn(trackId, requestId, options);
+            },
+            markExchangeDelivered(trackId, requestId, options = {}) {
+                const fn = window.trackModal?.markExchangeShipmentDelivered;
+                if (typeof fn !== 'function') {
+                    return Promise.reject(new Error('Отметка доставки обмена недоступна'));
+                }
+                return fn(trackId, requestId, options);
+            },
             reverse(trackId, requestId, reverseValue, comment = null) {
                 const fn = window.trackModal?.updateReverseTrack;
                 if (typeof fn !== 'function') {
@@ -352,7 +550,19 @@
         const executors = getActionExecutors();
 
         table.addEventListener('click', (event) => {
-            const button = event.target.closest('.js-return-request-confirm-return, .js-return-request-to-exchange, .js-return-request-close, .js-return-request-add-reverse, .js-return-request-to-return, .js-return-request-confirm-reverse');
+            const button = event.target.closest([
+                '.js-return-request-confirm-return',
+                '.js-return-request-to-exchange',
+                '.js-return-request-close',
+                '.js-return-request-add-reverse',
+                '.js-return-request-to-return',
+                '.js-return-request-confirm-reverse',
+                '.js-return-request-mark-outbound',
+                '.js-return-request-mark-inbound',
+                '.js-return-request-register-exchange',
+                '.js-return-request-mark-exchange-sent',
+                '.js-return-request-mark-exchange-delivered'
+            ].join(', '));
             if (!button) {
                 return;
             }
@@ -402,6 +612,18 @@
                     successMessage: 'Заявка переведена в обмен',
                     notificationType: 'info'
                 };
+            } else if (button.classList.contains('js-return-request-mark-outbound')) {
+                actionKey = 'markOutboundSent';
+                actionOptions = {
+                    successMessage: 'Отправка возвратной посылки отмечена',
+                    notificationType: 'info'
+                };
+            } else if (button.classList.contains('js-return-request-mark-inbound')) {
+                actionKey = 'markInboundArrived';
+                actionOptions = {
+                    successMessage: 'Прибытие возвратной посылки отмечено',
+                    notificationType: 'info'
+                };
             } else if (button.classList.contains('js-return-request-close')) {
                 actionKey = 'close';
                 actionOptions = {
@@ -418,6 +640,24 @@
                 actionKey = 'confirm';
                 actionOptions = {
                     successMessage: 'Получение обратной посылки подтверждено',
+                    notificationType: 'success'
+                };
+            } else if (button.classList.contains('js-return-request-register-exchange')) {
+                actionKey = 'registerExchangeParcel';
+                actionOptions = {
+                    successMessage: 'Обмен запущен',
+                    notificationType: 'info'
+                };
+            } else if (button.classList.contains('js-return-request-mark-exchange-sent')) {
+                actionKey = 'markExchangeSent';
+                actionOptions = {
+                    successMessage: 'Отправка обменной посылки отмечена',
+                    notificationType: 'info'
+                };
+            } else if (button.classList.contains('js-return-request-mark-exchange-delivered')) {
+                actionKey = 'markExchangeDelivered';
+                actionOptions = {
+                    successMessage: 'Доставка обменной посылки отмечена',
                     notificationType: 'success'
                 };
             }
