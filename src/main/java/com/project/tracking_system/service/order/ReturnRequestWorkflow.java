@@ -225,32 +225,25 @@ public class ReturnRequestWorkflow {
         Map<ReturnRequestMode, Map<ReturnRequestStage, EnumSet<ReturnRequestAction>>> matrix = new EnumMap<>(ReturnRequestMode.class);
         for (ReturnRequestMode mode : ReturnRequestMode.values()) {
             Map<ReturnRequestStage, EnumSet<ReturnRequestAction>> stageActions = new EnumMap<>(ReturnRequestStage.class);
-            Map<ReturnRequestStage, Set<ReturnRequestStage>> modeTransitions = transitionTable.get(mode);
-            if (modeTransitions != null) {
-                for (ReturnRequestStage stage : ReturnRequestStage.values()) {
-                    if (!stage.supportsMode(mode)) {
+            Map<ReturnRequestStage, Set<ReturnRequestStage>> modeTransitions = transitionTable.getOrDefault(mode, Collections.emptyMap());
+            for (ReturnRequestStage stage : ReturnRequestStage.values()) {
+                if (!stage.supportsMode(mode)) {
+                    continue;
+                }
+                Set<ReturnRequestStage> targets = modeTransitions.getOrDefault(stage, Collections.emptySet());
+                EnumSet<ReturnRequestAction> actions = EnumSet.noneOf(ReturnRequestAction.class);
+                for (ReturnRequestStage target : targets) {
+                    if (stage == target) {
                         continue;
                     }
-                    Set<ReturnRequestStage> targets = modeTransitions.getOrDefault(stage, Collections.emptySet());
-                    EnumSet<ReturnRequestAction> actions = EnumSet.noneOf(ReturnRequestAction.class);
-                    for (ReturnRequestStage target : targets) {
-                        if (stage == target) {
-                            continue;
-                        }
-                        EnumSet<ReturnRequestAction> mapped = mapTransitionToActions(mode, stage, target);
-                        if (!mapped.isEmpty()) {
-                            actions.addAll(mapped);
-                        }
-                    }
-                    if (!actions.isEmpty()) {
-                        stageActions.put(stage, actions);
+                    EnumSet<ReturnRequestAction> mapped = mapTransitionToActions(mode, stage, target);
+                    if (!mapped.isEmpty()) {
+                        actions.addAll(mapped);
                     }
                 }
-            }
-            if (mode == ReturnRequestMode.EXCHANGE) {
-                stageActions.computeIfAbsent(ReturnRequestStage.EXCHANGE_REGISTERED,
-                        ignored -> EnumSet.noneOf(ReturnRequestAction.class))
-                        .add(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL);
+                if (!actions.isEmpty()) {
+                    stageActions.put(stage, actions);
+                }
             }
             matrix.put(mode, stageActions);
         }
@@ -267,7 +260,8 @@ public class ReturnRequestWorkflow {
         matrix.put(OrderReturnRequestStatus.EXCHANGE_APPROVED, EnumSet.of(
                 ReturnRequestAction.SET_MODE_RETURN,
                 ReturnRequestAction.CANCEL_EXCHANGE,
-                ReturnRequestAction.UPDATE_REVERSE_TRACK
+                ReturnRequestAction.UPDATE_REVERSE_TRACK,
+                ReturnRequestAction.REGISTER_EXCHANGE_PARCEL
         ));
         return matrix;
     }
@@ -290,20 +284,12 @@ public class ReturnRequestWorkflow {
             case OUTBOUND_SENT -> EnumSet.of(ReturnRequestAction.MARK_OUTBOUND_SENT);
             case INBOUND_ARRIVED -> EnumSet.of(ReturnRequestAction.MARK_INBOUND_ARRIVED);
             case INBOUND_PICKED_UP -> EnumSet.of(ReturnRequestAction.MARK_INBOUND_PICKED_UP);
-            case EXCHANGE_REGISTERED -> mode == ReturnRequestMode.EXCHANGE
-                    ? EnumSet.of(ReturnRequestAction.SET_MODE_EXCHANGE)
+            case EXCHANGE_SENT -> mode == ReturnRequestMode.EXCHANGE
+                    ? EnumSet.of(ReturnRequestAction.MARK_EXCHANGE_SENT)
                     : EnumSet.noneOf(ReturnRequestAction.class);
-            case EXCHANGE_SENT -> {
-                if (mode != ReturnRequestMode.EXCHANGE) {
-                    yield EnumSet.noneOf(ReturnRequestAction.class);
-                }
-                EnumSet<ReturnRequestAction> exchangeActions = EnumSet.of(ReturnRequestAction.MARK_EXCHANGE_SENT);
-                if (from == ReturnRequestStage.EXCHANGE_REGISTERED) {
-                    exchangeActions.add(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL);
-                }
-                yield exchangeActions;
-            }
-            case EXCHANGE_DELIVERED -> EnumSet.of(ReturnRequestAction.MARK_EXCHANGE_DELIVERED);
+            case EXCHANGE_DELIVERED -> mode == ReturnRequestMode.EXCHANGE
+                    ? EnumSet.of(ReturnRequestAction.MARK_EXCHANGE_DELIVERED)
+                    : EnumSet.noneOf(ReturnRequestAction.class);
             default -> EnumSet.noneOf(ReturnRequestAction.class);
         };
     }

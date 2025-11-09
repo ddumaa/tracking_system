@@ -81,10 +81,9 @@ class ReturnRequestCommandServiceTest {
         CommandDto command = new CommandDto("dup-1", ReturnRequestCommandType.SET_MODE_EXCHANGE.name(), null);
 
         when(orderReturnRequestService.getOwnedRequest(21L, user)).thenReturn(request);
-        when(orderReturnRequestService.switchMode(21L,
+        when(orderReturnRequestService.setModeExchange(21L,
                 9L,
                 user,
-                ReturnRequestMode.EXCHANGE,
                 OrderReturnRequestService.ModeSwitchTrigger.MANUAL_DECISION)).thenReturn(updated);
         when(returnRequestMapper.toDto(eq(updated), any())).thenReturn(dto);
 
@@ -112,10 +111,9 @@ class ReturnRequestCommandServiceTest {
 
         assertThat(first).isEqualTo(dto);
         assertThat(second).isEqualTo(dto);
-        verify(orderReturnRequestService).switchMode(21L,
+        verify(orderReturnRequestService).setModeExchange(21L,
                 9L,
                 user,
-                ReturnRequestMode.EXCHANGE,
                 OrderReturnRequestService.ModeSwitchTrigger.MANUAL_DECISION);
         verify(returnRequestMapper).toDto(eq(updated), any());
         verify(returnCommandLogRepository, atLeast(2)).saveAndFlush(any(ReturnCommandLog.class));
@@ -146,7 +144,8 @@ class ReturnRequestCommandServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("уже выполнена");
 
-        verify(orderReturnRequestService, never()).switchMode(any(), any(), any(), any(), any());
+        verify(orderReturnRequestService, never()).setModeExchange(any(), any(), any(), any());
+        verify(orderReturnRequestService, never()).setModeReturn(any(), any(), any(), any());
         verify(returnRequestMapper, never()).toDto(any(), any());
         verify(returnCommandLogRepository, never()).saveAndFlush(any(ReturnCommandLog.class));
     }
@@ -185,7 +184,8 @@ class ReturnRequestCommandServiceTest {
                 ZoneOffset.UTC);
 
         assertThat(result.legacyId()).isEqualTo(22L);
-        verify(orderReturnRequestService, never()).switchMode(any(), any(), any(), any(), any());
+        verify(orderReturnRequestService, never()).setModeExchange(any(), any(), any(), any());
+        verify(orderReturnRequestService, never()).setModeReturn(any(), any(), any(), any());
         verify(returnRequestMapper, never()).toDto(any(), any());
     }
 
@@ -205,7 +205,7 @@ class ReturnRequestCommandServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("требует объект payload");
 
-        verify(orderReturnRequestService, never()).updateReverseTrackAndComment(any(), any(), any(), any(), any());
+        verify(orderReturnRequestService, never()).updateReverseTrack(any(), any(), any(), any(), any());
     }
 
     @Test

@@ -90,14 +90,21 @@ describe('track-modal render', () => {
             : Array.isArray(rawActions.actionCodes)
                 ? rawActions.actionCodes
                 : (Array.isArray(request.actionCodes) ? request.actionCodes : []);
+        const codesSet = new Set(normalizedCodes.filter(Boolean).map((code) => String(code).toUpperCase()));
+        const hasAction = (code) => codesSet.has(String(code).toUpperCase());
         const availableActions = {
             ...rawActions,
-            startExchange: Boolean(request.canStartExchange ?? rawActions.startExchange ?? (mapLegacy('allowConvertToExchange') && mapLegacy('allowLaunchExchange'))),
-            createExchangeParcel: Boolean(request.canCreateExchangeParcel ?? rawActions.createExchangeParcel ?? mapLegacy('allowLaunchExchange')),
-            closeWithoutExchange: Boolean(request.canCloseWithoutExchange ?? rawActions.closeWithoutExchange ?? mapLegacy('allowClose')),
-            reopenAsReturn: Boolean(request.canReopenAsReturn ?? rawActions.reopenAsReturn ?? mapLegacy('allowConvertToReturn')),
-            cancelExchange: Boolean(request.canCancelExchange ?? rawActions.cancelExchange ?? mapLegacy('allowClose')),
-            confirmReceipt: Boolean(request.canConfirmReceipt ?? rawActions.confirmReceipt ?? mapLegacy('allowAcceptReverse') ?? mapLegacy('allowAccept')),
+            setModeExchange: Boolean(request.canSetModeExchange ?? request.canStartExchange ?? rawActions.setModeExchange ?? rawActions.startExchange ?? (mapLegacy('allowConvertToExchange') && mapLegacy('allowLaunchExchange')) || hasAction('SET_MODE_EXCHANGE')),
+            setModeReturn: Boolean(request.canSetModeReturn ?? request.canReopenAsReturn ?? rawActions.setModeReturn ?? rawActions.reopenAsReturn ?? mapLegacy('allowConvertToReturn') || hasAction('SET_MODE_RETURN')),
+            cancelExchange: Boolean(request.canCancelExchange ?? rawActions.cancelExchange ?? mapLegacy('allowClose') || hasAction('CANCEL_EXCHANGE')),
+            registerExchangeParcel: Boolean(request.canRegisterExchangeParcel ?? rawActions.registerExchangeParcel ?? rawActions.createExchangeParcel ?? mapLegacy('allowLaunchExchange') || hasAction('REGISTER_EXCHANGE_PARCEL')),
+            closeRequest: Boolean(request.canCloseRequest ?? request.canCloseWithoutExchange ?? rawActions.closeRequest ?? rawActions.closeWithoutExchange ?? mapLegacy('allowClose') || hasAction('CLOSE_REQUEST')),
+            updateReverseTrack: Boolean(request.canUpdateReverseTrack ?? rawActions.updateReverseTrack ?? mapLegacy('allowUpdate') || hasAction('UPDATE_REVERSE_TRACK')),
+            markOutboundSent: Boolean(request.canMarkOutboundSent ?? rawActions.markOutboundSent ?? hasAction('MARK_OUTBOUND_SENT')),
+            markInboundArrived: Boolean(request.canMarkInboundArrived ?? rawActions.markInboundArrived ?? hasAction('MARK_INBOUND_ARRIVED')),
+            markInboundPickedUp: Boolean(request.canMarkInboundPickedUp ?? rawActions.markInboundPickedUp ?? rawActions.confirmReceipt ?? mapLegacy('allowAcceptReverse') ?? mapLegacy('allowAccept') || hasAction('MARK_INBOUND_PICKED_UP')),
+            markExchangeSent: Boolean(request.canMarkExchangeSent ?? rawActions.markExchangeSent ?? hasAction('MARK_EXCHANGE_SENT')),
+            markExchangeDelivered: Boolean(request.canMarkExchangeDelivered ?? rawActions.markExchangeDelivered ?? hasAction('MARK_EXCHANGE_DELIVERED')),
             actions: normalizedCodes,
             actionCodes: normalizedCodes
         };

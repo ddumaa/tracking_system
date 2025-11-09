@@ -435,13 +435,16 @@ public class CustomerTelegramService {
      * @return заявка после перевода в обмен
      */
     @Transactional
-    public OrderReturnRequest approveExchangeFromTelegram(Long chatId,
+    public OrderReturnRequest setModeExchangeFromTelegram(Long chatId,
                                                           Long parcelId,
                                                           Long requestId) {
         Customer customer = requireCustomerByChat(chatId);
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
-        return orderReturnRequestService.approveExchange(requestId, parcelId, owner);
+        return orderReturnRequestService.setModeExchange(requestId,
+                parcelId,
+                owner,
+                OrderReturnRequestService.ModeSwitchTrigger.CUSTOMER_REQUEST);
     }
 
     /**
@@ -463,7 +466,7 @@ public class CustomerTelegramService {
         Customer customer = requireCustomerByChat(chatId);
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
-        return orderReturnRequestService.closeWithoutExchange(requestId, parcelId, owner);
+        return orderReturnRequestService.closeRequest(requestId, parcelId, owner);
     }
 
     /**
@@ -476,12 +479,11 @@ public class CustomerTelegramService {
         Customer customer = requireCustomerByChat(chatId);
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
-        orderReturnRequestService.switchMode(requestId,
+        orderReturnRequestService.setModeReturn(requestId,
                 parcelId,
                 owner,
-                ReturnRequestMode.RETURN,
                 OrderReturnRequestService.ModeSwitchTrigger.CUSTOMER_REQUEST);
-        return orderReturnRequestService.closeWithoutExchange(requestId, parcelId, owner);
+        return orderReturnRequestService.closeRequest(requestId, parcelId, owner);
     }
 
     /**
@@ -494,10 +496,9 @@ public class CustomerTelegramService {
         Customer customer = requireCustomerByChat(chatId);
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
-        return orderReturnRequestService.switchMode(requestId,
+        return orderReturnRequestService.setModeReturn(requestId,
                 parcelId,
                 owner,
-                ReturnRequestMode.RETURN,
                 OrderReturnRequestService.ModeSwitchTrigger.CUSTOMER_REQUEST);
     }
 
@@ -577,7 +578,7 @@ public class CustomerTelegramService {
         Customer customer = requireCustomerByChat(chatId);
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
-        return orderReturnRequestService.updateReverseTrackAndComment(requestId, parcelId, owner, reverseTrack, comment);
+        return orderReturnRequestService.updateReverseTrack(requestId, parcelId, owner, reverseTrack, comment);
     }
 
     /**

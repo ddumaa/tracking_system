@@ -291,7 +291,7 @@ public class ReturnRequestCommandService {
                                                         ReturnRequestCommandPayload payload) {
         UpdateReverseTrackPayload updatePayload = requirePayload(payload, UpdateReverseTrackPayload.class,
                 ReturnRequestCommandType.UPDATE_REVERSE_TRACK);
-        orderReturnRequestService.updateReverseTrackAndComment(
+        orderReturnRequestService.updateReverseTrack(
                 context.requestId(),
                 context.parcelId(),
                 context.user(),
@@ -307,7 +307,7 @@ public class ReturnRequestCommandService {
     private OrderReturnRequest executeCloseRequest(CommandContext context) {
         OrderReturnRequest request = orderReturnRequestService.getOwnedRequest(context.requestId(), context.user());
         return switch (request.getStatus()) {
-            case REGISTERED -> orderReturnRequestService.closeWithoutExchange(context.requestId(),
+            case REGISTERED -> orderReturnRequestService.closeRequest(context.requestId(),
                     context.parcelId(),
                     context.user());
             case EXCHANGE_APPROVED -> throw new IllegalStateException("Перед закрытием переведите заявку в режим возврата");
@@ -363,13 +363,20 @@ public class ReturnRequestCommandService {
     private OrderReturnRequest executeModeSwitch(CommandContext context,
                                                  ReturnRequestMode targetMode,
                                                  OrderReturnRequestService.ModeSwitchTrigger trigger) {
-        return orderReturnRequestService.switchMode(
-                context.requestId(),
-                context.parcelId(),
-                context.user(),
-                targetMode,
-                trigger
-        );
+        return switch (targetMode) {
+            case EXCHANGE -> orderReturnRequestService.setModeExchange(
+                    context.requestId(),
+                    context.parcelId(),
+                    context.user(),
+                    trigger
+            );
+            case RETURN -> orderReturnRequestService.setModeReturn(
+                    context.requestId(),
+                    context.parcelId(),
+                    context.user(),
+                    trigger
+            );
+        };
     }
 
     /**

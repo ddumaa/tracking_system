@@ -488,7 +488,7 @@ class TrackViewServiceTest {
         when(userService.getUserZone(15L)).thenReturn(ZoneId.of("UTC"));
         when(trackStatusEventService.findEvents(81L)).thenReturn(List.of());
         when(orderReturnRequestService.findCurrentForParcel(81L)).thenReturn(Optional.of(request));
-        when(orderReturnRequestService.canStartExchange(request)).thenReturn(true);
+        when(orderReturnRequestService.canSetModeExchange(request)).thenReturn(true);
         when(orderReturnRequestService.canConfirmReceipt(request)).thenReturn(true);
         when(orderReturnRequestService.canCreateExchangeParcel(request)).thenReturn(false);
         when(orderReturnRequestService.resolveAvailableActions(request))

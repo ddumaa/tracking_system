@@ -308,13 +308,13 @@
                                                 </td>
                                                 <td class="text-end">
                                                     <div class="d-flex flex-column flex-lg-row gap-2 justify-content-end"
-                                                         th:with="isExchangeApproved=${request.status == T(com.project.tracking_system.entity.OrderReturnRequestStatus).EXCHANGE_APPROVED},
-                                                                  allowConfirm=${request.availableActions != null and request.availableActions.confirmReceipt},
-                                                                  allowConvertToExchange=${request.availableActions != null and request.availableActions.startExchange},
-                                                                  allowClose=${request.availableActions != null and request.availableActions.closeWithoutExchange},
-                                                                  hasReverse=${request.reverseTrackNumber != null and !#strings.isEmpty(request.reverseTrackNumber)},
-                                                                  allowConvertToReturn=${request.availableActions != null and request.availableActions.reopenAsReturn},
-                                                                  allowUpdateReverse=${isExchangeApproved and !hasReverse}">
+                                                           th:with="isExchangeApproved=${request.status == T(com.project.tracking_system.entity.OrderReturnRequestStatus).EXCHANGE_APPROVED},
+                                                                   allowConfirm=${request.availableActions != null and request.availableActions.markInboundPickedUp},
+                                                                   allowConvertToExchange=${request.availableActions != null and request.availableActions.setModeExchange},
+                                                                   allowClose=${request.availableActions != null and request.availableActions.closeRequest},
+                                                                   hasReverse=${request.reverseTrackNumber != null and !#strings.isEmpty(request.reverseTrackNumber)},
+                                                                   allowConvertToReturn=${request.availableActions != null and request.availableActions.setModeReturn},
+                                                                   allowUpdateReverse=${request.availableActions != null and request.availableActions.updateReverseTrack}">
                                                         <button type="button"
                                                                 class="btn btn-success btn-sm js-return-request-confirm-return"
                                                                 th:classappend="${allowConfirm and !isExchangeApproved} ? '' : ' d-none'"
