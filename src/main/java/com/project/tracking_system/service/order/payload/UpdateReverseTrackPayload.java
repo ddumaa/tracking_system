@@ -5,13 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
- * Полезная нагрузка для команды обновления данных заявки.
+ * Полезная нагрузка для команды обновления обратного трека.
  *
- * @param reverseTrack номер обратного трека в нормализованном виде
+ * @param reverseTrack номер обратного трека в нормализованном виде (обязательный)
  * @param comment      комментарий менеджера
  */
-public record UpdateDetailsPayload(String reverseTrack,
-                                   String comment) implements ReturnRequestCommandPayload {
+public record UpdateReverseTrackPayload(String reverseTrack,
+                                        String comment) implements ReturnRequestCommandPayload {
 
     @Override
     public JsonNode toNormalizedTree(ObjectMapper objectMapper) {

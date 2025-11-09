@@ -14,7 +14,7 @@ import java.security.MessageDigest;
  * и обеспечения идемпотентности команд даже при вложенных структурах.
  * </p>
  */
-public sealed interface ReturnRequestCommandPayload permits EmptyPayload, UpdateDetailsPayload,
+public sealed interface ReturnRequestCommandPayload permits EmptyPayload, UpdateReverseTrackPayload,
         StageMarkPayload, ExchangeShipmentPayload {
 
     /**
