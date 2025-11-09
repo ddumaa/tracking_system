@@ -115,7 +115,7 @@ class ReturnsControllerTest {
         mockMvc.perform(post("/api/v1/returns/21/commands")
                         .with(auth)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"idempotencyKey\":\"cmd-1\",\"action\":\"start_exchange\"}"))
+                        .content("{\"idempotencyKey\":\"cmd-1\",\"action\":\"set_mode_exchange\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id", equalTo("00000000-0000-0000-0000-000000000021")))
                 .andExpect(jsonPath("$.legacyId", equalTo(21)))
@@ -135,7 +135,7 @@ class ReturnsControllerTest {
         mockMvc.perform(post("/api/v1/returns/30/commands")
                         .with(auth)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"idempotencyKey\":\"cmd-2\",\"action\":\"update_details\",\"payload\":{\"reverseTrack\":\"BY000\",\"comment\":\"Комментарий\"}}"))
+                        .content("{\"idempotencyKey\":\"cmd-2\",\"action\":\"update_reverse_track\",\"payload\":{\"reverseTrack\":\"BY000\",\"comment\":\"Комментарий\"}}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.stage", equalTo("INBOUND_PICKED_UP")));
         verify(returnRequestCommandService).executeCommand(eq(30L), any(), any(), eq(principal), any());

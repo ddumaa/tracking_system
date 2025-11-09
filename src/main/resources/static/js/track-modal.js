@@ -556,10 +556,10 @@
             const legacyUpdateReverse = mapLegacy('allowUpdateReverseTrack');
             const canUpdateReverseTrack = this.request?.canUpdateReverseTrack;
             const confirmReceiptFlag = hasActionCode(actions, 'mark_inbound_picked_up');
-            const convertToExchangeFlag = hasActionCode(actions, 'start_exchange');
-            const launchExchangeFlag = hasActionCode(actions, 'create_exchange_parcel');
-            const closeFlag = hasActionCode(actions, 'close');
-            const reopenFlag = hasActionCode(actions, 'reopen_return');
+            const convertToExchangeFlag = hasActionCode(actions, 'set_mode_exchange');
+            const launchExchangeFlag = hasActionCode(actions, 'register_exchange_parcel');
+            const closeFlag = hasActionCode(actions, 'close_request');
+            const reopenFlag = hasActionCode(actions, 'set_mode_return');
             const cancelExchangeFlag = hasActionCode(actions, 'cancel_exchange');
             const updateDetailsFlag = hasActionCode(actions, 'update_reverse_track');
             return {
@@ -1279,20 +1279,18 @@
     }
 
     /**
-     * Синонимы action-code для обратной совместимости.
-     * Карта помогает сопоставить устаревшие и новые коды действий,
-     * чтобы проверка доступности кнопок оставалась единообразной.
+     * Нормализует action-code в единый формат для сравнения.
+     * Метод удовлетворяет SRP, скрывая детали приведения строки и
+     * позволяя переиспользовать преобразование в различных проверках.
+     * @param {string} value исходное значение кода
+     * @returns {string} нормализованный action-code или пустая строка
      */
-    const ACTION_CODE_ALIASES = {
-        'confirm_receipt': ['mark_inbound_picked_up'],
-        'mark_inbound_picked_up': ['confirm_receipt'],
-        'create_exchange_parcel': ['register_exchange_parcel'],
-        'register_exchange_parcel': ['create_exchange_parcel'],
-        'update_details': ['update_reverse_track'],
-        'update_reverse_track': ['update_details'],
-        'cancel_exchange': ['close'],
-        'close': ['cancel_exchange']
-    };
+    function normalizeActionCode(value) {
+        if (typeof value !== 'string') {
+            return '';
+        }
+        return value.trim().toLowerCase();
+    }
 
     const STAGE_LABELS = {
         NEW: 'Заявка зарегистрирована',
@@ -1329,41 +1327,40 @@
             : Array.isArray(actions.actionCodes)
                 ? actions.actionCodes
                 : [];
+        const seen = new Set();
         return rawCodes
-            .map((code) => (typeof code === 'string' ? code.trim().toLowerCase() : ''))
-            .filter((code) => code.length > 0);
+            .map((code) => normalizeActionCode(code))
+            .filter((code) => code.length > 0)
+            .filter((code) => {
+                if (seen.has(code)) {
+                    return false;
+                }
+                seen.add(code);
+                return true;
+            });
     }
 
     /**
      * Проверяет, присутствует ли указанный action-code в списке доступных действий.
-     * Метод поддерживает синонимы, чтобы плавно перейти на новый контракт API.
+     * Метод принимает во внимание только актуальные идентификаторы, так как устаревшие
+     * коды удалены и больше не поддерживаются.
      * @param {Object|Array<string>} actions объект или массив с кодами действий
      * @param {string} code проверяемый код действия
-     * @param {Object} [options] дополнительные настройки проверки
-     * @param {boolean} [options.matchSynonyms=true] учитывать ли синонимы
      * @returns {boolean} {@code true}, если действие доступно
      */
-    function hasActionCode(actions, code, options = {}) {
+    function hasActionCode(actions, code) {
         if (!code) {
             return false;
         }
-        const { matchSynonyms = true } = options;
-        const normalized = String(code).trim().toLowerCase();
+        const normalized = normalizeActionCode(code);
+        if (!normalized) {
+            return false;
+        }
         const codes = extractActionCodes(actions);
-        if (codes.includes(normalized)) {
-            return true;
-        }
-        if (!matchSynonyms) {
+        if (codes.length === 0) {
             return false;
         }
-        const aliases = ACTION_CODE_ALIASES[normalized] || [];
-        if (aliases.length === 0) {
-            return false;
-        }
-        return aliases
-            .map((alias) => String(alias || '').trim().toLowerCase())
-            .filter((alias) => alias.length > 0)
-            .some((alias) => codes.includes(alias));
+        return codes.includes(normalized);
     }
 
     /**
@@ -1603,7 +1600,7 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            command: 'start_exchange',
+            command: 'set_mode_exchange',
             successMessage: options.successMessage || 'Заявка переведена в обмен',
             notificationType: options.notificationType || 'info',
             errorMessage: options.errorMessage || 'Не удалось перевести заявку в обмен'
@@ -1620,7 +1617,7 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            command: 'close',
+            command: 'close_request',
             successMessage: options.successMessage || 'Обращение закрыто',
             notificationType: options.notificationType || 'warning',
             errorMessage: options.errorMessage || 'Не удалось закрыть обращение'
@@ -1648,7 +1645,7 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            command: 'confirm_receipt',
+            command: 'mark_inbound_picked_up',
             successMessage: options.successMessage || 'Возврат подтверждён',
             notificationType: options.notificationType || 'success',
             errorMessage: options.errorMessage || 'Не удалось подтвердить получение возврата'
@@ -1665,7 +1662,7 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            command: 'create_exchange_parcel',
+            command: 'register_exchange_parcel',
             successMessage: options.successMessage || 'Обмен запущен',
             notificationType: options.notificationType || 'info',
             errorMessage: options.errorMessage || 'Не удалось создать обменную посылку'
@@ -1676,7 +1673,7 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            command: 'reopen',
+            command: 'set_mode_return',
             successMessage: options.successMessage || 'Заявка переведена в возврат',
             notificationType: options.notificationType || 'info',
             errorMessage: options.errorMessage || 'Не удалось перевести заявку в возврат'
@@ -1695,7 +1692,7 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            command: 'update_details',
+            command: 'update_reverse_track',
             payload: {
                 reverseTrackNumber: reverseTrack,
                 comment
