@@ -3005,6 +3005,10 @@
         reopenReturnRequest,
         createExchangeParcel,
         launchExchange: createExchangeParcel,
+        markReturnOutboundSent,
+        markReturnInboundArrived,
+        markExchangeShipmentSent,
+        markExchangeShipmentDelivered,
         updateReverseTrack
     };
 })();
