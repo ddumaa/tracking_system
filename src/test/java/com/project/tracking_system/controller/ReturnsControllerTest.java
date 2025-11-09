@@ -3,6 +3,7 @@ package com.project.tracking_system.controller;
 import com.project.tracking_system.dto.AvailableActionsDto;
 import com.project.tracking_system.dto.RequestDto;
 import com.project.tracking_system.entity.OrderReturnRequest;
+import com.project.tracking_system.entity.ReturnRequestAction;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
 import com.project.tracking_system.service.order.ReturnRequestCommandService;
@@ -165,13 +166,16 @@ class ReturnsControllerTest {
         OrderReturnRequest request = new OrderReturnRequest();
         when(orderReturnRequestService.getOwnedRequest(52L, principal)).thenReturn(request);
         when(returnRequestMapper.toAvailableActions(request))
-                .thenReturn(new AvailableActionsDto(List.of("SET_MODE_EXCHANGE", "CLOSE_REQUEST")));
+                .thenReturn(new AvailableActionsDto(List.of(
+                        ReturnRequestAction.SET_MODE_EXCHANGE.getCode(),
+                        ReturnRequestAction.CLOSE_REQUEST.getCode()
+                )));
 
         mockMvc.perform(get("/api/v1/returns/52/available-actions")
                         .with(auth))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.actions[0]", equalTo("SET_MODE_EXCHANGE")))
-                .andExpect(jsonPath("$.actions[1]", equalTo("CLOSE_REQUEST")));
+                .andExpect(jsonPath("$.actions[0]", equalTo(ReturnRequestAction.SET_MODE_EXCHANGE.getCode())))
+                .andExpect(jsonPath("$.actions[1]", equalTo(ReturnRequestAction.CLOSE_REQUEST.getCode())));
     }
 
     private UsernamePasswordAuthenticationToken authentication(User user) {
