@@ -109,7 +109,6 @@ class ReturnRequestWorkflowTest {
                 .withStage(ReturnRequestStage.EXCHANGE_REGISTERED)
                 .withStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED)
                 .allow(ReturnRequestAction.SET_MODE_RETURN, true)
-                .allow(ReturnRequestAction.CANCEL_EXCHANGE, true)
                 .allow(ReturnRequestAction.UPDATE_REVERSE_TRACK, true)
                 .allow(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL, true)
                 .allow(ReturnRequestAction.MARK_EXCHANGE_SENT, true)

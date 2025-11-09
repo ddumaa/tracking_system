@@ -576,34 +576,6 @@ public class CustomerTelegramService {
     }
 
     /**
-     * Формирует запрос магазину на отмену обмена, когда обменная посылка уже отправлена.
-     * <p>
-     * Метод сохраняет обращение покупателя для обработки в веб-интерфейсе магазина
-     * и не инициирует отмену автоматически.
-     * </p>
-     *
-     * @param chatId   идентификатор чата Telegram
-     * @param parcelId идентификатор посылки
-     * @param requestId идентификатор обменной заявки
-     * @return сохранённый запрос к магазину
-     */
-    @Transactional
-    public OrderReturnRequestActionRequest requestExchangeCancellationFromTelegram(Long chatId,
-                                                                                   Long parcelId,
-                                                                                   Long requestId) {
-        Customer customer = requireCustomerByChat(chatId);
-        TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
-        User owner = requireParcelOwner(parcel);
-        return orderReturnRequestService.requestMerchantAction(
-                requestId,
-                parcelId,
-                owner,
-                customer,
-                ReturnRequestAction.CANCEL_EXCHANGE
-        );
-    }
-
-    /**
      * Формирует запрос магазину на перевод обмена обратно в возврат после отправки посылки.
      *
      * @param chatId   идентификатор чата Telegram

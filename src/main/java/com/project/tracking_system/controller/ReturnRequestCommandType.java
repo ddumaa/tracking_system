@@ -24,11 +24,6 @@ enum ReturnRequestCommandType {
     SET_MODE_EXCHANGE(ReturnRequestAction.SET_MODE_EXCHANGE),
 
     /**
-     * Отменяет ранее запущенный обмен и возвращает заявку к сценарию возврата.
-     */
-    CANCEL_EXCHANGE(ReturnRequestAction.CANCEL_EXCHANGE),
-
-    /**
      * Привязывает к заявке обменную посылку, зарегистрированную вручную оператором.
      */
     REGISTER_EXCHANGE_PARCEL(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL),
@@ -129,7 +124,7 @@ enum ReturnRequestCommandType {
         Map<String, ReturnRequestCommandType> legacy = new HashMap<>();
         legacy.put("START_EXCHANGE", SET_MODE_EXCHANGE);
         legacy.put("CREATE_EXCHANGE_PARCEL", REGISTER_EXCHANGE_PARCEL);
-        legacy.put("CANCEL_EXCHANGE", CANCEL_EXCHANGE);
+        legacy.put("CANCEL_EXCHANGE", SET_MODE_RETURN);
         legacy.put("REOPEN_RETURN", SET_MODE_RETURN);
         legacy.put("CONFIRM_RECEIPT", MARK_INBOUND_PICKED_UP);
         legacy.put("UPDATE_DETAILS", UPDATE_REVERSE_TRACK);

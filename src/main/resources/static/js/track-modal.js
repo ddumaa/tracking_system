@@ -560,7 +560,6 @@
             const launchExchangeFlag = hasActionCode(actions, 'register_exchange_parcel');
             const closeFlag = hasActionCode(actions, 'close_request');
             const reopenFlag = hasActionCode(actions, 'set_mode_return');
-            const cancelExchangeFlag = hasActionCode(actions, 'cancel_exchange');
             const updateDetailsFlag = hasActionCode(actions, 'update_reverse_track');
             return {
                 confirmReceipt: confirmReceiptFlag
@@ -577,9 +576,7 @@
                     || legacyUpdateReverse
                     || (canUpdateReverseTrack === undefined
                         ? !this.timestamps.closedAt
-                        : Boolean(canUpdateReverseTrack)),
-                cancelExchange: cancelExchangeFlag
-                    || (!hasModernActions && mapLegacy('allowClose'))
+                        : Boolean(canUpdateReverseTrack))
             };
         }
 
@@ -876,16 +873,18 @@
         }
 
         /**
-         * Показывает предупреждение, если отмена обмена заблокирована.
+         * Показывает предупреждение, если перевод обмена в возврат заблокирован.
          * @returns {HTMLElement|null} блок уведомления или {@code null}
          */
         _buildNotice() {
-            if (!this.availableActions.cancelExchangeUnavailableReason) {
+            const reason = this.availableActions.setModeReturnUnavailableReason
+                || this.availableActions.cancelExchangeUnavailableReason;
+            if (!reason) {
                 return null;
             }
             const notice = document.createElement('div');
             notice.className = 'alert alert-warning mb-0';
-            notice.textContent = this.availableActions.cancelExchangeUnavailableReason;
+            notice.textContent = reason;
             notice.setAttribute('role', 'status');
             return notice;
         }
@@ -1011,15 +1010,16 @@
                         successMessage: 'Заявка переведена в возврат',
                         notificationType: 'info'
                     }
+                }
                 },
                 {
-                    key: 'cancelExchange',
-                    label: 'Отменить обмен',
-                    ariaLabel: 'Отменить обмен и закрыть обращение',
+                    key: 'close',
+                    label: 'Закрыть обращение',
+                    ariaLabel: 'Закрыть обращение после обмена',
                     className: 'btn btn-outline-danger btn-sm',
-                    enabled: Boolean(this._permissions.cancelExchange || this._permissions.close),
+                    enabled: Boolean(this._permissions.close),
                     options: {
-                        successMessage: 'Обмен отменён',
+                        successMessage: 'Обращение закрыто',
                         notificationType: 'warning'
                     }
                 }
@@ -1140,7 +1140,6 @@
             convertToExchange: (options = {}) => convertReturnRequestToExchange(trackId, requestId, options),
             launchExchange: (options = {}) => createExchangeParcel(trackId, requestId, options),
             close: (options = {}) => closeReturnRequest(trackId, requestId, options),
-            cancelExchange: (options = {}) => cancelExchange(trackId, requestId, options),
             reopen: (options = {}) => reopenReturnRequest(trackId, requestId, options),
             updateReverseTrack: (options = {}) => updateReverseTrack(
                 trackId,
@@ -1621,17 +1620,6 @@
             successMessage: options.successMessage || 'Обращение закрыто',
             notificationType: options.notificationType || 'warning',
             errorMessage: options.errorMessage || 'Не удалось закрыть обращение'
-        });
-    }
-
-    async function cancelExchange(trackId, requestId, options = {}) {
-        return await performReturnRequestAction({
-            trackId,
-            requestId,
-            command: 'cancel_exchange',
-            successMessage: options.successMessage || 'Обмен отменён',
-            notificationType: options.notificationType || 'warning',
-            errorMessage: options.errorMessage || 'Не удалось отменить обмен'
         });
     }
 
@@ -2817,7 +2805,6 @@
         render: renderTrackModal,
         invalidateLazySections: (trackId) => invalidateLazyDataCache(trackId),
         convertReturnRequestToExchange,
-        cancelExchange,
         closeReturnRequest,
         confirmReturnProcessing,
         reopenReturnRequest,

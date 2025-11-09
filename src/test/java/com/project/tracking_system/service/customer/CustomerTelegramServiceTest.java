@@ -407,42 +407,6 @@ class CustomerTelegramServiceTest {
     }
 
     @Test
-    void requestExchangeCancellationFromTelegram_whenValid_createsMerchantRequest() {
-        Long chatId = 1101L;
-        Long parcelId = 9009L;
-        Long requestId = 9010L;
-
-        Customer customer = new Customer();
-        customer.setId(95L);
-        customer.setTelegramChatId(chatId);
-
-        User owner = new User();
-        owner.setId(17L);
-
-        TrackParcel parcel = new TrackParcel();
-        parcel.setId(parcelId);
-        parcel.setCustomer(customer);
-        parcel.setUser(owner);
-
-        OrderReturnRequestActionRequest actionRequest = new OrderReturnRequestActionRequest();
-
-        when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
-        when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
-        when(orderReturnRequestService.requestMerchantAction(requestId, parcelId, owner, customer,
-                ReturnRequestAction.CANCEL_EXCHANGE)).thenReturn(actionRequest);
-
-        OrderReturnRequestActionRequest result = customerTelegramService.requestExchangeCancellationFromTelegram(
-                chatId,
-                parcelId,
-                requestId
-        );
-
-        assertSame(actionRequest, result, "Сервис должен возвращать созданный запрос к магазину");
-        verify(orderReturnRequestService).requestMerchantAction(requestId, parcelId, owner, customer,
-                ReturnRequestAction.CANCEL_EXCHANGE);
-    }
-
-    @Test
     void requestExchangeConversionFromTelegram_whenValid_createsMerchantRequest() {
         Long chatId = 1102L;
         Long parcelId = 9011L;

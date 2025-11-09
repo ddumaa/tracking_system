@@ -49,11 +49,6 @@ public final class AvailableActionsDto {
         return contains(ReturnRequestAction.SET_MODE_RETURN);
     }
 
-    /** Проверяет, доступна ли отмена обмена. */
-    public boolean isCancelExchange() {
-        return contains(ReturnRequestAction.CANCEL_EXCHANGE);
-    }
-
     /** Проверяет, можно ли зарегистрировать обменную посылку. */
     public boolean isRegisterExchangeParcel() {
         return contains(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL);
