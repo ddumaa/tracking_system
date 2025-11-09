@@ -503,6 +503,79 @@ public class CustomerTelegramService {
     }
 
     /**
+     * Фиксирует отправку возврата покупателем из интерфейса Telegram.
+     */
+    @Transactional
+    public OrderReturnRequest markOutboundSentFromTelegram(Long chatId,
+                                                           Long parcelId,
+                                                           Long requestId) {
+        Customer customer = requireCustomerByChat(chatId);
+        TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
+        User owner = requireParcelOwner(parcel);
+        ZonedDateTime stageMoment = ZonedDateTime.now(ZoneOffset.UTC);
+        return orderReturnRequestService.markOutboundSent(requestId, parcelId, owner, stageMoment);
+    }
+
+    /**
+     * Фиксирует прибытие возвратной посылки в пункт выдачи магазина от имени покупателя.
+     */
+    @Transactional
+    public OrderReturnRequest markInboundArrivedFromTelegram(Long chatId,
+                                                             Long parcelId,
+                                                             Long requestId) {
+        Customer customer = requireCustomerByChat(chatId);
+        TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
+        User owner = requireParcelOwner(parcel);
+        ZonedDateTime stageMoment = ZonedDateTime.now(ZoneOffset.UTC);
+        return orderReturnRequestService.markInboundArrived(requestId, parcelId, owner, stageMoment);
+    }
+
+    /**
+     * Подтверждает получение возвратной посылки магазином.
+     */
+    @Transactional
+    public OrderReturnRequest markInboundPickedUpFromTelegram(Long chatId,
+                                                              Long parcelId,
+                                                              Long requestId) {
+        Customer customer = requireCustomerByChat(chatId);
+        TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
+        User owner = requireParcelOwner(parcel);
+        ZonedDateTime stageMoment = ZonedDateTime.now(ZoneOffset.UTC);
+        return orderReturnRequestService.markInboundPickedUp(requestId, parcelId, owner, stageMoment);
+    }
+
+    /**
+     * Фиксирует отправку обменной посылки при взаимодействии через Telegram.
+     *
+     * @param exchangeTrack трек-номер обменной отправки, известный магазину
+     */
+    @Transactional
+    public OrderReturnRequest markExchangeSentFromTelegram(Long chatId,
+                                                           Long parcelId,
+                                                           Long requestId,
+                                                           String exchangeTrack) {
+        Customer customer = requireCustomerByChat(chatId);
+        TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
+        User owner = requireParcelOwner(parcel);
+        ZonedDateTime stageMoment = ZonedDateTime.now(ZoneOffset.UTC);
+        return orderReturnRequestService.markExchangeSent(requestId, parcelId, owner, exchangeTrack, stageMoment);
+    }
+
+    /**
+     * Фиксирует доставку обменной посылки покупателю.
+     */
+    @Transactional
+    public OrderReturnRequest markExchangeDeliveredFromTelegram(Long chatId,
+                                                                Long parcelId,
+                                                                Long requestId) {
+        Customer customer = requireCustomerByChat(chatId);
+        TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
+        User owner = requireParcelOwner(parcel);
+        ZonedDateTime stageMoment = ZonedDateTime.now(ZoneOffset.UTC);
+        return orderReturnRequestService.markExchangeDelivered(requestId, parcelId, owner, stageMoment);
+    }
+
+    /**
      * Формирует запрос магазину на отмену обмена, когда обменная посылка уже отправлена.
      * <p>
      * Метод сохраняет обращение покупателя для обработки в веб-интерфейсе магазина

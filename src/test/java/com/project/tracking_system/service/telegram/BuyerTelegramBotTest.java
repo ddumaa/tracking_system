@@ -627,7 +627,7 @@ class BuyerTelegramBotTest {
                 "Заголовок выбранной заявки должен указывать на оформление возврата");
 
         InlineKeyboardButton firstAction = keyboard.get(0).get(0);
-        assertEquals("📮 Указать трек", firstAction.getText(),
+        assertEquals("📮 Обновить трек", firstAction.getText(),
                 "Первая строка после выбора должна начинаться с действий по заявке");
 
         boolean hasSelectionButtons = keyboard.stream()
@@ -665,23 +665,23 @@ class BuyerTelegramBotTest {
                 .filter(Objects::nonNull)
                 .flatMap(List::stream)
                 .filter(Objects::nonNull)
-                .anyMatch(button -> "📮 Указать трек".equals(button.getText()));
+                .anyMatch(button -> "📮 Обновить трек".equals(button.getText()));
         boolean hasCommentAction = keyboard.stream()
                 .filter(Objects::nonNull)
                 .flatMap(List::stream)
                 .filter(Objects::nonNull)
-                .anyMatch(button -> "💬 Комментарий".equals(button.getText()));
-        boolean hasCancelAction = keyboard.stream()
+                .anyMatch(button -> "💬 Обновить комментарий".equals(button.getText()));
+        boolean hasCloseAction = keyboard.stream()
                 .filter(Objects::nonNull)
                 .flatMap(List::stream)
                 .filter(Objects::nonNull)
                 .map(InlineKeyboardButton::getText)
                 .filter(Objects::nonNull)
-                .anyMatch(text -> text.startsWith("🚫 Отменить возврат"));
+                .anyMatch(text -> text.startsWith("✅ Закрыть заявку"));
 
         assertTrue(hasTrackAction, "Клавиатура должна содержать действие обновления трека");
         assertTrue(hasCommentAction, "Клавиатура должна содержать действие обновления комментария");
-        assertTrue(hasCancelAction, "Клавиатура должна содержать действие отмены возврата");
+        assertTrue(hasCloseAction, "Клавиатура должна содержать действие закрытия заявки");
 
         Integer anchorMessageId = editMessage.getMessageId();
         assertNotNull(anchorMessageId,
@@ -907,13 +907,14 @@ class BuyerTelegramBotTest {
 
         InlineKeyboardMarkup markup = editMessage.getReplyMarkup();
         assertNotNull(markup, "После выбора заявки клавиатура должна отображаться");
-        boolean hasCancelButton = markup.getKeyboard().stream()
+        boolean hasConversionButtons = markup.getKeyboard().stream()
                 .filter(Objects::nonNull)
                 .flatMap(List::stream)
                 .filter(Objects::nonNull)
                 .map(InlineKeyboardButton::getText)
-                .anyMatch("🚫 Отменить обмен"::equals);
-        assertFalse(hasCancelButton, "Кнопка отмены обмена должна скрываться, если магазин указал трек");
+                .anyMatch(text -> text.startsWith("↩️ Перевести в возврат")
+                        || text.startsWith("📝 Запросить возврат вместо обмена"));
+        assertFalse(hasConversionButtons, "Кнопка перевода обмена в возврат должна скрываться, если магазин указал трек");
     }
 
     @Test
@@ -968,8 +969,6 @@ class BuyerTelegramBotTest {
                 .map(InlineKeyboardButton::getText)
                 .toList();
 
-        assertTrue(buttonLabels.contains("📝 Запросить отмену обмена"),
-                "При отправке обменной посылки должна отображаться кнопка запроса отмены");
         assertTrue(buttonLabels.contains("📝 Запросить возврат вместо обмена"),
                 "Пользователь должен видеть кнопку запроса перевода обмена в возврат");
 
@@ -1232,8 +1231,8 @@ class BuyerTelegramBotTest {
 
         String text = edit.getText() != null ? edit.getText().replace("\\", "") : "";
         assertTrue(text.contains("REV-CNF"), "Вопрос подтверждения обязан содержать обратный трек");
-        assertTrue(text.contains("Подтвердите отмену возврата"),
-                "Пользователь должен увидеть запрос на подтверждение отмены");
+        assertTrue(text.contains("Подтвердите закрытие заявки"),
+                "Пользователь должен увидеть запрос на подтверждение закрытия");
 
         InlineKeyboardMarkup markup = edit.getReplyMarkup();
         assertNotNull(markup, "Подтверждение должно сопровождаться клавиатурой");
@@ -1250,7 +1249,7 @@ class BuyerTelegramBotTest {
     }
 
     @Test
-    void shouldCreateMerchantCancellationRequestWhenExchangeAlreadyDispatched() throws Exception {
+    void shouldSwitchToExchangeModeAfterConfirmation() throws Exception {
         Long chatId = 7005L;
         Customer customer = new Customer();
         customer.setTelegramChatId(chatId);
@@ -1263,19 +1262,19 @@ class BuyerTelegramBotTest {
                 "TRK-EX",
                 "Store",
                 "В пути",
-                OrderReturnRequestStatus.EXCHANGE_APPROVED,
-                OrderReturnRequestStatus.EXCHANGE_APPROVED.getDisplayName(),
+                OrderReturnRequestStatus.REGISTERED,
+                OrderReturnRequestStatus.REGISTERED.getDisplayName(),
                 "02.03.2025",
                 "01.03.2025",
-                "Обмен",
+                "Возврат",
                 "Комментарий",
-                "REV-EX",
-                true,
+                null,
                 false,
                 true,
                 false,
                 false,
-                true,
+                false,
+                false,
                 null,
                 false,
                 null,
@@ -1291,22 +1290,21 @@ class BuyerTelegramBotTest {
         bot.consume(mockCallbackUpdate(chatId, "returns:active:select:300:400"));
         clearInvocations(telegramClient);
 
-        bot.consume(mockCallbackUpdate(chatId, "returns:active:CANCEL_EXCHANGE:300:400"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:SET_MODE_EXCHANGE:300:400"));
         clearInvocations(telegramClient);
 
-        OrderReturnRequestActionRequest actionRequest = new OrderReturnRequestActionRequest();
-        when(telegramService.requestExchangeCancellationFromTelegram(chatId, 400L, 300L)).thenReturn(actionRequest);
+        OrderReturnRequest updated = new OrderReturnRequest();
+        when(telegramService.setModeExchangeFromTelegram(chatId, 400L, 300L)).thenReturn(updated);
 
-        bot.consume(mockCallbackUpdate(chatId, "returns:active:confirm:CANCEL_EXCHANGE:yes:300:400"));
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:confirm:SET_MODE_EXCHANGE:yes:300:400"));
 
-        verify(telegramService).requestExchangeCancellationFromTelegram(chatId, 400L, 300L);
-        verify(telegramService, never()).cancelExchangeFromTelegram(anyLong(), anyLong(), anyLong());
+        verify(telegramService).setModeExchangeFromTelegram(chatId, 400L, 300L);
 
         ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
         verify(telegramClient).execute(editCaptor.capture());
         String finalMessage = editCaptor.getValue().getText().replace("\\", "");
-        assertTrue(finalMessage.contains("Мы передали запрос магазину на отмену обмена"),
-                "Финальное сообщение должно информировать пользователя о сформированном запросе");
+        assertTrue(finalMessage.contains("Заявка переведена в обмен"),
+                "Финальное сообщение должно информировать пользователя о переводе в обмен");
     }
 
     @Test
@@ -1358,8 +1356,8 @@ class BuyerTelegramBotTest {
         ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
         verify(telegramClient).execute(editCaptor.capture());
         String message = editCaptor.getValue().getText();
-        assertTrue(message.contains("Заявка на возврат отменена"),
-                "После подтверждения бот обязан сообщить об успешной отмене");
+        assertTrue(message.contains("Заявка закрыта"),
+                "После подтверждения бот обязан сообщить об успешном закрытии");
 
         assertEquals(BuyerChatState.IDLE, chatSessionRepository.getState(chatId),
                 "После завершения действия бот должен вернуться в состояние ожидания");
@@ -1466,21 +1464,15 @@ class BuyerTelegramBotTest {
         InlineKeyboardMarkup markup = editCaptor.getValue().getReplyMarkup();
         assertNotNull(markup, "Клавиатура действий должна отображаться");
 
-        boolean hasCancelExchange = markup.getKeyboard().stream()
+        boolean hasSetModeReturn = markup.getKeyboard().stream()
                 .filter(Objects::nonNull)
                 .flatMap(List::stream)
                 .map(InlineKeyboardButton::getText)
                 .filter(Objects::nonNull)
-                .anyMatch("🚫 Отменить обмен"::equals);
-        boolean hasConvert = markup.getKeyboard().stream()
-                .filter(Objects::nonNull)
-                .flatMap(List::stream)
-                .map(InlineKeyboardButton::getText)
-                .filter(Objects::nonNull)
-                .anyMatch("↩️ Перевести в возврат"::equals);
+                .anyMatch(text -> text.startsWith("↩️ Перевести в возврат")
+                        || text.startsWith("📝 Запросить возврат вместо обмена"));
 
-        assertFalse(hasCancelExchange, "После отправки замены кнопка отмены обмена должна скрываться");
-        assertFalse(hasConvert, "После отправки замены кнопка перевода в возврат должна скрываться");
+        assertFalse(hasSetModeReturn, "После отправки замены кнопка перевода в возврат должна скрываться");
     }
 
     /**
@@ -2661,7 +2653,7 @@ class BuyerTelegramBotTest {
             actionCodes.add(ReturnRequestAction.SET_MODE_RETURN.getCode());
         }
         if (canCancelExchange) {
-            actionCodes.add(ReturnRequestAction.CANCEL_EXCHANGE.getCode());
+            actionCodes.add(ReturnRequestAction.CLOSE_REQUEST.getCode());
         }
         if (canConfirmReceipt) {
             actionCodes.add(ReturnRequestAction.MARK_INBOUND_PICKED_UP.getCode());
