@@ -259,7 +259,6 @@ public class ReturnRequestWorkflow {
         ));
         matrix.put(OrderReturnRequestStatus.EXCHANGE_APPROVED, EnumSet.of(
                 ReturnRequestAction.SET_MODE_RETURN,
-                ReturnRequestAction.CANCEL_EXCHANGE,
                 ReturnRequestAction.UPDATE_REVERSE_TRACK,
                 ReturnRequestAction.REGISTER_EXCHANGE_PARCEL
         ));

@@ -937,7 +937,7 @@ class OrderReturnRequestServiceTest {
     }
 
     @Test
-    void resolveAvailableActions_ReturnsCancelForExchangeRequest() {
+    void resolveAvailableActions_ReturnsExchangeStageActions() {
         OrderReturnRequest request = new OrderReturnRequest();
         request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
         request.setStage(ReturnRequestStage.EXCHANGE_REGISTERED);
@@ -945,7 +945,12 @@ class OrderReturnRequestServiceTest {
 
         EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
 
-        assertThat(actions).contains(ReturnRequestAction.CANCEL_EXCHANGE, ReturnRequestAction.SET_MODE_RETURN);
+        assertThat(actions).contains(
+                ReturnRequestAction.SET_MODE_RETURN,
+                ReturnRequestAction.REGISTER_EXCHANGE_PARCEL,
+                ReturnRequestAction.MARK_EXCHANGE_SENT,
+                ReturnRequestAction.UPDATE_REVERSE_TRACK
+        );
         assertThat(actions).doesNotContain(ReturnRequestAction.CLOSE_REQUEST);
     }
 

@@ -643,13 +643,6 @@ public class OrderReturnRequestService {
     }
 
     /**
-     * Проверяет, доступна ли отмена обмена с последующим закрытием заявки.
-     */
-    private boolean canCancelExchangeAction(OrderReturnRequest request) {
-        return canSetModeReturn(request);
-    }
-
-    /**
      * Возвращает причину недоступности отмены обмена, если магазин уже указал трек.
      *
      * @param request заявка на обмен
@@ -839,7 +832,6 @@ public class OrderReturnRequestService {
         return switch (action) {
             case SET_MODE_EXCHANGE -> canSetModeExchange(request);
             case SET_MODE_RETURN -> canSetModeReturn(request);
-            case CANCEL_EXCHANGE -> canCancelExchangeAction(request);
             case REGISTER_EXCHANGE_PARCEL -> canRegisterExchangeParcel(request);
             case CLOSE_REQUEST -> canCloseRequest(request);
             case UPDATE_REVERSE_TRACK -> canUpdateReverseTrack(request);

@@ -596,7 +596,6 @@ class BuyerTelegramBotTest {
                 true,
                 false,
                 false,
-                false,
                 null,
                 false,
                 null,
@@ -741,7 +740,6 @@ class BuyerTelegramBotTest {
                 true,
                 false,
                 false,
-                false,
                 null,
                 false,
                 null,
@@ -830,7 +828,6 @@ class BuyerTelegramBotTest {
                 true,
                 false,
                 false,
-                false,
                 null,
                 false,
                 null,
@@ -878,7 +875,6 @@ class BuyerTelegramBotTest {
                 true,
                 false,
                 true,
-                false,
                 false,
                 false,
                 warning,
@@ -1206,7 +1202,6 @@ class BuyerTelegramBotTest {
                 true,
                 false,
                 false,
-                false,
                 null,
                 false,
                 null,
@@ -1273,8 +1268,6 @@ class BuyerTelegramBotTest {
                 true,
                 false,
                 false,
-                false,
-                false,
                 null,
                 false,
                 null,
@@ -1332,7 +1325,6 @@ class BuyerTelegramBotTest {
                 true,
                 false,
                 false,
-                false,
                 null,
                 false,
                 null,
@@ -1386,7 +1378,6 @@ class BuyerTelegramBotTest {
                 false,
                 true,
                 true,
-                false,
                 false,
                 false,
                 null,
@@ -1503,7 +1494,6 @@ class BuyerTelegramBotTest {
                 true,
                 false,
                 false,
-                false,
                 null,
                 false,
                 null,
@@ -1554,7 +1544,6 @@ class BuyerTelegramBotTest {
                 false,
                 true,
                 true,
-                false,
                 false,
                 false,
                 null,
@@ -1640,7 +1629,6 @@ class BuyerTelegramBotTest {
                 false,
                 true,
                 true,
-                false,
                 false,
                 false,
                 null
@@ -2617,7 +2605,6 @@ class BuyerTelegramBotTest {
                                                           boolean canSetModeExchange,
                                                           boolean canCloseWithoutExchange,
                                                           boolean canReopenAsReturn,
-                                                          boolean canCancelExchange,
                                                           boolean exchangeShipmentDispatched,
                                                           String cancelExchangeUnavailableReason,
                                                           boolean returnReceiptConfirmed,
@@ -2651,9 +2638,6 @@ class BuyerTelegramBotTest {
         }
         if (canReopenAsReturn) {
             actionCodes.add(ReturnRequestAction.SET_MODE_RETURN.getCode());
-        }
-        if (canCancelExchange) {
-            actionCodes.add(ReturnRequestAction.CLOSE_REQUEST.getCode());
         }
         if (canConfirmReceipt) {
             actionCodes.add(ReturnRequestAction.MARK_INBOUND_PICKED_UP.getCode());
