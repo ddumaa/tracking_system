@@ -1114,7 +1114,7 @@ status: 'Зарегистрирована',
             expect.objectContaining({
                 method: 'POST',
                 body: JSON.stringify({
-                    command: 'update_details',
+                    command: 'update_reverse_track',
                     reverseTrackNumber: 'RR123456789BY',
                     comment: 'Обновлённый комментарий'
                 })
@@ -1375,7 +1375,7 @@ status: 'Зарегистрирована',
             '/api/v1/returns/5/commands',
             expect.objectContaining({
                 method: 'POST',
-                body: JSON.stringify({ command: 'start_exchange' })
+                body: JSON.stringify({ command: 'set_mode_exchange' })
             })
         );
         expect(global.notifyUser).toHaveBeenCalledWith('Заявка переведена в обмен', 'info');
@@ -1471,7 +1471,7 @@ status: 'Зарегистрирована',
             '/api/v1/returns/6/commands',
             expect.objectContaining({
                 method: 'POST',
-                body: JSON.stringify({ command: 'create_exchange_parcel' })
+                body: JSON.stringify({ command: 'register_exchange_parcel' })
             })
         );
         expect(global.notifyUser).toHaveBeenCalledWith('Обмен запущен', 'info');

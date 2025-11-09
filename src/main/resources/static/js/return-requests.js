@@ -2,19 +2,6 @@
     'use strict';
 
     /**
-     * Синонимы action-code для поддержки переходного периода API.
-     * Используем карту, чтобы распознавать новые и устаревшие коды действий как эквивалентные.
-     */
-    const ACTION_CODE_SYNONYMS = {
-        'mark_inbound_picked_up': ['confirm_receipt'],
-        'confirm_receipt': ['mark_inbound_picked_up'],
-        'create_exchange_parcel': ['register_exchange_parcel'],
-        'register_exchange_parcel': ['create_exchange_parcel'],
-        'update_reverse_track': ['update_details'],
-        'update_details': ['update_reverse_track']
-    };
-
-    /**
      * Нормализует action-code к нижнему регистру и убирает пробелы.
      * @param {string} value исходный код
      * @returns {string} нормализованное значение или пустая строка
@@ -53,14 +40,23 @@
             }
         }
         const flattened = sources.flatMap((list) => Array.isArray(list) ? list : []);
+        const seen = new Set();
         const codes = flattened
             .map((value) => normalizeActionCode(value))
-            .filter((value) => value.length > 0);
+            .filter((value) => value.length > 0)
+            .filter((value) => {
+                if (seen.has(value)) {
+                    return false;
+                }
+                seen.add(value);
+                return true;
+            });
         return new Set(codes);
     }
 
     /**
-     * Проверяет, содержится ли указанный action-code или его синонимы в множестве.
+     * Проверяет, содержится ли указанный action-code в множестве доступных действий.
+     * Метод учитывает только актуальные идентификаторы, так как устаревшие коды удалены.
      * @param {Set<string>} codeSet множество доступных действий
      * @param {string} code искомое действие
      * @returns {boolean} {@code true}, если действие доступно
@@ -73,14 +69,7 @@
         if (!normalized) {
             return false;
         }
-        if (codeSet.has(normalized)) {
-            return true;
-        }
-        const synonyms = ACTION_CODE_SYNONYMS[normalized] || [];
-        return synonyms
-            .map((item) => normalizeActionCode(item))
-            .filter((item) => item.length > 0)
-            .some((item) => codeSet.has(item));
+        return codeSet.has(normalized);
     }
 
     /**
@@ -212,16 +201,16 @@
             ? hasActionFromSet(actionCodeSet, 'mark_inbound_picked_up')
             : fallbackAllowConfirmReceipt;
         const allowConvertToExchange = hasModernActions
-            ? hasActionFromSet(actionCodeSet, 'start_exchange')
+            ? hasActionFromSet(actionCodeSet, 'set_mode_exchange')
             : fallbackAllowConvertToExchange;
         const allowCloseRequest = hasModernActions
-            ? hasActionFromSet(actionCodeSet, 'close') || hasActionFromSet(actionCodeSet, 'cancel_exchange')
+            ? hasActionFromSet(actionCodeSet, 'close_request')
             : fallbackAllowCloseRequest;
         const allowUpdateReverseTrack = hasModernActions
             ? hasActionFromSet(actionCodeSet, 'update_reverse_track')
             : fallbackAllowUpdateReverseTrack;
         const allowConvertToReturn = hasModernActions
-            ? hasActionFromSet(actionCodeSet, 'reopen_return')
+            ? hasActionFromSet(actionCodeSet, 'set_mode_return')
             : fallbackAllowConvertToReturn;
         const statusRaw = typeof summary.stage === 'string' ? summary.stage.toUpperCase() : '';
         const isExchangeStatus = statusRaw.includes('EXCHANGE');
