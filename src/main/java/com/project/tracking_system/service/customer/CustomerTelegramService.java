@@ -423,6 +423,7 @@ public class CustomerTelegramService {
 
     /**
      * Запускает обмен по ранее зарегистрированной заявке покупателя.
+     * <p>Соответствует пользовательской команде {@link ReturnRequestAction#SET_MODE_EXCHANGE}.</p>
      * <p>
      * Метод убеждается, что посылка принадлежит покупателю, а заявка с указанным идентификатором
      * относится к той же посылке. Правила перехода статусов и проверка повторных запусков
@@ -441,6 +442,7 @@ public class CustomerTelegramService {
         Customer customer = requireCustomerByChat(chatId);
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
+        logTelegramAction(ReturnRequestAction.SET_MODE_EXCHANGE, chatId, parcelId, requestId);
         return orderReturnRequestService.setModeExchange(requestId,
                 parcelId,
                 owner,
@@ -449,6 +451,7 @@ public class CustomerTelegramService {
 
     /**
      * Закрывает активную заявку без запуска обмена от имени покупателя.
+     * <p>Реализует сценарий {@link ReturnRequestAction#CLOSE_REQUEST} для Telegram-бота.</p>
      * <p>
      * Используется, когда клиент отказался от обмена после регистрации заявки.
      * Проверяется принадлежность посылки и доступность заявки в нужном статусе.
@@ -466,28 +469,13 @@ public class CustomerTelegramService {
         Customer customer = requireCustomerByChat(chatId);
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
-        return orderReturnRequestService.closeRequest(requestId, parcelId, owner);
-    }
-
-    /**
-     * Отменяет одобренный обмен по заявке покупателя.
-     */
-    @Transactional
-    public OrderReturnRequest cancelExchangeFromTelegram(Long chatId,
-                                                         Long parcelId,
-                                                         Long requestId) {
-        Customer customer = requireCustomerByChat(chatId);
-        TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
-        User owner = requireParcelOwner(parcel);
-        orderReturnRequestService.setModeReturn(requestId,
-                parcelId,
-                owner,
-                OrderReturnRequestService.ModeSwitchTrigger.CUSTOMER_REQUEST);
+        logTelegramAction(ReturnRequestAction.CLOSE_REQUEST, chatId, parcelId, requestId);
         return orderReturnRequestService.closeRequest(requestId, parcelId, owner);
     }
 
     /**
      * Переводит обменную заявку покупателя обратно в статус возврата.
+     * <p>Соответствует команде {@link ReturnRequestAction#SET_MODE_RETURN}, инициируемой пользователем.</p>
      */
     @Transactional
     public OrderReturnRequest convertExchangeToReturnFromTelegram(Long chatId,
@@ -496,6 +484,7 @@ public class CustomerTelegramService {
         Customer customer = requireCustomerByChat(chatId);
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
+        logTelegramAction(ReturnRequestAction.SET_MODE_RETURN, chatId, parcelId, requestId);
         return orderReturnRequestService.setModeReturn(requestId,
                 parcelId,
                 owner,
@@ -504,6 +493,7 @@ public class CustomerTelegramService {
 
     /**
      * Фиксирует отправку возврата покупателем из интерфейса Telegram.
+     * <p>Отвечает команде {@link ReturnRequestAction#MARK_OUTBOUND_SENT}.</p>
      */
     @Transactional
     public OrderReturnRequest markOutboundSentFromTelegram(Long chatId,
@@ -513,11 +503,13 @@ public class CustomerTelegramService {
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
         ZonedDateTime stageMoment = ZonedDateTime.now(ZoneOffset.UTC);
+        logTelegramAction(ReturnRequestAction.MARK_OUTBOUND_SENT, chatId, parcelId, requestId);
         return orderReturnRequestService.markOutboundSent(requestId, parcelId, owner, stageMoment);
     }
 
     /**
      * Фиксирует прибытие возвратной посылки в пункт выдачи магазина от имени покупателя.
+     * <p>Реализует действие {@link ReturnRequestAction#MARK_INBOUND_ARRIVED}.</p>
      */
     @Transactional
     public OrderReturnRequest markInboundArrivedFromTelegram(Long chatId,
@@ -527,11 +519,13 @@ public class CustomerTelegramService {
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
         ZonedDateTime stageMoment = ZonedDateTime.now(ZoneOffset.UTC);
+        logTelegramAction(ReturnRequestAction.MARK_INBOUND_ARRIVED, chatId, parcelId, requestId);
         return orderReturnRequestService.markInboundArrived(requestId, parcelId, owner, stageMoment);
     }
 
     /**
      * Подтверждает получение возвратной посылки магазином.
+     * <p>Соответствует команде {@link ReturnRequestAction#MARK_INBOUND_PICKED_UP}.</p>
      */
     @Transactional
     public OrderReturnRequest markInboundPickedUpFromTelegram(Long chatId,
@@ -541,11 +535,35 @@ public class CustomerTelegramService {
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
         ZonedDateTime stageMoment = ZonedDateTime.now(ZoneOffset.UTC);
+        logTelegramAction(ReturnRequestAction.MARK_INBOUND_PICKED_UP, chatId, parcelId, requestId);
         return orderReturnRequestService.markInboundPickedUp(requestId, parcelId, owner, stageMoment);
     }
 
     /**
+     * Регистрирует обменную посылку в рамках сценария {@link ReturnRequestAction#REGISTER_EXCHANGE_PARCEL}.
+     *
+     * @param chatId        идентификатор чата Telegram
+     * @param parcelId      идентификатор посылки
+     * @param requestId     идентификатор обменной заявки
+     * @param exchangeTrack трек-номер обменной отправки, указанный магазином
+     * @return заявка после ручной регистрации обменной посылки
+     */
+    @Transactional
+    public OrderReturnRequest registerExchangeParcelFromTelegram(Long chatId,
+                                                                 Long parcelId,
+                                                                 Long requestId,
+                                                                 String exchangeTrack) {
+        Customer customer = requireCustomerByChat(chatId);
+        TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
+        User owner = requireParcelOwner(parcel);
+        ZonedDateTime stageMoment = ZonedDateTime.now(ZoneOffset.UTC);
+        logTelegramAction(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL, chatId, parcelId, requestId);
+        return orderReturnRequestService.registerExchangeParcel(requestId, parcelId, owner, exchangeTrack, stageMoment);
+    }
+
+    /**
      * Фиксирует отправку обменной посылки при взаимодействии через Telegram.
+     * <p>Выполняет сценарий {@link ReturnRequestAction#MARK_EXCHANGE_SENT}.</p>
      *
      * @param exchangeTrack трек-номер обменной отправки, известный магазину
      */
@@ -558,11 +576,13 @@ public class CustomerTelegramService {
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
         ZonedDateTime stageMoment = ZonedDateTime.now(ZoneOffset.UTC);
+        logTelegramAction(ReturnRequestAction.MARK_EXCHANGE_SENT, chatId, parcelId, requestId);
         return orderReturnRequestService.markExchangeSent(requestId, parcelId, owner, exchangeTrack, stageMoment);
     }
 
     /**
      * Фиксирует доставку обменной посылки покупателю.
+     * <p>Реализует действие {@link ReturnRequestAction#MARK_EXCHANGE_DELIVERED}.</p>
      */
     @Transactional
     public OrderReturnRequest markExchangeDeliveredFromTelegram(Long chatId,
@@ -572,11 +592,13 @@ public class CustomerTelegramService {
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
         ZonedDateTime stageMoment = ZonedDateTime.now(ZoneOffset.UTC);
+        logTelegramAction(ReturnRequestAction.MARK_EXCHANGE_DELIVERED, chatId, parcelId, requestId);
         return orderReturnRequestService.markExchangeDelivered(requestId, parcelId, owner, stageMoment);
     }
 
     /**
      * Формирует запрос магазину на перевод обмена обратно в возврат после отправки посылки.
+     * <p>В боте соответствует действию {@link ReturnRequestAction#SET_MODE_RETURN} с передачей запроса менеджеру.</p>
      *
      * @param chatId   идентификатор чата Telegram
      * @param parcelId идентификатор посылки
@@ -590,6 +612,7 @@ public class CustomerTelegramService {
         Customer customer = requireCustomerByChat(chatId);
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
+        logTelegramAction(ReturnRequestAction.SET_MODE_RETURN, chatId, parcelId, requestId);
         return orderReturnRequestService.requestMerchantAction(
                 requestId,
                 parcelId,
@@ -601,6 +624,7 @@ public class CustomerTelegramService {
 
     /**
      * Обновляет обратный трек и комментарий активной заявки от имени покупателя.
+     * <p>Поддерживает команду {@link ReturnRequestAction#UPDATE_REVERSE_TRACK} из Telegram-бота.</p>
      * <p>
      * Метод проверяет, что чат принадлежит покупателю, выбранная посылка закреплена за ним,
      * а затем делегирует обновление сервису заявок, который выполняет бизнес-проверки
@@ -623,7 +647,27 @@ public class CustomerTelegramService {
         Customer customer = requireCustomerByChat(chatId);
         TrackParcel parcel = requireOwnedParcel(parcelId, customer.getId());
         User owner = requireParcelOwner(parcel);
+        logTelegramAction(ReturnRequestAction.UPDATE_REVERSE_TRACK, chatId, parcelId, requestId);
         return orderReturnRequestService.updateReverseTrack(requestId, parcelId, owner, reverseTrack, comment);
+    }
+
+    /**
+     * Логирует запуск команды Telegram, привязанной к {@link ReturnRequestAction}.
+     *
+     * @param action    действие, инициированное пользователем
+     * @param chatId    идентификатор чата Telegram
+     * @param parcelId  идентификатор посылки
+     * @param requestId идентификатор заявки
+     */
+    private void logTelegramAction(ReturnRequestAction action,
+                                   Long chatId,
+                                   Long parcelId,
+                                   Long requestId) {
+        log.info("🤖 Telegram-действие {} запрошено чатом {} для посылки {} и заявки {}",
+                action.getCode(),
+                chatId,
+                parcelId,
+                requestId);
     }
 
     /**
