@@ -553,14 +553,19 @@
             const actions = this.availableActions || {};
             const hasModernActions = extractActionCodes(actions).length > 0;
             const mapLegacy = (key) => Boolean(legacy?.[key]);
+            const mapActionFlag = (key, code) => Boolean(actions?.[key]) || hasActionCode(actions, code);
             const legacyUpdateReverse = mapLegacy('allowUpdateReverseTrack');
             const canUpdateReverseTrack = this.request?.canUpdateReverseTrack;
-            const confirmReceiptFlag = hasActionCode(actions, 'mark_inbound_picked_up');
-            const convertToExchangeFlag = hasActionCode(actions, 'set_mode_exchange');
-            const launchExchangeFlag = hasActionCode(actions, 'register_exchange_parcel');
-            const closeFlag = hasActionCode(actions, 'close_request');
-            const reopenFlag = hasActionCode(actions, 'set_mode_return');
-            const updateDetailsFlag = hasActionCode(actions, 'update_reverse_track');
+            const confirmReceiptFlag = mapActionFlag('markInboundPickedUp', 'mark_inbound_picked_up');
+            const convertToExchangeFlag = mapActionFlag('setModeExchange', 'set_mode_exchange');
+            const launchExchangeFlag = mapActionFlag('registerExchangeParcel', 'register_exchange_parcel');
+            const closeFlag = mapActionFlag('closeRequest', 'close_request');
+            const reopenFlag = mapActionFlag('setModeReturn', 'set_mode_return');
+            const updateDetailsFlag = mapActionFlag('updateReverseTrack', 'update_reverse_track');
+            const outboundSentFlag = mapActionFlag('markOutboundSent', 'mark_outbound_sent');
+            const inboundArrivedFlag = mapActionFlag('markInboundArrived', 'mark_inbound_arrived');
+            const exchangeSentFlag = mapActionFlag('markExchangeSent', 'mark_exchange_sent');
+            const exchangeDeliveredFlag = mapActionFlag('markExchangeDelivered', 'mark_exchange_delivered');
             return {
                 confirmReceipt: confirmReceiptFlag
                     || (!hasModernActions && (mapLegacy('allowAcceptReverse') || mapLegacy('allowAccept'))),
@@ -572,6 +577,10 @@
                     || (!hasModernActions && mapLegacy('allowClose')),
                 reopen: reopenFlag
                     || (!hasModernActions && mapLegacy('allowConvertToReturn')),
+                markOutboundSent: outboundSentFlag,
+                markInboundArrived: inboundArrivedFlag,
+                markExchangeSent: exchangeSentFlag,
+                markExchangeDelivered: exchangeDeliveredFlag,
                 updateReverseTrack: updateDetailsFlag
                     || legacyUpdateReverse
                     || (canUpdateReverseTrack === undefined
@@ -873,20 +882,67 @@
         }
 
         /**
-         * Показывает предупреждение, если перевод обмена в возврат заблокирован.
+         * Строит предупреждение об ограничениях действий.
+         * Метод собирает тексты недоступности из DTO и показывает их пользователю.
          * @returns {HTMLElement|null} блок уведомления или {@code null}
          */
         _buildNotice() {
-            const reason = this.availableActions.setModeReturnUnavailableReason
-                || this.availableActions.cancelExchangeUnavailableReason;
-            if (!reason) {
+            const reasons = this._collectUnavailableReasons();
+            if (reasons.length === 0) {
                 return null;
             }
             const notice = document.createElement('div');
             notice.className = 'alert alert-warning mb-0';
-            notice.textContent = reason;
             notice.setAttribute('role', 'status');
+            notice.textContent = reasons.join(' ');
             return notice;
+        }
+
+        /**
+         * Возвращает причину недоступности для указанного действия.
+         * @param {string} propertyName ключ действия в DTO
+         * @returns {string|null} нормализованный текст причины
+         */
+        _getUnavailableReason(propertyName) {
+            if (!propertyName) {
+                return null;
+            }
+            const reasonKey = `${propertyName}UnavailableReason`;
+            const rawReason = this.availableActions?.[reasonKey];
+            if (typeof rawReason !== 'string') {
+                return null;
+            }
+            const trimmed = rawReason.trim();
+            return trimmed.length > 0 ? trimmed : null;
+        }
+
+        /**
+         * Собирает уникальные сообщения о недоступных действиях.
+         * @returns {Array<string>} список текстов предупреждений
+         */
+        _collectUnavailableReasons() {
+            const candidates = [
+                'setModeReturn',
+                'setModeExchange',
+                'registerExchangeParcel',
+                'markOutboundSent',
+                'markInboundArrived',
+                'markInboundPickedUp',
+                'markExchangeSent',
+                'markExchangeDelivered',
+                'closeRequest',
+                'updateReverseTrack'
+            ];
+            const seen = new Set();
+            const reasons = [];
+            candidates.forEach((property) => {
+                const reason = this._getUnavailableReason(property);
+                if (reason && !seen.has(reason)) {
+                    seen.add(reason);
+                    reasons.push(reason);
+                }
+            });
+            return reasons;
         }
 
         /**
@@ -921,12 +977,37 @@
         _getReturnActionConfigs() {
             return [
                 {
+                    key: 'markOutboundSent',
+                    label: 'Отправка возврата',
+                    ariaLabel: 'Отметить отправку возвратной посылки магазином',
+                    className: 'btn btn-outline-primary btn-sm',
+                    enabled: Boolean(this._permissions.markOutboundSent),
+                    disabledReason: this._getUnavailableReason('markOutboundSent'),
+                    options: {
+                        successMessage: 'Отправка возвратной посылки отмечена',
+                        notificationType: 'info'
+                    }
+                },
+                {
+                    key: 'markInboundArrived',
+                    label: 'Возврат на складе',
+                    ariaLabel: 'Отметить прибытие возвратной посылки на склад',
+                    className: 'btn btn-outline-secondary btn-sm',
+                    enabled: Boolean(this._permissions.markInboundArrived),
+                    disabledReason: this._getUnavailableReason('markInboundArrived'),
+                    options: {
+                        successMessage: 'Прибытие возвратной посылки отмечено',
+                        notificationType: 'info'
+                    }
+                },
+                {
                     key: 'confirmReceipt',
                     label: 'Принять возврат',
                     ariaLabel: 'Подтвердить получение возврата и завершить обращение',
                     className: 'btn btn-success btn-sm',
                     enabled: Boolean(this._permissions.confirmReceipt),
                     hideWhenDisabled: true,
+                    disabledReason: this._getUnavailableReason('markInboundPickedUp'),
                     options: {
                         successMessage: 'Возврат подтверждён',
                         notificationType: 'success'
@@ -938,6 +1019,7 @@
                     ariaLabel: 'Перевести обращение в обмен',
                     className: 'btn btn-outline-primary btn-sm',
                     enabled: Boolean(this._permissions.convertToExchange),
+                    disabledReason: this._getUnavailableReason('setModeExchange'),
                     options: {
                         successMessage: 'Заявка переведена в обмен',
                         notificationType: 'info'
@@ -950,6 +1032,7 @@
                     className: 'btn btn-primary btn-sm',
                     enabled: Boolean(this._permissions.launchExchange),
                     hideWhenDisabled: true,
+                    disabledReason: this._getUnavailableReason('registerExchangeParcel'),
                     options: {
                         successMessage: 'Обмен запущен',
                         notificationType: 'info'
@@ -961,6 +1044,7 @@
                     ariaLabel: 'Закрыть обращение без обмена',
                     className: 'btn btn-outline-danger btn-sm',
                     enabled: Boolean(this._permissions.close),
+                    disabledReason: this._getUnavailableReason('closeRequest'),
                     options: {
                         successMessage: 'Обращение закрыто',
                         notificationType: 'warning'
@@ -982,8 +1066,45 @@
                     className: 'btn btn-primary btn-sm',
                     enabled: Boolean(this._permissions.launchExchange),
                     hideWhenDisabled: true,
+                    disabledReason: this._getUnavailableReason('registerExchangeParcel'),
                     options: {
                         successMessage: 'Обмен запущен',
+                        notificationType: 'info'
+                    }
+                },
+                {
+                    key: 'markExchangeSent',
+                    label: 'Отправка обмена',
+                    ariaLabel: 'Отметить отправку обменной посылки',
+                    className: 'btn btn-outline-primary btn-sm',
+                    enabled: Boolean(this._permissions.markExchangeSent),
+                    disabledReason: this._getUnavailableReason('markExchangeSent'),
+                    options: {
+                        successMessage: 'Отправка обменной посылки отмечена',
+                        notificationType: 'info'
+                    }
+                },
+                {
+                    key: 'markExchangeDelivered',
+                    label: 'Доставка обмена',
+                    ariaLabel: 'Отметить доставку обменной посылки клиенту',
+                    className: 'btn btn-outline-success btn-sm',
+                    enabled: Boolean(this._permissions.markExchangeDelivered),
+                    disabledReason: this._getUnavailableReason('markExchangeDelivered'),
+                    options: {
+                        successMessage: 'Доставка обменной посылки отмечена',
+                        notificationType: 'success'
+                    }
+                },
+                {
+                    key: 'markInboundArrived',
+                    label: 'Возврат на складе',
+                    ariaLabel: 'Отметить прибытие обратной посылки на склад',
+                    className: 'btn btn-outline-secondary btn-sm',
+                    enabled: Boolean(this._permissions.markInboundArrived),
+                    disabledReason: this._getUnavailableReason('markInboundArrived'),
+                    options: {
+                        successMessage: 'Прибытие обратной посылки отмечено',
                         notificationType: 'info'
                     }
                 },
@@ -994,6 +1115,7 @@
                     className: 'btn btn-success btn-sm',
                     enabled: Boolean(this._permissions.confirmReceipt),
                     hideWhenDisabled: true,
+                    disabledReason: this._getUnavailableReason('markInboundPickedUp'),
                     options: {
                         successMessage: 'Получение обратной посылки подтверждено',
                         notificationType: 'success'
@@ -1006,11 +1128,11 @@
                     className: 'btn btn-outline-secondary btn-sm',
                     enabled: Boolean(this._permissions.reopen),
                     hideWhenDisabled: true,
+                    disabledReason: this._getUnavailableReason('setModeReturn'),
                     options: {
                         successMessage: 'Заявка переведена в возврат',
                         notificationType: 'info'
                     }
-                }
                 },
                 {
                     key: 'close',
@@ -1018,6 +1140,7 @@
                     ariaLabel: 'Закрыть обращение после обмена',
                     className: 'btn btn-outline-danger btn-sm',
                     enabled: Boolean(this._permissions.close),
+                    disabledReason: this._getUnavailableReason('closeRequest'),
                     options: {
                         successMessage: 'Обращение закрыто',
                         notificationType: 'warning'
@@ -1136,11 +1259,15 @@
      */
     function createReturnRequestActionHandlers(trackId, requestId) {
         return {
+            markOutboundSent: (options = {}) => markReturnOutboundSent(trackId, requestId, options),
+            markInboundArrived: (options = {}) => markReturnInboundArrived(trackId, requestId, options),
             confirmReceipt: (options = {}) => confirmReturnProcessing(trackId, requestId, options),
             convertToExchange: (options = {}) => convertReturnRequestToExchange(trackId, requestId, options),
             launchExchange: (options = {}) => createExchangeParcel(trackId, requestId, options),
             close: (options = {}) => closeReturnRequest(trackId, requestId, options),
             reopen: (options = {}) => reopenReturnRequest(trackId, requestId, options),
+            markExchangeSent: (options = {}) => markExchangeShipmentSent(trackId, requestId, options),
+            markExchangeDelivered: (options = {}) => markExchangeShipmentDelivered(trackId, requestId, options),
             updateReverseTrack: (options = {}) => updateReverseTrack(
                 trackId,
                 requestId,
@@ -1590,6 +1717,40 @@
     }
 
     /**
+     * Отмечает отправку возвратной посылки магазином.
+     * @param {string|number} trackId идентификатор трека
+     * @param {string|number} requestId идентификатор заявки
+     * @param {Object} [options] настройки уведомлений
+     */
+    async function markReturnOutboundSent(trackId, requestId, options = {}) {
+        return await performReturnRequestAction({
+            trackId,
+            requestId,
+            command: 'mark_outbound_sent',
+            successMessage: options.successMessage || 'Отправка возвратной посылки отмечена',
+            notificationType: options.notificationType || 'info',
+            errorMessage: options.errorMessage || 'Не удалось отметить отправку возвратной посылки'
+        });
+    }
+
+    /**
+     * Отмечает прибытие возвратной посылки на склад магазина.
+     * @param {string|number} trackId идентификатор трека
+     * @param {string|number} requestId идентификатор заявки
+     * @param {Object} [options] настройки уведомлений
+     */
+    async function markReturnInboundArrived(trackId, requestId, options = {}) {
+        return await performReturnRequestAction({
+            trackId,
+            requestId,
+            command: 'mark_inbound_arrived',
+            successMessage: options.successMessage || 'Прибытие возвратной посылки отмечено',
+            notificationType: options.notificationType || 'info',
+            errorMessage: options.errorMessage || 'Не удалось отметить прибытие возвратной посылки'
+        });
+    }
+
+    /**
      * Переводит заявку в режим обмена.
      * @param {string|number} trackId идентификатор трека
      * @param {string|number} requestId идентификатор заявки
@@ -1665,6 +1826,40 @@
             successMessage: options.successMessage || 'Заявка переведена в возврат',
             notificationType: options.notificationType || 'info',
             errorMessage: options.errorMessage || 'Не удалось перевести заявку в возврат'
+        });
+    }
+
+    /**
+     * Отмечает отправку обменной посылки клиенту.
+     * @param {string|number} trackId идентификатор трека
+     * @param {string|number} requestId идентификатор заявки
+     * @param {Object} [options] настройки уведомлений
+     */
+    async function markExchangeShipmentSent(trackId, requestId, options = {}) {
+        return await performReturnRequestAction({
+            trackId,
+            requestId,
+            command: 'mark_exchange_sent',
+            successMessage: options.successMessage || 'Отправка обменной посылки отмечена',
+            notificationType: options.notificationType || 'info',
+            errorMessage: options.errorMessage || 'Не удалось отметить отправку обменной посылки'
+        });
+    }
+
+    /**
+     * Отмечает доставку обменной посылки клиенту.
+     * @param {string|number} trackId идентификатор трека
+     * @param {string|number} requestId идентификатор заявки
+     * @param {Object} [options] настройки уведомлений
+     */
+    async function markExchangeShipmentDelivered(trackId, requestId, options = {}) {
+        return await performReturnRequestAction({
+            trackId,
+            requestId,
+            command: 'mark_exchange_delivered',
+            successMessage: options.successMessage || 'Доставка обменной посылки отмечена',
+            notificationType: options.notificationType || 'success',
+            errorMessage: options.errorMessage || 'Не удалось отметить доставку обменной посылки'
         });
     }
 
