@@ -2128,7 +2128,7 @@ class BuyerTelegramBotTest {
         when(registered.getId()).thenReturn(555L);
         when(telegramService.registerReturnRequestFromTelegram(eq(chatId), eq(77L), anyString(), anyString()))
                 .thenReturn(registered);
-        when(telegramService.approveExchangeFromTelegram(chatId, 77L, 555L))
+        when(telegramService.setModeExchangeFromTelegram(chatId, 77L, 555L))
                 .thenReturn(registered);
 
         Update reasonCallback = mockCallbackUpdate(chatId, "returns:create:reason:defect", anchorId);
@@ -2139,7 +2139,7 @@ class BuyerTelegramBotTest {
         assertEquals("Брак", reasonCaptor.getValue(),
                 "В сервис заявок должна передаваться выбранная пользователем причина обмена");
 
-        verify(telegramService).approveExchangeFromTelegram(chatId, 77L, 555L);
+        verify(telegramService).setModeExchangeFromTelegram(chatId, 77L, 555L);
 
         ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
         verify(telegramClient, atLeastOnce()).execute(messageCaptor.capture());
@@ -2622,7 +2622,7 @@ class BuyerTelegramBotTest {
                                                           String comment,
                                                           String reverseTrack,
                                                           boolean exchangeRequested,
-                                                          boolean canStartExchange,
+                                                          boolean canSetModeExchange,
                                                           boolean canCloseWithoutExchange,
                                                           boolean canReopenAsReturn,
                                                           boolean canCancelExchange,
@@ -2651,7 +2651,7 @@ class BuyerTelegramBotTest {
                 returnReceiptConfirmed
         );
         List<String> actionCodes = new ArrayList<>();
-        if (canStartExchange) {
+        if (canSetModeExchange) {
             actionCodes.add(ReturnRequestAction.SET_MODE_EXCHANGE.getCode());
         }
         if (canCloseWithoutExchange) {

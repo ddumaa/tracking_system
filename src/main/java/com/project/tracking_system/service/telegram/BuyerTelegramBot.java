@@ -3973,7 +3973,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                 resetReturnScenario(chatId, session);
                 return;
             }
-            telegramService.approveExchangeFromTelegram(chatId, parcelId, requestId);
+            telegramService.setModeExchangeFromTelegram(chatId, parcelId, requestId);
         } catch (IllegalStateException ex) {
             log.warn("⚠️ Не удалось запустить обмен по посылке {}: {}", parcelId, ex.getMessage());
             String message = ex.getMessage();

@@ -85,11 +85,11 @@ public class OrderReturnRequestService {
      * @return DTO с подтверждением сохранённых данных
      */
     @Transactional
-    public ReturnRequestUpdateResponse updateReverseTrackAndComment(Long requestId,
-                                                                    Long parcelId,
-                                                                    User user,
-                                                                    String reverseTrack,
-                                                                    String comment) {
+    public ReturnRequestUpdateResponse updateReverseTrack(Long requestId,
+                                                          Long parcelId,
+                                                          User user,
+                                                          String reverseTrack,
+                                                          String comment) {
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
         if (!ACTIVE_STATUSES.contains(request.getStatus())) {
             throw new IllegalStateException("Заявку нельзя изменить в текущем статусе");
@@ -220,21 +220,32 @@ public class OrderReturnRequestService {
     }
 
     /**
-     * Одобряет запуск обмена по заявке.
+     * Переводит заявку в режим обмена.
      * <p>
-     * Метод переводит заявку в статус обмена и фиксирует менеджера, принявшего решение.
-     * Создание обменной посылки выполняется отдельным действием через {@link #createExchangeParcel(Long, Long, User)},
-     * чтобы соблюсти SRP и дать менеджеру время на проверку данных перед оформлением отправления.
+     * Метод фиксирует решение менеджера, подготавливает заявку к созданию обменной посылки
+     * и оставляет подготовку отправления за отдельным действием {@link #createExchangeParcel(Long, Long, User)},
+     * соблюдая принцип единой ответственности.
      * </p>
      *
      * @param requestId идентификатор заявки
      * @param parcelId  идентификатор посылки
      * @param user      автор решения
-     * @return обновлённая заявка после одобрения обмена
+     * @return обновлённая заявка после переключения режима
      */
     @Transactional
-    public OrderReturnRequest approveExchange(Long requestId, Long parcelId, User user) {
-        return switchMode(requestId, parcelId, user, ReturnRequestMode.EXCHANGE, ModeSwitchTrigger.MANUAL_DECISION);
+    public OrderReturnRequest setModeExchange(Long requestId, Long parcelId, User user) {
+        return setModeExchange(requestId, parcelId, user, ModeSwitchTrigger.MANUAL_DECISION);
+    }
+
+    /**
+     * Переводит заявку в режим обмена с указанием причины переключения.
+     */
+    @Transactional
+    public OrderReturnRequest setModeExchange(Long requestId,
+                                              Long parcelId,
+                                              User user,
+                                              ModeSwitchTrigger trigger) {
+        return switchModeInternal(requestId, parcelId, user, ReturnRequestMode.EXCHANGE, trigger);
     }
 
     /**
@@ -244,20 +255,12 @@ public class OrderReturnRequestService {
      * согласно матрице состояний, нормализует стадию через {@link ReturnRequestWorkflow}
      * и выполняет побочные действия с обменными посылками через профильные сервисы.
      * </p>
-     *
-     * @param requestId   идентификатор заявки
-     * @param parcelId    идентификатор посылки
-     * @param user        менеджер, инициировавший действие
-     * @param targetMode  целевой режим обработки
-     * @param trigger     причина переключения (используется в логировании)
-     * @return обновлённая заявка после сохранения
      */
-    @Transactional
-    public OrderReturnRequest switchMode(Long requestId,
-                                         Long parcelId,
-                                         User user,
-                                         ReturnRequestMode targetMode,
-                                         ModeSwitchTrigger trigger) {
+    private OrderReturnRequest switchModeInternal(Long requestId,
+                                                  Long parcelId,
+                                                  User user,
+                                                  ReturnRequestMode targetMode,
+                                                  ModeSwitchTrigger trigger) {
         if (targetMode == null) {
             throw new IllegalArgumentException("Не указан целевой режим заявки");
         }
@@ -274,14 +277,27 @@ public class OrderReturnRequestService {
     }
 
     /**
-     * Перегрузка переключения режима без указания причины (используется для совместимости вызовов).
+     * Возвращает заявку в классический режим возврата.
+     * <p>
+     * Используется при отмене обмена или когда менеджер решил продолжать сценарий возврата.
+     * </p>
      */
     @Transactional
-    public OrderReturnRequest switchMode(Long requestId,
-                                         Long parcelId,
-                                         User user,
-                                         ReturnRequestMode targetMode) {
-        return switchMode(requestId, parcelId, user, targetMode, ModeSwitchTrigger.MANUAL_DECISION);
+    public OrderReturnRequest setModeReturn(Long requestId,
+                                            Long parcelId,
+                                            User user) {
+        return setModeReturn(requestId, parcelId, user, ModeSwitchTrigger.MANUAL_DECISION);
+    }
+
+    /**
+     * Возвращает заявку в режим возврата с кастомным триггером (например, запрос клиента).
+     */
+    @Transactional
+    public OrderReturnRequest setModeReturn(Long requestId,
+                                            Long parcelId,
+                                            User user,
+                                            ModeSwitchTrigger trigger) {
+        return switchModeInternal(requestId, parcelId, user, ReturnRequestMode.RETURN, trigger);
     }
 
     /**
@@ -324,10 +340,10 @@ public class OrderReturnRequestService {
     }
 
     /**
-     * Закрывает заявку без запуска обмена.
+     * Закрывает заявку после завершения обработки возврата без запуска обмена.
      */
     @Transactional
-    public OrderReturnRequest closeWithoutExchange(Long requestId, Long parcelId, User user) {
+    public OrderReturnRequest closeRequest(Long requestId, Long parcelId, User user) {
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
 
         if (request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
@@ -344,7 +360,7 @@ public class OrderReturnRequestService {
 
         OrderReturnRequest saved = returnRequestRepository.save(request);
         evictTrackDetailsCache(saved);
-        log.info("Заявка {} закрыта без обмена", saved.getId());
+        log.info("Заявка {} закрыта", saved.getId());
         return saved;
     }
 
@@ -590,7 +606,7 @@ public class OrderReturnRequestService {
      * </p>
      */
     @Transactional(readOnly = true)
-    public boolean canStartExchange(OrderReturnRequest request) {
+    public boolean canSetModeExchange(OrderReturnRequest request) {
         if (request == null || request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
             return false;
         }
@@ -612,7 +628,7 @@ public class OrderReturnRequestService {
     /**
      * Проверяет, можно ли вернуть обменную заявку в режим возврата без закрытия обращения.
      */
-    private boolean canSwitchToReturnMode(OrderReturnRequest request) {
+    private boolean canSetModeReturn(OrderReturnRequest request) {
         if (request == null) {
             return false;
         }
@@ -630,7 +646,7 @@ public class OrderReturnRequestService {
      * Проверяет, доступна ли отмена обмена с последующим закрытием заявки.
      */
     private boolean canCancelExchangeAction(OrderReturnRequest request) {
-        return canSwitchToReturnMode(request);
+        return canSetModeReturn(request);
     }
 
     /**
@@ -806,19 +822,34 @@ public class OrderReturnRequestService {
                 .withStage(normalizedStage)
                 .withStatus(request.getStatus());
 
-        builder.allow(ReturnRequestAction.SET_MODE_EXCHANGE, canStartExchange(request));
-        builder.allow(ReturnRequestAction.SET_MODE_RETURN, canSwitchToReturnMode(request));
-        builder.allow(ReturnRequestAction.CANCEL_EXCHANGE, canCancelExchangeAction(request));
-        builder.allow(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL, canRegisterExchangeParcel(request));
-        builder.allow(ReturnRequestAction.CLOSE_REQUEST, canCloseRequest(request));
-        builder.allow(ReturnRequestAction.UPDATE_REVERSE_TRACK, canUpdateReverseTrack(request));
-        builder.allow(ReturnRequestAction.MARK_OUTBOUND_SENT, canMarkOutboundSent(request));
-        builder.allow(ReturnRequestAction.MARK_INBOUND_ARRIVED, canMarkInboundArrived(request));
-        builder.allow(ReturnRequestAction.MARK_INBOUND_PICKED_UP, canMarkInboundPickedUp(request));
-        builder.allow(ReturnRequestAction.MARK_EXCHANGE_SENT, canMarkExchangeSent(request));
-        builder.allow(ReturnRequestAction.MARK_EXCHANGE_DELIVERED, canMarkExchangeDelivered(request));
+        for (ReturnRequestAction action : ReturnRequestAction.values()) {
+            builder.allow(action, isActionAllowed(request, action));
+        }
 
         return builder.build();
+    }
+
+    /**
+     * Проверяет доступность конкретного действия для заявки с учётом бизнес-ограничений.
+     */
+    private boolean isActionAllowed(OrderReturnRequest request, ReturnRequestAction action) {
+        if (request == null || action == null) {
+            return false;
+        }
+        return switch (action) {
+            case SET_MODE_EXCHANGE -> canSetModeExchange(request);
+            case SET_MODE_RETURN -> canSetModeReturn(request);
+            case CANCEL_EXCHANGE -> canCancelExchangeAction(request);
+            case REGISTER_EXCHANGE_PARCEL -> canRegisterExchangeParcel(request);
+            case CLOSE_REQUEST -> canCloseRequest(request);
+            case UPDATE_REVERSE_TRACK -> canUpdateReverseTrack(request);
+            case MARK_OUTBOUND_SENT -> canMarkOutboundSent(request);
+            case MARK_INBOUND_ARRIVED -> canMarkInboundArrived(request);
+            case MARK_INBOUND_PICKED_UP -> canMarkInboundPickedUp(request);
+            case MARK_EXCHANGE_SENT -> canMarkExchangeSent(request);
+            case MARK_EXCHANGE_DELIVERED -> canMarkExchangeDelivered(request);
+            default -> false;
+        };
     }
 
     /**
@@ -1047,12 +1078,15 @@ public class OrderReturnRequestService {
         if (resolveMode(request) != ReturnRequestMode.EXCHANGE) {
             return false;
         }
+        if (!hasExchangeTrack(request)) {
+            return false;
+        }
         if (!canTransitionToStage(request, ReturnRequestStage.EXCHANGE_SENT)) {
             return false;
         }
         return orderExchangeService.findLatestExchangeParcel(request)
                 .map(this::isParcelDispatched)
-                .orElseGet(() -> hasExchangeTrack(request));
+                .orElse(true);
     }
 
     /**
@@ -1065,12 +1099,15 @@ public class OrderReturnRequestService {
         if (resolveMode(request) != ReturnRequestMode.EXCHANGE) {
             return false;
         }
+        if (!hasExchangeTrack(request)) {
+            return false;
+        }
         if (!canTransitionToStage(request, ReturnRequestStage.EXCHANGE_DELIVERED)) {
             return false;
         }
         return orderExchangeService.findLatestExchangeParcel(request)
                 .map(this::isParcelDelivered)
-                .orElseGet(() -> hasExchangeTrack(request));
+                .orElse(true);
     }
 
     /**

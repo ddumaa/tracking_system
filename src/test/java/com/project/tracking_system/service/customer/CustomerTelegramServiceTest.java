@@ -306,7 +306,7 @@ class CustomerTelegramServiceTest {
      * Убеждаемся, что запуск обмена через Telegram проходит проверку владельца и делегируется бизнес-сервису.
      */
     @Test
-    void approveExchangeFromTelegram_whenRequestValid_callsOrderService() {
+    void setModeExchangeFromTelegram_whenRequestValid_callsOrderService() {
         Long chatId = 909L;
         Long parcelId = 3003L;
         Long requestId = 4004L;
@@ -329,12 +329,14 @@ class CustomerTelegramServiceTest {
 
         when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
         when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
-        when(orderReturnRequestService.approveExchange(requestId, parcelId, owner)).thenReturn(approvalResult);
+        when(orderReturnRequestService.setModeExchange(requestId, parcelId, owner,
+                OrderReturnRequestService.ModeSwitchTrigger.CUSTOMER_REQUEST)).thenReturn(approvalResult);
 
-        OrderReturnRequest result = customerTelegramService.approveExchangeFromTelegram(chatId, parcelId, requestId);
+        OrderReturnRequest result = customerTelegramService.setModeExchangeFromTelegram(chatId, parcelId, requestId);
 
         assertSame(approvalResult, result, "Метод должен возвращать результат обмена от OrderReturnRequestService");
-        verify(orderReturnRequestService).approveExchange(requestId, parcelId, owner);
+        verify(orderReturnRequestService).setModeExchange(requestId, parcelId, owner,
+                OrderReturnRequestService.ModeSwitchTrigger.CUSTOMER_REQUEST);
     }
 
     @Test
@@ -359,7 +361,7 @@ class CustomerTelegramServiceTest {
 
         when(customerRepository.findByTelegramChatId(chatId)).thenReturn(Optional.of(customer));
         when(trackParcelRepository.findById(parcelId)).thenReturn(Optional.of(parcel));
-        when(orderReturnRequestService.updateReverseTrackAndComment(requestId, parcelId, owner, "track", "comment"))
+        when(orderReturnRequestService.updateReverseTrack(requestId, parcelId, owner, "track", "comment"))
                 .thenReturn(response);
 
         ReturnRequestUpdateResponse result = customerTelegramService.updateReturnRequestDetailsFromTelegram(
@@ -371,7 +373,7 @@ class CustomerTelegramServiceTest {
         );
 
         assertSame(response, result, "Ответ сервиса должен возвращаться без изменений");
-        verify(orderReturnRequestService).updateReverseTrackAndComment(requestId, parcelId, owner, "track", "comment");
+        verify(orderReturnRequestService).updateReverseTrack(requestId, parcelId, owner, "track", "comment");
     }
 
     @Test
@@ -401,7 +403,7 @@ class CustomerTelegramServiceTest {
                 "track",
                 "comment"
         ));
-        verify(orderReturnRequestService, never()).updateReverseTrackAndComment(any(), any(), any(), any(), any());
+        verify(orderReturnRequestService, never()).updateReverseTrack(any(), any(), any(), any(), any());
     }
 
     @Test
