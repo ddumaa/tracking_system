@@ -242,6 +242,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             "⚠️ Не удалось сохранить изменения. Попробуйте ещё раз позже или обратитесь в поддержку.";
     private static final String BUTTON_RETURNS_ACTION_TRACK = "📮 Обновить трек";
     private static final String BUTTON_RETURNS_ACTION_COMMENT = "💬 Обновить комментарий";
+    private static final String BUTTON_RETURNS_ACTION_REGISTER_EXCHANGE_PARCEL = "📦 Зарегистрировать обменную посылку";
     private static final String BUTTON_RETURNS_ACTION_CLOSE_REQUEST = "✅ Закрыть заявку";
     private static final String BUTTON_RETURNS_ACTION_CLOSE_REQUEST_CONFIRM =
             "✅ Закрыть заявку (нужно подтверждение)";
@@ -1369,6 +1370,14 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             rows.add(new InlineKeyboardRow(buildActionButton(
                     BUTTON_RETURNS_ACTION_MARK_INBOUND_PICKED_UP,
                     ReturnRequestAction.MARK_INBOUND_PICKED_UP,
+                    requestId,
+                    parcelId)));
+        }
+
+        if (request.hasAction(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL)) {
+            rows.add(new InlineKeyboardRow(buildActionButton(
+                    BUTTON_RETURNS_ACTION_REGISTER_EXCHANGE_PARCEL,
+                    ReturnRequestAction.REGISTER_EXCHANGE_PARCEL,
                     requestId,
                     parcelId)));
         }
