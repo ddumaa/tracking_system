@@ -56,6 +56,53 @@ describe('track-modal render', () => {
     }
 
     /**
+     * Карта синонимов для кодов действий, чтобы извлекать причины недоступности из разных DTO.
+     */
+    const ACTION_REASON_KEYS = Object.freeze({
+        setModeExchange: ['setModeExchange', 'set_mode_exchange', 'SET_MODE_EXCHANGE'],
+        setModeReturn: ['setModeReturn', 'set_mode_return', 'SET_MODE_RETURN'],
+        registerExchangeParcel: ['registerExchangeParcel', 'register_exchange_parcel', 'REGISTER_EXCHANGE_PARCEL'],
+        markOutboundSent: ['markOutboundSent', 'mark_outbound_sent', 'MARK_OUTBOUND_SENT'],
+        markInboundArrived: ['markInboundArrived', 'mark_inbound_arrived', 'MARK_INBOUND_ARRIVED'],
+        markInboundPickedUp: ['markInboundPickedUp', 'mark_inbound_picked_up', 'MARK_INBOUND_PICKED_UP'],
+        markExchangeSent: ['markExchangeSent', 'mark_exchange_sent', 'MARK_EXCHANGE_SENT'],
+        markExchangeDelivered: ['markExchangeDelivered', 'mark_exchange_delivered', 'MARK_EXCHANGE_DELIVERED'],
+        closeRequest: ['closeRequest', 'close_request', 'CLOSE_REQUEST'],
+        updateReverseTrack: ['updateReverseTrack', 'update_reverse_track', 'UPDATE_REVERSE_TRACK']
+    });
+
+    /**
+     * Преобразует карту кодов в набор строк верхнего регистра.
+     * @param {Array<string>} codes исходные значения
+     * @returns {Set<string>} множество нормализованных кодов
+     */
+    function toUpperCaseSet(codes) {
+        return new Set((codes || []).filter(Boolean).map((code) => String(code).toUpperCase()));
+    }
+
+    /**
+     * Извлекает строку причины недоступности из источника с учётом вариантов именования.
+     * @param {Object} source объект-источник
+     * @param {Array<string>} variants возможные ключи
+     * @returns {string|null} нормализованный текст или {@code null}
+     */
+    function pickReasonFromSource(source, variants) {
+        if (!source || typeof source !== 'object') {
+            return null;
+        }
+        for (const variant of variants) {
+            const value = source[variant];
+            if (typeof value === 'string') {
+                const trimmed = value.trim();
+                if (trimmed.length > 0) {
+                    return trimmed;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * Обогащает заявку вложенными объектами (state/actions/timestamps) при отсутствии новых полей.
      * @param {Object|null} request тестовая заявка
      * @returns {Object|null} нормализованная заявка
@@ -90,8 +137,38 @@ describe('track-modal render', () => {
             : Array.isArray(rawActions.actionCodes)
                 ? rawActions.actionCodes
                 : (Array.isArray(request.actionCodes) ? request.actionCodes : []);
-        const codesSet = new Set(normalizedCodes.filter(Boolean).map((code) => String(code).toUpperCase()));
+        const codesSet = toUpperCaseSet(normalizedCodes);
         const hasAction = (code) => codesSet.has(String(code).toUpperCase());
+        const reasonSources = [
+            rawActions,
+            rawActions?.unavailableReasons,
+            rawActions?.reasons,
+            request?.unavailableReasons,
+            request?.actionUnavailableReasons,
+            request?.actionPermissionsReasons
+        ];
+        const reasonVariants = (key) => ACTION_REASON_KEYS[key] || [key];
+        const readReason = (key) => {
+            const directKey = `${key}UnavailableReason`;
+            const directSources = [request, rawActions];
+            for (const source of directSources) {
+                const value = source?.[directKey];
+                if (typeof value === 'string') {
+                    const trimmed = value.trim();
+                    if (trimmed.length > 0) {
+                        return trimmed;
+                    }
+                }
+            }
+            const variants = reasonVariants(key);
+            for (const source of reasonSources) {
+                const candidate = pickReasonFromSource(source, variants);
+                if (candidate) {
+                    return candidate;
+                }
+            }
+            return null;
+        };
         const availableActions = {
             ...rawActions,
             setModeExchange: Boolean(request.canSetModeExchange ?? request.canStartExchange ?? rawActions.setModeExchange ?? rawActions.startExchange ?? (mapLegacy('allowConvertToExchange') && mapLegacy('allowLaunchExchange')) || hasAction('SET_MODE_EXCHANGE')),
@@ -107,6 +184,12 @@ describe('track-modal render', () => {
             actions: normalizedCodes,
             actionCodes: normalizedCodes
         };
+        Object.keys(ACTION_REASON_KEYS).forEach((actionKey) => {
+            const reason = readReason(actionKey);
+            if (reason) {
+                availableActions[`${actionKey}UnavailableReason`] = reason;
+            }
+        });
         const timestamps = {
             requestedAt: request.requestedAt || null,
             createdAt: request.createdAt || null,
@@ -133,6 +216,192 @@ describe('track-modal render', () => {
      */
     function renderModal(details) {
         global.window.trackModal.render(normalizeDetails(details));
+    }
+
+    /**
+     * Выполняет последовательное ожидание микрозадач, чтобы тесты учитывали асинхронные обновления DOM.
+     * @param {number} iterations количество циклов ожидания
+     */
+    async function flushAsyncQueue(iterations = 4) {
+        for (let index = 0; index < iterations; index += 1) {
+            // eslint-disable-next-line no-await-in-loop
+            await Promise.resolve();
+        }
+    }
+
+    /**
+     * Фабрика тестовых DTO возвратов с полной матрицей действий.
+     * Используется для подготовки консистентных данных в стиле паттерна Builder (OOP + SRP).
+     */
+    class ReturnRequestTestFixtureFactory {
+        /**
+         * Создаёт DTO трека с заявкой и полным набором action-кодов.
+         * @param {Object} [options] параметры генерации
+         * @param {'RETURN'|'EXCHANGE'} [options.mode='RETURN'] целевой режим заявки
+         * @param {Object} [options.overrides] переопределения для тонкой настройки
+         * @returns {Object} сконструированные детали трека
+         */
+        static createDetailsWithAllActions(options = {}) {
+            const { mode = 'RETURN', overrides = {} } = options;
+            const trackId = overrides.id ?? (mode === 'RETURN' ? 101 : 202);
+            const requestId = overrides.returnRequest?.id ?? (mode === 'RETURN' ? 501 : 502);
+            const stage = overrides.returnRequest?.stage || (mode === 'EXCHANGE' ? 'REGISTERED_EXCHANGE' : 'REGISTERED_RETURN');
+            const actionCodes = [
+                'SET_MODE_RETURN',
+                'SET_MODE_EXCHANGE',
+                'REGISTER_EXCHANGE_PARCEL',
+                'MARK_OUTBOUND_SENT',
+                'MARK_INBOUND_ARRIVED',
+                'MARK_INBOUND_PICKED_UP',
+                'MARK_EXCHANGE_SENT',
+                'MARK_EXCHANGE_DELIVERED',
+                'CLOSE_REQUEST',
+                'UPDATE_REVERSE_TRACK'
+            ];
+            const availableActions = {
+                actions: actionCodes,
+                actionCodes,
+                setModeExchange: true,
+                setModeReturn: true,
+                registerExchangeParcel: true,
+                markOutboundSent: true,
+                markInboundArrived: true,
+                markInboundPickedUp: true,
+                markExchangeSent: true,
+                markExchangeDelivered: true,
+                closeRequest: true,
+                updateReverseTrack: true
+            };
+            const requestBase = {
+                id: requestId,
+                stage,
+                status: 'REGISTERED',
+                statusLabel: 'Зарегистрирована',
+                mode,
+                state: {
+                    mode,
+                    stage,
+                    exchangeRequested: mode === 'EXCHANGE',
+                    exchangeApproved: mode === 'EXCHANGE'
+                },
+                availableActions,
+                requestedAt: '2024-03-01T10:00:00Z',
+                decisionAt: null,
+                closedAt: null,
+                reverseTrackNumber: null,
+                returnReceiptConfirmed: false,
+                returnReceiptConfirmedAt: null,
+                exchangeRequested: mode === 'EXCHANGE',
+                exchangeApproved: mode === 'EXCHANGE',
+                actionPermissions: {},
+                requiresAction: true
+            };
+            const request = {
+                ...requestBase,
+                ...(overrides.returnRequest || {})
+            };
+            const detailsBase = {
+                id: trackId,
+                number: overrides.number || (mode === 'RETURN' ? 'RET123456BY' : 'EXC987654BY'),
+                deliveryService: 'Belpost',
+                systemStatus: 'В обработке',
+                history: [],
+                refreshAllowed: true,
+                nextRefreshAt: null,
+                canEditTrack: true,
+                timeZone: 'UTC',
+                episodeNumber: 77,
+                exchange: mode === 'EXCHANGE',
+                returnShipment: mode !== 'EXCHANGE',
+                chain: [
+                    {
+                        id: trackId,
+                        number: overrides.number || (mode === 'RETURN' ? 'RET123456BY' : 'EXC987654BY'),
+                        exchange: mode === 'EXCHANGE',
+                        returnShipment: mode !== 'EXCHANGE',
+                        current: true
+                    }
+                ],
+                returnRequest: request,
+                canRegisterReturn: true,
+                lifecycle: [],
+                requiresAction: true
+            };
+            return {
+                ...detailsBase,
+                ...overrides,
+                returnRequest: request
+            };
+        }
+    }
+
+    /**
+     * Драйвер для юнит-тестов действий модалки, инкапсулирующий настройку моков и работу с DOM.
+     * Следует паттерну Facade, упрощая читаемость тестов.
+     */
+    class ReturnRequestActionTestDriver {
+        /**
+         * @param {Object} details исходные детали трека
+         */
+        constructor(details) {
+            this.details = details;
+            this.trackId = details?.id ?? null;
+            this.requestId = details?.returnRequest?.id ?? null;
+        }
+
+        /**
+         * Подготавливает моки {@link fetch} для последовательности «команда → обновление деталей».
+         * @param {Object} [options] параметры поведения
+         * @param {Object} [options.commandPayload] ответ POST-команды
+         * @param {Object} [options.refreshedDetails] DTO после обновления
+         */
+        mockSuccessfulCommandFlow(options = {}) {
+            const { commandPayload = { status: 'OK' }, refreshedDetails = null } = options;
+            const headers = { get: jest.fn(() => 'application/json') };
+            const trackResponse = refreshedDetails || this.details;
+            if (typeof global.fetch?.mockClear === 'function') {
+                global.fetch.mockClear();
+            }
+            global.fetch.mockImplementation((url, init = {}) => {
+                const stringUrl = String(url);
+                if (stringUrl.includes(`/api/v1/returns/${this.requestId}/commands`)) {
+                    return Promise.resolve({ ok: true, headers, json: () => Promise.resolve(commandPayload) });
+                }
+                if (stringUrl.includes(`/api/v1/tracks/${this.trackId}`)) {
+                    return Promise.resolve({ ok: true, headers, json: () => Promise.resolve(trackResponse) });
+                }
+                return Promise.resolve({ ok: true, headers, json: () => Promise.resolve({}) });
+            });
+        }
+
+        /**
+         * Рендерит модалку на основе текущих деталей.
+         */
+        render() {
+            renderModal(this.details);
+        }
+
+        /**
+         * Находит кнопку по тексту и инициирует клик.
+         * @param {string} label отображаемый текст кнопки
+         */
+        async clickAction(label) {
+            const actionCard = Array.from(document.querySelectorAll('section.card'))
+                .find((card) => card.querySelector('h6')?.textContent === 'Обращение');
+            const button = Array.from(actionCard?.querySelectorAll('button') || [])
+                .find((btn) => btn.textContent?.trim() === label);
+            expect(button).toBeDefined();
+            button?.click();
+            await flushAsyncQueue();
+        }
+
+        /**
+         * Возвращает параметры вызова fetch для команды.
+         * @returns {Array|undefined} найденный вызов mock-функции
+         */
+        getCommandFetchCall() {
+            return global.fetch.mock.calls.find((call) => String(call[0]).includes(`/api/v1/returns/${this.requestId}/commands`));
+        }
     }
 
     afterEach(() => {
@@ -1479,6 +1748,251 @@ status: 'Зарегистрирована',
             })
         );
         expect(global.notifyUser).toHaveBeenCalledWith('Обмен запущен', 'info');
+    });
+
+    test('reopens exchange into return mode via dedicated button', async () => {
+        setupDom();
+
+        const exchangeDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions({ mode: 'EXCHANGE' });
+        const refreshedDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions({
+            mode: 'RETURN',
+            overrides: {
+                id: exchangeDetails.id,
+                number: exchangeDetails.number,
+                returnRequest: {
+                    id: exchangeDetails.returnRequest.id,
+                    stage: 'REGISTERED_RETURN',
+                    state: {
+                        ...exchangeDetails.returnRequest.state,
+                        mode: 'RETURN',
+                        stage: 'REGISTERED_RETURN'
+                    }
+                }
+            }
+        });
+        const driver = new ReturnRequestActionTestDriver(exchangeDetails);
+        driver.mockSuccessfulCommandFlow({
+            commandPayload: { command: 'set_mode_return', status: 'OK' },
+            refreshedDetails
+        });
+
+        driver.render();
+        await flushAsyncQueue();
+        await driver.clickAction('Перевести в возврат');
+
+        const commandCall = driver.getCommandFetchCall();
+        expect(commandCall).toBeDefined();
+        expect(commandCall?.[1]).toEqual(expect.objectContaining({ method: 'POST' }));
+        expect(commandCall?.[1]?.body).toBe(JSON.stringify({ command: 'set_mode_return' }));
+        expect(global.notifyUser).toHaveBeenCalledWith('Заявка переведена в возврат', 'info');
+    });
+
+    test('launches exchange via register action button with full DTO', async () => {
+        setupDom();
+
+        const returnDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions();
+        const refreshedDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions({
+            mode: 'EXCHANGE',
+            overrides: {
+                id: returnDetails.id,
+                number: returnDetails.number,
+                returnRequest: {
+                    id: returnDetails.returnRequest.id,
+                    stage: 'REGISTERED_EXCHANGE',
+                    state: {
+                        ...returnDetails.returnRequest.state,
+                        mode: 'EXCHANGE',
+                        stage: 'REGISTERED_EXCHANGE'
+                    }
+                }
+            }
+        });
+        const driver = new ReturnRequestActionTestDriver(returnDetails);
+        driver.mockSuccessfulCommandFlow({
+            commandPayload: { command: 'register_exchange_parcel', status: 'OK' },
+            refreshedDetails
+        });
+
+        driver.render();
+        await flushAsyncQueue();
+        await driver.clickAction('Запустить обмен');
+
+        const commandCall = driver.getCommandFetchCall();
+        expect(commandCall?.[1]).toEqual(expect.objectContaining({ method: 'POST' }));
+        expect(commandCall?.[1]?.body).toBe(JSON.stringify({ command: 'register_exchange_parcel' }));
+        expect(global.notifyUser).toHaveBeenCalledWith('Обмен запущен', 'info');
+    });
+
+    test('marks outbound parcel as sent via return action button', async () => {
+        setupDom();
+
+        const returnDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions();
+        const refreshedDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions({
+            mode: 'RETURN',
+            overrides: {
+                id: returnDetails.id,
+                number: returnDetails.number,
+                returnRequest: {
+                    id: returnDetails.returnRequest.id,
+                    stage: 'OUTBOUND_SENT',
+                    state: {
+                        ...returnDetails.returnRequest.state,
+                        stage: 'OUTBOUND_SENT'
+                    }
+                }
+            }
+        });
+        const driver = new ReturnRequestActionTestDriver(returnDetails);
+        driver.mockSuccessfulCommandFlow({
+            commandPayload: { command: 'mark_outbound_sent', status: 'OK' },
+            refreshedDetails
+        });
+
+        driver.render();
+        await flushAsyncQueue();
+        await driver.clickAction('Отправка возврата');
+
+        const commandCall = driver.getCommandFetchCall();
+        expect(commandCall?.[1]?.body).toBe(JSON.stringify({ command: 'mark_outbound_sent' }));
+        expect(global.notifyUser).toHaveBeenCalledWith('Отправка возвратной посылки отмечена', 'info');
+    });
+
+    test('marks inbound arrival via return action button', async () => {
+        setupDom();
+
+        const returnDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions();
+        const refreshedDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions({
+            mode: 'RETURN',
+            overrides: {
+                id: returnDetails.id,
+                number: returnDetails.number,
+                returnRequest: {
+                    id: returnDetails.returnRequest.id,
+                    stage: 'INBOUND_ARRIVED',
+                    state: {
+                        ...returnDetails.returnRequest.state,
+                        stage: 'INBOUND_ARRIVED'
+                    }
+                }
+            }
+        });
+        const driver = new ReturnRequestActionTestDriver(returnDetails);
+        driver.mockSuccessfulCommandFlow({
+            commandPayload: { command: 'mark_inbound_arrived', status: 'OK' },
+            refreshedDetails
+        });
+
+        driver.render();
+        await flushAsyncQueue();
+        await driver.clickAction('Возврат на складе');
+
+        const commandCall = driver.getCommandFetchCall();
+        expect(commandCall?.[1]?.body).toBe(JSON.stringify({ command: 'mark_inbound_arrived' }));
+        expect(global.notifyUser).toHaveBeenCalledWith('Прибытие возвратной посылки отмечено', 'info');
+    });
+
+    test('confirms return via dedicated button with new payload', async () => {
+        setupDom();
+
+        const returnDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions();
+        const refreshedDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions({
+            mode: 'RETURN',
+            overrides: {
+                id: returnDetails.id,
+                number: returnDetails.number,
+                returnRequest: {
+                    id: returnDetails.returnRequest.id,
+                    stage: 'INBOUND_PICKED_UP',
+                    state: {
+                        ...returnDetails.returnRequest.state,
+                        stage: 'INBOUND_PICKED_UP'
+                    },
+                    returnReceiptConfirmed: true,
+                    returnReceiptConfirmedAt: '2024-03-05T12:00:00Z'
+                }
+            }
+        });
+        const driver = new ReturnRequestActionTestDriver(returnDetails);
+        driver.mockSuccessfulCommandFlow({
+            commandPayload: { command: 'mark_inbound_picked_up', status: 'OK' },
+            refreshedDetails
+        });
+
+        driver.render();
+        await flushAsyncQueue();
+        await driver.clickAction('Принять возврат');
+
+        const commandCall = driver.getCommandFetchCall();
+        expect(commandCall?.[1]?.body).toBe(JSON.stringify({ command: 'mark_inbound_picked_up' }));
+        expect(global.notifyUser).toHaveBeenCalledWith('Возврат подтверждён', 'success');
+    });
+
+    test('marks exchange shipment as sent via dedicated button', async () => {
+        setupDom();
+
+        const exchangeDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions({ mode: 'EXCHANGE' });
+        const refreshedDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions({
+            mode: 'EXCHANGE',
+            overrides: {
+                id: exchangeDetails.id,
+                number: exchangeDetails.number,
+                returnRequest: {
+                    id: exchangeDetails.returnRequest.id,
+                    stage: 'EXCHANGE_SENT',
+                    state: {
+                        ...exchangeDetails.returnRequest.state,
+                        stage: 'EXCHANGE_SENT'
+                    }
+                }
+            }
+        });
+        const driver = new ReturnRequestActionTestDriver(exchangeDetails);
+        driver.mockSuccessfulCommandFlow({
+            commandPayload: { command: 'mark_exchange_sent', status: 'OK' },
+            refreshedDetails
+        });
+
+        driver.render();
+        await flushAsyncQueue();
+        await driver.clickAction('Отправка обмена');
+
+        const commandCall = driver.getCommandFetchCall();
+        expect(commandCall?.[1]?.body).toBe(JSON.stringify({ command: 'mark_exchange_sent' }));
+        expect(global.notifyUser).toHaveBeenCalledWith('Отправка обменной посылки отмечена', 'info');
+    });
+
+    test('marks exchange delivery via dedicated button', async () => {
+        setupDom();
+
+        const exchangeDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions({ mode: 'EXCHANGE' });
+        const refreshedDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions({
+            mode: 'EXCHANGE',
+            overrides: {
+                id: exchangeDetails.id,
+                number: exchangeDetails.number,
+                returnRequest: {
+                    id: exchangeDetails.returnRequest.id,
+                    stage: 'EXCHANGE_DELIVERED',
+                    state: {
+                        ...exchangeDetails.returnRequest.state,
+                        stage: 'EXCHANGE_DELIVERED'
+                    }
+                }
+            }
+        });
+        const driver = new ReturnRequestActionTestDriver(exchangeDetails);
+        driver.mockSuccessfulCommandFlow({
+            commandPayload: { command: 'mark_exchange_delivered', status: 'OK' },
+            refreshedDetails
+        });
+
+        driver.render();
+        await flushAsyncQueue();
+        await driver.clickAction('Доставка обмена');
+
+        const commandCall = driver.getCommandFetchCall();
+        expect(commandCall?.[1]?.body).toBe(JSON.stringify({ command: 'mark_exchange_delivered' }));
+        expect(global.notifyUser).toHaveBeenCalledWith('Доставка обменной посылки отмечена', 'success');
     });
 
     test('shows exchange parcel widget with open CTA', () => {
