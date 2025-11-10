@@ -2,7 +2,6 @@ package com.project.tracking_system.service.ratelimit;
 
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
-import io.github.bucket4j.Bucket4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -66,7 +65,7 @@ public class Bucket4jRateLimiter {
      */
     public Bucket resolveCustomerBucket(String key) {
         return customerBuckets.computeIfAbsent(key, k ->
-                Bucket4j.builder().addLimit(customerLimit).build());
+                Bucket.builder().addLimit(customerLimit).build());
     }
 
     /**
@@ -77,6 +76,6 @@ public class Bucket4jRateLimiter {
      */
     public Bucket resolveTelegramBucket(String key) {
         return telegramBuckets.computeIfAbsent(key, k ->
-                Bucket4j.builder().addLimit(telegramLimit).build());
+                Bucket.builder().addLimit(telegramLimit).build());
     }
 }
