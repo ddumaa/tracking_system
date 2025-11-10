@@ -60,6 +60,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.lang.reflect.Field;
 import java.time.ZonedDateTime;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -713,6 +714,55 @@ class BuyerTelegramBotTest {
                 });
         assertTrue(hasSelectionButtonsAfterBack,
                 "Клавиатура после возврата должна снова содержать список заявок");
+    }
+
+    /**
+     * Проверяет, что для каждой доступной команды отображается корректная кнопка с ожидаемым callback.
+     *
+     * @param action                проверяемое действие из {@link ReturnRequestAction}
+     * @param expectedButtonText    ожидаемый текст кнопки из {@link BuyerTelegramBot}
+     * @param expectedCallbackPrefix ожидаемый префикс callback-данных
+     */
+    @ParameterizedTest
+    @MethodSource("returnsActionButtons")
+    void shouldRenderExpectedActionButtons(ReturnRequestAction action,
+                                           String expectedButtonText,
+                                           String expectedCallbackPrefix) throws Exception {
+        Long chatId = 551L + action.ordinal();
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+
+        Long requestId = 100L + action.ordinal();
+        Long parcelId = 200L + action.ordinal();
+        ActionRequiredReturnRequestDto requestDto = buildActionDto(requestId, parcelId, action);
+
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenReturn(List.of(requestDto))
+                .thenReturn(List.of(requestDto));
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active"));
+
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, "returns:active:select:" + requestId + ':' + parcelId));
+
+        ArgumentCaptor<EditMessageText> editCaptor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient, atLeastOnce()).execute(editCaptor.capture());
+
+        List<EditMessageText> edits = editCaptor.getAllValues();
+        assertFalse(edits.isEmpty(), "Бот должен обновить сообщение с действиями по заявке");
+        EditMessageText lastEdit = edits.get(edits.size() - 1);
+        InlineKeyboardMarkup markup = lastEdit.getReplyMarkup();
+        assertNotNull(markup, "После выбора заявки должна отображаться клавиатура действий");
+
+        InlineKeyboardButton actionButton = findButtonByText(markup, expectedButtonText);
+        assertNotNull(actionButton,
+                () -> "Кнопка действия " + expectedButtonText + " должна присутствовать в клавиатуре");
+        String callbackData = actionButton.getCallbackData();
+        assertNotNull(callbackData, "Callback кнопки действия не должен быть пустым");
+        assertTrue(callbackData.startsWith(expectedCallbackPrefix),
+                () -> "Callback должен начинаться с " + expectedCallbackPrefix + ", но получено: " + callbackData);
     }
 
     /**
@@ -2569,6 +2619,56 @@ class BuyerTelegramBotTest {
     }
 
     /**
+     * Формирует DTO заявки с единственным или несколькими доступными действиями для кратких сценариев.
+     */
+    private ActionRequiredReturnRequestDto buildActionDto(Long requestId,
+                                                          Long parcelId,
+                                                          ReturnRequestAction... allowedActions) {
+        EnumSet<ReturnRequestAction> allowed = EnumSet.noneOf(ReturnRequestAction.class);
+        boolean exchangeRequested = false;
+        boolean exchangeShipmentDispatched = false;
+        boolean returnReceiptConfirmed = false;
+        if (allowedActions != null) {
+            for (ReturnRequestAction allowedAction : allowedActions) {
+                if (allowedAction == null) {
+                    continue;
+                }
+                allowed.add(allowedAction);
+                if (allowedAction.isExchangeOnly()) {
+                    exchangeRequested = true;
+                }
+                if (allowedAction == ReturnRequestAction.MARK_EXCHANGE_SENT
+                        || allowedAction == ReturnRequestAction.MARK_EXCHANGE_DELIVERED) {
+                    exchangeShipmentDispatched = true;
+                }
+                if (allowedAction == ReturnRequestAction.MARK_INBOUND_PICKED_UP) {
+                    returnReceiptConfirmed = true;
+                }
+            }
+        }
+        ActionAvailability availability = availability(builder -> allowed.forEach(builder::allow));
+        return buildActionDto(
+                requestId,
+                parcelId,
+                "TRK-" + requestId,
+                "Demo Store",
+                "В обработке",
+                OrderReturnRequestStatus.REGISTERED,
+                OrderReturnRequestStatus.REGISTERED.getDisplayName(),
+                "10.10.2024",
+                "09.10.2024",
+                "Причина",
+                "Комментарий",
+                "REV-001",
+                exchangeRequested,
+                availability,
+                exchangeShipmentDispatched,
+                returnReceiptConfirmed,
+                null
+        );
+    }
+
+    /**
      * Собирает DTO заявки с расширенным контрактом доступных действий.
      * Метод формирует агрегированное состояние, маппит доступность кнопок и передаёт
      * причину недоступности каждого действия, что позволяет тестам описывать сложные сценарии.
@@ -2903,6 +3003,65 @@ class BuyerTelegramBotTest {
     }
 
     /**
+     * Собирает сценарии для проверки отображения доступных действий в карточке возврата.
+     *
+     * @return поток аргументов с ожидаемым текстом кнопки и префиксом callback
+     */
+    private static Stream<Arguments> returnsActionButtons() {
+        String actionPrefix = resolveStaticString("CALLBACK_RETURNS_ACTIVE_ACTION_PREFIX");
+        String trackPrefix = resolveStaticString("CALLBACK_RETURNS_ACTIVE_TRACK_PREFIX");
+        return Stream.of(
+                actionButtonCase(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL,
+                        "BUTTON_RETURNS_ACTION_REGISTER_EXCHANGE_PARCEL",
+                        actionPrefix + ReturnRequestAction.REGISTER_EXCHANGE_PARCEL.getCode() + ':'),
+                actionButtonCase(ReturnRequestAction.UPDATE_REVERSE_TRACK,
+                        "BUTTON_RETURNS_ACTION_TRACK",
+                        trackPrefix),
+                actionButtonCase(ReturnRequestAction.MARK_OUTBOUND_SENT,
+                        "BUTTON_RETURNS_ACTION_MARK_OUTBOUND_SENT",
+                        actionPrefix + ReturnRequestAction.MARK_OUTBOUND_SENT.getCode() + ':'),
+                actionButtonCase(ReturnRequestAction.MARK_INBOUND_ARRIVED,
+                        "BUTTON_RETURNS_ACTION_MARK_INBOUND_ARRIVED",
+                        actionPrefix + ReturnRequestAction.MARK_INBOUND_ARRIVED.getCode() + ':'),
+                actionButtonCase(ReturnRequestAction.MARK_INBOUND_PICKED_UP,
+                        "BUTTON_RETURNS_ACTION_MARK_INBOUND_PICKED_UP",
+                        actionPrefix + ReturnRequestAction.MARK_INBOUND_PICKED_UP.getCode() + ':'),
+                actionButtonCase(ReturnRequestAction.MARK_EXCHANGE_SENT,
+                        "BUTTON_RETURNS_ACTION_MARK_EXCHANGE_SENT",
+                        actionPrefix + ReturnRequestAction.MARK_EXCHANGE_SENT.getCode() + ':'),
+                actionButtonCase(ReturnRequestAction.MARK_EXCHANGE_DELIVERED,
+                        "BUTTON_RETURNS_ACTION_MARK_EXCHANGE_DELIVERED",
+                        actionPrefix + ReturnRequestAction.MARK_EXCHANGE_DELIVERED.getCode() + ':')
+        );
+    }
+
+    /**
+     * Формирует аргумент для параметризованного теста, получая значения из приватных констант бота.
+     */
+    private static Arguments actionButtonCase(ReturnRequestAction action,
+                                              String buttonField,
+                                              String callbackPrefix) {
+        return Arguments.of(action, resolveStaticString(buttonField), callbackPrefix);
+    }
+
+    /**
+     * Извлекает приватную строковую константу из {@link BuyerTelegramBot} для повторного использования в тестах.
+     */
+    private static String resolveStaticString(String fieldName) {
+        try {
+            Field field = BuyerTelegramBot.class.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            Object value = field.get(null);
+            if (value instanceof String stringValue) {
+                return stringValue;
+            }
+            throw new IllegalStateException("Константа " + fieldName + " должна быть строкой");
+        } catch (ReflectiveOperationException ex) {
+            throw new IllegalStateException("Не удалось получить константу " + fieldName, ex);
+        }
+    }
+
+    /**
      * Набор корректно распознаваемых телефонных номеров и ожидаемых масок.
      *
      * @return поток аргументов для параметризованного теста
@@ -3094,6 +3253,26 @@ class BuyerTelegramBotTest {
      */
     private void markAwaitingContact(Long chatId) throws Exception {
         chatSessionRepository.updateState(chatId, BuyerChatState.AWAITING_CONTACT);
+    }
+
+    /**
+     * Находит первую кнопку с указанным текстом в переданной инлайн-клавиатуре.
+     *
+     * @param markup клавиатура, в которой выполняется поиск
+     * @param text   искомый текст кнопки
+     * @return найденная кнопка или {@code null}, если совпадений нет
+     */
+    private InlineKeyboardButton findButtonByText(InlineKeyboardMarkup markup, String text) {
+        if (markup == null || markup.getKeyboard() == null) {
+            return null;
+        }
+        return markup.getKeyboard().stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .filter(button -> Objects.equals(text, button.getText()))
+                .findFirst()
+                .orElse(null);
     }
 
     /**
