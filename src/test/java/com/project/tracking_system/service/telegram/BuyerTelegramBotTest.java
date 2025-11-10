@@ -61,13 +61,18 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.time.ZonedDateTime;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -592,14 +597,13 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 "REV-001",
                 false,
-                true,
-                true,
+                availability(builder -> builder
+                        .allow(ReturnRequestAction.SET_MODE_EXCHANGE)
+                        .allow(ReturnRequestAction.CLOSE_REQUEST)
+                ),
                 false,
                 false,
-                null,
-                false,
-                null,
-                false
+                null
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -736,14 +740,13 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 "REV-RESET",
                 false,
-                true,
-                true,
+                availability(builder -> builder
+                        .allow(ReturnRequestAction.SET_MODE_EXCHANGE)
+                        .allow(ReturnRequestAction.CLOSE_REQUEST)
+                ),
                 false,
                 false,
-                null,
-                false,
-                null,
-                false
+                null
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -824,14 +827,10 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 "REV-EX",
                 true,
+                availability(builder -> builder.allow(ReturnRequestAction.CLOSE_REQUEST)),
                 false,
-                true,
                 false,
-                false,
-                null,
-                false,
-                null,
-                false
+                null
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -873,14 +872,13 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 "REV-EX",
                 true,
+                availability(builder -> builder
+                        .allow(ReturnRequestAction.CLOSE_REQUEST)
+                        .with(ReturnRequestAction.SET_MODE_RETURN, false, warning)
+                ),
                 false,
-                true,
                 false,
-                false,
-                warning,
-                false,
-                null,
-                false
+                null
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -934,15 +932,13 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 "REV-EX",
                 true,
+                availability(builder -> builder
+                        .allow(ReturnRequestAction.SET_MODE_RETURN)
+                        .allow(ReturnRequestAction.CLOSE_REQUEST)
+                ),
                 false,
-                true,
                 false,
-                false,
-                true,
-                null,
-                false,
-                null,
-                false
+                null
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -1003,15 +999,13 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 null,
                 true,
-                false,
+                availability(builder -> builder
+                        .allow(ReturnRequestAction.SET_MODE_RETURN)
+                        .allow(ReturnRequestAction.CLOSE_REQUEST)
+                ),
                 true,
-                true,
-                true,
                 false,
-                null,
-                false,
-                null,
-                false
+                null
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -1064,15 +1058,13 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 null,
                 true,
-                false,
+                availability(builder -> builder
+                        .allow(ReturnRequestAction.SET_MODE_RETURN)
+                        .allow(ReturnRequestAction.CLOSE_REQUEST)
+                ),
                 true,
-                true,
-                true,
                 false,
-                null,
-                false,
-                null,
-                false
+                null
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -1133,15 +1125,13 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 null,
                 true,
+                availability(builder -> builder
+                        .allow(ReturnRequestAction.SET_MODE_RETURN)
+                        .allow(ReturnRequestAction.CLOSE_REQUEST)
+                ),
+                true,
                 false,
-                true,
-                true,
-                true,
-                true,
-                null,
-                false,
-                null,
-                false
+                null
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -1198,14 +1188,13 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 "REV-CNF",
                 false,
-                true,
-                true,
+                availability(builder -> builder
+                        .allow(ReturnRequestAction.SET_MODE_EXCHANGE)
+                        .allow(ReturnRequestAction.CLOSE_REQUEST)
+                ),
                 false,
                 false,
-                null,
-                false,
-                null,
-                false
+                null
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -1265,13 +1254,10 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 null,
                 false,
-                true,
+                availability(builder -> builder.allow(ReturnRequestAction.SET_MODE_EXCHANGE)),
                 false,
                 false,
-                null,
-                false,
-                null,
-                false
+                null
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -1321,14 +1307,13 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 "REV-CF2",
                 false,
-                true,
-                true,
+                availability(builder -> builder
+                        .allow(ReturnRequestAction.SET_MODE_EXCHANGE)
+                        .allow(ReturnRequestAction.CLOSE_REQUEST)
+                ),
                 false,
                 false,
-                null,
-                false,
-                null,
-                false
+                null
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -1376,14 +1361,14 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 null,
                 false,
-                true,
-                true,
+                availability(builder -> builder
+                        .allow(ReturnRequestAction.SET_MODE_EXCHANGE)
+                        .allow(ReturnRequestAction.CLOSE_REQUEST)
+                        .allow(ReturnRequestAction.SET_MODE_RETURN)
+                ),
                 false,
                 false,
-                null,
-                false,
-                null,
-                false
+                null
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -1431,15 +1416,10 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 null,
                 true,
+                availability(builder -> builder.allow(ReturnRequestAction.CLOSE_REQUEST)),
                 false,
-                true,
                 false,
-                false,
-                true,
-                null,
-                false,
-                null,
-                false
+                null
         );
 
         when(telegramService.getReturnRequestsRequiringAction(chatId))
@@ -1490,14 +1470,14 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 "REV",
                 false,
-                true,
-                true,
+                availability(builder -> builder
+                        .allow(ReturnRequestAction.SET_MODE_EXCHANGE)
+                        .allow(ReturnRequestAction.CLOSE_REQUEST)
+                        .allow(ReturnRequestAction.UPDATE_REVERSE_TRACK)
+                ),
                 false,
                 false,
-                null,
-                false,
-                null,
-                false
+                null
         );
         when(telegramService.getReturnRequestsRequiringAction(chatId))
                 .thenReturn(List.of(requestDto))
@@ -1542,14 +1522,14 @@ class BuyerTelegramBotTest {
                 null,
                 null,
                 false,
-                true,
-                true,
+                availability(builder -> builder
+                        .allow(ReturnRequestAction.SET_MODE_EXCHANGE)
+                        .allow(ReturnRequestAction.CLOSE_REQUEST)
+                        .allow(ReturnRequestAction.UPDATE_REVERSE_TRACK)
+                ),
                 false,
                 false,
-                null,
-                false,
-                null,
-                false
+                null
         );
         when(telegramService.getReturnRequestsRequiringAction(chatId))
                 .thenReturn(List.of(requestDto))
@@ -1627,8 +1607,11 @@ class BuyerTelegramBotTest {
                 "Комментарий",
                 "REV-ERR",
                 false,
-                true,
-                true,
+                availability(builder -> builder
+                        .allow(ReturnRequestAction.SET_MODE_EXCHANGE)
+                        .allow(ReturnRequestAction.CLOSE_REQUEST)
+                        .allow(ReturnRequestAction.UPDATE_REVERSE_TRACK)
+                ),
                 false,
                 false,
                 null
@@ -2586,8 +2569,9 @@ class BuyerTelegramBotTest {
     }
 
     /**
-     * Формирует DTO заявки с новым контрактом на основе параметров старого конструктора.
-     * Метод упрощает поддержку тестов после рефакторинга DTO, сводя маппинг к единой точке.
+     * Собирает DTO заявки с расширенным контрактом доступных действий.
+     * Метод формирует агрегированное состояние, маппит доступность кнопок и передаёт
+     * причину недоступности каждого действия, что позволяет тестам описывать сложные сценарии.
      */
     private ActionRequiredReturnRequestDto buildActionDto(Long requestId,
                                                           Long parcelId,
@@ -2602,20 +2586,35 @@ class BuyerTelegramBotTest {
                                                           String comment,
                                                           String reverseTrack,
                                                           boolean exchangeRequested,
+                                                          boolean canSetModeReturn,
                                                           boolean canSetModeExchange,
-                                                          boolean canCloseWithoutExchange,
-                                                          boolean canReopenAsReturn,
+                                                          boolean canRegisterExchangeParcel,
+                                                          boolean canMarkOutboundSent,
+                                                          boolean canMarkInboundArrived,
+                                                          boolean canMarkInboundPickedUp,
+                                                          boolean canMarkExchangeSent,
+                                                          boolean canMarkExchangeDelivered,
+                                                          boolean canCloseRequest,
+                                                          boolean canUpdateReverseTrack,
+                                                          String setModeReturnUnavailableReason,
+                                                          String setModeExchangeUnavailableReason,
+                                                          String registerExchangeParcelUnavailableReason,
+                                                          String markOutboundSentUnavailableReason,
+                                                          String markInboundArrivedUnavailableReason,
+                                                          String markInboundPickedUpUnavailableReason,
+                                                          String markExchangeSentUnavailableReason,
+                                                          String markExchangeDeliveredUnavailableReason,
+                                                          String closeRequestUnavailableReason,
+                                                          String updateReverseTrackUnavailableReason,
                                                           boolean exchangeShipmentDispatched,
-                                                          String cancelExchangeUnavailableReason,
                                                           boolean returnReceiptConfirmed,
-                                                          String returnReceiptConfirmedAt,
-                                                          boolean canConfirmReceipt) {
+                                                          String returnReceiptConfirmedAt) {
         ReturnRequestMode mode = exchangeRequested || status == OrderReturnRequestStatus.EXCHANGE_APPROVED
                 ? ReturnRequestMode.EXCHANGE
                 : ReturnRequestMode.RETURN;
         ReturnRequestStage stage = mode == ReturnRequestMode.EXCHANGE
                 ? (exchangeShipmentDispatched ? ReturnRequestStage.EXCHANGE_SENT : ReturnRequestStage.EXCHANGE_REGISTERED)
-                : (canConfirmReceipt ? ReturnRequestStage.INBOUND_ARRIVED : ReturnRequestStage.NEW);
+                : (canMarkInboundPickedUp ? ReturnRequestStage.INBOUND_ARRIVED : ReturnRequestStage.NEW);
         String decisionAt = status == OrderReturnRequestStatus.EXCHANGE_APPROVED ? requestedAt : null;
         String closedAt = status == OrderReturnRequestStatus.CLOSED_NO_EXCHANGE ? requestedAt : null;
         ReturnRequestStateDto state = new ReturnRequestStateDto(
@@ -2629,20 +2628,40 @@ class BuyerTelegramBotTest {
                 null,
                 returnReceiptConfirmed
         );
-        List<String> actionCodes = new ArrayList<>();
-        if (canSetModeExchange) {
-            actionCodes.add(ReturnRequestAction.SET_MODE_EXCHANGE.getCode());
-        }
-        if (canCloseWithoutExchange) {
-            actionCodes.add(ReturnRequestAction.CLOSE_REQUEST.getCode());
-        }
-        if (canReopenAsReturn) {
-            actionCodes.add(ReturnRequestAction.SET_MODE_RETURN.getCode());
-        }
-        if (canConfirmReceipt) {
-            actionCodes.add(ReturnRequestAction.MARK_INBOUND_PICKED_UP.getCode());
-        }
-        AvailableActionsDto actions = new AvailableActionsDto(actionCodes);
+        EnumMap<ReturnRequestAction, Boolean> availabilityFlags = new EnumMap<>(ReturnRequestAction.class);
+        availabilityFlags.put(ReturnRequestAction.SET_MODE_RETURN, canSetModeReturn);
+        availabilityFlags.put(ReturnRequestAction.SET_MODE_EXCHANGE, canSetModeExchange);
+        availabilityFlags.put(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL, canRegisterExchangeParcel);
+        availabilityFlags.put(ReturnRequestAction.MARK_OUTBOUND_SENT, canMarkOutboundSent);
+        availabilityFlags.put(ReturnRequestAction.MARK_INBOUND_ARRIVED, canMarkInboundArrived);
+        availabilityFlags.put(ReturnRequestAction.MARK_INBOUND_PICKED_UP, canMarkInboundPickedUp);
+        availabilityFlags.put(ReturnRequestAction.MARK_EXCHANGE_SENT, canMarkExchangeSent);
+        availabilityFlags.put(ReturnRequestAction.MARK_EXCHANGE_DELIVERED, canMarkExchangeDelivered);
+        availabilityFlags.put(ReturnRequestAction.CLOSE_REQUEST, canCloseRequest);
+        availabilityFlags.put(ReturnRequestAction.UPDATE_REVERSE_TRACK, canUpdateReverseTrack);
+
+        EnumSet<ReturnRequestAction> availableActions = availabilityFlags.entrySet()
+                .stream()
+                .filter(Map.Entry::getValue)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toCollection(() -> EnumSet.noneOf(ReturnRequestAction.class)));
+
+        List<String> actionCodes = availableActions.stream()
+                .map(ReturnRequestAction::getCode)
+                .collect(Collectors.toUnmodifiableList());
+
+        EnumMap<ReturnRequestAction, String> unavailableReasons = new EnumMap<>(ReturnRequestAction.class);
+        addUnavailableReason(unavailableReasons, ReturnRequestAction.SET_MODE_RETURN, setModeReturnUnavailableReason);
+        addUnavailableReason(unavailableReasons, ReturnRequestAction.SET_MODE_EXCHANGE, setModeExchangeUnavailableReason);
+        addUnavailableReason(unavailableReasons, ReturnRequestAction.REGISTER_EXCHANGE_PARCEL, registerExchangeParcelUnavailableReason);
+        addUnavailableReason(unavailableReasons, ReturnRequestAction.MARK_OUTBOUND_SENT, markOutboundSentUnavailableReason);
+        addUnavailableReason(unavailableReasons, ReturnRequestAction.MARK_INBOUND_ARRIVED, markInboundArrivedUnavailableReason);
+        addUnavailableReason(unavailableReasons, ReturnRequestAction.MARK_INBOUND_PICKED_UP, markInboundPickedUpUnavailableReason);
+        addUnavailableReason(unavailableReasons, ReturnRequestAction.MARK_EXCHANGE_SENT, markExchangeSentUnavailableReason);
+        addUnavailableReason(unavailableReasons, ReturnRequestAction.MARK_EXCHANGE_DELIVERED, markExchangeDeliveredUnavailableReason);
+        addUnavailableReason(unavailableReasons, ReturnRequestAction.CLOSE_REQUEST, closeRequestUnavailableReason);
+        addUnavailableReason(unavailableReasons, ReturnRequestAction.UPDATE_REVERSE_TRACK, updateReverseTrackUnavailableReason);
+        AvailableActionsDto actions = new AvailableActionsDto(actionCodes, availableActions, unavailableReasons);
         ReturnRequestTimestampsDto timestamps = new ReturnRequestTimestampsDto(
                 requestedAt,
                 createdAt,
@@ -2653,7 +2672,7 @@ class BuyerTelegramBotTest {
                 null,
                 returnReceiptConfirmedAt
         );
-        return buildActionDto(
+        return new ActionRequiredReturnRequestDto(
                 requestId,
                 parcelId,
                 trackNumber,
@@ -2668,6 +2687,219 @@ class BuyerTelegramBotTest {
                 actions,
                 timestamps
         );
+    }
+
+    /**
+     * Перегруженный вариант фабрики с агрегированием доступности действий через объект {@link ActionAvailability}.
+     *
+     * @param availability описание доступных и заблокированных действий
+     * @return DTO заявки с заполненными полями действий
+     */
+    private ActionRequiredReturnRequestDto buildActionDto(Long requestId,
+                                                          Long parcelId,
+                                                          String trackNumber,
+                                                          String storeName,
+                                                          String parcelStatus,
+                                                          OrderReturnRequestStatus status,
+                                                          String statusLabel,
+                                                          String requestedAt,
+                                                          String createdAt,
+                                                          String reason,
+                                                          String comment,
+                                                          String reverseTrack,
+                                                          boolean exchangeRequested,
+                                                          ActionAvailability availability,
+                                                          boolean exchangeShipmentDispatched,
+                                                          boolean returnReceiptConfirmed,
+                                                          String returnReceiptConfirmedAt) {
+        ActionAvailability resolved = availability != null ? availability : availability();
+        return buildActionDto(
+                requestId,
+                parcelId,
+                trackNumber,
+                storeName,
+                parcelStatus,
+                status,
+                statusLabel,
+                requestedAt,
+                createdAt,
+                reason,
+                comment,
+                reverseTrack,
+                exchangeRequested,
+                resolved.canSetModeReturn(),
+                resolved.canSetModeExchange(),
+                resolved.canRegisterExchangeParcel(),
+                resolved.canMarkOutboundSent(),
+                resolved.canMarkInboundArrived(),
+                resolved.canMarkInboundPickedUp(),
+                resolved.canMarkExchangeSent(),
+                resolved.canMarkExchangeDelivered(),
+                resolved.canCloseRequest(),
+                resolved.canUpdateReverseTrack(),
+                resolved.getUnavailableReason(ReturnRequestAction.SET_MODE_RETURN),
+                resolved.getUnavailableReason(ReturnRequestAction.SET_MODE_EXCHANGE),
+                resolved.getUnavailableReason(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL),
+                resolved.getUnavailableReason(ReturnRequestAction.MARK_OUTBOUND_SENT),
+                resolved.getUnavailableReason(ReturnRequestAction.MARK_INBOUND_ARRIVED),
+                resolved.getUnavailableReason(ReturnRequestAction.MARK_INBOUND_PICKED_UP),
+                resolved.getUnavailableReason(ReturnRequestAction.MARK_EXCHANGE_SENT),
+                resolved.getUnavailableReason(ReturnRequestAction.MARK_EXCHANGE_DELIVERED),
+                resolved.getUnavailableReason(ReturnRequestAction.CLOSE_REQUEST),
+                resolved.getUnavailableReason(ReturnRequestAction.UPDATE_REVERSE_TRACK),
+                exchangeShipmentDispatched,
+                returnReceiptConfirmed,
+                returnReceiptConfirmedAt
+        );
+    }
+
+    /**
+     * Возвращает заготовку описания доступности действий без доступных команд.
+     */
+    private ActionAvailability availability() {
+        return ActionAvailability.builder().build();
+    }
+
+    /**
+     * Позволяет описать доступность действий декларативно через лямбду.
+     */
+    private ActionAvailability availability(Consumer<ActionAvailability.Builder> customizer) {
+        ActionAvailability.Builder builder = ActionAvailability.builder();
+        if (customizer != null) {
+            customizer.accept(builder);
+        }
+        return builder.build();
+    }
+
+    /**
+     * Добавляет причину недоступности действия, если она присутствует.
+     *
+     * @param target карта, в которую вносятся причины недоступности
+     * @param action действие, к которому относится причина
+     * @param reason текст причины, может отсутствовать
+     */
+    private void addUnavailableReason(EnumMap<ReturnRequestAction, String> target,
+                                      ReturnRequestAction action,
+                                      String reason) {
+        if (reason != null) {
+            target.put(action, reason);
+        }
+    }
+
+    /**
+     * Инкапсулирует описание доступности действий и причин их блокировки для тестовых сценариев.
+     */
+    private static final class ActionAvailability {
+
+        private final EnumSet<ReturnRequestAction> allowed;
+        private final EnumMap<ReturnRequestAction, String> reasons;
+
+        private ActionAvailability(EnumSet<ReturnRequestAction> allowed,
+                                   EnumMap<ReturnRequestAction, String> reasons) {
+            this.allowed = allowed;
+            this.reasons = reasons;
+        }
+
+        /** Возвращает билдер для декларативного описания доступности. */
+        static Builder builder() {
+            return new Builder();
+        }
+
+        boolean canSetModeReturn() {
+            return allows(ReturnRequestAction.SET_MODE_RETURN);
+        }
+
+        boolean canSetModeExchange() {
+            return allows(ReturnRequestAction.SET_MODE_EXCHANGE);
+        }
+
+        boolean canRegisterExchangeParcel() {
+            return allows(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL);
+        }
+
+        boolean canMarkOutboundSent() {
+            return allows(ReturnRequestAction.MARK_OUTBOUND_SENT);
+        }
+
+        boolean canMarkInboundArrived() {
+            return allows(ReturnRequestAction.MARK_INBOUND_ARRIVED);
+        }
+
+        boolean canMarkInboundPickedUp() {
+            return allows(ReturnRequestAction.MARK_INBOUND_PICKED_UP);
+        }
+
+        boolean canMarkExchangeSent() {
+            return allows(ReturnRequestAction.MARK_EXCHANGE_SENT);
+        }
+
+        boolean canMarkExchangeDelivered() {
+            return allows(ReturnRequestAction.MARK_EXCHANGE_DELIVERED);
+        }
+
+        boolean canCloseRequest() {
+            return allows(ReturnRequestAction.CLOSE_REQUEST);
+        }
+
+        boolean canUpdateReverseTrack() {
+            return allows(ReturnRequestAction.UPDATE_REVERSE_TRACK);
+        }
+
+        String getUnavailableReason(ReturnRequestAction action) {
+            return reasons.get(action);
+        }
+
+        private boolean allows(ReturnRequestAction action) {
+            return allowed.contains(action);
+        }
+
+        /**
+         * Билдер описания доступности, позволяющий гибко указать флаги и причины.
+         */
+        private static final class Builder {
+
+            private final EnumSet<ReturnRequestAction> allowed = EnumSet.noneOf(ReturnRequestAction.class);
+            private final EnumMap<ReturnRequestAction, String> reasons = new EnumMap<>(ReturnRequestAction.class);
+
+            Builder allow(ReturnRequestAction action) {
+                return with(action, true, null);
+            }
+
+            Builder disallow(ReturnRequestAction action, String reason) {
+                return with(action, false, reason);
+            }
+
+            Builder with(ReturnRequestAction action, boolean allowedFlag) {
+                return with(action, allowedFlag, null);
+            }
+
+            Builder with(ReturnRequestAction action, boolean allowedFlag, String reason) {
+                if (action == null) {
+                    return this;
+                }
+                if (allowedFlag) {
+                    allowed.add(action);
+                    reasons.remove(action);
+                } else {
+                    allowed.remove(action);
+                    if (reason != null) {
+                        reasons.put(action, reason);
+                    } else {
+                        reasons.remove(action);
+                    }
+                }
+                return this;
+            }
+
+            ActionAvailability build() {
+                EnumSet<ReturnRequestAction> allowedCopy = allowed.isEmpty()
+                        ? EnumSet.noneOf(ReturnRequestAction.class)
+                        : EnumSet.copyOf(allowed);
+                EnumMap<ReturnRequestAction, String> reasonsCopy = new EnumMap<>(ReturnRequestAction.class);
+                reasonsCopy.putAll(reasons);
+                return new ActionAvailability(allowedCopy, reasonsCopy);
+            }
+        }
     }
 
     /**
