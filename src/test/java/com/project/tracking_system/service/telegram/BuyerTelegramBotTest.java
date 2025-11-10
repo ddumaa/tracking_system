@@ -70,7 +70,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -1496,6 +1498,52 @@ class BuyerTelegramBotTest {
         assertFalse(hasSetModeReturn, "После отправки замены кнопка перевода в возврат должна скрываться");
     }
 
+    @ParameterizedTest(name = "[{index}] {0}")
+    @MethodSource("confirmableReturnActions")
+    void shouldConfirmAndExecuteReturnAction(ReturnRequestAction action,
+                                            long requestId,
+                                            long parcelId,
+                                            String confirmationField,
+                                            String successField,
+                                            BiConsumer<CustomerTelegramService, ReturnActionInvocation> verifier,
+                                            UnaryOperator<ActionRequiredReturnRequestDto> requestCustomizer) throws Exception {
+        Long chatId = 8000L + requestId;
+        ActionRequiredReturnRequestDto base = buildActionDto(requestId, parcelId, action);
+        UnaryOperator<ActionRequiredReturnRequestDto> customizer =
+                requestCustomizer != null ? requestCustomizer : UnaryOperator.identity();
+        ActionRequiredReturnRequestDto requestDto = customizer.apply(base);
+
+        prepareActiveRequestScenario(chatId, requestDto);
+        clearInvocations(telegramClient);
+        clearInvocations(telegramService);
+
+        bot.consume(mockCallbackUpdate(chatId, buildActionCallback(action, requestId, parcelId)));
+
+        EditMessageText confirmationMessage = findLastEditMessage();
+        String confirmationText = normalizeMarkdown(confirmationMessage.getText());
+        String expectedConfirmation = resolveStaticString(confirmationField);
+        assertTrue(confirmationText.contains(expectedConfirmation),
+                () -> "Подтверждение должно содержать вопрос для действия " + action.getCode());
+
+        clearInvocations(telegramClient);
+
+        bot.consume(mockCallbackUpdate(chatId, buildConfirmCallback(action, requestId, parcelId, true)));
+
+        BiConsumer<CustomerTelegramService, ReturnActionInvocation> effectiveVerifier =
+                Objects.requireNonNullElseGet(verifier, () -> (service, invocation) -> {
+                });
+        effectiveVerifier.accept(telegramService, new ReturnActionInvocation(chatId, requestDto));
+
+        EditMessageText resultMessage = findLastEditMessage();
+        String successText = resolveStaticString(successField);
+        String resultText = normalizeMarkdown(resultMessage.getText());
+        assertTrue(resultText.contains(successText),
+                () -> "Результирующее сообщение должно содержать успешный текст для действия " + action.getCode());
+
+        assertEquals(BuyerChatState.IDLE, chatSessionRepository.getState(chatId),
+                "После завершения действия бот должен вернуть пользователя к ожиданию");
+    }
+
     /**
      * Проверяет, что при выборе действия обновления трека бот запрашивает ввод и сохраняет контекст заявки.
      */
@@ -1539,6 +1587,10 @@ class BuyerTelegramBotTest {
         clearInvocations(telegramClient);
 
         bot.consume(mockCallbackUpdate(chatId, "returns:active:track:1:2"));
+
+        AnswerCallbackQuery answer = findLastAnswerCallback();
+        assertNotNull(answer, "Бот обязан ответить на callback с подсказкой");
+        assertEquals("Ждём трек", answer.getText(), "Подсказка должна информировать о вводе трека");
 
         ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
         verify(telegramClient).execute(captor.capture());
@@ -3036,6 +3088,100 @@ class BuyerTelegramBotTest {
     }
 
     /**
+     * Перечень действий, требующих подтверждения перед выполнением.
+     */
+    private static Stream<Arguments> confirmableReturnActions() {
+        return Stream.of(
+                Arguments.of(
+                        ReturnRequestAction.REGISTER_EXCHANGE_PARCEL,
+                        201L,
+                        301L,
+                        "RETURNS_ACTIVE_REGISTER_EXCHANGE_PARCEL_CONFIRMATION",
+                        "RETURNS_ACTIVE_REGISTER_EXCHANGE_PARCEL_SUCCESS",
+                        (BiConsumer<CustomerTelegramService, ReturnActionInvocation>) (service, invocation) -> {
+                            ActionRequiredReturnRequestDto request = invocation.request();
+                            verify(service).registerExchangeParcelFromTelegram(
+                                    invocation.chatId(),
+                                    request.parcelId(),
+                                    request.requestId(),
+                                    request.state() != null ? request.state().exchangeTrackNumber() : null);
+                        },
+                        (UnaryOperator<ActionRequiredReturnRequestDto>) request ->
+                                withExchangeTrack(request, "EXCH-" + request.requestId())
+                ),
+                Arguments.of(
+                        ReturnRequestAction.MARK_OUTBOUND_SENT,
+                        202L,
+                        302L,
+                        "RETURNS_ACTIVE_MARK_OUTBOUND_SENT_CONFIRMATION",
+                        "RETURNS_ACTIVE_MARK_OUTBOUND_SENT_SUCCESS",
+                        (BiConsumer<CustomerTelegramService, ReturnActionInvocation>) (service, invocation) ->
+                                verify(service).markOutboundSentFromTelegram(
+                                        invocation.chatId(),
+                                        invocation.request().parcelId(),
+                                        invocation.request().requestId()),
+                        UnaryOperator.identity()
+                ),
+                Arguments.of(
+                        ReturnRequestAction.MARK_INBOUND_ARRIVED,
+                        203L,
+                        303L,
+                        "RETURNS_ACTIVE_MARK_INBOUND_ARRIVED_CONFIRMATION",
+                        "RETURNS_ACTIVE_MARK_INBOUND_ARRIVED_SUCCESS",
+                        (BiConsumer<CustomerTelegramService, ReturnActionInvocation>) (service, invocation) ->
+                                verify(service).markInboundArrivedFromTelegram(
+                                        invocation.chatId(),
+                                        invocation.request().parcelId(),
+                                        invocation.request().requestId()),
+                        UnaryOperator.identity()
+                ),
+                Arguments.of(
+                        ReturnRequestAction.MARK_INBOUND_PICKED_UP,
+                        204L,
+                        304L,
+                        "RETURNS_ACTIVE_MARK_INBOUND_PICKED_UP_CONFIRMATION",
+                        "RETURNS_ACTIVE_MARK_INBOUND_PICKED_UP_SUCCESS",
+                        (BiConsumer<CustomerTelegramService, ReturnActionInvocation>) (service, invocation) ->
+                                verify(service).markInboundPickedUpFromTelegram(
+                                        invocation.chatId(),
+                                        invocation.request().parcelId(),
+                                        invocation.request().requestId()),
+                        UnaryOperator.identity()
+                ),
+                Arguments.of(
+                        ReturnRequestAction.MARK_EXCHANGE_SENT,
+                        205L,
+                        305L,
+                        "RETURNS_ACTIVE_MARK_EXCHANGE_SENT_CONFIRMATION",
+                        "RETURNS_ACTIVE_MARK_EXCHANGE_SENT_SUCCESS",
+                        (BiConsumer<CustomerTelegramService, ReturnActionInvocation>) (service, invocation) -> {
+                            ActionRequiredReturnRequestDto request = invocation.request();
+                            verify(service).markExchangeSentFromTelegram(
+                                    invocation.chatId(),
+                                    request.parcelId(),
+                                    request.requestId(),
+                                    request.state() != null ? request.state().exchangeTrackNumber() : null);
+                        },
+                        (UnaryOperator<ActionRequiredReturnRequestDto>) request ->
+                                withExchangeTrack(request, "EXS-" + request.requestId())
+                ),
+                Arguments.of(
+                        ReturnRequestAction.MARK_EXCHANGE_DELIVERED,
+                        206L,
+                        306L,
+                        "RETURNS_ACTIVE_MARK_EXCHANGE_DELIVERED_CONFIRMATION",
+                        "RETURNS_ACTIVE_MARK_EXCHANGE_DELIVERED_SUCCESS",
+                        (BiConsumer<CustomerTelegramService, ReturnActionInvocation>) (service, invocation) ->
+                                verify(service).markExchangeDeliveredFromTelegram(
+                                        invocation.chatId(),
+                                        invocation.request().parcelId(),
+                                        invocation.request().requestId()),
+                        UnaryOperator.identity()
+                )
+        );
+    }
+
+    /**
      * Формирует аргумент для параметризованного теста, получая значения из приватных констант бота.
      */
     private static Arguments actionButtonCase(ReturnRequestAction action,
@@ -3086,6 +3232,132 @@ class BuyerTelegramBotTest {
                 Arguments.of(1_000_000_001L, null, "отсутствует идентификатор владельца контакта"),
                 Arguments.of(null, null, "оба идентификатора отсутствуют")
         );
+    }
+
+    /**
+     * Подготавливает контекст с выбранной активной заявкой для тестов подтверждения действий.
+     */
+    private void prepareActiveRequestScenario(Long chatId, ActionRequiredReturnRequestDto request) throws Exception {
+        Customer customer = new Customer();
+        customer.setTelegramChatId(chatId);
+        when(telegramService.findByChatId(chatId)).thenReturn(Optional.of(customer));
+        when(telegramService.getReturnRequestsRequiringAction(chatId))
+                .thenAnswer(invocation -> List.of(request));
+
+        bot.consume(mockCallbackUpdate(chatId, resolveStaticString("CALLBACK_RETURNS_SHOW_ACTIVE")));
+        bot.consume(mockCallbackUpdate(chatId, buildSelectCallback(request.requestId(), request.parcelId())));
+    }
+
+    /**
+     * Формирует callback для выбора заявки из раздела активных возвратов.
+     */
+    private String buildSelectCallback(Long requestId, Long parcelId) {
+        String prefix = resolveStaticString("CALLBACK_RETURNS_ACTIVE_SELECT_PREFIX");
+        return prefix + requestId + ':' + parcelId;
+    }
+
+    /**
+     * Формирует callback-строку для запуска действия по активной заявке.
+     */
+    private String buildActionCallback(ReturnRequestAction action, Long requestId, Long parcelId) {
+        String prefix = resolveStaticString("CALLBACK_RETURNS_ACTIVE_ACTION_PREFIX");
+        return prefix + action.getCode() + ':' + requestId + ':' + parcelId;
+    }
+
+    /**
+     * Собирает callback подтверждения действия с учётом ответа пользователя.
+     */
+    private String buildConfirmCallback(ReturnRequestAction action,
+                                        Long requestId,
+                                        Long parcelId,
+                                        boolean confirm) {
+        String prefix = resolveStaticString("CALLBACK_RETURNS_ACTIVE_CONFIRM_PREFIX");
+        String decision = confirm ? "yes" : "no";
+        return prefix + action.getCode() + ':' + decision + ':' + requestId + ':' + parcelId;
+    }
+
+    /**
+     * Возвращает последнее сообщение-редакцию, отправленное ботом в ответ на действие пользователя.
+     */
+    private EditMessageText findLastEditMessage() {
+        return mockingDetails(telegramClient).getInvocations().stream()
+                .filter(invocation -> "execute".equals(invocation.getMethod().getName()))
+                .map(invocation -> invocation.getArgument(0))
+                .filter(EditMessageText.class::isInstance)
+                .map(EditMessageText.class::cast)
+                .reduce((first, second) -> second)
+                .orElseThrow(() -> new AssertionError("Ожидалось сообщение с подтверждением действия"));
+    }
+
+    /**
+     * Возвращает последний ответ на callback-запрос, отправленный ботом.
+     */
+    private AnswerCallbackQuery findLastAnswerCallback() {
+        return mockingDetails(telegramClient).getInvocations().stream()
+                .filter(invocation -> "execute".equals(invocation.getMethod().getName()))
+                .map(invocation -> invocation.getArgument(0))
+                .filter(AnswerCallbackQuery.class::isInstance)
+                .map(AnswerCallbackQuery.class::cast)
+                .reduce((first, second) -> second)
+                .orElse(null);
+    }
+
+    /**
+     * Упрощает проверку текстов, удаляя экранирование Markdown из сообщения.
+     */
+    private String normalizeMarkdown(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replace("\\n", System.lineSeparator()).replace("\\", "");
+    }
+
+    /**
+     * Возвращает копию DTO с обновлённым треком обменной посылки.
+     */
+    private static ActionRequiredReturnRequestDto withExchangeTrack(ActionRequiredReturnRequestDto request, String track) {
+        if (request == null) {
+            return null;
+        }
+        ReturnRequestStateDto state = request.state();
+        ReturnRequestStateDto updatedState;
+        if (state == null) {
+            updatedState = new ReturnRequestStateDto(null, null, false, false,
+                    false, false, false, track, false);
+        } else {
+            updatedState = new ReturnRequestStateDto(
+                    state.mode(),
+                    state.stage(),
+                    state.manualStageOverride(),
+                    state.manualTrackOverride(),
+                    state.exchangeRequested(),
+                    state.exchangeApproved(),
+                    state.exchangeShipmentDispatched(),
+                    track,
+                    state.returnReceiptConfirmed()
+            );
+        }
+        return new ActionRequiredReturnRequestDto(
+                request.requestId(),
+                request.parcelId(),
+                request.trackNumber(),
+                request.storeName(),
+                request.parcelStatus(),
+                request.status(),
+                request.statusLabel(),
+                request.reason(),
+                request.comment(),
+                request.reverseTrack(),
+                updatedState,
+                request.actions(),
+                request.timestamps()
+        );
+    }
+
+    /**
+     * Инкапсулирует параметры вызова сервисного метода при подтверждении действия.
+     */
+    private record ReturnActionInvocation(Long chatId, ActionRequiredReturnRequestDto request) {
     }
 
     /**
