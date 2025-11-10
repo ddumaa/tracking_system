@@ -200,6 +200,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             "✅ Заявка переведена в возврат. Вы сможете добавить трек позднее.";
     private static final String RETURNS_ACTIVE_SET_MODE_RETURN_REQUEST_SENT =
             "ℹ️ Мы передали запрос магазину на перевод обмена в возврат. Ожидайте подтверждения.";
+    private static final String RETURNS_ACTIVE_REGISTER_EXCHANGE_PARCEL_SUCCESS =
+            "✅ Зафиксировали регистрацию обменной посылки.";
     private static final String RETURNS_ACTIVE_MARK_OUTBOUND_SENT_SUCCESS =
             "✅ Зафиксировали отправку возврата.";
     private static final String RETURNS_ACTIVE_MARK_INBOUND_ARRIVED_SUCCESS =
@@ -222,6 +224,8 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             "Перевести обмен обратно в возврат?";
     private static final String RETURNS_ACTIVE_SET_MODE_RETURN_REQUEST_CONFIRMATION =
             "Отправить запрос магазину на перевод обмена в возврат?";
+    private static final String RETURNS_ACTIVE_REGISTER_EXCHANGE_PARCEL_CONFIRMATION =
+            "Подтвердите регистрацию обменной посылки.";
     private static final String RETURNS_ACTIVE_MARK_OUTBOUND_SENT_CONFIRMATION =
             "Подтвердите, что отправили возврат.";
     private static final String RETURNS_ACTIVE_MARK_INBOUND_ARRIVED_CONFIRMATION =
@@ -2198,6 +2202,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             case CLOSE_REQUEST -> buildCloseRequestConfirmation(request);
             case SET_MODE_RETURN -> buildSetModeReturnConfirmation(request);
             case SET_MODE_EXCHANGE -> RETURNS_ACTIVE_SET_MODE_EXCHANGE_CONFIRMATION;
+            case REGISTER_EXCHANGE_PARCEL -> RETURNS_ACTIVE_REGISTER_EXCHANGE_PARCEL_CONFIRMATION;
             case MARK_OUTBOUND_SENT -> RETURNS_ACTIVE_MARK_OUTBOUND_SENT_CONFIRMATION;
             case MARK_INBOUND_ARRIVED -> RETURNS_ACTIVE_MARK_INBOUND_ARRIVED_CONFIRMATION;
             case MARK_INBOUND_PICKED_UP -> RETURNS_ACTIVE_MARK_INBOUND_PICKED_UP_CONFIRMATION;
@@ -2332,6 +2337,7 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             case CLOSE_REQUEST -> executeCloseRequest(chatId, session, context);
             case SET_MODE_RETURN -> executeSetModeReturn(chatId, session, context, requestInfo);
             case SET_MODE_EXCHANGE -> executeSetModeExchange(chatId, session, context);
+            case REGISTER_EXCHANGE_PARCEL -> executeRegisterExchangeParcel(chatId, session, context, requestInfo);
             case MARK_OUTBOUND_SENT -> executeMarkOutboundSent(chatId, session, context);
             case MARK_INBOUND_ARRIVED -> executeMarkInboundArrived(chatId, session, context);
             case MARK_INBOUND_PICKED_UP -> executeMarkInboundPickedUp(chatId, session, context);
@@ -2403,6 +2409,32 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
             finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_FAILED);
         } catch (Exception ex) {
             log.error("❌ Не удалось перевести обмен {} в возврат", context.requestId(), ex);
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_FAILED);
+        }
+    }
+
+    /**
+     * Регистрирует обменную посылку после подтверждения пользователя.
+     */
+    private void executeRegisterExchangeParcel(Long chatId,
+                                               ChatSession session,
+                                               RequestActionContext context,
+                                               ActionRequiredReturnRequestDto requestInfo) {
+        try {
+            String exchangeTrack = Optional.ofNullable(requestInfo)
+                    .map(ActionRequiredReturnRequestDto::state)
+                    .map(ReturnRequestStateDto::exchangeTrackNumber)
+                    .orElse(null);
+            telegramService.registerExchangeParcelFromTelegram(chatId, context.parcelId(), context.requestId(), exchangeTrack);
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_REGISTER_EXCHANGE_PARCEL_SUCCESS);
+        } catch (AccessDeniedException ex) {
+            log.warn("⚠️ Попытка зарегистрировать обменную посылку по чужой заявке {} в чате {}", context.requestId(), chatId);
+            finalizeRequestUpdate(chatId, session, PARCEL_RETURN_ACCESS_DENIED);
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            log.warn("⚠️ Ошибка регистрации обменной посылки {}: {}", context.requestId(), ex.getMessage());
+            finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_FAILED);
+        } catch (Exception ex) {
+            log.error("❌ Не удалось зарегистрировать обменную посылку {}", context.requestId(), ex);
             finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_ACTION_FAILED);
         }
     }
