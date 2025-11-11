@@ -31,6 +31,9 @@ describe('track-modal render', () => {
         const defaultHeaders = { get: jest.fn(() => 'application/json') };
         global.fetch = jest.fn(() => Promise.resolve({ ok: true, headers: defaultHeaders, json: () => Promise.resolve({}) }));
         global.crypto = { randomUUID: jest.fn(() => 'test-uuid') };
+        if (global.window) {
+            global.window.crypto = global.crypto;
+        }
         require('../../main/resources/static/js/track-modal.js');
         global.window.returnRequests = {
             updateRow: jest.fn(),
@@ -171,16 +174,51 @@ describe('track-modal render', () => {
         };
         const availableActions = {
             ...rawActions,
-            setModeExchange: Boolean(request.canSetModeExchange ?? request.canStartExchange ?? rawActions.setModeExchange ?? rawActions.startExchange ?? (mapLegacy('allowConvertToExchange') && mapLegacy('allowLaunchExchange')) || hasAction('SET_MODE_EXCHANGE')),
-            setModeReturn: Boolean(request.canSetModeReturn ?? request.canReopenAsReturn ?? rawActions.setModeReturn ?? rawActions.reopenAsReturn ?? mapLegacy('allowConvertToReturn') || hasAction('SET_MODE_RETURN')),
-            registerExchangeParcel: Boolean(request.canRegisterExchangeParcel ?? rawActions.registerExchangeParcel ?? rawActions.createExchangeParcel ?? mapLegacy('allowLaunchExchange') || hasAction('REGISTER_EXCHANGE_PARCEL')),
-            closeRequest: Boolean(request.canCloseRequest ?? request.canCloseWithoutExchange ?? rawActions.closeRequest ?? rawActions.closeWithoutExchange ?? mapLegacy('allowClose') || hasAction('CLOSE_REQUEST')),
-            updateReverseTrack: Boolean(request.canUpdateReverseTrack ?? rawActions.updateReverseTrack ?? mapLegacy('allowUpdate') || hasAction('UPDATE_REVERSE_TRACK')),
-            markOutboundSent: Boolean(request.canMarkOutboundSent ?? rawActions.markOutboundSent ?? hasAction('MARK_OUTBOUND_SENT')),
-            markInboundArrived: Boolean(request.canMarkInboundArrived ?? rawActions.markInboundArrived ?? hasAction('MARK_INBOUND_ARRIVED')),
-            markInboundPickedUp: Boolean(request.canMarkInboundPickedUp ?? rawActions.markInboundPickedUp ?? rawActions.confirmReceipt ?? mapLegacy('allowAcceptReverse') ?? mapLegacy('allowAccept') || hasAction('MARK_INBOUND_PICKED_UP')),
-            markExchangeSent: Boolean(request.canMarkExchangeSent ?? rawActions.markExchangeSent ?? hasAction('MARK_EXCHANGE_SENT')),
-            markExchangeDelivered: Boolean(request.canMarkExchangeDelivered ?? rawActions.markExchangeDelivered ?? hasAction('MARK_EXCHANGE_DELIVERED')),
+            setModeExchange: Boolean((request.canSetModeExchange
+                ?? request.canStartExchange
+                ?? rawActions.setModeExchange
+                ?? rawActions.startExchange
+                ?? (mapLegacy('allowConvertToExchange') && mapLegacy('allowLaunchExchange')))
+                || hasAction('SET_MODE_EXCHANGE')),
+            setModeReturn: Boolean((request.canSetModeReturn
+                ?? request.canReopenAsReturn
+                ?? rawActions.setModeReturn
+                ?? rawActions.reopenAsReturn
+                ?? mapLegacy('allowConvertToReturn'))
+                || hasAction('SET_MODE_RETURN')),
+            registerExchangeParcel: Boolean((request.canRegisterExchangeParcel
+                ?? rawActions.registerExchangeParcel
+                ?? rawActions.createExchangeParcel
+                ?? mapLegacy('allowLaunchExchange'))
+                || hasAction('REGISTER_EXCHANGE_PARCEL')),
+            closeRequest: Boolean((request.canCloseRequest
+                ?? request.canCloseWithoutExchange
+                ?? rawActions.closeRequest
+                ?? rawActions.closeWithoutExchange
+                ?? mapLegacy('allowClose'))
+                || hasAction('CLOSE_REQUEST')),
+            updateReverseTrack: Boolean((request.canUpdateReverseTrack
+                ?? rawActions.updateReverseTrack
+                ?? mapLegacy('allowUpdate'))
+                || hasAction('UPDATE_REVERSE_TRACK')),
+            markOutboundSent: Boolean(request.canMarkOutboundSent
+                ?? rawActions.markOutboundSent
+                ?? hasAction('MARK_OUTBOUND_SENT')),
+            markInboundArrived: Boolean(request.canMarkInboundArrived
+                ?? rawActions.markInboundArrived
+                ?? hasAction('MARK_INBOUND_ARRIVED')),
+            markInboundPickedUp: Boolean((request.canMarkInboundPickedUp
+                ?? rawActions.markInboundPickedUp
+                ?? rawActions.confirmReceipt
+                ?? mapLegacy('allowAcceptReverse')
+                ?? mapLegacy('allowAccept'))
+                || hasAction('MARK_INBOUND_PICKED_UP')),
+            markExchangeSent: Boolean(request.canMarkExchangeSent
+                ?? rawActions.markExchangeSent
+                ?? hasAction('MARK_EXCHANGE_SENT')),
+            markExchangeDelivered: Boolean(request.canMarkExchangeDelivered
+                ?? rawActions.markExchangeDelivered
+                ?? hasAction('MARK_EXCHANGE_DELIVERED')),
             actions: normalizedCodes,
             actionCodes: normalizedCodes
         };
@@ -227,6 +265,57 @@ describe('track-modal render', () => {
             // eslint-disable-next-line no-await-in-loop
             await Promise.resolve();
         }
+    }
+
+    /**
+     * Отключает обменные действия в переданных деталях, чтобы принудительно отрисовать режим возврата.
+     * @param {Object} details исходные данные трека
+     */
+    function disableExchangeLaunch(details) {
+        const available = details?.returnRequest?.availableActions;
+        if (!available || typeof available !== 'object') {
+            return;
+        }
+        available.registerExchangeParcel = false;
+        const stripCode = (code) => String(code).toUpperCase() !== 'REGISTER_EXCHANGE_PARCEL';
+        if (Array.isArray(available.actions)) {
+            available.actions = available.actions.filter(stripCode);
+        }
+        if (Array.isArray(available.actionCodes)) {
+            available.actionCodes = available.actionCodes.filter(stripCode);
+        }
+    }
+
+    /**
+     * Десериализует тело POST-запроса команды и возвращает DTO.
+     * @param {Array} call параметры вызова mock-функции fetch
+     * @returns {Object} десериализованное тело запроса
+     */
+    function readCommandRequestDto(call) {
+        expect(call).toBeDefined();
+        const [, init] = call || [];
+        expect(init).toBeDefined();
+        const { body } = init || {};
+        expect(typeof body).toBe('string');
+        return JSON.parse(body);
+    }
+
+    /**
+     * Проверяет, что строка соответствует ISO-формату UTC.
+     * @param {string} value проверяемое значение
+     */
+    function expectIsoTimestamp(value) {
+        expect(typeof value).toBe('string');
+        expect(value).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    }
+
+    /**
+     * Проверяет корректность идемпотентного ключа, не привязываясь к конкретному значению.
+     * @param {string} value проверяемое значение
+     */
+    function expectValidIdempotencyKey(value) {
+        expect(typeof value).toBe('string');
+        expect(value.length).toBeGreaterThan(0);
     }
 
     /**
@@ -352,11 +441,11 @@ describe('track-modal render', () => {
         /**
          * Подготавливает моки {@link fetch} для последовательности «команда → обновление деталей».
          * @param {Object} [options] параметры поведения
-         * @param {Object} [options.commandPayload] ответ POST-команды
+         * @param {Object} [options.requestDto] ответ POST-команды
          * @param {Object} [options.refreshedDetails] DTO после обновления
          */
         mockSuccessfulCommandFlow(options = {}) {
-            const { commandPayload = { status: 'OK' }, refreshedDetails = null } = options;
+            const { requestDto = { id: 1, status: 'QUEUED' }, refreshedDetails = null } = options;
             const headers = { get: jest.fn(() => 'application/json') };
             const trackResponse = refreshedDetails || this.details;
             if (typeof global.fetch?.mockClear === 'function') {
@@ -365,7 +454,7 @@ describe('track-modal render', () => {
             global.fetch.mockImplementation((url, init = {}) => {
                 const stringUrl = String(url);
                 if (stringUrl.includes(`/api/v1/returns/${this.requestId}/commands`)) {
-                    return Promise.resolve({ ok: true, headers, json: () => Promise.resolve(commandPayload) });
+                    return Promise.resolve({ ok: true, headers, json: () => Promise.resolve(requestDto) });
                 }
                 if (stringUrl.includes(`/api/v1/tracks/${this.trackId}`)) {
                     return Promise.resolve({ ok: true, headers, json: () => Promise.resolve(trackResponse) });
@@ -865,13 +954,11 @@ status: 'Зарегистрирована',
         await Promise.resolve();
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        expect(global.fetch).toHaveBeenCalledWith(
-            '/api/v1/returns/81/commands',
-            expect.objectContaining({
-                method: 'POST',
-                body: JSON.stringify({ command: 'close_request' })
-            })
-        );
+        const requestCall = global.fetch.mock.calls.find((call) => String(call[0]).includes('/api/v1/returns/81/commands'));
+        const requestDto = readCommandRequestDto(requestCall);
+        expectValidIdempotencyKey(requestDto.idempotencyKey);
+        expect(requestDto.action).toBe('CLOSE_REQUEST');
+        expect(requestDto.payload).toEqual({});
         expect(global.notifyUser).toHaveBeenCalledWith('Обращение закрыто', 'warning');
 
         const rerenderedCard = Array.from(document.querySelectorAll('section.card'))
@@ -1382,17 +1469,14 @@ status: 'Зарегистрирована',
         await Promise.resolve();
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        expect(global.fetch).toHaveBeenCalledWith(
-            '/api/v1/returns/5/commands',
-            expect.objectContaining({
-                method: 'POST',
-                body: JSON.stringify({
-                    command: 'update_reverse_track',
-                    reverseTrackNumber: 'RR123456789BY',
-                    comment: 'Обновлённый комментарий'
-                })
-            })
-        );
+        const requestCall = global.fetch.mock.calls.find((call) => String(call[0]).includes('/api/v1/returns/5/commands'));
+        const requestDto = readCommandRequestDto(requestCall);
+        expectValidIdempotencyKey(requestDto.idempotencyKey);
+        expect(requestDto.action).toBe('UPDATE_REVERSE_TRACK');
+        expect(requestDto.payload).toEqual({
+            reverseTrack: 'RR123456789BY',
+            comment: 'Обновлённый комментарий'
+        });
         expect(global.notifyUser).toHaveBeenCalledWith('Обратный трек сохранён', 'success');
         const reverseInfo = Array.from(document.querySelectorAll('dl dd'))
             .find((node) => node.textContent?.includes('RR123456789BY'));
@@ -1644,13 +1728,11 @@ status: 'Зарегистрирована',
         await Promise.resolve();
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        expect(global.fetch).toHaveBeenCalledWith(
-            '/api/v1/returns/5/commands',
-            expect.objectContaining({
-                method: 'POST',
-                body: JSON.stringify({ command: 'set_mode_exchange' })
-            })
-        );
+        const requestCall = global.fetch.mock.calls.find((call) => String(call[0]).includes('/api/v1/returns/5/commands'));
+        const requestDto = readCommandRequestDto(requestCall);
+        expectValidIdempotencyKey(requestDto.idempotencyKey);
+        expect(requestDto.action).toBe('SET_MODE_EXCHANGE');
+        expect(requestDto.payload).toEqual({});
         expect(global.notifyUser).toHaveBeenCalledWith('Заявка переведена в обмен', 'info');
     });
 
@@ -1740,13 +1822,11 @@ status: 'Зарегистрирована',
         await Promise.resolve();
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        expect(global.fetch).toHaveBeenCalledWith(
-            '/api/v1/returns/6/commands',
-            expect.objectContaining({
-                method: 'POST',
-                body: JSON.stringify({ command: 'register_exchange_parcel' })
-            })
-        );
+        const requestCall = global.fetch.mock.calls.find((call) => String(call[0]).includes('/api/v1/returns/6/commands'));
+        const requestDto = readCommandRequestDto(requestCall);
+        expectValidIdempotencyKey(requestDto.idempotencyKey);
+        expect(requestDto.action).toBe('REGISTER_EXCHANGE_PARCEL');
+        expectIsoTimestamp(requestDto.payload.stageMoment);
         expect(global.notifyUser).toHaveBeenCalledWith('Обмен запущен', 'info');
     });
 
@@ -1772,7 +1852,7 @@ status: 'Зарегистрирована',
         });
         const driver = new ReturnRequestActionTestDriver(exchangeDetails);
         driver.mockSuccessfulCommandFlow({
-            commandPayload: { command: 'set_mode_return', status: 'OK' },
+            requestDto: { id: 15, status: 'QUEUED' },
             refreshedDetails
         });
 
@@ -1783,7 +1863,10 @@ status: 'Зарегистрирована',
         const commandCall = driver.getCommandFetchCall();
         expect(commandCall).toBeDefined();
         expect(commandCall?.[1]).toEqual(expect.objectContaining({ method: 'POST' }));
-        expect(commandCall?.[1]?.body).toBe(JSON.stringify({ command: 'set_mode_return' }));
+        const requestDto = readCommandRequestDto(commandCall);
+        expectValidIdempotencyKey(requestDto.idempotencyKey);
+        expect(requestDto.action).toBe('SET_MODE_RETURN');
+        expect(requestDto.payload).toEqual({});
         expect(global.notifyUser).toHaveBeenCalledWith('Заявка переведена в возврат', 'info');
     });
 
@@ -1809,7 +1892,7 @@ status: 'Зарегистрирована',
         });
         const driver = new ReturnRequestActionTestDriver(returnDetails);
         driver.mockSuccessfulCommandFlow({
-            commandPayload: { command: 'register_exchange_parcel', status: 'OK' },
+            requestDto: { id: 16, status: 'QUEUED' },
             refreshedDetails
         });
 
@@ -1819,7 +1902,10 @@ status: 'Зарегистрирована',
 
         const commandCall = driver.getCommandFetchCall();
         expect(commandCall?.[1]).toEqual(expect.objectContaining({ method: 'POST' }));
-        expect(commandCall?.[1]?.body).toBe(JSON.stringify({ command: 'register_exchange_parcel' }));
+        const requestDto = readCommandRequestDto(commandCall);
+        expectValidIdempotencyKey(requestDto.idempotencyKey);
+        expect(requestDto.action).toBe('REGISTER_EXCHANGE_PARCEL');
+        expectIsoTimestamp(requestDto.payload.stageMoment);
         expect(global.notifyUser).toHaveBeenCalledWith('Обмен запущен', 'info');
     });
 
@@ -1827,6 +1913,7 @@ status: 'Зарегистрирована',
         setupDom();
 
         const returnDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions();
+        disableExchangeLaunch(returnDetails);
         const refreshedDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions({
             mode: 'RETURN',
             overrides: {
@@ -1842,9 +1929,10 @@ status: 'Зарегистрирована',
                 }
             }
         });
+        disableExchangeLaunch(refreshedDetails);
         const driver = new ReturnRequestActionTestDriver(returnDetails);
         driver.mockSuccessfulCommandFlow({
-            commandPayload: { command: 'mark_outbound_sent', status: 'OK' },
+            requestDto: { id: 17, status: 'QUEUED' },
             refreshedDetails
         });
 
@@ -1853,7 +1941,10 @@ status: 'Зарегистрирована',
         await driver.clickAction('Отправка возврата');
 
         const commandCall = driver.getCommandFetchCall();
-        expect(commandCall?.[1]?.body).toBe(JSON.stringify({ command: 'mark_outbound_sent' }));
+        const requestDto = readCommandRequestDto(commandCall);
+        expectValidIdempotencyKey(requestDto.idempotencyKey);
+        expect(requestDto.action).toBe('MARK_OUTBOUND_SENT');
+        expectIsoTimestamp(requestDto.payload.stageMoment);
         expect(global.notifyUser).toHaveBeenCalledWith('Отправка возвратной посылки отмечена', 'info');
     });
 
@@ -1861,6 +1952,7 @@ status: 'Зарегистрирована',
         setupDom();
 
         const returnDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions();
+        disableExchangeLaunch(returnDetails);
         const refreshedDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions({
             mode: 'RETURN',
             overrides: {
@@ -1876,9 +1968,10 @@ status: 'Зарегистрирована',
                 }
             }
         });
+        disableExchangeLaunch(refreshedDetails);
         const driver = new ReturnRequestActionTestDriver(returnDetails);
         driver.mockSuccessfulCommandFlow({
-            commandPayload: { command: 'mark_inbound_arrived', status: 'OK' },
+            requestDto: { id: 18, status: 'QUEUED' },
             refreshedDetails
         });
 
@@ -1887,7 +1980,10 @@ status: 'Зарегистрирована',
         await driver.clickAction('Возврат на складе');
 
         const commandCall = driver.getCommandFetchCall();
-        expect(commandCall?.[1]?.body).toBe(JSON.stringify({ command: 'mark_inbound_arrived' }));
+        const requestDto = readCommandRequestDto(commandCall);
+        expectValidIdempotencyKey(requestDto.idempotencyKey);
+        expect(requestDto.action).toBe('MARK_INBOUND_ARRIVED');
+        expectIsoTimestamp(requestDto.payload.stageMoment);
         expect(global.notifyUser).toHaveBeenCalledWith('Прибытие возвратной посылки отмечено', 'info');
     });
 
@@ -1895,6 +1991,7 @@ status: 'Зарегистрирована',
         setupDom();
 
         const returnDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions();
+        disableExchangeLaunch(returnDetails);
         const refreshedDetails = ReturnRequestTestFixtureFactory.createDetailsWithAllActions({
             mode: 'RETURN',
             overrides: {
@@ -1912,9 +2009,10 @@ status: 'Зарегистрирована',
                 }
             }
         });
+        disableExchangeLaunch(refreshedDetails);
         const driver = new ReturnRequestActionTestDriver(returnDetails);
         driver.mockSuccessfulCommandFlow({
-            commandPayload: { command: 'mark_inbound_picked_up', status: 'OK' },
+            requestDto: { id: 19, status: 'QUEUED' },
             refreshedDetails
         });
 
@@ -1923,7 +2021,10 @@ status: 'Зарегистрирована',
         await driver.clickAction('Принять возврат');
 
         const commandCall = driver.getCommandFetchCall();
-        expect(commandCall?.[1]?.body).toBe(JSON.stringify({ command: 'mark_inbound_picked_up' }));
+        const requestDto = readCommandRequestDto(commandCall);
+        expectValidIdempotencyKey(requestDto.idempotencyKey);
+        expect(requestDto.action).toBe('MARK_INBOUND_PICKED_UP');
+        expectIsoTimestamp(requestDto.payload.stageMoment);
         expect(global.notifyUser).toHaveBeenCalledWith('Возврат подтверждён', 'success');
     });
 
@@ -1948,7 +2049,7 @@ status: 'Зарегистрирована',
         });
         const driver = new ReturnRequestActionTestDriver(exchangeDetails);
         driver.mockSuccessfulCommandFlow({
-            commandPayload: { command: 'mark_exchange_sent', status: 'OK' },
+            requestDto: { id: 20, status: 'QUEUED' },
             refreshedDetails
         });
 
@@ -1957,7 +2058,10 @@ status: 'Зарегистрирована',
         await driver.clickAction('Отправка обмена');
 
         const commandCall = driver.getCommandFetchCall();
-        expect(commandCall?.[1]?.body).toBe(JSON.stringify({ command: 'mark_exchange_sent' }));
+        const requestDto = readCommandRequestDto(commandCall);
+        expectValidIdempotencyKey(requestDto.idempotencyKey);
+        expect(requestDto.action).toBe('MARK_EXCHANGE_SENT');
+        expectIsoTimestamp(requestDto.payload.stageMoment);
         expect(global.notifyUser).toHaveBeenCalledWith('Отправка обменной посылки отмечена', 'info');
     });
 
@@ -1982,7 +2086,7 @@ status: 'Зарегистрирована',
         });
         const driver = new ReturnRequestActionTestDriver(exchangeDetails);
         driver.mockSuccessfulCommandFlow({
-            commandPayload: { command: 'mark_exchange_delivered', status: 'OK' },
+            requestDto: { id: 21, status: 'QUEUED' },
             refreshedDetails
         });
 
@@ -1991,7 +2095,10 @@ status: 'Зарегистрирована',
         await driver.clickAction('Доставка обмена');
 
         const commandCall = driver.getCommandFetchCall();
-        expect(commandCall?.[1]?.body).toBe(JSON.stringify({ command: 'mark_exchange_delivered' }));
+        const requestDto = readCommandRequestDto(commandCall);
+        expectValidIdempotencyKey(requestDto.idempotencyKey);
+        expect(requestDto.action).toBe('MARK_EXCHANGE_DELIVERED');
+        expectIsoTimestamp(requestDto.payload.stageMoment);
         expect(global.notifyUser).toHaveBeenCalledWith('Доставка обменной посылки отмечена', 'success');
     });
 
