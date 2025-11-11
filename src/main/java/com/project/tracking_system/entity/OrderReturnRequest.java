@@ -221,6 +221,18 @@ public class OrderReturnRequest {
         return id;
     }
 
+    /**
+     * Устанавливает идентификатор заявки.
+     * <p>
+     * Метод нужен для тестов и вспомогательных сценариев, где сущность создаётся
+     * вручную без участия JPA. В рабочем коде идентификатор устанавливается
+     * провайдером {@link jakarta.persistence.EntityManager} после сохранения.
+     * </p>
+     */
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     public OrderEpisode getEpisode() {
         return episode;
     }

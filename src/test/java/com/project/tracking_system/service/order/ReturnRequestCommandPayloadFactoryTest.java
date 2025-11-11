@@ -6,6 +6,7 @@ import com.project.tracking_system.service.order.payload.ReturnRequestCommandPay
 import com.project.tracking_system.service.order.payload.ReturnRequestCommandPayloadFactory;
 import com.project.tracking_system.service.order.payload.ExchangeShipmentPayload;
 import com.project.tracking_system.service.order.payload.UpdateReverseTrackPayload;
+import com.project.tracking_system.service.order.payload.StageMarkPayload;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -96,5 +97,29 @@ class ReturnRequestCommandPayloadFactoryTest {
 
         assertThat(payload.exchangeTrack()).isEqualTo("XX777");
         assertThat(payload.stageMoment()).isNull();
+    }
+
+    @Test
+    void create_whenStagePayloadProvided_convertsMomentToUtc() {
+        var node = JsonNodeFactory.instance.objectNode()
+                .put("stageMoment", "2024-02-01T12:00:00+03:00");
+
+        StageMarkPayload payload = (StageMarkPayload) factory
+                .create(ReturnRequestCommandType.MARK_OUTBOUND_SENT, node);
+
+        assertThat(payload.stageMoment()).isEqualTo(java.time.ZonedDateTime.parse("2024-02-01T09:00:00Z"));
+    }
+
+    @Test
+    void create_whenExchangePayloadContainsMoment_normalizesTrackAndTimestamp() {
+        var node = JsonNodeFactory.instance.objectNode()
+                .put("exchangeTrack", " ex001 ")
+                .put("stageMoment", "2024-05-10T18:30:00+02:00");
+
+        ExchangeShipmentPayload payload = (ExchangeShipmentPayload) factory
+                .create(ReturnRequestCommandType.MARK_EXCHANGE_SENT, node);
+
+        assertThat(payload.exchangeTrack()).isEqualTo("EX001");
+        assertThat(payload.stageMoment()).isEqualTo(java.time.ZonedDateTime.parse("2024-05-10T16:30:00Z"));
     }
 }

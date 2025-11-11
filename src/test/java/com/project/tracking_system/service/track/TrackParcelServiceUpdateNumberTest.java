@@ -70,7 +70,7 @@ class TrackParcelServiceUpdateNumberTest {
         history.setPostalService(PostalServiceType.BELPOST);
 
         when(trackParcelRepository.findByIdWithStoreAndUser(parcelId)).thenReturn(parcel);
-        when(trackServiceClassifier.detect("NEW789")).thenReturn(PostalServiceType.CDEK);
+        when(trackServiceClassifier.detect("NEW789")).thenReturn(PostalServiceType.EVROPOST);
         when(trackParcelRepository.existsByNumberAndUserId("NEW789", userId)).thenReturn(false);
         when(deliveryHistoryRepository.findByTrackParcelId(parcelId)).thenReturn(Optional.of(history));
 

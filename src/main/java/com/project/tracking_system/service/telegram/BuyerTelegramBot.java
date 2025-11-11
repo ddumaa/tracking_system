@@ -2393,7 +2393,9 @@ public class BuyerTelegramBot implements SpringLongPollingBot, LongPollingSingle
                                       RequestActionContext context,
                                       ActionRequiredReturnRequestDto requestInfo) {
         try {
-            boolean exchangeDispatched = requestInfo != null && requestInfo.exchangeShipmentDispatched();
+            boolean exchangeDispatched = requestInfo != null
+                    && requestInfo.state() != null
+                    && requestInfo.state().exchangeShipmentDispatched();
             if (exchangeDispatched) {
                 telegramService.requestExchangeConversionFromTelegram(chatId, context.parcelId(), context.requestId());
                 finalizeRequestUpdate(chatId, session, RETURNS_ACTIVE_SET_MODE_RETURN_REQUEST_SENT);

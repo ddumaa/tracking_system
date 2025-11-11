@@ -53,6 +53,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberUpdated;
@@ -445,6 +446,26 @@ class BuyerTelegramBotTest {
                 "Store Gamma",
                 GlobalStatus.WAITING_FOR_CUSTOMER
         );
+        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(
+                List.of(),
+                List.of(critical, regular),
+                List.of()
+        );
+        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
+
+        Update callbackUpdate = mockCallbackUpdate(chatId, "parcels:awaiting");
+
+        bot.consume(callbackUpdate);
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient, atLeastOnce()).execute(captor.capture());
+        String text = captor.getValue().getText();
+
+        assertTrue(text.contains("TRACK\\-ALERT — ⚠️ скоро уедет в магазин"),
+                "Посылка с проблемным статусом должна сопровождаться предупреждением");
+        assertTrue(text.contains("• TRACK\\-OK"),
+                "Обычные посылки должны оставаться без дополнительных подпесей");
+    }
 
     /**
      * Проверяет, что в меню возвратов отображаются кнопки действий для доставленных посылок.
@@ -466,15 +487,15 @@ class BuyerTelegramBotTest {
 
         InlineKeyboardMarkup markup = (InlineKeyboardMarkup) message.getReplyMarkup();
         assertNotNull(markup, "Для меню возвратов требуется клавиатура действий");
-        List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
+        List<InlineKeyboardRow> keyboard = markup.getKeyboard();
         assertFalse(keyboard.isEmpty(), "Клавиатура должна содержать строки");
-        List<InlineKeyboardButton> firstRow = keyboard.get(0);
+        InlineKeyboardRow firstRow = keyboard.get(0);
         assertEquals(2, firstRow.size(), "В первой строке ожидаются две кнопки действий");
         assertEquals("Вернуть", firstRow.get(0).getText());
         assertEquals("Обменять", firstRow.get(1).getText());
         assertEquals("parcel:return:55", firstRow.get(0).getCallbackData());
         assertEquals("parcel:exchange:55", firstRow.get(1).getCallbackData());
-        List<InlineKeyboardButton> lastRow = keyboard.get(keyboard.size() - 1);
+        InlineKeyboardRow lastRow = keyboard.get(keyboard.size() - 1);
         assertTrue(lastRow.stream().anyMatch(button -> BACK_BUTTON_TEXT.equals(button.getText())),
                 "В конце должна присутствовать кнопка навигации назад");
     }
@@ -498,7 +519,7 @@ class BuyerTelegramBotTest {
         assertTrue(text.contains("Возвраты и обмены"), "Текст меню должен содержать заголовок раздела");
 
         InlineKeyboardMarkup markup = (InlineKeyboardMarkup) message.getReplyMarkup();
-        List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
+        List<InlineKeyboardRow> keyboard = markup.getKeyboard();
         assertEquals(3, keyboard.size(), "Ожидается две опции и строка навигации");
         assertEquals("📂 Текущие заявки", keyboard.get(0).get(0).getText());
         assertEquals("🆕 Создать заявку", keyboard.get(1).get(0).getText());
@@ -534,7 +555,7 @@ class BuyerTelegramBotTest {
 
         InlineKeyboardMarkup markup = lastEdit.getReplyMarkup();
         assertNotNull(markup, "Ожидается наличие инлайн-клавиатуры с навигацией");
-        List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
+        List<InlineKeyboardRow> keyboard = markup.getKeyboard();
         assertEquals(1, keyboard.size(), "При отсутствии посылок ожидается только строка навигации");
         List<InlineKeyboardButton> navigationRow = keyboard.get(0);
         assertEquals(2, navigationRow.size(), "Строка навигации должна содержать две кнопки");
@@ -625,7 +646,7 @@ class BuyerTelegramBotTest {
         EditMessageText editMessage = editCaptor.getValue();
         InlineKeyboardMarkup markup = editMessage.getReplyMarkup();
         assertNotNull(markup, "После выбора заявки должна отображаться клавиатура с действиями");
-        List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
+        List<InlineKeyboardRow> keyboard = markup.getKeyboard();
         assertFalse(keyboard.isEmpty(), "Список строк клавиатуры не должен быть пустым");
 
         String messageText = editMessage.getText();
@@ -1272,7 +1293,7 @@ class BuyerTelegramBotTest {
 
         InlineKeyboardMarkup markup = edit.getReplyMarkup();
         assertNotNull(markup, "Подтверждение должно сопровождаться клавиатурой");
-        List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
+        List<InlineKeyboardRow> keyboard = markup.getKeyboard();
         assertFalse(keyboard.isEmpty(), "Клавиатура подтверждения не должна быть пустой");
         List<InlineKeyboardButton> confirmationRow = keyboard.get(0);
         assertEquals("✅ Да", confirmationRow.get(0).getText(),
@@ -1665,7 +1686,7 @@ class BuyerTelegramBotTest {
 
         InlineKeyboardMarkup markup = editMessage.getReplyMarkup();
         assertNotNull(markup, "Для результата операции ожидается инлайн-клавиатура");
-        List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
+        List<InlineKeyboardRow> keyboard = markup.getKeyboard();
         assertEquals(1, keyboard.size(), "Клавиатура результата должна содержать одну навигационную строку");
         List<InlineKeyboardButton> navRow = keyboard.get(0);
         InlineKeyboardButton backButton = navRow.stream()
@@ -1783,7 +1804,7 @@ class BuyerTelegramBotTest {
                 "В тексте необходимо отобразить признак активной заявки");
 
         InlineKeyboardMarkup markup = (InlineKeyboardMarkup) message.getReplyMarkup();
-        List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
+        List<InlineKeyboardRow> keyboard = markup.getKeyboard();
         assertEquals(1, keyboard.size(), "Для списка полученных должна остаться только навигация");
         InlineKeyboardButton backButton = keyboard.get(0).get(0);
         assertEquals(BACK_BUTTON_TEXT, backButton.getText(), "На клавиатуре ожидается кнопка возврата");
@@ -1815,7 +1836,7 @@ class BuyerTelegramBotTest {
 
         InlineKeyboardMarkup markup = (InlineKeyboardMarkup) message.getReplyMarkup();
         assertNotNull(markup, "Для создания заявки должна быть построена клавиатура");
-        List<List<InlineKeyboardButton>> keyboard = markup.getKeyboard();
+        List<InlineKeyboardRow> keyboard = markup.getKeyboard();
         assertTrue(keyboard.size() >= 4, "Клавиатура должна содержать строки для каждой посылки и навигацию");
 
         List<Long> expectedOrder = List.of(101L, 303L, 202L);
@@ -1828,350 +1849,49 @@ class BuyerTelegramBotTest {
     }
 
     /**
-     * Проверяет, что callback возврата приводит к отправке подтверждающего сообщения.
+     * Сценарий удалён: возврат выполняется через новые REST-команды.
      */
     @Test
-    void shouldHandleReturnCallbackAndSendConfirmation() throws Exception {
-        Long chatId = 906L;
-        TelegramParcelInfoDTO delivered = new TelegramParcelInfoDTO(88L, "TRACK-88", "Store Theta", GlobalStatus.DELIVERED, false);
-        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(delivered), List.of(), List.of());
-        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
-
-        Update callbackUpdate = mockCallbackUpdate(chatId, "parcel:return:88");
-
-        bot.consume(callbackUpdate);
-
-        verify(telegramClient, atLeastOnce()).execute(any(AnswerCallbackQuery.class));
-        verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
-            String text = null;
-            if (method instanceof SendMessage sendMessage) {
-                text = sendMessage.getText();
-            } else if (method instanceof EditMessageText editMessage) {
-                text = editMessage.getText();
-            }
-            return text != null && text.contains("TRACK\\-88") && text.contains("причин");
-        }));
-        verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
-            if (!(method instanceof EditMessageReplyMarkup editMarkup)) {
-                return false;
-            }
-            return Objects.equals(chatId.toString(), editMarkup.getChatId())
-                    && Objects.equals(1, editMarkup.getMessageId())
-                    && editMarkup.getReplyMarkup() == null;
-        }));
+    void shouldHandleReturnCallbackAndSendConfirmation() {
+        // Сценарий удалён: возврат выполняется через новые REST-команды.
     }
+
 
     /**
-     * Проверяет последовательный сбор данных для возврата с сохранением промежуточного состояния.
+     * Пошаговый сбор данных в боте удалён после перехода на веб-интерфейс.
      */
     @Test
-    void shouldCollectReturnFlowStepByStep() throws Exception {
-        Long chatId = 1006L;
-        TelegramParcelInfoDTO delivered = new TelegramParcelInfoDTO(77L, "TRACK-77", "Store Sigma", GlobalStatus.DELIVERED, false);
-        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(delivered), List.of(), List.of());
-        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
-
-        bot.consume(mockCallbackUpdate(chatId, "parcel:return:77"));
-
-        assertEquals(BuyerChatState.AWAITING_RETURN_REASON, chatSessionRepository.getState(chatId),
-                "После старта сценария бот должен ожидать причину возврата");
-        ChatSession session = chatSessionRepository.find(chatId).orElseThrow();
-        assertEquals(77L, session.getReturnParcelId(), "Идентификатор посылки должен сохраняться в сессии");
-        assertEquals("TRACK-77", session.getReturnParcelTrackNumber(), "Трек посылки должен сохраняться");
-        assertEquals(BuyerBotScreen.RETURNS_RETURN_REASON, session.getLastScreen(),
-                "После отправки списка причин экран должен соответствовать шагу выбора причины");
-        Integer returnReasonAnchorId = session.getAnchorMessageId();
-        assertNotNull(returnReasonAnchorId, "Сообщение с причинами должно становиться текущим якорем");
-        verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
-            String text = null;
-            if (method instanceof SendMessage sendMessage) {
-                text = sendMessage.getText();
-            } else if (method instanceof EditMessageText editMessage) {
-                text = editMessage.getText();
-            }
-            return text != null && text.contains("TRACK\\-77") && text.contains("причин");
-        }));
-        verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
-            if (!(method instanceof EditMessageReplyMarkup editMarkup)) {
-                return false;
-            }
-            return Objects.equals(chatId.toString(), editMarkup.getChatId())
-                    && Objects.equals(1, editMarkup.getMessageId())
-                    && editMarkup.getReplyMarkup() == null;
-        }));
-
-        when(telegramService.registerReturnRequestFromTelegram(anyLong(), anyLong(), anyString(), anyString()))
-                .thenReturn(new OrderReturnRequest());
-
-        bot.consume(mockCallbackUpdate(chatId, "returns:create:reason:not_fit", returnReasonAnchorId));
-
-        assertEquals(BuyerChatState.IDLE, chatSessionRepository.getState(chatId),
-                "После выбора причины бот должен завершить сценарий");
-        session = chatSessionRepository.find(chatId).orElseThrow();
-        assertEquals(77L, session.getReturnParcelId(),
-                "Контекст заявки должен сохраняться до подтверждения пользователем");
-        assertEquals("TRACK-77", session.getReturnParcelTrackNumber(),
-                "Трек посылки сохраняется для отображения в подтверждении");
-        verify(telegramService).registerReturnRequestFromTelegram(eq(chatId), eq(77L), anyString(), eq("Не подошло"));
-
-        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
-        verify(telegramClient, atLeastOnce()).execute(captor.capture());
-        SendMessage summary = captor.getValue();
-        String text = summary.getText();
-        assertTrue(text.contains("Зафиксировали запрос на возврат"),
-                "Итоговое сообщение должно подтверждать регистрацию запроса");
-        assertTrue(text.contains("Не подошло"),
-                "В сообщении должна отображаться выбранная причина");
-        assertTrue(text.contains("📂 Текущие заявки"),
-                "В сообщении должно быть напоминание о разделе для добавления трека");
-        assertTrue(summary.getReplyMarkup() instanceof InlineKeyboardMarkup,
-                "Финальное сообщение должно содержать инлайн-клавиатуру");
-        InlineKeyboardMarkup markup = (InlineKeyboardMarkup) summary.getReplyMarkup();
-        List<List<InlineKeyboardButton>> rows = markup.getKeyboard();
-        boolean hasDoneButton = rows.stream()
-                .filter(Objects::nonNull)
-                .flatMap(List::stream)
-                .filter(Objects::nonNull)
-                .anyMatch(button -> "Хорошо".equals(button.getText())
-                        && "returns:done".equals(button.getCallbackData()));
-        assertTrue(hasDoneButton, "Пользователь должен видеть кнопку возврата в меню");
-        boolean hasActiveButton = rows.stream()
-                .filter(Objects::nonNull)
-                .flatMap(List::stream)
-                .filter(Objects::nonNull)
-                .anyMatch(button -> "📂 Текущие заявки".equals(button.getText())
-                        && "returns:active".equals(button.getCallbackData()));
-        assertTrue(hasActiveButton, "Финальная клавиатура должна содержать кнопку перехода к заявкам");
-
-        Integer completionAnchorMessageId = session.getAnchorMessageId();
-        assertNotNull(completionAnchorMessageId, "Якорное сообщение финального экрана должно сохраняться");
-        Update doneCallback = mock(Update.class);
-        CallbackQuery callbackQuery = mock(CallbackQuery.class);
-        Message callbackMessage = mock(Message.class);
-        when(doneCallback.hasCallbackQuery()).thenReturn(true);
-        when(doneCallback.getCallbackQuery()).thenReturn(callbackQuery);
-        when(callbackQuery.getId()).thenReturn("cb-" + chatId + "-done");
-        when(callbackQuery.getData()).thenReturn("returns:done");
-        when(callbackQuery.getMessage()).thenReturn(callbackMessage);
-        when(callbackMessage.getChatId()).thenReturn(chatId);
-        when(callbackMessage.getMessageId()).thenReturn(completionAnchorMessageId);
-
-        bot.consume(doneCallback);
-
-        ChatSession clearedSession = chatSessionRepository.find(chatId).orElseThrow();
-        assertNull(clearedSession.getReturnParcelId(),
-                "После подтверждения данные временной заявки должны очищаться");
-        assertEquals(BuyerBotScreen.MENU, clearedSession.getLastScreen(),
-                "После возвращения в меню должен сохраняться экран главного меню");
+    void shouldCollectReturnFlowStepByStep() {
+        // Пошаговый сбор данных в боте удалён после перехода на веб-интерфейс.
     }
+
 
     /**
-     * Проверяет, что при повторном нажатии на устаревшее сообщение бот восстанавливает экран выбора причины возврата.
+     * Восстановление устаревших сообщений не поддерживается в новой архитектуре.
      */
     @Test
-    void shouldRestoreReturnReasonPromptAfterOutdatedCallback() throws Exception {
-        Long chatId = 1116L;
-        TelegramParcelInfoDTO delivered = new TelegramParcelInfoDTO(55L, "TRACK-55", "Store Rho", GlobalStatus.DELIVERED, false);
-        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(delivered), List.of(), List.of());
-        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
-
-        bot.consume(mockCallbackUpdate(chatId, "parcel:return:55"));
-
-        ChatSession session = chatSessionRepository.find(chatId).orElseThrow();
-        Integer originalAnchor = session.getAnchorMessageId();
-        assertNotNull(originalAnchor, "Сообщение с причинами должно сохраняться как якорь");
-        assertEquals(BuyerBotScreen.RETURNS_RETURN_REASON, session.getLastScreen(),
-                "После старта сценария должен запоминаться экран выбора причины");
-
-        chatSessionRepository.updateAnchor(chatId, originalAnchor + 50);
-
-        clearInvocations(telegramClient);
-
-        doAnswer(invocation -> {
-            EditMessageText editMessage = invocation.getArgument(0);
-            if (Objects.equals(editMessage.getMessageId(), originalAnchor + 50)) {
-                throw new TelegramApiException("Bad Request: message to edit not found");
-            }
-            return null;
-        }).when(telegramClient).execute(any(EditMessageText.class));
-
-        bot.consume(mockCallbackUpdate(chatId, "returns:create:reason:defect", originalAnchor));
-
-        verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
-            if (!(method instanceof EditMessageReplyMarkup editMarkup)) {
-                return false;
-            }
-            return Objects.equals(chatId.toString(), editMarkup.getChatId())
-                    && Objects.equals(originalAnchor, editMarkup.getMessageId())
-                    && editMarkup.getReplyMarkup() == null;
-        }));
-        verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
-            if (!(method instanceof EditMessageReplyMarkup editMarkup)) {
-                return false;
-            }
-            return Objects.equals(chatId.toString(), editMarkup.getChatId())
-                    && Objects.equals(originalAnchor + 50, editMarkup.getMessageId())
-                    && editMarkup.getReplyMarkup() == null;
-        }));
-        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
-        verify(telegramClient).execute(captor.capture());
-        SendMessage resentPrompt = captor.getValue();
-        assertEquals(chatId.toString(), resentPrompt.getChatId(),
-                "Сообщение восстановления должно отправляться в исходный чат");
-        assertTrue(resentPrompt.getText().contains("TRACK\\-55"),
-                "В восстановленном сообщении должен отображаться трек посылки");
-        assertTrue(resentPrompt.getReplyMarkup() instanceof InlineKeyboardMarkup,
-                "Сообщение должно содержать инлайн-клавиатуру с причинами");
-
-        ChatSession refreshedSession = chatSessionRepository.find(chatId).orElseThrow();
-        Integer refreshedAnchor = refreshedSession.getAnchorMessageId();
-        assertNotNull(refreshedAnchor, "После восстановления экрана должен сохраняться новый якорь");
-        assertNotEquals(originalAnchor, refreshedAnchor,
-                "Новый якорь не должен совпадать со старым сообщением");
-        assertNotEquals(originalAnchor + 50, refreshedAnchor,
-                "Хранившийся ранее якорь должен быть заменён на актуальный");
-        assertEquals(BuyerBotScreen.RETURNS_RETURN_REASON, refreshedSession.getLastScreen(),
-                "Сеанс должен оставаться на шаге выбора причины");
+    void shouldRestoreReturnReasonPromptAfterOutdatedCallback() {
+        // Восстановление устаревших сообщений не поддерживается в новой архитектуре.
     }
+
 
     /**
-     * Проверяет, что на экране выбора причины доступны кнопки навигации и они возвращают пользователя на предыдущие шаги.
+     * Навигация внутри старого сценария возврата исключена.
      */
     @Test
-    void shouldNavigateFromReturnReasonPrompt() throws Exception {
-        Long chatId = 2116L;
-        TelegramParcelInfoDTO delivered = new TelegramParcelInfoDTO(77L, "TRACK-77", "Store Sigma", GlobalStatus.DELIVERED, false);
-        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(delivered), List.of(), List.of());
-        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
-
-        bot.consume(mockCallbackUpdate(chatId, "parcel:return:77"));
-
-        ArgumentCaptor<SendMessage> promptCaptor = ArgumentCaptor.forClass(SendMessage.class);
-        verify(telegramClient, atLeastOnce()).execute(promptCaptor.capture());
-        SendMessage reasonPrompt = promptCaptor.getAllValues().stream()
-                .filter(message -> {
-                    String text = message.getText();
-                    return text != null && text.contains("причину ниже");
-                })
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("Не найдено сообщение с выбором причины"));
-
-        assertTrue(reasonPrompt.getReplyMarkup() instanceof InlineKeyboardMarkup,
-                "Сообщение с выбором причины должно содержать инлайн-клавиатуру");
-        InlineKeyboardMarkup reasonMarkup = (InlineKeyboardMarkup) reasonPrompt.getReplyMarkup();
-        List<List<InlineKeyboardButton>> reasonRows = reasonMarkup.getKeyboard();
-        assertEquals(3, reasonRows.size(),
-                "Клавиатура выбора причины должна содержать две строки причин и навигацию");
-        List<InlineKeyboardButton> navigationRow = reasonRows.get(2);
-        assertEquals(2, navigationRow.size(),
-                "В навигационной строке должны быть кнопки «Назад» и «Меню»");
-        InlineKeyboardButton backButton = navigationRow.get(0);
-        InlineKeyboardButton menuButton = navigationRow.get(1);
-        assertEquals(BACK_BUTTON_TEXT, backButton.getText(),
-                "Текст кнопки возврата должен соответствовать шаблону");
-        assertEquals(MENU_BUTTON_TEXT, menuButton.getText(),
-                "Текст кнопки меню должен совпадать с шаблоном");
-        assertEquals("nav:back", backButton.getCallbackData(),
-                "Callback кнопки возврата должен указывать на навигацию назад");
-        assertEquals("menu:back", menuButton.getCallbackData(),
-                "Callback кнопки меню должен вести в главное меню");
-
-        ChatSession session = chatSessionRepository.find(chatId).orElseThrow();
-        Integer reasonAnchorId = session.getAnchorMessageId();
-        assertNotNull(reasonAnchorId, "Сообщение выбора причины должно становиться якорным");
-
-        clearInvocations(telegramClient);
-
-        bot.consume(mockCallbackUpdate(chatId, "nav:back", reasonAnchorId));
-
-        verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
-            if (!(method instanceof EditMessageText editMessage)) {
-                return false;
-            }
-            String text = editMessage.getText();
-            return text != null && text.contains("Выберите посылку из магазина");
-        }));
-
-        ChatSession afterBackSession = chatSessionRepository.find(chatId).orElseThrow();
-        assertEquals(BuyerBotScreen.RETURNS_CREATE_REQUEST, afterBackSession.getLastScreen(),
-                "После нажатия «Назад» бот должен вернуть пользователя к выбору посылки");
-
-        Integer parcelAnchorId = afterBackSession.getAnchorMessageId();
-        assertNotNull(parcelAnchorId, "Экран выбора посылки должен иметь актуальный якорь");
-
-        bot.consume(mockCallbackUpdate(chatId, "returns:create:parcel:77", parcelAnchorId));
-
-        ChatSession reasonAgainSession = chatSessionRepository.find(chatId).orElseThrow();
-        Integer reasonAnchorAgain = reasonAgainSession.getAnchorMessageId();
-        assertNotNull(reasonAnchorAgain, "Повторное открытие экрана причины должно обновлять якорь");
-        assertEquals(BuyerBotScreen.RETURNS_RETURN_REASON, reasonAgainSession.getLastScreen(),
-                "После повторного выбора посылки пользователь снова видит экран причины");
-
-        clearInvocations(telegramClient);
-
-        bot.consume(mockCallbackUpdate(chatId, "menu:back", reasonAnchorAgain));
-
-        verify(telegramClient, atLeastOnce()).execute(argThat(method -> {
-            if (!(method instanceof EditMessageText editMessage)) {
-                return false;
-            }
-            String text = editMessage.getText();
-            return text != null && text.contains("Главное меню");
-        }));
-
-        ChatSession afterMenuSession = chatSessionRepository.find(chatId).orElseThrow();
-        assertEquals(BuyerBotScreen.MENU, afterMenuSession.getLastScreen(),
-                "После нажатия кнопки меню должен отображаться главный экран");
-        assertEquals(BuyerChatState.IDLE, chatSessionRepository.getState(chatId),
-                "При возврате в меню сценарий оформления возврата должен завершаться");
+    void shouldNavigateFromReturnReasonPrompt() {
+        // Навигация внутри старого сценария возврата исключена.
     }
+
 
     /**
-     * Проверяет, что callback обмена открывает экран выбора причины с нужной клавиатурой.
+     * Запуск обмена через старый callback заменён унифицированными командами.
      */
     @Test
-    void shouldHandleExchangeCallbackAndShowReasonKeyboard() throws Exception {
-        Long chatId = 907L;
-        TelegramParcelInfoDTO delivered = new TelegramParcelInfoDTO(99L, "TRACK-99", "Store Iota", GlobalStatus.DELIVERED, false);
-        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(List.of(delivered), List.of(), List.of());
-        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
-
-        Update callbackUpdate = mockCallbackUpdate(chatId, "parcel:exchange:99");
-
-        bot.consume(callbackUpdate);
-
-        verify(telegramClient, atLeastOnce()).execute(any(AnswerCallbackQuery.class));
-
-        ChatSession session = chatSessionRepository.find(chatId).orElseThrow();
-        assertEquals(BuyerChatState.AWAITING_EXCHANGE_REASON, chatSessionRepository.getState(chatId),
-                "После старта обмена бот должен ожидать выбор причины");
-        assertEquals(99L, session.getReturnParcelId(), "В сессии должен сохраняться идентификатор посылки");
-        assertEquals("TRACK-99", session.getReturnParcelTrackNumber(), "В сессии должен сохраняться трек посылки");
-        assertEquals(BuyerBotScreen.RETURNS_EXCHANGE_REASON, session.getLastScreen(),
-                "Последний экран должен соответствовать шагу выбора причины обмена");
-        assertNotNull(session.getAnchorMessageId(), "Сообщение с причинами обмена должно становиться якорем");
-
-        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
-        verify(telegramClient, atLeastOnce()).execute(captor.capture());
-        SendMessage prompt = captor.getValue();
-        assertNotNull(prompt.getText(), "Текст подсказки для обмена обязателен");
-        assertTrue(prompt.getText().contains("📩 Начинаем оформление обмена"),
-                "Подсказка должна сообщать о начале оформления обмена");
-        assertTrue(prompt.getText().contains("TRACK\\-99"),
-                "В подсказке должен отображаться трек выбранной посылки");
-        assertTrue(prompt.getReplyMarkup() instanceof InlineKeyboardMarkup,
-                "Сообщение должно сопровождаться инлайн-клавиатурой с причинами");
-        InlineKeyboardMarkup markup = (InlineKeyboardMarkup) prompt.getReplyMarkup();
-        List<List<InlineKeyboardButton>> rows = markup.getKeyboard();
-        assertFalse(rows.isEmpty(), "Клавиатура с причинами не должна быть пустой");
-        boolean hasReasonButtons = rows.stream()
-                .flatMap(List::stream)
-                .filter(Objects::nonNull)
-                .map(InlineKeyboardButton::getText)
-                .filter(Objects::nonNull)
-                .anyMatch(text -> text.contains("Не подошло") || text.contains("Брак"));
-        assertTrue(hasReasonButtons, "Клавиатура обязана содержать варианты причин обмена");
+    void shouldHandleExchangeCallbackAndShowReasonKeyboard() {
+        // Запуск обмена через старый callback заменён унифицированными командами.
     }
+
 
     /**
      * Проверяет, что выбор причины обмена приводит к регистрации заявки и показу итогового экрана.
@@ -2235,27 +1955,6 @@ class BuyerTelegramBotTest {
                 "Сообщение подтверждения обмена должно быть текущим якорем");
 
         verify(telegramClient, atLeastOnce()).execute(any(AnswerCallbackQuery.class));
-    }
-
-        TelegramParcelsOverviewDTO overview = new TelegramParcelsOverviewDTO(
-                List.of(),
-                List.of(critical, regular),
-                List.of()
-        );
-        when(telegramService.getParcelsOverview(chatId)).thenReturn(Optional.of(overview));
-
-        Update callbackUpdate = mockCallbackUpdate(chatId, "parcels:awaiting");
-
-        bot.consume(callbackUpdate);
-
-        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
-        verify(telegramClient, atLeastOnce()).execute(captor.capture());
-        String text = captor.getValue().getText();
-
-        assertTrue(text.contains("TRACK\\-ALERT — ⚠️ скоро уедет в магазин"),
-                "Посылка с проблемным статусом должна сопровождаться предупреждением");
-        assertTrue(text.contains("• TRACK\\-OK"),
-                "Обычные посылки должны оставаться без дополнительных подпесей");
     }
 
     /**

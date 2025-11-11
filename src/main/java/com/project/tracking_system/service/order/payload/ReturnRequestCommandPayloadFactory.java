@@ -35,8 +35,9 @@ public class ReturnRequestCommandPayloadFactory {
             case MARK_OUTBOUND_SENT, MARK_INBOUND_ARRIVED, MARK_INBOUND_PICKED_UP ->
                     parseStageMarkPayload(type, payloadNode);
             case UPDATE_REVERSE_TRACK -> parseUpdateReverseTrack(payloadNode);
-            case REGISTER_EXCHANGE_PARCEL, MARK_EXCHANGE_SENT, MARK_EXCHANGE_DELIVERED ->
+            case REGISTER_EXCHANGE_PARCEL, MARK_EXCHANGE_SENT ->
                     parseExchangeShipmentPayload(type, payloadNode);
+            case MARK_EXCHANGE_DELIVERED -> parseStageMarkPayload(type, payloadNode);
             default -> throw new IllegalArgumentException("Команда " + type.name() + " не поддерживается системой");
         };
     }
