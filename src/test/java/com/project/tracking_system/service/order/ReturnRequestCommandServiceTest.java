@@ -78,7 +78,7 @@ class ReturnRequestCommandServiceTest {
         OrderReturnRequest request = buildRequest(21L, 9L);
         OrderReturnRequest updated = buildRequest(21L, 9L);
         RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000021", 21L, "EXCHANGE");
-        CommandDto command = new CommandDto("dup-1", ReturnRequestCommandType.SET_MODE_EXCHANGE.name(), null);
+        CommandDto command = new CommandDto("dup-1", ReturnRequestCommandType.SET_MODE_EXCHANGE.getCode(), null);
 
         when(orderReturnRequestService.getOwnedRequest(21L, user)).thenReturn(request);
         when(orderReturnRequestService.setModeExchange(21L,
@@ -134,7 +134,7 @@ class ReturnRequestCommandServiceTest {
         when(returnCommandLogRepository.findFirstByRequestIdAndIdempotencyKey(21L, "dup-2"))
                 .thenReturn(Optional.of(existing));
 
-        CommandDto command = new CommandDto("dup-2", ReturnRequestCommandType.SET_MODE_EXCHANGE.name(), null);
+        CommandDto command = new CommandDto("dup-2", ReturnRequestCommandType.SET_MODE_EXCHANGE.getCode(), null);
 
         assertThatThrownBy(() -> commandService.executeCommand(21L,
                 ReturnRequestCommandType.SET_MODE_EXCHANGE,
@@ -154,7 +154,7 @@ class ReturnRequestCommandServiceTest {
     void executeCommand_whenConcurrentReservation_returnsStoredSnapshot() {
         User user = buildUser();
         OrderReturnRequest request = buildRequest(22L, 10L);
-        CommandDto command = new CommandDto("dup-3", ReturnRequestCommandType.SET_MODE_EXCHANGE.name(), null);
+        CommandDto command = new CommandDto("dup-3", ReturnRequestCommandType.SET_MODE_EXCHANGE.getCode(), null);
 
         RequestDto storedDto = buildRequestDto("00000000-0000-0000-0000-000000000022", 22L, "EXCHANGE");
         String snapshot;
@@ -193,7 +193,7 @@ class ReturnRequestCommandServiceTest {
     void executeCommand_whenUpdateReverseTrackWithoutPayload_throwsBadRequest() {
         User user = buildUser();
         OrderReturnRequest request = buildRequest(23L, 11L);
-        CommandDto command = new CommandDto("dup-4", ReturnRequestCommandType.UPDATE_REVERSE_TRACK.name(), null);
+        CommandDto command = new CommandDto("dup-4", ReturnRequestCommandType.UPDATE_REVERSE_TRACK.getCode(), null);
 
         when(orderReturnRequestService.getOwnedRequest(23L, user)).thenReturn(request);
 
@@ -212,7 +212,7 @@ class ReturnRequestCommandServiceTest {
     void executeCommand_whenExchangeCommandWithoutPayload_throwsBadRequest() {
         User user = buildUser();
         OrderReturnRequest request = buildRequest(24L, 12L);
-        CommandDto command = new CommandDto("dup-5", ReturnRequestCommandType.MARK_EXCHANGE_SENT.name(), null);
+        CommandDto command = new CommandDto("dup-5", ReturnRequestCommandType.MARK_EXCHANGE_SENT.getCode(), null);
 
         when(orderReturnRequestService.getOwnedRequest(24L, user)).thenReturn(request);
 
@@ -237,7 +237,7 @@ class ReturnRequestCommandServiceTest {
         JsonNodeFactory factory = JsonNodeFactory.instance;
         CommandDto command = new CommandDto(
                 "stage-1",
-                "MARK_OUTBOUND_SENT",
+                ReturnRequestCommandType.MARK_OUTBOUND_SENT.getCode(),
                 factory.objectNode().put("stageMoment", "2023-10-01T10:15:30+03:00")
         );
 
@@ -278,7 +278,7 @@ class ReturnRequestCommandServiceTest {
         JsonNodeFactory factory = JsonNodeFactory.instance;
         CommandDto command = new CommandDto(
                 "stage-2",
-                "REGISTER_EXCHANGE_PARCEL",
+                ReturnRequestCommandType.REGISTER_EXCHANGE_PARCEL.getCode(),
                 factory.objectNode()
                         .put("exchangeTrack", "  ex123  ")
                         .put("stageMoment", "2024-01-15T12:00:00+02:00")

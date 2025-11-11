@@ -9,6 +9,7 @@ import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.user.UserSettingsService;
 import com.project.tracking_system.service.customer.CustomerNameEventService;
+import com.project.tracking_system.service.order.OrderEpisodeLifecycleService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,6 +46,8 @@ class CustomerAssignServiceTest {
     private CustomerNameEventService customerNameEventService;
     @Mock
     private TelegramClient telegramClient;
+    @Mock
+    private OrderEpisodeLifecycleService orderEpisodeLifecycleService;
 
     private CustomerStatsService customerStatsService;
     private CustomerService service;
@@ -60,6 +63,7 @@ class CustomerAssignServiceTest {
                 subscriptionService,
                 userSettingsService,
                 customerNameEventService,
+                orderEpisodeLifecycleService,
                 telegramClient
         );
 

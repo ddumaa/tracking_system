@@ -1,15 +1,18 @@
 package com.project.tracking_system.controller;
 
 import com.project.tracking_system.dto.AvailableActionsDto;
+import com.project.tracking_system.dto.CommandDto;
 import com.project.tracking_system.dto.RequestDto;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.ReturnRequestAction;
+import com.project.tracking_system.controller.ReturnRequestCommandType;
 import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
 import com.project.tracking_system.service.order.ReturnRequestCommandService;
 import com.project.tracking_system.service.order.ReturnRequestMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -23,6 +26,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -57,7 +61,7 @@ class ReturnsControllerTest {
     @Test
     void registerReturn_returnsMappedDto() throws Exception {
         User principal = buildUser();
-        UsernamePasswordAuthenticationToken auth = authentication(principal);
+        UsernamePasswordAuthenticationToken auth = buildAuthentication(principal);
 
         OrderReturnRequest request = new OrderReturnRequest();
         when(orderReturnRequestService.registerReturn(
@@ -75,7 +79,7 @@ class ReturnsControllerTest {
         when(returnRequestMapper.toDto(eq(request), any())).thenReturn(responseDto);
 
         mockMvc.perform(post("/api/v1/returns")
-                        .with(auth)
+                        .with(authentication(auth))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{" +
                                 "\"parcelId\":7," +
@@ -107,45 +111,59 @@ class ReturnsControllerTest {
     @Test
     void executeCommand_startExchange_delegatesToService() throws Exception {
         User principal = buildUser();
-        UsernamePasswordAuthenticationToken auth = authentication(principal);
+        UsernamePasswordAuthenticationToken auth = buildAuthentication(principal);
 
         RequestDto responseDto = buildRequestDto("00000000-0000-0000-0000-000000000021", 21L, "EXCHANGE", "EXCHANGE_REGISTERED", 17L, 11L);
         when(returnRequestCommandService.executeCommand(eq(21L), any(), any(), eq(principal), any()))
                 .thenReturn(responseDto);
 
         mockMvc.perform(post("/api/v1/returns/21/commands")
-                        .with(auth)
+                        .with(authentication(auth))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"idempotencyKey\":\"cmd-1\",\"action\":\"set_mode_exchange\"}"))
+                        .content("{\"idempotencyKey\":\"cmd-1\",\"action\":\"SET_MODE_EXCHANGE\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id", equalTo("00000000-0000-0000-0000-000000000021")))
                 .andExpect(jsonPath("$.legacyId", equalTo(21)))
                 .andExpect(jsonPath("$.mode", equalTo("EXCHANGE")));
-        verify(returnRequestCommandService).executeCommand(eq(21L), any(), any(), eq(principal), any());
+        ArgumentCaptor<ReturnRequestCommandType> typeCaptor = ArgumentCaptor.forClass(ReturnRequestCommandType.class);
+        ArgumentCaptor<CommandDto> commandCaptor = ArgumentCaptor.forClass(CommandDto.class);
+
+        verify(returnRequestCommandService).executeCommand(eq(21L), typeCaptor.capture(), commandCaptor.capture(), eq(principal), any());
+        assertThat(typeCaptor.getValue()).isEqualTo(ReturnRequestCommandType.SET_MODE_EXCHANGE);
+        assertThat(commandCaptor.getValue().action()).isEqualTo(ReturnRequestCommandType.SET_MODE_EXCHANGE.getCode());
+        assertThat(commandCaptor.getValue().idempotencyKey()).isEqualTo("cmd-1");
+        assertThat(commandCaptor.getValue().payload()).isNull();
     }
 
     @Test
     void executeCommand_updateDetails_callsServiceWithPayload() throws Exception {
         User principal = buildUser();
-        UsernamePasswordAuthenticationToken auth = authentication(principal);
+        UsernamePasswordAuthenticationToken auth = buildAuthentication(principal);
 
         RequestDto responseDto = buildRequestDto("00000000-0000-0000-0000-000000000030", 30L, "RETURN", "INBOUND_PICKED_UP", 17L, 30L);
         when(returnRequestCommandService.executeCommand(eq(30L), any(), any(), eq(principal), any()))
                 .thenReturn(responseDto);
 
         mockMvc.perform(post("/api/v1/returns/30/commands")
-                        .with(auth)
+                        .with(authentication(auth))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"idempotencyKey\":\"cmd-2\",\"action\":\"update_reverse_track\",\"payload\":{\"reverseTrack\":\"BY000\",\"comment\":\"Комментарий\"}}"))
+                        .content("{\"idempotencyKey\":\"cmd-2\",\"action\":\"UPDATE_REVERSE_TRACK\",\"payload\":{\"reverseTrack\":\"BY000\",\"comment\":\"Комментарий\"}}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.stage", equalTo("INBOUND_PICKED_UP")));
-        verify(returnRequestCommandService).executeCommand(eq(30L), any(), any(), eq(principal), any());
+        ArgumentCaptor<ReturnRequestCommandType> typeCaptor = ArgumentCaptor.forClass(ReturnRequestCommandType.class);
+        ArgumentCaptor<CommandDto> commandCaptor = ArgumentCaptor.forClass(CommandDto.class);
+
+        verify(returnRequestCommandService).executeCommand(eq(30L), typeCaptor.capture(), commandCaptor.capture(), eq(principal), any());
+        assertThat(typeCaptor.getValue()).isEqualTo(ReturnRequestCommandType.UPDATE_REVERSE_TRACK);
+        assertThat(commandCaptor.getValue().action()).isEqualTo(ReturnRequestCommandType.UPDATE_REVERSE_TRACK.getCode());
+        assertThat(commandCaptor.getValue().payload().get("reverseTrack").asText()).isEqualTo("BY000");
+        assertThat(commandCaptor.getValue().payload().get("comment").asText()).isEqualTo("Комментарий");
     }
 
     @Test
     void getReturnRequest_returnsMappedDto() throws Exception {
         User principal = buildUser();
-        UsernamePasswordAuthenticationToken auth = authentication(principal);
+        UsernamePasswordAuthenticationToken auth = buildAuthentication(principal);
 
         OrderReturnRequest request = new OrderReturnRequest();
         when(orderReturnRequestService.getOwnedRequest(51L, principal)).thenReturn(request);
@@ -153,7 +171,7 @@ class ReturnsControllerTest {
                 .thenReturn(buildRequestDto("00000000-0000-0000-0000-000000000051", 51L, "RETURN", "NEW", 17L, 51L));
 
         mockMvc.perform(get("/api/v1/returns/51")
-                        .with(auth))
+                        .with(authentication(auth)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.legacyId", equalTo(51)));
     }
@@ -161,7 +179,7 @@ class ReturnsControllerTest {
     @Test
     void getAvailableActions_returnsDto() throws Exception {
         User principal = buildUser();
-        UsernamePasswordAuthenticationToken auth = authentication(principal);
+        UsernamePasswordAuthenticationToken auth = buildAuthentication(principal);
 
         OrderReturnRequest request = new OrderReturnRequest();
         when(orderReturnRequestService.getOwnedRequest(52L, principal)).thenReturn(request);
@@ -172,13 +190,13 @@ class ReturnsControllerTest {
                 )));
 
         mockMvc.perform(get("/api/v1/returns/52/available-actions")
-                        .with(auth))
+                        .with(authentication(auth)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.actions[0]", equalTo(ReturnRequestAction.SET_MODE_EXCHANGE.getCode())))
                 .andExpect(jsonPath("$.actions[1]", equalTo(ReturnRequestAction.CLOSE_REQUEST.getCode())));
     }
 
-    private UsernamePasswordAuthenticationToken authentication(User user) {
+    private UsernamePasswordAuthenticationToken buildAuthentication(User user) {
         return new UsernamePasswordAuthenticationToken(user, user.getPassword(), user.getAuthorities());
     }
 

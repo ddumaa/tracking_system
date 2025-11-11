@@ -16,6 +16,7 @@ import com.project.tracking_system.service.order.OrderEpisodeLifecycleService;
 import com.project.tracking_system.service.order.OrderExchangeService;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
 import com.project.tracking_system.service.order.ReturnRequestWorkflow;
+import com.project.tracking_system.service.order.ReturnRequestMapper;
 import com.project.tracking_system.service.user.UserService;
 import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.track.TrackStatusEventService;
@@ -29,6 +30,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -73,7 +75,7 @@ class TrackViewCacheEvictionIntegrationTest {
      * Моделирует сценарий «открыли модалку → одобрили обмен → снова открыли модалку».
      * <p>
      * Первый вызов {@link TrackViewService#getTrackDetails(Long, Long)} кэшируется. После
-     * изменения заявки через {@link OrderReturnRequestService#approveExchange(Long, Long, User)}
+     * изменения заявки через {@link OrderReturnRequestService#setModeExchange(Long, Long, User)}
      * проверяем, что повторный вызов возвращает статус обмена и признак обмена в DTO.
      * </p>
      */
@@ -97,12 +99,14 @@ class TrackViewCacheEvictionIntegrationTest {
         parcel.setEpisode(episode);
 
         OrderReturnRequest request = new OrderReturnRequest();
-        request.setId(555L);
+        ReflectionTestUtils.setField(request, "id", 555L);
         request.setParcel(parcel);
         request.setEpisode(episode);
         request.setStatus(OrderReturnRequestStatus.REGISTERED);
         request.setCreatedAt(ZonedDateTime.now(ZoneOffset.UTC).minusHours(3));
         request.setCreatedBy(owner);
+        request.setMode(ReturnRequestMode.RETURN);
+        request.setStage(ReturnRequestStage.NEW);
 
         when(trackParcelService.findOwnedById(parcelId, userId)).thenReturn(Optional.of(parcel));
         when(trackParcelService.findEpisodeParcels(episode.getId(), userId)).thenReturn(List.of(parcel));
@@ -126,13 +130,15 @@ class TrackViewCacheEvictionIntegrationTest {
         assertThat(initialDetails.returnRequest().mode())
                 .isEqualTo(ReturnRequestMode.RETURN.name());
 
-        orderReturnRequestService.approveExchange(request.getId(), parcelId, owner);
+        orderReturnRequestService.setModeExchange(request.getId(), parcelId, owner);
 
         TrackDetailsDto refreshedDetails = trackViewService.getTrackDetails(parcelId, userId);
 
         assertThat(refreshedDetails.returnRequest()).isNotNull();
         assertThat(refreshedDetails.returnRequest().mode())
                 .isEqualTo(ReturnRequestMode.EXCHANGE.name());
+        assertThat(refreshedDetails.returnRequest().stage())
+                .isEqualTo(ReturnRequestStage.EXCHANGE_REGISTERED.getCode());
 
         verify(orderReturnRequestRepository, times(2)).findFirstByParcel_IdAndStatusIn(eq(parcelId), anyCollection());
     }
@@ -244,6 +250,11 @@ class TrackViewCacheEvictionIntegrationTest {
             return new ReturnRequestWorkflow();
         }
 
+        @Bean
+        ReturnRequestMapper returnRequestMapper(OrderReturnRequestService orderReturnRequestService) {
+            return new ReturnRequestMapper(orderReturnRequestService);
+        }
+
         /**
          * Создаёт сервис просмотра треков, который будет участвовать в тесте кэширования.
          */
@@ -253,9 +264,10 @@ class TrackViewCacheEvictionIntegrationTest {
                                           UserService userService,
                                           ApplicationSettingsService applicationSettingsService,
                                           OrderReturnRequestService orderReturnRequestService,
+                                          ReturnRequestMapper returnRequestMapper,
                                           OrderExchangeService orderExchangeService) {
             return new TrackViewService(trackParcelService, trackStatusEventService, userService,
-                    applicationSettingsService, orderReturnRequestService, orderExchangeService);
+                    applicationSettingsService, orderReturnRequestService, returnRequestMapper, orderExchangeService);
         }
     }
 }

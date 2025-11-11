@@ -172,7 +172,7 @@ public class ReturnRequestCommandService {
                     orderReturnRequestService::registerExchangeParcel);
             case MARK_EXCHANGE_SENT -> executeExchangeCommand(context, payload, type,
                     orderReturnRequestService::markExchangeSent);
-            case MARK_EXCHANGE_DELIVERED -> executeExchangeCommand(context, payload, type,
+            case MARK_EXCHANGE_DELIVERED -> executeStageCommand(context, payload, type,
                     orderReturnRequestService::markExchangeDelivered);
             default -> throw new IllegalArgumentException("Команда " + type.name() + " не поддерживается системой");
         };

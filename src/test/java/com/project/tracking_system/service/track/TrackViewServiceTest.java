@@ -15,9 +15,12 @@ import com.project.tracking_system.entity.PostalServiceType;
 import com.project.tracking_system.entity.Store;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.TrackStatusEvent;
+import com.project.tracking_system.entity.ReturnRequestMode;
+import com.project.tracking_system.entity.ReturnRequestStage;
 import com.project.tracking_system.service.admin.ApplicationSettingsService;
 import com.project.tracking_system.service.order.OrderExchangeService;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
+import com.project.tracking_system.service.order.ReturnRequestMapper;
 import com.project.tracking_system.service.user.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,12 +61,14 @@ class TrackViewServiceTest {
     @Mock
     private OrderExchangeService orderExchangeService;
 
+    private ReturnRequestMapper returnRequestMapper;
     private TrackViewService service;
 
     @BeforeEach
     void setUp() {
+        returnRequestMapper = new ReturnRequestMapper(orderReturnRequestService);
         service = new TrackViewService(trackParcelService, trackStatusEventService,
-                userService, applicationSettingsService, orderReturnRequestService, orderExchangeService);
+                userService, applicationSettingsService, orderReturnRequestService, returnRequestMapper, orderExchangeService);
         when(orderReturnRequestService.findCurrentForParcel(anyLong())).thenReturn(Optional.empty());
         when(orderExchangeService.findLatestExchangeParcel(any())).thenReturn(Optional.empty());
         when(orderReturnRequestService.getExchangeCancellationBlockReason(any())).thenReturn(Optional.empty());
@@ -481,6 +486,12 @@ class TrackViewServiceTest {
         request.setEpisode(parcel.getEpisode());
         request.setStatus(OrderReturnRequestStatus.REGISTERED);
         request.setCreatedAt(now.minusHours(1));
+        request.setMode(ReturnRequestMode.EXCHANGE);
+        request.setStage(ReturnRequestStage.INBOUND_PICKED_UP);
+        request.setReverseTrackNumber("REV-77");
+        request.setComment("Комментарий клиента");
+        request.setReason("Повреждение");
+        request.setIdempotencyKey("req-901");
 
         when(trackParcelService.findOwnedById(81L, 15L)).thenReturn(Optional.of(parcel));
         stubEpisodeParcels(parcel, 15L);
@@ -488,11 +499,6 @@ class TrackViewServiceTest {
         when(userService.getUserZone(15L)).thenReturn(ZoneId.of("UTC"));
         when(trackStatusEventService.findEvents(81L)).thenReturn(List.of());
         when(orderReturnRequestService.findCurrentForParcel(81L)).thenReturn(Optional.of(request));
-        when(orderReturnRequestService.canSetModeExchange(request)).thenReturn(true);
-        when(orderReturnRequestService.canConfirmReceipt(request)).thenReturn(true);
-        when(orderReturnRequestService.canCreateExchangeParcel(request)).thenReturn(false);
-        when(orderReturnRequestService.resolveAvailableActions(request))
-                .thenReturn(EnumSet.of(ReturnRequestAction.CLOSE_REQUEST));
         when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.empty());
 
         TrackDetailsDto details = service.getTrackDetails(81L, 15L);
@@ -500,12 +506,13 @@ class TrackViewServiceTest {
         assertThat(details.canRegisterReturn()).isFalse();
         assertThat(details.requiresAction()).isTrue();
         assertThat(details.returnRequest()).isNotNull();
-        assertThat(details.returnRequest().requiresAction()).isTrue();
-        assertThat(details.returnRequest().availableActions().startExchange()).isTrue();
-        assertThat(details.returnRequest().availableActions().createExchangeParcel()).isFalse();
-        assertThat(details.returnRequest().availableActions().confirmReceipt()).isTrue();
-        assertThat(details.returnRequest().state().returnReceiptConfirmed()).isFalse();
-        assertThat(details.returnRequest().timestamps().returnReceiptConfirmedAt()).isNull();
+        assertThat(details.returnRequest().mode()).isEqualTo(ReturnRequestMode.EXCHANGE.name());
+        assertThat(details.returnRequest().stage()).isEqualTo(ReturnRequestStage.INBOUND_PICKED_UP.getCode());
+        assertThat(details.returnRequest().reverseTrackNumber()).isEqualTo("REV-77");
+        assertThat(details.returnRequest().comment()).isEqualTo("Комментарий клиента");
+        assertThat(details.returnRequest().reason()).isEqualTo("Повреждение");
+        assertThat(details.returnRequest().returnReceiptConfirmed()).isFalse();
+
         assertThat(details.lifecycle())
                 .extracting(TrackLifecycleStageDto::code)
                 .contains("OUTBOUND", "NEW", "OUTBOUND_SENT", "INBOUND_PICKED_UP");
@@ -600,13 +607,18 @@ class TrackViewServiceTest {
     }
 
     @Test
-    void getTrackDetails_ReturnRequestExposesManualExchangeCreationFlag() {
+    void getTrackDetails_ReturnRequestIncludesExchangeMetadata() {
         ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        ZonedDateTime assignedAt = now.minusHours(1);
         TrackParcel parcel = buildParcel(83L, GlobalStatus.RETURNED, now);
         OrderReturnRequest request = new OrderReturnRequest();
         request.setParcel(parcel);
         request.setEpisode(parcel.getEpisode());
         request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setMode(ReturnRequestMode.EXCHANGE);
+        request.setStage(ReturnRequestStage.EXCHANGE_SENT);
+        request.setExchangeTrackNumber("EX-123");
+        request.setExchangeTrackAssignedAt(assignedAt);
         request.setDecisionAt(now.minusHours(2));
 
         when(trackParcelService.findOwnedById(83L, 17L)).thenReturn(Optional.of(parcel));
@@ -615,13 +627,16 @@ class TrackViewServiceTest {
         when(userService.getUserZone(17L)).thenReturn(ZoneId.of("UTC"));
         when(trackStatusEventService.findEvents(83L)).thenReturn(List.of());
         when(orderReturnRequestService.findCurrentForParcel(83L)).thenReturn(Optional.of(request));
-        when(orderReturnRequestService.canCreateExchangeParcel(request)).thenReturn(true);
         when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.empty());
 
         TrackDetailsDto details = service.getTrackDetails(83L, 17L);
 
         assertThat(details.returnRequest()).isNotNull();
-        assertThat(details.returnRequest().availableActions().createExchangeParcel()).isTrue();
+        assertThat(details.returnRequest().mode()).isEqualTo(ReturnRequestMode.EXCHANGE.name());
+        assertThat(details.returnRequest().stage()).isEqualTo(ReturnRequestStage.EXCHANGE_SENT.getCode());
+        assertThat(details.returnRequest().exchangeTrackNumber()).isEqualTo("EX-123");
+        assertThat(details.returnRequest().exchangeTrackAssignedAt()).isEqualTo(assignedAt);
+        assertThat(details.requiresAction()).isFalse();
     }
 
     @Test
