@@ -10,12 +10,14 @@ import com.project.tracking_system.service.order.context.ReturnRequestActionCont
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.List;
 
 import org.springframework.stereotype.Component;
 
@@ -28,6 +30,24 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class ReturnRequestWorkflow {
+
+    private static final Map<ReturnRequestMode, List<ReturnRequestStage>> STAGE_SEQUENCES = Map.of(
+            ReturnRequestMode.RETURN, List.of(
+                    ReturnRequestStage.NEW,
+                    ReturnRequestStage.OUTBOUND_SENT,
+                    ReturnRequestStage.INBOUND_ARRIVED,
+                    ReturnRequestStage.INBOUND_PICKED_UP
+            ),
+            ReturnRequestMode.EXCHANGE, List.of(
+                    ReturnRequestStage.NEW,
+                    ReturnRequestStage.OUTBOUND_SENT,
+                    ReturnRequestStage.INBOUND_ARRIVED,
+                    ReturnRequestStage.INBOUND_PICKED_UP,
+                    ReturnRequestStage.EXCHANGE_REGISTERED,
+                    ReturnRequestStage.EXCHANGE_SENT,
+                    ReturnRequestStage.EXCHANGE_DELIVERED
+            )
+    );
 
     private final Map<ReturnRequestMode, Map<ReturnRequestStage, Set<ReturnRequestStage>>> transitionTable;
     private final Map<ReturnRequestMode, Map<ReturnRequestStage, EnumSet<ReturnRequestAction>>> actionMatrix;
@@ -82,6 +102,70 @@ public class ReturnRequestWorkflow {
     }
 
     /**
+     * Переводит заявку по цепочке соседних стадий до целевой, соблюдая матрицу переходов.
+     * <p>
+     * Метод используется сервисами, когда нужно автоматически продвинуть заявку вперёд,
+     * не нарушая ограничений: он вычисляет маршрут через допустимые стадии и вызывает
+     * {@link #transitionToStage(OrderReturnRequest, ReturnRequestStage, boolean, User, ZonedDateTime)}
+     * для каждого шага. Финальный переход помечается как ручной, если передан соответствующий флаг.
+     * </p>
+     *
+     * @param request          заявка, которую требуется обновить
+     * @param targetStage      конечная стадия цепочки
+     * @param manualTransition признак ручного инициирования конечного шага
+     * @param actor            пользователь, выполнивший действие
+     * @param moment           момент фиксации перехода
+     */
+    public void transitionSequentially(OrderReturnRequest request,
+                                        ReturnRequestStage targetStage,
+                                        boolean manualTransition,
+                                        User actor,
+                                        ZonedDateTime moment) {
+        if (request == null || targetStage == null) {
+            return;
+        }
+        ZonedDateTime effectiveMoment = moment != null ? moment : ZonedDateTime.now(ZoneOffset.UTC);
+        ReturnRequestMode mode = safeMode(request.getMode());
+        ReturnRequestStage currentStage = adjustStageForMode(mode, safeStage(request.getStage()));
+        if (Objects.equals(currentStage, targetStage)) {
+            transitionToStage(request, targetStage, manualTransition, actor, effectiveMoment);
+            return;
+        }
+        for (ReturnRequestStage nextStage : resolveSequentialPath(mode, currentStage, targetStage)) {
+            boolean finalStep = Objects.equals(nextStage, targetStage);
+            boolean manualFlag = manualTransition && finalStep;
+            transitionToStage(request, nextStage, manualFlag, actor, effectiveMoment);
+        }
+    }
+
+    /**
+     * Проверяет, достижима ли целевая стадия из текущей через последовательность соседних переходов.
+     *
+     * @param mode       режим заявки
+     * @param fromStage  исходная стадия
+     * @param targetStage целевая стадия
+     * @return {@code true}, если маршрут существует
+     */
+    public boolean canReachStage(ReturnRequestMode mode,
+                                  ReturnRequestStage fromStage,
+                                  ReturnRequestStage targetStage) {
+        if (mode == null || fromStage == null || targetStage == null) {
+            return false;
+        }
+        ReturnRequestStage normalizedFrom = adjustStageForMode(mode, fromStage);
+        ReturnRequestStage normalizedTarget = adjustStageForMode(mode, targetStage);
+        if (Objects.equals(normalizedFrom, normalizedTarget)) {
+            return true;
+        }
+        try {
+            List<ReturnRequestStage> path = resolveSequentialPath(mode, normalizedFrom, normalizedTarget);
+            return !path.isEmpty();
+        } catch (IllegalStateException ex) {
+            return false;
+        }
+    }
+
+    /**
      * Определяет, допустим ли переход между стадиями в заданном режиме.
      *
      * @param mode        режим обработки заявки
@@ -104,7 +188,7 @@ public class ReturnRequestWorkflow {
         }
         Set<ReturnRequestStage> allowedTargets = modeTransitions.get(fromStage);
         if (allowedTargets == null || allowedTargets.isEmpty()) {
-            return allowedStages(mode).contains(targetStage);
+            return false;
         }
         return allowedTargets.contains(targetStage);
     }
@@ -180,40 +264,18 @@ public class ReturnRequestWorkflow {
         Map<ReturnRequestMode, Map<ReturnRequestStage, Set<ReturnRequestStage>>> table = new EnumMap<>(ReturnRequestMode.class);
 
         Map<ReturnRequestStage, Set<ReturnRequestStage>> returnTransitions = new EnumMap<>(ReturnRequestStage.class);
-        returnTransitions.put(ReturnRequestStage.NEW, EnumSet.of(
-                ReturnRequestStage.OUTBOUND_SENT,
-                ReturnRequestStage.INBOUND_ARRIVED,
-                ReturnRequestStage.INBOUND_PICKED_UP
-        ));
-        returnTransitions.put(ReturnRequestStage.OUTBOUND_SENT, EnumSet.of(
-                ReturnRequestStage.INBOUND_ARRIVED,
-                ReturnRequestStage.INBOUND_PICKED_UP
-        ));
+        returnTransitions.put(ReturnRequestStage.NEW, EnumSet.of(ReturnRequestStage.OUTBOUND_SENT));
+        returnTransitions.put(ReturnRequestStage.OUTBOUND_SENT, EnumSet.of(ReturnRequestStage.INBOUND_ARRIVED));
         returnTransitions.put(ReturnRequestStage.INBOUND_ARRIVED, EnumSet.of(ReturnRequestStage.INBOUND_PICKED_UP));
         returnTransitions.put(ReturnRequestStage.INBOUND_PICKED_UP, EnumSet.of(ReturnRequestStage.INBOUND_PICKED_UP));
         table.put(ReturnRequestMode.RETURN, returnTransitions);
 
         Map<ReturnRequestStage, Set<ReturnRequestStage>> exchangeTransitions = new EnumMap<>(ReturnRequestStage.class);
-        exchangeTransitions.put(ReturnRequestStage.NEW, EnumSet.of(
-                ReturnRequestStage.OUTBOUND_SENT,
-                ReturnRequestStage.INBOUND_ARRIVED,
-                ReturnRequestStage.INBOUND_PICKED_UP,
-                ReturnRequestStage.EXCHANGE_REGISTERED
-        ));
-        exchangeTransitions.put(ReturnRequestStage.OUTBOUND_SENT, EnumSet.of(
-                ReturnRequestStage.INBOUND_ARRIVED,
-                ReturnRequestStage.INBOUND_PICKED_UP,
-                ReturnRequestStage.EXCHANGE_REGISTERED
-        ));
-        exchangeTransitions.put(ReturnRequestStage.INBOUND_ARRIVED, EnumSet.of(
-                ReturnRequestStage.INBOUND_PICKED_UP,
-                ReturnRequestStage.EXCHANGE_REGISTERED
-        ));
+        exchangeTransitions.put(ReturnRequestStage.NEW, EnumSet.of(ReturnRequestStage.OUTBOUND_SENT));
+        exchangeTransitions.put(ReturnRequestStage.OUTBOUND_SENT, EnumSet.of(ReturnRequestStage.INBOUND_ARRIVED));
+        exchangeTransitions.put(ReturnRequestStage.INBOUND_ARRIVED, EnumSet.of(ReturnRequestStage.INBOUND_PICKED_UP));
         exchangeTransitions.put(ReturnRequestStage.INBOUND_PICKED_UP, EnumSet.of(ReturnRequestStage.EXCHANGE_REGISTERED));
-        exchangeTransitions.put(ReturnRequestStage.EXCHANGE_REGISTERED, EnumSet.of(
-                ReturnRequestStage.EXCHANGE_SENT,
-                ReturnRequestStage.EXCHANGE_DELIVERED
-        ));
+        exchangeTransitions.put(ReturnRequestStage.EXCHANGE_REGISTERED, EnumSet.of(ReturnRequestStage.EXCHANGE_SENT));
         exchangeTransitions.put(ReturnRequestStage.EXCHANGE_SENT, EnumSet.of(ReturnRequestStage.EXCHANGE_DELIVERED));
         exchangeTransitions.put(ReturnRequestStage.EXCHANGE_DELIVERED, EnumSet.of(ReturnRequestStage.EXCHANGE_DELIVERED));
         table.put(ReturnRequestMode.EXCHANGE, exchangeTransitions);
@@ -276,31 +338,82 @@ public class ReturnRequestWorkflow {
     private EnumSet<ReturnRequestAction> mapTransitionToActions(ReturnRequestMode mode,
                                                                 ReturnRequestStage from,
                                                                 ReturnRequestStage target) {
-        if (target == null) {
+        if (mode == null || from == null || target == null) {
             return EnumSet.noneOf(ReturnRequestAction.class);
         }
-        return switch (target) {
-            case OUTBOUND_SENT -> EnumSet.of(ReturnRequestAction.MARK_OUTBOUND_SENT);
-            case INBOUND_ARRIVED -> EnumSet.of(ReturnRequestAction.MARK_INBOUND_ARRIVED);
-            case INBOUND_PICKED_UP -> EnumSet.of(ReturnRequestAction.MARK_INBOUND_PICKED_UP);
-            case EXCHANGE_SENT -> mode == ReturnRequestMode.EXCHANGE
+        return switch (mode) {
+            case RETURN -> mapReturnTransition(from, target);
+            case EXCHANGE -> mapExchangeTransition(from, target);
+        };
+    }
+
+    /**
+     * Возвращает действия для переходов в режиме возврата согласно матрице смежных стадий.
+     */
+    private EnumSet<ReturnRequestAction> mapReturnTransition(ReturnRequestStage from, ReturnRequestStage target) {
+        return switch (from) {
+            case NEW -> target == ReturnRequestStage.OUTBOUND_SENT
+                    ? EnumSet.of(ReturnRequestAction.MARK_OUTBOUND_SENT)
+                    : EnumSet.noneOf(ReturnRequestAction.class);
+            case OUTBOUND_SENT -> target == ReturnRequestStage.INBOUND_ARRIVED
+                    ? EnumSet.of(ReturnRequestAction.MARK_INBOUND_ARRIVED)
+                    : EnumSet.noneOf(ReturnRequestAction.class);
+            case INBOUND_ARRIVED -> target == ReturnRequestStage.INBOUND_PICKED_UP
+                    ? EnumSet.of(ReturnRequestAction.MARK_INBOUND_PICKED_UP)
+                    : EnumSet.noneOf(ReturnRequestAction.class);
+            default -> EnumSet.noneOf(ReturnRequestAction.class);
+        };
+    }
+
+    /**
+     * Возвращает действия для переходов в режиме обмена, придерживаясь соседних стадий.
+     */
+    private EnumSet<ReturnRequestAction> mapExchangeTransition(ReturnRequestStage from, ReturnRequestStage target) {
+        return switch (from) {
+            case NEW -> target == ReturnRequestStage.OUTBOUND_SENT
+                    ? EnumSet.of(ReturnRequestAction.MARK_OUTBOUND_SENT)
+                    : EnumSet.noneOf(ReturnRequestAction.class);
+            case OUTBOUND_SENT -> target == ReturnRequestStage.INBOUND_ARRIVED
+                    ? EnumSet.of(ReturnRequestAction.MARK_INBOUND_ARRIVED)
+                    : EnumSet.noneOf(ReturnRequestAction.class);
+            case INBOUND_ARRIVED -> target == ReturnRequestStage.INBOUND_PICKED_UP
+                    ? EnumSet.of(ReturnRequestAction.MARK_INBOUND_PICKED_UP)
+                    : EnumSet.noneOf(ReturnRequestAction.class);
+            case EXCHANGE_REGISTERED -> target == ReturnRequestStage.EXCHANGE_SENT
                     ? EnumSet.of(ReturnRequestAction.MARK_EXCHANGE_SENT)
                     : EnumSet.noneOf(ReturnRequestAction.class);
-            case EXCHANGE_DELIVERED -> mode == ReturnRequestMode.EXCHANGE
+            case EXCHANGE_SENT -> target == ReturnRequestStage.EXCHANGE_DELIVERED
                     ? EnumSet.of(ReturnRequestAction.MARK_EXCHANGE_DELIVERED)
                     : EnumSet.noneOf(ReturnRequestAction.class);
             default -> EnumSet.noneOf(ReturnRequestAction.class);
         };
     }
 
-    private Set<ReturnRequestStage> allowedStages(ReturnRequestMode mode) {
-        EnumSet<ReturnRequestStage> allowed = EnumSet.noneOf(ReturnRequestStage.class);
-        for (ReturnRequestStage stage : ReturnRequestStage.values()) {
-            if (stage.supportsMode(mode)) {
-                allowed.add(stage);
-            }
+    /**
+     * Строит список стадий, через которые нужно пройти при продвижении заявки.
+     */
+    private List<ReturnRequestStage> resolveSequentialPath(ReturnRequestMode mode,
+                                                           ReturnRequestStage from,
+                                                           ReturnRequestStage target) {
+        List<ReturnRequestStage> sequence = STAGE_SEQUENCES.get(mode);
+        if (sequence == null) {
+            throw new IllegalStateException("Не найдена последовательность стадий для режима " + mode);
         }
-        return Collections.unmodifiableSet(allowed);
+        int fromIndex = sequence.indexOf(from);
+        int targetIndex = sequence.indexOf(target);
+        if (fromIndex < 0 || targetIndex < 0 || targetIndex < fromIndex) {
+            throw new IllegalStateException(String.format(
+                    "Нельзя построить маршрут перехода %s→%s для режима %s",
+                    from,
+                    target,
+                    mode
+            ));
+        }
+        List<ReturnRequestStage> path = new ArrayList<>();
+        for (int i = fromIndex + 1; i <= targetIndex; i++) {
+            path.add(sequence.get(i));
+        }
+        return path;
     }
 
     private ReturnRequestMode safeMode(ReturnRequestMode mode) {
