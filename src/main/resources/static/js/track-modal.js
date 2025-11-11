@@ -556,16 +556,16 @@
             const mapActionFlag = (key, code) => Boolean(actions?.[key]) || hasActionCode(actions, code);
             const legacyUpdateReverse = mapLegacy('allowUpdateReverseTrack');
             const canUpdateReverseTrack = this.request?.canUpdateReverseTrack;
-            const confirmReceiptFlag = mapActionFlag('markInboundPickedUp', 'mark_inbound_picked_up');
-            const convertToExchangeFlag = mapActionFlag('setModeExchange', 'set_mode_exchange');
-            const launchExchangeFlag = mapActionFlag('registerExchangeParcel', 'register_exchange_parcel');
-            const closeFlag = mapActionFlag('closeRequest', 'close_request');
-            const reopenFlag = mapActionFlag('setModeReturn', 'set_mode_return');
-            const updateDetailsFlag = mapActionFlag('updateReverseTrack', 'update_reverse_track');
-            const outboundSentFlag = mapActionFlag('markOutboundSent', 'mark_outbound_sent');
-            const inboundArrivedFlag = mapActionFlag('markInboundArrived', 'mark_inbound_arrived');
-            const exchangeSentFlag = mapActionFlag('markExchangeSent', 'mark_exchange_sent');
-            const exchangeDeliveredFlag = mapActionFlag('markExchangeDelivered', 'mark_exchange_delivered');
+            const confirmReceiptFlag = mapActionFlag('markInboundPickedUp', 'MARK_INBOUND_PICKED_UP');
+            const convertToExchangeFlag = mapActionFlag('setModeExchange', 'SET_MODE_EXCHANGE');
+            const launchExchangeFlag = mapActionFlag('registerExchangeParcel', 'REGISTER_EXCHANGE_PARCEL');
+            const closeFlag = mapActionFlag('closeRequest', 'CLOSE_REQUEST');
+            const reopenFlag = mapActionFlag('setModeReturn', 'SET_MODE_RETURN');
+            const updateDetailsFlag = mapActionFlag('updateReverseTrack', 'UPDATE_REVERSE_TRACK');
+            const outboundSentFlag = mapActionFlag('markOutboundSent', 'MARK_OUTBOUND_SENT');
+            const inboundArrivedFlag = mapActionFlag('markInboundArrived', 'MARK_INBOUND_ARRIVED');
+            const exchangeSentFlag = mapActionFlag('markExchangeSent', 'MARK_EXCHANGE_SENT');
+            const exchangeDeliveredFlag = mapActionFlag('markExchangeDelivered', 'MARK_EXCHANGE_DELIVERED');
             return {
                 confirmReceipt: confirmReceiptFlag
                     || (!hasModernActions && (mapLegacy('allowAcceptReverse') || mapLegacy('allowAccept'))),
@@ -1415,7 +1415,77 @@
         if (typeof value !== 'string') {
             return '';
         }
-        return value.trim().toLowerCase();
+        return value.trim().toUpperCase();
+    }
+
+    /**
+     * Преобразует момент времени к ISO-строке в часовом поясе UTC.
+     * Метод гарантирует консистентность таймстемпов, удовлетворяя SRP.
+     * @param {string|number|Date|null|undefined} value исходное значение
+     * @returns {string} строка формата ISO 8601
+     */
+    function normalizeStageMoment(value) {
+        const now = () => new Date().toISOString();
+        if (value instanceof Date) {
+            return value.toISOString();
+        }
+        if (typeof value === 'number' && Number.isFinite(value)) {
+            return new Date(value).toISOString();
+        }
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (!trimmed) {
+                return now();
+            }
+            const parsed = Date.parse(trimmed);
+            if (!Number.isNaN(parsed)) {
+                return new Date(parsed).toISOString();
+            }
+        }
+        return now();
+    }
+
+    /**
+     * Удаляет {@code undefined}-значения из полезной нагрузки команды.
+     * Метод обеспечивает чистоту DTO перед отправкой и соблюдает SRP.
+     * @param {Object} payload исходный объект
+     * @returns {Object} очищенная копия
+     */
+    function sanitizeActionPayload(payload) {
+        if (!payload || typeof payload !== 'object') {
+            return {};
+        }
+        return Object.keys(payload).reduce((accumulator, key) => {
+            if (payload[key] !== undefined) {
+                accumulator[key] = payload[key];
+            }
+            return accumulator;
+        }, {});
+    }
+
+    /**
+     * Формирует полезную нагрузку для стадийных действий, добавляя нормализованный момент времени.
+     * @param {Object} [options] дополнительные параметры
+     * @returns {Object} объект с ключом {@code stageMoment}
+     */
+    function buildStagePayload(options = {}) {
+        return { stageMoment: normalizeStageMoment(options.stageMoment) };
+    }
+
+    /**
+     * Нормализует произвольное текстовое поле: тримминг и приведение пустых значений к {@code null}.
+     * @param {string|null|undefined} value исходное значение
+     * @returns {string|null} нормализованный текст
+     */
+    function normalizeOptionalText(value) {
+        if (value === null) {
+            return null;
+        }
+        if (value === undefined) {
+            return undefined;
+        }
+        const text = String(value).trim();
+        return text.length > 0 ? text : null;
     }
 
     const STAGE_LABELS = {
@@ -1662,23 +1732,30 @@
         const {
             trackId,
             requestId,
-            command,
+            action,
             payload: extraPayload = {},
             successMessage,
             notificationType = 'success',
             errorMessage
         } = params || {};
 
-        if (!trackId || !requestId || typeof command !== 'string' || command.length === 0) {
+        const normalizedAction = normalizeActionCode(action);
+        if (!trackId || !requestId || !normalizedAction) {
             throw new Error('Некорректные параметры действия');
         }
 
-        let payload;
+        const requestDto = {
+            idempotencyKey: generateIdempotencyKey(),
+            action: normalizedAction,
+            payload: sanitizeActionPayload(extraPayload)
+        };
+
+        let responsePayload;
         try {
-            payload = await sendTrackRequest(`/api/v1/returns/${requestId}/commands`, {
+            responsePayload = await sendTrackRequest(`/api/v1/returns/${requestId}/commands`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ command, ...extraPayload })
+                body: JSON.stringify(requestDto)
             });
         } catch (error) {
             const fallbackMessage = errorMessage || 'Не удалось выполнить действие над заявкой';
@@ -1705,7 +1782,7 @@
             trackId,
             requestId,
             details,
-            payload,
+            payload: responsePayload,
             responseType: 'command'
         });
 
@@ -1713,7 +1790,7 @@
             window.notifyUser(successMessage, notificationType || 'success');
         }
 
-        return payload;
+        return responsePayload;
     }
 
     /**
@@ -1726,7 +1803,12 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            command: 'mark_outbound_sent',
+            action: 'MARK_OUTBOUND_SENT',
+            payload: {
+                ...buildStagePayload(options),
+                reverseTrack: normalizeOptionalText(options.reverseTrack),
+                comment: normalizeOptionalText(options.comment)
+            },
             successMessage: options.successMessage || 'Отправка возвратной посылки отмечена',
             notificationType: options.notificationType || 'info',
             errorMessage: options.errorMessage || 'Не удалось отметить отправку возвратной посылки'
@@ -1743,7 +1825,12 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            command: 'mark_inbound_arrived',
+            action: 'MARK_INBOUND_ARRIVED',
+            payload: {
+                ...buildStagePayload(options),
+                reverseTrack: normalizeOptionalText(options.reverseTrack),
+                comment: normalizeOptionalText(options.comment)
+            },
             successMessage: options.successMessage || 'Прибытие возвратной посылки отмечено',
             notificationType: options.notificationType || 'info',
             errorMessage: options.errorMessage || 'Не удалось отметить прибытие возвратной посылки'
@@ -1760,7 +1847,7 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            command: 'set_mode_exchange',
+            action: 'SET_MODE_EXCHANGE',
             successMessage: options.successMessage || 'Заявка переведена в обмен',
             notificationType: options.notificationType || 'info',
             errorMessage: options.errorMessage || 'Не удалось перевести заявку в обмен'
@@ -1777,7 +1864,7 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            command: 'close_request',
+            action: 'CLOSE_REQUEST',
             successMessage: options.successMessage || 'Обращение закрыто',
             notificationType: options.notificationType || 'warning',
             errorMessage: options.errorMessage || 'Не удалось закрыть обращение'
@@ -1794,7 +1881,12 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            command: 'mark_inbound_picked_up',
+            action: 'MARK_INBOUND_PICKED_UP',
+            payload: {
+                ...buildStagePayload(options),
+                reverseTrack: normalizeOptionalText(options.reverseTrack),
+                comment: normalizeOptionalText(options.comment)
+            },
             successMessage: options.successMessage || 'Возврат подтверждён',
             notificationType: options.notificationType || 'success',
             errorMessage: options.errorMessage || 'Не удалось подтвердить получение возврата'
@@ -1811,7 +1903,12 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            command: 'register_exchange_parcel',
+            action: 'REGISTER_EXCHANGE_PARCEL',
+            payload: {
+                ...buildStagePayload(options),
+                exchangeTrack: normalizeOptionalText(options.exchangeTrack),
+                comment: normalizeOptionalText(options.comment)
+            },
             successMessage: options.successMessage || 'Обмен запущен',
             notificationType: options.notificationType || 'info',
             errorMessage: options.errorMessage || 'Не удалось создать обменную посылку'
@@ -1822,7 +1919,7 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            command: 'set_mode_return',
+            action: 'SET_MODE_RETURN',
             successMessage: options.successMessage || 'Заявка переведена в возврат',
             notificationType: options.notificationType || 'info',
             errorMessage: options.errorMessage || 'Не удалось перевести заявку в возврат'
@@ -1839,7 +1936,12 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            command: 'mark_exchange_sent',
+            action: 'MARK_EXCHANGE_SENT',
+            payload: {
+                ...buildStagePayload(options),
+                exchangeTrack: normalizeOptionalText(options.exchangeTrack),
+                comment: normalizeOptionalText(options.comment)
+            },
             successMessage: options.successMessage || 'Отправка обменной посылки отмечена',
             notificationType: options.notificationType || 'info',
             errorMessage: options.errorMessage || 'Не удалось отметить отправку обменной посылки'
@@ -1856,7 +1958,8 @@
         return await performReturnRequestAction({
             trackId,
             requestId,
-            command: 'mark_exchange_delivered',
+            action: 'MARK_EXCHANGE_DELIVERED',
+            payload: buildStagePayload(options),
             successMessage: options.successMessage || 'Доставка обменной посылки отмечена',
             notificationType: options.notificationType || 'success',
             errorMessage: options.errorMessage || 'Не удалось отметить доставку обменной посылки'
@@ -1872,13 +1975,15 @@
      * @param {Object} [options] настройки уведомлений
      */
     async function updateReverseTrack(trackId, requestId, reverseTrack, comment = null, options = {}) {
+        const normalizedTrack = normalizeOptionalText(reverseTrack);
+        const resolvedTrack = normalizedTrack ? normalizeReverseTrackNumber(normalizedTrack) : null;
         return await performReturnRequestAction({
             trackId,
             requestId,
-            command: 'update_reverse_track',
+            action: 'UPDATE_REVERSE_TRACK',
             payload: {
-                reverseTrackNumber: reverseTrack,
-                comment
+                reverseTrack: resolvedTrack,
+                comment: normalizeOptionalText(comment)
             },
             successMessage: options.successMessage || 'Обратный трек сохранён',
             notificationType: options.notificationType || 'success',
