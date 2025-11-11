@@ -245,6 +245,7 @@ class OrderReturnRequestServiceTest {
         request.setEpisode(parcel.getEpisode());
         request.setStore(parcel.getStore());
         request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        request.setStage(ReturnRequestStage.INBOUND_PICKED_UP);
 
         when(repository.findById(500L)).thenReturn(Optional.of(request));
         when(repository.existsByEpisode_IdAndStatus(parcel.getEpisode().getId(),
@@ -273,9 +274,9 @@ class OrderReturnRequestServiceTest {
         request.setEpisode(parcel.getEpisode());
         request.setStore(parcel.getStore());
         request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setMode(ReturnRequestMode.EXCHANGE);
 
         when(repository.findById(701L)).thenReturn(Optional.of(request));
-        when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.empty());
         when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         TrackParcel exchange = buildParcel(199L, GlobalStatus.PRE_REGISTERED);
@@ -300,6 +301,7 @@ class OrderReturnRequestServiceTest {
         request.setParcel(parcel);
         request.setEpisode(parcel.getEpisode());
         request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setMode(ReturnRequestMode.EXCHANGE);
 
         TrackParcel activeReplacement = buildParcel(300L, GlobalStatus.PRE_REGISTERED);
 
@@ -481,7 +483,6 @@ class OrderReturnRequestServiceTest {
         request.setStage(ReturnRequestStage.EXCHANGE_REGISTERED);
 
         when(repository.findById(1003L)).thenReturn(Optional.of(request));
-        when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.empty());
         when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ZonedDateTime stageMoment = ZonedDateTime.of(2024, 1, 15, 12, 0, 0, 0, ZoneOffset.ofHours(2));
@@ -526,7 +527,6 @@ class OrderReturnRequestServiceTest {
         request.setExchangeTrackNumber("EX777");
 
         when(repository.findById(1005L)).thenReturn(Optional.of(request));
-        when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.empty());
         when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ZonedDateTime stageMoment = ZonedDateTime.of(2024, 3, 1, 8, 45, 0, 0, ZoneOffset.UTC);
@@ -537,6 +537,7 @@ class OrderReturnRequestServiceTest {
         assertThat(result.getStageUpdatedAt()).isEqualTo(stageMoment);
         assertThat(result.getResponsibleManager()).isEqualTo(user);
         verify(repository).save(request);
+        verify(repository).findById(1005L);
         verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
     }
 
@@ -581,6 +582,7 @@ class OrderReturnRequestServiceTest {
         request.setParcel(parcel);
         request.setEpisode(parcel.getEpisode());
         request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setMode(ReturnRequestMode.EXCHANGE);
 
         when(repository.findById(611L)).thenReturn(Optional.of(request));
         when(orderExchangeService.getLatestExchangeParcelOrThrowIfTracked(request))
@@ -734,6 +736,7 @@ class OrderReturnRequestServiceTest {
     void getExchangeCancellationBlockReason_ReturnsMessageWhenBlocked() {
         OrderReturnRequest request = new OrderReturnRequest();
         request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setMode(ReturnRequestMode.EXCHANGE);
         IllegalStateException cause = new IllegalStateException("Недоступно");
         when(orderExchangeService.getLatestExchangeParcelOrThrowIfTracked(request))
                 .thenThrow(cause);
@@ -783,9 +786,6 @@ class OrderReturnRequestServiceTest {
         User another = new User();
         another.setId(9L);
         parcel.setUser(another);
-        when(trackParcelService.findOwnedById(15L, 5L)).thenReturn(Optional.of(parcel));
-        when(repository.findByIdempotencyKey("conflict")).thenReturn(Optional.empty());
-        when(repository.findFirstByParcel_IdAndStatusIn(eq(15L), any())).thenReturn(Optional.empty());
 
         // emulate request saved earlier by other user
         OrderReturnRequest existing = new OrderReturnRequest();
@@ -948,9 +948,9 @@ class OrderReturnRequestServiceTest {
         assertThat(actions).contains(
                 ReturnRequestAction.SET_MODE_RETURN,
                 ReturnRequestAction.REGISTER_EXCHANGE_PARCEL,
-                ReturnRequestAction.MARK_EXCHANGE_SENT,
                 ReturnRequestAction.UPDATE_REVERSE_TRACK
         );
+        assertThat(actions).doesNotContain(ReturnRequestAction.MARK_EXCHANGE_SENT);
         assertThat(actions).doesNotContain(ReturnRequestAction.CLOSE_REQUEST);
     }
 
@@ -966,8 +966,6 @@ class OrderReturnRequestServiceTest {
         replacement.setStatus(GlobalStatus.IN_TRANSIT);
 
         when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.of(replacement));
-        when(orderExchangeService.getLatestExchangeParcelOrThrowIfTracked(request))
-                .thenThrow(new IllegalStateException("Отмена недоступна"));
 
         EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
 
@@ -976,7 +974,7 @@ class OrderReturnRequestServiceTest {
     }
 
     @Test
-    void resolveAvailableActions_IncludesReturnStageMarksWhenTrackProvided() {
+    void resolveAvailableActions_ProvidesSequentialReturnMarks() {
         OrderReturnRequest request = new OrderReturnRequest();
         request.setStatus(OrderReturnRequestStatus.REGISTERED);
         request.setStage(ReturnRequestStage.NEW);
@@ -985,11 +983,25 @@ class OrderReturnRequestServiceTest {
 
         EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
 
-        assertThat(actions).contains(
-                ReturnRequestAction.MARK_OUTBOUND_SENT,
-                ReturnRequestAction.MARK_INBOUND_ARRIVED,
-                ReturnRequestAction.MARK_INBOUND_PICKED_UP
-        );
+        assertThat(actions)
+                .contains(ReturnRequestAction.MARK_OUTBOUND_SENT)
+                .doesNotContain(ReturnRequestAction.MARK_INBOUND_ARRIVED, ReturnRequestAction.MARK_INBOUND_PICKED_UP);
+
+        request.setStage(ReturnRequestStage.OUTBOUND_SENT);
+
+        actions = service.resolveAvailableActions(request);
+
+        assertThat(actions)
+                .contains(ReturnRequestAction.MARK_INBOUND_ARRIVED)
+                .doesNotContain(ReturnRequestAction.MARK_OUTBOUND_SENT, ReturnRequestAction.MARK_INBOUND_PICKED_UP);
+
+        request.setStage(ReturnRequestStage.INBOUND_ARRIVED);
+
+        actions = service.resolveAvailableActions(request);
+
+        assertThat(actions)
+                .contains(ReturnRequestAction.MARK_INBOUND_PICKED_UP)
+                .doesNotContain(ReturnRequestAction.MARK_OUTBOUND_SENT, ReturnRequestAction.MARK_INBOUND_ARRIVED);
     }
 
     @Test
@@ -1011,7 +1023,6 @@ class OrderReturnRequestServiceTest {
         request.setStage(ReturnRequestStage.EXCHANGE_REGISTERED);
         request.setMode(ReturnRequestMode.EXCHANGE);
 
-        when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.empty());
 
         EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
 

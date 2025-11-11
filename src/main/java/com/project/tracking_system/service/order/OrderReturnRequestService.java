@@ -330,7 +330,7 @@ public class OrderReturnRequestService {
         request.setResponsibleManager(user);
         request.setExchangeTrackNumber(Optional.ofNullable(replacement).map(TrackParcel::getNumber).orElse(null));
         request.setExchangeTrackAssignedAt(assignedMoment);
-        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.EXCHANGE_SENT, true, user, assignedMoment);
+        returnRequestWorkflow.transitionSequentially(request, ReturnRequestStage.EXCHANGE_SENT, true, user, assignedMoment);
         OrderReturnRequest saved = returnRequestRepository.save(request);
         evictTrackDetailsCache(saved);
         log.info("Создана обменная посылка {} для заявки {}",
@@ -356,7 +356,7 @@ public class OrderReturnRequestService {
         request.setClosedAt(closeMoment);
         request.setMode(ReturnRequestMode.RETURN);
         request.setResponsibleManager(user);
-        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.INBOUND_PICKED_UP, true, user, closeMoment);
+        returnRequestWorkflow.transitionSequentially(request, ReturnRequestStage.INBOUND_PICKED_UP, true, user, closeMoment);
 
         OrderReturnRequest saved = returnRequestRepository.save(request);
         evictTrackDetailsCache(saved);
@@ -412,7 +412,7 @@ public class OrderReturnRequestService {
         }
         ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
         request.setResponsibleManager(user);
-        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.OUTBOUND_SENT, true, user, normalizedMoment);
+        returnRequestWorkflow.transitionSequentially(request, ReturnRequestStage.OUTBOUND_SENT, true, user, normalizedMoment);
         OrderReturnRequest saved = returnRequestRepository.save(request);
         evictTrackDetailsCache(saved);
         log.info("Стадия OUTBOUND_SENT зафиксирована вручную для заявки {}", saved.getId());
@@ -433,7 +433,7 @@ public class OrderReturnRequestService {
         }
         ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
         request.setResponsibleManager(user);
-        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.INBOUND_ARRIVED, true, user, normalizedMoment);
+        returnRequestWorkflow.transitionSequentially(request, ReturnRequestStage.INBOUND_ARRIVED, true, user, normalizedMoment);
         OrderReturnRequest saved = returnRequestRepository.save(request);
         evictTrackDetailsCache(saved);
         log.info("Стадия INBOUND_ARRIVED зафиксирована вручную для заявки {}", saved.getId());
@@ -479,7 +479,7 @@ public class OrderReturnRequestService {
         String normalizedTrack = normalizeExchangeTrackNumber(exchangeTrack);
         ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
         assignExchangeTrack(request, normalizedTrack, normalizedMoment, user);
-        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.EXCHANGE_REGISTERED, true, user, normalizedMoment);
+        returnRequestWorkflow.transitionSequentially(request, ReturnRequestStage.EXCHANGE_REGISTERED, true, user, normalizedMoment);
         OrderReturnRequest saved = returnRequestRepository.save(request);
         evictTrackDetailsCache(saved);
         log.info("Обменная посылка зарегистрирована вручную для заявки {}", saved.getId());
@@ -505,7 +505,7 @@ public class OrderReturnRequestService {
         String normalizedTrack = normalizeExchangeTrackNumber(exchangeTrack);
         ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
         assignExchangeTrack(request, normalizedTrack, normalizedMoment, user);
-        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.EXCHANGE_SENT, true, user, normalizedMoment);
+        returnRequestWorkflow.transitionSequentially(request, ReturnRequestStage.EXCHANGE_SENT, true, user, normalizedMoment);
         OrderReturnRequest saved = returnRequestRepository.save(request);
         evictTrackDetailsCache(saved);
         log.info("Стадия EXCHANGE_SENT зафиксирована вручную для заявки {}", saved.getId());
@@ -526,7 +526,7 @@ public class OrderReturnRequestService {
         }
         ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
         request.setResponsibleManager(user);
-        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.EXCHANGE_DELIVERED, true, user, normalizedMoment);
+        returnRequestWorkflow.transitionSequentially(request, ReturnRequestStage.EXCHANGE_DELIVERED, true, user, normalizedMoment);
         OrderReturnRequest saved = returnRequestRepository.save(request);
         evictTrackDetailsCache(saved);
         log.info("Стадия EXCHANGE_DELIVERED зафиксирована вручную для заявки {}", saved.getId());
@@ -608,7 +608,7 @@ public class OrderReturnRequestService {
         }
         ReturnRequestStage normalizedStage = returnRequestWorkflow
                 .adjustStageForMode(ReturnRequestMode.EXCHANGE, resolveStage(request));
-        if (!returnRequestWorkflow.canTransition(ReturnRequestMode.EXCHANGE, normalizedStage,
+        if (!returnRequestWorkflow.canReachStage(ReturnRequestMode.EXCHANGE, normalizedStage,
                 ReturnRequestStage.EXCHANGE_REGISTERED)) {
             return false;
         }
@@ -869,7 +869,7 @@ public class OrderReturnRequestService {
         request.setClosedAt(null);
         request.setMode(ReturnRequestMode.EXCHANGE);
         request.setResponsibleManager(actor);
-        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.EXCHANGE_REGISTERED, true, actor, decisionMoment);
+        returnRequestWorkflow.transitionSequentially(request, ReturnRequestStage.EXCHANGE_REGISTERED, true, actor, decisionMoment);
         return request;
     }
 
@@ -895,7 +895,7 @@ public class OrderReturnRequestService {
                     ReturnRequestMode.RETURN,
                     Optional.ofNullable(request.getStage()).orElse(ReturnRequestStage.NEW)
             );
-            returnRequestWorkflow.transitionToStage(request, normalized, true, actor, moment);
+            returnRequestWorkflow.transitionSequentially(request, normalized, true, actor, moment);
             return request;
         }
         if (status != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
@@ -921,11 +921,14 @@ public class OrderReturnRequestService {
         request.setResponsibleManager(actor);
         request.setExchangeTrackNumber(null);
         request.setExchangeTrackAssignedAt(null);
-        ReturnRequestStage normalized = returnRequestWorkflow.adjustStageForMode(
+        ReturnRequestStage targetStage = returnRequestWorkflow.adjustStageForMode(
                 ReturnRequestMode.RETURN,
                 Optional.ofNullable(request.getStage()).orElse(ReturnRequestStage.NEW)
         );
-        returnRequestWorkflow.transitionToStage(request, normalized, true, actor, reopenMoment);
+        if (status == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            targetStage = ReturnRequestStage.INBOUND_PICKED_UP;
+        }
+        returnRequestWorkflow.transitionSequentially(request, targetStage, true, actor, reopenMoment);
         orderExchangeService.cancelExchangeParcel(request, replacement);
         episodeLifecycleService.decrementExchangeCount(request.getEpisode());
         return request;
@@ -1066,15 +1069,13 @@ public class OrderReturnRequestService {
         if (resolveMode(request) != ReturnRequestMode.EXCHANGE) {
             return false;
         }
-        if (!hasExchangeTrack(request)) {
-            return false;
-        }
         if (!canTransitionToStage(request, ReturnRequestStage.EXCHANGE_SENT)) {
             return false;
         }
-        return orderExchangeService.findLatestExchangeParcel(request)
-                .map(this::isParcelDispatched)
-                .orElse(true);
+        if (hasExchangeTrack(request)) {
+            return true;
+        }
+        return orderExchangeService.findLatestExchangeParcel(request).isPresent();
     }
 
     /**
@@ -1087,15 +1088,15 @@ public class OrderReturnRequestService {
         if (resolveMode(request) != ReturnRequestMode.EXCHANGE) {
             return false;
         }
-        if (!hasExchangeTrack(request)) {
-            return false;
-        }
         if (!canTransitionToStage(request, ReturnRequestStage.EXCHANGE_DELIVERED)) {
             return false;
         }
+        if (hasExchangeTrack(request)) {
+            return true;
+        }
         return orderExchangeService.findLatestExchangeParcel(request)
                 .map(this::isParcelDelivered)
-                .orElse(true);
+                .orElse(false);
     }
 
     /**
@@ -1289,7 +1290,7 @@ public class OrderReturnRequestService {
         request.setReturnReceiptConfirmed(true);
         request.setReturnReceiptConfirmedAt(normalizedMoment);
         request.setResponsibleManager(actor);
-        returnRequestWorkflow.transitionToStage(request, ReturnRequestStage.INBOUND_PICKED_UP, true, actor, normalizedMoment);
+        returnRequestWorkflow.transitionSequentially(request, ReturnRequestStage.INBOUND_PICKED_UP, true, actor, normalizedMoment);
     }
 
     /**

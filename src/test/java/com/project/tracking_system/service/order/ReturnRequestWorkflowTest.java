@@ -43,16 +43,18 @@ class ReturnRequestWorkflowTest {
     }
 
     @Test
-    void transitionToStage_AllowsDirectExchangeLaunchFromNewStage() {
+    void transitionToStage_RejectsDirectExchangeLaunchFromNewStage() {
         OrderReturnRequest request = new OrderReturnRequest();
         request.setMode(ReturnRequestMode.EXCHANGE);
         request.setStage(ReturnRequestStage.NEW);
-        ZonedDateTime moment = ZonedDateTime.now(ZoneOffset.UTC);
 
-        workflow.transitionToStage(request, ReturnRequestStage.EXCHANGE_REGISTERED, true, null, moment);
-
-        assertThat(request.getStage()).isEqualTo(ReturnRequestStage.EXCHANGE_REGISTERED);
-        assertThat(request.getHistoryEntries()).hasSize(1);
+        assertThatThrownBy(() -> workflow.transitionToStage(
+                request,
+                ReturnRequestStage.EXCHANGE_REGISTERED,
+                true,
+                null,
+                ZonedDateTime.now(ZoneOffset.UTC)
+        )).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
@@ -92,9 +94,12 @@ class ReturnRequestWorkflowTest {
         EnumSet<ReturnRequestAction> actions = workflow.resolveBaseActions(context);
 
         assertThat(actions)
-                .contains(ReturnRequestAction.SET_MODE_EXCHANGE,
+                .containsExactlyInAnyOrder(
+                        ReturnRequestAction.SET_MODE_EXCHANGE,
                         ReturnRequestAction.UPDATE_REVERSE_TRACK,
-                        ReturnRequestAction.CLOSE_REQUEST);
+                        ReturnRequestAction.CLOSE_REQUEST,
+                        ReturnRequestAction.MARK_OUTBOUND_SENT
+                );
     }
 
     @Test
@@ -117,10 +122,26 @@ class ReturnRequestWorkflowTest {
         EnumSet<ReturnRequestAction> actions = workflow.resolveBaseActions(context);
 
         assertThat(actions)
-                .contains(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL,
-                        ReturnRequestAction.MARK_EXCHANGE_SENT,
+                .containsExactlyInAnyOrder(
+                        ReturnRequestAction.REGISTER_EXCHANGE_PARCEL,
+                ReturnRequestAction.MARK_EXCHANGE_SENT,
                         ReturnRequestAction.SET_MODE_RETURN,
-                        ReturnRequestAction.CLOSE_REQUEST,
-                        ReturnRequestAction.UPDATE_REVERSE_TRACK);
+                        ReturnRequestAction.UPDATE_REVERSE_TRACK
+                );
+    }
+
+    @Test
+    void transitionSequentially_AdvancesReturnThroughAllStages() {
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setMode(ReturnRequestMode.RETURN);
+        request.setStage(ReturnRequestStage.NEW);
+        User manager = new User();
+        manager.setId(77L);
+        ZonedDateTime moment = ZonedDateTime.now(ZoneOffset.UTC);
+
+        workflow.transitionSequentially(request, ReturnRequestStage.INBOUND_PICKED_UP, true, manager, moment);
+
+        assertThat(request.getStage()).isEqualTo(ReturnRequestStage.INBOUND_PICKED_UP);
+        assertThat(request.getHistoryEntries()).hasSizeGreaterThanOrEqualTo(3);
     }
 }
