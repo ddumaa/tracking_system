@@ -180,7 +180,8 @@ class ReturnsControllerTest {
         mockMvc.perform(get("/api/v1/returns/51")
                         .with(authentication(auth)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id", equalTo("00000000-0000-0000-0000-000000000051")));
+                .andExpect(jsonPath("$.id", equalTo("00000000-0000-0000-0000-000000000051")))
+                .andExpect(jsonPath("$.actions").doesNotExist());
     }
 
     @Test
@@ -203,10 +204,16 @@ class ReturnsControllerTest {
                 .andExpect(jsonPath("$.actions[1]", equalTo(ReturnRequestAction.CLOSE_REQUEST.getCode())));
     }
 
+    /**
+     * Создаёт объект аутентификации Spring Security для тестового пользователя.
+     */
     private UsernamePasswordAuthenticationToken buildAuthentication(User user) {
         return new UsernamePasswordAuthenticationToken(user, user.getPassword(), user.getAuthorities());
     }
 
+    /**
+     * Формирует DTO заявки с актуальным набором полей публичного API.
+     */
     private RequestDto buildRequestDto(String uuid,
                                        String mode,
                                        String stage,
@@ -233,6 +240,9 @@ class ReturnsControllerTest {
         );
     }
 
+    /**
+     * Создаёт минимально необходимый профиль пользователя для имитации авторизации.
+     */
     private User buildUser() {
         User user = new User();
         user.setId(1L);

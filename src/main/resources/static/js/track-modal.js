@@ -252,6 +252,23 @@
     }
 
     /**
+     * Извлекает обратный трек из DTO заявки, поддерживая новый и устаревший контракты.
+     * @param {Object|null} source объект заявки
+     * @returns {string|null} нормализованное значение трека или {@code null}
+     */
+    function extractReverseTrack(source) {
+        if (!source || typeof source !== 'object') {
+            return null;
+        }
+        const value = source.reverseTrack ?? source.reverseTrackNumber ?? null;
+        if (typeof value !== 'string') {
+            return value ?? null;
+        }
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : null;
+    }
+
+    /**
      * Создаёт радио-контрол для выбора типа заявки.
      * Метод изолирует генерацию элемента, чтобы облегчить поддержку (SRP/OCP).
      * @param {string} name имя группы радио-кнопок
@@ -743,8 +760,9 @@
                 : (receiptDate ? `Не подтверждено (обновлено ${receiptDate})` : 'Не подтверждено');
             appendDefinitionItem(list, 'Подтверждение получения', receiptValue);
 
-            if (this.request?.reverseTrackNumber) {
-                appendDefinitionItem(list, 'Обратный трек', this.request.reverseTrackNumber);
+            const reverseTrack = extractReverseTrack(this.request);
+            if (reverseTrack) {
+                appendDefinitionItem(list, 'Обратный трек', reverseTrack);
             }
 
             const showExchangeFields = this._mode === RETURN_REQUEST_MODES.EXCHANGE;
@@ -831,7 +849,7 @@
             trackInput.id = trackId;
             trackInput.name = 'reverseTrackNumber';
             trackInput.maxLength = 64;
-            trackInput.value = this.request?.reverseTrackNumber || '';
+            trackInput.value = extractReverseTrack(this.request) || '';
             trackGroup.append(trackLabel, trackInput);
 
             const commentGroup = document.createElement('div');
@@ -1591,8 +1609,10 @@
         if (stageLabel) {
             summary.statusLabel = stageLabel;
         }
-        if (request.reverseTrackNumber !== undefined) {
-            summary.reverseTrackNumber = request.reverseTrackNumber;
+        if (request.reverseTrack !== undefined || request.reverseTrackNumber !== undefined) {
+            const reverseTrack = extractReverseTrack(request);
+            summary.reverseTrack = reverseTrack;
+            summary.reverseTrackNumber = reverseTrack;
         }
         if (request.comment !== undefined) {
             summary.comment = request.comment;
@@ -1641,8 +1661,10 @@
         if (stageLabel) {
             summary.statusLabel = stageLabel;
         }
-        if (request.reverseTrackNumber !== undefined) {
-            summary.reverseTrackNumber = request.reverseTrackNumber;
+        if (request.reverseTrack !== undefined || request.reverseTrackNumber !== undefined) {
+            const reverseTrack = extractReverseTrack(request);
+            summary.reverseTrack = reverseTrack;
+            summary.reverseTrackNumber = reverseTrack;
         }
         if (request.comment !== undefined) {
             summary.comment = request.comment;

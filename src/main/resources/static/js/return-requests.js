@@ -92,6 +92,23 @@
     }
 
     /**
+     * Возвращает нормализованный обратный трек, поддерживая новый и legacy-формат ответа.
+     * @param {Object} summary агрегированная информация о заявке
+     * @returns {string|null} нормализованное значение трека или {@code null}
+     */
+    function resolveReverseTrack(summary) {
+        if (!summary || typeof summary !== 'object') {
+            return null;
+        }
+        const value = summary.reverseTrack ?? summary.reverseTrackNumber;
+        if (typeof value !== 'string') {
+            return value ?? null;
+        }
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : null;
+    }
+
+    /**
      * Извлекает пользовательскую подпись для действия из DTO доступных операций.
      * Метод применяет принцип OCP, позволяя расширять список действий без изменения
      * вызывающего кода.
@@ -219,9 +236,10 @@
         }
 
         const reverseSpan = row.querySelector('[data-return-reverse]');
-        if (reverseSpan && 'reverseTrackNumber' in summary) {
-            const reverseText = summary.reverseTrackNumber
-                ? `Обратный трек: ${summary.reverseTrackNumber}`
+        if (reverseSpan && ('reverseTrack' in summary || 'reverseTrackNumber' in summary)) {
+            const reverseValue = resolveReverseTrack(summary);
+            const reverseText = reverseValue
+                ? `Обратный трек: ${reverseValue}`
                 : 'Обратный трек: —';
             reverseSpan.textContent = reverseText;
         }

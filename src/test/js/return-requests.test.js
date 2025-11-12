@@ -42,7 +42,7 @@ describe('return-requests table updates', () => {
         global.window.returnRequests.updateRow({
             parcelId: 44,
             requestId: 7,
-            reverseTrackNumber: 'RR000111222BY'
+            reverseTrack: 'RR000111222BY'
         });
 
         const reverseSpan = row.querySelector('[data-return-reverse]');
