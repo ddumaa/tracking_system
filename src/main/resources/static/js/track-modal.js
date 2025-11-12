@@ -252,7 +252,7 @@
     }
 
     /**
-     * Извлекает обратный трек из DTO заявки, поддерживая новый и устаревший контракты.
+     * Извлекает обратный трек из актуального DTO заявки.
      * @param {Object|null} source объект заявки
      * @returns {string|null} нормализованное значение трека или {@code null}
      */
@@ -260,7 +260,7 @@
         if (!source || typeof source !== 'object') {
             return null;
         }
-        const value = source.reverseTrack ?? source.reverseTrackNumber ?? null;
+        const value = source.reverseTrack ?? null;
         if (typeof value !== 'string') {
             return value ?? null;
         }
@@ -1609,10 +1609,8 @@
         if (stageLabel) {
             summary.statusLabel = stageLabel;
         }
-        if (request.reverseTrack !== undefined || request.reverseTrackNumber !== undefined) {
-            const reverseTrack = extractReverseTrack(request);
-            summary.reverseTrack = reverseTrack;
-            summary.reverseTrackNumber = reverseTrack;
+        if (request.reverseTrack !== undefined) {
+            summary.reverseTrack = extractReverseTrack(request);
         }
         if (request.comment !== undefined) {
             summary.comment = request.comment;
@@ -1622,12 +1620,6 @@
         }
         if (request.returnReceiptConfirmedAt !== undefined) {
             summary.returnReceiptConfirmedAt = request.returnReceiptConfirmedAt;
-        }
-        if (request.canConfirmReceipt !== undefined) {
-            summary.canConfirmReceipt = request.canConfirmReceipt;
-        }
-        if (request.canUpdateReverseTrack !== undefined) {
-            summary.canUpdateReverseTrack = request.canUpdateReverseTrack;
         }
         const actionCodes = extractActionCodes(request.availableActions);
         if (actionCodes.length > 0) {
@@ -1661,10 +1653,8 @@
         if (stageLabel) {
             summary.statusLabel = stageLabel;
         }
-        if (request.reverseTrack !== undefined || request.reverseTrackNumber !== undefined) {
-            const reverseTrack = extractReverseTrack(request);
-            summary.reverseTrack = reverseTrack;
-            summary.reverseTrackNumber = reverseTrack;
+        if (request.reverseTrack !== undefined) {
+            summary.reverseTrack = extractReverseTrack(request);
         }
         if (request.comment !== undefined) {
             summary.comment = request.comment;
@@ -1674,12 +1664,6 @@
         }
         if (request.returnReceiptConfirmedAt !== undefined) {
             summary.returnReceiptConfirmedAt = request.returnReceiptConfirmedAt;
-        }
-        if (request.canConfirmReceipt !== undefined) {
-            summary.canConfirmReceipt = request.canConfirmReceipt;
-        }
-        if (request.canUpdateReverseTrack !== undefined) {
-            summary.canUpdateReverseTrack = request.canUpdateReverseTrack;
         }
         const actionCodes = extractActionCodes(request.availableActions);
         if (actionCodes.length > 0) {

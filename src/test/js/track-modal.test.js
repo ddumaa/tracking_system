@@ -74,6 +74,19 @@ describe('track-modal render', () => {
         updateReverseTrack: ['updateReverseTrack', 'update_reverse_track', 'UPDATE_REVERSE_TRACK']
     });
 
+    const ACTION_KEY_TO_CODE = Object.freeze({
+        setModeExchange: 'SET_MODE_EXCHANGE',
+        setModeReturn: 'SET_MODE_RETURN',
+        registerExchangeParcel: 'REGISTER_EXCHANGE_PARCEL',
+        markOutboundSent: 'MARK_OUTBOUND_SENT',
+        markInboundArrived: 'MARK_INBOUND_ARRIVED',
+        markInboundPickedUp: 'MARK_INBOUND_PICKED_UP',
+        markExchangeSent: 'MARK_EXCHANGE_SENT',
+        markExchangeDelivered: 'MARK_EXCHANGE_DELIVERED',
+        closeRequest: 'CLOSE_REQUEST',
+        updateReverseTrack: 'UPDATE_REVERSE_TRACK'
+    });
+
     /**
      * Преобразует карту кодов в набор строк верхнего регистра.
      * @param {Array<string>} codes исходные значения
@@ -222,6 +235,15 @@ describe('track-modal render', () => {
             actions: normalizedCodes,
             actionCodes: normalizedCodes
         };
+        Object.entries(ACTION_KEY_TO_CODE).forEach(([actionKey, code]) => {
+            if (availableActions[actionKey]) {
+                codesSet.add(String(code).toUpperCase());
+            }
+        });
+        const codesArray = Array.from(codesSet);
+        availableActions.actions = codesArray;
+        availableActions.actionCodes = codesArray;
+
         Object.keys(ACTION_REASON_KEYS).forEach((actionKey) => {
             const reason = readReason(actionKey);
             if (reason) {
@@ -239,11 +261,10 @@ describe('track-modal render', () => {
             returnReceiptConfirmedAt: request.returnReceiptConfirmedAt || null,
             ...request.timestamps
         };
-        const reverseTrack = request.reverseTrack ?? request.reverseTrackNumber ?? null;
+        const reverseTrack = request.reverseTrack ?? null;
         return {
             ...request,
             reverseTrack,
-            reverseTrackNumber: reverseTrack,
             state,
             availableActions,
             timestamps

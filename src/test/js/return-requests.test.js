@@ -76,7 +76,7 @@ describe('return-requests table updates', () => {
             requestId: 7,
             returnReceiptConfirmed: true,
             returnReceiptConfirmedAt: '2024-05-01T10:00:00Z',
-            canConfirmReceipt: false
+            actionCodes: ['MARK_INBOUND_PICKED_UP']
         });
 
         expect(confirmation?.textContent).toContain('2024-05-01T10:00:00Z');
