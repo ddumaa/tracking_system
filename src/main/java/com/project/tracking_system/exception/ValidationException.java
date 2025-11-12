@@ -17,4 +17,14 @@ public class ValidationException extends RuntimeException {
     public ValidationException(String message) {
         super(message);
     }
+
+    /**
+     * Создаёт исключение с сообщением и исходной причиной ошибки.
+     *
+     * @param message описание нарушения правил валидации
+     * @param cause   исходное исключение, спровоцировавшее нарушение
+     */
+    public ValidationException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }
