@@ -91,7 +91,7 @@ public class ReturnRequestCommandService {
         Long parcelId = resolveParcelId(context);
 
         String normalizedKey = command.idempotencyKey().trim();
-        ReturnRequestCommandPayload payload = payloadFactory.create(commandType, command.payload());
+        ReturnRequestCommandPayload payload = createPayload(commandType, command);
         String payloadHash = computePayloadHash(commandType, command, payload);
 
         ReturnCommandLog logEntry = reserveLogEntry(requestId, normalizedKey, commandType, payloadHash);
@@ -148,6 +148,18 @@ public class ReturnRequestCommandService {
         payload.updateDigest(digest, objectMapper);
         byte[] hash = digest.digest();
         return HexFormat.of().formatHex(hash);
+    }
+
+    /**
+     * Создаёт и валидирует полезную нагрузку команды, переводя технические ошибки валидации
+     * в доменное исключение {@link ValidationException} для единообразной обработки REST-слоем.
+     */
+    private ReturnRequestCommandPayload createPayload(ReturnRequestCommandType commandType, CommandDto command) {
+        try {
+            return payloadFactory.create(commandType, command.payload());
+        } catch (IllegalArgumentException ex) {
+            throw new ValidationException(ex.getMessage(), ex);
+        }
     }
 
     /**

@@ -12,6 +12,7 @@ import com.project.tracking_system.entity.ReturnCommandLog;
 import com.project.tracking_system.entity.ReturnRequestMode;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.exception.ValidationException;
 import com.project.tracking_system.repository.ReturnCommandLogRepository;
 import com.project.tracking_system.service.order.payload.ReturnRequestCommandPayload;
 import com.project.tracking_system.service.order.payload.ReturnRequestCommandPayloadFactory;
@@ -201,7 +202,7 @@ class ReturnRequestCommandServiceTest {
                 command,
                 user,
                 ZoneOffset.UTC))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("требует объект payload");
 
         verify(orderReturnRequestService, never()).updateReverseTrack(any(), any(), any(), any(), any());
@@ -217,7 +218,7 @@ class ReturnRequestCommandServiceTest {
                 command,
                 user,
                 ZoneOffset.UTC))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("требует объект payload");
 
         verify(orderReturnRequestService, never()).markExchangeSent(any(), any(), any(), any(), any());
