@@ -1,7 +1,9 @@
 package com.project.tracking_system.service.order;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.project.tracking_system.controller.ReturnRequestCommandType;
 import com.project.tracking_system.dto.CommandDto;
 import com.project.tracking_system.dto.RequestDto;
@@ -62,7 +64,7 @@ class ReturnRequestCommandServiceTest {
     @BeforeEach
     void setUp() {
         payloadFactory = new ReturnRequestCommandPayloadFactory();
-        objectMapper = new ObjectMapper();
+        objectMapper = buildObjectMapper();
         commandService = new ReturnRequestCommandService(
                 orderReturnRequestService,
                 returnRequestMapper,
@@ -77,7 +79,7 @@ class ReturnRequestCommandServiceTest {
         User user = buildUser();
         OrderReturnRequest request = buildRequest(21L, 9L);
         OrderReturnRequest updated = buildRequest(21L, 9L);
-        RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000021", 21L, "EXCHANGE");
+        RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000021", "EXCHANGE");
         CommandDto command = new CommandDto("dup-1", ReturnRequestCommandType.SET_MODE_EXCHANGE.getCode(), null);
 
         when(orderReturnRequestService.getOwnedRequest(21L, user)).thenReturn(request);
@@ -156,10 +158,10 @@ class ReturnRequestCommandServiceTest {
         OrderReturnRequest request = buildRequest(22L, 10L);
         CommandDto command = new CommandDto("dup-3", ReturnRequestCommandType.SET_MODE_EXCHANGE.getCode(), null);
 
-        RequestDto storedDto = buildRequestDto("00000000-0000-0000-0000-000000000022", 22L, "EXCHANGE");
+        RequestDto storedDto = buildRequestDto("00000000-0000-0000-0000-000000000022", "EXCHANGE");
         String snapshot;
         try {
-            snapshot = new ObjectMapper().writeValueAsString(storedDto);
+            snapshot = buildObjectMapper().writeValueAsString(storedDto);
         } catch (Exception ex) {
             throw new RuntimeException(ex);
         }
@@ -183,7 +185,7 @@ class ReturnRequestCommandServiceTest {
                 user,
                 ZoneOffset.UTC);
 
-        assertThat(result.legacyId()).isEqualTo(22L);
+        assertThat(result.id()).isEqualTo("00000000-0000-0000-0000-000000000022");
         verify(orderReturnRequestService, never()).setModeExchange(any(), any(), any(), any());
         verify(orderReturnRequestService, never()).setModeReturn(any(), any(), any(), any());
         verify(returnRequestMapper, never()).toDto(any(), any());
@@ -232,7 +234,7 @@ class ReturnRequestCommandServiceTest {
         User user = buildUser();
         OrderReturnRequest request = buildRequest(31L, 15L);
         OrderReturnRequest updated = buildRequest(31L, 15L);
-        RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000031", 31L, "RETURN");
+        RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000031", "RETURN");
 
         JsonNodeFactory factory = JsonNodeFactory.instance;
         CommandDto command = new CommandDto(
@@ -273,7 +275,7 @@ class ReturnRequestCommandServiceTest {
         User user = buildUser();
         OrderReturnRequest request = buildRequest(32L, 16L);
         OrderReturnRequest updated = buildRequest(32L, 16L);
-        RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000032", 32L, "EXCHANGE");
+        RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000032", "EXCHANGE");
 
         JsonNodeFactory factory = JsonNodeFactory.instance;
         CommandDto command = new CommandDto(
@@ -330,6 +332,16 @@ class ReturnRequestCommandServiceTest {
         return value != null ? value.getBytes(StandardCharsets.UTF_8) : new byte[0];
     }
 
+    /**
+     * Создаёт ObjectMapper с поддержкой JavaTime API для сериализации фикстур.
+     */
+    private ObjectMapper buildObjectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        return mapper;
+    }
+
     private User buildUser() {
         User user = new User();
         user.setId(5L);
@@ -345,11 +357,10 @@ class ReturnRequestCommandServiceTest {
         return request;
     }
 
-    private RequestDto buildRequestDto(String uuid, Long legacyId, String mode) {
+    private RequestDto buildRequestDto(String uuid, String mode) {
         ZonedDateTime timestamp = ZonedDateTime.parse("2024-01-01T10:15:30Z");
         return new RequestDto(
                 uuid,
-                legacyId,
                 mode,
                 "NEW",
                 10L,
@@ -363,10 +374,6 @@ class ReturnRequestCommandServiceTest {
                 "BY123",
                 "EX123",
                 false,
-                false,
-                false,
-                true,
-                timestamp,
                 timestamp,
                 timestamp
         );

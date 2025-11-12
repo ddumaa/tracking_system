@@ -68,7 +68,6 @@ public class ReturnRequestMapper {
 
         return new RequestDto(
                 publicId,
-                request.getId(),
                 mode.name(),
                 stage.getCode(),
                 storeId,
@@ -81,11 +80,7 @@ public class ReturnRequestMapper {
                 request.getComment(),
                 request.getReverseTrackNumber(),
                 request.getExchangeTrackNumber(),
-                request.isManualTrackOverride(),
-                request.isManualStageOverride(),
                 manualInboundPick,
-                request.isReturnReceiptConfirmed(),
-                request.getExchangeTrackAssignedAt(),
                 createdAt,
                 updatedAt
         );

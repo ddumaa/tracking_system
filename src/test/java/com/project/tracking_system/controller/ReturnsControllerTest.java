@@ -7,7 +7,9 @@ import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.ReturnRequestAction;
 import com.project.tracking_system.controller.ReturnRequestCommandType;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.service.admin.AppInfoService;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
+import com.project.tracking_system.service.ratelimit.Bucket4jRateLimiter;
 import com.project.tracking_system.service.order.ReturnRequestCommandService;
 import com.project.tracking_system.service.order.ReturnRequestMapper;
 import org.junit.jupiter.api.Test;
@@ -58,6 +60,12 @@ class ReturnsControllerTest {
     @MockBean
     private ReturnRequestCommandService returnRequestCommandService;
 
+    @MockBean
+    private AppInfoService appInfoService;
+
+    @MockBean
+    private Bucket4jRateLimiter bucket4jRateLimiter;
+
     @Test
     void registerReturn_returnsMappedDto() throws Exception {
         User principal = buildUser();
@@ -75,7 +83,7 @@ class ReturnsControllerTest {
                 eq(false)
         )).thenReturn(request);
 
-        RequestDto responseDto = buildRequestDto("00000000-0000-0000-0000-000000000015", 15L, "RETURN", "NEW", 17L, 7L);
+        RequestDto responseDto = buildRequestDto("00000000-0000-0000-0000-000000000015", "RETURN", "NEW", 17L, 7L);
         when(returnRequestMapper.toDto(eq(request), any())).thenReturn(responseDto);
 
         mockMvc.perform(post("/api/v1/returns")
@@ -92,8 +100,8 @@ class ReturnsControllerTest {
                                 "}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id", equalTo("00000000-0000-0000-0000-000000000015")))
-                .andExpect(jsonPath("$.legacyId", equalTo(15)))
-                .andExpect(jsonPath("$.reverseTrackNumber", equalTo("BY123")))
+                .andExpect(jsonPath("$.stage", equalTo("NEW")))
+                .andExpect(jsonPath("$.reverseTrack", equalTo("BY123")))
                 .andExpect(jsonPath("$.mode", equalTo("RETURN")));
 
         verify(orderReturnRequestService).registerReturn(
@@ -113,7 +121,7 @@ class ReturnsControllerTest {
         User principal = buildUser();
         UsernamePasswordAuthenticationToken auth = buildAuthentication(principal);
 
-        RequestDto responseDto = buildRequestDto("00000000-0000-0000-0000-000000000021", 21L, "EXCHANGE", "EXCHANGE_REGISTERED", 17L, 11L);
+        RequestDto responseDto = buildRequestDto("00000000-0000-0000-0000-000000000021", "EXCHANGE", "EXCHANGE_REGISTERED", 17L, 11L);
         when(returnRequestCommandService.executeCommand(eq(21L), any(), any(), eq(principal), any()))
                 .thenReturn(responseDto);
 
@@ -123,7 +131,6 @@ class ReturnsControllerTest {
                         .content("{\"idempotencyKey\":\"cmd-1\",\"action\":\"SET_MODE_EXCHANGE\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id", equalTo("00000000-0000-0000-0000-000000000021")))
-                .andExpect(jsonPath("$.legacyId", equalTo(21)))
                 .andExpect(jsonPath("$.mode", equalTo("EXCHANGE")));
         ArgumentCaptor<ReturnRequestCommandType> typeCaptor = ArgumentCaptor.forClass(ReturnRequestCommandType.class);
         ArgumentCaptor<CommandDto> commandCaptor = ArgumentCaptor.forClass(CommandDto.class);
@@ -140,7 +147,7 @@ class ReturnsControllerTest {
         User principal = buildUser();
         UsernamePasswordAuthenticationToken auth = buildAuthentication(principal);
 
-        RequestDto responseDto = buildRequestDto("00000000-0000-0000-0000-000000000030", 30L, "RETURN", "INBOUND_PICKED_UP", 17L, 30L);
+        RequestDto responseDto = buildRequestDto("00000000-0000-0000-0000-000000000030", "RETURN", "INBOUND_PICKED_UP", 17L, 30L);
         when(returnRequestCommandService.executeCommand(eq(30L), any(), any(), eq(principal), any()))
                 .thenReturn(responseDto);
 
@@ -168,12 +175,12 @@ class ReturnsControllerTest {
         OrderReturnRequest request = new OrderReturnRequest();
         when(orderReturnRequestService.getOwnedRequest(51L, principal)).thenReturn(request);
         when(returnRequestMapper.toDto(eq(request), any()))
-                .thenReturn(buildRequestDto("00000000-0000-0000-0000-000000000051", 51L, "RETURN", "NEW", 17L, 51L));
+                .thenReturn(buildRequestDto("00000000-0000-0000-0000-000000000051", "RETURN", "NEW", 17L, 51L));
 
         mockMvc.perform(get("/api/v1/returns/51")
                         .with(authentication(auth)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.legacyId", equalTo(51)));
+                .andExpect(jsonPath("$.id", equalTo("00000000-0000-0000-0000-000000000051")));
     }
 
     @Test
@@ -201,7 +208,6 @@ class ReturnsControllerTest {
     }
 
     private RequestDto buildRequestDto(String uuid,
-                                       Long legacyId,
                                        String mode,
                                        String stage,
                                        Long storeId,
@@ -209,7 +215,6 @@ class ReturnsControllerTest {
         ZonedDateTime timestamp = ZonedDateTime.parse("2024-01-01T10:15:30Z");
         return new RequestDto(
                 uuid,
-                legacyId,
                 mode,
                 stage,
                 storeId,
@@ -223,10 +228,6 @@ class ReturnsControllerTest {
                 "BY123",
                 "EX123",
                 false,
-                false,
-                false,
-                true,
-                timestamp,
                 timestamp,
                 timestamp
         );
