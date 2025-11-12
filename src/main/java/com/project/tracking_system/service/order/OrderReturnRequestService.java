@@ -6,6 +6,7 @@ import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderEpisode;
 import com.project.tracking_system.entity.OrderReturnRequest;
 import com.project.tracking_system.entity.OrderReturnRequestActionRequest;
+import com.project.tracking_system.entity.OrderReturnRequestHistoryEntry;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.entity.ReturnRequestMode;
 import com.project.tracking_system.entity.ReturnRequestStage;
@@ -895,7 +896,8 @@ public class OrderReturnRequestService {
                     ReturnRequestMode.RETURN,
                     Optional.ofNullable(request.getStage()).orElse(ReturnRequestStage.NEW)
             );
-            returnRequestWorkflow.transitionSequentially(request, normalized, true, actor, moment);
+            ReturnRequestStage targetStage = enforceReturnHistoryFloor(request, normalized);
+            returnRequestWorkflow.transitionSequentially(request, targetStage, true, actor, moment);
             return request;
         }
         if (status != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
@@ -925,13 +927,77 @@ public class OrderReturnRequestService {
                 ReturnRequestMode.RETURN,
                 Optional.ofNullable(request.getStage()).orElse(ReturnRequestStage.NEW)
         );
-        if (status == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
-            targetStage = ReturnRequestStage.INBOUND_PICKED_UP;
-        }
+        targetStage = enforceReturnHistoryFloor(request, targetStage);
         returnRequestWorkflow.transitionSequentially(request, targetStage, true, actor, reopenMoment);
         orderExchangeService.cancelExchangeParcel(request, replacement);
         episodeLifecycleService.decrementExchangeCount(request.getEpisode());
         return request;
+    }
+
+    /**
+     * Определяет минимальный допустимый этап для возврата, опираясь на историю.
+     * <p>
+     * Правило {@code doNotLowerBelowKnownHistory} запрещает понижать этап ниже тех,
+     * которые уже подтверждены в режиме возврата. Метод находит максимальный этап,
+     * достигнутый в истории при режиме {@link ReturnRequestMode#RETURN}, и гарантирует,
+     * что целевой этап не опустится ниже него.
+     * </p>
+     *
+     * @param request  заявка, историю которой анализируем
+     * @param candidateStage стадия, выбранная по текущим правилам переключения
+     * @return стадия, скорректированная с учётом истории
+     */
+    private ReturnRequestStage enforceReturnHistoryFloor(OrderReturnRequest request,
+                                                         ReturnRequestStage candidateStage) {
+        ReturnRequestStage effectiveCandidate = Optional.ofNullable(candidateStage)
+                .orElse(returnRequestWorkflow.initialStage(ReturnRequestMode.RETURN));
+        ReturnRequestStage historyStage = resolveHighestReturnStage(request);
+        boolean candidateBeforeHistory = returnRequestWorkflow.canReachStage(
+                ReturnRequestMode.RETURN,
+                effectiveCandidate,
+                historyStage
+        ) && !Objects.equals(effectiveCandidate, historyStage);
+        if (candidateBeforeHistory) {
+            return historyStage;
+        }
+        return effectiveCandidate;
+    }
+
+    /**
+     * Находит максимальный этап, достигнутый заявкой в режиме возврата.
+     * <p>
+     * Метод последовательно проходит историю и нормализует этапы через
+     * {@link ReturnRequestWorkflow#adjustStageForMode(ReturnRequestMode, ReturnRequestStage)}.
+     * Для сравнения используется порядок этапов, определённый матрицей переходов:
+     * если история уже содержит более поздний этап, он возвращается как опорный.
+     * </p>
+     *
+     * @param request заявка с накопленной историей
+     * @return максимальный этап возврата из истории или стартовый этап, если записей нет
+     */
+    private ReturnRequestStage resolveHighestReturnStage(OrderReturnRequest request) {
+        ReturnRequestStage floor = returnRequestWorkflow.initialStage(ReturnRequestMode.RETURN);
+        if (request == null) {
+            return floor;
+        }
+        for (OrderReturnRequestHistoryEntry entry : request.getHistoryEntries()) {
+            if (entry == null || entry.getMode() != ReturnRequestMode.RETURN) {
+                continue;
+            }
+            ReturnRequestStage historyStage = returnRequestWorkflow.adjustStageForMode(
+                    ReturnRequestMode.RETURN,
+                    entry.getStage()
+            );
+            boolean historyAfterFloor = returnRequestWorkflow.canReachStage(
+                    ReturnRequestMode.RETURN,
+                    floor,
+                    historyStage
+            ) && !Objects.equals(floor, historyStage);
+            if (historyAfterFloor) {
+                floor = historyStage;
+            }
+        }
+        return floor;
     }
 
     /**

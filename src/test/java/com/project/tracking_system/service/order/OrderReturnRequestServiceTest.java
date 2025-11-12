@@ -553,6 +553,8 @@ class OrderReturnRequestServiceTest {
         request.setEpisode(parcel.getEpisode());
         request.setStore(parcel.getStore());
         request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setMode(ReturnRequestMode.EXCHANGE);
+        request.setStage(ReturnRequestStage.EXCHANGE_REGISTERED);
 
         when(repository.findById(610L)).thenReturn(Optional.of(request));
         when(orderExchangeService.getLatestExchangeParcelOrThrowIfTracked(request))
@@ -568,7 +570,7 @@ class OrderReturnRequestServiceTest {
         assertThat(result.getDecisionBy()).isNull();
         assertThat(result.getClosedAt()).isNull();
         assertThat(result.getMode()).isEqualTo(ReturnRequestMode.RETURN);
-        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.INBOUND_PICKED_UP);
+        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.INBOUND_ARRIVED);
         assertThat(result.getHistoryEntries()).isNotEmpty();
         verify(orderExchangeService).cancelExchangeParcel(request, replacement);
         verify(episodeLifecycleService).decrementExchangeCount(parcel.getEpisode());
@@ -871,6 +873,8 @@ class OrderReturnRequestServiceTest {
         request.setDecisionBy(user);
         request.setDecisionAt(ZonedDateTime.now(ZoneOffset.UTC));
         request.setExchangeRequested(true);
+        request.setMode(ReturnRequestMode.EXCHANGE);
+        request.setStage(ReturnRequestStage.EXCHANGE_REGISTERED);
 
         TrackParcel replacement = new TrackParcel();
         replacement.setId(81L);
@@ -892,9 +896,49 @@ class OrderReturnRequestServiceTest {
         assertThat(result.getClosedAt()).isNull();
         assertThat(result.isExchangeRequested()).isFalse();
         assertThat(result.getMode()).isEqualTo(ReturnRequestMode.RETURN);
-        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.INBOUND_PICKED_UP);
+        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.INBOUND_ARRIVED);
         assertThat(result.getHistoryEntries()).isNotEmpty();
         verify(orderExchangeService).cancelExchangeParcel(request, replacement);
+        verify(episodeLifecycleService).decrementExchangeCount(parcel.getEpisode());
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
+    }
+
+    @Test
+    void setModeReturn_preservesConfirmedReturnStageFromHistory() {
+        TrackParcel parcel = buildParcel(25L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(970L);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStore(parcel.getStore());
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setMode(ReturnRequestMode.EXCHANGE);
+        request.setStage(ReturnRequestStage.EXCHANGE_REGISTERED);
+
+        ZonedDateTime historyMoment = ZonedDateTime.of(2024, 1, 10, 12, 0, 0, 0, ZoneOffset.UTC);
+        request.setMode(ReturnRequestMode.RETURN);
+        request.setStage(ReturnRequestStage.NEW);
+        request.snapshotHistory(false, user, historyMoment);
+        request.setStage(ReturnRequestStage.OUTBOUND_SENT);
+        request.snapshotHistory(false, user, historyMoment.plusMinutes(5));
+        request.setStage(ReturnRequestStage.INBOUND_PICKED_UP);
+        request.snapshotHistory(true, user, historyMoment.plusMinutes(10));
+
+        request.setMode(ReturnRequestMode.EXCHANGE);
+        request.setStage(ReturnRequestStage.EXCHANGE_REGISTERED);
+
+        when(repository.findById(970L)).thenReturn(Optional.of(request));
+        when(orderExchangeService.getLatestExchangeParcelOrThrowIfTracked(request))
+                .thenReturn(Optional.empty());
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderReturnRequest result = service.setModeReturn(970L,
+                25L,
+                user,
+                OrderReturnRequestService.ModeSwitchTrigger.CUSTOMER_REQUEST);
+
+        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.INBOUND_PICKED_UP);
+        verify(orderExchangeService).cancelExchangeParcel(request, null);
         verify(episodeLifecycleService).decrementExchangeCount(parcel.getEpisode());
         verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
     }

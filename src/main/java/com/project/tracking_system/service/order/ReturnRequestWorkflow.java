@@ -213,6 +213,9 @@ public class ReturnRequestWorkflow {
             return safeStage;
         }
         if (mode == ReturnRequestMode.RETURN) {
+            if (safeStage.isExchangeOnly()) {
+                return ReturnRequestStage.INBOUND_ARRIVED;
+            }
             return ReturnRequestStage.INBOUND_PICKED_UP;
         }
         return ReturnRequestStage.EXCHANGE_REGISTERED;
