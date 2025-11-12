@@ -520,7 +520,7 @@ class OrderReturnRequestServiceTest {
     }
 
     @Test
-    void markExchangeDelivered_TransitionsStageWhenTrackPresent() {
+    void markExchangeDelivered_TransitionsStageWhenParcelDelivered() {
         TrackParcel parcel = buildParcel(45L, GlobalStatus.DELIVERED);
         OrderReturnRequest request = buildExchangeRequest(1005L, parcel);
         request.setStage(ReturnRequestStage.EXCHANGE_SENT);
@@ -528,6 +528,7 @@ class OrderReturnRequestServiceTest {
 
         when(repository.findById(1005L)).thenReturn(Optional.of(request));
         when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.of(parcel));
 
         ZonedDateTime stageMoment = ZonedDateTime.of(2024, 3, 1, 8, 45, 0, 0, ZoneOffset.UTC);
 
@@ -1046,6 +1047,25 @@ class OrderReturnRequestServiceTest {
         EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
 
         assertThat(actions).contains(ReturnRequestAction.MARK_EXCHANGE_SENT);
+        assertThat(actions).doesNotContain(ReturnRequestAction.MARK_EXCHANGE_DELIVERED);
+    }
+
+    @Test
+    void resolveAvailableActions_DoesNotAllowExchangeDeliveryWhenParcelInTransit() {
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        request.setStage(ReturnRequestStage.EXCHANGE_SENT);
+        request.setMode(ReturnRequestMode.EXCHANGE);
+        request.setExchangeTrackNumber("EXCH-3");
+
+        TrackParcel parcel = new TrackParcel();
+        parcel.setNumber("EXCH-3");
+        parcel.setStatus(GlobalStatus.IN_TRANSIT);
+
+        when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.of(parcel));
+
+        EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
+
         assertThat(actions).doesNotContain(ReturnRequestAction.MARK_EXCHANGE_DELIVERED);
     }
 
