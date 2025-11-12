@@ -478,14 +478,10 @@
             this.state = this.request?.state || {};
             this.timestamps = this.request?.timestamps || {};
             const rawActions = this.request?.availableActions || {};
-            const normalizedActionCodes = Array.isArray(rawActions?.actions)
-                ? rawActions.actions
-                : Array.isArray(rawActions?.actionCodes)
-                    ? rawActions.actionCodes
-                    : [];
+            const normalizedActionCodes = extractActionCodes(rawActions);
             this.availableActions = {
                 ...(rawActions && typeof rawActions === 'object' ? rawActions : {}),
-                actionCodes: Array.isArray(normalizedActionCodes) ? normalizedActionCodes : []
+                actions: normalizedActionCodes
             };
             this.trackId = details?.id ?? null;
             this.exchangeParcel = details?.exchangeParcel || null;
@@ -568,21 +564,22 @@
         _resolvePermissions() {
             const legacy = this.request?.actionPermissions || {};
             const actions = this.availableActions || {};
-            const hasModernActions = extractActionCodes(actions).length > 0;
+            const actionCodes = extractActionCodes(actions);
+            const hasModernActions = actionCodes.length > 0;
+            const includesCode = (code) => actionCodes.includes(normalizeActionCode(code));
             const mapLegacy = (key) => Boolean(legacy?.[key]);
-            const mapActionFlag = (key, code) => Boolean(actions?.[key]) || hasActionCode(actions, code);
             const legacyUpdateReverse = mapLegacy('allowUpdateReverseTrack');
             const canUpdateReverseTrack = this.request?.canUpdateReverseTrack;
-            const confirmReceiptFlag = mapActionFlag('markInboundPickedUp', 'MARK_INBOUND_PICKED_UP');
-            const convertToExchangeFlag = mapActionFlag('setModeExchange', 'SET_MODE_EXCHANGE');
-            const launchExchangeFlag = mapActionFlag('registerExchangeParcel', 'REGISTER_EXCHANGE_PARCEL');
-            const closeFlag = mapActionFlag('closeRequest', 'CLOSE_REQUEST');
-            const reopenFlag = mapActionFlag('setModeReturn', 'SET_MODE_RETURN');
-            const updateDetailsFlag = mapActionFlag('updateReverseTrack', 'UPDATE_REVERSE_TRACK');
-            const outboundSentFlag = mapActionFlag('markOutboundSent', 'MARK_OUTBOUND_SENT');
-            const inboundArrivedFlag = mapActionFlag('markInboundArrived', 'MARK_INBOUND_ARRIVED');
-            const exchangeSentFlag = mapActionFlag('markExchangeSent', 'MARK_EXCHANGE_SENT');
-            const exchangeDeliveredFlag = mapActionFlag('markExchangeDelivered', 'MARK_EXCHANGE_DELIVERED');
+            const confirmReceiptFlag = includesCode('MARK_INBOUND_PICKED_UP');
+            const convertToExchangeFlag = includesCode('SET_MODE_EXCHANGE');
+            const launchExchangeFlag = includesCode('REGISTER_EXCHANGE_PARCEL');
+            const closeFlag = includesCode('CLOSE_REQUEST');
+            const reopenFlag = includesCode('SET_MODE_RETURN');
+            const updateDetailsFlag = includesCode('UPDATE_REVERSE_TRACK');
+            const outboundSentFlag = includesCode('MARK_OUTBOUND_SENT');
+            const inboundArrivedFlag = includesCode('MARK_INBOUND_ARRIVED');
+            const exchangeSentFlag = includesCode('MARK_EXCHANGE_SENT');
+            const exchangeDeliveredFlag = includesCode('MARK_EXCHANGE_DELIVERED');
             return {
                 confirmReceipt: confirmReceiptFlag
                     || (!hasModernActions && (mapLegacy('allowAcceptReverse') || mapLegacy('allowAccept'))),
@@ -1533,14 +1530,25 @@
     }
 
     function extractActionCodes(actions) {
+        if (Array.isArray(actions)) {
+            const seenArray = new Set();
+            return actions
+                .map((code) => normalizeActionCode(code))
+                .filter((code) => code.length > 0)
+                .filter((code) => {
+                    if (seenArray.has(code)) {
+                        return false;
+                    }
+                    seenArray.add(code);
+                    return true;
+                });
+        }
         if (!actions || typeof actions !== 'object') {
             return [];
         }
         const rawCodes = Array.isArray(actions.actions)
             ? actions.actions
-            : Array.isArray(actions.actionCodes)
-                ? actions.actionCodes
-                : [];
+            : [];
         const seen = new Set();
         return rawCodes
             .map((code) => normalizeActionCode(code))
@@ -1620,10 +1628,6 @@
         if (request.returnReceiptConfirmedAt !== undefined) {
             summary.returnReceiptConfirmedAt = request.returnReceiptConfirmedAt;
         }
-        const actionCodes = extractActionCodes(request.availableActions);
-        if (actionCodes.length > 0) {
-            summary.actionCodes = actionCodes;
-        }
         return summary;
     }
 
@@ -1662,10 +1666,6 @@
         }
         if (request.returnReceiptConfirmedAt !== undefined) {
             summary.returnReceiptConfirmedAt = request.returnReceiptConfirmedAt;
-        }
-        const actionCodes = extractActionCodes(request.availableActions);
-        if (actionCodes.length > 0) {
-            summary.actionCodes = actionCodes;
         }
         return summary;
     }

@@ -128,19 +128,19 @@ class BuyerTelegramBotTest {
             throw new RuntimeException(e);
         }
         try {
-            when(telegramClient.execute(any(EditMessageText.class))).thenReturn(null);
+            lenient().when(telegramClient.execute(any(EditMessageText.class))).thenReturn(null);
         } catch (TelegramApiException e) {
             throw new RuntimeException(e);
         }
         try {
-            when(telegramClient.execute(any(AnswerCallbackQuery.class))).thenReturn(null);
+            lenient().when(telegramClient.execute(any(AnswerCallbackQuery.class))).thenReturn(null);
         } catch (TelegramApiException e) {
             throw new RuntimeException(e);
         }
-        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
-        when(telegramService.findByChatId(anyLong())).thenReturn(Optional.empty());
-        when(telegramService.getActiveReturnRequests(anyLong())).thenReturn(List.of());
-        when(telegramService.getParcelsOverview(anyLong())).thenReturn(Optional.empty());
+        lenient().when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
+        lenient().when(telegramService.findByChatId(anyLong())).thenReturn(Optional.empty());
+        lenient().when(telegramService.getActiveReturnRequests(anyLong())).thenReturn(List.of());
+        lenient().when(telegramService.getParcelsOverview(anyLong())).thenReturn(Optional.empty());
     }
 
     /**
@@ -2501,18 +2501,7 @@ class BuyerTelegramBotTest {
                 .map(ReturnRequestAction::getCode)
                 .collect(Collectors.toUnmodifiableList());
 
-        EnumMap<ReturnRequestAction, String> unavailableReasons = new EnumMap<>(ReturnRequestAction.class);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.SET_MODE_RETURN, setModeReturnUnavailableReason);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.SET_MODE_EXCHANGE, setModeExchangeUnavailableReason);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.REGISTER_EXCHANGE_PARCEL, registerExchangeParcelUnavailableReason);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.MARK_OUTBOUND_SENT, markOutboundSentUnavailableReason);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.MARK_INBOUND_ARRIVED, markInboundArrivedUnavailableReason);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.MARK_INBOUND_PICKED_UP, markInboundPickedUpUnavailableReason);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.MARK_EXCHANGE_SENT, markExchangeSentUnavailableReason);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.MARK_EXCHANGE_DELIVERED, markExchangeDeliveredUnavailableReason);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.CLOSE_REQUEST, closeRequestUnavailableReason);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.UPDATE_REVERSE_TRACK, updateReverseTrackUnavailableReason);
-        AvailableActionsDto actions = new AvailableActionsDto(actionCodes, availableActions, unavailableReasons);
+        AvailableActionsDto actions = new AvailableActionsDto(actionCodes);
         ReturnRequestTimestampsDto timestamps = new ReturnRequestTimestampsDto(
                 requestedAt,
                 createdAt,

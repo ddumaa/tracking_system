@@ -24,17 +24,16 @@
             return new Set();
         }
         const sources = [];
-        if (Array.isArray(summary.actionCodes)) {
-            sources.push(summary.actionCodes);
-        }
         const available = summary.availableActions;
-        if (available && typeof available === 'object') {
+        if (Array.isArray(available)) {
+            sources.push(available);
+        } else if (available && typeof available === 'object') {
             if (Array.isArray(available.actions)) {
                 sources.push(available.actions);
             }
-            if (Array.isArray(available.actionCodes)) {
-                sources.push(available.actionCodes);
-            }
+        }
+        if (Array.isArray(summary.actions)) {
+            sources.push(summary.actions);
         }
         const flattened = sources.flatMap((list) => Array.isArray(list) ? list : []);
         const seen = new Set();

@@ -206,7 +206,8 @@ class ReturnsControllerTest {
                         .with(authentication(auth)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.actions[0]", equalTo(ReturnRequestAction.SET_MODE_EXCHANGE.getCode())))
-                .andExpect(jsonPath("$.actions[1]", equalTo(ReturnRequestAction.CLOSE_REQUEST.getCode())));
+                .andExpect(jsonPath("$.actions[1]", equalTo(ReturnRequestAction.CLOSE_REQUEST.getCode())))
+                .andExpect(jsonPath("$.actionCodes").doesNotExist());
     }
 
     /**
