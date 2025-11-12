@@ -1600,7 +1600,6 @@
             storeId: request.storeId ?? null,
             orderId: request.orderId ?? null,
             userId: request.userId ?? null,
-            responsibleId: request.responsibleId ?? null,
             stageLabel
         };
         if (summary.parcelId === null && request.parcelId !== undefined) {
@@ -1647,7 +1646,6 @@
             storeId: request.storeId ?? null,
             orderId: request.orderId ?? null,
             userId: request.userId ?? null,
-            responsibleId: request.responsibleId ?? null,
             stageLabel
         };
         if (stageLabel) {

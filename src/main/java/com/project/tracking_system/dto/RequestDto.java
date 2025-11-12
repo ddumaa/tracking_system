@@ -7,7 +7,7 @@ import java.time.ZonedDateTime;
 /**
  * DTO заявки на возврат или обмен для REST-API.
  * <p>
- * Структура отражает JSON Schema внешнего API: помимо идентификаторов
+ * Структура отражает JSON Schema внешнего API ReturnsExchanges 1.0: помимо идентификаторов
  * добавлены атрибуты причины возврата, комментариев, треков и технические флаги
  * для ручных операций. UUID заявки передаётся в текстовом виде, чтобы клиенты
  * могли использовать его в распределённых интеграциях без потери точности.
@@ -20,9 +20,7 @@ import java.time.ZonedDateTime;
  * @param orderId                  идентификатор заказа или эпизода, к которому относится заявка
  * @param parcelId                 идентификатор исходной посылки
  * @param userId                   идентификатор пользователя, создавшего заявку
- * @param responsibleId            идентификатор ответственного менеджера
  * @param reason                   причина возврата в нормализованном виде
- * @param requestedAt              момент, когда пользователь запросил возврат
  * @param comment                  дополнительный комментарий пользователя
  * @param reverseTrack             трек обратной отправки
  * @param exchangeTrack            трек обменной посылки
@@ -38,9 +36,7 @@ public record RequestDto(String id,
                          Long orderId,
                          Long parcelId,
                          Long userId,
-                         Long responsibleId,
                          String reason,
-                         ZonedDateTime requestedAt,
                          String comment,
                          String reverseTrack,
                          String exchangeTrack,

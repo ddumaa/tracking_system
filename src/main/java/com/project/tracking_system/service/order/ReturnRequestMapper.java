@@ -32,7 +32,9 @@ public class ReturnRequestMapper {
      * Преобразует заявку в DTO карточки возврата согласно JSON Schema.
      * Метод дополняет идентификаторы сведениями о причинах, комментариях и треках,
      * сохраняя ответственность маппера за конвертацию доменной модели в формат API
-     * (принцип единой ответственности).
+     * (принцип единой ответственности). При отсутствии трек-номеров возвращает
+     * {@code null}, чтобы фронтенд корректно отобразил пустые значения и соблюдалась
+     * JSON Schema ReturnsExchanges 1.0.
      *
      * @param request исходная заявка
      * @param userZone временная зона пользователя (не используется, сохранена для обратной совместимости вызовов)
@@ -57,14 +59,12 @@ public class ReturnRequestMapper {
         Long userId = Optional.ofNullable(request.getCreatedBy())
                 .map(user -> user.getId())
                 .orElse(null);
-        Long responsibleId = Optional.ofNullable(request.getResponsibleManager())
-                .map(manager -> manager.getId())
-                .orElse(null);
-
         String publicId = resolvePublicId(request);
         boolean manualInboundPick = resolveManualInboundPickFlag(request, stage);
         ZonedDateTime createdAt = request.getCreatedAt();
         ZonedDateTime updatedAt = resolveUpdatedAt(request, createdAt);
+        String reverseTrack = Optional.ofNullable(request.getReverseTrackNumber()).orElse(null);
+        String exchangeTrack = Optional.ofNullable(request.getExchangeTrackNumber()).orElse(null);
 
         return new RequestDto(
                 publicId,
@@ -74,12 +74,10 @@ public class ReturnRequestMapper {
                 orderId,
                 parcelId,
                 userId,
-                responsibleId,
                 request.getReason(),
-                request.getRequestedAt(),
                 request.getComment(),
-                request.getReverseTrackNumber(),
-                request.getExchangeTrackNumber(),
+                reverseTrack,
+                exchangeTrack,
                 manualInboundPick,
                 createdAt,
                 updatedAt
