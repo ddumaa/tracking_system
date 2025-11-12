@@ -300,7 +300,7 @@
                                                         <span class="text-muted small" data-return-comment
                                                               th:text="${request.comment != null ? request.comment : 'Комментарий отсутствует'}"></span>
                                                       <span class="text-muted small" data-return-reverse
-                                                            th:text="${request.reverseTrackNumber != null ? 'Обратный трек: ' + request.reverseTrackNumber : 'Обратный трек: —'}"></span>
+                                                            th:text="${request.reverseTrack != null ? 'Обратный трек: ' + request.reverseTrack : 'Обратный трек: —'}"></span>
                                                       <span class="text-muted small" data-return-confirmation
                                                             th:classappend="${request.state != null and request.state.returnReceiptConfirmed} ? ' text-success' : ''"
                                                             th:text="${request.state != null and request.state.returnReceiptConfirmed ? 'Получение подтверждено: ' + (request.timestamps != null && request.timestamps.returnReceiptConfirmedAt != null ? request.timestamps.returnReceiptConfirmedAt : '—') : 'Получение ещё не подтверждено'}"></span>

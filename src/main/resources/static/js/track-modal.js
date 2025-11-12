@@ -388,7 +388,7 @@
         reverseInput.type = 'text';
         reverseInput.className = 'form-control';
         reverseInput.id = reverseId;
-        reverseInput.name = 'reverseTrackNumber';
+        reverseInput.name = 'reverseTrack';
         reverseInput.maxLength = 64;
         reverseInput.placeholder = 'Например, BY1234567890';
         reverseGroup.append(reverseLabel, reverseInput);
@@ -847,7 +847,7 @@
             trackInput.type = 'text';
             trackInput.className = 'form-control';
             trackInput.id = trackId;
-            trackInput.name = 'reverseTrackNumber';
+            trackInput.name = 'reverseTrack';
             trackInput.maxLength = 64;
             trackInput.value = extractReverseTrack(this.request) || '';
             trackGroup.append(trackLabel, trackInput);
@@ -1364,7 +1364,7 @@
             reason: reasonValue,
             requestedAt: new Date().toISOString(),
             comment: commentValue.length > 0 ? commentValue : null,
-            reverseTrackNumber: reverseValue.length > 0 ? reverseValue : null,
+            reverseTrack: reverseValue.length > 0 ? reverseValue : null,
             isExchange
         };
 
