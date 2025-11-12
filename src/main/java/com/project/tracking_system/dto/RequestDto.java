@@ -14,7 +14,6 @@ import java.time.ZonedDateTime;
  * </p>
  *
  * @param id                       публичный идентификатор заявки (UUID в текстовом виде)
- * @param legacyId                 числовой идентификатор заявки внутри монолита
  * @param mode                     активный режим (возврат или обмен)
  * @param stage                    код текущего этапа обработки
  * @param storeId                  идентификатор магазина
@@ -25,19 +24,14 @@ import java.time.ZonedDateTime;
  * @param reason                   причина возврата в нормализованном виде
  * @param requestedAt              момент, когда пользователь запросил возврат
  * @param comment                  дополнительный комментарий пользователя
- * @param reverseTrackNumber       трек обратной отправки
- * @param exchangeTrackNumber      трек обменной посылки
- * @param manualTrackOverride      признак ручного указания треков
- * @param manualStageOverride      признак ручного перевода между этапами
+ * @param reverseTrack             трек обратной отправки
+ * @param exchangeTrack            трек обменной посылки
  * @param manualInboundPick        флаг, что этап приёма возврата подтверждён вручную
- * @param returnReceiptConfirmed   магазин подтвердил получение возврата
- * @param exchangeTrackAssignedAt  момент, когда трек обмена был установлен
  * @param createdAt                момент создания заявки
  * @param updatedAt                момент последнего обновления заявки
  */
 @JsonIgnoreProperties(ignoreUnknown = false)
 public record RequestDto(String id,
-                         Long legacyId,
                          String mode,
                          String stage,
                          Long storeId,
@@ -48,13 +42,9 @@ public record RequestDto(String id,
                          String reason,
                          ZonedDateTime requestedAt,
                          String comment,
-                         String reverseTrackNumber,
-                         String exchangeTrackNumber,
-                         boolean manualTrackOverride,
-                         boolean manualStageOverride,
+                         String reverseTrack,
+                         String exchangeTrack,
                          boolean manualInboundPick,
-                         boolean returnReceiptConfirmed,
-                         ZonedDateTime exchangeTrackAssignedAt,
                          ZonedDateTime createdAt,
                          ZonedDateTime updatedAt) {
 }
