@@ -104,5 +104,22 @@ public interface OrderReturnRequestRepository extends JpaRepository<OrderReturnR
             where r.id = :id
             """)
     Optional<OrderReturnRequest> findByIdWithDetails(@Param("id") Long id);
+
+    /**
+     * Возвращает заявку по идемпотентному ключу с ключевыми связями.
+     * <p>
+     * Используется REST-слоем, где требуется один запрос для загрузки заявки,
+     * связанной посылки и магазина, чтобы избежать дополнительных обращений к БД.
+     * </p>
+     */
+    @Query("""
+            select r from OrderReturnRequest r
+            join fetch r.parcel p
+            join fetch p.user
+            join fetch r.store
+            left join fetch r.responsibleManager
+            where r.idempotencyKey = :idempotencyKey
+            """)
+    Optional<OrderReturnRequest> findByIdempotencyKeyWithDetails(@Param("idempotencyKey") String idempotencyKey);
 }
 

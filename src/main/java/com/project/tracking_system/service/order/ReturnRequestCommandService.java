@@ -33,6 +33,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.HexFormat;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Сервис идемпотентного выполнения команд по заявкам возврата.
@@ -72,7 +73,7 @@ public class ReturnRequestCommandService {
     /**
      * Выполняет команду с учётом идемпотентности и возвращает DTO заявки.
      *
-     * @param requestId идентификатор заявки
+     * @param requestKey UUID идентификатора заявки
      * @param commandType тип выполняемой команды
      * @param command данные запроса, включая ключ идемпотентности
      * @param user текущий пользователь
@@ -80,14 +81,15 @@ public class ReturnRequestCommandService {
      * @return DTO заявки после выполнения команды или сохранённый ранее результат
      */
     @Transactional
-    public RequestDto executeCommand(Long requestId,
+    public RequestDto executeCommand(UUID requestKey,
                                      ReturnRequestCommandType commandType,
                                      CommandDto command,
                                      User user,
                                      ZoneId userZone) {
-        validateArguments(requestId, commandType, command, user);
+        validateArguments(requestKey, commandType, command, user);
 
-        OrderReturnRequest context = orderReturnRequestService.getOwnedRequest(requestId, user);
+        OrderReturnRequest context = orderReturnRequestService.getOwnedRequest(requestKey, user);
+        Long requestId = requirePersistentId(context);
         Long parcelId = resolveParcelId(context);
 
         String normalizedKey = command.idempotencyKey().trim();
@@ -99,7 +101,7 @@ public class ReturnRequestCommandService {
             return restoreResponse(logEntry);
         }
 
-        CommandContext commandContext = new CommandContext(requestId, parcelId, user);
+        CommandContext commandContext = new CommandContext(requestKey, requestId, parcelId, user);
         OrderReturnRequest updated = performCommand(commandType, payload, commandContext);
         RequestDto response = returnRequestMapper.toDto(updated, userZone);
         completeLogEntry(logEntry, response);
@@ -109,11 +111,11 @@ public class ReturnRequestCommandService {
     /**
      * Проверяет корректность входных параметров запроса.
      */
-    private void validateArguments(Long requestId,
+    private void validateArguments(UUID requestKey,
                                    ReturnRequestCommandType commandType,
                                    CommandDto command,
                                    User user) {
-        if (requestId == null) {
+        if (requestKey == null) {
             throw new ValidationException("Не указан идентификатор заявки");
         }
         if (commandType == null) {
@@ -300,6 +302,22 @@ public class ReturnRequestCommandService {
     }
 
     /**
+     * Гарантирует наличие персистентного идентификатора заявки.
+     *
+     * @param request заявка, полученная из сервисного слоя
+     * @return идентификатор в базе данных
+     */
+    private Long requirePersistentId(OrderReturnRequest request) {
+        Long id = Optional.ofNullable(request)
+                .map(OrderReturnRequest::getId)
+                .orElse(null);
+        if (id == null) {
+            throw new IllegalStateException("У заявки отсутствует сохранённый идентификатор");
+        }
+        return id;
+    }
+
+    /**
      * Обрабатывает команду обновления обратного трека и возвращает актуальную заявку.
      */
     private OrderReturnRequest executeUpdateReverseTrack(CommandContext context,
@@ -313,14 +331,14 @@ public class ReturnRequestCommandService {
                 updatePayload.reverseTrack(),
                 updatePayload.comment()
         );
-        return orderReturnRequestService.getOwnedRequest(context.requestId(), context.user());
+        return orderReturnRequestService.getOwnedRequest(context.requestKey(), context.user());
     }
 
     /**
      * Выполняет закрытие заявки, учитывая её текущий статус.
      */
     private OrderReturnRequest executeCloseRequest(CommandContext context) {
-        OrderReturnRequest request = orderReturnRequestService.getOwnedRequest(context.requestId(), context.user());
+        OrderReturnRequest request = orderReturnRequestService.getOwnedRequest(context.requestKey(), context.user());
         return switch (request.getStatus()) {
             case REGISTERED -> orderReturnRequestService.closeRequest(context.requestId(),
                     context.parcelId(),
@@ -407,7 +425,8 @@ public class ReturnRequestCommandService {
     /**
      * Контекст выполняемой команды, содержащий ключевые параметры запроса.
      */
-    private record CommandContext(Long requestId,
+    private record CommandContext(UUID requestKey,
+                                  Long requestId,
                                   Long parcelId,
                                   User user) {
     }

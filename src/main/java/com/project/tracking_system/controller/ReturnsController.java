@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.UUID;
 /**
  * REST-контроллер управления заявками на возврат и обмен.
  * <p>
@@ -43,30 +44,32 @@ public class ReturnsController {
     /**
      * Возвращает карточку заявки на возврат.
      *
-     * @param id   идентификатор заявки
+     * @param rawId строковое представление UUID заявки
      * @param user текущий пользователь
      * @return DTO заявки
      */
     @GetMapping("/{id}")
-    public RequestDto getReturnRequest(@PathVariable Long id,
+    public RequestDto getReturnRequest(@PathVariable("id") String rawId,
                                         @AuthenticationPrincipal User user) {
         ensureAuthenticated(user);
-        OrderReturnRequest request = loadOwnedRequest(id, user);
+        UUID requestKey = parseRequestKey(rawId);
+        OrderReturnRequest request = loadOwnedRequest(requestKey, user);
         return returnRequestMapper.toDto(request, resolveUserZone(user));
     }
 
     /**
      * Возвращает доступные действия по заявке.
      *
-     * @param id   идентификатор заявки
+     * @param rawId строковое представление UUID заявки
      * @param user текущий пользователь
      * @return DTO с кодами доступных действий
      */
     @GetMapping("/{id}/available-actions")
-    public AvailableActionsDto getAvailableActions(@PathVariable Long id,
+    public AvailableActionsDto getAvailableActions(@PathVariable("id") String rawId,
                                                    @AuthenticationPrincipal User user) {
         ensureAuthenticated(user);
-        OrderReturnRequest request = loadOwnedRequest(id, user);
+        UUID requestKey = parseRequestKey(rawId);
+        OrderReturnRequest request = loadOwnedRequest(requestKey, user);
         return returnRequestMapper.toAvailableActions(request);
     }
 
@@ -98,13 +101,13 @@ public class ReturnsController {
     /**
      * Выполняет команду над заявкой и возвращает обновлённое состояние.
      *
-     * @param id      идентификатор заявки
+     * @param rawId   строковое представление UUID заявки
      * @param command тело запроса с кодом команды
      * @param user    текущий пользователь
      * @return обновлённый DTO заявки
      */
     @PostMapping("/{id}/commands")
-    public RequestDto executeCommand(@PathVariable Long id,
+    public RequestDto executeCommand(@PathVariable("id") String rawId,
                                       @RequestBody @Valid CommandDto command,
                                       @AuthenticationPrincipal User user) {
         ensureAuthenticated(user);
@@ -113,7 +116,8 @@ public class ReturnsController {
             throw new ValidationException("Неизвестная команда управления заявкой");
         }
         ZoneId userZone = resolveUserZone(user);
-        return returnRequestCommandService.executeCommand(id, commandType, command, user, userZone);
+        UUID requestKey = parseRequestKey(rawId);
+        return returnRequestCommandService.executeCommand(requestKey, commandType, command, user, userZone);
     }
 
     /**
@@ -128,8 +132,22 @@ public class ReturnsController {
     /**
      * Загружает заявку с проверкой принадлежности пользователю.
      */
-    private OrderReturnRequest loadOwnedRequest(Long id, User user) {
-        return orderReturnRequestService.getOwnedRequest(id, user);
+    private OrderReturnRequest loadOwnedRequest(UUID requestKey, User user) {
+        return orderReturnRequestService.getOwnedRequest(requestKey, user);
+    }
+
+    /**
+     * Преобразует строковый идентификатор заявки в UUID с валидацией.
+     */
+    private UUID parseRequestKey(String rawId) {
+        if (rawId == null || rawId.isBlank()) {
+            throw new ValidationException("Не указан идентификатор заявки");
+        }
+        try {
+            return UUID.fromString(rawId);
+        } catch (IllegalArgumentException ex) {
+            throw new ValidationException("Некорректный формат идентификатора заявки", ex);
+        }
     }
 
     /**

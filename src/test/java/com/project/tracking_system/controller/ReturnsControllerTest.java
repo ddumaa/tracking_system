@@ -28,6 +28,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.ArgumentMatchers.any;
@@ -121,11 +122,12 @@ class ReturnsControllerTest {
         User principal = buildUser();
         UsernamePasswordAuthenticationToken auth = buildAuthentication(principal);
 
-        RequestDto responseDto = buildRequestDto("00000000-0000-0000-0000-000000000021", "EXCHANGE", "EXCHANGE_REGISTERED", 17L, 11L);
-        when(returnRequestCommandService.executeCommand(eq(21L), any(), any(), eq(principal), any()))
+        String requestUuid = "00000000-0000-0000-0000-000000000021";
+        RequestDto responseDto = buildRequestDto(requestUuid, "EXCHANGE", "EXCHANGE_REGISTERED", 17L, 11L);
+        when(returnRequestCommandService.executeCommand(eq(UUID.fromString(requestUuid)), any(), any(), eq(principal), any()))
                 .thenReturn(responseDto);
 
-        mockMvc.perform(post("/api/v1/returns/21/commands")
+        mockMvc.perform(post("/api/v1/returns/" + requestUuid + "/commands")
                         .with(authentication(auth))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"idempotencyKey\":\"cmd-1\",\"action\":\"SET_MODE_EXCHANGE\"}"))
@@ -135,7 +137,7 @@ class ReturnsControllerTest {
         ArgumentCaptor<ReturnRequestCommandType> typeCaptor = ArgumentCaptor.forClass(ReturnRequestCommandType.class);
         ArgumentCaptor<CommandDto> commandCaptor = ArgumentCaptor.forClass(CommandDto.class);
 
-        verify(returnRequestCommandService).executeCommand(eq(21L), typeCaptor.capture(), commandCaptor.capture(), eq(principal), any());
+        verify(returnRequestCommandService).executeCommand(eq(UUID.fromString(requestUuid)), typeCaptor.capture(), commandCaptor.capture(), eq(principal), any());
         assertThat(typeCaptor.getValue()).isEqualTo(ReturnRequestCommandType.SET_MODE_EXCHANGE);
         assertThat(commandCaptor.getValue().action()).isEqualTo(ReturnRequestCommandType.SET_MODE_EXCHANGE.getCode());
         assertThat(commandCaptor.getValue().idempotencyKey()).isEqualTo("cmd-1");
@@ -147,11 +149,12 @@ class ReturnsControllerTest {
         User principal = buildUser();
         UsernamePasswordAuthenticationToken auth = buildAuthentication(principal);
 
-        RequestDto responseDto = buildRequestDto("00000000-0000-0000-0000-000000000030", "RETURN", "INBOUND_PICKED_UP", 17L, 30L);
-        when(returnRequestCommandService.executeCommand(eq(30L), any(), any(), eq(principal), any()))
+        String requestUuid = "00000000-0000-0000-0000-000000000030";
+        RequestDto responseDto = buildRequestDto(requestUuid, "RETURN", "INBOUND_PICKED_UP", 17L, 30L);
+        when(returnRequestCommandService.executeCommand(eq(UUID.fromString(requestUuid)), any(), any(), eq(principal), any()))
                 .thenReturn(responseDto);
 
-        mockMvc.perform(post("/api/v1/returns/30/commands")
+        mockMvc.perform(post("/api/v1/returns/" + requestUuid + "/commands")
                         .with(authentication(auth))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"idempotencyKey\":\"cmd-2\",\"action\":\"UPDATE_REVERSE_TRACK\",\"payload\":{\"reverseTrack\":\"BY000\",\"comment\":\"Комментарий\"}}"))
@@ -160,7 +163,7 @@ class ReturnsControllerTest {
         ArgumentCaptor<ReturnRequestCommandType> typeCaptor = ArgumentCaptor.forClass(ReturnRequestCommandType.class);
         ArgumentCaptor<CommandDto> commandCaptor = ArgumentCaptor.forClass(CommandDto.class);
 
-        verify(returnRequestCommandService).executeCommand(eq(30L), typeCaptor.capture(), commandCaptor.capture(), eq(principal), any());
+        verify(returnRequestCommandService).executeCommand(eq(UUID.fromString(requestUuid)), typeCaptor.capture(), commandCaptor.capture(), eq(principal), any());
         assertThat(typeCaptor.getValue()).isEqualTo(ReturnRequestCommandType.UPDATE_REVERSE_TRACK);
         assertThat(commandCaptor.getValue().action()).isEqualTo(ReturnRequestCommandType.UPDATE_REVERSE_TRACK.getCode());
         assertThat(commandCaptor.getValue().payload().get("reverseTrack").asText()).isEqualTo("BY000");
@@ -173,11 +176,12 @@ class ReturnsControllerTest {
         UsernamePasswordAuthenticationToken auth = buildAuthentication(principal);
 
         OrderReturnRequest request = new OrderReturnRequest();
-        when(orderReturnRequestService.getOwnedRequest(51L, principal)).thenReturn(request);
+        String requestUuid = "00000000-0000-0000-0000-000000000051";
+        when(orderReturnRequestService.getOwnedRequest(UUID.fromString(requestUuid), principal)).thenReturn(request);
         when(returnRequestMapper.toDto(eq(request), any()))
-                .thenReturn(buildRequestDto("00000000-0000-0000-0000-000000000051", "RETURN", "NEW", 17L, 51L));
+                .thenReturn(buildRequestDto(requestUuid, "RETURN", "NEW", 17L, 51L));
 
-        mockMvc.perform(get("/api/v1/returns/51")
+        mockMvc.perform(get("/api/v1/returns/" + requestUuid)
                         .with(authentication(auth)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id", equalTo("00000000-0000-0000-0000-000000000051")))
@@ -190,14 +194,15 @@ class ReturnsControllerTest {
         UsernamePasswordAuthenticationToken auth = buildAuthentication(principal);
 
         OrderReturnRequest request = new OrderReturnRequest();
-        when(orderReturnRequestService.getOwnedRequest(52L, principal)).thenReturn(request);
+        String requestUuid = "00000000-0000-0000-0000-000000000052";
+        when(orderReturnRequestService.getOwnedRequest(UUID.fromString(requestUuid), principal)).thenReturn(request);
         when(returnRequestMapper.toAvailableActions(request))
                 .thenReturn(new AvailableActionsDto(List.of(
                         ReturnRequestAction.SET_MODE_EXCHANGE.getCode(),
                         ReturnRequestAction.CLOSE_REQUEST.getCode()
                 )));
 
-        mockMvc.perform(get("/api/v1/returns/52/available-actions")
+        mockMvc.perform(get("/api/v1/returns/" + requestUuid + "/available-actions")
                         .with(authentication(auth)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.actions[0]", equalTo(ReturnRequestAction.SET_MODE_EXCHANGE.getCode())))
