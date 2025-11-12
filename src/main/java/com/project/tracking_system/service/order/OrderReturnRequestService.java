@@ -32,6 +32,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -160,7 +161,11 @@ public class OrderReturnRequestService {
         ZonedDateTime normalizedRequestedAt = normalizeRequestedAt(requestedAt);
         String normalizedReverse = normalizeReverseTrackNumber(reverseTrack);
 
-        Optional<OrderReturnRequest> existingByKey = findByIdempotencyKey(idempotencyKey);
+        String canonicalKey = canonicalizeIdempotencyKey(idempotencyKey);
+        if (canonicalKey == null) {
+            throw new ValidationException("Некорректный идемпотентный ключ заявки");
+        }
+        Optional<OrderReturnRequest> existingByKey = findByIdempotencyKey(canonicalKey);
         if (existingByKey.isPresent()) {
             OrderReturnRequest existing = existingByKey.get();
             ensureOwnership(existing, user.getId());
@@ -200,7 +205,7 @@ public class OrderReturnRequestService {
         request.setComment(normalizedComment);
         request.setReverseTrackNumber(normalizedReverse);
         request.setStatus(OrderReturnRequestStatus.REGISTERED);
-        request.setIdempotencyKey(idempotencyKey);
+        request.setIdempotencyKey(canonicalKey);
         request.setExchangeRequested(exchangeRequested);
         request.setStore(parcel.getStore());
         request.setResponsibleManager(user);
@@ -1271,11 +1276,8 @@ public class OrderReturnRequestService {
      */
     @Transactional(readOnly = true)
     public Optional<OrderReturnRequest> findByIdempotencyKey(String idempotencyKey) {
-        if (idempotencyKey == null) {
-            return Optional.empty();
-        }
-        String normalizedKey = idempotencyKey.trim();
-        if (normalizedKey.isEmpty()) {
+        String normalizedKey = canonicalizeIdempotencyKey(idempotencyKey);
+        if (normalizedKey == null) {
             return Optional.empty();
         }
         return returnRequestRepository.findByIdempotencyKey(normalizedKey);
@@ -1306,7 +1308,11 @@ public class OrderReturnRequestService {
         if (requestKey == null) {
             return Optional.empty();
         }
-        return returnRequestRepository.findByIdempotencyKeyWithDetails(requestKey.toString());
+        String normalizedKey = canonicalizeIdempotencyKey(requestKey.toString());
+        if (normalizedKey == null) {
+            return Optional.empty();
+        }
+        return returnRequestRepository.findByIdempotencyKeyWithDetails(normalizedKey);
     }
 
     /**
@@ -1362,6 +1368,28 @@ public class OrderReturnRequestService {
         if (ownerId == null || !ownerId.equals(userId)) {
             throw new AccessDeniedException("Заявка принадлежит другому пользователю");
         }
+    }
+
+    /**
+     * Приводит идемпотентный ключ к каноническому виду для хранения и поиска.
+     * <p>
+     * Метод обрезает пробелы по краям и переводит значение в нижний регистр,
+     * чтобы одинаковые UUID, записанные в разных форматах, считались одной и той же заявкой.
+     * Возвращает {@code null}, если ключ не содержит символов после обрезки.
+     * </p>
+     *
+     * @param idempotencyKey исходное значение ключа
+     * @return нормализованный ключ или {@code null}, если строка пуста
+     */
+    private String canonicalizeIdempotencyKey(String idempotencyKey) {
+        if (idempotencyKey == null) {
+            return null;
+        }
+        String trimmed = idempotencyKey.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        return trimmed.toLowerCase(Locale.ROOT);
     }
 
     /**

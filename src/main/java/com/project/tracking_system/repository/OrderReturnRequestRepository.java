@@ -16,9 +16,13 @@ import java.util.Optional;
 public interface OrderReturnRequestRepository extends JpaRepository<OrderReturnRequest, Long> {
 
     /**
-     * Возвращает заявку по идемпотентному ключу.
+     * Возвращает заявку по идемпотентному ключу без учёта регистра.
      */
-    Optional<OrderReturnRequest> findByIdempotencyKey(String idempotencyKey);
+    @Query("""
+            select r from OrderReturnRequest r
+            where lower(r.idempotencyKey) = lower(:idempotencyKey)
+            """)
+    Optional<OrderReturnRequest> findByIdempotencyKey(@Param("idempotencyKey") String idempotencyKey);
 
     /**
      * Ищет активную заявку по посылке и статусам.
@@ -118,7 +122,7 @@ public interface OrderReturnRequestRepository extends JpaRepository<OrderReturnR
             join fetch p.user
             join fetch r.store
             left join fetch r.responsibleManager
-            where r.idempotencyKey = :idempotencyKey
+            where lower(r.idempotencyKey) = lower(:idempotencyKey)
             """)
     Optional<OrderReturnRequest> findByIdempotencyKeyWithDetails(@Param("idempotencyKey") String idempotencyKey);
 }
