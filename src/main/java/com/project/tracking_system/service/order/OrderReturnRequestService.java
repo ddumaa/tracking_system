@@ -1079,7 +1079,7 @@ public class OrderReturnRequestService {
     }
 
     /**
-     * Проверяет, можно ли отметить доставку обменной посылки.
+     * Проверяет, можно ли отметить доставку обменной посылки, подтверждая финальный статус в трекинге.
      */
     private boolean canMarkExchangeDelivered(OrderReturnRequest request) {
         if (request == null) {
@@ -1090,9 +1090,6 @@ public class OrderReturnRequestService {
         }
         if (!canTransitionToStage(request, ReturnRequestStage.EXCHANGE_DELIVERED)) {
             return false;
-        }
-        if (hasExchangeTrack(request)) {
-            return true;
         }
         return orderExchangeService.findLatestExchangeParcel(request)
                 .map(this::isParcelDelivered)
