@@ -13,19 +13,6 @@
         return value.trim().toLowerCase();
     }
 
-    const ACTION_FLAG_ALIASES = Object.freeze({
-        markOutboundSent: 'mark_outbound_sent',
-        markInboundArrived: 'mark_inbound_arrived',
-        registerExchangeParcel: 'register_exchange_parcel',
-        markExchangeSent: 'mark_exchange_sent',
-        markExchangeDelivered: 'mark_exchange_delivered',
-        markInboundPickedUp: 'mark_inbound_picked_up',
-        setModeExchange: 'set_mode_exchange',
-        closeRequest: 'close_request',
-        setModeReturn: 'set_mode_return',
-        updateReverseTrack: 'update_reverse_track'
-    });
-
     /**
      * Формирует множество доступных action-code из возможных источников summary.
      * Метод инкапсулирует детали структуры DTO, соблюдая принцип SRP.
@@ -40,9 +27,6 @@
         if (Array.isArray(summary.actionCodes)) {
             sources.push(summary.actionCodes);
         }
-        if (Array.isArray(summary.actions)) {
-            sources.push(summary.actions);
-        }
         const available = summary.availableActions;
         if (available && typeof available === 'object') {
             if (Array.isArray(available.actions)) {
@@ -50,12 +34,6 @@
             }
             if (Array.isArray(available.actionCodes)) {
                 sources.push(available.actionCodes);
-            }
-            const derivedCodes = Object.entries(ACTION_FLAG_ALIASES)
-                .filter(([property]) => Boolean(available?.[property]))
-                .map(([, code]) => code);
-            if (derivedCodes.length > 0) {
-                sources.push(derivedCodes);
             }
         }
         const flattened = sources.flatMap((list) => Array.isArray(list) ? list : []);
@@ -92,7 +70,7 @@
     }
 
     /**
-     * Возвращает нормализованный обратный трек, поддерживая новый и legacy-формат ответа.
+     * Возвращает нормализованный обратный трек из актуального DTO.
      * @param {Object} summary агрегированная информация о заявке
      * @returns {string|null} нормализованное значение трека или {@code null}
      */
@@ -100,7 +78,7 @@
         if (!summary || typeof summary !== 'object') {
             return null;
         }
-        const value = summary.reverseTrack ?? summary.reverseTrackNumber;
+        const value = summary.reverseTrack;
         if (typeof value !== 'string') {
             return value ?? null;
         }
@@ -184,12 +162,8 @@
         if (!row) {
             return;
         }
-        if ('exchangeRequested' in summary) {
-            row.dataset.exchangeRequested = summary.exchangeRequested ? 'true' : 'false';
-        }
-        if ('requestId' in summary) {
-            row.dataset.requestId = String(summary.requestId);
-        }
+        row.dataset.exchangeRequested = summary.exchangeRequested ? 'true' : 'false';
+        row.dataset.requestId = String(summary.requestId);
 
         const trackButton = row.querySelector('[data-return-track-number]');
         if (trackButton && 'trackNumber' in summary) {
@@ -236,7 +210,7 @@
         }
 
         const reverseSpan = row.querySelector('[data-return-reverse]');
-        if (reverseSpan && ('reverseTrack' in summary || 'reverseTrackNumber' in summary)) {
+        if (reverseSpan && 'reverseTrack' in summary) {
             const reverseValue = resolveReverseTrack(summary);
             const reverseText = reverseValue
                 ? `Обратный трек: ${reverseValue}`
@@ -255,43 +229,12 @@
             confirmationSpan.classList.toggle('text-muted', !confirmed);
         }
 
-        const derivePermissions = () => ({
-            allowConfirmReceipt: false,
-            allowConvertToExchange: false,
-            allowCloseRequest: false,
-            allowUpdateReverseTrack: false,
-            allowConvertToReturn: false
-        });
-
-        const permissions = summary.actionPermissions
-            ? summary.actionPermissions
-            : derivePermissions(summary);
         const actionCodeSet = collectActionCodes(summary);
-        const hasModernActions = actionCodeSet.size > 0;
-
-        const fallbackAllowConfirmReceipt = Boolean(permissions.allowConfirmReceipt)
-            || (summary.canConfirmReceipt !== undefined ? Boolean(summary.canConfirmReceipt) : false);
-        const fallbackAllowConvertToExchange = Boolean(permissions.allowConvertToExchange);
-        const fallbackAllowCloseRequest = Boolean(permissions.allowCloseRequest);
-        const fallbackAllowUpdateReverseTrack = Boolean(permissions.allowUpdateReverseTrack)
-            || (summary.canUpdateReverseTrack !== undefined ? Boolean(summary.canUpdateReverseTrack) : false);
-        const fallbackAllowConvertToReturn = Boolean(permissions.allowConvertToReturn);
-
-        const allowConfirmReceipt = hasModernActions
-            ? hasActionFromSet(actionCodeSet, 'mark_inbound_picked_up')
-            : fallbackAllowConfirmReceipt;
-        const allowConvertToExchange = hasModernActions
-            ? hasActionFromSet(actionCodeSet, 'set_mode_exchange')
-            : fallbackAllowConvertToExchange;
-        const allowCloseRequest = hasModernActions
-            ? hasActionFromSet(actionCodeSet, 'close_request')
-            : fallbackAllowCloseRequest;
-        const allowUpdateReverseTrack = hasModernActions
-            ? hasActionFromSet(actionCodeSet, 'update_reverse_track')
-            : fallbackAllowUpdateReverseTrack;
-        const allowConvertToReturn = hasModernActions
-            ? hasActionFromSet(actionCodeSet, 'set_mode_return')
-            : fallbackAllowConvertToReturn;
+        const allowConfirmReceipt = hasActionFromSet(actionCodeSet, 'mark_inbound_picked_up');
+        const allowConvertToExchange = hasActionFromSet(actionCodeSet, 'set_mode_exchange');
+        const allowCloseRequest = hasActionFromSet(actionCodeSet, 'close_request');
+        const allowUpdateReverseTrack = hasActionFromSet(actionCodeSet, 'update_reverse_track');
+        const allowConvertToReturn = hasActionFromSet(actionCodeSet, 'set_mode_return');
         const statusRaw = typeof summary.stage === 'string' ? summary.stage.toUpperCase() : '';
         const isExchangeStatus = statusRaw.includes('EXCHANGE');
 
@@ -355,21 +298,11 @@
             label: 'Принять обратную посылку'
         });
 
-        const allowMarkOutboundSent = hasModernActions
-            ? hasActionFromSet(actionCodeSet, 'mark_outbound_sent')
-            : Boolean(availableActions?.markOutboundSent);
-        const allowMarkInboundArrived = hasModernActions
-            ? hasActionFromSet(actionCodeSet, 'mark_inbound_arrived')
-            : Boolean(availableActions?.markInboundArrived);
-        const allowRegisterExchange = hasModernActions
-            ? hasActionFromSet(actionCodeSet, 'register_exchange_parcel')
-            : Boolean(availableActions?.registerExchangeParcel);
-        const allowMarkExchangeSent = hasModernActions
-            ? hasActionFromSet(actionCodeSet, 'mark_exchange_sent')
-            : Boolean(availableActions?.markExchangeSent);
-        const allowMarkExchangeDelivered = hasModernActions
-            ? hasActionFromSet(actionCodeSet, 'mark_exchange_delivered')
-            : Boolean(availableActions?.markExchangeDelivered);
+        const allowMarkOutboundSent = hasActionFromSet(actionCodeSet, 'mark_outbound_sent');
+        const allowMarkInboundArrived = hasActionFromSet(actionCodeSet, 'mark_inbound_arrived');
+        const allowRegisterExchange = hasActionFromSet(actionCodeSet, 'register_exchange_parcel');
+        const allowMarkExchangeSent = hasActionFromSet(actionCodeSet, 'mark_exchange_sent');
+        const allowMarkExchangeDelivered = hasActionFromSet(actionCodeSet, 'mark_exchange_delivered');
 
         const outboundButton = row.querySelector('.js-return-request-mark-outbound');
         syncButton(outboundButton, {
