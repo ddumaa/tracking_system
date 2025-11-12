@@ -29,6 +29,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -129,8 +130,42 @@ class OrderReturnRequestServiceTest {
         assertThat(persisted.getReverseTrackNumber()).isEqualTo(DEFAULT_REVERSE_TRACK);
         assertThat(persisted.isExchangeRequested()).isFalse();
         assertThat(persisted.getHistoryEntries()).hasSize(1);
+        assertThat(persisted.getIdempotencyKey()).isEqualTo("key-1");
         verifyNoInteractions(orderExchangeService);
         verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
+    }
+
+    @Test
+    void registerReturn_NormalizesIdempotencyKeyToLowerCase() {
+        TrackParcel parcel = buildParcel(11L, GlobalStatus.DELIVERED);
+        when(trackParcelService.findOwnedById(11L, 5L)).thenReturn(Optional.of(parcel));
+        String uppercaseKey = "00000000-0000-0000-0000-00000000ABCD";
+        String canonicalKey = uppercaseKey.toLowerCase(Locale.ROOT);
+        when(repository.findByIdempotencyKey(canonicalKey)).thenReturn(Optional.empty());
+        when(repository.findFirstByParcel_IdAndStatusIn(eq(11L), any())).thenReturn(Optional.empty());
+        when(episodeLifecycleService.ensureEpisode(parcel)).thenReturn(parcel.getEpisode());
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> {
+            OrderReturnRequest request = invocation.getArgument(0);
+            request.setId(300L);
+            return request;
+        });
+
+        OrderReturnRequest saved = service.registerReturn(
+                11L,
+                user,
+                uppercaseKey,
+                DEFAULT_REASON,
+                DEFAULT_COMMENT,
+                DEFAULT_REQUESTED_AT,
+                DEFAULT_REVERSE_TRACK,
+                NO_EXCHANGE_REQUESTED
+        );
+
+        assertThat(saved.getIdempotencyKey()).isEqualTo(canonicalKey);
+        verify(repository).findByIdempotencyKey(canonicalKey);
+        ArgumentCaptor<OrderReturnRequest> captor = ArgumentCaptor.forClass(OrderReturnRequest.class);
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().getIdempotencyKey()).isEqualTo(canonicalKey);
     }
 
     @Test
