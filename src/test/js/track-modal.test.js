@@ -141,7 +141,7 @@ describe('track-modal render', () => {
             exchangeRequested: Boolean(request.exchangeRequested),
             exchangeApproved: Boolean(request.exchangeApproved),
             exchangeShipmentDispatched: Boolean(request.exchangeShipmentDispatched),
-            exchangeTrackNumber: request.exchangeTrackNumber || null,
+            exchangeTrack: request.exchangeTrack || null,
             returnReceiptConfirmed: Boolean(request.returnReceiptConfirmed),
             ...request.state
         };
@@ -1478,7 +1478,7 @@ status: 'Зарегистрирована',
 
         const form = document.querySelector('form[data-reverse-track-form]');
         expect(form).not.toBeNull();
-        const input = form.querySelector('input[name="reverseTrackNumber"]');
+        const input = form.querySelector('input[name="reverseTrack"]');
         expect(input).not.toBeNull();
         input.value = ' rr123456789by ';
 
@@ -1581,8 +1581,7 @@ status: 'Зарегистрирована',
             parcelId: 14,
             requestId: 6,
             returnReceiptConfirmed: true,
-            returnReceiptConfirmedAt: '2024-03-01T09:00:00Z',
-            canConfirmReceipt: false
+            returnReceiptConfirmedAt: '2024-03-01T09:00:00Z'
         }));
         expect(global.notifyUser).toHaveBeenCalledWith('Возврат подтверждён', 'success');
     });
@@ -2479,7 +2478,7 @@ status: 'Закрыта',
         const reasonOptions = Array.from(reasonSelect?.options || []).map((option) => option.textContent);
         expect(reasonOptions).toEqual(expect.arrayContaining(['Не подошло', 'Брак', 'Не понравилось', 'Другое']));
 
-        const reverseTrackInput = document.querySelector('form input[name="reverseTrackNumber"]');
+        const reverseTrackInput = document.querySelector('form input[name="reverseTrack"]');
         expect(reverseTrackInput).not.toBeNull();
     });
 });
