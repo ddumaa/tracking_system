@@ -508,10 +508,9 @@ class TrackViewServiceTest {
         assertThat(details.returnRequest()).isNotNull();
         assertThat(details.returnRequest().mode()).isEqualTo(ReturnRequestMode.EXCHANGE.name());
         assertThat(details.returnRequest().stage()).isEqualTo(ReturnRequestStage.INBOUND_PICKED_UP.getCode());
-        assertThat(details.returnRequest().reverseTrackNumber()).isEqualTo("REV-77");
+        assertThat(details.returnRequest().reverseTrack()).isEqualTo("REV-77");
         assertThat(details.returnRequest().comment()).isEqualTo("Комментарий клиента");
         assertThat(details.returnRequest().reason()).isEqualTo("Повреждение");
-        assertThat(details.returnRequest().returnReceiptConfirmed()).isFalse();
 
         assertThat(details.lifecycle())
                 .extracting(TrackLifecycleStageDto::code)
@@ -634,8 +633,7 @@ class TrackViewServiceTest {
         assertThat(details.returnRequest()).isNotNull();
         assertThat(details.returnRequest().mode()).isEqualTo(ReturnRequestMode.EXCHANGE.name());
         assertThat(details.returnRequest().stage()).isEqualTo(ReturnRequestStage.EXCHANGE_SENT.getCode());
-        assertThat(details.returnRequest().exchangeTrackNumber()).isEqualTo("EX-123");
-        assertThat(details.returnRequest().exchangeTrackAssignedAt()).isEqualTo(assignedAt);
+        assertThat(details.returnRequest().exchangeTrack()).isEqualTo("EX-123");
         assertThat(details.requiresAction()).isFalse();
     }
 
