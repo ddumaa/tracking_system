@@ -57,17 +57,17 @@ public class ReturnRequestCommandPayloadFactory {
     }
 
     /**
-     * Разбирает полезную нагрузку команды обновления обратного трека.
+     * Разбирает полезную нагрузку команды обновления обратного трека, допуская пустой payload и отсутствие полей.
      */
     private ReturnRequestCommandPayload parseUpdateReverseTrack(JsonNode payloadNode) {
         if (payloadNode == null || payloadNode.isNull()) {
-            throw new IllegalArgumentException("Команда UPDATE_REVERSE_TRACK требует объект payload с параметрами");
+            return new UpdateReverseTrackPayload(null, null);
         }
         if (!payloadNode.isObject()) {
             throw new IllegalArgumentException("Полезная нагрузка UPDATE_REVERSE_TRACK должна быть объектом JSON");
         }
 
-        String reverseTrack = requireReverseTrack(payloadNode.get("reverseTrack"));
+        String reverseTrack = normalizeTrack(payloadNode.get("reverseTrack"), "reverseTrack");
         String comment = normalizeComment(payloadNode.get("comment"));
 
         return new UpdateReverseTrackPayload(reverseTrack, comment);
@@ -149,17 +149,6 @@ public class ReturnRequestCommandPayloadFactory {
         String track = normalizeTrack(node, "exchangeTrack");
         if (track == null) {
             throw new IllegalArgumentException("Поле exchangeTrack обязательно для команды " + type.name());
-        }
-        return track;
-    }
-
-    /**
-     * Проверяет наличие обязательного обратного трека и приводит его к нормализованному виду.
-     */
-    private String requireReverseTrack(JsonNode node) {
-        String track = normalizeTrack(node, "reverseTrack");
-        if (track == null) {
-            throw new IllegalArgumentException("Поле reverseTrack обязательно для команды UPDATE_REVERSE_TRACK");
         }
         return track;
     }

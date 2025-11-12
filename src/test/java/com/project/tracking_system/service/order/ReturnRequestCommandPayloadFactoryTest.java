@@ -56,14 +56,24 @@ class ReturnRequestCommandPayloadFactoryTest {
     }
 
     @Test
-    void create_whenUpdateReverseTrackWithoutTrack_throwsException() {
-        var node = JsonNodeFactory.instance.objectNode()
-                .putNull("reverseTrack")
-                .put("comment", "Комментарий");
+    void create_whenUpdateReverseTrackPayloadMissing_returnsPayloadWithNullFields() {
+        UpdateReverseTrackPayload payload = (UpdateReverseTrackPayload) factory
+                .create(ReturnRequestCommandType.UPDATE_REVERSE_TRACK, null);
 
-        assertThatThrownBy(() -> factory.create(ReturnRequestCommandType.UPDATE_REVERSE_TRACK, node))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("reverseTrack");
+        assertThat(payload.reverseTrack()).isNull();
+        assertThat(payload.comment()).isNull();
+    }
+
+    @Test
+    void create_whenUpdateReverseTrackWithOnlyComment_returnsPayloadWithComment() {
+        var node = JsonNodeFactory.instance.objectNode()
+                .put("comment", "  Комментарий только  ");
+
+        UpdateReverseTrackPayload payload = (UpdateReverseTrackPayload) factory
+                .create(ReturnRequestCommandType.UPDATE_REVERSE_TRACK, node);
+
+        assertThat(payload.reverseTrack()).isNull();
+        assertThat(payload.comment()).isEqualTo("Комментарий только");
     }
 
     @Test
