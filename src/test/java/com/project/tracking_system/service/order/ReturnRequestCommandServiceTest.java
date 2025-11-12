@@ -357,6 +357,9 @@ class ReturnRequestCommandServiceTest {
         return request;
     }
 
+    /**
+     * Собирает DTO заявки с актуальным списком полей публичного API.
+     */
     private RequestDto buildRequestDto(String uuid, String mode) {
         ZonedDateTime timestamp = ZonedDateTime.parse("2024-01-01T10:15:30Z");
         return new RequestDto(
