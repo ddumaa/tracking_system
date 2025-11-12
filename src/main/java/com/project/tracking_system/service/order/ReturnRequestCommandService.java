@@ -11,6 +11,9 @@ import com.project.tracking_system.entity.ReturnCommandLog;
 import com.project.tracking_system.entity.ReturnRequestMode;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.exception.ActionNotAllowedException;
+import com.project.tracking_system.exception.IdempotencyConflictException;
+import com.project.tracking_system.exception.ValidationException;
 import com.project.tracking_system.repository.ReturnCommandLogRepository;
 import com.project.tracking_system.service.order.payload.ExchangeShipmentPayload;
 import com.project.tracking_system.service.order.payload.ReturnRequestCommandPayload;
@@ -111,25 +114,25 @@ public class ReturnRequestCommandService {
                                    CommandDto command,
                                    User user) {
         if (requestId == null) {
-            throw new IllegalArgumentException("Не указан идентификатор заявки");
+            throw new ValidationException("Не указан идентификатор заявки");
         }
         if (commandType == null) {
-            throw new IllegalArgumentException("Неизвестная команда управления заявкой");
+            throw new ValidationException("Неизвестная команда управления заявкой");
         }
         if (command == null) {
-            throw new IllegalArgumentException("Не передано тело команды");
+            throw new ValidationException("Не передано тело команды");
         }
         if (!StringUtils.hasText(command.idempotencyKey())) {
-            throw new IllegalArgumentException("Не указан идемпотентный ключ команды");
+            throw new ValidationException("Не указан идемпотентный ключ команды");
         }
         if (!StringUtils.hasText(command.action())) {
-            throw new IllegalArgumentException("Не указан код действия команды");
+            throw new ValidationException("Не указан код действия команды");
         }
         if (requiresPayload(commandType) && command.payload() == null) {
-            throw new IllegalArgumentException("Команда " + commandType.name() + " требует объект payload с параметрами");
+            throw new ValidationException("Команда " + commandType.name() + " требует объект payload с параметрами");
         }
         if (user == null) {
-            throw new IllegalArgumentException("Не указан пользователь");
+            throw new ValidationException("Не указан пользователь");
         }
     }
 
@@ -174,7 +177,7 @@ public class ReturnRequestCommandService {
                     orderReturnRequestService::markExchangeSent);
             case MARK_EXCHANGE_DELIVERED -> executeStageCommand(context, payload, type,
                     orderReturnRequestService::markExchangeDelivered);
-            default -> throw new IllegalArgumentException("Команда " + type.name() + " не поддерживается системой");
+            default -> throw new ActionNotAllowedException("Команда " + type.name() + " не поддерживается системой");
         };
     }
 
@@ -216,7 +219,7 @@ public class ReturnRequestCommandService {
                     .orElseThrow(() -> ex);
             validatePayloadMatches(payloadHash, concurrentLog);
             if (concurrentLog.getResponseSnapshot() == null) {
-                throw new IllegalStateException("Команда с таким ключом уже выполняется, повторите позже", ex);
+                throw new IdempotencyConflictException("Команда с таким ключом уже выполняется, повторите позже", ex);
             }
             return concurrentLog;
         }
@@ -227,7 +230,7 @@ public class ReturnRequestCommandService {
      */
     private void validatePayloadMatches(String payloadHash, ReturnCommandLog logEntry) {
         if (!payloadHash.equals(logEntry.getPayloadHash())) {
-            throw new IllegalStateException("Команда с таким ключом уже выполнена с другими данными");
+            throw new IdempotencyConflictException("Команда с таким ключом уже выполнена с другими данными");
         }
     }
 
@@ -279,7 +282,7 @@ public class ReturnRequestCommandService {
                 .map(OrderReturnRequest::getParcel)
                 .orElse(null);
         if (parcel == null || parcel.getId() == null) {
-            throw new IllegalArgumentException("Заявка не привязана к посылке");
+            throw new ValidationException("Заявка не привязана к посылке");
         }
         return parcel.getId();
     }
@@ -310,8 +313,8 @@ public class ReturnRequestCommandService {
             case REGISTERED -> orderReturnRequestService.closeRequest(context.requestId(),
                     context.parcelId(),
                     context.user());
-            case EXCHANGE_APPROVED -> throw new IllegalStateException("Перед закрытием переведите заявку в режим возврата");
-            case CLOSED_NO_EXCHANGE -> throw new IllegalStateException("Заявка уже закрыта");
+            case EXCHANGE_APPROVED -> throw new ActionNotAllowedException("Перед закрытием переведите заявку в режим возврата");
+            case CLOSED_NO_EXCHANGE -> throw new ActionNotAllowedException("Заявка уже закрыта");
         };
     }
 
@@ -351,7 +354,7 @@ public class ReturnRequestCommandService {
                                                                      Class<T> payloadType,
                                                                      ReturnRequestCommandType type) {
         if (!payloadType.isInstance(payload)) {
-            throw new IllegalArgumentException("Команда " + type.name()
+            throw new ValidationException("Команда " + type.name()
                     + " передана с неподдерживаемой структурой данных");
         }
         return payloadType.cast(payload);

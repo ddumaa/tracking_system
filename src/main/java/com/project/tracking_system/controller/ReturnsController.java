@@ -9,9 +9,9 @@ import com.project.tracking_system.entity.User;
 import com.project.tracking_system.service.order.OrderReturnRequestService;
 import com.project.tracking_system.service.order.ReturnRequestCommandService;
 import com.project.tracking_system.service.order.ReturnRequestMapper;
+import com.project.tracking_system.exception.ValidationException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -82,26 +81,18 @@ public class ReturnsController {
     public RequestDto registerReturn(@RequestBody @Valid ReturnRegistrationRequest request,
                                       @AuthenticationPrincipal User user) {
         ensureAuthenticated(user);
-        try {
-            ZonedDateTime requestedAtUtc = request.requestedAt().atZoneSameInstant(ZoneOffset.UTC);
-            OrderReturnRequest saved = orderReturnRequestService.registerReturn(
-                    request.parcelId(),
-                    user,
-                    request.idempotencyKey(),
-                    request.reason(),
-                    request.comment(),
-                    requestedAtUtc,
-                    request.reverseTrackNumber(),
-                    request.isExchange()
-            );
-            return returnRequestMapper.toDto(saved, resolveUserZone(user));
-        } catch (AccessDeniedException ex) {
-            throw ex;
-        } catch (IllegalArgumentException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
-        } catch (IllegalStateException ex) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
-        }
+        ZonedDateTime requestedAtUtc = request.requestedAt().atZoneSameInstant(ZoneOffset.UTC);
+        OrderReturnRequest saved = orderReturnRequestService.registerReturn(
+                request.parcelId(),
+                user,
+                request.idempotencyKey(),
+                request.reason(),
+                request.comment(),
+                requestedAtUtc,
+                request.reverseTrackNumber(),
+                request.isExchange()
+        );
+        return returnRequestMapper.toDto(saved, resolveUserZone(user));
     }
 
     /**
@@ -119,18 +110,10 @@ public class ReturnsController {
         ensureAuthenticated(user);
         ReturnRequestCommandType commandType = ReturnRequestCommandType.fromCode(command.action());
         if (commandType == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Неизвестная команда управления заявкой");
+            throw new ValidationException("Неизвестная команда управления заявкой");
         }
         ZoneId userZone = resolveUserZone(user);
-        try {
-            return returnRequestCommandService.executeCommand(id, commandType, command, user, userZone);
-        } catch (AccessDeniedException ex) {
-            throw ex;
-        } catch (IllegalArgumentException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
-        } catch (IllegalStateException ex) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
-        }
+        return returnRequestCommandService.executeCommand(id, commandType, command, user, userZone);
     }
 
     /**
@@ -146,15 +129,7 @@ public class ReturnsController {
      * Загружает заявку с проверкой принадлежности пользователю.
      */
     private OrderReturnRequest loadOwnedRequest(Long id, User user) {
-        try {
-            return orderReturnRequestService.getOwnedRequest(id, user);
-        } catch (IllegalArgumentException ex) {
-            String message = ex.getMessage();
-            if (message != null && message.toLowerCase().contains("не найд")) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, message, ex);
-            }
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message, ex);
-        }
+        return orderReturnRequestService.getOwnedRequest(id, user);
     }
 
     /**

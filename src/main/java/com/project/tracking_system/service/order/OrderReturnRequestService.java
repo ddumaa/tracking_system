@@ -1,6 +1,9 @@
 package com.project.tracking_system.service.order;
 
 import com.project.tracking_system.dto.ReturnRequestUpdateResponse;
+import com.project.tracking_system.exception.ActionNotAllowedException;
+import com.project.tracking_system.exception.IdempotencyConflictException;
+import com.project.tracking_system.exception.ValidationException;
 import com.project.tracking_system.entity.Customer;
 import com.project.tracking_system.entity.GlobalStatus;
 import com.project.tracking_system.entity.OrderEpisode;
@@ -20,6 +23,7 @@ import com.project.tracking_system.service.track.TrackParcelService;
 import com.project.tracking_system.service.track.TrackViewCacheInvalidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -93,7 +97,7 @@ public class OrderReturnRequestService {
                                                           String comment) {
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
         if (!ACTIVE_STATUSES.contains(request.getStatus())) {
-            throw new IllegalStateException("Заявку нельзя изменить в текущем статусе");
+            throw new ActionNotAllowedException("Заявку нельзя изменить в текущем статусе");
         }
 
         String normalizedTrack = normalizeReverseTrackNumber(reverseTrack);
@@ -141,13 +145,13 @@ public class OrderReturnRequestService {
                                              String reverseTrack,
                                              boolean exchangeRequested) {
         if (parcelId == null) {
-            throw new IllegalArgumentException("Не указан идентификатор посылки");
+            throw new ValidationException("Не указан идентификатор посылки");
         }
         if (user == null || user.getId() == null) {
-            throw new IllegalArgumentException("Не указан пользователь");
+            throw new ValidationException("Не указан пользователь");
         }
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
-            throw new IllegalArgumentException("Не указан идемпотентный ключ заявки");
+            throw new ValidationException("Не указан идемпотентный ключ заявки");
         }
 
         String normalizedReason = normalizeReason(reason);
@@ -164,7 +168,7 @@ public class OrderReturnRequestService {
                     || !Objects.equals(existing.getRequestedAt(), normalizedRequestedAt)
                     || !Objects.equals(existing.getReverseTrackNumber(), normalizedReverse)
                     || existing.isExchangeRequested() != exchangeRequested) {
-                throw new IllegalStateException("Заявка с таким ключом уже зарегистрирована с другими данными");
+                throw new IdempotencyConflictException("Заявка с таким ключом уже зарегистрирована с другими данными");
             }
             return existing;
         }
@@ -173,14 +177,14 @@ public class OrderReturnRequestService {
                 .orElseThrow(() -> new AccessDeniedException("Посылка не принадлежит пользователю"));
 
         if (parcel.getStatus() != GlobalStatus.DELIVERED) {
-            throw new IllegalStateException("Заявка на возврат доступна только для статуса \"Вручена\"");
+            throw new ActionNotAllowedException("Заявка на возврат доступна только для статуса \"Вручена\"");
         }
 
         Optional<OrderReturnRequest> active = returnRequestRepository
                 .findFirstByParcel_IdAndStatusIn(parcelId, ACTIVE_STATUSES);
         if (active.isPresent()) {
             log.debug("По посылке {} уже есть активная заявка {}", parcelId, active.get().getId());
-            throw new IllegalStateException("У посылки уже есть активная заявка на возврат");
+            throw new ActionNotAllowedException("У посылки уже есть активная заявка на возврат");
         }
 
         OrderEpisode episode = episodeLifecycleService.ensureEpisode(parcel);
@@ -263,7 +267,7 @@ public class OrderReturnRequestService {
                                                   ReturnRequestMode targetMode,
                                                   ModeSwitchTrigger trigger) {
         if (targetMode == null) {
-            throw new IllegalArgumentException("Не указан целевой режим заявки");
+            throw new ValidationException("Не указан целевой режим заявки");
         }
         ModeSwitchTrigger effectiveTrigger = trigger != null ? trigger : ModeSwitchTrigger.MANUAL_DECISION;
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
@@ -318,10 +322,10 @@ public class OrderReturnRequestService {
     public TrackParcel createExchangeParcel(Long requestId, Long parcelId, User user) {
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
         if (request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
-            throw new IllegalStateException("Обменная посылка доступна только после одобрения обмена");
+            throw new ActionNotAllowedException("Обменная посылка доступна только после одобрения обмена");
         }
         if (!canCreateExchangeParcel(request)) {
-            throw new IllegalStateException("Обменная посылка уже создана или находится в работе");
+            throw new ActionNotAllowedException("Обменная посылка уже создана или находится в работе");
         }
         TrackParcel replacement = orderExchangeService.createExchangeParcel(request);
         ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
@@ -348,7 +352,7 @@ public class OrderReturnRequestService {
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
 
         if (request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
-            throw new IllegalStateException("Заявка уже обработана");
+            throw new ActionNotAllowedException("Заявка уже обработана");
         }
 
         ZonedDateTime closeMoment = ZonedDateTime.now(ZoneOffset.UTC);
@@ -387,7 +391,7 @@ public class OrderReturnRequestService {
         OrderReturnRequestStatus status = request.getStatus();
         if (status != OrderReturnRequestStatus.REGISTERED
                 && status != OrderReturnRequestStatus.CLOSED_NO_EXCHANGE) {
-            throw new IllegalStateException("Подтверждение доступно только для активной заявки или закрытия без обмена");
+            throw new ActionNotAllowedException("Подтверждение доступно только для активной заявки или закрытия без обмена");
         }
         if (request.isReturnReceiptConfirmed()) {
             return request;
@@ -409,7 +413,7 @@ public class OrderReturnRequestService {
                                                ZonedDateTime stageMoment) {
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
         if (!canMarkOutboundSent(request)) {
-            throw new IllegalStateException("Стадия отправки возврата недоступна для текущего состояния заявки");
+            throw new ActionNotAllowedException("Стадия отправки возврата недоступна для текущего состояния заявки");
         }
         ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
         request.setResponsibleManager(user);
@@ -430,7 +434,7 @@ public class OrderReturnRequestService {
                                                  ZonedDateTime stageMoment) {
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
         if (!canMarkInboundArrived(request)) {
-            throw new IllegalStateException("Стадия прибытия возврата недоступна для текущего состояния заявки");
+            throw new ActionNotAllowedException("Стадия прибытия возврата недоступна для текущего состояния заявки");
         }
         ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
         request.setResponsibleManager(user);
@@ -451,7 +455,7 @@ public class OrderReturnRequestService {
                                                   ZonedDateTime stageMoment) {
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
         if (!canMarkInboundPickedUp(request)) {
-            throw new IllegalStateException("Стадия приёма возврата недоступна для текущего состояния заявки");
+            throw new ActionNotAllowedException("Стадия приёма возврата недоступна для текущего состояния заявки");
         }
         ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
         markReturnProcessingConfirmed(request, user, normalizedMoment);
@@ -472,10 +476,10 @@ public class OrderReturnRequestService {
                                                      ZonedDateTime stageMoment) {
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
         if (request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
-            throw new IllegalStateException("Ручная регистрация доступна только для одобренного обмена");
+            throw new ActionNotAllowedException("Ручная регистрация доступна только для одобренного обмена");
         }
         if (!canRegisterExchangeParcel(request)) {
-            throw new IllegalStateException("Обменная посылка уже зарегистрирована или ожидает обработки");
+            throw new ActionNotAllowedException("Обменная посылка уже зарегистрирована или ожидает обработки");
         }
         String normalizedTrack = normalizeExchangeTrackNumber(exchangeTrack);
         ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
@@ -498,10 +502,10 @@ public class OrderReturnRequestService {
                                                ZonedDateTime stageMoment) {
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
         if (request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
-            throw new IllegalStateException("Стадия отправки обмена недоступна для текущего состояния заявки");
+            throw new ActionNotAllowedException("Стадия отправки обмена недоступна для текущего состояния заявки");
         }
         if (!canTransitionToStage(request, ReturnRequestStage.EXCHANGE_SENT)) {
-            throw new IllegalStateException("Переход на стадию отправки обмена запрещён текущими правилами");
+            throw new ActionNotAllowedException("Переход на стадию отправки обмена запрещён текущими правилами");
         }
         String normalizedTrack = normalizeExchangeTrackNumber(exchangeTrack);
         ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
@@ -523,7 +527,7 @@ public class OrderReturnRequestService {
                                                     ZonedDateTime stageMoment) {
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
         if (!canMarkExchangeDelivered(request)) {
-            throw new IllegalStateException("Стадия доставки обмена недоступна для текущего состояния заявки");
+            throw new ActionNotAllowedException("Стадия доставки обмена недоступна для текущего состояния заявки");
         }
         ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
         request.setResponsibleManager(user);
@@ -557,14 +561,14 @@ public class OrderReturnRequestService {
                                                                 Customer customer,
                                                                 ReturnRequestAction action) {
         if (action == null) {
-            throw new IllegalArgumentException("Не указан тип запроса к магазину");
+            throw new ValidationException("Не указан тип запроса к магазину");
         }
         if (customer == null || customer.getId() == null) {
-            throw new IllegalArgumentException("Не указан покупатель");
+            throw new ValidationException("Не указан покупатель");
         }
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
         if (request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
-            throw new IllegalStateException("Запрос возможен только для обменных заявок");
+            throw new ActionNotAllowedException("Запрос возможен только для обменных заявок");
         }
 
         Optional<OrderReturnRequestActionRequest> existing = actionRequestRepository
@@ -846,21 +850,21 @@ public class OrderReturnRequestService {
      */
     private OrderReturnRequest applyExchangeMode(OrderReturnRequest request, User actor) {
         if (request == null) {
-            throw new IllegalArgumentException("Не найдена заявка для переключения режима");
+            throw new EntityNotFoundException("Не найдена заявка для переключения режима");
         }
         if (request.getStatus() == OrderReturnRequestStatus.EXCHANGE_APPROVED) {
             request.setMode(ReturnRequestMode.EXCHANGE);
             return request;
         }
         if (request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
-            throw new IllegalStateException("Перевод в обмен доступен только для активной заявки");
+            throw new ActionNotAllowedException("Перевод в обмен доступен только для активной заявки");
         }
         Long episodeId = Optional.ofNullable(request.getEpisode())
                 .map(OrderEpisode::getId)
                 .orElse(null);
         if (episodeId != null && returnRequestRepository.existsByEpisode_IdAndStatus(episodeId,
                 OrderReturnRequestStatus.EXCHANGE_APPROVED)) {
-            throw new IllegalStateException("В эпизоде уже запущен обмен");
+            throw new ActionNotAllowedException("В эпизоде уже запущен обмен");
         }
         ZonedDateTime decisionMoment = ZonedDateTime.now(ZoneOffset.UTC);
         request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);
@@ -881,7 +885,7 @@ public class OrderReturnRequestService {
                                                User actor,
                                                ModeSwitchTrigger trigger) {
         if (request == null) {
-            throw new IllegalArgumentException("Не найдена заявка для переключения режима");
+            throw new EntityNotFoundException("Не найдена заявка для переключения режима");
         }
         OrderReturnRequestStatus status = request.getStatus();
         if (status == OrderReturnRequestStatus.CLOSED_NO_EXCHANGE) {
@@ -901,7 +905,7 @@ public class OrderReturnRequestService {
             return request;
         }
         if (status != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
-            throw new IllegalStateException("Заявка не находится в режиме обмена");
+            throw new ActionNotAllowedException("Заявка не находится в режиме обмена");
         }
         ensureExchangeCancellationPossible(request, trigger);
         TrackParcel replacement;
@@ -910,7 +914,7 @@ public class OrderReturnRequestService {
                     .orElse(null);
         } catch (IllegalStateException ex) {
             log.warn("Нельзя перевести обмен по заявке {} в возврат: {}", request.getId(), ex.getMessage());
-            throw ex;
+            throw new ActionNotAllowedException(ex.getMessage(), ex);
         }
         ZonedDateTime reopenMoment = ZonedDateTime.now(ZoneOffset.UTC);
         request.setStatus(OrderReturnRequestStatus.REGISTERED);
@@ -1010,10 +1014,10 @@ public class OrderReturnRequestService {
         log.debug("Проверка возможности отмены обмена по заявке {} (триггер {})",
                 request.getId(), trigger);
         if (isExchangeShipmentDispatched(request)) {
-            throw new IllegalStateException("Отмена обмена недоступна: обменная посылка уже отправлена или доставлена");
+            throw new ActionNotAllowedException("Отмена обмена недоступна: обменная посылка уже отправлена или доставлена");
         }
         getExchangeCancellationBlockReason(request).ifPresent(reason -> {
-            throw new IllegalStateException(reason);
+            throw new ActionNotAllowedException(reason);
         });
     }
 
@@ -1268,13 +1272,13 @@ public class OrderReturnRequestService {
     @Transactional(readOnly = true)
     public OrderReturnRequest getOwnedRequest(Long requestId, User user) {
         if (requestId == null) {
-            throw new IllegalArgumentException("Не указан идентификатор заявки");
+            throw new ValidationException("Не указан идентификатор заявки");
         }
         if (user == null || user.getId() == null) {
-            throw new IllegalArgumentException("Не указан пользователь");
+            throw new ValidationException("Не указан пользователь");
         }
         OrderReturnRequest request = returnRequestRepository.findByIdWithDetails(requestId)
-                .orElseThrow(() -> new IllegalArgumentException("Заявка не найдена"));
+                .orElseThrow(() -> new EntityNotFoundException("Заявка не найдена"));
         ensureOwnership(request, user.getId());
         return request;
     }
@@ -1284,16 +1288,16 @@ public class OrderReturnRequestService {
      */
     private OrderReturnRequest loadOwnedRequest(Long requestId, Long parcelId, User user) {
         if (requestId == null || parcelId == null) {
-            throw new IllegalArgumentException("Идентификаторы заявки и посылки обязательны");
+            throw new ValidationException("Идентификаторы заявки и посылки обязательны");
         }
         if (user == null || user.getId() == null) {
-            throw new IllegalArgumentException("Не указан пользователь");
+            throw new ValidationException("Не указан пользователь");
         }
         OrderReturnRequest request = returnRequestRepository.findById(requestId)
-                .orElseThrow(() -> new IllegalArgumentException("Заявка не найдена"));
+                .orElseThrow(() -> new EntityNotFoundException("Заявка не найдена"));
         ensureOwnership(request, user.getId());
         if (!parcelId.equals(Optional.ofNullable(request.getParcel()).map(TrackParcel::getId).orElse(null))) {
-            throw new IllegalArgumentException("Заявка не относится к указанной посылке");
+            throw new ValidationException("Заявка не относится к указанной посылке");
         }
         return request;
     }
@@ -1361,14 +1365,14 @@ public class OrderReturnRequestService {
      */
     private String normalizeReason(String reason) {
         if (reason == null) {
-            throw new IllegalArgumentException("Не указана причина возврата");
+            throw new ValidationException("Не указана причина возврата");
         }
         String normalized = reason.trim();
         if (normalized.isEmpty()) {
-            throw new IllegalArgumentException("Не указана причина возврата");
+            throw new ValidationException("Не указана причина возврата");
         }
         if (normalized.length() > 255) {
-            throw new IllegalArgumentException("Причина возврата не должна превышать 255 символов");
+            throw new ValidationException("Причина возврата не должна превышать 255 символов");
         }
         return normalized;
     }
@@ -1385,7 +1389,7 @@ public class OrderReturnRequestService {
             return null;
         }
         if (normalized.length() > 2000) {
-            throw new IllegalArgumentException("Комментарий не должен превышать 2000 символов");
+            throw new ValidationException("Комментарий не должен превышать 2000 символов");
         }
         return normalized;
     }
@@ -1399,7 +1403,7 @@ public class OrderReturnRequestService {
                 : ZonedDateTime.now(ZoneOffset.UTC);
         ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC).plusMinutes(1);
         if (utc.isAfter(now)) {
-            throw new IllegalArgumentException("Дата запроса возврата не может быть в будущем");
+            throw new ValidationException("Дата запроса возврата не может быть в будущем");
         }
         return utc;
     }
@@ -1416,7 +1420,7 @@ public class OrderReturnRequestService {
             return null;
         }
         if (normalized.length() > 64) {
-            throw new IllegalArgumentException("Трек обратной отправки не должен превышать 64 символа");
+            throw new ValidationException("Трек обратной отправки не должен превышать 64 символа");
         }
         return normalized.toUpperCase();
     }
@@ -1441,14 +1445,14 @@ public class OrderReturnRequestService {
      */
     private String normalizeExchangeTrackNumber(String exchangeTrackNumber) {
         if (exchangeTrackNumber == null) {
-            throw new IllegalArgumentException("Не указан трек обменной посылки");
+            throw new ValidationException("Не указан трек обменной посылки");
         }
         String normalized = exchangeTrackNumber.trim();
         if (normalized.isEmpty()) {
-            throw new IllegalArgumentException("Не указан трек обменной посылки");
+            throw new ValidationException("Не указан трек обменной посылки");
         }
         if (normalized.length() > 64) {
-            throw new IllegalArgumentException("Трек обменной посылки не должен превышать 64 символа");
+            throw new ValidationException("Трек обменной посылки не должен превышать 64 символа");
         }
         return normalized.toUpperCase();
     }
@@ -1463,7 +1467,7 @@ public class OrderReturnRequestService {
         }
         ZonedDateTime utc = stageMoment.withZoneSameInstant(ZoneOffset.UTC);
         if (utc.isAfter(now.plusMinutes(1))) {
-            throw new IllegalArgumentException("Момент фиксации стадии не может быть в будущем");
+            throw new ValidationException("Момент фиксации стадии не может быть в будущем");
         }
         return utc;
     }
