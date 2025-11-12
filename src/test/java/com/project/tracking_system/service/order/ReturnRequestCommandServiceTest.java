@@ -194,10 +194,7 @@ class ReturnRequestCommandServiceTest {
     @Test
     void executeCommand_whenUpdateReverseTrackWithoutPayload_throwsBadRequest() {
         User user = buildUser();
-        OrderReturnRequest request = buildRequest(23L, 11L);
         CommandDto command = new CommandDto("dup-4", ReturnRequestCommandType.UPDATE_REVERSE_TRACK.getCode(), null);
-
-        when(orderReturnRequestService.getOwnedRequest(23L, user)).thenReturn(request);
 
         assertThatThrownBy(() -> commandService.executeCommand(23L,
                 ReturnRequestCommandType.UPDATE_REVERSE_TRACK,
@@ -213,10 +210,7 @@ class ReturnRequestCommandServiceTest {
     @Test
     void executeCommand_whenExchangeCommandWithoutPayload_throwsBadRequest() {
         User user = buildUser();
-        OrderReturnRequest request = buildRequest(24L, 12L);
         CommandDto command = new CommandDto("dup-5", ReturnRequestCommandType.MARK_EXCHANGE_SENT.getCode(), null);
-
-        when(orderReturnRequestService.getOwnedRequest(24L, user)).thenReturn(request);
 
         assertThatThrownBy(() -> commandService.executeCommand(24L,
                 ReturnRequestCommandType.MARK_EXCHANGE_SENT,
@@ -227,6 +221,40 @@ class ReturnRequestCommandServiceTest {
                 .hasMessageContaining("требует объект payload");
 
         verify(orderReturnRequestService, never()).markExchangeSent(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void executeCommand_whenMarkExchangeDeliveredWithoutPayload_executesWithNullMoment() {
+        User user = buildUser();
+        OrderReturnRequest request = buildRequest(25L, 13L);
+        OrderReturnRequest updated = buildRequest(25L, 13L);
+        RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000025", "EXCHANGE");
+        CommandDto command = new CommandDto("dup-6", ReturnRequestCommandType.MARK_EXCHANGE_DELIVERED.getCode(), null);
+
+        when(orderReturnRequestService.getOwnedRequest(25L, user)).thenReturn(request);
+        when(orderReturnRequestService.markExchangeDelivered(eq(25L), eq(13L), eq(user), any())).thenReturn(updated);
+        when(returnRequestMapper.toDto(eq(updated), any())).thenReturn(dto);
+
+        AtomicReference<ReturnCommandLog> savedLog = new AtomicReference<>();
+        when(returnCommandLogRepository.findFirstByRequestIdAndIdempotencyKey(25L, "dup-6"))
+                .thenAnswer(invocation -> Optional.ofNullable(savedLog.get()));
+        when(returnCommandLogRepository.saveAndFlush(any(ReturnCommandLog.class)))
+                .thenAnswer(invocation -> {
+                    ReturnCommandLog logEntry = invocation.getArgument(0);
+                    savedLog.set(logEntry);
+                    return logEntry;
+                });
+
+        RequestDto result = commandService.executeCommand(25L,
+                ReturnRequestCommandType.MARK_EXCHANGE_DELIVERED,
+                command,
+                user,
+                ZoneOffset.UTC);
+
+        assertThat(result).isEqualTo(dto);
+        ArgumentCaptor<ZonedDateTime> momentCaptor = ArgumentCaptor.forClass(ZonedDateTime.class);
+        verify(orderReturnRequestService).markExchangeDelivered(eq(25L), eq(13L), eq(user), momentCaptor.capture());
+        assertThat(momentCaptor.getValue()).isNull();
     }
 
     @Test

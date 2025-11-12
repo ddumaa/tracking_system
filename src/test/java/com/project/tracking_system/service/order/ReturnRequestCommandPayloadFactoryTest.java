@@ -52,7 +52,7 @@ class ReturnRequestCommandPayloadFactoryTest {
 
         assertThatThrownBy(() -> factory.create(ReturnRequestCommandType.UPDATE_REVERSE_TRACK, node))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("не должен превышать 64");
+                .hasMessageContaining("не должно превышать 64");
     }
 
     @Test
@@ -108,6 +108,14 @@ class ReturnRequestCommandPayloadFactoryTest {
                 .create(ReturnRequestCommandType.MARK_OUTBOUND_SENT, node);
 
         assertThat(payload.stageMoment()).isEqualTo(java.time.ZonedDateTime.parse("2024-02-01T09:00:00Z"));
+    }
+
+    @Test
+    void create_whenMarkExchangeDeliveredHasNullPayload_returnsStagePayloadWithNullMoment() {
+        StageMarkPayload payload = (StageMarkPayload) factory
+                .create(ReturnRequestCommandType.MARK_EXCHANGE_DELIVERED, null);
+
+        assertThat(payload.stageMoment()).isNull();
     }
 
     @Test
