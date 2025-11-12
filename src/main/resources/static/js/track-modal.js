@@ -1587,7 +1587,8 @@
 
     /**
      * Преобразует DTO модального окна в формат, ожидаемый таблицей возвратов.
-     * Метод формирует только доступные поля, не нарушая инкапсуляцию ActionRequiredReturnRequestDto (ISP).
+     * Метод формирует только доступные поля, не нарушая инкапсуляцию ActionRequiredReturnRequestDto (ISP),
+     * и дополнительно передаёт структуру доступных действий, чтобы таблица не теряла кнопки (LSP).
      * @param {Object} details DTO деталей трека
      * @returns {Object|null} частичный DTO строки таблицы или {@code null}
      */
@@ -1628,11 +1629,23 @@
         if (request.returnReceiptConfirmedAt !== undefined) {
             summary.returnReceiptConfirmedAt = request.returnReceiptConfirmedAt;
         }
+        const rawAvailableActions = request.availableActions;
+        if (rawAvailableActions && typeof rawAvailableActions === 'object') {
+            summary.availableActions = rawAvailableActions;
+        }
+        const rawActionSource = rawAvailableActions ?? request.actions ?? [];
+        const actionCodes = Array.isArray(request.actions)
+            ? request.actions.filter((code) => typeof code === 'string')
+            : extractActionCodes(rawActionSource);
+        summary.actions = actionCodes.length > 0
+            ? actionCodes
+            : [];
         return summary;
     }
 
     /**
      * Преобразует DTO заявки без данных трека в формат строки таблицы.
+     * Метод повторяет контракт модалки, сохраняя список доступных действий для перерисовки таблицы без полного обновления.
      * @param {number|string} trackId идентификатор посылки
      * @param {Object} request DTO заявки
      * @returns {Object|null} частичный DTO строки таблицы
@@ -1667,6 +1680,17 @@
         if (request.returnReceiptConfirmedAt !== undefined) {
             summary.returnReceiptConfirmedAt = request.returnReceiptConfirmedAt;
         }
+        const rawAvailableActions = request.availableActions;
+        if (rawAvailableActions && typeof rawAvailableActions === 'object') {
+            summary.availableActions = rawAvailableActions;
+        }
+        const rawActionSource = rawAvailableActions ?? request.actions ?? [];
+        const actionCodes = Array.isArray(request.actions)
+            ? request.actions.filter((code) => typeof code === 'string')
+            : extractActionCodes(rawActionSource);
+        summary.actions = actionCodes.length > 0
+            ? actionCodes
+            : [];
         return summary;
     }
 
