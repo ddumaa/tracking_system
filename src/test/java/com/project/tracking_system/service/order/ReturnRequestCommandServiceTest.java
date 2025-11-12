@@ -32,6 +32,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.HexFormat;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -78,12 +79,13 @@ class ReturnRequestCommandServiceTest {
     @Test
     void executeCommand_whenRepeated_returnsStoredSnapshot() {
         User user = buildUser();
-        OrderReturnRequest request = buildRequest(21L, 9L);
-        OrderReturnRequest updated = buildRequest(21L, 9L);
-        RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000021", "EXCHANGE");
+        UUID requestKey = UUID.fromString("00000000-0000-0000-0000-000000000021");
+        OrderReturnRequest request = buildRequest(21L, 9L, requestKey);
+        OrderReturnRequest updated = buildRequest(21L, 9L, requestKey);
+        RequestDto dto = buildRequestDto(requestKey.toString(), "EXCHANGE");
         CommandDto command = new CommandDto("dup-1", ReturnRequestCommandType.SET_MODE_EXCHANGE.getCode(), null);
 
-        when(orderReturnRequestService.getOwnedRequest(21L, user)).thenReturn(request);
+        when(orderReturnRequestService.getOwnedRequest(requestKey, user)).thenReturn(request);
         when(orderReturnRequestService.setModeExchange(21L,
                 9L,
                 user,
@@ -101,12 +103,12 @@ class ReturnRequestCommandServiceTest {
                     return logEntry;
                 });
 
-        RequestDto first = commandService.executeCommand(21L,
+        RequestDto first = commandService.executeCommand(requestKey,
                 ReturnRequestCommandType.SET_MODE_EXCHANGE,
                 command,
                 user,
                 ZoneOffset.UTC);
-        RequestDto second = commandService.executeCommand(21L,
+        RequestDto second = commandService.executeCommand(requestKey,
                 ReturnRequestCommandType.SET_MODE_EXCHANGE,
                 command,
                 user,
@@ -125,8 +127,9 @@ class ReturnRequestCommandServiceTest {
     @Test
     void executeCommand_whenPayloadDiffers_throwsConflict() {
         User user = buildUser();
-        OrderReturnRequest request = buildRequest(21L, 9L);
-        when(orderReturnRequestService.getOwnedRequest(21L, user)).thenReturn(request);
+        UUID requestKey = UUID.fromString("00000000-0000-0000-0000-000000000021");
+        OrderReturnRequest request = buildRequest(21L, 9L, requestKey);
+        when(orderReturnRequestService.getOwnedRequest(requestKey, user)).thenReturn(request);
 
         ReturnCommandLog existing = new ReturnCommandLog();
         existing.setRequestId(21L);
@@ -139,7 +142,7 @@ class ReturnRequestCommandServiceTest {
 
         CommandDto command = new CommandDto("dup-2", ReturnRequestCommandType.SET_MODE_EXCHANGE.getCode(), null);
 
-        assertThatThrownBy(() -> commandService.executeCommand(21L,
+        assertThatThrownBy(() -> commandService.executeCommand(requestKey,
                 ReturnRequestCommandType.SET_MODE_EXCHANGE,
                 command,
                 user,
@@ -156,10 +159,11 @@ class ReturnRequestCommandServiceTest {
     @Test
     void executeCommand_whenConcurrentReservation_returnsStoredSnapshot() {
         User user = buildUser();
-        OrderReturnRequest request = buildRequest(22L, 10L);
+        UUID requestKey = UUID.fromString("00000000-0000-0000-0000-000000000022");
+        OrderReturnRequest request = buildRequest(22L, 10L, requestKey);
         CommandDto command = new CommandDto("dup-3", ReturnRequestCommandType.SET_MODE_EXCHANGE.getCode(), null);
 
-        RequestDto storedDto = buildRequestDto("00000000-0000-0000-0000-000000000022", "EXCHANGE");
+        RequestDto storedDto = buildRequestDto(requestKey.toString(), "EXCHANGE");
         String snapshot;
         try {
             snapshot = buildObjectMapper().writeValueAsString(storedDto);
@@ -167,7 +171,7 @@ class ReturnRequestCommandServiceTest {
             throw new RuntimeException(ex);
         }
 
-        when(orderReturnRequestService.getOwnedRequest(22L, user)).thenReturn(request);
+        when(orderReturnRequestService.getOwnedRequest(requestKey, user)).thenReturn(request);
         ReturnCommandLog completed = new ReturnCommandLog();
         completed.setRequestId(22L);
         completed.setIdempotencyKey("dup-3");
@@ -180,7 +184,7 @@ class ReturnRequestCommandServiceTest {
         when(returnCommandLogRepository.saveAndFlush(any(ReturnCommandLog.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
 
-        RequestDto result = commandService.executeCommand(22L,
+        RequestDto result = commandService.executeCommand(requestKey,
                 ReturnRequestCommandType.SET_MODE_EXCHANGE,
                 command,
                 user,
@@ -197,7 +201,7 @@ class ReturnRequestCommandServiceTest {
         User user = buildUser();
         CommandDto command = new CommandDto("dup-4", ReturnRequestCommandType.UPDATE_REVERSE_TRACK.getCode(), null);
 
-        assertThatThrownBy(() -> commandService.executeCommand(23L,
+        assertThatThrownBy(() -> commandService.executeCommand(UUID.fromString("00000000-0000-0000-0000-000000000023"),
                 ReturnRequestCommandType.UPDATE_REVERSE_TRACK,
                 command,
                 user,
@@ -213,7 +217,7 @@ class ReturnRequestCommandServiceTest {
         User user = buildUser();
         CommandDto command = new CommandDto("dup-5", ReturnRequestCommandType.MARK_EXCHANGE_SENT.getCode(), null);
 
-        assertThatThrownBy(() -> commandService.executeCommand(24L,
+        assertThatThrownBy(() -> commandService.executeCommand(UUID.fromString("00000000-0000-0000-0000-000000000024"),
                 ReturnRequestCommandType.MARK_EXCHANGE_SENT,
                 command,
                 user,
@@ -227,12 +231,13 @@ class ReturnRequestCommandServiceTest {
     @Test
     void executeCommand_whenMarkExchangeDeliveredWithoutPayload_executesWithNullMoment() {
         User user = buildUser();
-        OrderReturnRequest request = buildRequest(25L, 13L);
-        OrderReturnRequest updated = buildRequest(25L, 13L);
-        RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000025", "EXCHANGE");
+        UUID requestKey = UUID.fromString("00000000-0000-0000-0000-000000000025");
+        OrderReturnRequest request = buildRequest(25L, 13L, requestKey);
+        OrderReturnRequest updated = buildRequest(25L, 13L, requestKey);
+        RequestDto dto = buildRequestDto(requestKey.toString(), "EXCHANGE");
         CommandDto command = new CommandDto("dup-6", ReturnRequestCommandType.MARK_EXCHANGE_DELIVERED.getCode(), null);
 
-        when(orderReturnRequestService.getOwnedRequest(25L, user)).thenReturn(request);
+        when(orderReturnRequestService.getOwnedRequest(requestKey, user)).thenReturn(request);
         when(orderReturnRequestService.markExchangeDelivered(eq(25L), eq(13L), eq(user), any())).thenReturn(updated);
         when(returnRequestMapper.toDto(eq(updated), any())).thenReturn(dto);
 
@@ -246,7 +251,7 @@ class ReturnRequestCommandServiceTest {
                     return logEntry;
                 });
 
-        RequestDto result = commandService.executeCommand(25L,
+        RequestDto result = commandService.executeCommand(requestKey,
                 ReturnRequestCommandType.MARK_EXCHANGE_DELIVERED,
                 command,
                 user,
@@ -261,9 +266,10 @@ class ReturnRequestCommandServiceTest {
     @Test
     void executeCommand_whenMarkOutboundSent_usesNormalizedStageMoment() {
         User user = buildUser();
-        OrderReturnRequest request = buildRequest(31L, 15L);
-        OrderReturnRequest updated = buildRequest(31L, 15L);
-        RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000031", "RETURN");
+        UUID requestKey = UUID.fromString("00000000-0000-0000-0000-000000000031");
+        OrderReturnRequest request = buildRequest(31L, 15L, requestKey);
+        OrderReturnRequest updated = buildRequest(31L, 15L, requestKey);
+        RequestDto dto = buildRequestDto(requestKey.toString(), "RETURN");
 
         JsonNodeFactory factory = JsonNodeFactory.instance;
         CommandDto command = new CommandDto(
@@ -272,7 +278,7 @@ class ReturnRequestCommandServiceTest {
                 factory.objectNode().put("stageMoment", "2023-10-01T10:15:30+03:00")
         );
 
-        when(orderReturnRequestService.getOwnedRequest(31L, user)).thenReturn(request);
+        when(orderReturnRequestService.getOwnedRequest(requestKey, user)).thenReturn(request);
         when(orderReturnRequestService.markOutboundSent(eq(31L), eq(15L), eq(user), any()))
                 .thenReturn(updated);
         when(returnRequestMapper.toDto(eq(updated), any())).thenReturn(dto);
@@ -287,7 +293,7 @@ class ReturnRequestCommandServiceTest {
                     return logEntry;
                 });
 
-        RequestDto result = commandService.executeCommand(31L,
+        RequestDto result = commandService.executeCommand(requestKey,
                 ReturnRequestCommandType.MARK_OUTBOUND_SENT,
                 command,
                 user,
@@ -302,9 +308,10 @@ class ReturnRequestCommandServiceTest {
     @Test
     void executeCommand_whenRegisterExchangeParcel_normalizesTrackAndStageMoment() {
         User user = buildUser();
-        OrderReturnRequest request = buildRequest(32L, 16L);
-        OrderReturnRequest updated = buildRequest(32L, 16L);
-        RequestDto dto = buildRequestDto("00000000-0000-0000-0000-000000000032", "EXCHANGE");
+        UUID requestKey = UUID.fromString("00000000-0000-0000-0000-000000000032");
+        OrderReturnRequest request = buildRequest(32L, 16L, requestKey);
+        OrderReturnRequest updated = buildRequest(32L, 16L, requestKey);
+        RequestDto dto = buildRequestDto(requestKey.toString(), "EXCHANGE");
 
         JsonNodeFactory factory = JsonNodeFactory.instance;
         CommandDto command = new CommandDto(
@@ -315,7 +322,7 @@ class ReturnRequestCommandServiceTest {
                         .put("stageMoment", "2024-01-15T12:00:00+02:00")
         );
 
-        when(orderReturnRequestService.getOwnedRequest(32L, user)).thenReturn(request);
+        when(orderReturnRequestService.getOwnedRequest(requestKey, user)).thenReturn(request);
         when(orderReturnRequestService.registerExchangeParcel(eq(32L), eq(16L), eq(user), any(), any()))
                 .thenReturn(updated);
         when(returnRequestMapper.toDto(eq(updated), any())).thenReturn(dto);
@@ -330,7 +337,7 @@ class ReturnRequestCommandServiceTest {
                     return logEntry;
                 });
 
-        RequestDto result = commandService.executeCommand(32L,
+        RequestDto result = commandService.executeCommand(requestKey,
                 ReturnRequestCommandType.REGISTER_EXCHANGE_PARCEL,
                 command,
                 user,
@@ -377,9 +384,10 @@ class ReturnRequestCommandServiceTest {
         return user;
     }
 
-    private OrderReturnRequest buildRequest(Long requestId, Long parcelId) {
+    private OrderReturnRequest buildRequest(Long requestId, Long parcelId, UUID requestKey) {
         OrderReturnRequest request = new OrderReturnRequest();
         request.setId(requestId);
+        request.setIdempotencyKey(requestKey != null ? requestKey.toString() : null);
         TrackParcel parcel = new TrackParcel();
         parcel.setId(parcelId);
         request.setParcel(parcel);

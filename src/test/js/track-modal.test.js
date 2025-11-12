@@ -469,7 +469,7 @@ describe('track-modal render', () => {
          * @param {Object} [options.refreshedDetails] DTO после обновления
          */
         mockSuccessfulCommandFlow(options = {}) {
-            const { requestDto = { id: 1, status: 'QUEUED' }, refreshedDetails = null } = options;
+            const { requestDto = { id: '00000000-0000-0000-0000-000000000001', status: 'QUEUED' }, refreshedDetails = null } = options;
             const headers = { get: jest.fn(() => 'application/json') };
             const trackResponse = refreshedDetails || this.details;
             if (typeof global.fetch?.mockClear === 'function') {
@@ -636,7 +636,7 @@ describe('track-modal render', () => {
                 { id: 10, number: 'RB111222333CN', exchange: false, returnShipment: false, current: false }
             ],
             returnRequest: {
-                id: 5,
+                id: '00000000-0000-0000-0000-000000000005',
                 state: 'REGISTERED_RETURN',
 status: 'Зарегистрирована',
                 statusLabel: 'Зарегистрирована',
@@ -802,7 +802,7 @@ status: 'Зарегистрирована',
             exchange: false, returnShipment: false,
             chain: [],
             returnRequest: {
-                id: 81,
+                id: '00000000-0000-0000-0000-000000000081',
                 state: 'EXCHANGE_LAUNCHED',
                 status: 'EXCHANGE_STARTED',
                 statusLabel: 'Обмен в работе',
@@ -873,7 +873,7 @@ status: 'Зарегистрирована',
             returnShipment: false,
             chain: [],
             returnRequest: {
-                id: 81,
+                id: '00000000-0000-0000-0000-000000000081',
                 state: 'REGISTERED_RETURN',
                 status: 'REGISTERED',
                 statusLabel: 'Возврат',
@@ -905,7 +905,7 @@ status: 'Зарегистрирована',
             lifecycle: [],
             requiresAction: true
         };
-        const payload = { details: updatedDetails, actionRequired: { parcelId: 31, requestId: 81, requiresAction: true } };
+        const payload = { details: updatedDetails, actionRequired: { parcelId: 31, requestId: '00000000-0000-0000-0000-000000000081', requiresAction: true } };
         global.fetch.mockImplementation((url) => {
             if (String(url).includes('/close')) {
                 return Promise.resolve({ ok: true, headers, json: () => Promise.resolve(payload) });
@@ -928,7 +928,7 @@ status: 'Зарегистрирована',
             returnShipment: false,
             chain: [],
             returnRequest: {
-                id: 81,
+                id: '00000000-0000-0000-0000-000000000081',
                 state: 'EXCHANGE_LAUNCHED',
                 status: 'EXCHANGE_STARTED',
                 statusLabel: 'Обмен в работе',
@@ -978,7 +978,7 @@ status: 'Зарегистрирована',
         await Promise.resolve();
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        const requestCall = global.fetch.mock.calls.find((call) => String(call[0]).includes('/api/v1/returns/81/commands'));
+        const requestCall = global.fetch.mock.calls.find((call) => String(call[0]).includes('/api/v1/returns/00000000-0000-0000-0000-000000000081/commands'));
         const requestDto = readCommandRequestDto(requestCall);
         expectValidIdempotencyKey(requestDto.idempotencyKey);
         expect(requestDto.action).toBe('CLOSE_REQUEST');
@@ -1011,7 +1011,7 @@ status: 'Зарегистрирована',
             returnShipment: false,
             chain: [],
             returnRequest: {
-                id: 901,
+                id: '00000000-0000-0000-0000-000000000901',
                 state: 'REGISTERED_RETURN',
 status: 'Зарегистрирована',
                 statusLabel: 'Зарегистрирована',
@@ -1073,7 +1073,7 @@ status: 'Зарегистрирована',
             exchange: false, returnShipment: false,
             chain: [],
             returnRequest: {
-                id: 91,
+                id: '00000000-0000-0000-0000-000000000091',
                 state: 'REGISTERED_EXCHANGE',
                 status: 'REGISTERED',
                 statusLabel: 'Обмен запрошен',
@@ -1138,7 +1138,7 @@ status: 'Зарегистрирована',
             exchange: false, returnShipment: false,
             chain: [],
             returnRequest: {
-                id: 92,
+                id: '00000000-0000-0000-0000-000000000092',
                 state: 'REGISTERED_EXCHANGE',
                 status: 'REGISTERED',
                 statusLabel: 'Обмен согласован',
@@ -1203,7 +1203,7 @@ status: 'Зарегистрирована',
             exchange: false, returnShipment: false,
             chain: [],
             returnRequest: {
-                id: 93,
+                id: '00000000-0000-0000-0000-000000000093',
                 state: 'REGISTERED_EXCHANGE',
                 status: 'REGISTERED',
                 statusLabel: 'Обмен запрошен',
@@ -1266,7 +1266,7 @@ status: 'Зарегистрирована',
             exchange: false, returnShipment: false,
             chain: [],
             returnRequest: {
-                id: 82,
+                id: '00000000-0000-0000-0000-000000000082',
                 state: 'EXCHANGE_LAUNCHED',
                 status: 'EXCHANGE_STARTED',
                 statusLabel: 'Обмен согласован',
@@ -1388,7 +1388,7 @@ status: 'Зарегистрирована',
             exchange: false, returnShipment: false,
             chain: [],
             returnRequest: {
-                id: 5,
+                id: '00000000-0000-0000-0000-000000000005',
                 state: 'REGISTERED_RETURN',
 status: 'Зарегистрирована',
                 statusLabel: 'Зарегистрирована',
@@ -1433,7 +1433,7 @@ status: 'Зарегистрирована',
             exchange: false, returnShipment: false,
             chain: [],
             returnRequest: {
-                id: 5,
+                id: '00000000-0000-0000-0000-000000000005',
                 state: 'REGISTERED_RETURN',
 status: 'Зарегистрирована',
                 statusLabel: 'Зарегистрирована',
@@ -1493,7 +1493,7 @@ status: 'Зарегистрирована',
         await Promise.resolve();
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        const requestCall = global.fetch.mock.calls.find((call) => String(call[0]).includes('/api/v1/returns/5/commands'));
+        const requestCall = global.fetch.mock.calls.find((call) => String(call[0]).includes('/api/v1/returns/00000000-0000-0000-0000-000000000005/commands'));
         const requestDto = readCommandRequestDto(requestCall);
         expectValidIdempotencyKey(requestDto.idempotencyKey);
         expect(requestDto.action).toBe('UPDATE_REVERSE_TRACK');
@@ -1510,7 +1510,7 @@ status: 'Зарегистрирована',
         expect(commentInfo).toBeDefined();
         expect(global.window.returnRequests.updateRow).toHaveBeenCalledWith(expect.objectContaining({
             parcelId: 12,
-            requestId: 5,
+            requestId: '00000000-0000-0000-0000-000000000005',
             reverseTrack: 'RR123456789BY',
             comment: 'Обновлённый комментарий'
         }));
@@ -1533,7 +1533,7 @@ status: 'Зарегистрирована',
             exchange: false, returnShipment: false,
             chain: [],
             returnRequest: {
-                id: 6,
+                id: '00000000-0000-0000-0000-000000000006',
                 state: 'REGISTERED_RETURN',
 status: 'Зарегистрирована',
                 statusLabel: 'Зарегистрирована',
@@ -1579,7 +1579,7 @@ status: 'Зарегистрирована',
 
         expect(global.window.returnRequests.updateRow).toHaveBeenCalledWith(expect.objectContaining({
             parcelId: 14,
-            requestId: 6,
+            requestId: '00000000-0000-0000-0000-000000000006',
             returnReceiptConfirmed: true,
             returnReceiptConfirmedAt: '2024-03-01T09:00:00Z'
         }));
@@ -1668,7 +1668,7 @@ status: 'Зарегистрирована',
         setupDom();
         const headers = { get: jest.fn(() => 'application/json') };
         const responsePayload = {
-            id: 12,
+            id: '00000000-0000-0000-0000-000000000012',
             number: 'BY123',
             deliveryService: null,
             systemStatus: 'Вручена',
@@ -1701,7 +1701,7 @@ status: 'Зарегистрирована',
             exchange: false, returnShipment: false,
             chain: [],
             returnRequest: {
-                id: 5,
+                id: '00000000-0000-0000-0000-000000000005',
                 state: 'REGISTERED_RETURN',
                 status: 'REGISTERED',
                 statusLabel: 'Зарегистрирована',
@@ -1751,7 +1751,7 @@ status: 'Зарегистрирована',
         await Promise.resolve();
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        const requestCall = global.fetch.mock.calls.find((call) => String(call[0]).includes('/api/v1/returns/5/commands'));
+        const requestCall = global.fetch.mock.calls.find((call) => String(call[0]).includes('/api/v1/returns/00000000-0000-0000-0000-000000000005/commands'));
         const requestDto = readCommandRequestDto(requestCall);
         expectValidIdempotencyKey(requestDto.idempotencyKey);
         expect(requestDto.action).toBe('SET_MODE_EXCHANGE');
@@ -1763,9 +1763,9 @@ status: 'Зарегистрирована',
         setupDom();
 
         const headers = { get: jest.fn(() => 'application/json') };
-        const responsePayload = { id: 6, state: { stage: 'REGISTERED_EXCHANGE' } };
+        const responsePayload = { id: '00000000-0000-0000-0000-000000000006', state: { stage: 'REGISTERED_EXCHANGE' } };
         global.fetch.mockImplementation((url) => {
-            if (String(url).includes('/api/v1/returns/6/commands')) {
+            if (String(url).includes('/api/v1/returns/00000000-0000-0000-0000-000000000006/commands')) {
                 return Promise.resolve({ ok: true, headers, json: () => Promise.resolve(responsePayload) });
             }
             if (String(url).includes('/api/v1/tracks/14')) {
@@ -1788,7 +1788,7 @@ status: 'Зарегистрирована',
             exchange: false, returnShipment: false,
             chain: [],
             returnRequest: {
-                id: 6,
+                id: '00000000-0000-0000-0000-000000000006',
                 state: 'REGISTERED_EXCHANGE',
                 status: 'REGISTERED',
                 statusLabel: 'Зарегистрирована',
@@ -1845,7 +1845,7 @@ status: 'Зарегистрирована',
         await Promise.resolve();
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        const requestCall = global.fetch.mock.calls.find((call) => String(call[0]).includes('/api/v1/returns/6/commands'));
+        const requestCall = global.fetch.mock.calls.find((call) => String(call[0]).includes('/api/v1/returns/00000000-0000-0000-0000-000000000006/commands'));
         const requestDto = readCommandRequestDto(requestCall);
         expectValidIdempotencyKey(requestDto.idempotencyKey);
         expect(requestDto.action).toBe('REGISTER_EXCHANGE_PARCEL');
@@ -1875,7 +1875,7 @@ status: 'Зарегистрирована',
         });
         const driver = new ReturnRequestActionTestDriver(exchangeDetails);
         driver.mockSuccessfulCommandFlow({
-            requestDto: { id: 15, status: 'QUEUED' },
+            requestDto: { id: '00000000-0000-0000-0000-000000000015', status: 'QUEUED' },
             refreshedDetails
         });
 
@@ -1915,7 +1915,7 @@ status: 'Зарегистрирована',
         });
         const driver = new ReturnRequestActionTestDriver(returnDetails);
         driver.mockSuccessfulCommandFlow({
-            requestDto: { id: 16, status: 'QUEUED' },
+            requestDto: { id: '00000000-0000-0000-0000-000000000016', status: 'QUEUED' },
             refreshedDetails
         });
 
@@ -1955,7 +1955,7 @@ status: 'Зарегистрирована',
         disableExchangeLaunch(refreshedDetails);
         const driver = new ReturnRequestActionTestDriver(returnDetails);
         driver.mockSuccessfulCommandFlow({
-            requestDto: { id: 17, status: 'QUEUED' },
+            requestDto: { id: '00000000-0000-0000-0000-000000000017', status: 'QUEUED' },
             refreshedDetails
         });
 
@@ -1994,7 +1994,7 @@ status: 'Зарегистрирована',
         disableExchangeLaunch(refreshedDetails);
         const driver = new ReturnRequestActionTestDriver(returnDetails);
         driver.mockSuccessfulCommandFlow({
-            requestDto: { id: 18, status: 'QUEUED' },
+            requestDto: { id: '00000000-0000-0000-0000-000000000018', status: 'QUEUED' },
             refreshedDetails
         });
 
@@ -2035,7 +2035,7 @@ status: 'Зарегистрирована',
         disableExchangeLaunch(refreshedDetails);
         const driver = new ReturnRequestActionTestDriver(returnDetails);
         driver.mockSuccessfulCommandFlow({
-            requestDto: { id: 19, status: 'QUEUED' },
+            requestDto: { id: '00000000-0000-0000-0000-000000000019', status: 'QUEUED' },
             refreshedDetails
         });
 
@@ -2072,7 +2072,7 @@ status: 'Зарегистрирована',
         });
         const driver = new ReturnRequestActionTestDriver(exchangeDetails);
         driver.mockSuccessfulCommandFlow({
-            requestDto: { id: 20, status: 'QUEUED' },
+            requestDto: { id: '00000000-0000-0000-0000-000000000020', status: 'QUEUED' },
             refreshedDetails
         });
 
@@ -2109,7 +2109,7 @@ status: 'Зарегистрирована',
         });
         const driver = new ReturnRequestActionTestDriver(exchangeDetails);
         driver.mockSuccessfulCommandFlow({
-            requestDto: { id: 21, status: 'QUEUED' },
+            requestDto: { id: '00000000-0000-0000-0000-000000000021', status: 'QUEUED' },
             refreshedDetails
         });
 
@@ -2143,7 +2143,7 @@ status: 'Зарегистрирована',
             chain: [],
             exchangeParcel: { id: 77, number: 'EX777', statusLabel: 'В пути' },
             returnRequest: {
-                id: 9,
+                id: '00000000-0000-0000-0000-000000000009',
                 state: 'REGISTERED_RETURN',
 status: 'Обмен запускается',
                 statusLabel: 'Обмен запускается',
@@ -2206,7 +2206,7 @@ status: 'Обмен запускается',
                 { id: 31, number: 'BY999', exchange: false, returnShipment: false, current: true }
             ],
             returnRequest: {
-                id: 11,
+                id: '00000000-0000-0000-0000-000000000011',
                 state: 'REGISTERED_EXCHANGE',
                 status: 'REGISTERED',
                 statusLabel: 'Возврат',
@@ -2269,7 +2269,7 @@ status: 'Обмен запускается',
                 { id: 21, number: 'BY111', exchange: false, returnShipment: false, current: true }
             ],
             returnRequest: {
-                id: 3,
+                id: '00000000-0000-0000-0000-000000000003',
                 state: 'REGISTERED_RETURN',
 status: 'Зарегистрирована',
                 reason: 'Размер не подошёл',
@@ -2324,7 +2324,7 @@ status: 'Зарегистрирована',
                 { id: 22, number: 'BY222', exchange: false, returnShipment: false, current: true }
             ],
             returnRequest: {
-                id: 4,
+                id: '00000000-0000-0000-0000-000000000004',
                 state: 'REGISTERED_RETURN',
 status: 'Закрыта',
                 reason: 'Не подошло',

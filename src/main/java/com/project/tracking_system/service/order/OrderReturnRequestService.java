@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Сервис управления заявками на возврат и обмен.
@@ -159,7 +160,7 @@ public class OrderReturnRequestService {
         ZonedDateTime normalizedRequestedAt = normalizeRequestedAt(requestedAt);
         String normalizedReverse = normalizeReverseTrackNumber(reverseTrack);
 
-        Optional<OrderReturnRequest> existingByKey = returnRequestRepository.findByIdempotencyKey(idempotencyKey);
+        Optional<OrderReturnRequest> existingByKey = findByIdempotencyKey(idempotencyKey);
         if (existingByKey.isPresent()) {
             OrderReturnRequest existing = existingByKey.get();
             ensureOwnership(existing, user.getId());
@@ -232,7 +233,7 @@ public class OrderReturnRequestService {
      * соблюдая принцип единой ответственности.
      * </p>
      *
-     * @param requestId идентификатор заявки
+     * @param requestKey UUID идентификатор заявки
      * @param parcelId  идентификатор посылки
      * @param user      автор решения
      * @return обновлённая заявка после переключения режима
@@ -378,7 +379,7 @@ public class OrderReturnRequestService {
      * отображения завершённости этапа «Приём возврата магазином».
      * </p>
      *
-     * @param requestId идентификатор заявки
+     * @param requestKey UUID идентификатор заявки
      * @param parcelId  идентификатор исходной посылки
      * @param user      менеджер, подтверждающий обработку
      * @return обновлённая заявка
@@ -1259,6 +1260,56 @@ public class OrderReturnRequestService {
     }
 
     /**
+     * Ищет заявку по строковому идемпотентному ключу с нормализацией ввода.
+     * <p>
+     * Метод обрабатывает пустые значения и удаляет лишние пробелы, чтобы
+     * клиенты могли передавать ключ без учёта регистра и форматирования.
+     * </p>
+     *
+     * @param idempotencyKey исходный ключ
+     * @return найденная заявка или {@link Optional#empty()}, если ключ некорректен или заявка отсутствует
+     */
+    @Transactional(readOnly = true)
+    public Optional<OrderReturnRequest> findByIdempotencyKey(String idempotencyKey) {
+        if (idempotencyKey == null) {
+            return Optional.empty();
+        }
+        String normalizedKey = idempotencyKey.trim();
+        if (normalizedKey.isEmpty()) {
+            return Optional.empty();
+        }
+        return returnRequestRepository.findByIdempotencyKey(normalizedKey);
+    }
+
+    /**
+     * Ищет заявку по UUID идемпотентного ключа.
+     *
+     * @param requestKey UUID ключа заявки
+     * @return найденная заявка или {@link Optional#empty()}, если ключ отсутствует
+     */
+    @Transactional(readOnly = true)
+    public Optional<OrderReturnRequest> findByIdempotencyKey(UUID requestKey) {
+        if (requestKey == null) {
+            return Optional.empty();
+        }
+        return findByIdempotencyKey(requestKey.toString());
+    }
+
+    /**
+     * Загружает заявку по UUID ключа вместе с ключевыми связями для REST-слоя.
+     *
+     * @param requestKey UUID ключа заявки
+     * @return заявка с инициализированными связями или {@link Optional#empty()}, если она не найдена
+     */
+    @Transactional(readOnly = true)
+    public Optional<OrderReturnRequest> findByIdempotencyKeyWithDetails(UUID requestKey) {
+        if (requestKey == null) {
+            return Optional.empty();
+        }
+        return returnRequestRepository.findByIdempotencyKeyWithDetails(requestKey.toString());
+    }
+
+    /**
      * Возвращает заявку пользователя, гарантируя принадлежность посылки.
      * <p>
      * Загружает связанные сущности (посылку, магазин и ответственного), чтобы контроллер
@@ -1270,14 +1321,14 @@ public class OrderReturnRequestService {
      * @return найденная заявка
      */
     @Transactional(readOnly = true)
-    public OrderReturnRequest getOwnedRequest(Long requestId, User user) {
-        if (requestId == null) {
+    public OrderReturnRequest getOwnedRequest(UUID requestKey, User user) {
+        if (requestKey == null) {
             throw new ValidationException("Не указан идентификатор заявки");
         }
         if (user == null || user.getId() == null) {
             throw new ValidationException("Не указан пользователь");
         }
-        OrderReturnRequest request = returnRequestRepository.findByIdWithDetails(requestId)
+        OrderReturnRequest request = findByIdempotencyKeyWithDetails(requestKey)
                 .orElseThrow(() -> new EntityNotFoundException("Заявка не найдена"));
         ensureOwnership(request, user.getId());
         return request;
