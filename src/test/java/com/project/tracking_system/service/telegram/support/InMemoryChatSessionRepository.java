@@ -245,6 +245,7 @@ public class InMemoryChatSessionRepository implements ChatSessionRepository {
         copy.setReturnIdempotencyKey(session.getReturnIdempotencyKey());
         copy.setActiveReturnRequestId(session.getActiveReturnRequestId());
         copy.setActiveReturnParcelId(session.getActiveReturnParcelId());
+        copy.setReturnRequestEditMode(session.getReturnRequestEditMode());
         return copy;
     }
 }

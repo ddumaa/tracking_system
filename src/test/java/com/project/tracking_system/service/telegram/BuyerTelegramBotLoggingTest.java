@@ -55,12 +55,12 @@ class BuyerTelegramBotLoggingTest {
         buyerTelegramBot = new BuyerTelegramBot(telegramClient, "token", customerTelegramService, adminNotificationService,
                 new FullNameValidator(), chatSessionRepository, new ObjectMapper());
         try {
-            when(telegramClient.execute(any(SendMessage.class))).thenReturn(null);
+            lenient().when(telegramClient.execute(any(SendMessage.class))).thenReturn(null);
         } catch (TelegramApiException e) {
             throw new RuntimeException(e);
         }
-        when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
-        when(customerTelegramService.getActiveReturnRequests(anyLong())).thenReturn(List.of());
+        lenient().when(adminNotificationService.findActiveNotification()).thenReturn(Optional.empty());
+        lenient().when(customerTelegramService.getActiveReturnRequests(anyLong())).thenReturn(List.of());
         logger = (Logger) LoggerFactory.getLogger(BuyerTelegramBot.class);
         appender = new ListAppender<>();
         appender.start();
