@@ -384,7 +384,7 @@ public class ReturnRequestCommandService {
      */
     private boolean requiresPayload(ReturnRequestCommandType type) {
         return switch (type) {
-            case UPDATE_REVERSE_TRACK, REGISTER_EXCHANGE_PARCEL, MARK_EXCHANGE_SENT, MARK_EXCHANGE_DELIVERED -> true;
+            case UPDATE_REVERSE_TRACK, REGISTER_EXCHANGE_PARCEL, MARK_EXCHANGE_SENT -> true;
             default -> false;
         };
     }
