@@ -1537,12 +1537,12 @@
     }
 
     function extractActionCodes(actions) {
-        if (!actions || typeof actions !== 'object') {
+        if (!actions) {
             return [];
         }
         const rawCodes = Array.isArray(actions)
             ? actions
-            : Array.isArray(actions.actions)
+            : typeof actions === 'object' && Array.isArray(actions.actions)
                 ? actions.actions
                 : [];
         const seen = new Set();
@@ -1556,6 +1556,27 @@
                 seen.add(code);
                 return true;
             });
+    }
+
+    /**
+     * Формирует DTO доступных действий для таблицы возвратов.
+     * Метод нормализует входные данные и исключает устаревшие поля, поддерживая SRP.
+     * @param {Object|Array<string>|null|undefined} actionsSource исходный объект с действиями
+     * @returns {{actions: Array<string>}|null} нормализованный DTO или {@code null}
+     */
+    function normalizeAvailableActions(actionsSource) {
+        const codes = extractActionCodes(actionsSource);
+        if (codes.length === 0) {
+            return null;
+        }
+        const base = actionsSource && typeof actionsSource === 'object' && !Array.isArray(actionsSource)
+            ? { ...actionsSource }
+            : {};
+        if (Object.prototype.hasOwnProperty.call(base, 'actionCodes')) {
+            delete base.actionCodes;
+        }
+        base.actions = codes;
+        return base;
     }
 
     /**
@@ -1624,6 +1645,11 @@
         if (request.returnReceiptConfirmedAt !== undefined) {
             summary.returnReceiptConfirmedAt = request.returnReceiptConfirmedAt;
         }
+        const normalizedActions = normalizeAvailableActions(request.availableActions ?? details.availableActions ?? null);
+        if (normalizedActions) {
+            summary.availableActions = normalizedActions;
+            summary.actionCodes = [...normalizedActions.actions];
+        }
         return summary;
     }
 
@@ -1662,6 +1688,11 @@
         }
         if (request.returnReceiptConfirmedAt !== undefined) {
             summary.returnReceiptConfirmedAt = request.returnReceiptConfirmedAt;
+        }
+        const normalizedActions = normalizeAvailableActions(request.availableActions ?? null);
+        if (normalizedActions) {
+            summary.availableActions = normalizedActions;
+            summary.actionCodes = [...normalizedActions.actions];
         }
         return summary;
     }
