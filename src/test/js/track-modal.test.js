@@ -150,9 +150,7 @@ describe('track-modal render', () => {
         const rawActions = request.availableActions || {};
         const normalizedCodes = Array.isArray(rawActions.actions)
             ? rawActions.actions
-            : Array.isArray(rawActions.actionCodes)
-                ? rawActions.actionCodes
-                : (Array.isArray(request.actionCodes) ? request.actionCodes : []);
+            : [];
         const codesSet = toUpperCaseSet(normalizedCodes);
         const hasAction = (code) => codesSet.has(String(code).toUpperCase());
         const reasonSources = [
@@ -232,8 +230,7 @@ describe('track-modal render', () => {
             markExchangeDelivered: Boolean(request.canMarkExchangeDelivered
                 ?? rawActions.markExchangeDelivered
                 ?? hasAction('MARK_EXCHANGE_DELIVERED')),
-            actions: normalizedCodes,
-            actionCodes: normalizedCodes
+            actions: normalizedCodes
         };
         Object.entries(ACTION_KEY_TO_CODE).forEach(([actionKey, code]) => {
             if (availableActions[actionKey]) {
@@ -242,7 +239,6 @@ describe('track-modal render', () => {
         });
         const codesArray = Array.from(codesSet);
         availableActions.actions = codesArray;
-        availableActions.actionCodes = codesArray;
 
         Object.keys(ACTION_REASON_KEYS).forEach((actionKey) => {
             const reason = readReason(actionKey);
@@ -304,9 +300,6 @@ describe('track-modal render', () => {
         const stripCode = (code) => String(code).toUpperCase() !== 'REGISTER_EXCHANGE_PARCEL';
         if (Array.isArray(available.actions)) {
             available.actions = available.actions.filter(stripCode);
-        }
-        if (Array.isArray(available.actionCodes)) {
-            available.actionCodes = available.actionCodes.filter(stripCode);
         }
     }
 
@@ -373,7 +366,6 @@ describe('track-modal render', () => {
             ];
             const availableActions = {
                 actions: actionCodes,
-                actionCodes,
                 setModeExchange: true,
                 setModeReturn: true,
                 registerExchangeParcel: true,

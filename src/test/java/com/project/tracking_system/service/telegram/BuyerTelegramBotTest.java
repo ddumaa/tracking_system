@@ -2501,18 +2501,7 @@ class BuyerTelegramBotTest {
                 .map(ReturnRequestAction::getCode)
                 .collect(Collectors.toUnmodifiableList());
 
-        EnumMap<ReturnRequestAction, String> unavailableReasons = new EnumMap<>(ReturnRequestAction.class);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.SET_MODE_RETURN, setModeReturnUnavailableReason);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.SET_MODE_EXCHANGE, setModeExchangeUnavailableReason);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.REGISTER_EXCHANGE_PARCEL, registerExchangeParcelUnavailableReason);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.MARK_OUTBOUND_SENT, markOutboundSentUnavailableReason);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.MARK_INBOUND_ARRIVED, markInboundArrivedUnavailableReason);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.MARK_INBOUND_PICKED_UP, markInboundPickedUpUnavailableReason);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.MARK_EXCHANGE_SENT, markExchangeSentUnavailableReason);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.MARK_EXCHANGE_DELIVERED, markExchangeDeliveredUnavailableReason);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.CLOSE_REQUEST, closeRequestUnavailableReason);
-        addUnavailableReason(unavailableReasons, ReturnRequestAction.UPDATE_REVERSE_TRACK, updateReverseTrackUnavailableReason);
-        AvailableActionsDto actions = new AvailableActionsDto(actionCodes, availableActions, unavailableReasons);
+        AvailableActionsDto actions = new AvailableActionsDto(actionCodes);
         ReturnRequestTimestampsDto timestamps = new ReturnRequestTimestampsDto(
                 requestedAt,
                 createdAt,
@@ -2620,21 +2609,6 @@ class BuyerTelegramBotTest {
             customizer.accept(builder);
         }
         return builder.build();
-    }
-
-    /**
-     * Добавляет причину недоступности действия, если она присутствует.
-     *
-     * @param target карта, в которую вносятся причины недоступности
-     * @param action действие, к которому относится причина
-     * @param reason текст причины, может отсутствовать
-     */
-    private void addUnavailableReason(EnumMap<ReturnRequestAction, String> target,
-                                      ReturnRequestAction action,
-                                      String reason) {
-        if (reason != null) {
-            target.put(action, reason);
-        }
     }
 
     /**
