@@ -1211,6 +1211,24 @@ class OrderReturnRequestServiceTest {
     }
 
     @Test
+    void resolveAvailableActions_DoesNotExposeCloseRequestForTransitStages() {
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        request.setMode(ReturnRequestMode.RETURN);
+        request.setReverseTrackNumber("BY999");
+
+        for (ReturnRequestStage stage : List.of(ReturnRequestStage.OUTBOUND_SENT, ReturnRequestStage.INBOUND_ARRIVED)) {
+            request.setStage(stage);
+
+            EnumSet<ReturnRequestAction> actions = service.resolveAvailableActions(request);
+
+            assertThat(actions)
+                    .as("На стадии %s кнопка закрытия должна быть скрыта", stage)
+                    .doesNotContain(ReturnRequestAction.CLOSE_REQUEST);
+        }
+    }
+
+    @Test
     void resolveAvailableActions_ReturnsExchangeStageActions() {
         OrderReturnRequest request = new OrderReturnRequest();
         request.setStatus(OrderReturnRequestStatus.EXCHANGE_APPROVED);

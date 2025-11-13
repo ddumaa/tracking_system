@@ -1167,14 +1167,25 @@ public class OrderReturnRequestService {
      * Проверяет, разрешено ли действие для конкретной заявки с учётом всех ограничений.
      */
     /**
-     * Проверяет, можно ли закрыть заявку на текущем этапе.
+     * Проверяет, можно ли закрыть заявку на текущем этапе, учитывая ограничения из ТЗ.
+     * <p>
+     * Закрытие разрешено только для активных заявок в статусе {@link OrderReturnRequestStatus#REGISTERED}
+     * и на стадиях, где по регламенту не требуется дальнейших действий: на этапах
+     * {@link ReturnRequestStage#OUTBOUND_SENT} и {@link ReturnRequestStage#INBOUND_ARRIVED}
+     * кнопка должна быть скрыта как во фронте, так и в боте, поэтому метод дополнительно
+     * нормализует стадию и блокирует закрытие.
+     * </p>
      */
     private boolean canCloseRequest(OrderReturnRequest request) {
         if (request == null) {
             return false;
         }
-        OrderReturnRequestStatus status = request.getStatus();
-        return status == OrderReturnRequestStatus.REGISTERED;
+        if (request.getStatus() != OrderReturnRequestStatus.REGISTERED) {
+            return false;
+        }
+        ReturnRequestMode mode = resolveMode(request);
+        ReturnRequestStage stage = returnRequestWorkflow.adjustStageForMode(mode, resolveStage(request));
+        return stage != ReturnRequestStage.OUTBOUND_SENT && stage != ReturnRequestStage.INBOUND_ARRIVED;
     }
 
     /**
