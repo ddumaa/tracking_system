@@ -32,9 +32,6 @@
             if (Array.isArray(available.actions)) {
                 sources.push(available.actions);
             }
-            if (Array.isArray(available.actionCodes)) {
-                sources.push(available.actionCodes);
-            }
         }
         const flattened = sources.flatMap((list) => Array.isArray(list) ? list : []);
         const seen = new Set();

@@ -480,12 +480,16 @@
             const rawActions = this.request?.availableActions || {};
             const normalizedActionCodes = Array.isArray(rawActions?.actions)
                 ? rawActions.actions
-                : Array.isArray(rawActions?.actionCodes)
-                    ? rawActions.actionCodes
-                    : [];
+                : [];
+            const baseActions = (rawActions && typeof rawActions === 'object')
+                ? { ...rawActions }
+                : {};
+            if (baseActions && Object.prototype.hasOwnProperty.call(baseActions, 'actionCodes')) {
+                delete baseActions.actionCodes;
+            }
             this.availableActions = {
-                ...(rawActions && typeof rawActions === 'object' ? rawActions : {}),
-                actionCodes: Array.isArray(normalizedActionCodes) ? normalizedActionCodes : []
+                ...baseActions,
+                actions: Array.isArray(normalizedActionCodes) ? normalizedActionCodes : []
             };
             this.trackId = details?.id ?? null;
             this.exchangeParcel = details?.exchangeParcel || null;
@@ -1536,10 +1540,10 @@
         if (!actions || typeof actions !== 'object') {
             return [];
         }
-        const rawCodes = Array.isArray(actions.actions)
-            ? actions.actions
-            : Array.isArray(actions.actionCodes)
-                ? actions.actionCodes
+        const rawCodes = Array.isArray(actions)
+            ? actions
+            : Array.isArray(actions.actions)
+                ? actions.actions
                 : [];
         const seen = new Set();
         return rawCodes
@@ -1620,10 +1624,6 @@
         if (request.returnReceiptConfirmedAt !== undefined) {
             summary.returnReceiptConfirmedAt = request.returnReceiptConfirmedAt;
         }
-        const actionCodes = extractActionCodes(request.availableActions);
-        if (actionCodes.length > 0) {
-            summary.actionCodes = actionCodes;
-        }
         return summary;
     }
 
@@ -1662,10 +1662,6 @@
         }
         if (request.returnReceiptConfirmedAt !== undefined) {
             summary.returnReceiptConfirmedAt = request.returnReceiptConfirmedAt;
-        }
-        const actionCodes = extractActionCodes(request.availableActions);
-        if (actionCodes.length > 0) {
-            summary.actionCodes = actionCodes;
         }
         return summary;
     }
