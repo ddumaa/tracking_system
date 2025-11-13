@@ -481,14 +481,16 @@ public class OrderReturnRequestService {
                                                      String exchangeTrack,
                                                      ZonedDateTime stageMoment) {
         OrderReturnRequest request = loadOwnedRequest(requestId, parcelId, user);
-        if (request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
-            throw new ActionNotAllowedException("Ручная регистрация доступна только для одобренного обмена");
-        }
         if (!canRegisterExchangeParcel(request)) {
             throw new ActionNotAllowedException("Обменная посылка уже зарегистрирована или ожидает обработки");
         }
         String normalizedTrack = normalizeExchangeTrackNumber(exchangeTrack);
         ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
+        if (request.getStatus() != OrderReturnRequestStatus.EXCHANGE_APPROVED) {
+            request = applyExchangeMode(request, user);
+        } else if (resolveMode(request) != ReturnRequestMode.EXCHANGE) {
+            request.setMode(ReturnRequestMode.EXCHANGE);
+        }
         assignExchangeTrack(request, normalizedTrack, normalizedMoment, user);
         returnRequestWorkflow.transitionSequentially(request, ReturnRequestStage.EXCHANGE_REGISTERED, true, user, normalizedMoment);
         OrderReturnRequest saved = returnRequestRepository.save(request);
@@ -1231,15 +1233,51 @@ public class OrderReturnRequestService {
         if (request == null) {
             return false;
         }
-        if (resolveMode(request) != ReturnRequestMode.EXCHANGE) {
+        if (hasExchangeTrack(request)) {
             return false;
         }
         ReturnRequestStage stage = resolveStage(request);
-        if (returnRequestWorkflow.adjustStageForMode(ReturnRequestMode.EXCHANGE, stage)
-                != ReturnRequestStage.EXCHANGE_REGISTERED) {
+        ReturnRequestStage exchangeStage = returnRequestWorkflow
+                .adjustStageForMode(ReturnRequestMode.EXCHANGE, stage);
+        if (!returnRequestWorkflow.canReachStage(ReturnRequestMode.EXCHANGE, exchangeStage,
+                ReturnRequestStage.EXCHANGE_REGISTERED)) {
             return false;
         }
-        return canCreateExchangeParcel(request);
+        OrderReturnRequestStatus status = request.getStatus();
+        ReturnRequestMode mode = resolveMode(request);
+        if (status == OrderReturnRequestStatus.EXCHANGE_APPROVED && mode == ReturnRequestMode.EXCHANGE) {
+            return ensureExchangeSlotAvailable(request);
+        }
+        if (status == OrderReturnRequestStatus.REGISTERED && mode == ReturnRequestMode.RETURN) {
+            ReturnRequestStage returnStage = returnRequestWorkflow
+                    .adjustStageForMode(ReturnRequestMode.RETURN, stage);
+            boolean eligibleInboundStage = returnStage == ReturnRequestStage.INBOUND_ARRIVED
+                    || returnStage == ReturnRequestStage.INBOUND_PICKED_UP;
+            if (!eligibleInboundStage) {
+                return false;
+            }
+            if (!canSetModeExchange(request)) {
+                return false;
+            }
+            return ensureExchangeSlotAvailable(request);
+        }
+        return false;
+    }
+
+    /**
+     * Проверяет, что по заявке свободен слот для регистрации обменной посылки.
+     * <p>
+     * Метод убеждается, что у заявки нет активной обменной отправки, и допускает повторную попытку
+     * только если предыдущая регистрация была отменена. Такой подход предотвращает дублирование
+     * посылок и сохраняет согласованность истории.
+     * </p>
+     */
+    private boolean ensureExchangeSlotAvailable(OrderReturnRequest request) {
+        Optional<TrackParcel> latest = Optional
+                .ofNullable(orderExchangeService.findLatestExchangeParcel(request))
+                .orElse(Optional.empty());
+        return latest.map(parcel -> parcel.getStatus() == GlobalStatus.REGISTRATION_CANCELLED)
+                .orElse(true);
     }
 
     /**

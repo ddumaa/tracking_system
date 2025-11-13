@@ -699,6 +699,35 @@ class OrderReturnRequestServiceTest {
     }
 
     @Test
+    void registerExchangeParcel_FromReturnModeSwitchesToExchange() {
+        TrackParcel parcel = buildParcel(143L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(2103L);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStore(parcel.getStore());
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        request.setMode(ReturnRequestMode.RETURN);
+        request.setStage(ReturnRequestStage.INBOUND_ARRIVED);
+
+        when(repository.findById(2103L)).thenReturn(Optional.of(request));
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(repository.existsByEpisode_IdAndStatus(parcel.getEpisode().getId(), OrderReturnRequestStatus.EXCHANGE_APPROVED))
+                .thenReturn(false);
+
+        ZonedDateTime stageMoment = ZonedDateTime.of(2024, 5, 20, 18, 45, 0, 0, ZoneOffset.ofHours(3));
+
+        OrderReturnRequest result = service.registerExchangeParcel(2103L, parcel.getId(), user, "ex710", stageMoment);
+
+        assertThat(result.getMode()).isEqualTo(ReturnRequestMode.EXCHANGE);
+        assertThat(result.getStatus()).isEqualTo(OrderReturnRequestStatus.EXCHANGE_APPROVED);
+        assertThat(result.getStage()).isEqualTo(ReturnRequestStage.EXCHANGE_REGISTERED);
+        assertThat(result.getExchangeTrackNumber()).isEqualTo("EX710");
+        verify(repository).save(request);
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
+    }
+
+    @Test
     void markExchangeSent_AssignsTrackAndTransitionsStage() {
         TrackParcel parcel = buildParcel(44L, GlobalStatus.DELIVERED);
         OrderReturnRequest request = buildExchangeRequest(1004L, parcel);
@@ -1230,7 +1259,9 @@ class OrderReturnRequestServiceTest {
 
         assertThat(actions)
                 .contains(ReturnRequestAction.MARK_OUTBOUND_SENT)
-                .doesNotContain(ReturnRequestAction.MARK_INBOUND_ARRIVED, ReturnRequestAction.MARK_INBOUND_PICKED_UP);
+                .doesNotContain(ReturnRequestAction.MARK_INBOUND_ARRIVED,
+                        ReturnRequestAction.MARK_INBOUND_PICKED_UP,
+                        ReturnRequestAction.REGISTER_EXCHANGE_PARCEL);
 
         request.setStage(ReturnRequestStage.OUTBOUND_SENT);
 
@@ -1238,15 +1269,27 @@ class OrderReturnRequestServiceTest {
 
         assertThat(actions)
                 .contains(ReturnRequestAction.MARK_INBOUND_ARRIVED)
-                .doesNotContain(ReturnRequestAction.MARK_OUTBOUND_SENT, ReturnRequestAction.MARK_INBOUND_PICKED_UP);
+                .doesNotContain(ReturnRequestAction.MARK_OUTBOUND_SENT,
+                        ReturnRequestAction.MARK_INBOUND_PICKED_UP,
+                        ReturnRequestAction.REGISTER_EXCHANGE_PARCEL);
 
         request.setStage(ReturnRequestStage.INBOUND_ARRIVED);
 
         actions = service.resolveAvailableActions(request);
 
         assertThat(actions)
-                .contains(ReturnRequestAction.MARK_INBOUND_PICKED_UP)
+                .contains(ReturnRequestAction.MARK_INBOUND_PICKED_UP, ReturnRequestAction.REGISTER_EXCHANGE_PARCEL)
                 .doesNotContain(ReturnRequestAction.MARK_OUTBOUND_SENT, ReturnRequestAction.MARK_INBOUND_ARRIVED);
+
+        request.setStage(ReturnRequestStage.INBOUND_PICKED_UP);
+
+        actions = service.resolveAvailableActions(request);
+
+        assertThat(actions)
+                .contains(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL)
+                .doesNotContain(ReturnRequestAction.MARK_OUTBOUND_SENT,
+                        ReturnRequestAction.MARK_INBOUND_ARRIVED,
+                        ReturnRequestAction.MARK_INBOUND_PICKED_UP);
     }
 
     @Test
