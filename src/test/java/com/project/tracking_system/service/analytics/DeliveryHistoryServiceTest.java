@@ -8,8 +8,12 @@ import com.project.tracking_system.repository.*;
 import com.project.tracking_system.service.SubscriptionService;
 import com.project.tracking_system.service.customer.CustomerService;
 import com.project.tracking_system.service.customer.CustomerStatsService;
+import com.project.tracking_system.service.order.ReturnTrackingEvent;
+import com.project.tracking_system.service.order.ReturnTrackingEventHandler;
+import com.project.tracking_system.service.order.ReturnTrackingEventType;
 import com.project.tracking_system.service.track.StatusTrackService;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
+import org.mockito.ArgumentCaptor;
 import com.project.tracking_system.service.telegram.TelegramNotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,13 +24,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.project.tracking_system.service.order.OrderEpisodeLifecycleService;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -73,13 +80,15 @@ class DeliveryHistoryServiceTest {
     private DeliveryMetricsRollbackService deliveryMetricsRollbackService;
     @Mock
     private OrderEpisodeLifecycleService orderEpisodeLifecycleService;
+    @Mock
+    private ReturnTrackingEventHandler returnTrackingEventHandler;
 
     @InjectMocks
     private DeliveryHistoryService deliveryHistoryService;
 
     @BeforeEach
     void setupEpisodes() {
-        doAnswer(invocation -> {
+        lenient().doAnswer(invocation -> {
             TrackParcel parcel = invocation.getArgument(0);
             OrderEpisode episode = parcel.getEpisode();
             if (episode == null) {
@@ -89,13 +98,38 @@ class DeliveryHistoryServiceTest {
             return episode;
         }).when(orderEpisodeLifecycleService).ensureEpisode(any());
 
-        doAnswer(invocation -> {
+        lenient().doAnswer(invocation -> {
             TrackParcel parcel = invocation.getArgument(0);
             if (parcel.getEpisode() == null) {
                 parcel.setEpisode(new OrderEpisode());
             }
             return null;
         }).when(orderEpisodeLifecycleService).syncEpisodeCustomer(any());
+
+        lenient().when(storeAnalyticsRepository.findByStoreId(anyLong()))
+                .thenReturn(Optional.of(new StoreStatistics()));
+        lenient().when(storeAnalyticsRepository.save(any(StoreStatistics.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().when(postalServiceStatisticsRepository.findByStoreIdAndPostalServiceType(anyLong(), any()))
+                .thenReturn(Optional.of(new PostalServiceStatistics()));
+        lenient().when(postalServiceStatisticsRepository.save(any(PostalServiceStatistics.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().when(storeAnalyticsRepository.incrementDelivered(anyLong(), anyInt(), any(), any()))
+                .thenReturn(1);
+        lenient().when(storeAnalyticsRepository.incrementReturned(anyLong(), anyInt(), any(), any()))
+                .thenReturn(1);
+        lenient().when(postalServiceStatisticsRepository.incrementDelivered(anyLong(), any(), anyInt(), any(), any()))
+                .thenReturn(1);
+        lenient().when(postalServiceStatisticsRepository.incrementReturned(anyLong(), any(), anyInt(), any(), any()))
+                .thenReturn(1);
+        lenient().when(storeDailyStatisticsRepository.incrementDelivered(anyLong(), any(), anyInt(), any(), any()))
+                .thenReturn(1);
+        lenient().when(storeDailyStatisticsRepository.incrementReturned(anyLong(), any(), anyInt(), any(), any()))
+                .thenReturn(1);
+        lenient().when(postalServiceDailyStatisticsRepository.incrementDelivered(anyLong(), any(), any(), anyInt(), any(), any()))
+                .thenReturn(1);
+        lenient().when(postalServiceDailyStatisticsRepository.incrementReturned(anyLong(), any(), any(), anyInt(), any(), any()))
+                .thenReturn(1);
     }
 
     /**
@@ -150,12 +184,10 @@ class DeliveryHistoryServiceTest {
         trackParcel.setDeliveryHistory(history);
 
         when(deliveryHistoryRepository.findByTrackParcelId(trackParcel.getId())).thenReturn(Optional.of(history));
-        when(typeDefinitionTrackPostService.detectPostalService(anyString())).thenReturn(PostalServiceType.BELPOST);
-        when(statusTrackService.setStatus(anyList())).thenReturn(GlobalStatus.WAITING_FOR_CUSTOMER);
-        when(trackParcelRepository.save(trackParcel)).thenReturn(trackParcel);
-        when(customerStatsService.incrementSent(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        doNothing().when(customerService).rollbackStatsOnTrackDelete(any(TrackParcel.class));
-        doNothing().when(deliveryMetricsRollbackService).rollbackFinalStatusMetrics(history, trackParcel, GlobalStatus.DELIVERED);
+        lenient().when(typeDefinitionTrackPostService.detectPostalService(anyString())).thenReturn(PostalServiceType.BELPOST);
+        lenient().when(statusTrackService.setStatus(anyList())).thenReturn(GlobalStatus.WAITING_FOR_CUSTOMER);
+        lenient().when(trackParcelRepository.save(trackParcel)).thenReturn(trackParcel);
+        lenient().when(customerStatsService.incrementSent(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         TrackInfoListDTO trackInfoListDTO = new TrackInfoListDTO();
         trackInfoListDTO.setList(List.of(new TrackInfoDTO("10.03.2025, 12:00", "WAITING")));
@@ -179,11 +211,11 @@ class DeliveryHistoryServiceTest {
         TrackParcel trackParcel = buildParcelWithCustomer(2L);
 
         when(deliveryHistoryRepository.findByTrackParcelId(trackParcel.getId())).thenReturn(Optional.empty());
-        when(typeDefinitionTrackPostService.detectPostalService(anyString())).thenReturn(PostalServiceType.UNKNOWN);
-        when(statusTrackService.setStatus(anyList())).thenReturn(GlobalStatus.DELIVERED);
-        when(subscriptionService.isFeatureEnabled(trackParcel.getStore().getOwner().getId(), FeatureKey.TELEGRAM_NOTIFICATIONS))
+        lenient().when(typeDefinitionTrackPostService.detectPostalService(anyString())).thenReturn(PostalServiceType.UNKNOWN);
+        lenient().when(statusTrackService.setStatus(anyList())).thenReturn(GlobalStatus.DELIVERED);
+        lenient().when(subscriptionService.isFeatureEnabled(trackParcel.getStore().getOwner().getId(), FeatureKey.TELEGRAM_NOTIFICATIONS))
                 .thenReturn(true);
-        when(deliveryHistoryRepository.save(any(DeliveryHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().when(deliveryHistoryRepository.save(any(DeliveryHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         TrackInfoListDTO trackInfoListDTO = buildDeliveredTrackInfo();
 
@@ -192,6 +224,88 @@ class DeliveryHistoryServiceTest {
         verify(telegramNotificationService, never()).sendStatusUpdate(any(TrackParcel.class), any(GlobalStatus.class));
         verify(customerNotificationLogRepository, never())
                 .existsByParcelIdAndStatusAndNotificationType(anyLong(), any(), any());
+    }
+
+    @Test
+    void updateDeliveryHistory_WhenReturnArrives_PublishesTrackingEvent() {
+        TrackParcel trackParcel = buildParcelWithCustomer(6L);
+
+        when(deliveryHistoryRepository.findByTrackParcelId(trackParcel.getId())).thenReturn(Optional.empty());
+        lenient().when(typeDefinitionTrackPostService.detectPostalService(anyString())).thenReturn(PostalServiceType.BELPOST);
+        lenient().when(statusTrackService.setStatus(anyList())).thenReturn(GlobalStatus.RETURN_PENDING_PICKUP);
+        lenient().when(deliveryHistoryRepository.save(any(DeliveryHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().when(subscriptionService.isFeatureEnabled(anyLong(), any())).thenReturn(false);
+
+        TrackInfoDTO dto = new TrackInfoDTO("10.03.2025, 12:00", "Возврат прибыл");
+        TrackInfoListDTO trackInfoListDTO = new TrackInfoListDTO(List.of(dto));
+
+        deliveryHistoryService.updateDeliveryHistory(
+                trackParcel,
+                GlobalStatus.RETURN_IN_PROGRESS,
+                GlobalStatus.RETURN_PENDING_PICKUP,
+                trackInfoListDTO
+        );
+
+        ArgumentCaptor<ReturnTrackingEvent> captor = ArgumentCaptor.forClass(ReturnTrackingEvent.class);
+        verify(returnTrackingEventHandler).handle(captor.capture());
+        ReturnTrackingEvent event = captor.getValue();
+        assertEquals(ReturnTrackingEventType.RETURN_ARRIVED_TO_STORE, event.type());
+        assertEquals(trackParcel, event.parcel());
+    }
+
+    @Test
+    void updateDeliveryHistory_WhenReturnPickedUp_PublishesTrackingEvent() {
+        TrackParcel trackParcel = buildParcelWithCustomer(7L);
+
+        when(deliveryHistoryRepository.findByTrackParcelId(trackParcel.getId())).thenReturn(Optional.empty());
+        lenient().when(typeDefinitionTrackPostService.detectPostalService(anyString())).thenReturn(PostalServiceType.BELPOST);
+        lenient().when(statusTrackService.setStatus(anyList())).thenReturn(GlobalStatus.RETURNED);
+        lenient().when(deliveryHistoryRepository.save(any(DeliveryHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().when(subscriptionService.isFeatureEnabled(anyLong(), any())).thenReturn(false);
+
+        TrackInfoDTO dto = new TrackInfoDTO("11.03.2025, 14:30", "Возврат получен");
+        TrackInfoListDTO trackInfoListDTO = new TrackInfoListDTO(List.of(dto));
+
+        deliveryHistoryService.updateDeliveryHistory(
+                trackParcel,
+                GlobalStatus.RETURN_PENDING_PICKUP,
+                GlobalStatus.RETURNED,
+                trackInfoListDTO
+        );
+
+        ArgumentCaptor<ReturnTrackingEvent> captor = ArgumentCaptor.forClass(ReturnTrackingEvent.class);
+        verify(returnTrackingEventHandler).handle(captor.capture());
+        ReturnTrackingEvent event = captor.getValue();
+        assertEquals(ReturnTrackingEventType.RETURN_PICKED_UP_BY_STORE, event.type());
+        assertEquals(trackParcel, event.parcel());
+    }
+
+    @Test
+    void updateDeliveryHistory_WhenExchangeDelivered_PublishesTrackingEvent() {
+        TrackParcel trackParcel = buildParcelWithCustomer(8L);
+        trackParcel.setExchange(true);
+
+        when(deliveryHistoryRepository.findByTrackParcelId(trackParcel.getId())).thenReturn(Optional.empty());
+        lenient().when(typeDefinitionTrackPostService.detectPostalService(anyString())).thenReturn(PostalServiceType.BELPOST);
+        lenient().when(statusTrackService.setStatus(anyList())).thenReturn(GlobalStatus.DELIVERED);
+        lenient().when(deliveryHistoryRepository.save(any(DeliveryHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().when(subscriptionService.isFeatureEnabled(anyLong(), any())).thenReturn(false);
+
+        TrackInfoDTO dto = new TrackInfoDTO("12.03.2025, 09:15", "Обмен доставлен");
+        TrackInfoListDTO trackInfoListDTO = new TrackInfoListDTO(List.of(dto));
+
+        deliveryHistoryService.updateDeliveryHistory(
+                trackParcel,
+                GlobalStatus.IN_TRANSIT,
+                GlobalStatus.DELIVERED,
+                trackInfoListDTO
+        );
+
+        ArgumentCaptor<ReturnTrackingEvent> captor = ArgumentCaptor.forClass(ReturnTrackingEvent.class);
+        verify(returnTrackingEventHandler).handle(captor.capture());
+        ReturnTrackingEvent event = captor.getValue();
+        assertEquals(ReturnTrackingEventType.EXCHANGE_DELIVERED_TO_CUSTOMER, event.type());
+        assertEquals(trackParcel, event.parcel());
     }
 
     /**
