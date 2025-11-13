@@ -306,6 +306,11 @@ public class ReturnRequestWorkflow {
                         actions.addAll(mapped);
                     }
                 }
+                if (mode == ReturnRequestMode.RETURN
+                        && (stage == ReturnRequestStage.INBOUND_ARRIVED
+                        || stage == ReturnRequestStage.INBOUND_PICKED_UP)) {
+                    actions.add(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL);
+                }
                 if (!actions.isEmpty()) {
                     stageActions.put(stage, actions);
                 }

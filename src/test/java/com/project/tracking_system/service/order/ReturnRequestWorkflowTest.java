@@ -131,6 +131,39 @@ class ReturnRequestWorkflowTest {
     }
 
     @Test
+    void resolveBaseActions_ReturnInboundStagesExposeExchangeRegistration() {
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setMode(ReturnRequestMode.RETURN);
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+
+        ReturnRequestActionContext arrivedContext = ReturnRequestActionContext.builder(request)
+                .withMode(ReturnRequestMode.RETURN)
+                .withStage(ReturnRequestStage.INBOUND_ARRIVED)
+                .withStatus(OrderReturnRequestStatus.REGISTERED)
+                .allow(ReturnRequestAction.MARK_INBOUND_PICKED_UP, true)
+                .allow(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL, true)
+                .build();
+
+        EnumSet<ReturnRequestAction> arrivedActions = workflow.resolveBaseActions(arrivedContext);
+
+        assertThat(arrivedActions)
+                .contains(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL,
+                        ReturnRequestAction.MARK_INBOUND_PICKED_UP);
+
+        ReturnRequestActionContext pickedUpContext = ReturnRequestActionContext.builder(request)
+                .withMode(ReturnRequestMode.RETURN)
+                .withStage(ReturnRequestStage.INBOUND_PICKED_UP)
+                .withStatus(OrderReturnRequestStatus.REGISTERED)
+                .allow(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL, true)
+                .build();
+
+        EnumSet<ReturnRequestAction> pickedUpActions = workflow.resolveBaseActions(pickedUpContext);
+
+        assertThat(pickedUpActions)
+                .containsExactly(ReturnRequestAction.REGISTER_EXCHANGE_PARCEL);
+    }
+
+    @Test
     void transitionSequentially_AdvancesReturnThroughAllStages() {
         OrderReturnRequest request = new OrderReturnRequest();
         request.setMode(ReturnRequestMode.RETURN);
