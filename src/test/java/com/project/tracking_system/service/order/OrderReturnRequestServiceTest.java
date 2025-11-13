@@ -615,6 +615,68 @@ class OrderReturnRequestServiceTest {
     }
 
     @Test
+    void trackingEventWithFutureArrivalMomentClampedToNow() {
+        TrackParcel parcel = buildParcel(71L, GlobalStatus.RETURN_PENDING_PICKUP);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(3001L);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStore(parcel.getStore());
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        request.setStage(ReturnRequestStage.OUTBOUND_SENT);
+        request.setReverseTrackNumber("BY123000000");
+
+        when(repository.findFirstByParcel_IdAndStatusIn(eq(parcel.getId()), any())).thenReturn(Optional.of(request));
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ZonedDateTime futureMoment = ZonedDateTime.now(ZoneOffset.UTC).plusHours(6);
+        ReturnTrackingEventHandler handler = new ReturnTrackingEventHandler(service);
+
+        ZonedDateTime before = ZonedDateTime.now(ZoneOffset.UTC).minusSeconds(1);
+        handler.handle(new ReturnTrackingEvent(ReturnTrackingEventType.RETURN_ARRIVED_TO_STORE, parcel, futureMoment));
+        ZonedDateTime after = ZonedDateTime.now(ZoneOffset.UTC).plusSeconds(1);
+
+        assertThat(request.getStage()).isEqualTo(ReturnRequestStage.INBOUND_ARRIVED);
+        assertThat(request.isManualStageOverride()).isFalse();
+        assertThat(request.getStageUpdatedAt()).isAfterOrEqualTo(before);
+        assertThat(request.getStageUpdatedAt()).isBeforeOrEqualTo(after);
+        verify(repository).save(request);
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
+    }
+
+    @Test
+    void trackingEventWithFuturePickupMomentClampedToNow() {
+        TrackParcel parcel = buildParcel(72L, GlobalStatus.RETURNED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(3002L);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStore(parcel.getStore());
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        request.setStage(ReturnRequestStage.INBOUND_ARRIVED);
+        request.setReverseTrackNumber("BY123000001");
+
+        when(repository.findFirstByParcel_IdAndStatusIn(eq(parcel.getId()), any())).thenReturn(Optional.of(request));
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ZonedDateTime futureMoment = ZonedDateTime.now(ZoneOffset.UTC).plusHours(4);
+        ReturnTrackingEventHandler handler = new ReturnTrackingEventHandler(service);
+
+        ZonedDateTime before = ZonedDateTime.now(ZoneOffset.UTC).minusSeconds(1);
+        handler.handle(new ReturnTrackingEvent(ReturnTrackingEventType.RETURN_PICKED_UP_BY_STORE, parcel, futureMoment));
+        ZonedDateTime after = ZonedDateTime.now(ZoneOffset.UTC).plusSeconds(1);
+
+        assertThat(request.getStage()).isEqualTo(ReturnRequestStage.INBOUND_PICKED_UP);
+        assertThat(request.isReturnReceiptConfirmed()).isTrue();
+        assertThat(request.getReturnReceiptConfirmedAt()).isAfterOrEqualTo(before);
+        assertThat(request.getReturnReceiptConfirmedAt()).isBeforeOrEqualTo(after);
+        assertThat(request.getStageUpdatedAt()).isAfterOrEqualTo(before);
+        assertThat(request.getStageUpdatedAt()).isBeforeOrEqualTo(after);
+        verify(repository).save(request);
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
+    }
+
+    @Test
     void registerExchangeParcel_AssignsTrackAndKeepsStage() {
         TrackParcel parcel = buildParcel(43L, GlobalStatus.DELIVERED);
         OrderReturnRequest request = buildExchangeRequest(1003L, parcel);

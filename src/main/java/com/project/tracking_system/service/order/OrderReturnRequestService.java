@@ -574,7 +574,7 @@ public class OrderReturnRequestService {
                     request.getId(), request.getStatus());
             return Optional.empty();
         }
-        ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
+        ZonedDateTime normalizedMoment = normalizeStageMomentForAutomation(stageMoment);
         returnRequestWorkflow.transitionSequentially(request, targetStage, false, null, normalizedMoment);
         OrderReturnRequest saved = returnRequestRepository.save(request);
         evictTrackDetailsCache(saved);
@@ -643,7 +643,7 @@ public class OrderReturnRequestService {
             log.debug("Автоматическая отметка EXCHANGE_DELIVERED отклонена для заявки {}", request.getId());
             return Optional.empty();
         }
-        ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
+        ZonedDateTime normalizedMoment = normalizeStageMomentForAutomation(stageMoment);
         returnRequestWorkflow.transitionSequentially(request, targetStage, false, null, normalizedMoment);
         OrderReturnRequest saved = returnRequestRepository.save(request);
         evictTrackDetailsCache(saved);
@@ -1570,7 +1570,9 @@ public class OrderReturnRequestService {
         if (request == null) {
             return;
         }
-        ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
+        ZonedDateTime normalizedMoment = manualTransition
+                ? normalizeStageMoment(stageMoment)
+                : normalizeStageMomentForAutomation(stageMoment);
         if (!request.isReturnReceiptConfirmed()) {
             request.setReturnReceiptConfirmed(true);
             request.setReturnReceiptConfirmedAt(normalizedMoment);
@@ -1693,6 +1695,27 @@ public class OrderReturnRequestService {
         ZonedDateTime utc = stageMoment.withZoneSameInstant(ZoneOffset.UTC);
         if (utc.isAfter(now.plusMinutes(1))) {
             throw new ValidationException("Момент фиксации стадии не может быть в будущем");
+        }
+        return utc;
+    }
+
+    /**
+     * Нормализует момент фиксации стадии для автоматических переходов.
+     * <p>
+     * Если внешний сервис передал время с опережением (например, из-за расхождения часовых поясов),
+     * значение приравнивается к текущему времени. Такой подход защищает обновление истории доставки
+     * от сбоев и сохраняет идемпотентность, оставаясь в рамках инвариантов доменной модели.
+     * </p>
+     */
+    private ZonedDateTime normalizeStageMomentForAutomation(ZonedDateTime stageMoment) {
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        if (stageMoment == null) {
+            return now;
+        }
+        ZonedDateTime utc = stageMoment.withZoneSameInstant(ZoneOffset.UTC);
+        if (utc.isAfter(now.plusMinutes(1))) {
+            log.debug("Автоматический момент {} скорректирован до текущего времени {}", utc, now);
+            return now;
         }
         return utc;
     }
