@@ -545,6 +545,113 @@ public class OrderReturnRequestService {
     }
 
     /**
+     * Автоматически фиксирует прибытие возврата по данным трекинга.
+     * <p>
+     * Метод идемпотентен: повторные события для одной и той же стадии только
+     * логируются и не вызывают повторного сохранения сущности. Это позволяет
+     * безопасно обрабатывать шум в источнике статусов и соответствует
+     * требованиям к интеграции с автоматическими обновлениями.
+     * </p>
+     *
+     * @param parcelId    идентификатор исходной посылки
+     * @param stageMoment момент события из системы трекинга
+     * @return обновлённая заявка или пустой результат, если переход недоступен
+     */
+    @Transactional
+    public Optional<OrderReturnRequest> autoMarkInboundArrived(Long parcelId, ZonedDateTime stageMoment) {
+        Optional<OrderReturnRequest> requestOpt = findCurrentForParcel(parcelId);
+        if (requestOpt.isEmpty()) {
+            return Optional.empty();
+        }
+        OrderReturnRequest request = requestOpt.get();
+        ReturnRequestStage targetStage = ReturnRequestStage.INBOUND_ARRIVED;
+        if (hasReachedStage(request, targetStage)) {
+            log.debug("Повторное событие прибытия возврата для заявки {} пропущено", request.getId());
+            return Optional.empty();
+        }
+        if (!canMarkInboundArrived(request)) {
+            log.debug("Автоматическая отметка INBOUND_ARRIVED отклонена для заявки {} со статусом {}",
+                    request.getId(), request.getStatus());
+            return Optional.empty();
+        }
+        ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
+        returnRequestWorkflow.transitionSequentially(request, targetStage, false, null, normalizedMoment);
+        OrderReturnRequest saved = returnRequestRepository.save(request);
+        evictTrackDetailsCache(saved);
+        log.info("Стадия INBOUND_ARRIVED зафиксирована автоматически для заявки {}", saved.getId());
+        return Optional.of(saved);
+    }
+
+    /**
+     * Автоматически подтверждает получение возврата магазином.
+     * <p>
+     * Использует те же проверки, что и ручная команда, и предотвращает повторную
+     * фиксацию при приходе идентичных событий трекинга.
+     * </p>
+     *
+     * @param parcelId    идентификатор исходной посылки
+     * @param stageMoment момент события трекинга
+     * @return обновлённая заявка или пустой результат, если переход невозможен
+     */
+    @Transactional
+    public Optional<OrderReturnRequest> autoMarkInboundPickedUp(Long parcelId, ZonedDateTime stageMoment) {
+        Optional<OrderReturnRequest> requestOpt = findCurrentForParcel(parcelId);
+        if (requestOpt.isEmpty()) {
+            return Optional.empty();
+        }
+        OrderReturnRequest request = requestOpt.get();
+        ReturnRequestStage targetStage = ReturnRequestStage.INBOUND_PICKED_UP;
+        if (hasReachedStage(request, targetStage)) {
+            log.debug("Повторное подтверждение приёма возврата для заявки {} пропущено", request.getId());
+            return Optional.empty();
+        }
+        if (!canMarkInboundPickedUp(request)) {
+            log.debug("Автоматическое подтверждение INBOUND_PICKED_UP отклонено для заявки {}", request.getId());
+            return Optional.empty();
+        }
+        confirmReturnProcessing(request, null, stageMoment, false);
+        OrderReturnRequest saved = returnRequestRepository.save(request);
+        evictTrackDetailsCache(saved);
+        log.info("Стадия INBOUND_PICKED_UP зафиксирована автоматически для заявки {}", saved.getId());
+        return Optional.of(saved);
+    }
+
+    /**
+     * Автоматически отмечает доставку обменной посылки покупателю.
+     * <p>
+     * Метод проверяет, что обмен действительно запущен и подтверждён трекингом,
+     * после чего продвигает стадию вперёд без участия пользователя.
+     * </p>
+     *
+     * @param parcelId    идентификатор исходной посылки, инициировавшей обмен
+     * @param stageMoment момент доставки обменной посылки
+     * @return обновлённая заявка или пустой результат при отсутствии перехода
+     */
+    @Transactional
+    public Optional<OrderReturnRequest> autoMarkExchangeDelivered(Long parcelId, ZonedDateTime stageMoment) {
+        Optional<OrderReturnRequest> requestOpt = findCurrentForParcel(parcelId);
+        if (requestOpt.isEmpty()) {
+            return Optional.empty();
+        }
+        OrderReturnRequest request = requestOpt.get();
+        ReturnRequestStage targetStage = ReturnRequestStage.EXCHANGE_DELIVERED;
+        if (hasReachedStage(request, targetStage)) {
+            log.debug("Повторное событие доставки обмена для заявки {} пропущено", request.getId());
+            return Optional.empty();
+        }
+        if (!canMarkExchangeDelivered(request)) {
+            log.debug("Автоматическая отметка EXCHANGE_DELIVERED отклонена для заявки {}", request.getId());
+            return Optional.empty();
+        }
+        ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
+        returnRequestWorkflow.transitionSequentially(request, targetStage, false, null, normalizedMoment);
+        OrderReturnRequest saved = returnRequestRepository.save(request);
+        evictTrackDetailsCache(saved);
+        log.info("Стадия EXCHANGE_DELIVERED зафиксирована автоматически для заявки {}", saved.getId());
+        return Optional.of(saved);
+    }
+
+    /**
      * Регистрирует запрос покупателя магазину по активной заявке обмена.
      * <p>
      * Используется, когда отмена или перевод обмена невозможны автоматически,
@@ -1189,6 +1296,18 @@ public class OrderReturnRequestService {
     }
 
     /**
+     * Проверяет, достигла ли заявка указанной стадии или продвинулась дальше.
+     */
+    private boolean hasReachedStage(OrderReturnRequest request, ReturnRequestStage targetStage) {
+        if (request == null || targetStage == null) {
+            return false;
+        }
+        ReturnRequestMode mode = resolveMode(request);
+        ReturnRequestStage normalized = returnRequestWorkflow.adjustStageForMode(mode, resolveStage(request));
+        return returnRequestWorkflow.canReachStage(mode, targetStage, normalized);
+    }
+
+    /**
      * Проверяет, разрешён ли переход на указанную стадию.
      */
     private boolean canTransitionToStage(OrderReturnRequest request, ReturnRequestStage targetStage) {
@@ -1432,11 +1551,38 @@ public class OrderReturnRequestService {
         if (request == null || request.isReturnReceiptConfirmed()) {
             return;
         }
+        confirmReturnProcessing(request, actor, stageMoment, true);
+    }
+
+    /**
+     * Фиксирует получение возврата с учётом источника события.
+     * <p>
+     * Метод переиспользуется как ручными, так и автоматическими сценариями,
+     * поэтому устанавливает ответственного менеджера только при явном указании
+     * пользователя. Это позволяет не затирать данные при обработке триггеров
+     * из трекинга и соблюсти принцип единой ответственности.
+     * </p>
+     */
+    private void confirmReturnProcessing(OrderReturnRequest request,
+                                         User actor,
+                                         ZonedDateTime stageMoment,
+                                         boolean manualTransition) {
+        if (request == null) {
+            return;
+        }
         ZonedDateTime normalizedMoment = normalizeStageMoment(stageMoment);
-        request.setReturnReceiptConfirmed(true);
-        request.setReturnReceiptConfirmedAt(normalizedMoment);
-        request.setResponsibleManager(actor);
-        returnRequestWorkflow.transitionSequentially(request, ReturnRequestStage.INBOUND_PICKED_UP, true, actor, normalizedMoment);
+        if (!request.isReturnReceiptConfirmed()) {
+            request.setReturnReceiptConfirmed(true);
+            request.setReturnReceiptConfirmedAt(normalizedMoment);
+        }
+        if (actor != null) {
+            request.setResponsibleManager(actor);
+        }
+        returnRequestWorkflow.transitionSequentially(request,
+                ReturnRequestStage.INBOUND_PICKED_UP,
+                manualTransition,
+                actor,
+                normalizedMoment);
     }
 
     /**

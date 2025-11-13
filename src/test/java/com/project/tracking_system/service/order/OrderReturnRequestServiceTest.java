@@ -13,6 +13,8 @@ import com.project.tracking_system.entity.ReturnRequestAction;
 import com.project.tracking_system.entity.OrderReturnRequestStatus;
 import com.project.tracking_system.entity.TrackParcel;
 import com.project.tracking_system.entity.User;
+import com.project.tracking_system.exception.ActionNotAllowedException;
+import com.project.tracking_system.exception.IdempotencyConflictException;
 import com.project.tracking_system.repository.OrderReturnRequestActionRequestRepository;
 import com.project.tracking_system.repository.OrderReturnRequestRepository;
 import com.project.tracking_system.service.track.TrackParcelService;
@@ -219,7 +221,7 @@ class OrderReturnRequestServiceTest {
                 DEFAULT_REVERSE_TRACK,
                 NO_EXCHANGE_REQUESTED
         ))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(ActionNotAllowedException.class)
                 .hasMessageContaining("доступна только для статуса");
     }
 
@@ -249,7 +251,7 @@ class OrderReturnRequestServiceTest {
                 DEFAULT_REVERSE_TRACK,
                 NO_EXCHANGE_REQUESTED
         ))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(IdempotencyConflictException.class)
                 .hasMessageContaining("другими данными");
     }
 
@@ -267,7 +269,7 @@ class OrderReturnRequestServiceTest {
                 .thenReturn(true);
 
         assertThatThrownBy(() -> service.setModeExchange(200L, 12L, user))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(ActionNotAllowedException.class)
                 .hasMessageContaining("уже запущен обмен");
     }
 
@@ -344,7 +346,7 @@ class OrderReturnRequestServiceTest {
         when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.of(activeReplacement));
 
         assertThatThrownBy(() -> service.createExchangeParcel(702L, 45L, user))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(ActionNotAllowedException.class)
                 .hasMessageContaining("уже создана");
         verify(orderExchangeService, never()).createExchangeParcel(any());
     }
@@ -431,7 +433,7 @@ class OrderReturnRequestServiceTest {
         when(repository.findById(903L)).thenReturn(Optional.of(request));
 
         assertThatThrownBy(() -> service.confirmReturnProcessing(903L, 33L, user))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(ActionNotAllowedException.class)
                 .hasMessageContaining("активной заявки или закрытия без обмена");
     }
 
@@ -509,6 +511,107 @@ class OrderReturnRequestServiceTest {
         assertThat(result.getResponsibleManager()).isEqualTo(user);
         verify(repository).save(request);
         verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
+    }
+
+    @Test
+    void trackingEventAdvancesReturnStagesAndIsIdempotent() {
+        TrackParcel parcel = buildParcel(52L, GlobalStatus.RETURN_PENDING_PICKUP);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(2001L);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStore(parcel.getStore());
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        request.setStage(ReturnRequestStage.OUTBOUND_SENT);
+        request.setReverseTrackNumber("BY777000000");
+        request.setStageStartedAt(ZonedDateTime.now(ZoneOffset.UTC).minusDays(2));
+        request.setStageUpdatedAt(request.getStageStartedAt());
+
+        when(repository.findFirstByParcel_IdAndStatusIn(eq(parcel.getId()), any())).thenReturn(Optional.of(request));
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ZonedDateTime arrivalMoment = ZonedDateTime.now(ZoneOffset.UTC).minusHours(5);
+        ReturnTrackingEventHandler handler = new ReturnTrackingEventHandler(service);
+
+        handler.handle(new ReturnTrackingEvent(ReturnTrackingEventType.RETURN_ARRIVED_TO_STORE, parcel, arrivalMoment));
+
+        assertThat(request.getStage()).isEqualTo(ReturnRequestStage.INBOUND_ARRIVED);
+        assertThat(request.isManualStageOverride()).isFalse();
+        assertThat(request.getStageUpdatedAt()).isEqualTo(arrivalMoment);
+        verify(repository).save(request);
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
+
+        handler.handle(new ReturnTrackingEvent(ReturnTrackingEventType.RETURN_ARRIVED_TO_STORE, parcel, arrivalMoment));
+
+        verify(repository, times(1)).save(any(OrderReturnRequest.class));
+        verify(trackViewCacheInvalidator, times(1)).evictTrackDetails(user.getId(), parcel.getId());
+    }
+
+    @Test
+    void trackingEventConfirmsReturnReceiptAndIsIdempotent() {
+        TrackParcel parcel = buildParcel(53L, GlobalStatus.RETURNED);
+        OrderReturnRequest request = new OrderReturnRequest();
+        request.setId(2002L);
+        request.setParcel(parcel);
+        request.setEpisode(parcel.getEpisode());
+        request.setStore(parcel.getStore());
+        request.setStatus(OrderReturnRequestStatus.REGISTERED);
+        request.setStage(ReturnRequestStage.INBOUND_ARRIVED);
+        request.setReverseTrackNumber("BY777111111");
+
+        when(repository.findFirstByParcel_IdAndStatusIn(eq(parcel.getId()), any())).thenReturn(Optional.of(request));
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ZonedDateTime pickupMoment = ZonedDateTime.now(ZoneOffset.UTC).minusHours(2);
+        ReturnTrackingEventHandler handler = new ReturnTrackingEventHandler(service);
+
+        handler.handle(new ReturnTrackingEvent(ReturnTrackingEventType.RETURN_PICKED_UP_BY_STORE, parcel, pickupMoment));
+
+        assertThat(request.getStage()).isEqualTo(ReturnRequestStage.INBOUND_PICKED_UP);
+        assertThat(request.isReturnReceiptConfirmed()).isTrue();
+        assertThat(request.getReturnReceiptConfirmedAt()).isEqualTo(pickupMoment);
+        assertThat(request.isManualStageOverride()).isFalse();
+        verify(repository).save(request);
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
+
+        handler.handle(new ReturnTrackingEvent(ReturnTrackingEventType.RETURN_PICKED_UP_BY_STORE, parcel, pickupMoment));
+
+        verify(repository, times(1)).save(any(OrderReturnRequest.class));
+        verify(trackViewCacheInvalidator, times(1)).evictTrackDetails(user.getId(), parcel.getId());
+    }
+
+    @Test
+    void trackingEventMarksExchangeDeliveredAndIsIdempotent() {
+        TrackParcel parcel = buildParcel(54L, GlobalStatus.DELIVERED);
+        OrderReturnRequest request = buildExchangeRequest(2003L, parcel);
+        request.setStage(ReturnRequestStage.EXCHANGE_SENT);
+        request.setExchangeTrackNumber("EX123456789");
+
+        TrackParcel exchangeParcel = buildParcel(960L, GlobalStatus.DELIVERED);
+        exchangeParcel.setExchange(true);
+        exchangeParcel.setReplacementOf(parcel);
+
+        when(repository.findFirstByParcel_IdAndStatusIn(eq(parcel.getId()), any())).thenReturn(Optional.of(request));
+        when(repository.save(any(OrderReturnRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderExchangeService.findLatestExchangeParcel(request)).thenReturn(Optional.of(exchangeParcel));
+
+        ZonedDateTime deliveryMoment = ZonedDateTime.now(ZoneOffset.UTC).minusHours(1);
+        ReturnTrackingEventHandler handler = new ReturnTrackingEventHandler(service);
+
+        handler.handle(new ReturnTrackingEvent(ReturnTrackingEventType.EXCHANGE_DELIVERED_TO_CUSTOMER, exchangeParcel, deliveryMoment));
+
+        assertThat(request.getStage()).isEqualTo(ReturnRequestStage.EXCHANGE_DELIVERED);
+        assertThat(request.isManualStageOverride()).isFalse();
+        assertThat(request.getStageUpdatedAt()).isEqualTo(deliveryMoment);
+        verify(repository).save(request);
+        verify(trackViewCacheInvalidator).evictTrackDetails(user.getId(), parcel.getId());
+        verify(orderExchangeService).findLatestExchangeParcel(request);
+
+        handler.handle(new ReturnTrackingEvent(ReturnTrackingEventType.EXCHANGE_DELIVERED_TO_CUSTOMER, exchangeParcel, deliveryMoment));
+
+        verify(repository, times(1)).save(any(OrderReturnRequest.class));
+        verify(trackViewCacheInvalidator, times(1)).evictTrackDetails(user.getId(), parcel.getId());
+        verify(orderExchangeService, times(1)).findLatestExchangeParcel(request);
     }
 
     @Test
@@ -630,7 +733,7 @@ class OrderReturnRequestServiceTest {
                 21L,
                 user,
                 OrderReturnRequestService.ModeSwitchTrigger.EXCHANGE_CANCELLATION))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(ActionNotAllowedException.class)
                 .hasMessageContaining("Отмена недоступна");
         verify(repository, never()).save(any());
         verify(orderExchangeService, never()).cancelExchangeParcel(any(), any());
@@ -891,7 +994,7 @@ class OrderReturnRequestServiceTest {
                 "track",
                 "comment"
         ))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(ActionNotAllowedException.class)
                 .hasMessageContaining("нельзя изменить");
         verify(repository, never()).save(any());
     }
@@ -995,7 +1098,7 @@ class OrderReturnRequestServiceTest {
                 24L,
                 user,
                 OrderReturnRequestService.ModeSwitchTrigger.CUSTOMER_REQUEST))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(ActionNotAllowedException.class)
                 .hasMessageContaining("Магазин уже указал трек");
         verify(repository, never()).save(any());
         verify(orderExchangeService, never()).cancelExchangeParcel(any(), any());

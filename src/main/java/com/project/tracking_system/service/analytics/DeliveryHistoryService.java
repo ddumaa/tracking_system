@@ -10,6 +10,9 @@ import com.project.tracking_system.repository.TrackParcelRepository;
 import com.project.tracking_system.repository.PostalServiceStatisticsRepository;
 import com.project.tracking_system.repository.StoreDailyStatisticsRepository;
 import com.project.tracking_system.repository.PostalServiceDailyStatisticsRepository;
+import com.project.tracking_system.service.order.ReturnTrackingEvent;
+import com.project.tracking_system.service.order.ReturnTrackingEventHandler;
+import com.project.tracking_system.service.order.ReturnTrackingEventType;
 import com.project.tracking_system.service.track.StatusTrackService;
 import com.project.tracking_system.service.track.TypeDefinitionTrackPostService;
 import com.project.tracking_system.service.customer.CustomerService;
@@ -63,6 +66,7 @@ public class DeliveryHistoryService {
     private final SubscriptionService subscriptionService;
     private final DeliveryMetricsRollbackService deliveryMetricsRollbackService;
     private final OrderEpisodeLifecycleService orderEpisodeLifecycleService;
+    private final ReturnTrackingEventHandler returnTrackingEventHandler;
 
 
     /**
@@ -160,6 +164,7 @@ public class DeliveryHistoryService {
         }
 
         // Сохраняем историю, если что-то изменилось
+        publishReturnTrackingEvents(trackParcel, newStatus, deliveryDates);
         deliveryHistoryRepository.save(history);
         if (newStatus == GlobalStatus.PRE_REGISTERED) {
             log.debug("История доставки обновлена (PRE_REGISTERED): {}", trackParcel.getNumber());
@@ -186,6 +191,38 @@ public class DeliveryHistoryService {
             } else {
                 log.debug("Уведомление о статусе {} не было отправлено для трека {}", newStatus, trackParcel.getNumber());
             }
+        }
+    }
+
+    /**
+     * Публикует события трекинга для автоматического продвижения стадий заявок.
+     */
+    private void publishReturnTrackingEvents(TrackParcel trackParcel,
+                                             GlobalStatus newStatus,
+                                             DeliveryDates deliveryDates) {
+        if (trackParcel == null) {
+            return;
+        }
+        if (newStatus == GlobalStatus.RETURN_PENDING_PICKUP && !trackParcel.isExchange()) {
+            returnTrackingEventHandler.handle(new ReturnTrackingEvent(
+                    ReturnTrackingEventType.RETURN_ARRIVED_TO_STORE,
+                    trackParcel,
+                    deliveryDates != null ? deliveryDates.arrivedDate() : null
+            ));
+        }
+        if (newStatus == GlobalStatus.RETURNED && !trackParcel.isExchange()) {
+            returnTrackingEventHandler.handle(new ReturnTrackingEvent(
+                    ReturnTrackingEventType.RETURN_PICKED_UP_BY_STORE,
+                    trackParcel,
+                    deliveryDates != null ? deliveryDates.returnedDate() : null
+            ));
+        }
+        if (newStatus == GlobalStatus.DELIVERED && trackParcel.isExchange()) {
+            returnTrackingEventHandler.handle(new ReturnTrackingEvent(
+                    ReturnTrackingEventType.EXCHANGE_DELIVERED_TO_CUSTOMER,
+                    trackParcel,
+                    deliveryDates != null ? deliveryDates.receivedDate() : null
+            ));
         }
     }
 
